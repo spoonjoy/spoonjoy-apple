@@ -108,14 +108,21 @@ fail_check("Gemfile.lock must record Bundler 2.4.22") unless gemfile_lock.includ
 end
 
 workflow = WORKFLOW.read
+matrix = ROOT.join("scripts/validate-native-local.sh").read
 [
   "ruby/setup-ruby@v1",
   "bundler-cache: true",
+  'xcode_version="$(xcodebuild -version)"',
+  'test "$first_line" = "Xcode 26.5"',
   "bundle exec ruby scripts/check-xcode-project-contract.rb",
   "bundle exec ruby scripts/check-xcode-generator-contract.rb"
 ].each do |token|
   fail_check("native workflow missing #{token}") unless workflow.include?(token)
 end
+fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep")
+fail_check("local matrix must not pipe xcodebuild -version into grep -q") if matrix.include?("xcodebuild -version | grep")
+fail_check("local matrix missing captured xcodebuild version check") unless matrix.include?('xcode_version="$(xcodebuild -version)"') &&
+  matrix.include?('test "$first_line" = "Xcode 26.5"')
 
 local_matrix = LOCAL_MATRIX.read
 [

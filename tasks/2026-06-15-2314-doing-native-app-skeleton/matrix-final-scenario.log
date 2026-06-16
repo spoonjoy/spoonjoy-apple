@@ -1,18 +1,18 @@
 [0/1] Planning build
 Building for debugging...
 [0/4] Write swift-version--58304C5D6DBC2206.txt
-[2/44] Compiling SpoonjoyCore OAuthRedirectValidator.swift
-[3/44] Compiling SpoonjoyCore OAuthRequests.swift
-[4/44] Compiling SpoonjoyCore OAuthResponses.swift
-[5/44] Compiling SpoonjoyCore RefreshCoordinator.swift
-[6/48] Compiling SpoonjoyCore TokenVault.swift
-[7/48] Compiling SpoonjoyCore CaptureDraft.swift
-[8/48] Compiling SpoonjoyCore CookModeProgress.swift
-[9/48] Compiling SpoonjoyCore KitchenFixtureState.swift
-[10/48] Compiling SpoonjoyCore SearchState.swift
-[11/48] Compiling SpoonjoyCore AuthSessionState.swift
-[12/48] Compiling SpoonjoyCore InMemoryTokenVault.swift
-[13/48] Compiling SpoonjoyCore OAuthPKCE.swift
+[2/44] Compiling SpoonjoyCore TokenVault.swift
+[3/44] Compiling SpoonjoyCore CaptureDraft.swift
+[4/44] Compiling SpoonjoyCore CookModeProgress.swift
+[5/44] Compiling SpoonjoyCore KitchenFixtureState.swift
+[6/48] Compiling SpoonjoyCore SearchState.swift
+[7/48] Compiling SpoonjoyCore AuthSessionState.swift
+[8/48] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[9/48] Compiling SpoonjoyCore OAuthPKCE.swift
+[10/48] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[11/48] Compiling SpoonjoyCore OAuthRequests.swift
+[12/48] Compiling SpoonjoyCore OAuthResponses.swift
+[13/48] Compiling SpoonjoyCore RefreshCoordinator.swift
 [14/48] Compiling SpoonjoyCore PaginationCursor.swift
 [15/48] Compiling SpoonjoyCore PublicCatalogRequests.swift
 [16/48] Compiling SpoonjoyCore ShoppingListAPI.swift
@@ -22,21 +22,21 @@ Building for debugging...
 [20/48] Compiling SpoonjoyCore JSONFileStore.swift
 [21/48] Compiling SpoonjoyCore MutationQueue.swift
 [22/48] Compiling SpoonjoyCore OfflineSnapshot.swift
-[23/48] Compiling SpoonjoyCore AppRoute.swift
-[24/48] Compiling SpoonjoyCore DeepLinkRouter.swift
-[25/48] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
-[26/48] Compiling SpoonjoyCore NativeAppSnapshot.swift
-[27/48] Compiling SpoonjoyCore ScreenViewModels.swift
+[23/48] Emitting module SpoonjoyCore
+[24/48] Compiling SpoonjoyCore SettingsState.swift
+[25/48] Compiling SpoonjoyCore ShoppingListState.swift
+[26/48] Compiling SpoonjoyCore DeepLinkManifest.swift
+[27/48] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
 [28/48] Compiling SpoonjoyCore APIClient.swift
 [29/48] Compiling SpoonjoyCore APIEnvelope.swift
 [30/48] Compiling SpoonjoyCore APIError.swift
 [31/48] Compiling SpoonjoyCore APIRequestBuilder.swift
 [32/48] Compiling SpoonjoyCore APIRetryPolicy.swift
-[33/48] Compiling SpoonjoyCore SettingsState.swift
-[34/48] Compiling SpoonjoyCore ShoppingListState.swift
-[35/48] Compiling SpoonjoyCore DeepLinkManifest.swift
-[36/48] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
-[37/48] Emitting module SpoonjoyCore
+[33/48] Compiling SpoonjoyCore AppRoute.swift
+[34/48] Compiling SpoonjoyCore DeepLinkRouter.swift
+[35/48] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[36/48] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[37/48] Compiling SpoonjoyCore ScreenViewModels.swift
 [38/48] Compiling SpoonjoyCore NativeIntentAction.swift
 [39/48] Compiling SpoonjoyCore ScenarioCommand.swift
 [40/48] Compiling SpoonjoyCore ScenarioReport.swift
@@ -46,10 +46,10 @@ Building for debugging...
 [44/48] Compiling SpoonjoyCore SpoonjoyCore.swift
 [45/48] Compiling SpoonjoyCore resource_bundle_accessor.swift
 [46/51] Emitting module SpoonjoyScenarioVerifier
-[47/51] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
-[48/51] Compiling SpoonjoyScenarioVerifier main.swift
+[47/51] Compiling SpoonjoyScenarioVerifier main.swift
+[48/51] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
 [48/51] Write Objects.LinkFileList
 [49/51] Linking SpoonjoyScenarioVerifier
 [50/51] Applying SpoonjoyScenarioVerifier
-Build of product 'SpoonjoyScenarioVerifier' complete! (2.88s)
+Build of product 'SpoonjoyScenarioVerifier' complete! (2.97s)
 native scenario verification ok: final

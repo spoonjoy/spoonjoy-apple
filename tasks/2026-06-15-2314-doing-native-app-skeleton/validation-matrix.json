@@ -1,11 +1,11 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-16T22:24:48Z",
+  "generatedAt": "2026-06-16T22:29:51Z",
   "steps": [
     {
       "name": "xcode version",
       "status": "pass",
-      "command": "bash -lc xcodebuild -version && xcodebuild -version | grep -q '^Xcode 26\\.5$'",
+      "command": "bash -lc xcode_version=\"$(xcodebuild -version)\" && printf \"%s\\n\" \"$xcode_version\" && first_line=\"$(printf \"%s\\n\" \"$xcode_version\" | sed -n \"1p\")\" && test \"$first_line\" = \"Xcode 26.5\"",
       "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-xcode-version.log",
       "required": true
     },
@@ -179,7 +179,7 @@
       "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator-blocker.json"
     },
     {
-      "generatedAt": "2026-06-16T15:24:10-07:00",
+      "generatedAt": "2026-06-16T15:28:57-07:00",
       "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
       "httpsNoRedirectExpected": true,
       "redirected": false,

@@ -161,7 +161,7 @@ run_script_with_blocker_policy() {
 overall_status=0
 coverage_json_path="$artifact_root/coverage-json-path.log"
 
-run_required "xcode version" "$artifact_root/matrix-xcode-version.log" bash -lc "xcodebuild -version && xcodebuild -version | grep -q '^Xcode 26\\.5$'" || overall_status=1
+run_required "xcode version" "$artifact_root/matrix-xcode-version.log" bash -lc 'xcode_version="$(xcodebuild -version)" && printf "%s\n" "$xcode_version" && first_line="$(printf "%s\n" "$xcode_version" | sed -n "1p")" && test "$first_line" = "Xcode 26.5"' || overall_status=1
 run_required "ruby bundle check" "$artifact_root/matrix-bundle-check.log" scripts/bundle-check.sh || overall_status=1
 run_required "swift tests" "$artifact_root/matrix-swift-test.log" swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
 run_required "swift coverage test" "$artifact_root/matrix-coverage-test.log" swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
