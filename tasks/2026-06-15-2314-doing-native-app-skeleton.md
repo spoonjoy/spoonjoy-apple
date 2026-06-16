@@ -1,6 +1,6 @@
 # Doing: Native App Skeleton
 
-**Status**: READY_FOR_EXECUTION
+**Status**: DONE
 **Execution Mode**: direct
 **Created**: 2026-06-15 23:14
 **Planning**: ./2026-06-15-2314-planning-native-app-skeleton.md
@@ -20,18 +20,18 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ## Completion Criteria
 
-- [ ] `Package.swift` exists and the warning-enforced Swift test command passes with focused coverage for all new core logic and edge/error paths.
-- [ ] `Spoonjoy.xcodeproj` exists and `BootstrapDebug` app bundles build for iOS simulator and macOS destinations with warnings treated as errors.
-- [ ] The native scenario verifier proves first-run/session setup, fixture kitchen browsing, recipe detail, cook-mode progress persistence, shopping-list checkoff, search, capture draft creation, settings state, App Intent/search indexing metadata, offline cache restore, and native affordance flags through deterministic command-line checks.
-- [ ] The app registers native link entry points for `spoonjoy.app`: Associated Domains include `applinks:spoonjoy.app`, the app bundle declares a `spoonjoy` custom URL scheme fallback, and deterministic route parsing opens canonical web links in the correct native screen.
-- [ ] iOS simulator launch/smoke runs when CoreSimulator responds; if local CoreSimulator times out, the result is recorded as a local machine blocker while CI still builds the iOS bundle. macOS app launch/smoke must run locally.
-- [ ] Screenshot/design review artifacts exist for mobile-width and desktop-class layouts, or the plan records a concrete simulator/runtime blocker with the last command output.
-- [ ] App surfaces visibly use native navigation/search/toolbars/share/edit/check controls while preserving Kitchen Table hierarchy: a lead food/cookbook/list object, cookbook-style recipe detail, receipt-like shopping list, and focused cook-mode surface.
-- [ ] `docs/native-justification.md` explains why Spoonjoy Apple earns being native and which tempting APIs are intentionally postponed or rejected.
-- [ ] `docs/native-design-language.md` remains consistent with the web Kitchen Table language and the app code reflects those invariants in structure, naming, colors, typography, and object hierarchy.
-- [ ] CI protected checks pass on the PR: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`.
-- [ ] The `Coverage` check enforces the configured Swift package coverage threshold for new SwiftPM-measurable code instead of only generating coverage output.
-- [ ] Harsh sub-agent review converges with no BLOCKER/MAJOR findings before merge.
+- [x] `Package.swift` exists and the warning-enforced Swift test command passes with focused coverage for all new core logic and edge/error paths.
+- [x] `Spoonjoy.xcodeproj` exists and `BootstrapDebug` app bundles build for iOS simulator and macOS destinations with warnings treated as errors.
+- [x] The native scenario verifier proves first-run/session setup, fixture kitchen browsing, recipe detail, cook-mode progress persistence, shopping-list checkoff, search, capture draft creation, settings state, App Intent/search indexing metadata, offline cache restore, and native affordance flags through deterministic command-line checks.
+- [x] The app registers native link entry points for `spoonjoy.app`: Associated Domains include `applinks:spoonjoy.app`, the app bundle declares a `spoonjoy` custom URL scheme fallback, and deterministic route parsing opens canonical web links in the correct native screen.
+- [x] iOS simulator launch/smoke runs when CoreSimulator responds; if local CoreSimulator times out, the result is recorded as a local machine blocker while CI still builds the iOS bundle. macOS app launch/smoke must run locally.
+- [x] Screenshot/design review artifacts exist for mobile-width and desktop-class layouts, or the plan records a concrete simulator/runtime blocker with the last command output.
+- [x] App surfaces visibly use native navigation/search/toolbars/share/edit/check controls while preserving Kitchen Table hierarchy: a lead food/cookbook/list object, cookbook-style recipe detail, receipt-like shopping list, and focused cook-mode surface.
+- [x] `docs/native-justification.md` explains why Spoonjoy Apple earns being native and which tempting APIs are intentionally postponed or rejected.
+- [x] `docs/native-design-language.md` remains consistent with the web Kitchen Table language and the app code reflects those invariants in structure, naming, colors, typography, and object hierarchy.
+- [x] CI protected checks pass on the PR: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`.
+- [x] The `Coverage` check enforces the configured Swift package coverage threshold for new SwiftPM-measurable code instead of only generating coverage output.
+- [x] Harsh sub-agent review converges with no BLOCKER/MAJOR findings before merge.
 
 ## Code Coverage Requirements
 
@@ -275,12 +275,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
 
-### 🔄 Unit 12b: Xcode Project And App Targets — Implementation
+### ✅ Unit 12b: Xcode Project And App Targets — Implementation
 **What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, product configs that preserve the iOS/macOS 27 baseline, a clearly named `BootstrapDebug` config compatible with Xcode 26.5 iOS simulator builds and macOS 26.2 local launch/smoke, and either file-system-synchronized groups for `Apps/Spoonjoy/**` or generator-managed target membership that can be rerun after later surface units.
 **Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, `Apps/Spoonjoy/Shared/Info.plist`, and `Apps/Spoonjoy/Shared/Spoonjoy.entitlements`.
 **Acceptance**: Project checks pass, including root project set exactly `Spoonjoy.xcodeproj`, Associated Domains `applinks:spoonjoy.app`, URL scheme `spoonjoy`, AppIntents/CoreSpotlight source membership in both app targets, and proof that later `Apps/Spoonjoy/**` Swift files will be auto-included by synchronized groups or caught by generator target-membership checks; product configs do not mislabel 26.5 or 26.2 as the product baseline; `BootstrapDebug` macOS target is not above the local host major.minor; the exact iOS and macOS bootstrap build commands from Contract Constants pass.
 
-### ⬜ Unit 12c: Xcode Project And App Targets — Determinism & Refactor
+### ✅ Unit 12c: Xcode Project And App Targets — Determinism & Refactor
 **What**: Re-run generator, diff project, and refactor generated structure/settings.
 **Output**: Xcode generation determinism log.
 **Acceptance**: Re-running generator produces no git diff; exact iOS and macOS build commands still pass.
@@ -395,7 +395,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Green CI, optional fix commits, and `tasks/2026-06-15-2314-doing-native-app-skeleton/github-checks.json`.
 **Acceptance**: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` pass on GitHub.
 
-### 🔄 Unit 20c: Merge And Sync
+### ✅ Unit 20c: Merge And Sync
 **What**: Merge PR, fast-forward local main, verify branch protection remains intact, update Desk, and continue with next app slice.
 **Output**: Merged main, Desk update, and `tasks/2026-06-15-2314-doing-native-app-skeleton/branch-protection.json`.
 **Acceptance**: PR is merged to `main`; local main matches `origin/main`; branch-protection JSON shows strict required checks `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`; no active implementation branch residue.
@@ -536,3 +536,6 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 15:30 Unit 20b CI fix in progress: second GitHub run `27652199548` reached the Xcode preflight but failed all protected jobs because `xcodebuild -version | grep -q` triggers a broken-pipe abort on GitHub's Xcode 26.5 runner. Replaced the pipe with a captured `xcode_version` string comparison in the workflow and local matrix, added a generator-contract guard against the pipe form, and reran targeted Xcode-version/generator checks plus the full local matrix. `matrix-xcode-version.log` prints Xcode 26.5 / build 17F42 and `validation-matrix.json` remains `ok: true`.
 - 2026-06-16 15:37 Unit 20b CI fix in progress: third GitHub run `27652443750` passed `Swift tests`, `Native scenario verifier`, and `Coverage`; `App bundle` reached the iOS asset catalog build and failed because the generated project pointed at absent placeholder `AppIcon` and `AccentColor` assets. Updated the generator to remove those default asset-catalog setting names until real assets exist, added a project-contract check that any named app icon/accent asset must exist, regenerated `Spoonjoy.xcodeproj`, and reran project/generator contracts plus the full local matrix. `validation-matrix.json` remains `ok: true`.
 - 2026-06-16 15:43 Unit 20b complete: GitHub run `27652793572` passed all protected checks on head `8b25859`: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`. Saved final `github-checks.json` and run metadata; Ramanujan reviewed the Unit 20 CI-fix delta and returned `CONVERGED` with no BLOCKER/MAJOR findings. Unit 20c merge/sync is active.
+- 2026-06-16 15:49 Refreshed final GitHub evidence after the PR-artifact commit: run `27653069501` passed the protected `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` jobs on head `613b84e`.
+- 2026-06-16 15:49 Final PR-head run `27653194442` passed all protected checks on head `50d75f7`; PR #2 was squash-merged to `main` as `6e194fd501944193550748c904b7771d067650a3` at `2026-06-16T22:49:21Z`; local `main` matched `origin/main` at that commit after merge. Evidence saved to `github-run-27653194442.json`, `pr-merged.json`, and refreshed `github-checks.json`.
+- 2026-06-16 15:50 Branch protection was re-exported to `branch-protection.json`; `required_status_checks.strict` is `true` and required contexts are exactly `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`. Fresh Unit 20c generator/project contract evidence saved to `unit-20c-generator-contract.log` and `unit-20c-project-contract.log`, closing the stale Unit 12b/12c bookkeeping against the final generated project and deterministic generator checks.
