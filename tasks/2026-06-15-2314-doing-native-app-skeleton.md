@@ -135,7 +135,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Coverage artifacts and logs.
 **Acceptance**: Coverage artifacts are saved; CI coverage command is reproducible locally; `scripts/enforce-swift-coverage.rb` and `scripts/fail-on-warning.rb` exist before Unit 3c.
 
-### ⬜ Unit 3a: Recipe/Cookbook Domain — Tests
+### ✅ Unit 3a: Recipe/Cookbook Domain — Tests
 **What**: Write failing Swift tests for recipe, ingredient, step, chef, cookbook, cookbook cover, fixture decoding, and public search summary models.
 **Output**: `Tests/SpoonjoyCoreTests/RecipeCookbookTests.swift`.
 **Acceptance**: Filtered Swift tests fail because domain models do not exist yet.
@@ -450,3 +450,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 02:20 Addressed Unit 1 reviewer findings by parsing `--stage` in covered core code, rejecting unsupported future stages nonzero, extending scenario capabilities with deep-link arrays, and refreshing warning-enforced Unit 1c artifacts.
 - 2026-06-16 02:24 Unit 2b complete: implemented coverage threshold and warning-log scripts, corrected CI to generate coverage before locating JSON, and wired warning scans into SwiftPM, scenario, and future Xcode logs.
 - 2026-06-16 02:28 Unit 2c complete: full Swift package tests, coverage generation, warning scans, and 100% `Sources/SpoonjoyCore` coverage enforcement all pass with artifacts saved.
+- 2026-06-16 02:35 Unit 3a complete: added failing recipe/cookbook domain tests for fixture decoding, validation, cover modeling, and public search summaries; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-3a-red.log`.
