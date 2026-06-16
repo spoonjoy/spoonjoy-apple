@@ -1,0 +1,114 @@
+$ swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors
+[0/1] Planning build
+Building for debugging...
+[0/8] Write sources
+[2/8] Write swift-version--58304C5D6DBC2206.txt
+[4/17] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[5/17] Compiling SpoonjoyCore SpoonjoyCore.swift
+[6/17] Compiling SpoonjoyCore ShoppingListState.swift
+[7/17] Compiling SpoonjoyCore KitchenFixtureState.swift
+[8/17] Compiling SpoonjoyCore SettingsState.swift
+[9/17] Emitting module SpoonjoyCore
+[10/17] Compiling SpoonjoyCore CaptureDraft.swift
+[11/17] Compiling SpoonjoyCore CookModeProgress.swift
+[12/17] Compiling SpoonjoyCore RecipeCookbook.swift
+[13/23] Emitting module SpoonjoyScenarioVerifier
+[14/23] Compiling SpoonjoyScenarioVerifier main.swift
+[14/23] Write Objects.LinkFileList
+[15/23] Linking SpoonjoyScenarioVerifier
+[16/23] Applying SpoonjoyScenarioVerifier
+[18/23] Emitting module SpoonjoyCoreTests
+[19/23] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[20/23] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[21/23] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[22/25] Compiling SpoonjoyApplePackageTests runner.swift
+[23/25] Emitting module SpoonjoyApplePackageTests
+[23/25] Write Objects.LinkFileList
+[24/25] Linking SpoonjoyApplePackageTests
+Build complete! (4.12s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Kitchen state domain" started.
+◇ Suite "SpoonjoyCore bootstrap" started.
+◇ Suite "Recipe and cookbook domain" started.
+◇ Test "scenario command errors have useful descriptions" started.
+◇ Test "missing fixture reports file-not-found" started.
+◇ Test "scenario command parses bootstrap stage and output" started.
+◇ Test "bootstrap report allows only future native/app checks to remain pending" started.
+◇ Test "scenario command rejects malformed arguments" started.
+◇ Test "cookbook validation rejects malformed public payloads" started.
+◇ Test "cookbook search summary exposes cover-aware navigation fields" started.
+◇ Test "fixture resources are copied into test bundle" started.
+◇ Test "shopping list operations report useful errors" started.
+◇ Test "recipe fixture decodes API v1 recipe detail shape" started.
+◇ Test "scenario command reports unsupported future stages" started.
+◇ Test "cook mode progress persists current step and completion" started.
+◇ Test "settings state describes auth environment and offline readiness" started.
+◇ Test "cook mode progress handles empty, duplicate, invalid, and stale state" started.
+◇ Test "shopping list fixture decodes receipt rows and active ordering" started.
+◇ Test "capture drafts stay local until explicitly promoted" started.
+◇ Test "kitchen fixture exposes the lead food object and restore metadata" started.
+◇ Test "shopping list checkoff and removal keep receipt ordering stable" started.
+◇ Test "product name is stable" started.
+◇ Test "shopping list operations cover local create, display, grouping, and error edges" started.
+◇ Test "shopping list add or restore merges matching display items" started.
+◇ Test "capture drafts reject empty local text" started.
+◇ Test "cookbook catalog returns nil for missing ids" started.
+◇ Test "recipe search summary falls back when serving text is absent" started.
+◇ Test "kitchen fixture associated values encode back to fixture shape" started.
+◇ Test "cookbook encoding preserves the API v1 field names" started.
+◇ Test "cookbook cover falls back cleanly when no images are available" started.
+◇ Test "recipe validation rejects malformed public payloads" started.
+◇ Test "recipe attribution exposes only safe source links" started.
+◇ Test "recipe search summary exposes public navigation fields" started.
+◇ Test "settings state handles signed-out local and kitchen-scope variants" started.
+◇ Test "manual step and ingredient initializers preserve values" started.
+◇ Test "recipe catalog returns nil for missing ids" started.
+◇ Test "cookbook search summary uses singular recipe text" started.
+◇ Test "recipe steps and ingredients preserve display-safe API data" started.
+◇ Test "deleted source recipes do not expose safe navigation links" started.
+◇ Test "cookbook fixture decodes cover, recipe summaries, and attribution" started.
+◇ Test "recipe search summary preserves free-form serving text" started.
+✔ Test "scenario command rejects malformed arguments" passed after 0.006 seconds.
+✔ Test "scenario command parses bootstrap stage and output" passed after 0.007 seconds.
+✔ Test "scenario command errors have useful descriptions" passed after 0.007 seconds.
+✔ Test "cook mode progress persists current step and completion" passed after 0.007 seconds.
+✔ Test "cook mode progress handles empty, duplicate, invalid, and stale state" passed after 0.007 seconds.
+✔ Test "settings state describes auth environment and offline readiness" passed after 0.007 seconds.
+✔ Test "cookbook validation rejects malformed public payloads" passed after 0.007 seconds.
+✔ Test "capture drafts stay local until explicitly promoted" passed after 0.007 seconds.
+✔ Test "product name is stable" passed after 0.007 seconds.
+✔ Test "missing fixture reports file-not-found" passed after 0.007 seconds.
+✔ Test "capture drafts reject empty local text" passed after 0.007 seconds.
+✔ Test "kitchen fixture exposes the lead food object and restore metadata" passed after 0.007 seconds.
+✔ Test "bootstrap report allows only future native/app checks to remain pending" passed after 0.006 seconds.
+✔ Test "fixture resources are copied into test bundle" passed after 0.008 seconds.
+✔ Test "kitchen fixture associated values encode back to fixture shape" passed after 0.007 seconds.
+✔ Test "cookbook cover falls back cleanly when no images are available" passed after 0.007 seconds.
+✔ Test "cookbook search summary exposes cover-aware navigation fields" passed after 0.008 seconds.
+✔ Test "shopping list checkoff and removal keep receipt ordering stable" passed after 0.007 seconds.
+✔ Test "shopping list fixture decodes receipt rows and active ordering" passed after 0.007 seconds.
+✔ Test "scenario command reports unsupported future stages" passed after 0.007 seconds.
+✔ Test "cookbook catalog returns nil for missing ids" passed after 0.007 seconds.
+✔ Test "shopping list add or restore merges matching display items" passed after 0.007 seconds.
+✔ Test "recipe attribution exposes only safe source links" passed after 0.007 seconds.
+✔ Test "shopping list operations report useful errors" passed after 0.008 seconds.
+✔ Test "settings state handles signed-out local and kitchen-scope variants" passed after 0.007 seconds.
+✔ Test "cookbook encoding preserves the API v1 field names" passed after 0.007 seconds.
+✔ Test "shopping list operations cover local create, display, grouping, and error edges" passed after 0.007 seconds.
+✔ Test "recipe catalog returns nil for missing ids" passed after 0.006 seconds.
+✔ Test "recipe search summary falls back when serving text is absent" passed after 0.007 seconds.
+✔ Test "recipe search summary exposes public navigation fields" passed after 0.007 seconds.
+✔ Test "cookbook fixture decodes cover, recipe summaries, and attribution" passed after 0.006 seconds.
+✔ Test "recipe steps and ingredients preserve display-safe API data" passed after 0.007 seconds.
+✔ Test "recipe validation rejects malformed public payloads" passed after 0.007 seconds.
+✔ Test "recipe fixture decodes API v1 recipe detail shape" passed after 0.008 seconds.
+✔ Test "manual step and ingredient initializers preserve values" passed after 0.006 seconds.
+✔ Test "recipe search summary preserves free-form serving text" passed after 0.006 seconds.
+✔ Test "cookbook search summary uses singular recipe text" passed after 0.006 seconds.
+✔ Suite "SpoonjoyCore bootstrap" passed after 0.008 seconds.
+✔ Suite "Kitchen state domain" passed after 0.008 seconds.
+✔ Test "deleted source recipes do not expose safe navigation links" passed after 0.006 seconds.
+✔ Suite "Recipe and cookbook domain" passed after 0.008 seconds.
+✔ Test run with 38 tests in 3 suites passed after 0.009 seconds.

@@ -160,7 +160,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift`, `CookModeProgress.swift`, `CaptureDraft.swift`, `SettingsState.swift`, and `KitchenFixtureState.swift`.
 **Acceptance**: Unit 4a tests pass using `swift test --filter KitchenStateTests --disable-xctest --parallel`; compiler emits no warnings.
 
-### ⬜ Unit 4c: Shopping/Cook/Settings Domain — Coverage & Refactor
+### ✅ Unit 4c: Shopping/Cook/Settings Domain — Coverage & Refactor
 **What**: Run coverage for kitchen state code, add missing edge/error tests, and refactor.
 **Output**: Coverage log in artifacts directory.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/KitchenState`; `swift test --disable-xctest --parallel` passes.
@@ -456,3 +456,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 03:03 Unit 4a complete: added failing kitchen-state tests for shopping-list operations, cook-mode progress, capture drafts, settings/offline status, and kitchen fixture lead-object metadata; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-4a-red.log`.
 - 2026-06-16 03:19 Unit 4b complete: implemented shopping-list state operations, cook-mode progress snapshots, capture drafts, settings status, and kitchen fixture decoding; focused KitchenState tests pass with warnings as errors.
 - 2026-06-16 03:27 Addressed Unit 3 reviewer findings: cookbook detail entries now decode full API v1 recipe summaries, source provenance URLs expose only safe HTTP(S) links, deleted source recipes suppress navigation, and recipe search summaries preserve free-form servings text; focused and full Swift tests pass.
+- 2026-06-16 03:39 Unit 4c complete: added KitchenState edge coverage for local shopping creates, nil-quantity merges, error descriptions, settings variants, cook-mode stale snapshots, and fixture encoding; KitchenState coverage enforcement passes at 100.00% (466/466), warning scan is clean, and warning-enforced build passes.

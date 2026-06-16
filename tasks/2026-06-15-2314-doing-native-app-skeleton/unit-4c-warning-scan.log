@@ -1,0 +1,2 @@
+$ scripts/fail-on-warning.rb --log tasks/2026-06-15-2314-doing-native-app-skeleton/unit-4c-tests.log --log tasks/2026-06-15-2314-doing-native-app-skeleton/unit-4c-coverage.log
+warning scan ok

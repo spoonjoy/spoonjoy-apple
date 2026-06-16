@@ -164,7 +164,7 @@ public struct ShoppingListState: Codable, Equatable {
         return orderedKeys.map { key in
             ShoppingListReceiptSection(
                 title: Self.sectionTitle(for: key),
-                items: groupedItems[key] ?? []
+                items: groupedItems[key]!
             )
         }
     }
