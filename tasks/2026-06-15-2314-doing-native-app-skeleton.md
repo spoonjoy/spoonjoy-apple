@@ -1,6 +1,6 @@
 # Doing: Native App Skeleton
 
-**Status**: drafting
+**Status**: READY_FOR_EXECUTION
 **Execution Mode**: direct
 **Created**: 2026-06-15 23:14
 **Planning**: ./2026-06-15-2314-planning-native-app-skeleton.md
@@ -86,19 +86,19 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
 ### ⬜ Unit 0a: Native Justification And Generator Contract — Tests
-**What**: Add failing checks for `docs/native-justification.md` required headings, bootstrap-vs-product deployment-target policy, project generator syntax, and deterministic project regeneration contract.
+**What**: Add failing checks for `docs/native-justification.md` required headings, bootstrap-vs-product deployment-target policy, project generator syntax, dry-run/temp-output mode, and deterministic generator contract.
 **Output**: Shell/Ruby checks under `scripts/` or artifact commands proving missing docs/generator fail.
 **Acceptance**: The checks fail before the doc/generator implementation exists.
 
 ### ⬜ Unit 0b: Native Justification And Generator Contract — Implementation
 **What**: Add `docs/native-justification.md`, `scripts/generate-xcode-project.rb`, and bootstrap validation notes for iOS simulator 26.5, local macOS smoke floor 26.2, and product baseline 27.
 **Output**: Native justification doc and generator script.
-**Acceptance**: Unit 0a checks pass; `ruby -c scripts/generate-xcode-project.rb` passes; justification names accepted/rejected native platform levers.
+**Acceptance**: Unit 0a checks pass; `ruby -c scripts/generate-xcode-project.rb` passes; generator supports a dry-run/temp-output mode without writing `Spoonjoy.xcodeproj`; justification names accepted/rejected native platform levers.
 
 ### ⬜ Unit 0c: Native Justification And Generator Contract — Determinism
-**What**: Run generator twice, diff generated project output, and refactor generator/docs if nondeterministic.
-**Output**: Determinism log in artifacts directory.
-**Acceptance**: Re-running the generator produces no git diff after the first generation.
+**What**: Run generator dry-run/temp-output mode twice against a temporary directory, diff the temporary generated project output, and refactor generator/docs if nondeterministic.
+**Output**: Determinism log and temporary-output diff summary in artifacts directory.
+**Acceptance**: Dry-run/temp-output project generation is deterministic; no `Spoonjoy.xcodeproj` or app target files are written to the repo before Unit 12; `git diff --exit-code -- Spoonjoy.xcodeproj Apps` succeeds or reports those paths absent.
 
 ### ⬜ Unit 1a: Swift Package Bootstrap — Tests
 **What**: Add failing checks for `Package.swift` target declarations, fixture resource processing, empty `SpoonjoyCore` build, executable scenario target, and test target discovery.
@@ -266,7 +266,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 12a: Xcode Project And App Targets — Tests
-**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, product baseline settings, `BootstrapDebug` deployment-target isolation, local macOS smoke-floor compatibility, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
+**What**: Add failing generator/project checks for first real repo project generation, iOS/macOS targets, bundle IDs, product baseline settings, `BootstrapDebug` deployment-target isolation, local macOS smoke-floor compatibility, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
 
@@ -424,3 +424,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 00:24 Tightened CI script checks so present-but-nonexecutable verifier scripts cannot silently bootstrap-pass and Ruby coverage enforcement does not depend on executable mode.
 - 2026-06-16 00:24 Addressed Stranger With Candy Round 2 findings by making missing scenario and coverage enforcement scripts fail once Swift/Xcode sources exist.
 - 2026-06-16 00:24 Addressed Tinfoil finding by setting the bootstrap macOS deployment target to the local macOS 26.2 smoke floor while keeping product configs at macOS 27.
+- 2026-06-16 00:24 Addressed Stranger With Candy Round 3 findings by marking the doing doc executable, making Unit 0 generator checks dry-run/temp-output only, and failing closed for Xcode-project-only coverage.

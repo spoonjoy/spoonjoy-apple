@@ -103,10 +103,8 @@ jobs:
               exit 1
             fi
           elif ls *.xcodeproj >/dev/null 2>&1; then
-            project="$(ls *.xcodeproj | head -n 1)"
-            ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
-            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
-            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+            echo "Coverage enforcement requires Package.swift and scripts/enforce-swift-coverage.rb before any Xcode project lands."
+            exit 1
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
