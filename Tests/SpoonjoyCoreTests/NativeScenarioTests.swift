@@ -108,6 +108,31 @@ struct NativeScenarioTests {
         #expect(Set(report.nativeCapabilities.deepLinkRoutes) == Set(expectedDeepLinkRoutes))
     }
 
+    @Test("final report proves search capture settings and deep link safety")
+    func finalReportProvesSearchCaptureSettingsAndDeepLinkSafety() throws {
+        let report = try ScenarioReporter.report(for: .final)
+        let checksByName = Dictionary(uniqueKeysWithValues: report.checks.map { ($0.name, $0.status) })
+
+        #expect(report.ok)
+        #expect(report.stage == .final)
+        #expect(report.checks.filter { $0.status == .fail }.isEmpty)
+        #expect(report.checks.filter { $0.status == .pending }.isEmpty)
+        #expect(checksByName["fixture kitchen browsing"] == .pass)
+        #expect(checksByName["recipe detail"] == .pass)
+        #expect(checksByName["cook progress persistence"] == .pass)
+        #expect(checksByName["shopping checkoff"] == .pass)
+        #expect(checksByName["search"] == .pass)
+        #expect(checksByName["capture draft creation"] == .pass)
+        #expect(checksByName["settings state"] == .pass)
+        #expect(checksByName["offline status"] == .pass)
+        #expect(checksByName["safe unknown link"] == .pass)
+        #expect(checksByName["search surface source"] == .pass)
+        #expect(checksByName["capture surface source"] == .pass)
+        #expect(checksByName["settings surface source"] == .pass)
+        #expect(checksByName["offline status source"] == .pass)
+        #expect(Set(report.nativeCapabilities.deepLinkRoutes) == Set(expectedDeepLinkRoutes))
+    }
+
     @Test("surfaces report fails when surface sources are missing")
     func surfacesReportFailsWhenSurfaceSourcesAreMissing() throws {
         try withTemporaryDirectory { directory in
