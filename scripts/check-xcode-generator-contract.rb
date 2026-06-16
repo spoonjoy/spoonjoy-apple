@@ -52,20 +52,30 @@ def assert_setting(block, setting, expected)
   fail_check("expected #{setting} = #{expected}, got #{actual}") unless actual == expected
 end
 
-def build_settings_blocks(project_content)
-  project_content.scan(/buildSettings = \{(?<settings>.*?)\};/m).map(&:first)
+def build_configuration_objects(project_content)
+  project_content.scan(%r{/\* (?<object_name>[^*]+) \*/ = \{
+\s+isa = XCBuildConfiguration;
+\s+buildSettings = \{(?<settings>.*?)\};
+\s+name = (?<configuration>[^;]+);
+\s+\};}m).map do |object_name, settings, configuration|
+    {
+      object_name: object_name.strip,
+      settings: settings,
+      configuration: configuration.strip.delete('"')
+    }
+  end
 end
 
 def find_build_settings_block(project_content, bundle_id, configuration)
-  matches = build_settings_blocks(project_content).select do |settings|
-    settings.include?("PRODUCT_BUNDLE_IDENTIFIER = #{bundle_id};") &&
-      settings.include?("SPOONJOY_CONFIGURATION_NAME = #{configuration};")
+  matches = build_configuration_objects(project_content).select do |object|
+    object[:configuration] == configuration &&
+      object[:settings].include?("PRODUCT_BUNDLE_IDENTIFIER = #{bundle_id};")
   end
 
   fail_check("missing build settings for #{bundle_id} #{configuration}") if matches.empty?
   fail_check("multiple build settings for #{bundle_id} #{configuration}") if matches.length > 1
 
-  matches.first
+  matches.first[:settings]
 end
 
 fail_check("#{GENERATOR.relative_path_from(ROOT)} is missing") unless GENERATOR.file?
