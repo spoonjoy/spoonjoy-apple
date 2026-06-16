@@ -332,9 +332,9 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Unit 16a checks pass; scenario verifier `--stage final` covers search, capture draft creation, settings, offline status, and contains no pending checks.
 
 ### ⬜ Unit 16c: Search, Capture, Settings Surfaces — Build & Refactor
-**What**: Run tests/builds/scenario verifier and refactor.
+**What**: Run tests, builds, `scripts/verify-native-scenarios.sh --stage final`, and refactor.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, `scripts/verify-native-scenarios.sh --stage final`, and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 17a: Launch Smoke And Screenshot Scripts — Tests
 **What**: Add failing checks for macOS launch smoke, iOS simulator smoke timeout reporting, exact screenshot artifact paths, and design/accessibility review manifest fields.
@@ -414,3 +414,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Quality pass converged with all units explicit and TDD-shaped.
 - 2026-06-15 23:14 Addressed Tinfoil scrutiny with Swift package bootstrap, executable scenario verifier contract, and compileable AppIntents/CoreSpotlight integration requirements.
 - 2026-06-15 23:14 Addressed Tinfoil Round 3 findings with stage-specific verifier commands and explicit native integration target-membership checks.
+- 2026-06-15 23:14 Addressed Tinfoil Round 4 finding by pinning Unit 16c to final scenario verification.
