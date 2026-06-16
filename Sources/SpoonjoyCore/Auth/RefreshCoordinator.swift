@@ -10,6 +10,7 @@ public actor RefreshCoordinator {
     private let vault: any TokenVault
     private let refresh: OAuthRefreshOperation
     private var inFlightRefresh: Task<AuthSession, Error>?
+    private var refreshGeneration = 0
 
     public init(
         vault: any TokenVault,
@@ -40,6 +41,9 @@ public actor RefreshCoordinator {
     }
 
     public func disconnect() async throws {
+        refreshGeneration += 1
+        inFlightRefresh?.cancel()
+        inFlightRefresh = nil
         try await vault.clearSession()
         try await vault.clearClientID()
     }
@@ -49,14 +53,11 @@ public actor RefreshCoordinator {
             return try await inFlightRefresh.value
         }
 
-        let vault = self.vault
         let refresh = self.refresh
+        let generation = refreshGeneration
         let task = Task<AuthSession, Error> {
             let response = try await refresh(session.clientID, session.refreshToken)
-            let rotatedSession = try session.rotated(with: response, receivedAt: date)
-            try await vault.saveClientID(rotatedSession.clientID)
-            try await vault.saveSession(rotatedSession)
-            return rotatedSession
+            return try session.rotated(with: response, receivedAt: date)
         }
 
         inFlightRefresh = task
@@ -64,6 +65,18 @@ public actor RefreshCoordinator {
             inFlightRefresh = nil
         }
 
-        return try await task.value
+        let rotatedSession = try await task.value
+        try ensureCurrentRefreshGeneration(generation)
+        try await vault.saveClientID(rotatedSession.clientID)
+        try ensureCurrentRefreshGeneration(generation)
+        try await vault.saveSession(rotatedSession)
+        try ensureCurrentRefreshGeneration(generation)
+        return rotatedSession
+    }
+
+    private func ensureCurrentRefreshGeneration(_ generation: Int) throws {
+        guard generation == refreshGeneration else {
+            throw CancellationError()
+        }
     }
 }

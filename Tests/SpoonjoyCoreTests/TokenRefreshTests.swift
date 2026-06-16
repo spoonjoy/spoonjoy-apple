@@ -48,11 +48,29 @@ struct TokenRefreshTests {
             try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", tokenType: " \n ", expiresAt: now)
         }
         #expect(throws: AuthSessionError.self) {
+            try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", tokenType: "Basic", expiresAt: now)
+        }
+        #expect(throws: AuthSessionError.self) {
             try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now, scope: " \n ")
+        }
+        #expect(throws: AuthSessionError.self) {
+            try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now, scope: "shopping_list:read")
         }
         #expect(throws: AuthSessionError.self) {
             try expired.rotated(
                 with: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", expiresIn: 0),
+                receivedAt: now
+            )
+        }
+        #expect(throws: AuthSessionError.self) {
+            try expired.rotated(
+                with: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", tokenType: "Basic", expiresIn: 600),
+                receivedAt: now
+            )
+        }
+        #expect(throws: AuthSessionError.self) {
+            try expired.rotated(
+                with: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", expiresIn: 600, scope: "profile"),
                 receivedAt: now
             )
         }
@@ -151,6 +169,29 @@ struct TokenRefreshTests {
         #expect(try await vault.loadClientID() == nil)
     }
 
+    @Test("disconnect cancels in-flight refresh and prevents session resurrection")
+    func disconnectCancelsInFlightRefreshAndPreventsSessionResurrection() async throws {
+        let vault = InMemoryTokenVault()
+        let expired = try authSession(accessToken: "sj_access_old", refreshToken: "ort_refresh_old", expiresAt: now.addingTimeInterval(-1))
+        try await vault.saveClientID("cm_client_id")
+        try await vault.saveSession(expired)
+        let gate = RefreshGate(response: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", expiresIn: 600))
+        let coordinator = RefreshCoordinator(vault: vault) { clientID, refreshToken in
+            try await gate.refresh(clientID: clientID, refreshToken: refreshToken)
+        }
+
+        async let refreshResult = coordinator.validSession(at: now)
+        await gate.waitUntilStarted()
+        try await coordinator.disconnect()
+        await gate.finish()
+        let result = try? await refreshResult
+
+        #expect(result == nil)
+        #expect(try await vault.loadSession() == nil)
+        #expect(try await vault.loadClientID() == nil)
+        #expect(await gate.calls == 1)
+    }
+
     @Test("missing sessions are invalid refresh state")
     func missingSessionsAreInvalidRefreshState() async throws {
         let coordinator = RefreshCoordinator(vault: InMemoryTokenVault()) { _, _ in
@@ -186,13 +227,19 @@ struct TokenRefreshTests {
         )
     }
 
-    private func tokenResponse(accessToken: String, refreshToken: String, expiresIn: Int) -> OAuthTokenResponse {
+    private func tokenResponse(
+        accessToken: String,
+        refreshToken: String,
+        tokenType: String = "Bearer",
+        expiresIn: Int,
+        scope: String = "shopping_list:read shopping_list:write"
+    ) -> OAuthTokenResponse {
         OAuthTokenResponse(
             accessToken: accessToken,
             refreshToken: refreshToken,
-            tokenType: "Bearer",
+            tokenType: tokenType,
             expiresIn: expiresIn,
-            scope: "shopping_list:read shopping_list:write"
+            scope: scope
         )
     }
 }
@@ -215,6 +262,50 @@ private actor RefreshSpy {
 
     func snapshot() -> (calls: Int, requests: [RefreshRequest]) {
         (callsCount, capturedRequests)
+    }
+}
+
+private actor RefreshGate {
+    private var callsCount = 0
+    private var startedContinuations: [CheckedContinuation<Void, Never>] = []
+    private var finishContinuation: CheckedContinuation<Void, Never>?
+    private var shouldFinish = false
+    private let response: OAuthTokenResponse
+
+    init(response: OAuthTokenResponse) {
+        self.response = response
+    }
+
+    var calls: Int {
+        callsCount
+    }
+
+    func refresh(clientID: String, refreshToken: String) async throws -> OAuthTokenResponse {
+        callsCount += 1
+        startedContinuations.forEach { $0.resume() }
+        startedContinuations.removeAll()
+        if !shouldFinish {
+            await withCheckedContinuation { continuation in
+                finishContinuation = continuation
+            }
+        }
+        return response
+    }
+
+    func waitUntilStarted() async {
+        if callsCount > 0 {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            startedContinuations.append(continuation)
+        }
+    }
+
+    func finish() {
+        shouldFinish = true
+        finishContinuation?.resume()
+        finishContinuation = nil
     }
 }
 

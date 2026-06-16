@@ -16,6 +16,9 @@ public enum AuthSessionState: Equatable, Sendable {
 }
 
 public struct AuthSession: Equatable, Codable, Sendable {
+    private static let bearerTokenType = "Bearer"
+    private static let requiredScopes: Set<String> = ["shopping_list:read", "shopping_list:write"]
+
     public let clientID: String
     public let accessToken: String
     public let refreshToken: String
@@ -53,14 +56,20 @@ public struct AuthSession: Equatable, Codable, Sendable {
         guard !tokenType.isEmpty else {
             throw AuthSessionError.invalidTokenType
         }
+        guard tokenType.caseInsensitiveCompare(Self.bearerTokenType) == .orderedSame else {
+            throw AuthSessionError.invalidTokenType
+        }
         guard !scope.isEmpty else {
+            throw AuthSessionError.invalidScope
+        }
+        guard Self.requiredScopes.isSubset(of: Set(scope.split(separator: " ").map(String.init))) else {
             throw AuthSessionError.invalidScope
         }
 
         self.clientID = clientID
         self.accessToken = accessToken
         self.refreshToken = refreshToken
-        self.tokenType = tokenType
+        self.tokenType = Self.bearerTokenType
         self.expiresAt = expiresAt
         self.scope = scope
     }
