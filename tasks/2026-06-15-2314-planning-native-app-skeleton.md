@@ -1,5 +1,7 @@
 # Goal
 
+**Status**: approved
+
 Build the first complete, runnable native Spoonjoy Apple app slice: a protected, reproducible SwiftUI/Xcode project with iOS and macOS app bundles, testable domain/API/offline logic, and native-value surfaces that prove this is not a web clone.
 
 This branch should leave `spoonjoy-apple` with a real app skeleton that builds locally and in CI, preserves the Spoonjoy Kitchen Table design language, and creates the foundation for the remaining full-moon implementation PRs.
@@ -104,3 +106,4 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - 2026-06-15 23:14 Created initial planning doc from repo contracts, native skill workflow, design docs, local preflight, and current platform constraints.
 - 2026-06-15 23:14 Incorporated explorer findings for REST API v1, OAuth/PKCE, prior mobile-code archaeology, and non-reuse decisions.
 - 2026-06-15 23:14 Addressed Round 1 planning reviewer findings with concrete SDK target labeling, launch/screenshot validation, native-value criteria, OAuth and coverage enforcement, and shopping DELETE idempotency detail.
+- 2026-06-15 23:14 Planning approved after Round 2 sub-agent review converged.
