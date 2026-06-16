@@ -60,6 +60,34 @@ struct OfflineStoreTests {
         }
     }
 
+    @Test("JSON file store does not fallback for filesystem read errors")
+    func jsonFileStoreDoesNotFallbackForFilesystemReadErrors() throws {
+        try withTemporaryDirectory { directory in
+            let directoryURL = directory.appendingPathComponent("snapshot-directory", isDirectory: true)
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            let fallbackData = try JSONEncoder().encode(offlineSnapshot(capturedAt: "2026-06-16T08:45:45.000Z"))
+            let store = JSONFileStore<OfflineSnapshot>(fileURL: directoryURL, fallbackData: fallbackData)
+
+            #expect(throws: JSONFileStoreError.self) {
+                try store.load()
+            }
+        }
+    }
+
+    @Test("JSON file store reports non-decoding parser failures as unreadable")
+    func jsonFileStoreReportsNonDecodingParserFailuresAsUnreadable() throws {
+        try withTemporaryDirectory { directory in
+            let fileURL = directory.appendingPathComponent("throwing.json")
+            try Data(#"{"value":"nope"}"#.utf8).write(to: fileURL)
+            let fallbackData = try JSONEncoder().encode(ThrowingJSONValue(value: "fallback"))
+            let store = JSONFileStore<ThrowingJSONValue>(fileURL: fileURL, fallbackData: fallbackData)
+
+            #expect(throws: JSONFileStoreError.self) {
+                try store.load()
+            }
+        }
+    }
+
     @Test("sync checkpoint persists trimmed durable shopping cursor")
     func syncCheckpointPersistsTrimmedDurableShoppingCursor() throws {
         try withTemporaryDirectory { directory in
@@ -156,6 +184,10 @@ struct OfflineStoreTests {
         let data = try JSONEncoder().encode(queue)
         let json = try #require(String(data: data, encoding: .utf8))
         let decoded = try JSONDecoder().decode(MutationQueue.self, from: data)
+        let jsonObject = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let mutations = try #require(jsonObject["mutations"] as? [[String: Any]])
+        let firstMutation = try #require(mutations.first)
+        let firstKind = try #require(firstMutation["kind"] as? [String: Any])
 
         #expect(decoded == queue)
         #expect(decoded.mutations.map(\.clientMutationID) == [
@@ -163,9 +195,12 @@ struct OfflineStoreTests {
             "mutation-check-eggs",
             "mutation-delete-eggs"
         ])
-        #expect(json.contains("shoppingAdd"))
-        #expect(json.contains("shoppingCheck"))
-        #expect(json.contains("shoppingDelete"))
+        #expect(firstMutation["schemaVersion"] as? Int == 1)
+        #expect(firstKind["type"] as? String == "shopping.add")
+        #expect(firstKind["name"] as? String == "eggs")
+        #expect(json.contains("\"type\":\"shopping.add\""))
+        #expect(json.contains("\"type\":\"shopping.check\""))
+        #expect(json.contains("\"type\":\"shopping.delete\""))
         #expect(queue.removing(clientMutationID: "mutation-check-eggs").mutations.map(\.clientMutationID) == [
             "mutation-add-eggs",
             "mutation-delete-eggs"
@@ -175,6 +210,51 @@ struct OfflineStoreTests {
         }
         #expect(throws: MutationQueueError.self) {
             try queue.appending(shoppingAddMutation(clientMutationID: " \n "))
+        }
+
+        let spaced = try MutationQueue().appending(shoppingAddMutation(clientMutationID: " mutation-spaced "))
+        #expect(spaced.mutations.map(\.clientMutationID) == ["mutation-spaced"])
+        #expect(throws: MutationQueueError.self) {
+            try spaced.appending(shoppingAddMutation(clientMutationID: "mutation-spaced"))
+        }
+        #expect(spaced.removing(clientMutationID: " mutation-spaced ").mutations.isEmpty)
+
+        let unknownType = Data(
+            """
+            {
+              "mutations": [
+                {
+                  "schemaVersion": 1,
+                  "id": "queued-unknown",
+                  "clientMutationId": "mutation-unknown",
+                  "createdAt": "2026-06-16T08:52:00.000Z",
+                  "kind": { "type": "shopping.rename", "itemId": "item_eggs" }
+                }
+              ]
+            }
+            """.utf8
+        )
+        let unsupportedSchema = Data(
+            """
+            {
+              "mutations": [
+                {
+                  "schemaVersion": 2,
+                  "id": "queued-add-eggs",
+                  "clientMutationId": "mutation-add-eggs",
+                  "createdAt": "2026-06-16T08:49:00.000Z",
+                  "kind": { "type": "shopping.add", "name": "eggs" }
+                }
+              ]
+            }
+            """.utf8
+        )
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(MutationQueue.self, from: unknownType)
+        }
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(MutationQueue.self, from: unsupportedSchema)
         }
     }
 
@@ -220,4 +300,20 @@ struct OfflineStoreTests {
         }
         return try body(directory)
     }
+}
+
+private struct ThrowingJSONValue: Codable, Equatable {
+    let value: String
+
+    init(value: String) {
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        throw ThrowingJSONValueError.decodeRejected
+    }
+}
+
+private enum ThrowingJSONValueError: Error {
+    case decodeRejected
 }

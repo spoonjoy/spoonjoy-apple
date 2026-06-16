@@ -8,6 +8,7 @@ public enum JSONFileStoreSource: String, Codable, Equatable {
 
 public enum JSONFileStoreError: Error, Equatable {
     case corruptJSON(String)
+    case unreadableFile(String)
 }
 
 public struct JSONFileStoreRecord<Value: Equatable>: Equatable {
@@ -49,10 +50,16 @@ public struct JSONFileStore<Value: Codable & Equatable> {
             return JSONFileStoreRecord(value: try decoder.decode(Value.self, from: fallbackData), source: .fallback)
         }
 
+        let data: Data
         do {
-            let data = try Data(contentsOf: fileURL)
-            return JSONFileStoreRecord(value: try decoder.decode(Value.self, from: data), source: .file)
+            data = try Data(contentsOf: fileURL)
         } catch {
+            throw JSONFileStoreError.unreadableFile(fileURL.path)
+        }
+
+        do {
+            return JSONFileStoreRecord(value: try decoder.decode(Value.self, from: data), source: .file)
+        } catch is DecodingError {
             guard let fallbackData else {
                 throw JSONFileStoreError.corruptJSON(fileURL.path)
             }
@@ -61,6 +68,8 @@ public struct JSONFileStore<Value: Codable & Equatable> {
                 value: try decoder.decode(Value.self, from: fallbackData),
                 source: .fallbackAfterCorruption
             )
+        } catch {
+            throw JSONFileStoreError.unreadableFile(fileURL.path)
         }
     }
 
