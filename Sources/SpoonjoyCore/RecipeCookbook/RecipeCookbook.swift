@@ -228,6 +228,64 @@ public struct CookbookAttribution: Codable, Equatable {
     }
 }
 
+public struct CookbookSummary: Equatable {
+    public let id: String
+    public let title: String
+    public let chef: ChefSummary
+    public let recipeCount: Int
+    public let cover: CookbookCover
+    public let href: String
+    public let canonicalURL: URL
+    public let attribution: CookbookAttribution
+    public let createdAt: String
+    public let updatedAt: String
+}
+
+extension CookbookSummary: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case chef
+        case recipeCount
+        case coverImageURLs = "coverImageUrls"
+        case href
+        case canonicalURL = "canonicalUrl"
+        case attribution
+        case createdAt
+        case updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        chef = try container.decode(ChefSummary.self, forKey: .chef)
+        recipeCount = try container.decode(Int.self, forKey: .recipeCount)
+        cover = CookbookCover(imageURLs: try container.decode([URL?].self, forKey: .coverImageURLs))
+        href = try container.decode(String.self, forKey: .href)
+        canonicalURL = try container.decode(URL.self, forKey: .canonicalURL)
+        attribution = try container.decode(CookbookAttribution.self, forKey: .attribution)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        updatedAt = try container.decode(String.self, forKey: .updatedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(chef, forKey: .chef)
+        try container.encode(recipeCount, forKey: .recipeCount)
+        try container.encode(cover.imageURLs, forKey: .coverImageURLs)
+        try container.encode(href, forKey: .href)
+        try container.encode(canonicalURL, forKey: .canonicalURL)
+        try container.encode(attribution, forKey: .attribution)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+    }
+}
+
 public struct Cookbook: Equatable {
     public let id: String
     public let title: String
@@ -244,49 +302,46 @@ public struct Cookbook: Equatable {
 
 extension Cookbook: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id
-        case title
-        case chef
-        case recipeCount
-        case coverImageURLs = "coverImageUrls"
-        case href
-        case canonicalURL = "canonicalUrl"
-        case attribution
-        case createdAt
-        case updatedAt
         case recipes
     }
 
     public init(from decoder: Decoder) throws {
+        let summary = try CookbookSummary(from: decoder)
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        id = try container.decode(String.self, forKey: .id)
-        title = try container.decode(String.self, forKey: .title)
-        chef = try container.decode(ChefSummary.self, forKey: .chef)
-        recipeCount = try container.decode(Int.self, forKey: .recipeCount)
-        cover = CookbookCover(imageURLs: try container.decode([URL?].self, forKey: .coverImageURLs))
-        href = try container.decode(String.self, forKey: .href)
-        canonicalURL = try container.decode(URL.self, forKey: .canonicalURL)
-        attribution = try container.decode(CookbookAttribution.self, forKey: .attribution)
-        createdAt = try container.decode(String.self, forKey: .createdAt)
-        updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        id = summary.id
+        title = summary.title
+        chef = summary.chef
+        recipeCount = summary.recipeCount
+        cover = summary.cover
+        href = summary.href
+        canonicalURL = summary.canonicalURL
+        attribution = summary.attribution
+        createdAt = summary.createdAt
+        updatedAt = summary.updatedAt
         recipes = try container.decode([RecipeSummary].self, forKey: .recipes)
     }
 
     public func encode(to encoder: Encoder) throws {
+        try CookbookSummary(cookbook: self).encode(to: encoder)
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(id, forKey: .id)
-        try container.encode(title, forKey: .title)
-        try container.encode(chef, forKey: .chef)
-        try container.encode(recipeCount, forKey: .recipeCount)
-        try container.encode(cover.imageURLs, forKey: .coverImageURLs)
-        try container.encode(href, forKey: .href)
-        try container.encode(canonicalURL, forKey: .canonicalURL)
-        try container.encode(attribution, forKey: .attribution)
-        try container.encode(createdAt, forKey: .createdAt)
-        try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(recipes, forKey: .recipes)
+    }
+}
+
+extension CookbookSummary {
+    public init(cookbook: Cookbook) {
+        id = cookbook.id
+        title = cookbook.title
+        chef = cookbook.chef
+        recipeCount = cookbook.recipeCount
+        cover = cookbook.cover
+        href = cookbook.href
+        canonicalURL = cookbook.canonicalURL
+        attribution = cookbook.attribution
+        createdAt = cookbook.createdAt
+        updatedAt = cookbook.updatedAt
     }
 }
 
@@ -458,6 +513,10 @@ public struct CookbookSearchSummary: Equatable {
     public let accessibilityLabel: String
 
     public init(cookbook: Cookbook) {
+        self.init(cookbook: CookbookSummary(cookbook: cookbook))
+    }
+
+    public init(cookbook: CookbookSummary) {
         id = cookbook.id
         kind = .cookbook
         title = cookbook.title

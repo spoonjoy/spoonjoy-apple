@@ -32,8 +32,25 @@ public struct APIRequestBuilder: Equatable {
     }
 
     private static func percentEncodePathSegment(_ segment: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        return segment.addingPercentEncoding(withAllowedCharacters: allowed) ?? segment
+        var encoded = ""
+
+        for byte in segment.utf8 {
+            if isUnreservedPathByte(byte) {
+                encoded.unicodeScalars.append(UnicodeScalar(Int(byte))!)
+            } else {
+                encoded += String(format: "%%%02X", byte)
+            }
+        }
+
+        return encoded
+    }
+
+    private static func isUnreservedPathByte(_ byte: UInt8) -> Bool {
+        switch byte {
+        case 45, 46, 48...57, 65...90, 95, 97...122, 126:
+            true
+        default:
+            false
+        }
     }
 }

@@ -81,7 +81,7 @@ public struct CookbookListData: Decodable, Equatable {
     public let cursor: PaginationCursor?
     public let nextCursor: PaginationCursor?
     public let hasMore: Bool
-    public let cookbooks: [Cookbook]
+    public let cookbooks: [CookbookSummary]
 }
 
 public struct CookbookDetailData: Decodable, Equatable {

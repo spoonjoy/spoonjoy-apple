@@ -175,7 +175,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/API/APIClient.swift`, `APIEnvelope.swift`, `APIError.swift`, `APIRequestBuilder.swift`, `PublicCatalogRequests.swift`, and `PaginationCursor.swift`.
 **Acceptance**: Unit 5a tests pass; stale bearer tokens are not attached to anonymous public reads by default.
 
-### ⬜ Unit 5c: Public API v1 Read Client — Coverage & Refactor
+### ✅ Unit 5c: Public API v1 Read Client — Coverage & Refactor
 **What**: Run coverage, add malformed URL/cursor/error edge tests, and refactor read-client boundaries.
 **Output**: Coverage and request-shape logs.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
@@ -460,3 +460,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 03:45 Unit 5a complete: added failing API read-client tests for recipe/cookbook request builders, optional auth, success/error envelopes, pagination cursors, and outbound request shape; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-5a-red.log`.
 - 2026-06-16 03:54 Addressed Unit 4 reviewer finding: shopping-list add/restore now normalizes names and units like API v1, restores checked/deleted matches to the active tail sort position, and has focused tests plus 100% KitchenState coverage evidence.
 - 2026-06-16 03:57 Unit 5b complete: implemented API configuration, request builders, pagination cursors, public recipe/cookbook read requests, and success/error envelope decoding; focused API tests, full Swift tests, and warning-enforced Swift build pass.
+- 2026-06-16 04:09 Unit 5c complete: added API edge coverage for blank auth/query inputs, success/error envelope branches, malformed cursors, UTF-8 path encoding, and real cookbook-list summary payloads; `Sources/SpoonjoyCore/API` coverage passes at 100.00% (156/156), warning scan is clean, and warning-enforced Swift build passes.
