@@ -12,13 +12,23 @@ SCHEME_NAME = "Spoonjoy"
 IOS_BUNDLE_ID = "app.spoonjoy.Spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.Spoonjoy.mac"
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
+INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
+ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
+ASSET_CATALOG = "Apps/Spoonjoy/Shared/Assets.xcassets"
+SHARED_SWIFT = [
+  "Apps/Spoonjoy/Shared/SpoonjoyApp.swift",
+  "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+  "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
+].freeze
+IOS_SWIFT = ["Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"].freeze
+MAC_SWIFT = ["Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift"].freeze
 
 options = {
   output_dir: nil
 }
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: ruby scripts/generate-xcode-project.rb --output-dir PATH"
+  opts.banner = "Usage: ruby scripts/generate-xcode-project.rb [--output-dir PATH]"
   opts.on("--output-dir PATH", "Write deterministic Spoonjoy.xcodeproj output under PATH instead of the repo root.") do |value|
     options[:output_dir] = value
   end
@@ -30,12 +40,7 @@ end
 
 parser.parse!
 
-unless options[:output_dir]
-  warn "FAIL: --output-dir is required until Unit 12 writes the real repo project"
-  exit 1
-end
-
-output_root = Pathname.new(options[:output_dir]).expand_path
+output_root = options[:output_dir] ? Pathname.new(options[:output_dir]).expand_path : ROOT
 FileUtils.mkdir_p(output_root)
 
 project_path = output_root.join("#{PROJECT_NAME}.xcodeproj")
@@ -53,8 +58,61 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
     build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
     build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
     build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+    build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "NO"
+    build_configuration.build_settings["INFOPLIST_FILE"] = INFO_PLIST
+    build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = ENTITLEMENTS
+    build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
+    build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "1"
     build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)
   end
+end
+
+def group_for_path(project, path)
+  current = project.main_group
+
+  Pathname.new(path).each_filename do |component|
+    current = current.groups.find { |group| group.display_name == component } ||
+      current.new_group(component, component)
+  end
+
+  current
+end
+
+def file_reference(project, relative_path)
+  group = group_for_path(project, File.dirname(relative_path))
+  group.files.find { |file| file.display_name == File.basename(relative_path) } ||
+    group.new_file(File.basename(relative_path))
+end
+
+def add_package_product(project, target, product_name)
+  package = project.root_object.package_references.find do |reference|
+    reference.isa == "XCLocalSwiftPackageReference" && reference.relative_path == "."
+  end
+
+  unless package
+    package = project.new(Xcodeproj::Project::Object::XCLocalSwiftPackageReference)
+    package.relative_path = "."
+    project.root_object.package_references << package
+  end
+
+  dependency = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
+  dependency.product_name = product_name
+  dependency.package = package
+  target.package_product_dependencies << dependency
+
+  build_file = project.new(Xcodeproj::Project::Object::PBXBuildFile)
+  build_file.product_ref = dependency
+  target.frameworks_build_phase.files << build_file
+end
+
+def add_sources(project, target, paths)
+  file_references = paths.map { |path| file_reference(project, path) }
+  target.add_file_references(file_references)
+end
+
+def add_resources(project, target, paths)
+  file_references = paths.map { |path| file_reference(project, path) }
+  target.add_resources(file_references)
 end
 
 ios_target = project.new_target(:application, "#{PROJECT_NAME} iOS", :ios, "26.5")
@@ -84,8 +142,13 @@ apply_common_settings(
   }
 )
 
-shared_group = project.main_group.new_group("Apps")
-shared_group.new_group("Spoonjoy")
+[INFO_PLIST, ENTITLEMENTS].each { |path| file_reference(project, path) }
+add_sources(project, ios_target, SHARED_SWIFT + IOS_SWIFT)
+add_sources(project, mac_target, SHARED_SWIFT + MAC_SWIFT)
+add_resources(project, ios_target, [ASSET_CATALOG])
+add_resources(project, mac_target, [ASSET_CATALOG])
+add_package_product(project, ios_target, "SpoonjoyCore")
+add_package_product(project, mac_target, "SpoonjoyCore")
 
 project.sort
 project.predictabilize_uuids

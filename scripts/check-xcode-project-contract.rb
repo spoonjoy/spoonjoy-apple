@@ -13,12 +13,14 @@ PROJECT_PATH = ROOT.join("#{PROJECT_NAME}.xcodeproj")
 APP_ROOT = ROOT.join("Apps/Spoonjoy")
 INFO_PLIST = APP_ROOT.join("Shared/Info.plist")
 ENTITLEMENTS = APP_ROOT.join("Shared/Spoonjoy.entitlements")
+SCHEME = PROJECT_PATH.join("xcshareddata/xcschemes/Spoonjoy.xcscheme")
 IOS_TARGET = "#{PROJECT_NAME} iOS"
 MAC_TARGET = "#{PROJECT_NAME} macOS"
 IOS_BUNDLE_ID = "app.spoonjoy.Spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.Spoonjoy.mac"
 ASSOCIATED_DOMAIN = "applinks:spoonjoy.app"
 URL_SCHEME = "spoonjoy"
+PACKAGE_PRODUCT = "SpoonjoyCore"
 
 EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
@@ -83,6 +85,7 @@ fail_check("missing #{PROJECT_NAME}.xcodeproj") unless PROJECT_PATH.directory?
 EXPECTED_FILES.each do |path|
   fail_check("missing #{relative(path)}") unless path.exist?
 end
+fail_check("missing shared scheme #{relative(SCHEME)}") unless SCHEME.file?
 
 info_plist = plist_json(INFO_PLIST)
 url_schemes = Array(info_plist["CFBundleURLTypes"]).flat_map { |entry| Array(entry["CFBundleURLSchemes"]) }
@@ -96,6 +99,11 @@ project = Xcodeproj::Project.open(PROJECT_PATH.to_s)
 target_by_name = project.targets.each_with_object({}) { |target, index| index[target.name] = target }
 ios_target = target_by_name[IOS_TARGET] || fail_check("missing target #{IOS_TARGET}")
 mac_target = target_by_name[MAC_TARGET] || fail_check("missing target #{MAC_TARGET}")
+
+scheme_text = SCHEME.read
+[IOS_TARGET, MAC_TARGET].each do |target_name|
+  fail_check("#{relative(SCHEME)} missing #{target_name}") unless scheme_text.include?(target_name)
+end
 
 {
   ios_target => IOS_BUNDLE_ID,
@@ -120,6 +128,20 @@ mac_target = target_by_name[MAC_TARGET] || fail_check("missing target #{MAC_TARG
   end
 end
 
+def assert_package_product(target, product_name)
+  dependencies = target.package_product_dependencies.select { |dependency| dependency.product_name == product_name }
+  fail_check("#{target.name} missing package product dependency #{product_name}") if dependencies.empty?
+  fail_check("#{target.name} has duplicate package product dependency #{product_name}") if dependencies.length > 1
+
+  framework_entries = target.frameworks_build_phase.files.select do |build_file|
+    build_file.product_ref&.product_name == product_name
+  end
+  fail_check("#{target.name} missing #{product_name} in Frameworks phase") if framework_entries.empty?
+  fail_check("#{target.name} has duplicate #{product_name} Frameworks entries") if framework_entries.length > 1
+end
+
+[ios_target, mac_target].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
+
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")
 )
@@ -127,12 +149,12 @@ host_version = Gem::Version.new(host_major_minor.join("."))
 fail_check("BootstrapDebug macOS target #{mac_bootstrap} exceeds host #{host_version}") if mac_bootstrap > host_version
 
 def target_source_paths(target)
-  target.source_build_phase.files.filter_map do |build_file|
+  target.source_build_phase.files.map do |build_file|
     ref = build_file.file_ref
     next unless ref&.path&.end_with?(".swift")
 
     ref.real_path.to_s
-  end
+  end.compact
 end
 
 ios_sources = target_source_paths(ios_target)
