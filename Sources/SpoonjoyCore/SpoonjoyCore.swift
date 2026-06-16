@@ -22,7 +22,7 @@ public enum SpoonjoyFixture {
     }
 }
 
-public enum ScenarioStage: String, CaseIterable, Codable {
+public enum ScenarioStage: String, CaseIterable, Codable, Sendable {
     case bootstrap
     case nativeMetadata = "native-metadata"
     case surfaces
@@ -53,19 +53,28 @@ public struct ScenarioNativeCapabilities: Codable, Equatable {
     public let searchableScopes: [String]
     public let shareActions: [String]
     public let offlineFlows: [String]
+    public let associatedDomains: [String]
+    public let urlSchemes: [String]
+    public let deepLinkRoutes: [String]
 
     public init(
         appIntents: [String],
         spotlightIndexedTypes: [String],
         searchableScopes: [String],
         shareActions: [String],
-        offlineFlows: [String]
+        offlineFlows: [String],
+        associatedDomains: [String],
+        urlSchemes: [String],
+        deepLinkRoutes: [String]
     ) {
         self.appIntents = appIntents
         self.spotlightIndexedTypes = spotlightIndexedTypes
         self.searchableScopes = searchableScopes
         self.shareActions = shareActions
         self.offlineFlows = offlineFlows
+        self.associatedDomains = associatedDomains
+        self.urlSchemes = urlSchemes
+        self.deepLinkRoutes = deepLinkRoutes
     }
 }
 
@@ -84,6 +93,15 @@ public struct ScenarioReport: Codable, Equatable {
 }
 
 public enum ScenarioReporter {
+    public static func report(for stage: ScenarioStage) throws -> ScenarioReport {
+        switch stage {
+        case .bootstrap:
+            return bootstrapReport()
+        case .nativeMetadata, .surfaces, .final:
+            throw ScenarioCommandError.unsupportedStage(stage)
+        }
+    }
+
     public static func bootstrapReport() -> ScenarioReport {
         ScenarioReport(
             stage: .bootstrap,
@@ -97,8 +115,82 @@ public enum ScenarioReporter {
                 spotlightIndexedTypes: [],
                 searchableScopes: [],
                 shareActions: [],
-                offlineFlows: ["fixture-offline-restore"]
+                offlineFlows: ["fixture-offline-restore"],
+                associatedDomains: [],
+                urlSchemes: [],
+                deepLinkRoutes: []
             )
         )
+    }
+}
+
+public enum ScenarioCommandError: Error, Equatable, CustomStringConvertible {
+    case missingValue(String)
+    case unknownArgument(String)
+    case unknownStage(String)
+    case unsupportedStage(ScenarioStage)
+
+    public var description: String {
+        switch self {
+        case .missingValue(let argument):
+            "Missing value for \(argument)."
+        case .unknownArgument(let argument):
+            "Unknown argument \(argument)."
+        case .unknownStage(let stage):
+            "Unknown scenario stage \(stage)."
+        case .unsupportedStage(let stage):
+            "Scenario stage \(stage.rawValue) is not implemented in bootstrap."
+        }
+    }
+}
+
+public struct ScenarioCommand: Equatable {
+    public let stage: ScenarioStage
+    public let outputPath: String?
+
+    public init(stage: ScenarioStage, outputPath: String?) {
+        self.stage = stage
+        self.outputPath = outputPath
+    }
+
+    public static func parse(arguments: [String]) throws -> ScenarioCommand {
+        var stage = ScenarioStage.bootstrap
+        var outputPath: String?
+        var index = 0
+
+        while index < arguments.count {
+            let argument = arguments[index]
+
+            switch argument {
+            case "--stage":
+                let rawStage = try value(after: argument, in: arguments, at: index)
+                guard let parsedStage = ScenarioStage(rawValue: rawStage) else {
+                    throw ScenarioCommandError.unknownStage(rawStage)
+                }
+                stage = parsedStage
+                index += 2
+            case "--output":
+                outputPath = try value(after: argument, in: arguments, at: index)
+                index += 2
+            default:
+                throw ScenarioCommandError.unknownArgument(argument)
+            }
+        }
+
+        return ScenarioCommand(stage: stage, outputPath: outputPath)
+    }
+
+    private static func value(after argument: String, in arguments: [String], at index: Int) throws -> String {
+        let valueIndex = index + 1
+        guard valueIndex < arguments.count else {
+            throw ScenarioCommandError.missingValue(argument)
+        }
+
+        let value = arguments[valueIndex]
+        guard !value.hasPrefix("--") else {
+            throw ScenarioCommandError.missingValue(argument)
+        }
+
+        return value
     }
 }

@@ -67,6 +67,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - **API base**: `https://spoonjoy.app`. REST paths for this slice: `/api/v1/recipes`, `/api/v1/recipes/{id}`, `/api/v1/cookbooks`, `/api/v1/cookbooks/{id}`, `/api/v1/shopping-list`, `/api/v1/shopping-list/sync`, `/api/v1/shopping-list/items`, and `/api/v1/shopping-list/items/{itemId}`. OAuth token exchange uses `/oauth/token`; API v1 token-management builders are out of this slice.
 - **Deep-link contract**: app links accept `https://spoonjoy.app/`, `/recipes`, `/recipes/{id}`, `/recipes/{id}#cook`, `/recipes/{id}?mode=cook`, `/cookbooks`, `/cookbooks/{id}`, `/shopping-list`, `/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}`, `/recipes/new`, and `/account/settings`. The `spoonjoy` custom URL scheme must support equivalent fallback routes: `spoonjoy://kitchen`, `spoonjoy://recipes`, `spoonjoy://recipes/{id}`, `spoonjoy://recipes/{id}/cook`, `spoonjoy://cookbooks`, `spoonjoy://cookbooks/{id}`, `spoonjoy://shopping-list`, `spoonjoy://search?q={query}&scope={...}`, `spoonjoy://capture`, and `spoonjoy://settings`. Unknown hosts, unknown paths, malformed IDs, and unsupported search scopes must route to a safe unknown-link state, not crash or silently open the wrong object.
 - **Apple link registration**: app targets must declare Associated Domains entitlement `applinks:spoonjoy.app` and Info.plist URL type scheme `spoonjoy`. The web app must serve an Apple App Site Association document for `spoonjoy.app` before production universal-link validation can pass; the exact `TEAMID.app.spoonjoy.Spoonjoy` and macOS app ID entries remain live-validation blocked until an Apple Developer Team ID exists, but all app-side entitlements, route parsing, and fallback scheme behavior are implemented and statically validated now.
+- **AASA validation artifact**: final validation must write `aasa-validation.json` when `https://spoonjoy.app/.well-known/apple-app-site-association` is live and valid, or `aasa-production-blocker.json` while Team ID/AASA publication remains blocked. The artifact must name required app IDs `TEAMID.app.spoonjoy.Spoonjoy` and `TEAMID.app.spoonjoy.Spoonjoy.mac`, expected path/component coverage for every canonical route in the deep-link contract, HTTPS no-redirect requirement, fetched status/content-type when available, and the exact blocker reason if production validation cannot pass yet.
 - **API envelope**: REST v1 success `{ ok: true, requestId: String, data: ... }`; REST v1 error `{ ok: false, requestId: String, error: { code, message, status } }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts`.
 - **Shopping idempotency**: POST/PATCH send JSON `clientMutationId`; DELETE accepts JSON body `clientMutationId`, `X-Client-Mutation-Id`, or query `clientMutationId` and canonicalizes idempotency body to `{ clientMutationId }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md:670`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts:1431`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts:1435`.
 - **OAuth paths**: `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`. Register body includes `client_name`, exact HTTPS or localhost/127.0.0.1 `redirect_uris`, and `token_endpoint_auth_method: "none"`. Authorize sends `response_type=code`, `scope`, `state`, `code_challenge`, `code_challenge_method=S256`, and omits `resource` for REST. Token and revoke are `application/x-www-form-urlencoded`.
@@ -255,9 +256,9 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; a static check proves `Sources/SpoonjoyScenarioVerifier/main.swift` is a thin adapter with no branching; `scripts/verify-native-scenarios.sh --stage native-metadata` produces deterministic artifacts and allows only surface checks to remain pending.
 
 ### ⬜ Unit 11a: App State And Navigation View Models — Tests
-**What**: Write failing tests for app route selection, deep-link URL parsing, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
-**Output**: `Tests/SpoonjoyCoreTests/AppStateTests.swift`.
-**Acceptance**: Tests fail before view-model state exists.
+**What**: Write failing tests for app route selection, table-driven deep-link URL parsing, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
+**Output**: `Tests/SpoonjoyCoreTests/AppStateTests.swift` and `Tests/SpoonjoyCoreTests/DeepLinkRouterTests.swift`.
+**Acceptance**: Tests fail before view-model state exists. `DeepLinkRouterTests` must enumerate every URL in the deep-link contract, prove both `/recipes/{id}#cook` and `/recipes/{id}?mode=cook` map to cook mode, preserve decoded search `q`, accept only the listed scopes, map shopping/capture/settings routes, and return safe unknown-link state for unknown hosts, unknown paths, malformed/empty IDs, traversal-like IDs, and unsupported search scopes.
 
 ### ⬜ Unit 11b: App State And Navigation View Models — Implementation
 **What**: Implement UI-independent app state/view models and deep-link routing consumed by SwiftUI screens.
@@ -287,7 +288,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 13a: Native Shell Navigation — Tests
 **What**: Add failing app-state or static checks for `NavigationStack`, `NavigationSplitView`, `.onOpenURL`, continuing `NSUserActivity` universal-link handoff, toolbars, share actions, searchable routes, edit/check affordance metadata, platform-specific shell decisions, and Xcode inclusion for new shell source files.
 **Output**: Tests/static checks for native shell affordances.
-**Acceptance**: Checks fail before SwiftUI shell implementation and fail if new shell files would be omitted from iOS or macOS app builds.
+**Acceptance**: Checks fail before SwiftUI shell implementation and fail if new shell files would be omitted from iOS or macOS app builds. Both app targets must statically prove URL handling through `.onOpenURL` and, where applicable, `onContinueUserActivity(NSUserActivityTypeBrowsingWeb)` / `NSUserActivity.webpageURL`, with both paths using the same package `DeepLinkRouter`.
 
 ### ⬜ Unit 13b: Native Shell Navigation — Implementation
 **What**: Implement shared SwiftUI shell, signed-out setup, platform navigation, universal/custom URL handoff, toolbar actions, `.searchable`, share affordances, and settings entry.
@@ -342,7 +343,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 16c: Search, Capture, Settings Surfaces — Build & Refactor
 **What**: Run tests, builds, `scripts/verify-native-scenarios.sh --stage final`, deep-link route checks, and refactor.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test --disable-xctest --parallel`, `scripts/verify-native-scenarios.sh --stage final`, and exact iOS/macOS build commands pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, `scripts/verify-native-scenarios.sh --stage final`, and exact iOS/macOS build commands pass with no new warnings. Final scenario evidence must list required `deepLinkRoutes`, include both cook-mode URL forms, and prove unsupported link inputs resolve to the safe unknown-link state.
 
 ### ⬜ Unit 17a: Launch Smoke And Screenshot Scripts — Tests
 **What**: Add failing checks for macOS launch smoke, iOS simulator smoke timeout reporting, exact screenshot artifact paths, and design/accessibility review manifest fields.
@@ -360,19 +361,19 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Available launch/screenshot validation passes or records concrete local capability blocker with command output; design review manifest fails if any required pass/fail field is missing or false without a documented capability blocker.
 
 ### ⬜ Unit 18a: Full Local Matrix — Tests/Preparation
-**What**: Add a single local matrix script that orchestrates Swift tests, coverage, scenario verifier, deep-link registration checks, Xcode builds, launch smoke, and screenshot/design checks.
+**What**: Add a single local matrix script that orchestrates Swift tests, coverage, scenario verifier, deep-link registration checks, AASA validation/blocker artifact generation, Xcode builds, launch smoke, and screenshot/design checks.
 **Output**: `scripts/validate-native-local.sh` with failing pre-implementation assertions if any required script is missing.
-**Acceptance**: Matrix script fails before all required validation hooks are present.
+**Acceptance**: Matrix script fails before all required validation hooks are present, including the AASA validation/blocker artifact hook.
 
 ### ⬜ Unit 18b: Full Local Matrix — Implementation
-**What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same runner, warning-enforced Swift test, coverage, scenario, project-set, deep-link registration, target-membership, and Xcode bootstrap build commands listed in Contract Constants.
+**What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same runner, warning-enforced Swift test, coverage, scenario, project-set, deep-link registration, AASA validation/blocker artifact generation, target-membership, and Xcode bootstrap build commands listed in Contract Constants.
 **Output**: Matrix script and workflow updates.
 **Acceptance**: Matrix runs each mandatory command from Contract Constants, writes `validation-matrix.json`, and exits nonzero on missing mandatory checks; GitHub workflow uses `macos-26`, verifies Xcode 26.5, rejects extra root Xcode projects, and uses the same Swift test, coverage, scenario, and Xcode build commands except launch/screenshot checks that require an interactive local session.
 
 ### ⬜ Unit 18c: Full Local Matrix — Evidence
 **What**: Run the full local matrix and save logs/artifacts.
 **Output**: Full validation artifacts under `tasks/2026-06-15-2314-doing-native-app-skeleton/`.
-**Acceptance**: All mandatory validation passes, or a blocker JSON matching Contract Constants exists for CoreSimulator-only smoke/screenshot limits.
+**Acceptance**: All mandatory validation passes, or a blocker JSON matching Contract Constants exists for CoreSimulator-only smoke/screenshot limits. AASA evidence must exist as either `aasa-validation.json` or `aasa-production-blocker.json` with required app IDs, route coverage, HTTPS/no-redirect expectation, and Team ID/AASA publication blocker details when applicable.
 
 ### ⬜ Unit 19a: Final Implementation Review — Review
 **What**: Spawn harsh implementation reviewer with full branch diff, planning/doing docs, and validation artifacts.
@@ -385,7 +386,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Round 2 reviewer returns no BLOCKER/MAJOR findings.
 
 ### ⬜ Unit 20a: PR And CI — Open
-**What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, GitHub `macos-26`/Xcode 26.5 bootstrap evidence, local macOS 26.2 launch/smoke evidence, known Xcode 27 capability blocker, and reviewer gate results.
+**What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, GitHub `macos-26`/Xcode 26.5 bootstrap evidence, local macOS 26.2 launch/smoke evidence, AASA validation/blocker evidence, known Xcode 27 capability blocker, and reviewer gate results.
 **Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
@@ -445,3 +446,5 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 01:55 Unit 1c complete: bootstrap tests and coverage generation pass; `Sources/SpoonjoyCore` is 100.0% covered in `unit-1c-codecov.json`; coverage flow corrected to run generation before the `--show-codecov-path` locator.
 - 2026-06-16 02:05 Added native link contract: Spoonjoy Apple must support Associated Domains for `applinks:spoonjoy.app`, a `spoonjoy` custom URL scheme fallback, and deterministic route parsing for canonical web links into the correct native screens.
 - 2026-06-16 02:10 Unit 2a complete: added coverage/warning contract checks; red log proves missing enforcement scripts and stale CI coverage/warning wiring fail before implementation.
+- 2026-06-16 02:13 Addressed deep-link reviewer findings by requiring table-driven deep-link parser tests, shared app-target URL handoff proof, final scenario deep-link evidence, and AASA validation/blocker artifacts.
+- 2026-06-16 02:20 Addressed Unit 1 reviewer findings by parsing `--stage` in covered core code, rejecting unsupported future stages nonzero, extending scenario capabilities with deep-link arrays, and refreshing warning-enforced Unit 1c artifacts.

@@ -20,6 +20,12 @@
     "appIntents" : [
 
     ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
     "offlineFlows" : [
       "fixture-offline-restore"
     ],
@@ -30,6 +36,9 @@
 
     ],
     "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
 
     ]
   },
