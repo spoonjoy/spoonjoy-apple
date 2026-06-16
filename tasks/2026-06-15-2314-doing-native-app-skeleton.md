@@ -255,7 +255,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Scenario JSON/log and coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; a static check proves `Sources/SpoonjoyScenarioVerifier/main.swift` is a thin adapter with no branching; `scripts/verify-native-scenarios.sh --stage native-metadata` produces deterministic artifacts and allows only surface checks to remain pending.
 
-### ⬜ Unit 11a: App State And Navigation View Models — Tests
+### ✅ Unit 11a: App State And Navigation View Models — Tests
 **What**: Write failing tests for app route selection, table-driven deep-link URL parsing, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
 **Output**: `Tests/SpoonjoyCoreTests/AppStateTests.swift` and `Tests/SpoonjoyCoreTests/DeepLinkRouterTests.swift`.
 **Acceptance**: Tests fail before view-model state exists. `DeepLinkRouterTests` must enumerate every URL in the deep-link contract, prove both `/recipes/{id}#cook` and `/recipes/{id}?mode=cook` map to cook mode, preserve decoded search `q`, accept only the listed scopes, map shopping/capture/settings routes, and return safe unknown-link state for unknown hosts, unknown paths, malformed/empty IDs, traversal-like IDs, and unsupported search scopes.
@@ -489,3 +489,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 09:38 Unit 9 review Round 3 converged with no remaining findings.
 - 2026-06-16 09:38 Unit 10 sidecar review converged after route, App Intent, guarded-source typecheck, verifier behavior, and pending-semantics fixes.
 - 2026-06-16 09:38 Unit 10c complete: moved process-exit glue out of measured Native core, added coverage tests for scenario command output, root overrides, failing source checks, and failing metadata checks, added `scripts/check-scenario-verifier-thin-adapter.rb`, and verified `Sources/SpoonjoyCore/Native` coverage at 100.00% (266/266), deterministic native-metadata verifier outputs, full Swift tests, warning scan, and warning-enforced Swift build.
+- 2026-06-16 09:42 Unit 11a complete: added failing app-state and deep-link router tests for route selection, contract-table URL parsing, safe unknown-link handling, sidebar/tab state, search state, recipe/cook-mode selection, capture draft status, shopping checkoff view-model state, and settings state; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-11a-red.log`.
