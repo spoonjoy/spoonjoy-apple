@@ -1,0 +1,5 @@
+$ ruby scripts/check-swift-package-structure.rb
+FAIL: Package.swift is missing
+
+$ swift test list
+error: Could not find Package.swift in this directory or any of its parent directories.

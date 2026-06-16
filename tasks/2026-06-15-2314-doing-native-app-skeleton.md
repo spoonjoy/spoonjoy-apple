@@ -104,12 +104,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 1a: Swift Package Bootstrap — Tests
 **What**: Add failing checks for `Package.swift` target declarations, fixture resource processing, empty `SpoonjoyCore` build, executable scenario target, and test target discovery.
 **Output**: `scripts/check-swift-package-structure.rb` and red log `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-1a-red.log`.
-**Acceptance**: Structure check and `swift test --list-tests` fail before `Package.swift` and target directories exist.
+**Acceptance**: Structure check and `swift test list` fail before `Package.swift` and target directories exist.
 
 ### ⬜ Unit 1b: Swift Package Bootstrap — Implementation
 **What**: Create `Package.swift`, `Sources/SpoonjoyCore/SpoonjoyCore.swift`, `Sources/SpoonjoyCore/Fixtures/`, `Sources/SpoonjoyScenarioVerifier/main.swift`, and `Tests/SpoonjoyCoreTests/SpoonjoyCoreBootstrapTests.swift`.
 **Output**: Swift package manifest, placeholder targets, fixture resource directory, executable target, and bootstrap tests.
-**Acceptance**: `scripts/check-swift-package-structure.rb` passes; `swift test --list-tests` discovers `SpoonjoyCoreTests`; `swift run -Xswiftc -warnings-as-errors SpoonjoyScenarioVerifier --stage bootstrap --output ${ARTIFACT_ROOT}/scenario-bootstrap.json` runs with `pending` checks only for native metadata and app surfaces.
+**Acceptance**: `scripts/check-swift-package-structure.rb` passes; `swift test list` discovers `SpoonjoyCoreTests`; `swift run -Xswiftc -warnings-as-errors SpoonjoyScenarioVerifier --stage bootstrap --output ${ARTIFACT_ROOT}/scenario-bootstrap.json` runs with `pending` checks only for native metadata and app surfaces.
 
 ### ⬜ Unit 1c: Swift Package Bootstrap — Coverage & Refactor
 **What**: Run Swift package tests and coverage command against bootstrap targets, then refactor manifest/resources if needed.
