@@ -1,0 +1,5 @@
+$ ruby scripts/check-native-justification.rb
+FAIL: docs/native-justification.md is missing
+
+$ ruby scripts/check-xcode-generator-contract.rb
+FAIL: scripts/generate-xcode-project.rb is missing
