@@ -94,7 +94,7 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 # Notes
 
 - Local preflight on 2026-06-15 reported Xcode 26.5, Swift 6.3.2, iOS/macOS 26.5 SDKs, macOS host 26.2, and a bounded CoreSimulator runtime-list timeout.
-- The current native repo has no project files yet; protected checks bootstrap-pass until this branch adds `Package.swift` and `Spoonjoy.xcodeproj`.
+- The current native repo has no project files yet, so protected checks bootstrap-pass only while neither `Package.swift` nor `Spoonjoy.xcodeproj` exists. Once Swift or Xcode sources exist, the workflow requires the verifier and coverage-enforcement hooks described in the doing doc.
 - The web design language requires food/object hierarchy over dashboard grids; the native shell should default to native lists/split views/toolbars while keeping cookbook authorship visible.
 - The app should be useful for dogfooding without production signing: local fixtures, offline state, token/session entry, and deterministic scenario checks all matter.
 - API explorer confirmed API v1 does not expose recipe/cookbook writes for native clients yet. This branch should not fake those mutations; capture/create screens can create local drafts and request builders, with sync expansion handled by later backend/native PRs if needed.
