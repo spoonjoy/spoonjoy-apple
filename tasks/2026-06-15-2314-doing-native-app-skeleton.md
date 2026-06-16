@@ -244,7 +244,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 10c: Native Integrations And Scenario Engine — Coverage & Refactor
 **What**: Run coverage, polish scenario output, and refactor descriptors.
 **Output**: Scenario JSON/log and coverage log.
-**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; verifier produces deterministic artifacts.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; `scripts/verify-native-scenarios.sh --stage native-metadata` produces deterministic artifacts and allows only surface checks to remain pending.
 
 ### ⬜ Unit 11a: App State And Navigation View Models — Tests
 **What**: Write failing tests for app route selection, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
@@ -262,14 +262,14 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 12a: Xcode Project And App Targets — Tests
-**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, deployment target labels, shared source membership, and build settings.
+**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, deployment target labels, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
 
 ### ⬜ Unit 12b: Xcode Project And App Targets — Implementation
 **What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, and build settings.
 **Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, and `Apps/Spoonjoy/Shared/Info.plist`.
-**Acceptance**: Project checks pass; the exact iOS and macOS build commands from Contract Constants pass.
+**Acceptance**: Project checks pass, including AppIntents/CoreSpotlight source membership in both app targets; the exact iOS and macOS build commands from Contract Constants pass.
 
 ### ⬜ Unit 12c: Xcode Project And App Targets — Determinism & Refactor
 **What**: Re-run generator, diff project, and refactor generated structure/settings.
@@ -304,7 +304,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 14c: Kitchen And Recipe Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor surface components.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, `scripts/verify-native-scenarios.sh --stage surfaces`, and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 15a: Cook Mode And Shopping Surfaces — Tests
 **What**: Add failing tests/static checks for focused cook-mode state, persisted progress, large kitchen-safe controls, receipt-like shopping list, checkoff behavior, and edit/check native affordances.
@@ -319,7 +319,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 15c: Cook Mode And Shopping Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, `scripts/verify-native-scenarios.sh --stage surfaces`, and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 16a: Search, Capture, Settings Surfaces — Tests
 **What**: Add failing tests/static checks for native search scopes, capture draft creation, settings state, offline status, and rejected production-write claims.
@@ -413,3 +413,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Ambiguity Round 2 converged with no remaining blockers.
 - 2026-06-15 23:14 Quality pass converged with all units explicit and TDD-shaped.
 - 2026-06-15 23:14 Addressed Tinfoil scrutiny with Swift package bootstrap, executable scenario verifier contract, and compileable AppIntents/CoreSpotlight integration requirements.
+- 2026-06-15 23:14 Addressed Tinfoil Round 3 findings with stage-specific verifier commands and explicit native integration target-membership checks.
