@@ -85,6 +85,223 @@ struct NativeScenarioTests {
         #expect(first.contains(#""shopping-list""#))
     }
 
+    @Test("native intent actions resolve routes local mutations and capture drafts")
+    func nativeIntentActionsResolveRoutesLocalMutationsAndCaptureDrafts() throws {
+        let resolver = NativeIntentActionResolver()
+        let openRecipe = try resolver.openRecipe(recipeID: " recipe_lemon_pantry_pasta ")
+        let cookMode = try resolver.startCookMode(recipeID: "recipe_lemon_pantry_pasta")
+        let shoppingAction = try resolver.addShoppingListItem(
+            name: " Preserved Lemons ",
+            quantity: 2,
+            unit: " jar ",
+            createdAt: "2026-06-16T14:00:00.000Z"
+        )
+        let captureAction = try resolver.captureRecipe(
+            source: " https://example.com/lemon-pasta\nAdd parsley. ",
+            createdAt: "2026-06-16T14:02:00.000Z"
+        )
+        let pantryAction = try resolver.addShoppingListItem(
+            name: " Flaky Salt ",
+            quantity: nil,
+            unit: "   ",
+            createdAt: "2026-06-16T14:04:00.000Z"
+        )
+        let shoppingMutation = try #require(shoppingAction.queuedMutation)
+        let captureDraft = try #require(captureAction.captureDraft)
+        let pantryMutation = try #require(pantryAction.queuedMutation)
+
+        #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+        #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+        #expect(openRecipe.queuedMutation == nil)
+        #expect(openRecipe.captureDraft == nil)
+        #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+        #expect(cookMode.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta/cook"))
+        #expect(cookMode.captureDraft == nil)
+        #expect(shoppingMutation.id == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
+        #expect(shoppingMutation.clientMutationID == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
+        #expect(shoppingMutation.createdAt == "2026-06-16T14:00:00.000Z")
+        #expect(
+            shoppingMutation.kind == .shoppingAdd(
+                name: "preserved lemons",
+                quantity: 2,
+                unit: "jar",
+                categoryKey: nil,
+                iconKey: nil
+            )
+        )
+        #expect(shoppingAction.route == .shoppingList)
+        #expect(shoppingAction.url == URL(string: "spoonjoy://shopping-list"))
+        #expect(shoppingAction.captureDraft == nil)
+        #expect(
+            pantryMutation.kind == .shoppingAdd(
+                name: "flaky salt",
+                quantity: nil,
+                unit: nil,
+                categoryKey: nil,
+                iconKey: nil
+            )
+        )
+        #expect(captureDraft.id == "intent-capture-2026-06-16T14-02-00-000Z")
+        #expect(captureDraft.previewLines == ["https://example.com/lemon-pasta", "Add parsley."])
+        #expect(captureDraft.status == .localOnly)
+        #expect(captureAction.route == .capture)
+        #expect(captureAction.url == URL(string: "spoonjoy://capture"))
+        #expect(captureAction.queuedMutation == nil)
+
+        #expect(throws: NativeIntentActionError.self) {
+            try resolver.openRecipe(recipeID: "../secret")
+        }
+        #expect(throws: NativeIntentActionError.self) {
+            try resolver.addShoppingListItem(
+                name: "   ",
+                quantity: nil,
+                unit: nil,
+                createdAt: "2026-06-16T14:01:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.self) {
+            try resolver.captureRecipe(source: "  ", createdAt: "2026-06-16T14:03:00.000Z")
+        }
+    }
+
+    @Test("spotlight index plan builds route aware searchable documents")
+    func spotlightIndexPlanBuildsRouteAwareSearchableDocuments() throws {
+        let recipes = try RecipeFixtureCatalog.decodeFromBundle().recipes
+        let cookbooks = try CookbookFixtureCatalog.decodeFromBundle().cookbooks
+        let shoppingList = try ShoppingListState.decodeFromBundle()
+        let documents = SpotlightIndexPlan.documents(
+            recipes: recipes,
+            cookbooks: cookbooks,
+            shoppingList: shoppingList
+        )
+        let recipe = try #require(documents.first { $0.uniqueIdentifier == "recipe:recipe_lemon_pantry_pasta" })
+        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "cookbook:cookbook_weeknights" })
+        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "shopping-list-item:item_lemons" })
+
+        #expect(documents.count == recipes.count + cookbooks.count + shoppingList.activeItems.count)
+        #expect(recipe.type == .recipe)
+        #expect(recipe.domainIdentifier == "app.spoonjoy.recipe")
+        #expect(recipe.title == "Lemon Pantry Pasta")
+        #expect(recipe.contentDescription.contains("ari"))
+        #expect(recipe.keywords.contains("Spoonjoy"))
+        #expect(recipe.keywords.contains("recipe"))
+        #expect(recipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+        #expect(cookbook.type == .cookbook)
+        #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+        #expect(cookbook.contentDescription.contains("2 recipes"))
+        #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
+        #expect(shoppingItem.type == .shoppingListItem)
+        #expect(shoppingItem.domainIdentifier == "app.spoonjoy.shopping-list-item")
+        #expect(shoppingItem.title == "lemons")
+        #expect(shoppingItem.contentDescription.contains("Shopping list"))
+        #expect(shoppingItem.route == .shoppingList)
+    }
+
+    @Test("spotlight index plan covers fallback copy singular counts and uncategorized items")
+    func spotlightIndexPlanCoversFallbackCopySingularCountsAndUncategorizedItems() throws {
+        let chef = ChefSummary(id: "chef_ari", username: "ari")
+        let attribution = RecipeAttribution(
+            creditText: "ari",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/recipes/recipe_spotlight_fallback")),
+            sourceURLRaw: nil,
+            sourceHost: nil,
+            sourceRecipe: nil
+        )
+        let servingRecipe = Recipe(
+            id: "recipe_spotlight_servings",
+            title: "Servings Recipe",
+            description: nil,
+            servings: "1 bowl",
+            chef: chef,
+            coverImageURL: nil,
+            coverProvenanceLabel: nil,
+            coverSourceType: nil,
+            coverVariant: nil,
+            href: "/recipes/recipe_spotlight_servings",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/recipes/recipe_spotlight_servings")),
+            attribution: attribution,
+            createdAt: "2026-06-16T14:05:00.000Z",
+            updatedAt: "2026-06-16T14:05:00.000Z",
+            steps: [
+                RecipeStep(
+                    id: "step_spotlight_servings",
+                    stepNum: 1,
+                    stepTitle: nil,
+                    description: "Serve.",
+                    duration: nil,
+                    ingredients: []
+                )
+            ],
+            cookbooks: []
+        )
+        let readyRecipe = Recipe(
+            id: "recipe_spotlight_ready",
+            title: "Ready Recipe",
+            description: nil,
+            servings: nil,
+            chef: chef,
+            coverImageURL: nil,
+            coverProvenanceLabel: nil,
+            coverSourceType: nil,
+            coverVariant: nil,
+            href: "/recipes/recipe_spotlight_ready",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/recipes/recipe_spotlight_ready")),
+            attribution: attribution,
+            createdAt: "2026-06-16T14:06:00.000Z",
+            updatedAt: "2026-06-16T14:06:00.000Z",
+            steps: [
+                RecipeStep(
+                    id: "step_spotlight_ready",
+                    stepNum: 1,
+                    stepTitle: nil,
+                    description: "Cook.",
+                    duration: nil,
+                    ingredients: []
+                )
+            ],
+            cookbooks: []
+        )
+        let cookbook = Cookbook(
+            id: "cookbook_spotlight_one",
+            title: "One Recipe",
+            chef: chef,
+            recipeCount: 1,
+            cover: CookbookCover(imageURLs: []),
+            href: "/cookbooks/cookbook_spotlight_one",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/cookbooks/cookbook_spotlight_one")),
+            attribution: CookbookAttribution(
+                creditText: "ari",
+                canonicalURL: try #require(URL(string: "https://spoonjoy.app/cookbooks/cookbook_spotlight_one"))
+            ),
+            createdAt: "2026-06-16T14:07:00.000Z",
+            updatedAt: "2026-06-16T14:07:00.000Z",
+            recipes: [RecipeSummary(recipe: servingRecipe)]
+        )
+        let shoppingItem = ShoppingListItem(
+            id: "item_uncategorized",
+            name: "salt",
+            quantity: nil,
+            unit: nil,
+            checked: false,
+            checkedAt: nil,
+            deletedAt: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            sortIndex: 0,
+            updatedAt: "2026-06-16T14:08:00.000Z"
+        )
+
+        let servingsDocument = SpotlightIndexPlan.document(recipe: servingRecipe)
+        let readyDocument = SpotlightIndexPlan.document(recipe: readyRecipe)
+        let cookbookDocument = SpotlightIndexPlan.document(cookbook: cookbook)
+        let shoppingDocument = SpotlightIndexPlan.document(shoppingListItem: shoppingItem)
+
+        #expect(servingsDocument.contentDescription.contains("1 bowl"))
+        #expect(readyDocument.contentDescription.contains("Ready to cook in Spoonjoy."))
+        #expect(cookbookDocument.contentDescription.contains("1 recipe"))
+        #expect(shoppingDocument.keywords.contains("shopping"))
+    }
+
     @Test("surfaces report proves kitchen recipe cook and shopping slices")
     func surfacesReportProvesKitchenRecipeCookAndShoppingSlices() throws {
         let report = try ScenarioReporter.report(for: .surfaces)
@@ -320,24 +537,37 @@ struct NativeScenarioTests {
         for declaration in [
             "struct OpenRecipeIntent: AppIntent",
             "struct StartCookModeIntent: AppIntent",
-            "struct AddShoppingListItemIntent: AppIntent"
+            "struct AddShoppingListItemIntent: AppIntent",
+            "struct CaptureRecipeIntent: AppIntent"
         ] {
             #expect(appIntentsSource.contains(declaration))
         }
         #expect(appIntentsSource.contains("#if canImport(AppIntents)"))
         #expect(appIntentsSource.contains("import AppIntents"))
+        #expect(appIntentsSource.contains("import SpoonjoyCore"))
         #expect(appIntentsSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
+        #expect(appIntentsSource.contains("NativeIntentActionResolver"))
+        #expect(appIntentsSource.contains("OpenURLIntent"))
+        #expect(appIntentsSource.contains(".result(opensIntent:"))
+        #expect(appIntentsSource.contains("dialog:"))
+        #expect(!appIntentsSource.contains("func perform() async throws -> some IntentResult {\n        .result()\n    }"))
 
         for declaration in [
             "struct SpoonjoySpotlightIndexer",
             "CSSearchableItem",
             "CSSearchableItemAttributeSet",
-            "shopping-list-item"
+            "CSSearchableIndex.default()",
+            "indexSearchableItems",
+            "SpotlightIndexPlan",
+            "SpotlightIndexDocument",
+            "SpotlightIndexType",
+            "shoppingListItem"
         ] {
             #expect(spotlightSource.contains(declaration))
         }
         #expect(spotlightSource.contains("#if canImport(CoreSpotlight)"))
         #expect(spotlightSource.contains("import CoreSpotlight"))
+        #expect(spotlightSource.contains("import SpoonjoyCore"))
         #expect(spotlightSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
 
         try assertSwiftSourceTypechecks(appIntentsPath)
@@ -448,7 +678,13 @@ struct NativeScenarioTests {
     private func assertSwiftSourceTypechecks(_ relativePath: String) throws {
         let result = try runProcess(
             "/usr/bin/xcrun",
-            arguments: ["swiftc", "-typecheck", "-warnings-as-errors", repoURL.appendingPathComponent(relativePath).path],
+            arguments: [
+                "swiftc",
+                "-typecheck",
+                "-warnings-as-errors",
+                "-I", repoURL.appendingPathComponent(".build/arm64-apple-macosx/debug/Modules").path,
+                repoURL.appendingPathComponent(relativePath).path
+            ],
             currentDirectoryURL: repoURL
         )
 

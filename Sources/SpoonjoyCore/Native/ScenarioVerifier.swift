@@ -83,10 +83,20 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import SpoonjoyCore",
                         "@available(iOS 27.0, macOS 27.0, *)",
                         "OpenRecipeIntent",
                         "StartCookModeIntent",
-                        "AddShoppingListItemIntent"
+                        "AddShoppingListItemIntent",
+                        "CaptureRecipeIntent",
+                        "NativeIntentActionResolver",
+                        "SpoonjoyIntentStateWriter",
+                        "OpenURLIntent",
+                        ".result(opensIntent:",
+                        "dialog:"
+                    ],
+                    forbiddenTokens: [
+                        "func perform() async throws -> some IntentResult {\n        .result()\n    }"
                     ]
                 ),
                 sourceCheck(
@@ -97,13 +107,17 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(CoreSpotlight)",
                         "import CoreSpotlight",
+                        "import SpoonjoyCore",
                         "@available(iOS 27.0, macOS 27.0, *)",
                         "SpoonjoySpotlightIndexer",
+                        "SpotlightIndexPlan",
+                        "SpotlightIndexDocument",
                         "CSSearchableItem",
                         "CSSearchableItemAttributeSet",
-                        "recipe",
-                        "cookbook",
-                        "shopping-list-item"
+                        "CSSearchableIndex.default()",
+                        "indexSearchableItems",
+                        "SpotlightIndexType",
+                        "shoppingListItem"
                     ]
                 ),
                 ScenarioCheck(

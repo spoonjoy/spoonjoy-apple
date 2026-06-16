@@ -1,0 +1,155 @@
+[0/1] Planning build
+Building for debugging...
+[0/8] Write sources
+[2/8] Write swift-version--58304C5D6DBC2206.txt
+[4/47] Compiling SpoonjoyCore SearchState.swift
+[5/47] Compiling SpoonjoyCore AuthSessionState.swift
+[6/47] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[7/47] Compiling SpoonjoyCore OAuthPKCE.swift
+[8/51] Compiling SpoonjoyCore APIClient.swift
+[9/51] Compiling SpoonjoyCore APIEnvelope.swift
+[10/51] Compiling SpoonjoyCore APIError.swift
+[11/51] Compiling SpoonjoyCore APIRequestBuilder.swift
+[12/51] Compiling SpoonjoyCore APIRetryPolicy.swift
+[13/51] Emitting module SpoonjoyCore
+[14/51] Compiling SpoonjoyCore AppRoute.swift
+[15/51] Compiling SpoonjoyCore DeepLinkRouter.swift
+[16/51] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[17/51] Compiling SpoonjoyCore ScreenViewModels.swift
+[18/51] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[19/51] Compiling SpoonjoyCore OAuthRequests.swift
+[20/51] Compiling SpoonjoyCore OAuthResponses.swift
+[21/51] Compiling SpoonjoyCore RefreshCoordinator.swift
+[22/51] Compiling SpoonjoyCore TokenVault.swift
+[23/51] Compiling SpoonjoyCore CaptureDraft.swift
+[24/51] Compiling SpoonjoyCore CookModeProgress.swift
+[25/51] Compiling SpoonjoyCore KitchenFixtureState.swift
+[26/51] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[27/51] Compiling SpoonjoyCore JSONFileStore.swift
+[28/51] Compiling SpoonjoyCore MutationQueue.swift
+[29/51] Compiling SpoonjoyCore OfflineSnapshot.swift
+[30/51] Compiling SpoonjoyCore PaginationCursor.swift
+[31/51] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[32/51] Compiling SpoonjoyCore ShoppingListAPI.swift
+[33/51] Compiling SpoonjoyCore ShoppingListRequests.swift
+[34/51] Compiling SpoonjoyCore AppNavigationState.swift
+[35/51] Compiling SpoonjoyCore SettingsState.swift
+[36/51] Compiling SpoonjoyCore ShoppingListState.swift
+[37/51] Compiling SpoonjoyCore DeepLinkManifest.swift
+[38/51] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[39/51] Compiling SpoonjoyCore NativeIntentAction.swift
+[40/51] Compiling SpoonjoyCore ScenarioCommand.swift
+[41/51] Compiling SpoonjoyCore ScenarioReport.swift
+[42/51] Compiling SpoonjoyCore ScenarioVerifier.swift
+[43/51] Compiling SpoonjoyCore SyncCheckpoint.swift
+[44/51] Compiling SpoonjoyCore RecipeCookbook.swift
+[45/51] Compiling SpoonjoyCore SpoonjoyCore.swift
+[46/51] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[47/65] Compiling SpoonjoyScenarioVerifier main.swift
+[48/65] Emitting module SpoonjoyScenarioVerifier
+[49/65] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[49/65] Write Objects.LinkFileList
+[50/65] Linking SpoonjoyScenarioVerifier
+[51/65] Applying SpoonjoyScenarioVerifier
+[53/65] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[54/66] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[55/66] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[56/66] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[57/66] Compiling SpoonjoyCoreTests AppStateTests.swift
+[58/66] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[59/66] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[60/66] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[61/66] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[62/66] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[63/66] Emitting module SpoonjoyCoreTests
+[64/66] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[65/68] Compiling SpoonjoyApplePackageTests runner.swift
+[66/68] Emitting module SpoonjoyApplePackageTests
+[66/68] Write Objects.LinkFileList
+[67/68] Linking SpoonjoyApplePackageTests
+Build complete! (6.64s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "native intent actions resolve routes local mutations and capture drafts" started.
+◇ Test "scenario command parses surfaces stage" started.
+◇ Test "scenario command writes output and supports stdout mode" started.
+◇ Test "surfaces report fails when surface sources are missing" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "final behavioral checks fail closed for weak settings offline and link safety" started.
+◇ Test "native metadata report encoding is deterministic" started.
+◇ Test "app integration sources typecheck and declare expected native types" started.
+◇ Test "spotlight index plan builds route aware searchable documents" started.
+◇ Test "final report proves search capture settings and deep link safety" started.
+◇ Test "scenario verifier covers root override and failing native metadata checks" started.
+◇ Test "surface behavioral checks fail closed for missing or throwing fixture data" started.
+◇ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" started.
+◇ Test "native metadata command parses stage and output path" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+◇ Test "surfaces report proves kitchen recipe cook and shopping slices" started.
+✔ Test "scenario command parses surfaces stage" passed after 0.003 seconds.
+✔ Test "native intent actions resolve routes local mutations and capture drafts" passed after 0.003 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.003 seconds.
+✔ Test "scenario verifier covers root override and failing native metadata checks" passed after 0.003 seconds.
+✔ Test "native metadata command parses stage and output path" passed after 0.003 seconds.
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}✔ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" passed after 0.003 seconds.
+
+✔ Test "native metadata report encoding is deterministic" passed after 0.003 seconds.
+✔ Test "scenario command writes output and supports stdout mode" passed after 0.003 seconds.
+✔ Test "final behavioral checks fail closed for weak settings offline and link safety" passed after 0.007 seconds.
+✔ Test "spotlight index plan builds route aware searchable documents" passed after 0.008 seconds.
+✔ Test "surface behavioral checks fail closed for missing or throwing fixture data" passed after 0.008 seconds.
+✔ Test "surfaces report fails when surface sources are missing" passed after 0.008 seconds.
+✔ Test "surfaces report proves kitchen recipe cook and shopping slices" passed after 0.010 seconds.
+✔ Test "final report proves search capture settings and deep link safety" passed after 0.017 seconds.
+✔ Test "app integration sources typecheck and declare expected native types" passed after 0.712 seconds.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 14.219 seconds.
+✔ Suite "Native scenario metadata" passed after 14.220 seconds.
+✔ Test run with 16 tests in 1 suite passed after 14.220 seconds.

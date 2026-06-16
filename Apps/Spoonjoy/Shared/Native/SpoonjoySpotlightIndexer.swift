@@ -1,32 +1,61 @@
 import Foundation
+import SpoonjoyCore
 
 #if canImport(CoreSpotlight)
 import CoreSpotlight
 
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoySpotlightIndexer {
-    enum IndexedType: String, CaseIterable {
-        case recipe
-        case cookbook
-        case shoppingListItem = "shopping-list-item"
+    static let searchableTypes: [SpotlightIndexType] = [.recipe, .cookbook, .shoppingListItem]
+
+    func documents(
+        recipes: [Recipe],
+        cookbooks: [Cookbook],
+        shoppingList: ShoppingListState
+    ) -> [SpotlightIndexDocument] {
+        SpotlightIndexPlan.documents(
+            recipes: recipes,
+            cookbooks: cookbooks,
+            shoppingList: shoppingList
+        )
     }
 
-    func searchableItem(
-        id: String,
-        type: IndexedType,
-        title: String,
-        summary: String
-    ) -> CSSearchableItem {
+    func searchableItem(document: SpotlightIndexDocument) -> CSSearchableItem {
         let attributes = CSSearchableItemAttributeSet(itemContentType: "public.data")
-        attributes.title = title
-        attributes.contentDescription = summary
-        attributes.keywords = [type.rawValue, "Spoonjoy"]
+        attributes.title = document.title
+        attributes.contentDescription = document.contentDescription
+        attributes.keywords = document.keywords
 
         return CSSearchableItem(
-            uniqueIdentifier: "\(type.rawValue):\(id)",
-            domainIdentifier: "app.spoonjoy.\(type.rawValue)",
+            uniqueIdentifier: document.uniqueIdentifier,
+            domainIdentifier: document.domainIdentifier,
             attributeSet: attributes
         )
+    }
+
+    func index(documents: [SpotlightIndexDocument]) async throws {
+        let items = documents.map(searchableItem(document:))
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            CSSearchableIndex.default().indexSearchableItems(items) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    func index(
+        recipes: [Recipe],
+        cookbooks: [Cookbook],
+        shoppingList: ShoppingListState
+    ) async throws {
+        try await index(documents: documents(
+            recipes: recipes,
+            cookbooks: cookbooks,
+            shoppingList: shoppingList
+        ))
     }
 }
 #endif
