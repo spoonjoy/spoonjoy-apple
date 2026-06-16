@@ -1,0 +1,314 @@
+{
+  "fetchedAt": "2026-06-16T17:31:23.375Z",
+  "referenceRepo": "ourostack/ouro-md",
+  "repositories": {
+    "ourostack/ouro-md": {
+      "repo": {
+        "defaultBranchRef": {
+          "name": "main"
+        },
+        "isPrivate": false,
+        "nameWithOwner": "ourostack/ouro-md",
+        "url": "https://github.com/ourostack/ouro-md"
+      },
+      "protection": {
+        "url": "https://api.github.com/repos/ourostack/ouro-md/branches/main/protection",
+        "required_status_checks": {
+          "url": "https://api.github.com/repos/ourostack/ouro-md/branches/main/protection/required_status_checks",
+          "strict": true,
+          "contexts": [
+            "Swift tests",
+            "Native scenario verifier",
+            "App bundle",
+            "Coverage"
+          ],
+          "contexts_url": "https://api.github.com/repos/ourostack/ouro-md/branches/main/protection/required_status_checks/contexts",
+          "checks": [
+            {
+              "context": "Swift tests",
+              "app_id": 15368
+            },
+            {
+              "context": "Native scenario verifier",
+              "app_id": 15368
+            },
+            {
+              "context": "App bundle",
+              "app_id": 15368
+            },
+            {
+              "context": "Coverage",
+              "app_id": 15368
+            }
+          ]
+        },
+        "required_signatures": {
+          "url": "https://api.github.com/repos/ourostack/ouro-md/branches/main/protection/required_signatures",
+          "enabled": false
+        },
+        "enforce_admins": {
+          "url": "https://api.github.com/repos/ourostack/ouro-md/branches/main/protection/enforce_admins",
+          "enabled": true
+        },
+        "required_linear_history": {
+          "enabled": true
+        },
+        "allow_force_pushes": {
+          "enabled": false
+        },
+        "allow_deletions": {
+          "enabled": false
+        },
+        "block_creations": {
+          "enabled": false
+        },
+        "required_conversation_resolution": {
+          "enabled": true
+        },
+        "lock_branch": {
+          "enabled": false
+        },
+        "allow_fork_syncing": {
+          "enabled": false
+        }
+      },
+      "rulesets": [],
+      "workflows": [
+        {
+          "name": "CI",
+          "path": ".github/workflows/ci.yml",
+          "state": "active"
+        },
+        {
+          "name": "Release",
+          "path": ".github/workflows/release.yml",
+          "state": "active"
+        }
+      ],
+      "normalized": {
+        "defaultBranch": "main",
+        "enforceAdmins": true,
+        "strictStatusChecks": true,
+        "requiredStatusChecks": [
+          "Swift tests",
+          "Native scenario verifier",
+          "App bundle",
+          "Coverage"
+        ],
+        "requiredLinearHistory": true,
+        "allowForcePushes": false,
+        "allowDeletions": false,
+        "requiredConversationResolution": true,
+        "rulesetsCount": 0
+      }
+    },
+    "spoonjoy/spoonjoy-apple": {
+      "repo": {
+        "defaultBranchRef": {
+          "name": "main"
+        },
+        "isPrivate": false,
+        "nameWithOwner": "spoonjoy/spoonjoy-apple",
+        "url": "https://github.com/spoonjoy/spoonjoy-apple"
+      },
+      "protection": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection",
+        "required_status_checks": {
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_status_checks",
+          "strict": true,
+          "contexts": [
+            "Swift tests",
+            "Native scenario verifier",
+            "App bundle",
+            "Coverage"
+          ],
+          "contexts_url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_status_checks/contexts",
+          "checks": [
+            {
+              "context": "Swift tests",
+              "app_id": null
+            },
+            {
+              "context": "Native scenario verifier",
+              "app_id": null
+            },
+            {
+              "context": "App bundle",
+              "app_id": null
+            },
+            {
+              "context": "Coverage",
+              "app_id": null
+            }
+          ]
+        },
+        "required_signatures": {
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_signatures",
+          "enabled": false
+        },
+        "enforce_admins": {
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/enforce_admins",
+          "enabled": true
+        },
+        "required_linear_history": {
+          "enabled": true
+        },
+        "allow_force_pushes": {
+          "enabled": false
+        },
+        "allow_deletions": {
+          "enabled": false
+        },
+        "block_creations": {
+          "enabled": false
+        },
+        "required_conversation_resolution": {
+          "enabled": true
+        },
+        "lock_branch": {
+          "enabled": false
+        },
+        "allow_fork_syncing": {
+          "enabled": false
+        }
+      },
+      "rulesets": [],
+      "workflows": [
+        {
+          "name": "Native",
+          "path": ".github/workflows/native.yml",
+          "state": "active"
+        }
+      ],
+      "normalized": {
+        "defaultBranch": "main",
+        "enforceAdmins": true,
+        "strictStatusChecks": true,
+        "requiredStatusChecks": [
+          "Swift tests",
+          "Native scenario verifier",
+          "App bundle",
+          "Coverage"
+        ],
+        "requiredLinearHistory": true,
+        "allowForcePushes": false,
+        "allowDeletions": false,
+        "requiredConversationResolution": true,
+        "rulesetsCount": 0
+      }
+    },
+    "spoonjoy/spoonjoy-v2": {
+      "repo": {
+        "defaultBranchRef": {
+          "name": "main"
+        },
+        "isPrivate": false,
+        "nameWithOwner": "spoonjoy/spoonjoy-v2",
+        "url": "https://github.com/spoonjoy/spoonjoy-v2"
+      },
+      "protection": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection",
+        "required_status_checks": {
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_status_checks",
+          "strict": true,
+          "contexts": [
+            "coverage",
+            "e2e",
+            "build-storybook"
+          ],
+          "contexts_url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_status_checks/contexts",
+          "checks": [
+            {
+              "context": "coverage",
+              "app_id": null
+            },
+            {
+              "context": "e2e",
+              "app_id": null
+            },
+            {
+              "context": "build-storybook",
+              "app_id": null
+            }
+          ]
+        },
+        "required_signatures": {
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_signatures",
+          "enabled": false
+        },
+        "enforce_admins": {
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/enforce_admins",
+          "enabled": true
+        },
+        "required_linear_history": {
+          "enabled": true
+        },
+        "allow_force_pushes": {
+          "enabled": false
+        },
+        "allow_deletions": {
+          "enabled": false
+        },
+        "block_creations": {
+          "enabled": false
+        },
+        "required_conversation_resolution": {
+          "enabled": true
+        },
+        "lock_branch": {
+          "enabled": false
+        },
+        "allow_fork_syncing": {
+          "enabled": false
+        }
+      },
+      "rulesets": [],
+      "workflows": [
+        {
+          "name": "CI",
+          "path": ".github/workflows/ci.yml",
+          "state": "active"
+        },
+        {
+          "name": ".github/workflows/cloudflare-preview-smoke.yml",
+          "path": ".github/workflows/cloudflare-preview-smoke.yml",
+          "state": "active"
+        },
+        {
+          "name": "Production Deploy",
+          "path": ".github/workflows/production-deploy.yml",
+          "state": "active"
+        },
+        {
+          "name": "QA Image Cover Smoke",
+          "path": ".github/workflows/qa-image-cover-smoke.yml",
+          "state": "active"
+        },
+        {
+          "name": "Storybook",
+          "path": ".github/workflows/storybook.yml",
+          "state": "active"
+        }
+      ],
+      "normalized": {
+        "defaultBranch": "main",
+        "enforceAdmins": true,
+        "strictStatusChecks": true,
+        "requiredStatusChecks": [
+          "coverage",
+          "e2e",
+          "build-storybook"
+        ],
+        "requiredLinearHistory": true,
+        "allowForcePushes": false,
+        "allowDeletions": false,
+        "requiredConversationResolution": true,
+        "rulesetsCount": 0
+      }
+    }
+  },
+  "conclusion": {
+    "spoonjoyAppleMatchesNativeReferencePosture": true,
+    "spoonjoyV2HasStandardProtectedMain": true
+  }
+}
