@@ -1,0 +1,158 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:157:17: error: cannot find type 'AuthSession' in scope
+155 |         expiresAt: Date,
+156 |         scope: String = "shopping_list:read shopping_list:write"
+157 |     ) throws -> AuthSession {
+    |                 `- error: cannot find type 'AuthSession' in scope
+158 |         try AuthSession(
+159 |             clientID: clientID,
+[4/6] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:157:17: error: cannot find type 'AuthSession' in scope
+155 |         expiresAt: Date,
+156 |         scope: String = "shopping_list:read shopping_list:write"
+157 |     ) throws -> AuthSession {
+    |                 `- error: cannot find type 'AuthSession' in scope
+158 |         try AuthSession(
+159 |             clientID: clientID,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:38:25: error: cannot find 'AuthSessionError' in scope
+ 36 |         #expect(rotated.scope == "shopping_list:read shopping_list:write")
+ 37 | 
+ 38 |         #expect(throws: AuthSessionError.self) {
+    |                         `- error: cannot find 'AuthSessionError' in scope
+ 39 |             try authSession(clientID: " \n ", accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now)
+ 40 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:41:25: error: cannot find 'AuthSessionError' in scope
+ 39 |             try authSession(clientID: " \n ", accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now)
+ 40 |         }
+ 41 |         #expect(throws: AuthSessionError.self) {
+    |                         `- error: cannot find 'AuthSessionError' in scope
+ 42 |             try authSession(accessToken: " \n ", refreshToken: "ort_refresh", expiresAt: now)
+ 43 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:44:25: error: cannot find 'AuthSessionError' in scope
+ 42 |             try authSession(accessToken: " \n ", refreshToken: "ort_refresh", expiresAt: now)
+ 43 |         }
+ 44 |         #expect(throws: AuthSessionError.self) {
+    |                         `- error: cannot find 'AuthSessionError' in scope
+ 45 |             try authSession(accessToken: "sj_access", refreshToken: " \n ", expiresAt: now)
+ 46 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:51:24: error: cannot find type 'TokenVault' in scope
+ 49 |     @Test("token vault persists client id and sessions independently")
+ 50 |     func tokenVaultPersistsClientIDAndSessionsIndependently() async throws {
+ 51 |         let vault: any TokenVault = InMemoryTokenVault()
+    |                        `- error: cannot find type 'TokenVault' in scope
+ 52 |         let session = try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now)
+ 53 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:51:37: error: cannot find 'InMemoryTokenVault' in scope
+ 49 |     @Test("token vault persists client id and sessions independently")
+ 50 |     func tokenVaultPersistsClientIDAndSessionsIndependently() async throws {
+ 51 |         let vault: any TokenVault = InMemoryTokenVault()
+    |                                     `- error: cannot find 'InMemoryTokenVault' in scope
+ 52 |         let session = try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now)
+ 53 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:72:21: error: cannot find 'InMemoryTokenVault' in scope
+ 70 |     @Test("refresh coordinator returns valid sessions without network refresh")
+ 71 |     func refreshCoordinatorReturnsValidSessionsWithoutNetworkRefresh() async throws {
+ 72 |         let vault = InMemoryTokenVault()
+    |                     `- error: cannot find 'InMemoryTokenVault' in scope
+ 73 |         let session = try authSession(accessToken: "sj_access_valid", refreshToken: "ort_refresh", expiresAt: now.addingTimeInterval(900))
+ 74 |         try await vault.saveSession(session)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:75:27: error: cannot find 'RefreshCoordinator' in scope
+ 73 |         let session = try authSession(accessToken: "sj_access_valid", refreshToken: "ort_refresh", expiresAt: now.addingTimeInterval(900))
+ 74 |         try await vault.saveSession(session)
+ 75 |         let coordinator = RefreshCoordinator(vault: vault) { _, _ in
+    |                           `- error: cannot find 'RefreshCoordinator' in scope
+ 76 |             throw RefreshSpyError.unexpectedRefresh
+ 77 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:85:21: error: cannot find 'InMemoryTokenVault' in scope
+ 83 |     @Test("refresh coordinator shares one concurrent refresh and rotates tokens atomically")
+ 84 |     func refreshCoordinatorSharesOneConcurrentRefreshAndRotatesTokensAtomically() async throws {
+ 85 |         let vault = InMemoryTokenVault()
+    |                     `- error: cannot find 'InMemoryTokenVault' in scope
+ 86 |         let expired = try authSession(accessToken: "sj_access_old", refreshToken: "ort_refresh_old", expiresAt: now.addingTimeInterval(-1))
+ 87 |         try await vault.saveSession(expired)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:89:27: error: cannot find 'RefreshCoordinator' in scope
+ 87 |         try await vault.saveSession(expired)
+ 88 |         let spy = RefreshSpy(response: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", expiresIn: 600))
+ 89 |         let coordinator = RefreshCoordinator(vault: vault) { clientID, refreshToken in
+    |                           `- error: cannot find 'RefreshCoordinator' in scope
+ 90 |             try await spy.refresh(clientID: clientID, refreshToken: refreshToken)
+ 91 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:95:28: error: no calls to throwing functions occur within 'try' expression
+ 93 |         async let first = coordinator.validSession(at: now)
+ 94 |         async let second = coordinator.validSession(at: now)
+ 95 |         let firstSession = try await first
+    |                            `- error: no calls to throwing functions occur within 'try' expression
+ 96 |         let secondSession = try await second
+ 97 |         let spySnapshot = await spy.snapshot()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:96:29: error: no calls to throwing functions occur within 'try' expression
+ 94 |         async let second = coordinator.validSession(at: now)
+ 95 |         let firstSession = try await first
+ 96 |         let secondSession = try await second
+    |                             `- error: no calls to throwing functions occur within 'try' expression
+ 97 |         let spySnapshot = await spy.snapshot()
+ 98 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:110:21: error: cannot find 'InMemoryTokenVault' in scope
+108 |     @Test("refresh failures preserve prior session and disconnect clears auth state")
+109 |     func refreshFailuresPreservePriorSessionAndDisconnectClearsAuthState() async throws {
+110 |         let vault = InMemoryTokenVault()
+    |                     `- error: cannot find 'InMemoryTokenVault' in scope
+111 |         let expired = try authSession(accessToken: "sj_access_old", refreshToken: "ort_refresh_old", expiresAt: now.addingTimeInterval(-1))
+112 |         try await vault.saveClientID("cm_client_id")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:114:27: error: cannot find 'RefreshCoordinator' in scope
+112 |         try await vault.saveClientID("cm_client_id")
+113 |         try await vault.saveSession(expired)
+114 |         let coordinator = RefreshCoordinator(vault: vault) { _, _ in
+    |                           `- error: cannot find 'RefreshCoordinator' in scope
+115 |             throw RefreshSpyError.offline
+116 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:135:27: error: cannot find 'RefreshCoordinator' in scope
+133 |     @Test("missing sessions are invalid refresh state")
+134 |     func missingSessionsAreInvalidRefreshState() async throws {
+135 |         let coordinator = RefreshCoordinator(vault: InMemoryTokenVault()) { _, _ in
+    |                           `- error: cannot find 'RefreshCoordinator' in scope
+136 |             throw RefreshSpyError.unexpectedRefresh
+137 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:135:53: error: cannot find 'InMemoryTokenVault' in scope
+133 |     @Test("missing sessions are invalid refresh state")
+134 |     func missingSessionsAreInvalidRefreshState() async throws {
+135 |         let coordinator = RefreshCoordinator(vault: InMemoryTokenVault()) { _, _ in
+    |                                                     `- error: cannot find 'InMemoryTokenVault' in scope
+136 |             throw RefreshSpyError.unexpectedRefresh
+137 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:144:17: error: cannot find 'TokenRefreshError' in scope
+142 |         do {
+143 |             _ = try await coordinator.validSession(at: now)
+144 |         } catch TokenRefreshError.missingSession {
+    |                 `- error: cannot find 'TokenRefreshError' in scope
+145 |             missingSession = true
+146 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/TokenRefreshTests.swift:158:13: error: cannot find 'AuthSession' in scope
+156 |         scope: String = "shopping_list:read shopping_list:write"
+157 |     ) throws -> AuthSession {
+158 |         try AuthSession(
+    |             `- error: cannot find 'AuthSession' in scope
+159 |             clientID: clientID,
+160 |             accessToken: accessToken,
+error: fatalError

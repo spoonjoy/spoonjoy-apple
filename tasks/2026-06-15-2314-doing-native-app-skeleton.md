@@ -210,7 +210,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: OAuth coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Auth/OAuth*`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 8a: Token Vault And Refresh Coordination — Tests
+### ✅ Unit 8a: Token Vault And Refresh Coordination — Tests
 **What**: Write failing tests for token vault protocol behavior, in-memory vault, persisted client id abstraction, atomic refresh-token rotation, invalid state handling, and single-flight refresh.
 **Output**: `Tests/SpoonjoyCoreTests/TokenRefreshTests.swift`.
 **Acceptance**: Tests fail before vault/coordinator implementation exists.
@@ -471,3 +471,5 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:31 Unit 7c complete: added OAuth edge coverage for invalid PKCE verifiers and missing redirect URL scheme/host branches, refactored form encoding to remove an unreachable fallback branch, and verified `Sources/SpoonjoyCore/Auth` at 100.00% coverage with full Swift tests, warning scan, and warning-enforced Swift build passing.
 - 2026-06-16 08:35 Unit 6 review Round 2 converged with no remaining findings.
 - 2026-06-16 08:39 Addressed Unit 7 reviewer findings by rejecting arbitrary HTTPS redirect hosts outside `spoonjoy.app`, tightening OAuth outbound-shape assertions for `Accept`, `Content-Type`, `Authorization`, and empty query items, and saving red/green/full-test/coverage/build/warning-scan evidence with `Sources/SpoonjoyCore/Auth` at 100.00% coverage.
+- 2026-06-16 08:43 Unit 7 review Round 2 converged with no remaining findings.
+- 2026-06-16 08:43 Unit 8a complete: added failing token vault and refresh coordination tests for validated auth sessions, persisted client id/session storage, signed-out and expired-token state, atomic refresh-token rotation, refresh-failure preservation, local disconnect clearing, and concurrent single-flight refresh behavior; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-8a-red.log`.
