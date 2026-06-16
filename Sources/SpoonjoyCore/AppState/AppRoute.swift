@@ -1,11 +1,11 @@
 import Foundation
 
-public enum RecipePresentation: Equatable, Sendable {
+public enum RecipePresentation: Hashable, Sendable {
     case detail
     case cook
 }
 
-public enum SearchScope: String, CaseIterable, Equatable, Sendable {
+public enum SearchScope: String, CaseIterable, Hashable, Sendable {
     case all
     case recipes
     case cookbooks
@@ -13,7 +13,7 @@ public enum SearchScope: String, CaseIterable, Equatable, Sendable {
     case shoppingList = "shopping-list"
 }
 
-public enum AppSection: Equatable, Sendable {
+public enum AppSection: Hashable, Sendable {
     case kitchen
     case recipes
     case cookbooks
@@ -23,7 +23,7 @@ public enum AppSection: Equatable, Sendable {
     case settings
 }
 
-public enum AppRoute: Equatable, Sendable {
+public enum AppRoute: Hashable, Sendable {
     case kitchen
     case recipes
     case recipeDetail(id: String, presentation: RecipePresentation)

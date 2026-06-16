@@ -1,0 +1,51 @@
+Another instance of SwiftPM (PID: 52087) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+[2/41] Compiling SpoonjoyCore RefreshCoordinator.swift
+[3/41] Compiling SpoonjoyCore TokenVault.swift
+[4/41] Compiling SpoonjoyCore CaptureDraft.swift
+[5/41] Compiling SpoonjoyCore CookModeProgress.swift
+[6/44] Compiling SpoonjoyCore ShoppingListRequests.swift
+[7/44] Compiling SpoonjoyCore AppNavigationState.swift
+[8/44] Compiling SpoonjoyCore AppRoute.swift
+[9/44] Compiling SpoonjoyCore DeepLinkRouter.swift
+[10/44] Compiling SpoonjoyCore ScreenViewModels.swift
+[11/44] Compiling SpoonjoyCore SearchState.swift
+[12/44] Compiling SpoonjoyCore AuthSessionState.swift
+[13/44] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[14/44] Compiling SpoonjoyCore OAuthPKCE.swift
+[15/44] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[16/44] Compiling SpoonjoyCore OAuthRequests.swift
+[17/44] Compiling SpoonjoyCore OAuthResponses.swift
+[18/44] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[19/44] Compiling SpoonjoyCore ScenarioCommand.swift
+[20/44] Compiling SpoonjoyCore ScenarioReport.swift
+[21/44] Compiling SpoonjoyCore ScenarioVerifier.swift
+[22/44] Compiling SpoonjoyCore JSONFileStore.swift
+[23/44] Compiling SpoonjoyCore MutationQueue.swift
+[24/44] Compiling SpoonjoyCore OfflineSnapshot.swift
+[25/44] Compiling SpoonjoyCore SyncCheckpoint.swift
+[26/44] Compiling SpoonjoyCore APIRetryPolicy.swift
+[27/44] Compiling SpoonjoyCore PaginationCursor.swift
+[28/44] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[29/44] Compiling SpoonjoyCore ShoppingListAPI.swift
+[30/44] Emitting module SpoonjoyCore
+[31/44] Compiling SpoonjoyCore APIClient.swift
+[32/44] Compiling SpoonjoyCore APIEnvelope.swift
+[33/44] Compiling SpoonjoyCore APIError.swift
+[34/44] Compiling SpoonjoyCore APIRequestBuilder.swift
+[35/44] Compiling SpoonjoyCore KitchenFixtureState.swift
+[36/44] Compiling SpoonjoyCore SettingsState.swift
+[37/44] Compiling SpoonjoyCore ShoppingListState.swift
+[38/44] Compiling SpoonjoyCore DeepLinkManifest.swift
+[39/44] Compiling SpoonjoyCore RecipeCookbook.swift
+[40/44] Compiling SpoonjoyCore SpoonjoyCore.swift
+[41/44] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[42/47] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[43/47] Compiling SpoonjoyScenarioVerifier main.swift
+[44/47] Emitting module SpoonjoyScenarioVerifier
+[44/47] Write Objects.LinkFileList
+[45/47] Linking SpoonjoyScenarioVerifier
+[46/47] Applying SpoonjoyScenarioVerifier
+Build of product 'SpoonjoyScenarioVerifier' complete! (3.14s)
+native scenario verification ok: native-metadata

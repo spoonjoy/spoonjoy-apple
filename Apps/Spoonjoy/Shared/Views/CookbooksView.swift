@@ -1,0 +1,73 @@
+import SpoonjoyCore
+import SwiftUI
+
+struct CookbooksView: View {
+    let cookbooks: [Cookbook]
+    let openCookbook: (String) -> Void
+
+    var body: some View {
+        ScrollView {
+            CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
+                .padding()
+        }
+        .background(KitchenTableTheme.bone)
+    }
+}
+
+struct CookbookShelf: View {
+    let cookbooks: [Cookbook]
+    let openCookbook: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Cookbook Shelf")
+                .font(.title2)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(cookbooks, id: \.id) { cookbook in
+                        NavigationLink(value: AppRoute.cookbookDetail(id: cookbook.id)) {
+                            CookbookCoverView(cookbook: cookbook)
+                        }
+                        .simultaneousGesture(TapGesture().onEnded { openCookbook(cookbook.id) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct CookbookCoverView: View {
+    let cookbook: Cookbook
+    private var cover: CookbookCover {
+        cookbook.cover
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                    .fill(KitchenTableTheme.brass.opacity(0.18))
+                    .aspectRatio(3 / 4, contentMode: .fit)
+                if let imageURL = cover.primaryImageURL {
+                    AsyncImage(url: imageURL) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        KitchenTableTheme.herb.opacity(0.12)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                }
+            }
+            .frame(width: 120)
+
+            Text(cookbook.title)
+                .font(.headline)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text("\(cookbook.recipeCount) recipes")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 132, alignment: .leading)
+    }
+}

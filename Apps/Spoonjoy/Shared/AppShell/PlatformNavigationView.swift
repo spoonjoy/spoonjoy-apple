@@ -4,6 +4,17 @@ import SwiftUI
 struct PlatformNavigationView: View {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
+    private let recipes: [Recipe]
+    private let cookbooks: [Cookbook]
+    private let kitchen: KitchenFixtureState
+
+    init(navigation: Binding<AppNavigationState>, search: Binding<SearchState>) {
+        _navigation = navigation
+        _search = search
+        recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
+        cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
+        kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -16,6 +27,9 @@ struct PlatformNavigationView: View {
 #if os(iOS)
                     .navigationBarTitleDisplayMode(.large)
 #endif
+            }
+            .navigationDestination(for: AppRoute.self) { route in
+                destinationContent(for: route)
             }
             .searchable(text: searchText, prompt: "Search Spoonjoy")
             .searchScopes(searchScope) {
@@ -46,22 +60,38 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private var detailContent: some View {
-        switch navigation.route {
+        destinationContent(for: navigation.route)
+    }
+
+    @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
+        switch route {
         case .kitchen:
-            SignedOutSetupView(
-                openCapture: { navigation.navigate(to: .capture) },
-                openSettings: { navigation.navigate(to: .settings) }
+            KitchenView(
+                kitchen: kitchen,
+                recipes: recipes,
+                cookbooks: cookbooks,
+                openRecipe: openRecipe,
+                startCooking: startCooking,
+                openCookbook: openCookbook
             )
         case .recipes:
-            ShellPlaceholderView(title: "Recipes", systemImage: "book.closed", detail: "Recipe index is next.")
+            RecipesView(recipes: recipes, openRecipe: openRecipe)
         case .recipeDetail(let id, .detail):
-            ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
+            if let recipe = recipe(id: id) {
+                RecipeDetailView(viewModel: RecipeDetailViewModel(recipe: recipe), startCooking: startCooking)
+            } else {
+                ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
+            }
         case .recipeDetail(let id, .cook):
             ShellPlaceholderView(title: "Cook Mode", systemImage: "flame", detail: id)
         case .cookbooks:
-            ShellPlaceholderView(title: "Cookbooks", systemImage: "books.vertical", detail: "Cookbook shelf is next.")
+            CookbooksView(cookbooks: cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
-            ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
+            if let cookbook = cookbook(id: id) {
+                CookbookDetailPlaceholder(cookbook: cookbook)
+            } else {
+                ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
+            }
         case .shoppingList:
             ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Receipt rows are next.")
         case .search(let query, let scope):
@@ -163,6 +193,26 @@ struct PlatformNavigationView: View {
             "Shopping"
         }
     }
+
+    private func recipe(id: String) -> Recipe? {
+        recipes.first { $0.id == id }
+    }
+
+    private func cookbook(id: String) -> Cookbook? {
+        cookbooks.first { $0.id == id }
+    }
+
+    private func openRecipe(_ id: String) {
+        navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
+    }
+
+    private func startCooking(_ id: String) {
+        navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
+    }
+
+    private func openCookbook(_ id: String) {
+        navigation.navigate(to: .cookbookDetail(id: id))
+    }
 }
 
 private struct ShellPlaceholderView: View {
@@ -179,5 +229,36 @@ private struct ShellPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+    }
+}
+
+private struct CookbookDetailPlaceholder: View {
+    let cookbook: Cookbook
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(cookbook.title)
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(cookbook.attribution.creditText)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(.secondary)
+            CookbookShelf(cookbooks: [cookbook]) { _ in }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(KitchenTableTheme.bone)
+    }
+}
+
+private extension KitchenFixtureState {
+    static var bootstrapFallback: KitchenFixtureState {
+        KitchenFixtureState(
+            status: .bootstrap,
+            leadObject: .recipe(id: "recipe_lemon_pantry_pasta", title: "Lemon Pantry Pasta"),
+            primaryAction: .startCookMode(recipeID: "recipe_lemon_pantry_pasta"),
+            counts: KitchenCounts(recipes: 0, cookbooks: 0, shoppingItems: 0),
+            offlineRestore: OfflineRestoreMetadata(snapshotID: "bootstrap", includesShoppingList: false)
+        )
     }
 }

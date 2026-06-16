@@ -157,6 +157,23 @@ public struct RecipeSummary: Codable, Equatable {
         case createdAt
         case updatedAt
     }
+
+    public init(recipe: Recipe) {
+        id = recipe.id
+        title = recipe.title
+        description = recipe.description
+        servings = recipe.servings
+        chef = recipe.chef
+        coverImageURL = recipe.coverImageURL
+        coverProvenanceLabel = recipe.coverProvenanceLabel
+        coverSourceType = recipe.coverSourceType
+        coverVariant = recipe.coverVariant
+        href = recipe.href
+        canonicalURL = recipe.canonicalURL
+        attribution = recipe.attribution
+        createdAt = recipe.createdAt
+        updatedAt = recipe.updatedAt
+    }
 }
 
 public struct Recipe: Codable, Equatable {

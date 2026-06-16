@@ -388,6 +388,23 @@ struct KitchenStateTests {
         #expect(kitchen.offlineRestore.includesShoppingList)
     }
 
+    @Test("kitchen fixture supports explicit fallback construction")
+    func kitchenFixtureSupportsExplicitFallbackConstruction() {
+        let kitchen = KitchenFixtureState(
+            status: .bootstrap,
+            leadObject: .recipe(id: "recipe_local", title: "Local Recipe"),
+            primaryAction: .startCookMode(recipeID: "recipe_local"),
+            counts: KitchenCounts(recipes: 1, cookbooks: 0, shoppingItems: 0),
+            offlineRestore: OfflineRestoreMetadata(snapshotID: "local", includesShoppingList: false)
+        )
+
+        #expect(kitchen.status == .bootstrap)
+        #expect(kitchen.leadObject == .recipe(id: "recipe_local", title: "Local Recipe"))
+        #expect(kitchen.primaryAction == .startCookMode(recipeID: "recipe_local"))
+        #expect(kitchen.counts == KitchenCounts(recipes: 1, cookbooks: 0, shoppingItems: 0))
+        #expect(kitchen.offlineRestore == OfflineRestoreMetadata(snapshotID: "local", includesShoppingList: false))
+    }
+
     @Test("kitchen fixture associated values encode back to fixture shape")
     func kitchenFixtureAssociatedValuesEncodeBackToFixtureShape() throws {
         let kitchen = try KitchenFixtureState.decodeFromBundle()

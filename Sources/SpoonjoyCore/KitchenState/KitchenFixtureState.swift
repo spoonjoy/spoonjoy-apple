@@ -95,6 +95,11 @@ public struct KitchenCounts: Codable, Equatable {
 public struct OfflineRestoreMetadata: Codable, Equatable {
     public let snapshotID: String
     public let includesShoppingList: Bool
+
+    public init(snapshotID: String, includesShoppingList: Bool) {
+        self.snapshotID = snapshotID
+        self.includesShoppingList = includesShoppingList
+    }
 }
 
 public struct KitchenFixtureState: Codable, Equatable {
@@ -103,6 +108,20 @@ public struct KitchenFixtureState: Codable, Equatable {
     public let primaryAction: KitchenPrimaryAction
     public let counts: KitchenCounts
     public let offlineRestore: OfflineRestoreMetadata
+
+    public init(
+        status: KitchenFixtureStatus,
+        leadObject: KitchenLeadObject,
+        primaryAction: KitchenPrimaryAction,
+        counts: KitchenCounts,
+        offlineRestore: OfflineRestoreMetadata
+    ) {
+        self.status = status
+        self.leadObject = leadObject
+        self.primaryAction = primaryAction
+        self.counts = counts
+        self.offlineRestore = offlineRestore
+    }
 
     public static func decodeFromBundle() throws -> KitchenFixtureState {
         try JSONDecoder().decode(KitchenFixtureState.self, from: SpoonjoyFixture.data(named: "kitchen-fixture"))

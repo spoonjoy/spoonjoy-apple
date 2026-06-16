@@ -142,6 +142,28 @@ struct RecipeCookbookTests {
         #expect(summary.accessibilityLabel == "Recipe, Lemon Pantry Pasta by ari")
     }
 
+    @Test("recipe summary preserves index row fields from detail recipes")
+    func recipeSummaryPreservesIndexRowFieldsFromDetailRecipes() throws {
+        let catalog = try RecipeFixtureCatalog.decodeFromBundle()
+        let recipe = try #require(catalog.recipe(id: "recipe_lemon_pantry_pasta"))
+        let summary = RecipeSummary(recipe: recipe)
+
+        #expect(summary.id == recipe.id)
+        #expect(summary.title == recipe.title)
+        #expect(summary.description == recipe.description)
+        #expect(summary.servings == recipe.servings)
+        #expect(summary.chef == recipe.chef)
+        #expect(summary.coverImageURL == recipe.coverImageURL)
+        #expect(summary.coverProvenanceLabel == recipe.coverProvenanceLabel)
+        #expect(summary.coverSourceType == recipe.coverSourceType)
+        #expect(summary.coverVariant == recipe.coverVariant)
+        #expect(summary.href == recipe.href)
+        #expect(summary.canonicalURL == recipe.canonicalURL)
+        #expect(summary.attribution == recipe.attribution)
+        #expect(summary.createdAt == recipe.createdAt)
+        #expect(summary.updatedAt == recipe.updatedAt)
+    }
+
     @Test("recipe search summary falls back when serving text is absent")
     func recipeSearchSummaryFallsBackWithoutServings() throws {
         let catalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(servingsJSON: "null"))

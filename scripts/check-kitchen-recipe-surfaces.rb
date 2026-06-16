@@ -47,7 +47,6 @@ REQUIRED_TOKENS = {
     "List",
     "NavigationLink",
     "RecipeSummary",
-    "RecipeDetailViewModel",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
