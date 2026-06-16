@@ -22,7 +22,8 @@ REQUIRED_SOURCE_TOKENS = {
     "DeepLinkRouter",
     ".onOpenURL",
     "onContinueUserActivity(NSUserActivityTypeBrowsingWeb)",
-    "NSUserActivity.webpageURL",
+    "NSUserActivity",
+    ".webpageURL",
     "PlatformNavigationView"
   ],
   "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift" => [
@@ -34,7 +35,7 @@ REQUIRED_SOURCE_TOKENS = {
     "SearchScope",
     "AppRoute",
     "SignedOutSetupView",
-    "SpoonjoyToolbar",
+    ".spoonjoyToolbar",
     "#if os(macOS)",
     "#if os(iOS)"
   ],

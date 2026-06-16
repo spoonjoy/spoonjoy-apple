@@ -1,0 +1,124 @@
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[2/40] Compiling SpoonjoyCore JSONFileStore.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[3/40] Compiling SpoonjoyCore MutationQueue.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[4/40] Compiling SpoonjoyCore OfflineSnapshot.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[5/40] Compiling SpoonjoyCore SyncCheckpoint.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[6/40] Compiling SpoonjoyCore APIRetryPolicy.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[7/40] Compiling SpoonjoyCore PaginationCursor.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[8/40] Compiling SpoonjoyCore PublicCatalogRequests.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[9/40] Compiling SpoonjoyCore ShoppingListAPI.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[10/40] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[11/40] Compiling SpoonjoyCore ScenarioCommand.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[12/40] Compiling SpoonjoyCore ScenarioReport.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[13/40] Compiling SpoonjoyCore ScenarioVerifier.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[14/40] Emitting module SpoonjoyCore
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[15/40] Compiling SpoonjoyCore APIClient.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[16/40] Compiling SpoonjoyCore APIEnvelope.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[17/40] Compiling SpoonjoyCore APIError.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[18/40] Compiling SpoonjoyCore APIRequestBuilder.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[19/43] Compiling SpoonjoyCore ScreenViewModels.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[20/43] Compiling SpoonjoyCore SearchState.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[21/43] Compiling SpoonjoyCore AuthSessionState.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[22/43] Compiling SpoonjoyCore InMemoryTokenVault.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[23/43] Compiling SpoonjoyCore ShoppingListRequests.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[24/43] Compiling SpoonjoyCore AppNavigationState.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[25/43] Compiling SpoonjoyCore AppRoute.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[26/43] Compiling SpoonjoyCore DeepLinkRouter.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[27/43] Compiling SpoonjoyCore OAuthPKCE.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[28/43] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[29/43] Compiling SpoonjoyCore OAuthRequests.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[30/43] Compiling SpoonjoyCore OAuthResponses.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[31/43] Compiling SpoonjoyCore KitchenFixtureState.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[32/43] Compiling SpoonjoyCore SettingsState.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[33/43] Compiling SpoonjoyCore ShoppingListState.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[34/43] Compiling SpoonjoyCore DeepLinkManifest.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[35/43] Compiling SpoonjoyCore RefreshCoordinator.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[36/43] Compiling SpoonjoyCore TokenVault.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[37/43] Compiling SpoonjoyCore CaptureDraft.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[38/43] Compiling SpoonjoyCore CookModeProgress.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[39/43] Compiling SpoonjoyCore RecipeCookbook.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[40/43] Compiling SpoonjoyCore SpoonjoyCore.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'
+[41/43] Compiling SpoonjoyCore resource_bundle_accessor.swift
+<unknown>:0: error: using sysroot for 'MacOSX' but targeting 'iPhone'
+<unknown>:0: error: unable to load standard library for target 'arm64-apple-ios26.0-simulator'

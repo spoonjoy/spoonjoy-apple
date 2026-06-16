@@ -1,0 +1,5 @@
+Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift:1:8: error: no such module 'SpoonjoyCore'
+ 1 | import SpoonjoyCore
+   |        `- error: no such module 'SpoonjoyCore'
+ 2 | import SwiftUI
+ 3 | 

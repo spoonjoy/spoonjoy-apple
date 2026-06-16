@@ -15,13 +15,20 @@ CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
 ASSET_CATALOG = "Apps/Spoonjoy/Shared/Assets.xcassets"
-SHARED_SWIFT = [
-  "Apps/Spoonjoy/Shared/SpoonjoyApp.swift",
-  "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
-  "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
-].freeze
-IOS_SWIFT = ["Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"].freeze
-MAC_SWIFT = ["Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift"].freeze
+
+def swift_sources_under(relative_dir)
+  root = ROOT.join(relative_dir)
+  return [] unless root.directory?
+
+  root.find
+    .select { |path| path.file? && path.extname == ".swift" }
+    .map { |path| path.relative_path_from(ROOT).to_s }
+    .sort
+end
+
+SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/Shared").freeze
+IOS_SWIFT = swift_sources_under("Apps/Spoonjoy/iOS").freeze
+MAC_SWIFT = swift_sources_under("Apps/Spoonjoy/macOS").freeze
 
 options = {
   output_dir: nil
