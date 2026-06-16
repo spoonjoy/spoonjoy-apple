@@ -135,7 +135,7 @@ struct RecipeCookbookTests {
         #expect(summary.id == "recipe_lemon_pantry_pasta")
         #expect(summary.kind == .recipe)
         #expect(summary.title == "Lemon Pantry Pasta")
-        #expect(summary.subtitle == "ari - 4 servings")
+        #expect(summary.subtitle == "ari - 4")
         #expect(summary.href == "/recipes/recipe_lemon_pantry_pasta")
         #expect(summary.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"))
         #expect(summary.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
@@ -151,6 +151,57 @@ struct RecipeCookbookTests {
         #expect(summary.subtitle == "ari")
     }
 
+    @Test("recipe search summary preserves free-form serving text")
+    func recipeSearchSummaryPreservesFreeFormServings() throws {
+        let catalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(servingsJSON: "\"  4 servings  \""))
+        let recipe = try #require(catalog.recipe(id: "recipe_validation"))
+        let summary = RecipeSearchSummary(recipe: recipe)
+
+        #expect(summary.subtitle == "ari - 4 servings")
+    }
+
+    @Test("recipe attribution exposes only safe source links")
+    func recipeAttributionExposesOnlySafeSourceLinks() throws {
+        let safeCatalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(sourceURLJSON: "\"https://example.com/path\""))
+        let javascriptCatalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(sourceURLJSON: "\"javascript:alert(1)\""))
+        let fileCatalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(sourceURLJSON: "\"file:///private/etc/passwd\""))
+        let malformedCatalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(sourceURLJSON: "\"not a url\""))
+        let nullCatalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(sourceURLJSON: "null"))
+
+        #expect(safeCatalog.recipe(id: "recipe_validation")?.attribution.sourceURL == URL(string: "https://example.com/path"))
+        #expect(safeCatalog.recipe(id: "recipe_validation")?.attribution.hasUnsafeSourceURL == false)
+
+        for catalog in [javascriptCatalog, fileCatalog, malformedCatalog] {
+            #expect(catalog.recipe(id: "recipe_validation")?.attribution.sourceURL == nil)
+            #expect(catalog.recipe(id: "recipe_validation")?.attribution.hasUnsafeSourceURL == true)
+        }
+
+        #expect(nullCatalog.recipe(id: "recipe_validation")?.attribution.sourceURL == nil)
+        #expect(nullCatalog.recipe(id: "recipe_validation")?.attribution.hasUnsafeSourceURL == false)
+    }
+
+    @Test("deleted source recipes do not expose safe navigation links")
+    func deletedSourceRecipesDoNotExposeSafeNavigationLinks() throws {
+        let liveSourceCatalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData())
+        let deletedSourceCatalog = try RecipeFixtureCatalog.decode(
+            data: recipeCatalogData(
+                sourceRecipeJSON: """
+                {
+                  "id": "recipe_source",
+                  "title": "Source",
+                  "chef": { "id": "chef_source", "username": "source" },
+                  "href": "/recipes/recipe_source",
+                  "canonicalUrl": "https://spoonjoy.app/recipes/recipe_source",
+                  "deleted": true
+                }
+                """
+            )
+        )
+
+        #expect(liveSourceCatalog.recipe(id: "recipe_validation")?.attribution.sourceRecipe?.safeCanonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_source"))
+        #expect(deletedSourceCatalog.recipe(id: "recipe_validation")?.attribution.sourceRecipe?.safeCanonicalURL == nil)
+    }
+
     @Test("recipe catalog returns nil for missing ids")
     func recipeCatalogReturnsNilForMissingIDs() throws {
         let catalog = try RecipeFixtureCatalog.decodeFromBundle()
@@ -158,8 +209,8 @@ struct RecipeCookbookTests {
         #expect(catalog.recipe(id: "recipe_missing") == nil)
     }
 
-    @Test("cookbook fixture decodes cover, recipe links, and attribution")
-    func cookbookFixtureDecodesCoverLinksAndAttribution() throws {
+    @Test("cookbook fixture decodes cover, recipe summaries, and attribution")
+    func cookbookFixtureDecodesCoverRecipeSummariesAndAttribution() throws {
         let catalog = try CookbookFixtureCatalog.decodeFromBundle()
 
         #expect(catalog.cookbooks.count == 2)
@@ -179,6 +230,18 @@ struct RecipeCookbookTests {
         #expect(cookbook.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_weeknights"))
         #expect(cookbook.attribution.creditText == "Weeknights by ari on Spoonjoy")
         #expect(cookbook.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_toast"])
+
+        let recipeSummary = try #require(cookbook.recipes.first)
+        #expect(recipeSummary.description == "Bright pantry pasta with lemon, garlic, and parmesan.")
+        #expect(recipeSummary.servings == "4")
+        #expect(recipeSummary.chef == ChefSummary(id: "chef_ari", username: "ari"))
+        #expect(recipeSummary.coverImageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(recipeSummary.coverProvenanceLabel == "Chef photo")
+        #expect(recipeSummary.coverSourceType == .chefUpload)
+        #expect(recipeSummary.coverVariant == .image)
+        #expect(recipeSummary.attribution.creditText == "Lemon Pantry Pasta by ari on Spoonjoy")
+        #expect(recipeSummary.createdAt == "2026-06-01T00:00:00.000Z")
+        #expect(recipeSummary.updatedAt == "2026-06-01T00:00:00.000Z")
     }
 
     @Test("cookbook search summary exposes cover-aware navigation fields")
@@ -295,6 +358,17 @@ private let validRecipeStepsJSON = """
 private func recipeCatalogData(
     title: String = "Validation Recipe",
     servingsJSON: String = "\"2\"",
+    sourceURLJSON: String = "null",
+    sourceRecipeJSON: String = """
+    {
+      "id": "recipe_source",
+      "title": "Source",
+      "chef": { "id": "chef_source", "username": "source" },
+      "href": "/recipes/recipe_source",
+      "canonicalUrl": "https://spoonjoy.app/recipes/recipe_source",
+      "deleted": false
+    }
+    """,
     stepsJSON: String = validRecipeStepsJSON
 ) -> Data {
     Data(
@@ -316,16 +390,9 @@ private func recipeCatalogData(
               "attribution": {
                 "creditText": "Validation Recipe by ari on Spoonjoy",
                 "canonicalUrl": "https://spoonjoy.app/recipes/recipe_validation",
-                "sourceUrl": null,
+                "sourceUrl": \(sourceURLJSON),
                 "sourceHost": null,
-                "sourceRecipe": {
-                  "id": "recipe_source",
-                  "title": "Source",
-                  "chef": { "id": "chef_source", "username": "source" },
-                  "href": "/recipes/recipe_source",
-                  "canonicalUrl": "https://spoonjoy.app/recipes/recipe_source",
-                  "deleted": false
-                }
+                "sourceRecipe": \(sourceRecipeJSON)
               },
               "createdAt": "2026-06-01T00:00:00.000Z",
               "updatedAt": "2026-06-01T00:00:00.000Z",
@@ -372,8 +439,24 @@ private func cookbookCatalogData(title: String = "Validation", recipeCount: Int 
                 {
                   "id": "recipe_validation",
                   "title": "Validation Recipe",
+                  "description": null,
+                  "servings": "2",
+                  "chef": { "id": "chef_ari", "username": "ari" },
+                  "coverImageUrl": null,
+                  "coverProvenanceLabel": null,
+                  "coverSourceType": null,
+                  "coverVariant": null,
                   "href": "/recipes/recipe_validation",
-                  "canonicalUrl": "https://spoonjoy.app/recipes/recipe_validation"
+                  "canonicalUrl": "https://spoonjoy.app/recipes/recipe_validation",
+                  "attribution": {
+                    "creditText": "Validation Recipe by ari on Spoonjoy",
+                    "canonicalUrl": "https://spoonjoy.app/recipes/recipe_validation",
+                    "sourceUrl": null,
+                    "sourceHost": null,
+                    "sourceRecipe": null
+                  },
+                  "createdAt": "2026-06-01T00:00:00.000Z",
+                  "updatedAt": "2026-06-01T00:00:00.000Z"
                 }
               ]
             }

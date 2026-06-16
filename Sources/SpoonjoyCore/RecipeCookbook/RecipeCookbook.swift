@@ -30,6 +30,10 @@ public struct SourceRecipeAttribution: Codable, Equatable {
     public let canonicalURL: URL?
     public let deleted: Bool
 
+    public var safeCanonicalURL: URL? {
+        deleted ? nil : canonicalURL?.safeHTTPURL
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case title
@@ -43,14 +47,26 @@ public struct SourceRecipeAttribution: Codable, Equatable {
 public struct RecipeAttribution: Codable, Equatable {
     public let creditText: String
     public let canonicalURL: URL
-    public let sourceURL: URL?
+    public let sourceURLRaw: String?
     public let sourceHost: String?
     public let sourceRecipe: SourceRecipeAttribution?
+
+    public var sourceURL: URL? {
+        guard let sourceURLRaw else {
+            return nil
+        }
+
+        return URL(string: sourceURLRaw.trimmingCharacters(in: .whitespacesAndNewlines))?.safeHTTPURL
+    }
+
+    public var hasUnsafeSourceURL: Bool {
+        sourceURLRaw != nil && sourceURL == nil
+    }
 
     private enum CodingKeys: String, CodingKey {
         case creditText
         case canonicalURL = "canonicalUrl"
-        case sourceURL = "sourceUrl"
+        case sourceURLRaw = "sourceUrl"
         case sourceHost
         case sourceRecipe
     }
@@ -106,6 +122,40 @@ public struct CookbookLink: Codable, Equatable {
         case title
         case href
         case canonicalURL = "canonicalUrl"
+    }
+}
+
+public struct RecipeSummary: Codable, Equatable {
+    public let id: String
+    public let title: String
+    public let description: String?
+    public let servings: String?
+    public let chef: ChefSummary
+    public let coverImageURL: URL?
+    public let coverProvenanceLabel: String?
+    public let coverSourceType: RecipeCoverSourceType?
+    public let coverVariant: RecipeCoverVariant?
+    public let href: String
+    public let canonicalURL: URL
+    public let attribution: RecipeAttribution
+    public let createdAt: String
+    public let updatedAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case servings
+        case chef
+        case coverImageURL = "coverImageUrl"
+        case coverProvenanceLabel
+        case coverSourceType
+        case coverVariant
+        case href
+        case canonicalURL = "canonicalUrl"
+        case attribution
+        case createdAt
+        case updatedAt
     }
 }
 
@@ -178,20 +228,6 @@ public struct CookbookAttribution: Codable, Equatable {
     }
 }
 
-public struct CookbookRecipeSummary: Codable, Equatable {
-    public let id: String
-    public let title: String
-    public let href: String
-    public let canonicalURL: URL
-
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case title
-        case href
-        case canonicalURL = "canonicalUrl"
-    }
-}
-
 public struct Cookbook: Equatable {
     public let id: String
     public let title: String
@@ -203,7 +239,7 @@ public struct Cookbook: Equatable {
     public let attribution: CookbookAttribution
     public let createdAt: String
     public let updatedAt: String
-    public let recipes: [CookbookRecipeSummary]
+    public let recipes: [RecipeSummary]
 }
 
 extension Cookbook: Codable {
@@ -234,7 +270,7 @@ extension Cookbook: Codable {
         attribution = try container.decode(CookbookAttribution.self, forKey: .attribution)
         createdAt = try container.decode(String.self, forKey: .createdAt)
         updatedAt = try container.decode(String.self, forKey: .updatedAt)
-        recipes = try container.decode([CookbookRecipeSummary].self, forKey: .recipes)
+        recipes = try container.decode([RecipeSummary].self, forKey: .recipes)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -403,11 +439,11 @@ public struct RecipeSearchSummary: Equatable {
     }
 
     private static func subtitle(chef: String, servings: String?) -> String {
-        guard let servings, !servings.isEmpty else {
+        guard let servings = servings?.trimmingCharacters(in: .whitespacesAndNewlines), !servings.isEmpty else {
             return chef
         }
 
-        return "\(chef) - \(servings) servings"
+        return "\(chef) - \(servings)"
     }
 }
 
@@ -434,5 +470,17 @@ public struct CookbookSearchSummary: Equatable {
 
     private static func recipeCountLabel(_ recipeCount: Int) -> String {
         recipeCount == 1 ? "recipe" : "recipes"
+    }
+}
+
+private extension URL {
+    var safeHTTPURL: URL? {
+        guard let scheme = scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              host != nil else {
+            return nil
+        }
+
+        return self
     }
 }

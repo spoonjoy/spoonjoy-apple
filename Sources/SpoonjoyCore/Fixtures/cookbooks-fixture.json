@@ -24,14 +24,52 @@
         {
           "id": "recipe_lemon_pantry_pasta",
           "title": "Lemon Pantry Pasta",
+          "description": "Bright pantry pasta with lemon, garlic, and parmesan.",
+          "servings": "4",
+          "chef": {
+            "id": "chef_ari",
+            "username": "ari"
+          },
+          "coverImageUrl": "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg",
+          "coverProvenanceLabel": "Chef photo",
+          "coverSourceType": "chef-upload",
+          "coverVariant": "image",
           "href": "/recipes/recipe_lemon_pantry_pasta",
-          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"
+          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+          "attribution": {
+            "creditText": "Lemon Pantry Pasta by ari on Spoonjoy",
+            "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+            "sourceUrl": "https://example.com/lemon-pantry-pasta",
+            "sourceHost": "example.com",
+            "sourceRecipe": null
+          },
+          "createdAt": "2026-06-01T00:00:00.000Z",
+          "updatedAt": "2026-06-01T00:00:00.000Z"
         },
         {
           "id": "recipe_tomato_toast",
           "title": "Tomato Toast",
+          "description": "A quick summer toast with salted tomato and herbs.",
+          "servings": "2",
+          "chef": {
+            "id": "chef_ari",
+            "username": "ari"
+          },
+          "coverImageUrl": "https://spoonjoy.app/photos/recipes/recipe_tomato_toast/cover.jpg",
+          "coverProvenanceLabel": "Imported photo",
+          "coverSourceType": "imported",
+          "coverVariant": "image",
           "href": "/recipes/recipe_tomato_toast",
-          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast"
+          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+          "attribution": {
+            "creditText": "Tomato Toast by ari on Spoonjoy",
+            "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+            "sourceUrl": null,
+            "sourceHost": null,
+            "sourceRecipe": null
+          },
+          "createdAt": "2026-06-01T00:10:00.000Z",
+          "updatedAt": "2026-06-01T00:10:00.000Z"
         }
       ]
     },
