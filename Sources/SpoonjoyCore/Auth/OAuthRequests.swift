@@ -119,7 +119,7 @@ public enum OAuthRequests {
             pathComponents: pathComponents,
             queryItems: [],
             headers: ["Content-Type": "application/x-www-form-urlencoded"],
-            body: Data((components.percentEncodedQuery ?? "").utf8)
+            body: Data(components.percentEncodedQuery!.utf8)
         )
     }
 }

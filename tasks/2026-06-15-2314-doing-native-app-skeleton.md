@@ -205,7 +205,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/Auth/OAuthPKCE.swift`, `Sources/SpoonjoyCore/Auth/OAuthRequests.swift`, `Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift`, and `Sources/SpoonjoyCore/Auth/OAuthResponses.swift`.
 **Acceptance**: Unit 7a tests pass; custom schemes are rejected and REST OAuth omits `resource`.
 
-### ⬜ Unit 7c: OAuth/PKCE Request Construction — Coverage & Refactor
+### ✅ Unit 7c: OAuth/PKCE Request Construction — Coverage & Refactor
 **What**: Run coverage, add edge/error tests, and refactor OAuth request helpers.
 **Output**: OAuth coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Auth/OAuth*`; `swift test --disable-xctest --parallel` passes.
@@ -468,3 +468,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:24 Unit 7a complete: added failing OAuth/PKCE tests for PKCE verifier/challenge behavior, state matching, redirect URI validation, register/authorize/token/refresh/revoke outbound request shapes, REST `resource` omission, and OAuth response decoding; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-7a-red.log`.
 - 2026-06-16 08:28 Unit 7b complete: implemented PKCE S256 challenge helpers, OAuth state matching, redirect URI validation, dynamic client registration requests, authorize URL builders, form-encoded token/refresh/revoke requests, and snake-case OAuth response DTOs; focused OAuth tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
 - 2026-06-16 08:29 Addressed Unit 6 reviewer findings by adding `403 insufficient_scope` retry classification coverage and tightening PATCH/DELETE outbound-shape assertions for query emptiness, `Accept`, bearer auth, path, and `Content-Type`; focused Shopping API tests, full Swift tests, API coverage, warning scan, and warning-enforced build pass.
+- 2026-06-16 08:31 Unit 7c complete: added OAuth edge coverage for invalid PKCE verifiers and missing redirect URL scheme/host branches, refactored form encoding to remove an unreachable fallback branch, and verified `Sources/SpoonjoyCore/Auth` at 100.00% coverage with full Swift tests, warning scan, and warning-enforced Swift build passing.

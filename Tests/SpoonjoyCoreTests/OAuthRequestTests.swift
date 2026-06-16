@@ -15,6 +15,9 @@ struct OAuthRequestTests {
         #expect(OAuthPKCE.isValidVerifier(String(repeating: "a", count: 42)) == false)
         #expect(OAuthPKCE.isValidVerifier(String(repeating: "a", count: 129)) == false)
         #expect(OAuthPKCE.isValidVerifier("invalid verifier with spaces") == false)
+        #expect(throws: OAuthPKCEError.self) {
+            try OAuthPKCE.codeChallenge(for: "invalid verifier with spaces")
+        }
     }
 
     @Test("OAuth state trims and validates exact callback state")
@@ -45,6 +48,12 @@ struct OAuthRequestTests {
         }
         #expect(throws: OAuthRedirectValidationError.self) {
             try OAuthRedirectValidator.validate(URL(string: "https://example.com/oauth/callback#fragment")!)
+        }
+        #expect(throws: OAuthRedirectValidationError.self) {
+            try OAuthRedirectValidator.validate(URL(string: "/oauth/callback")!)
+        }
+        #expect(throws: OAuthRedirectValidationError.self) {
+            try OAuthRedirectValidator.validate(URL(string: "https:/oauth/callback")!)
         }
     }
 
