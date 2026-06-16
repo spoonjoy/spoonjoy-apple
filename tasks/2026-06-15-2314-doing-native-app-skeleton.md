@@ -215,7 +215,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Tests/SpoonjoyCoreTests/TokenRefreshTests.swift`.
 **Acceptance**: Tests fail before vault/coordinator implementation exists.
 
-### ⬜ Unit 8b: Token Vault And Refresh Coordination — Implementation
+### ✅ Unit 8b: Token Vault And Refresh Coordination — Implementation
 **What**: Implement token vault abstractions, in-memory token vault, refresh coordinator, and disconnect/revoke state transitions.
 **Output**: `Sources/SpoonjoyCore/Auth/TokenVault.swift`, `Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift`, `Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift`, and `Sources/SpoonjoyCore/Auth/AuthSessionState.swift`.
 **Acceptance**: Unit 8a tests pass; concurrent refresh calls share one refresh operation in tests.
@@ -473,3 +473,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:39 Addressed Unit 7 reviewer findings by rejecting arbitrary HTTPS redirect hosts outside `spoonjoy.app`, tightening OAuth outbound-shape assertions for `Accept`, `Content-Type`, `Authorization`, and empty query items, and saving red/green/full-test/coverage/build/warning-scan evidence with `Sources/SpoonjoyCore/Auth` at 100.00% coverage.
 - 2026-06-16 08:43 Unit 7 review Round 2 converged with no remaining findings.
 - 2026-06-16 08:43 Unit 8a complete: added failing token vault and refresh coordination tests for validated auth sessions, persisted client id/session storage, signed-out and expired-token state, atomic refresh-token rotation, refresh-failure preservation, local disconnect clearing, and concurrent single-flight refresh behavior; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-8a-red.log`.
+- 2026-06-16 08:44 Unit 8b complete: implemented validated `AuthSession` state classification and rotation, `TokenVault`, `InMemoryTokenVault`, and actor-isolated `RefreshCoordinator` with single-flight refresh, refresh-failure preservation, and local disconnect clearing; focused TokenRefresh tests, full Swift tests, warning scan, and warning-enforced Swift build pass.

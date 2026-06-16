@@ -1,6 +1,6 @@
 import Foundation
 
-public struct OAuthRegisterResponse: Decodable, Equatable {
+public struct OAuthRegisterResponse: Decodable, Equatable, Sendable {
     public let clientID: String
     public let redirectURIs: [String]
     public let tokenEndpointAuthMethod: String
@@ -16,7 +16,7 @@ public struct OAuthRegisterResponse: Decodable, Equatable {
     }
 }
 
-public struct OAuthTokenResponse: Decodable, Equatable {
+public struct OAuthTokenResponse: Decodable, Equatable, Sendable {
     public let accessToken: String
     public let refreshToken: String
     public let tokenType: String
