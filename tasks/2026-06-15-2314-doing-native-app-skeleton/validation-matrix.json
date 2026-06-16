@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-16T20:29:27Z",
+  "generatedAt": "2026-06-16T21:13:37Z",
   "steps": [
     {
       "name": "xcode version",
@@ -169,7 +169,7 @@
       "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/ios-app-bundle-blocker.json"
     },
     {
-      "generatedAt": "2026-06-16T13:28:32-07:00",
+      "generatedAt": "2026-06-16T14:12:52-07:00",
       "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
       "httpsNoRedirectExpected": true,
       "redirected": false,

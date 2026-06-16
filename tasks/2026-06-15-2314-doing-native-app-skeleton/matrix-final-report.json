@@ -6,6 +6,11 @@
       "status" : "pass"
     },
     {
+      "detail" : "First-run state transitions from setup to the native shell before route navigation.",
+      "name" : "first-run session setup",
+      "status" : "pass"
+    },
+    {
       "detail" : "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections.",
       "name" : "recipe detail",
       "status" : "pass"
@@ -13,6 +18,11 @@
     {
       "detail" : "Cook mode progress snapshots restore completed steps and current step.",
       "name" : "cook progress persistence",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Cook progress, shopping checkoff, local capture draft, and queued mutation survive native snapshot restore.",
+      "name" : "durable native state",
       "status" : "pass"
     },
     {
@@ -43,6 +53,16 @@
     {
       "detail" : "Unsupported universal and custom Spoonjoy links resolve to the safe unknown-link state.",
       "name" : "safe unknown link",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Root view gates first launch through SignedOutSetupView and completes a persisted session before opening app routes.",
+      "name" : "first-run setup source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Platform navigation persists cook progress, shopping checkoffs, capture drafts, and queued mutations through NativeAppSnapshot.",
+      "name" : "native persistence source",
       "status" : "pass"
     },
     {
