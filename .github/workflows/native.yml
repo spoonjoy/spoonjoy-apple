@@ -12,12 +12,18 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
-      - name: Run Swift tests when package exists
+      - name: Run Swift or Xcode tests when testable sources exist
         run: |
+          set -euo pipefail
+
           if [ -f Package.swift ]; then
             swift test
+          elif ls *.xcodeproj >/dev/null 2>&1; then
+            project="$(ls *.xcodeproj | head -n 1)"
+            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=iOS Simulator'
+            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS'
           else
-            echo "Package.swift not present yet; bootstrap check passes."
+            echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
 
   native-scenario-verifier:
@@ -27,6 +33,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Run native scenario verifier when present
         run: |
+          set -euo pipefail
+
           if [ -x scripts/verify-native-scenarios.sh ]; then
             scripts/verify-native-scenarios.sh
           else
@@ -38,11 +46,14 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
-      - name: Build app bundle when Xcode project exists
+      - name: Build iOS and macOS app bundles when Xcode project exists
         run: |
+          set -euo pipefail
+
           if ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"
-            xcodebuild -project "$project" -scheme Spoonjoy -destination 'platform=iOS Simulator,name=iPhone 17' build
+            xcodebuild -project "$project" -scheme Spoonjoy -destination 'generic/platform=iOS Simulator' build
+            xcodebuild -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS' build
           else
             echo "Xcode project not present yet; bootstrap check passes."
           fi
@@ -52,11 +63,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
-      - name: Generate coverage when package exists
+      - name: Generate Swift or Xcode coverage when testable sources exist
         run: |
+          set -euo pipefail
+
           if [ -f Package.swift ]; then
             swift test --enable-code-coverage
+          elif ls *.xcodeproj >/dev/null 2>&1; then
+            project="$(ls *.xcodeproj | head -n 1)"
+            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=iOS Simulator' -enableCodeCoverage YES
+            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS' -enableCodeCoverage YES
           else
-            echo "Package.swift not present yet; bootstrap check passes."
+            echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
-
