@@ -145,7 +145,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/RecipeCookbook/` sources and fixtures.
 **Acceptance**: Unit 3a tests pass using `swift test --filter RecipeCookbookTests --disable-xctest --parallel`; compiler emits no warnings.
 
-### ⬜ Unit 3c: Recipe/Cookbook Domain — Coverage & Refactor
+### ✅ Unit 3c: Recipe/Cookbook Domain — Coverage & Refactor
 **What**: Run coverage for recipe/cookbook code, add edge tests, and refactor naming/boundaries.
 **Output**: Coverage log in artifacts directory.
 **Acceptance**: `scripts/enforce-swift-coverage.rb --coverage-json <path> --minimum 100 --include 'Sources/SpoonjoyCore/RecipeCookbook'` passes; `swift test --disable-xctest --parallel` passes.
@@ -452,3 +452,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 02:28 Unit 2c complete: full Swift package tests, coverage generation, warning scans, and 100% `Sources/SpoonjoyCore` coverage enforcement all pass with artifacts saved.
 - 2026-06-16 02:35 Unit 3a complete: added failing recipe/cookbook domain tests for fixture decoding, validation, cover modeling, and public search summaries; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-3a-red.log`.
 - 2026-06-16 02:43 Unit 3b complete: implemented recipe/cookbook domain models, fixture catalog decoders, validation errors, cover presentation, and public search summaries; focused tests, full Swift tests, and warning-enforced Swift build pass.
+- 2026-06-16 02:53 Unit 3c complete: added edge tests for validation branches, missing IDs, summary fallbacks, cookbook encoding, and manual initializers; `RecipeCookbook` coverage enforcement passes at 100.00% (184/184), warning scan is clean, and warning-enforced build passes.
