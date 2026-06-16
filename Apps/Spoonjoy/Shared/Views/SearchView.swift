@@ -59,33 +59,9 @@ struct SearchView: View {
 #endif
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
-        .searchable(text: searchText, prompt: "Search Spoonjoy")
-        .searchScopes(searchScope) {
-            ForEach(SearchScope.allCases, id: \.rawValue) { scope in
-                Text(scope.searchLabel).tag(scope)
-            }
-        }
         .tint(KitchenTableTheme.herb)
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
-    }
-
-    private var searchText: Binding<String> {
-        Binding(
-            get: { search.query },
-            set: { query in
-                search.update(query: query, scope: search.scope)
-            }
-        )
-    }
-
-    private var searchScope: Binding<SearchScope> {
-        Binding(
-            get: { search.scope },
-            set: { scope in
-                search.update(query: search.query, scope: scope)
-            }
-        )
     }
 
     private var resultSections: [SearchResultSection] {
@@ -166,7 +142,7 @@ struct SearchView: View {
         case .cookbook(let cookbook):
             openCookbook(cookbook.id)
         case .chef(let chef):
-            openChef(chef.id)
+            openChef(chef.username)
         case .shoppingItem(let item):
             openShoppingItem(item.id)
         }
@@ -442,23 +418,6 @@ private struct SearchResultThumbnail: View {
             KitchenTableTheme.herb
         case .shoppingList:
             KitchenTableTheme.charcoal
-        }
-    }
-}
-
-private extension SearchScope {
-    var searchLabel: String {
-        switch self {
-        case .all:
-            "All"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
         }
     }
 }

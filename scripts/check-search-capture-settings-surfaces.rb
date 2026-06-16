@@ -64,8 +64,16 @@ FORBIDDEN_TOKENS = [
   "Grid {",
   'Text("Search is next.")',
   'Text("Local draft capture is next.")',
-  'Text("Offline, auth, and environment state.")'
+  'Text("Offline, auth, and environment state.")',
+  ".constant(routeSearch)"
 ].freeze
+
+FORBIDDEN_BY_FILE = {
+  "Apps/Spoonjoy/Shared/Views/SearchView.swift" => [
+    ".searchable(",
+    ".searchScopes("
+  ]
+}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -89,12 +97,38 @@ end
 
 forbidden_hits = REQUIRED_FILES.flat_map do |relative_path|
   content = uncommented_swift(ROOT.join(relative_path).read)
-  FORBIDDEN_TOKENS.select { |token| content.include?(token) }.map { |token| "#{relative_path} contains #{token}" }
+  tokens = FORBIDDEN_TOKENS + FORBIDDEN_BY_FILE.fetch(relative_path, [])
+  tokens.select { |token| content.include?(token) }.map { |token| "#{relative_path} contains #{token}" }
 end
 fail_check("forbidden search/capture/settings surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
 
-platform_navigation = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read
+platform_navigation = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read)
 ["SearchView(", "CaptureDraftView(", "SettingsView("].each do |token|
+  fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
+end
+fail_check("PlatformNavigationView.swift must not freeze route search with .constant(routeSearch)") if platform_navigation.include?(".constant(routeSearch)")
+[
+  "defaultSettings",
+  "PlatformNavigationView.defaultSettings",
+  "signedOutProductionSettingsTemplate"
+].each do |token|
+  fail_check("PlatformNavigationView.swift must not contain #{token}") if platform_navigation.include?(token)
+end
+[
+  ".searchable(text: searchText",
+  ".searchScopes(searchScope)",
+  "search: $search",
+  "search.apply(route: .search(query: query, scope: scope))",
+  "openChef: { username in",
+  "search.update(query: username, scope: .chefs)",
+  "navigation.navigate(to: search.route)",
+  "SettingsView(viewModel: settingsViewModel)",
+  "var settingsViewModel: SettingsViewModel",
+  "SettingsState(",
+  "offline: offlineState",
+  "var offlineState: OfflineState",
+  "kitchen.offlineRestore.includesShoppingList"
+].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
 end
 

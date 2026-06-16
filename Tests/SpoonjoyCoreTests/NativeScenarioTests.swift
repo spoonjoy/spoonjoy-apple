@@ -196,6 +196,25 @@ struct NativeScenarioTests {
         #expect(throwingShoppingCheck.detail.contains("failed"))
     }
 
+    @Test("final behavioral checks fail closed for weak settings offline and link safety")
+    func finalBehavioralChecksFailClosedForWeakSettingsOfflineAndLinkSafety() throws {
+        let weakSettings = SettingsState(
+            auth: .signedOut,
+            environment: .local(baseURL: URL(fileURLWithPath: "/tmp/spoonjoy-local")),
+            offline: .unavailable,
+            preferredCookModeTextSize: .standard
+        )
+        let weakOffline = ScenarioVerifier.offlineStatusCheck(
+            available: .available(snapshotCount: 1, lastRestoredAt: nil),
+            unavailable: .unavailable
+        )
+        let unsafeLink = ScenarioVerifier.safeUnknownLinkCheck(routes: [.kitchen, .unknownLink])
+
+        #expect(ScenarioVerifier.settingsStateCheck(settings: weakSettings).status == .fail)
+        #expect(weakOffline.status == .fail)
+        #expect(unsafeLink.status == .fail)
+    }
+
     @Test("scenario command parses surfaces stage")
     func scenarioCommandParsesSurfacesStage() throws {
         let command = try ScenarioCommand.parse(arguments: [

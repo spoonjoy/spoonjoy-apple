@@ -7,7 +7,6 @@ struct PlatformNavigationView: View {
     private let recipes: [Recipe]
     private let cookbooks: [Cookbook]
     private let kitchen: KitchenFixtureState
-    private let settingsViewModel: SettingsViewModel
     @State private var cookProgressByRecipeID: [String: CookModeProgress]
     @State private var shoppingViewModel: ShoppingListViewModel?
     @State private var captureViewModel: CaptureDraftViewModel?
@@ -18,7 +17,6 @@ struct PlatformNavigationView: View {
         recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
         cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
         kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
-        settingsViewModel = SettingsViewModel(settings: PlatformNavigationView.defaultSettings)
         _cookProgressByRecipeID = State(initialValue: [:])
         _shoppingViewModel = State(
             initialValue: (try? ShoppingListState.decodeFromBundle()).map { ShoppingListViewModel(shoppingList: $0) }
@@ -126,9 +124,8 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Shopping list unavailable.")
             }
         case .search(let query, let scope):
-            let routeSearch = SearchState(query: query, scope: scope)
             SearchView(
-                search: search == routeSearch ? $search : .constant(routeSearch),
+                search: $search,
                 recipes: recipes,
                 cookbooks: cookbooks,
                 shoppingList: shoppingViewModel?.shoppingList,
@@ -136,8 +133,15 @@ struct PlatformNavigationView: View {
                 openCookbook: openCookbook,
                 openShoppingItem: { _ in
                     navigation.navigate(to: .shoppingList)
+                },
+                openChef: { username in
+                    search.update(query: username, scope: .chefs)
+                    navigation.navigate(to: search.route)
                 }
             )
+            .onAppear {
+                search.apply(route: .search(query: query, scope: scope))
+            }
         case .capture:
             CaptureDraftView(
                 viewModel: captureViewModel,
@@ -271,13 +275,23 @@ struct PlatformNavigationView: View {
 }
 
 private extension PlatformNavigationView {
-    static var defaultSettings: SettingsState {
-        SettingsState(
-            auth: .signedOut,
-            environment: .production(baseURL: productionBaseURL),
-            offline: .available(snapshotCount: 1, lastRestoredAt: "2026-06-16T12:12:00.000Z"),
-            preferredCookModeTextSize: .large
+    var settingsViewModel: SettingsViewModel {
+        SettingsViewModel(
+            settings: SettingsState(
+                auth: .signedOut,
+                environment: .production(baseURL: Self.productionBaseURL),
+                offline: offlineState,
+                preferredCookModeTextSize: .large
+            )
         )
+    }
+
+    var offlineState: OfflineState {
+        if kitchen.offlineRestore.includesShoppingList {
+            return .available(snapshotCount: 1, lastRestoredAt: nil)
+        }
+
+        return .unavailable
     }
 
     static var productionBaseURL: URL {

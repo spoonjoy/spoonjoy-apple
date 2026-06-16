@@ -198,7 +198,8 @@ public enum ScenarioVerifier {
                     detail: "Search surface includes native searchable scopes and typed result rows.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows"]
+                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows", "openChef(chef.username)"],
+                    forbiddenTokens: [".searchable(", ".searchScopes("]
                 ),
                 sourceCheck(
                     name: "capture surface source",
@@ -226,7 +227,28 @@ public enum ScenarioVerifier {
                     detail: "Platform navigation routes search, capture, and settings to real surfaces.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["SearchView(", "CaptureDraftView(", "SettingsView("]
+                    tokens: [
+                        "SearchView(",
+                        "search: $search",
+                        "search.apply(route: .search(query: query, scope: scope))",
+                        "openChef: { username in",
+                        "search.update(query: username, scope: .chefs)",
+                        "navigation.navigate(to: search.route)",
+                        "CaptureDraftView(",
+                        "SettingsView(",
+                        "SettingsView(viewModel: settingsViewModel)",
+                        "var settingsViewModel: SettingsViewModel",
+                        "SettingsState(",
+                        "offline: offlineState",
+                        "var offlineState: OfflineState",
+                        "kitchen.offlineRestore.includesShoppingList"
+                    ],
+                    forbiddenTokens: [
+                        ".constant(routeSearch)",
+                        "defaultSettings",
+                        "PlatformNavigationView.defaultSettings",
+                        "signedOutProductionSettingsTemplate"
+                    ]
                 )
             ],
             nativeCapabilities: metadata.scenarioCapabilities
@@ -338,14 +360,14 @@ public enum ScenarioVerifier {
         )
     }
 
-    private static func settingsStateCheck() -> ScenarioCheck {
-        let settings = SettingsState(
+    static func settingsStateCheck(settings: SettingsState? = nil) -> ScenarioCheck {
+        let scenarioSettings = settings ?? SettingsState(
             auth: .signedIn(username: "ari", scopes: ["shopping_list:read", "shopping_list:write"], tokenExpiresAt: nil),
             environment: .local(baseURL: URL(fileURLWithPath: "/tmp/spoonjoy-local")),
             offline: .available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:09:00.000Z"),
             preferredCookModeTextSize: .large
         )
-        let viewModel = SettingsViewModel(settings: settings)
+        let viewModel = SettingsViewModel(settings: scenarioSettings)
         let status: ScenarioCheckStatus = viewModel.canReadShoppingList &&
             viewModel.canWriteShoppingList &&
             viewModel.rows.map(\.id) == ["auth", "environment", "offline", "cook-mode-text"] ? .pass : .fail
@@ -357,9 +379,10 @@ public enum ScenarioVerifier {
         )
     }
 
-    private static func offlineStatusCheck() -> ScenarioCheck {
-        let available = OfflineState.available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:10:00.000Z")
-        let unavailable = OfflineState.unavailable
+    static func offlineStatusCheck(
+        available: OfflineState = .available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:10:00.000Z"),
+        unavailable: OfflineState = .unavailable
+    ) -> ScenarioCheck {
         let status: ScenarioCheckStatus = available.statusLabel == "Offline cache ready: 2 snapshots" &&
             unavailable.statusLabel == "Offline cache unavailable" ? .pass : .fail
 
@@ -370,17 +393,51 @@ public enum ScenarioVerifier {
         )
     }
 
-    private static func safeUnknownLinkCheck() -> ScenarioCheck {
+    static func safeUnknownLinkCheck(routes: [AppRoute]? = nil) -> ScenarioCheck {
         let router = DeepLinkRouter.spoonjoy
-        let unsafe = router.route(for: URL(fileURLWithPath: "/recipes/../secret"))
-        let unsupported = router.route(for: URL(fileURLWithPath: "/search"))
-        let status: ScenarioCheckStatus = unsafe == .unknownLink && unsupported == .unknownLink ? .pass : .fail
+        let checkedRoutes = routes ?? [
+            router.route(for: webComponents(path: "/recipes/../secret")),
+            router.route(for: webComponents(
+            path: "/search",
+            queryItems: [
+                URLQueryItem(name: "q", value: "lemon"),
+                URLQueryItem(name: "scope", value: "bad")
+            ]
+            )),
+            router.route(for: schemeComponents(host: "recipes", path: "/../secret")),
+            router.route(for: schemeComponents(
+                host: "search",
+                queryItems: [
+                    URLQueryItem(name: "q", value: "lemon"),
+                    URLQueryItem(name: "scope", value: "bad")
+                ]
+            ))
+        ]
+        let status: ScenarioCheckStatus = checkedRoutes.allSatisfy { $0 == .unknownLink } ? .pass : .fail
 
         return ScenarioCheck(
             name: "safe unknown link",
             status: status,
-            detail: "Unsupported links resolve to the safe unknown-link state."
+            detail: "Unsupported universal and custom Spoonjoy links resolve to the safe unknown-link state."
         )
+    }
+
+    private static func webComponents(path: String, queryItems: [URLQueryItem] = []) -> URLComponents {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = DeepLinkManifest.webDomain
+        components.path = path
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components
+    }
+
+    private static func schemeComponents(host: String, path: String = "", queryItems: [URLQueryItem] = []) -> URLComponents {
+        var components = URLComponents()
+        components.scheme = DeepLinkManifest.urlSchemes[0]
+        components.host = host
+        components.path = path
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components
     }
 
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
@@ -412,16 +469,25 @@ public enum ScenarioVerifier {
         detail: String,
         rootURL: URL,
         relativePath: String,
-        tokens: [String]
+        tokens: [String],
+        forbiddenTokens: [String] = []
     ) -> ScenarioCheck {
         let sourceURL = rootURL.appendingPathComponent(relativePath)
         guard
-            let source = try? String(contentsOf: sourceURL, encoding: .utf8),
-            tokens.allSatisfy(source.contains)
+            let source = try? String(contentsOf: sourceURL, encoding: .utf8).uncommentedSwiftSource,
+            tokens.allSatisfy(source.contains),
+            forbiddenTokens.allSatisfy({ !source.contains($0) })
         else {
             return ScenarioCheck(name: name, status: .fail, detail: detail)
         }
 
         return ScenarioCheck(name: name, status: .pass, detail: detail)
+    }
+}
+
+private extension String {
+    var uncommentedSwiftSource: String {
+        replacingOccurrences(of: #"(?s)/\*.*?\*/"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"//[^\n\r]*"#, with: "", options: .regularExpression)
     }
 }
