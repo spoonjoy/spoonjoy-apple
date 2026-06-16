@@ -106,7 +106,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `scripts/check-swift-package-structure.rb` and red log `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-1a-red.log`.
 **Acceptance**: Structure check and `swift test list` fail before `Package.swift` and target directories exist.
 
-### ⬜ Unit 1b: Swift Package Bootstrap — Implementation
+### ✅ Unit 1b: Swift Package Bootstrap — Implementation
 **What**: Create `Package.swift`, `Sources/SpoonjoyCore/SpoonjoyCore.swift`, `Sources/SpoonjoyCore/Fixtures/`, `Sources/SpoonjoyScenarioVerifier/main.swift`, and `Tests/SpoonjoyCoreTests/SpoonjoyCoreBootstrapTests.swift`.
 **Output**: Swift package manifest, placeholder targets, fixture resource directory, executable target, and bootstrap tests.
 **Acceptance**: `scripts/check-swift-package-structure.rb` passes; `swift test list` discovers `SpoonjoyCoreTests`; `swift run -Xswiftc -warnings-as-errors SpoonjoyScenarioVerifier --stage bootstrap --output ${ARTIFACT_ROOT}/scenario-bootstrap.json` runs with `pending` checks only for native metadata and app surfaces.
@@ -437,3 +437,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 01:29 Unit 0b complete: added `docs/native-justification.md`, deterministic temp-output Xcode generator, and green log at `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0b-green.log`.
 - 2026-06-16 01:35 Unit 0c complete: generator temp-output determinism passed twice with no `Spoonjoy.xcodeproj` or `Apps/Spoonjoy` repo output; evidence saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0c-determinism.log`.
 - 2026-06-16 01:41 Unit 1a complete: Swift package structure check and `swift test list` fail red before `Package.swift` exists; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-1a-red.log`.
+- 2026-06-16 01:43 Unit 1b complete: Swift package manifest, core target, fixtures, scenario executable, and bootstrap tests pass structure/discovery checks; green log and scenario bootstrap JSON saved under the artifact directory.
