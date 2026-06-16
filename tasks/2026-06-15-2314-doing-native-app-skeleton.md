@@ -130,7 +130,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `scripts/enforce-swift-coverage.rb`, `scripts/fail-on-warning.rb`, and `.github/workflows/native.yml` coverage/warning updates.
 **Acceptance**: Coverage check fails below threshold and passes at threshold in local script tests; warning enforcement fails on branch-source warnings.
 
-### ⬜ Unit 2c: Coverage And Warning Enforcement Scripts — Refactor
+### ✅ Unit 2c: Coverage And Warning Enforcement Scripts — Refactor
 **What**: Run the warning-enforced coverage command, threshold script, warning parser against saved logs, and full package tests.
 **Output**: Coverage artifacts and logs.
 **Acceptance**: Coverage artifacts are saved; CI coverage command is reproducible locally; `scripts/enforce-swift-coverage.rb` and `scripts/fail-on-warning.rb` exist before Unit 3c.
@@ -449,3 +449,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 02:13 Addressed deep-link reviewer findings by requiring table-driven deep-link parser tests, shared app-target URL handoff proof, final scenario deep-link evidence, and AASA validation/blocker artifacts.
 - 2026-06-16 02:20 Addressed Unit 1 reviewer findings by parsing `--stage` in covered core code, rejecting unsupported future stages nonzero, extending scenario capabilities with deep-link arrays, and refreshing warning-enforced Unit 1c artifacts.
 - 2026-06-16 02:24 Unit 2b complete: implemented coverage threshold and warning-log scripts, corrected CI to generate coverage before locating JSON, and wired warning scans into SwiftPM, scenario, and future Xcode logs.
+- 2026-06-16 02:28 Unit 2c complete: full Swift package tests, coverage generation, warning scans, and 100% `Sources/SpoonjoyCore` coverage enforcement all pass with artifacts saved.

@@ -1,0 +1,41 @@
+$ swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+[2/9] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[3/9] Emitting module SpoonjoyCore
+[4/9] Compiling SpoonjoyCore SpoonjoyCore.swift
+[5/13] Compiling SpoonjoyScenarioVerifier main.swift
+[6/13] Emitting module SpoonjoyScenarioVerifier
+[6/13] Write Objects.LinkFileList
+[7/13] Linking SpoonjoyScenarioVerifier
+[8/13] Applying SpoonjoyScenarioVerifier
+[10/13] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[11/13] Emitting module SpoonjoyCoreTests
+[12/15] Emitting module SpoonjoyApplePackageTests
+[13/15] Compiling SpoonjoyApplePackageTests runner.swift
+[13/15] Write Objects.LinkFileList
+[14/15] Linking SpoonjoyApplePackageTests
+Build complete! (1.87s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "SpoonjoyCore bootstrap" started.
+◇ Test "scenario command parses bootstrap stage and output" started.
+◇ Test "bootstrap report allows only future native/app checks to remain pending" started.
+◇ Test "missing fixture reports file-not-found" started.
+◇ Test "scenario command errors have useful descriptions" started.
+◇ Test "scenario command rejects malformed arguments" started.
+◇ Test "fixture resources are copied into test bundle" started.
+◇ Test "product name is stable" started.
+◇ Test "scenario command reports unsupported future stages" started.
+✔ Test "scenario command parses bootstrap stage and output" passed after 0.001 seconds.
+✔ Test "bootstrap report allows only future native/app checks to remain pending" passed after 0.001 seconds.
+✔ Test "scenario command reports unsupported future stages" passed after 0.001 seconds.
+✔ Test "scenario command errors have useful descriptions" passed after 0.001 seconds.
+✔ Test "scenario command rejects malformed arguments" passed after 0.001 seconds.
+✔ Test "product name is stable" passed after 0.001 seconds.
+✔ Test "missing fixture reports file-not-found" passed after 0.004 seconds.
+✔ Test "fixture resources are copied into test bundle" passed after 0.004 seconds.
+✔ Suite "SpoonjoyCore bootstrap" passed after 0.005 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.005 seconds.
