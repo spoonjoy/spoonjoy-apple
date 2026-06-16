@@ -1,0 +1,42 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (2.00s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Offline store and mutation queue" started.
+◇ Test "JSON file store reports non-decoding parser failures as unreadable" started.
+◇ Test "offline snapshot restores shopping list checkpoint and pending mutations" started.
+◇ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" started.
+◇ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" started.
+◇ Test "mutation queue validates public construction and durable restore invariants" started.
+◇ Test "JSON file store does not fallback for filesystem read errors" started.
+◇ Test "mutation queue serializes shopping mutations and rejects duplicates" started.
+◇ Test "JSON file store saves loads deletes and reports file source" started.
+◇ Test "sync checkpoint persists trimmed durable shopping cursor" started.
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:265:9: Expectation failed: (directQueue.mutations.map(\.clientMutationID) → [" mutation-direct "]) == ["mutation-direct"]
+± inserted [" mutation-direct "], removed ["mutation-direct"]
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:266:9: Expectation failed: (directQueue.removing(clientMutationID: " mutation-direct ").mutations → [SpoonjoyCore.QueuedMutation(id: "queued-add-eggs", clientMutationID: " mutation-direct ", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: Optional(12.0), unit: Optional("each"), categoryKey: Optional("dairy"), iconKey: Optional("egg")))]).isEmpty → false
+✔ Test "mutation queue serializes shopping mutations and rejects duplicates" passed after 0.001 seconds.
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:271:9: Expectation failed: an error was expected but none was thrown and "MutationQueue(mutations: [SpoonjoyCore.QueuedMutation(id: "queued-add-eggs", clientMutationID: " \n ", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: Optional(12.0), unit: Optional("each"), categoryKey: Optional("dairy"), iconKey: Optional("egg")))])" was returned
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:281:9: Expectation failed: an error was expected but none was thrown and "MutationQueue(mutations: [SpoonjoyCore.QueuedMutation(id: "queued-add-eggs", clientMutationID: "mutation-duplicate", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: Optional(12.0), unit: Optional("each"), categoryKey: Optional("dairy"), iconKey: Optional("egg"))), SpoonjoyCore.QueuedMutation(id: "queued-add-eggs", clientMutationID: " mutation-duplicate ", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: Optional(12.0), unit: Optional("each"), categoryKey: Optional("dairy"), iconKey: Optional("egg")))])" was returned
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:289:9: Expectation failed: (restoredSpaced.mutations.map(\.clientMutationID) → [" mutation-restored "]) == ["mutation-restored"]
+± inserted [" mutation-restored "], removed ["mutation-restored"]
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:290:9: Expectation failed: (restoredSpaced.removing(clientMutationID: " mutation-restored ").mutations → [SpoonjoyCore.QueuedMutation(id: "queued-0", clientMutationID: " mutation-restored ", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil))]).isEmpty → false
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:292:9: Expectation failed: an error was expected but none was thrown and "MutationQueue(mutations: [SpoonjoyCore.QueuedMutation(id: "queued-0", clientMutationID: "   ", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil))])" was returned
+✘ Test "mutation queue validates public construction and durable restore invariants" recorded an issue at OfflineStoreTests.swift:295:9: Expectation failed: an error was expected but none was thrown and "MutationQueue(mutations: [SpoonjoyCore.QueuedMutation(id: "queued-0", clientMutationID: "mutation-restored", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil)), SpoonjoyCore.QueuedMutation(id: "queued-1", clientMutationID: " mutation-restored ", createdAt: "2026-06-16T08:49:00.000Z", kind: SpoonjoyCore.QueuedMutationKind.shoppingAdd(name: "eggs", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil))])" was returned
+✘ Test "mutation queue validates public construction and durable restore invariants" failed after 0.002 seconds with 8 issues.
+✔ Test "JSON file store reports non-decoding parser failures as unreadable" passed after 0.002 seconds.
+✔ Test "sync checkpoint persists trimmed durable shopping cursor" passed after 0.002 seconds.
+✔ Test "offline snapshot restores shopping list checkpoint and pending mutations" passed after 0.005 seconds.
+✔ Test "JSON file store does not fallback for filesystem read errors" passed after 0.005 seconds.
+✔ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" passed after 0.005 seconds.
+✔ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" passed after 0.005 seconds.
+✔ Test "JSON file store saves loads deletes and reports file source" passed after 0.005 seconds.
+✘ Suite "Offline store and mutation queue" failed after 0.006 seconds with 8 issues.
+✘ Test run with 9 tests in 1 suite failed after 0.006 seconds with 8 issues.

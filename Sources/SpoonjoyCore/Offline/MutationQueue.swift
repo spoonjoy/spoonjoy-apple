@@ -34,31 +34,79 @@ public struct QueuedMutation: Codable, Equatable {
 public struct MutationQueue: Codable, Equatable {
     public let mutations: [QueuedMutation]
 
-    public init(mutations: [QueuedMutation] = []) {
-        self.mutations = mutations
+    public init() {
+        mutations = []
+    }
+
+    public init(mutations: [QueuedMutation]) throws {
+        self.mutations = try Self.validatedMutations(mutations)
+    }
+
+    private init(validatedMutations: [QueuedMutation]) {
+        self.mutations = validatedMutations
     }
 
     public func appending(_ mutation: QueuedMutation) throws -> MutationQueue {
+        let canonicalMutation = try Self.canonicalMutation(mutation)
+        let clientMutationID = canonicalMutation.clientMutationID
+        guard !mutations.contains(where: { $0.clientMutationID == clientMutationID }) else {
+            throw MutationQueueError.duplicateClientMutationID(clientMutationID)
+        }
+
+        return MutationQueue(validatedMutations: mutations + [canonicalMutation])
+    }
+
+    public func removing(clientMutationID: String) -> MutationQueue {
+        let clientMutationID = clientMutationID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return MutationQueue(validatedMutations: mutations.filter { $0.clientMutationID != clientMutationID })
+    }
+
+    private static func validatedMutations(_ mutations: [QueuedMutation]) throws -> [QueuedMutation] {
+        var seenClientMutationIDs = Set<String>()
+        var canonicalMutations: [QueuedMutation] = []
+
+        for mutation in mutations {
+            let canonicalMutation = try canonicalMutation(mutation)
+            guard seenClientMutationIDs.insert(canonicalMutation.clientMutationID).inserted else {
+                throw MutationQueueError.duplicateClientMutationID(canonicalMutation.clientMutationID)
+            }
+
+            canonicalMutations.append(canonicalMutation)
+        }
+
+        return canonicalMutations
+    }
+
+    private static func canonicalMutation(_ mutation: QueuedMutation) throws -> QueuedMutation {
         let clientMutationID = mutation.clientMutationID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clientMutationID.isEmpty else {
             throw MutationQueueError.emptyClientMutationID
         }
-        guard !mutations.contains(where: { $0.clientMutationID == clientMutationID }) else {
-            throw MutationQueueError.duplicateClientMutationID(clientMutationID)
-        }
-        let canonicalMutation = QueuedMutation(
+
+        return QueuedMutation(
             id: mutation.id,
             clientMutationID: clientMutationID,
             createdAt: mutation.createdAt,
             kind: mutation.kind
         )
+    }
+}
 
-        return MutationQueue(mutations: mutations + [canonicalMutation])
+extension MutationQueue {
+    private enum CodingKeys: String, CodingKey {
+        case mutations
     }
 
-    public func removing(clientMutationID: String) -> MutationQueue {
-        let clientMutationID = clientMutationID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return MutationQueue(mutations: mutations.filter { $0.clientMutationID != clientMutationID })
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.mutations = try Self.validatedMutations(
+            container.decode([QueuedMutation].self, forKey: .mutations)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mutations, forKey: .mutations)
     }
 }
 

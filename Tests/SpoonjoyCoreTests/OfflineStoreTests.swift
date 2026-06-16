@@ -258,6 +258,48 @@ struct OfflineStoreTests {
         }
     }
 
+    @Test("mutation queue validates public construction and durable restore invariants")
+    func mutationQueueValidatesPublicConstructionAndDurableRestoreInvariants() throws {
+        let spaced = shoppingAddMutation(clientMutationID: " mutation-direct ")
+        let directQueue = try Result<MutationQueue, Error> { try MutationQueue(mutations: [spaced]) }.get()
+        #expect(directQueue.mutations.map(\.clientMutationID) == ["mutation-direct"])
+        #expect(directQueue.removing(clientMutationID: " mutation-direct ").mutations.isEmpty)
+
+        let blankConstruction = Result<MutationQueue, Error> {
+            try MutationQueue(mutations: [shoppingAddMutation(clientMutationID: " \n ")])
+        }
+        #expect(throws: MutationQueueError.self) {
+            try blankConstruction.get()
+        }
+
+        let duplicateConstruction = Result<MutationQueue, Error> {
+            try MutationQueue(mutations: [
+                shoppingAddMutation(clientMutationID: "mutation-duplicate"),
+                shoppingAddMutation(clientMutationID: " mutation-duplicate ")
+            ])
+        }
+        #expect(throws: MutationQueueError.self) {
+            try duplicateConstruction.get()
+        }
+
+        let restoredSpaced = try JSONDecoder().decode(
+            MutationQueue.self,
+            from: mutationQueueJSON(clientMutationIDs: [" mutation-restored "])
+        )
+        #expect(restoredSpaced.mutations.map(\.clientMutationID) == ["mutation-restored"])
+        #expect(restoredSpaced.removing(clientMutationID: " mutation-restored ").mutations.isEmpty)
+
+        #expect(throws: MutationQueueError.self) {
+            try JSONDecoder().decode(MutationQueue.self, from: mutationQueueJSON(clientMutationIDs: ["   "]))
+        }
+        #expect(throws: MutationQueueError.self) {
+            try JSONDecoder().decode(
+                MutationQueue.self,
+                from: mutationQueueJSON(clientMutationIDs: ["mutation-restored", " mutation-restored "])
+            )
+        }
+    }
+
     private func offlineSnapshot(capturedAt: String = "2026-06-16T08:44:00.000Z") throws -> OfflineSnapshot {
         let shoppingList = try ShoppingListState.decodeFromBundle()
         return OfflineSnapshot(
@@ -285,6 +327,23 @@ struct OfflineStoreTests {
                 iconKey: "egg"
             )
         )
+    }
+
+    private func mutationQueueJSON(clientMutationIDs: [String]) -> Data {
+        let mutations = clientMutationIDs.enumerated().map { index, clientMutationID in
+            """
+            {
+              "schemaVersion": 1,
+              "id": "queued-\(index)",
+              "clientMutationId": "\(clientMutationID)",
+              "createdAt": "2026-06-16T08:49:00.000Z",
+              "kind": { "type": "shopping.add", "name": "eggs" }
+            }
+            """
+        }.joined(separator: ",")
+
+        let json = #"{"mutations":["# + mutations + #"]}"#
+        return Data(json.utf8)
     }
 
     private func shoppingCursor(_ rawValue: String) throws -> ShoppingSyncCursor {
