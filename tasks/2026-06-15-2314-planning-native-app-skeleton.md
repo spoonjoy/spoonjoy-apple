@@ -16,7 +16,8 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - Add native affordance scaffolds: `NavigationStack`/`NavigationSplitView`, `.searchable`, native toolbars, share links, edit/check controls, App Intent descriptors or compileable App Intents where the installed SDK supports them, offline status, and local persistence.
 - Encode Spoonjoy native justification in repo docs before major code lands.
 - Update CI/scripts so protected checks build iOS and macOS bundles, run Swift tests, run coverage, and run a native scenario verifier.
-- Validate against the installed Xcode 26.5 SDK while preserving the product baseline of iOS 27/macOS 27 forward in docs. True SDK-27 validation is a capability blocker until Xcode 27 is installed.
+- Validate against the installed Xcode 26.5 SDK using explicit deployment targets `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` only as an engineering bootstrap compatibility label. Product baseline remains iOS 27/macOS 27 forward in `AGENTS.md` and docs. True SDK-27 validation is a capability blocker until Xcode 27 is installed.
+- Add local launch/smoke scripts and screenshot artifacts for iOS simulator when CoreSimulator is available, plus macOS app launch/smoke and desktop-class screenshot review.
 - Use sub-agent reviewer gates for plan, doing doc, implementation units, and final merge readiness.
 
 ## Out of Scope
@@ -31,24 +32,30 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 
 - `Package.swift` exists and `swift test` passes with focused coverage for all new core logic and edge/error paths.
 - `Spoonjoy.xcodeproj` exists and app bundles build for iOS simulator and macOS destinations without warnings introduced by this branch.
-- The native scenario verifier proves first-run/session setup, fixture kitchen browsing, recipe detail, cook-mode progress persistence, shopping-list checkoff, search, capture draft creation, and settings state through deterministic command-line checks.
+- The native scenario verifier proves first-run/session setup, fixture kitchen browsing, recipe detail, cook-mode progress persistence, shopping-list checkoff, search, capture draft creation, settings state, App Intent/search indexing metadata, offline cache restore, and native affordance flags through deterministic command-line checks.
+- iOS simulator launch/smoke runs when CoreSimulator responds; if local CoreSimulator times out, the result is recorded as a local machine blocker while CI still builds the iOS bundle. macOS app launch/smoke must run locally.
+- Screenshot/design review artifacts exist for mobile-width and desktop-class layouts, or the plan records a concrete simulator/runtime blocker with the last command output.
+- App surfaces visibly use native navigation/search/toolbars/share/edit/check controls while preserving Kitchen Table hierarchy: a lead food/cookbook/list object, cookbook-style recipe detail, receipt-like shopping list, and focused cook-mode surface.
 - `docs/native-justification.md` explains why Spoonjoy Apple earns being native and which tempting APIs are intentionally postponed or rejected.
 - `docs/native-design-language.md` remains consistent with the web Kitchen Table language and the app code reflects those invariants in structure, naming, colors, typography, and object hierarchy.
 - CI protected checks pass on the PR: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`.
+- The `Coverage` check enforces the configured Swift package coverage threshold for new package code instead of only generating coverage output.
 - Harsh sub-agent review converges with no BLOCKER/MAJOR findings before merge.
 
 # Code Coverage Requirements
 
-- New Swift package code must have 100% line/branch coverage where measurable by SwiftPM coverage.
-- Request-building code must assert outbound HTTP method, URL path/query, headers, and JSON body shape, not only response handling.
+- New Swift package code must have 100% line/branch coverage where measurable by SwiftPM coverage; the CI `Coverage` job must fail below the threshold.
+- Request-building code must assert outbound HTTP method, URL path/query, headers, and JSON/form body shape, not only response handling.
 - Offline/cache/search/cook-mode/shopping logic must cover valid, empty, invalid, boundary, and error paths.
+- OAuth/PKCE logic must cover code-verifier/challenge generation, state generation/validation, register/authorize/token/refresh/revoke request construction, redirect validation, persisted client id, atomic refresh-token rotation, and single-flight refresh behavior.
+- Shopping-list mutation tests must cover POST/PATCH JSON `clientMutationId`, DELETE idempotency through `X-Client-Mutation-Id`, query, and body forms, plus idempotency conflict/in-progress response handling.
 - UI app target code is covered through compile/build plus scenario verifier until XCTest UI automation is added; any nontrivial UI-independent logic belongs in the Swift package and must be tested there.
 
 # Open Questions
 
 - None requiring human approval under the current no-human-gates mandate.
-- Explorer results for existing API/OAuth details and prior mobile code are pending; incorporate as source-fidelity updates before converting to doing.
-- True iOS 27/macOS 27 SDK validation is blocked by local Xcode 26.5. This branch will document the blocker and make the validation target switch explicit rather than silently weakening the product baseline.
+- API/OAuth and prior mobile-code explorer findings are incorporated.
+- True iOS 27/macOS 27 SDK validation is blocked by local Xcode 26.5. The branch must label 26.5 as bootstrap validation only and include a follow-up validation gate for Xcode 27, without weakening the product baseline.
 
 # Decisions Made
 
@@ -56,12 +63,12 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - Use `tasks/` in the Apple repo for Work Suite planning/doing docs because the repo has no stricter task-doc path.
 - Use one Xcode project with separate iOS and macOS SwiftUI app targets; share source and domain logic rather than creating two separate apps.
 - Use bundle namespace `app.spoonjoy.*`, with the primary iOS bundle as `app.spoonjoy.Spoonjoy` and macOS as `app.spoonjoy.Spoonjoy.macOS` unless project generation requires a stricter suffix.
-- Build the first app around local fixture/offline-capable state plus API-client contracts. Real OAuth/token entry belongs in the app foundation, but production secrets and paid signing do not.
+- Build the first app around local fixture/offline-capable state plus API-client contracts. Real OAuth/PKCE request construction, token persistence abstractions, and refresh/revoke logic belong in the app foundation. Production universal-link callback, paid signing, and App Store Connect remain account/capability blocked.
 - REST API v1 is the native backend contract. Read endpoints are `GET /api/v1/recipes`, `GET /api/v1/recipes/{id}`, `GET /api/v1/cookbooks`, and `GET /api/v1/cookbooks/{id}`. Shopping-list endpoints are `GET /api/v1/shopping-list`, `GET /api/v1/shopping-list/sync`, `POST /api/v1/shopping-list/items`, `PATCH /api/v1/shopping-list/items/{itemId}`, and `DELETE /api/v1/shopping-list/items/{itemId}`. Mutations must include `clientMutationId`.
 - Use OAuth/PKCE public-client flow for real auth, omitting `resource` for REST API v1. Register once per app/environment with `token_endpoint_auth_method: "none"`, use ASWebAuthenticationSession/AppAuth shape for authorization, rotate refresh tokens atomically, and prefer HTTPS universal/app links for production redirects. Custom schemes are rejected by the server today.
 - Do not reuse `sj-mobile` implementation code or auth assumptions. It was an archived Expo/Apollo/JWT app against old GraphQL/Rails-era infrastructure. Mine it only for product ideas like photo-first recipe detail, saved collections/library, search across object types, and staged recipe creation.
-- Treat App Intents, Spotlight, capture, offline cook-mode, and shopping-list checkoff as native-value proof points. Build compileable scaffolds now; deeper production server sync can follow in later PRs without redoing the app architecture.
-- Preserve iOS/macOS 27 as product baseline in docs; set build settings to the highest installed SDK-supported minimum only when necessary for local CI, with an explicit validation note.
+- Treat App Intents, Spotlight/search metadata, capture draft creation, offline cook-mode persistence, share/search toolbars, and shopping-list checkoff as native-value proof points. Build compileable scaffolds and scenario-verifiable metadata now; deeper production server sync can follow in later PRs without redoing the app architecture.
+- Preserve iOS/macOS 27 as product baseline in docs. Use exact 26.5 deployment targets only in generated build settings while this machine's installed SDK is 26.5, and label every such validation as bootstrap validation rather than product-baseline validation.
 
 # Context / References
 
@@ -90,8 +97,10 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - The app should be useful for dogfooding without production signing: local fixtures, offline state, token/session entry, and deterministic scenario checks all matter.
 - API explorer confirmed API v1 does not expose recipe/cookbook writes for native clients yet. This branch should not fake those mutations; capture/create screens can create local drafts and request builders, with sync expansion handled by later backend/native PRs if needed.
 - Prior mobile-code explorer found no reusable native implementation. The current Apple repo design brief and current v2 API docs are authoritative.
+- Planning reviewer found and this revision addressed: stale open-question wording, concrete 26.5 bootstrap vs 27 product target labeling, launch/screenshot validation, native-value verification, OAuth/PKCE coverage, enforced coverage threshold, and DELETE idempotency forms.
 
 # Progress Log
 
 - 2026-06-15 23:14 Created initial planning doc from repo contracts, native skill workflow, design docs, local preflight, and current platform constraints.
 - 2026-06-15 23:14 Incorporated explorer findings for REST API v1, OAuth/PKCE, prior mobile-code archaeology, and non-reuse decisions.
+- 2026-06-15 23:14 Addressed Round 1 planning reviewer findings with concrete SDK target labeling, launch/screenshot validation, native-value criteria, OAuth and coverage enforcement, and shopping DELETE idempotency detail.
