@@ -8,7 +8,8 @@ require "xcodeproj"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 PROJECT_NAME = "Spoonjoy"
-SCHEME_NAME = "Spoonjoy"
+IOS_SCHEME_NAME = "Spoonjoy iOS"
+MAC_SCHEME_NAME = "Spoonjoy macOS"
 IOS_BUNDLE_ID = "app.spoonjoy.Spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.Spoonjoy.mac"
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
@@ -165,11 +166,15 @@ add_package_product(project, mac_target, "SpoonjoyCore")
 project.sort
 project.predictabilize_uuids
 
-scheme = Xcodeproj::XCScheme.new
-scheme.add_build_target(ios_target)
-scheme.add_build_target(mac_target)
-scheme.set_launch_target(ios_target)
-scheme.save_as(project_path, SCHEME_NAME, true)
+def save_app_scheme(project_path, scheme_name, target)
+  scheme = Xcodeproj::XCScheme.new
+  scheme.add_build_target(target)
+  scheme.set_launch_target(target)
+  scheme.save_as(project_path, scheme_name, true)
+end
+
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target)
+save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save
 

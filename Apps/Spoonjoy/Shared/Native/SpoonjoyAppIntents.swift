@@ -5,8 +5,8 @@ import AppIntents
 
 @available(iOS 27.0, macOS 27.0, *)
 struct OpenRecipeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Recipe"
-    static var description = IntentDescription("Open a Spoonjoy recipe by identifier.")
+    static let title: LocalizedStringResource = "Open Recipe"
+    static let description = IntentDescription("Open a Spoonjoy recipe by identifier.")
 
     @Parameter(title: "Recipe ID")
     var recipeID: String
@@ -26,8 +26,8 @@ struct OpenRecipeIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct StartCookModeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Cooking"
-    static var description = IntentDescription("Open a Spoonjoy recipe directly in cook mode.")
+    static let title: LocalizedStringResource = "Start Cooking"
+    static let description = IntentDescription("Open a Spoonjoy recipe directly in cook mode.")
 
     @Parameter(title: "Recipe ID")
     var recipeID: String
@@ -47,8 +47,8 @@ struct StartCookModeIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct AddShoppingListItemIntent: AppIntent {
-    static var title: LocalizedStringResource = "Add Shopping Item"
-    static var description = IntentDescription("Add an item to the Spoonjoy shopping list.")
+    static let title: LocalizedStringResource = "Add Shopping Item"
+    static let description = IntentDescription("Add an item to the Spoonjoy shopping list.")
 
     @Parameter(title: "Name")
     var name: String
@@ -78,8 +78,8 @@ struct AddShoppingListItemIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct CaptureRecipeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Capture Recipe"
-    static var description = IntentDescription("Save a recipe URL or note into Spoonjoy capture drafts.")
+    static let title: LocalizedStringResource = "Capture Recipe"
+    static let description = IntentDescription("Save a recipe URL or note into Spoonjoy capture drafts.")
 
     @Parameter(title: "Source")
     var source: String

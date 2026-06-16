@@ -13,7 +13,9 @@ PROJECT_PATH = ROOT.join("#{PROJECT_NAME}.xcodeproj")
 APP_ROOT = ROOT.join("Apps/Spoonjoy")
 INFO_PLIST = APP_ROOT.join("Shared/Info.plist")
 ENTITLEMENTS = APP_ROOT.join("Shared/Spoonjoy.entitlements")
-SCHEME = PROJECT_PATH.join("xcshareddata/xcschemes/Spoonjoy.xcscheme")
+SCHEME_DIR = PROJECT_PATH.join("xcshareddata/xcschemes")
+IOS_SCHEME = SCHEME_DIR.join("Spoonjoy iOS.xcscheme")
+MAC_SCHEME = SCHEME_DIR.join("Spoonjoy macOS.xcscheme")
 IOS_TARGET = "#{PROJECT_NAME} iOS"
 MAC_TARGET = "#{PROJECT_NAME} macOS"
 IOS_BUNDLE_ID = "app.spoonjoy.Spoonjoy"
@@ -89,7 +91,13 @@ end
 EXPECTED_FILES.each do |path|
   fail_check("missing #{relative(path)}") unless path.exist?
 end
-fail_check("missing shared scheme #{relative(SCHEME)}") unless SCHEME.file?
+expected_schemes = [IOS_SCHEME, MAC_SCHEME]
+missing_schemes = expected_schemes.reject(&:file?)
+fail_check("missing shared scheme(s): #{missing_schemes.map { |path| relative(path) }.join(", ")}") unless missing_schemes.empty?
+scheme_files = SCHEME_DIR.children.select { |path| path.extname == ".xcscheme" }.map(&:basename).map(&:to_s).sort
+expected_scheme_files = expected_schemes.map(&:basename).map(&:to_s).sort
+unexpected_schemes = scheme_files - expected_scheme_files
+fail_check("unexpected shared scheme(s): #{unexpected_schemes.join(", ")}") unless unexpected_schemes.empty?
 
 info_plist = plist_json(INFO_PLIST)
 url_schemes = Array(info_plist["CFBundleURLTypes"]).flat_map { |entry| Array(entry["CFBundleURLSchemes"]) }
@@ -104,9 +112,14 @@ target_by_name = project.targets.each_with_object({}) { |target, index| index[ta
 ios_target = target_by_name[IOS_TARGET] || fail_check("missing target #{IOS_TARGET}")
 mac_target = target_by_name[MAC_TARGET] || fail_check("missing target #{MAC_TARGET}")
 
-scheme_text = SCHEME.read
-[IOS_TARGET, MAC_TARGET].each do |target_name|
-  fail_check("#{relative(SCHEME)} missing #{target_name}") unless scheme_text.include?(target_name)
+{
+  IOS_SCHEME => { required: IOS_TARGET, forbidden: MAC_TARGET },
+  MAC_SCHEME => { required: MAC_TARGET, forbidden: IOS_TARGET }
+}.each do |scheme, targets|
+  scheme_text = scheme.read
+  fail_check("#{relative(scheme)} missing #{targets.fetch(:required)}") unless scheme_text.include?(targets.fetch(:required))
+  fail_check("#{relative(scheme)} must not include #{targets.fetch(:forbidden)}") if scheme_text.include?(targets.fetch(:forbidden))
+  fail_check("#{relative(scheme)} missing Launch/Profile runnable") unless scheme_text.include?("<BuildableProductRunnable")
 end
 
 {

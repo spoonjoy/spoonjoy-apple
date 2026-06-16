@@ -108,6 +108,21 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   fail_check("temp output missing project.pbxproj") unless project_text.file?
 
   project_content = project_text.read
+  scheme_dir = one.join("Spoonjoy.xcodeproj/xcshareddata/xcschemes")
+  scheme_files = scheme_dir.children.select { |path| path.extname == ".xcscheme" }.map(&:basename).map(&:to_s).sort
+  expected_scheme_files = ["Spoonjoy iOS.xcscheme", "Spoonjoy macOS.xcscheme"]
+  fail_check("generated schemes were #{scheme_files.inspect}, expected #{expected_scheme_files.inspect}") unless scheme_files == expected_scheme_files
+
+  {
+    "Spoonjoy iOS.xcscheme" => { required: "Spoonjoy iOS", forbidden: "Spoonjoy macOS" },
+    "Spoonjoy macOS.xcscheme" => { required: "Spoonjoy macOS", forbidden: "Spoonjoy iOS" }
+  }.each do |scheme_name, targets|
+    scheme_text = scheme_dir.join(scheme_name).read
+    fail_check("#{scheme_name} missing #{targets.fetch(:required)}") unless scheme_text.include?(targets.fetch(:required))
+    fail_check("#{scheme_name} must not include #{targets.fetch(:forbidden)}") if scheme_text.include?(targets.fetch(:forbidden))
+    fail_check("#{scheme_name} missing Launch/Profile runnable") unless scheme_text.include?("<BuildableProductRunnable")
+  end
+
   {
     "app.spoonjoy.Spoonjoy" => {
       "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },

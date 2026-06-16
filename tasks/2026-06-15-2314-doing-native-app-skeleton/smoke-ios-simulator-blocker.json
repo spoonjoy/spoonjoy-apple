@@ -1,0 +1,8 @@
+{
+  "capability": "CoreSimulator",
+  "blocked": true,
+  "command": "python3 .github/scripts/resolve-ios-simulator-destination.py",
+  "timeoutSeconds": 30,
+  "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log",
+  "reason": "No available iPhone simulator destination was found."
+}

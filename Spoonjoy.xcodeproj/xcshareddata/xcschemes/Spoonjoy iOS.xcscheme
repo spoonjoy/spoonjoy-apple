@@ -20,20 +20,6 @@
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4FC094EA954EC38F09AC4132D2E21345"
-               BuildableName = "Spoonjoy macOS.app"
-               BlueprintName = "Spoonjoy macOS"
-               ReferencedContainer = "container:Spoonjoy.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
