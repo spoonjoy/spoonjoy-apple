@@ -155,10 +155,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "receipt controls source",
-                    detail: "Receipt list uses native list sections, toggles, and swipe actions.",
+                    detail: "Receipt list uses native list sections, large check toggles, and swipe actions.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
-                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List", "Section", "Toggle", "swipeActions"]
+                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List", "Section", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions"]
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",

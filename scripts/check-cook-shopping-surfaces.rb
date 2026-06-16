@@ -29,6 +29,12 @@ REQUIRED_TOKENS = {
     "List",
     "Section",
     "Toggle",
+    ".toggleStyle(.largeCheck)",
+    "LargeCheckToggleStyle",
+    "ToggleStyle",
+    "minimumCheckTarget",
+    "checkmark.circle.fill",
+    "configuration.isOn.toggle()",
     "swipeActions",
     "KitchenTableTheme"
   ],
@@ -49,7 +55,6 @@ REQUIRED_TOKENS = {
     "ShoppingListState",
     "ReceiptListView",
     "EditMode",
-    "large check",
     "settingChecked",
     "KitchenTableTheme"
   ]

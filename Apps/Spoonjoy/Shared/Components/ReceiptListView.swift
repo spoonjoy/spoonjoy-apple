@@ -13,7 +13,7 @@ struct ReceiptListView: View {
                         Toggle(isOn: checkedBinding(for: item)) {
                             receiptRow(item)
                         }
-                        .toggleStyle(.automatic)
+                        .toggleStyle(.largeCheck)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button {
                                 setChecked(item, true)
@@ -75,5 +75,35 @@ struct ReceiptListView: View {
     private func accessibilityText(for item: ShoppingListItem) -> String {
         let quantity = item.displayQuantity.isEmpty ? "" : ", \(item.displayQuantity)"
         return "\(item.name)\(quantity)"
+    }
+}
+
+private struct LargeCheckToggleStyle: ToggleStyle {
+    private static let minimumCheckTarget: CGFloat = 52
+
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(configuration.isOn ? KitchenTableTheme.herb : KitchenTableTheme.brass)
+                    .frame(width: Self.minimumCheckTarget, height: Self.minimumCheckTarget)
+                    .accessibilityHidden(true)
+
+                configuration.label
+            }
+            .frame(minHeight: Self.minimumCheckTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(configuration.isOn ? "checked" : "unchecked")
+    }
+}
+
+private extension ToggleStyle where Self == LargeCheckToggleStyle {
+    static var largeCheck: LargeCheckToggleStyle {
+        LargeCheckToggleStyle()
     }
 }

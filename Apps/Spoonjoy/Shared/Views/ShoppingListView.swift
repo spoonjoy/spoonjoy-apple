@@ -30,7 +30,6 @@ struct ShoppingListView: View {
             EditButton()
         }
 #endif
-        .accessibilityLabel("large check shopping receipt")
     }
 
     private var shoppingList: ShoppingListState {
