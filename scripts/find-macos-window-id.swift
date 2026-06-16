@@ -31,11 +31,8 @@ guard let pidArgument = arguments.first, let targetPID = Int(pidArgument) else {
 let preferredName = arguments.dropFirst().first ?? ""
 
 let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-let candidates = windows.compactMap { window -> WindowCandidate? in
-  guard
-    intValue(window[kCGWindowOwnerPID as String]) == targetPID,
-    let number = intValue(window[kCGWindowNumber as String])
-  else {
+func candidate(from window: [String: Any]) -> WindowCandidate? {
+  guard let number = intValue(window[kCGWindowNumber as String]) else {
     return nil
   }
 
@@ -60,9 +57,26 @@ let candidates = windows.compactMap { window -> WindowCandidate? in
   )
 }
 
-if let preferred = candidates.first(where: { $0.name == preferredName })
-  ?? candidates.first(where: { !preferredName.isEmpty && $0.name.localizedCaseInsensitiveContains(preferredName) })
-  ?? candidates.sorted(by: { $0.area > $1.area }).first {
+func preferredWindow(from candidates: [WindowCandidate]) -> WindowCandidate? {
+  candidates.first(where: { $0.name == preferredName })
+    ?? candidates.first(where: { !preferredName.isEmpty && $0.name.localizedCaseInsensitiveContains(preferredName) })
+    ?? candidates.sorted(by: { $0.area > $1.area }).first
+}
+
+let pidCandidates = windows.compactMap { window -> WindowCandidate? in
+  guard intValue(window[kCGWindowOwnerPID as String]) == targetPID else {
+    return nil
+  }
+  return candidate(from: window)
+}
+let ownerCandidates = windows.compactMap { window -> WindowCandidate? in
+  guard window[kCGWindowOwnerName as String] as? String == "Spoonjoy" else {
+    return nil
+  }
+  return candidate(from: window)
+}
+
+if let preferred = preferredWindow(from: pidCandidates) ?? preferredWindow(from: ownerCandidates) {
   print(preferred.number)
   exit(0)
 }

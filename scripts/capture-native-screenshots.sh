@@ -27,6 +27,26 @@ macos_blocker="$artifact_root/smoke-macos-blocker.json"
 state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 state_backup="$artifact_root/native-app-state-capture-backup.json"
 
+capture_macos_window() {
+  osascript -e "tell application \"$macos_app\" to activate" >> "$capture_log" 2>&1 || true
+  sleep 1
+  local window_id=""
+  local spoonjoy_pid=""
+  for _ in $(seq 1 20); do
+    spoonjoy_pid="$(pgrep -x Spoonjoy | tail -n 1 || true)"
+    if [[ -n "$spoonjoy_pid" ]] && window_id="$(swift scripts/find-macos-window-id.swift "$spoonjoy_pid" Kitchen 2>> "$capture_log")"; then
+      break
+    fi
+    window_id=""
+    sleep 0.5
+  done
+  if [[ -z "$window_id" ]]; then
+    return 1
+  fi
+  screencapture -x -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1
+  [[ -f "$macos_screenshot" ]]
+}
+
 : > "$capture_log"
 rm -f "$ios_screenshot" "$macos_screenshot"
 scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" >> "$capture_log" 2>&1 || true
@@ -80,20 +100,25 @@ if [[ ! -f "$macos_blocker" ]]; then
     actual_route = snapshot.fetch("lastOpenedRoute")
     abort("expected lastOpenedRoute kitchen, got #{actual_route}") unless actual_route == "kitchen"
   ' "$state_file" >> "$capture_log" 2>&1
-  osascript -e "tell application \"$macos_app\" to activate" >> "$capture_log" 2>&1 || true
-  sleep 1
-  window_id=""
-  for _ in $(seq 1 20); do
-    spoonjoy_pid="$(pgrep -x Spoonjoy | tail -n 1 || true)"
-    if [[ -n "$spoonjoy_pid" ]] && window_id="$(swift scripts/find-macos-window-id.swift "$spoonjoy_pid" Kitchen 2>> "$capture_log")"; then
-      break
-    fi
-    window_id=""
-    sleep 0.5
-  done
-  if [[ -n "$window_id" ]]; then
-    screencapture -x -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1 || true
-  else
+  if ! capture_macos_window; then
+    printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
+    osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
+    pkill -x Spoonjoy >/dev/null 2>&1 || true
+    sleep 1
+    open -n "$macos_app" >> "$capture_log" 2>&1 || true
+    sleep 3
+    pgrep -x Spoonjoy >/dev/null
+    osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://kitchen\"" >> "$capture_log" 2>&1
+    ruby -rjson -e '
+      path = ARGV.fetch(0)
+      snapshot = JSON.parse(File.read(path))
+      abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
+      actual_route = snapshot.fetch("lastOpenedRoute")
+      abort("expected lastOpenedRoute kitchen, got #{actual_route}") unless actual_route == "kitchen"
+    ' "$state_file" >> "$capture_log" 2>&1
+    capture_macos_window || true
+  fi
+  if [[ ! -f "$macos_screenshot" ]]; then
     printf 'Spoonjoy window not found for macOS screenshot capture\n' >> "$capture_log"
   fi
   osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true

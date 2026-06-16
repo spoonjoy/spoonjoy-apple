@@ -38,6 +38,16 @@ GatherProvisioningInputs
 
 CreateBuildDescription
 
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 5ce917101ffbf2d90c3a970ab7cb39f1
+Build description path: /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-15-2314-doing-native-app-skeleton/DerivedData-macOS/Build/Intermediates.noindex/XCBuildData/5ce917101ffbf2d90c3a970ab7cb39f1.xcbuilddata
 ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-15-2314-doing-native-app-skeleton/DerivedData-macOS/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
     /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -o /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-15-2314-doing-native-app-skeleton/DerivedData-macOS/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache
@@ -59,4 +69,4 @@ ProcessInfoPlistFile /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-15
 
 macOS build exit code: 0
 Launching macOS app: /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-15-2314-doing-native-app-skeleton/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app
-macOS smoke ok: search:recipes:codex-smoke-route-1781647362
+macOS smoke ok: search:recipes:codex-smoke-route-1781648667

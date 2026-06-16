@@ -92,7 +92,10 @@ fail_check("Gemfile.lock is missing") unless GEMFILE_LOCK.file?
 gemfile = GEMFILE.read
 gemfile_lock = GEMFILE_LOCK.read
 fail_check("Gemfile must pin xcodeproj 1.27.0") unless gemfile.include?('gem "xcodeproj", "1.27.0"')
+fail_check("Gemfile must pin CFPropertyList 3.0.8 for Ruby 3.3 CI compatibility") unless gemfile.include?('gem "CFPropertyList", "3.0.8"')
 fail_check("Gemfile.lock must lock xcodeproj 1.27.0") unless gemfile_lock.include?("xcodeproj (1.27.0)")
+fail_check("Gemfile.lock must lock CFPropertyList 3.0.8") unless gemfile_lock.include?("CFPropertyList (3.0.8)")
+fail_check("Gemfile.lock must not lock CFPropertyList 3.0.9") if gemfile_lock.include?("CFPropertyList (3.0.9)")
 fail_check("Gemfile.lock must record Bundler 2.4.22") unless gemfile_lock.include?("BUNDLED WITH\n   2.4.22")
 
 {
