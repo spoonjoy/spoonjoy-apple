@@ -77,6 +77,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - **Build commands**: iOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build`. macOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - **Deployment target policy**: deployment target build settings are actual minimum runtimes, not labels. Product configs must encode the iOS 27/macOS 27 baseline. The generated `BootstrapDebug` config may set `IPHONEOS_DEPLOYMENT_TARGET = 26.5` for iOS simulator bootstrap builds, but must set `MACOSX_DEPLOYMENT_TARGET = 26.2` so the mandatory local macOS launch/smoke can run on this macOS 26.2 host. Release/TestFlight/App Store claims remain blocked until Xcode 27 validation is available.
 - **Local macOS smoke floor**: `sw_vers -productVersion` currently reports `26.2`; scripts and generated project checks must fail if `BootstrapDebug` macOS deployment target exceeds the local host major.minor.
+- **Protected-check cutoff**: CI bootstrap-passes only while neither `Package.swift` nor `Spoonjoy.xcodeproj` exists. After `Package.swift` lands, protected checks are expected to fail until the verifier, coverage enforcement, and Xcode project units land; final PR readiness requires all protected checks green together.
 
 ## Work Units
 
@@ -425,3 +426,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 00:24 Addressed Stranger With Candy Round 2 findings by making missing scenario and coverage enforcement scripts fail once Swift/Xcode sources exist.
 - 2026-06-16 00:24 Addressed Tinfoil finding by setting the bootstrap macOS deployment target to the local macOS 26.2 smoke floor while keeping product configs at macOS 27.
 - 2026-06-16 00:24 Addressed Stranger With Candy Round 3 findings by marking the doing doc executable, making Unit 0 generator checks dry-run/temp-output only, and failing closed for Xcode-project-only coverage.
+- 2026-06-16 00:24 Addressed Tinfoil Round 2 finding by making the App bundle check fail once `Package.swift` exists without `Spoonjoy.xcodeproj`.

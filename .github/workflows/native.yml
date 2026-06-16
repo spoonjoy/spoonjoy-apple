@@ -74,6 +74,9 @@ jobs:
             project="$(ls *.xcodeproj | head -n 1)"
             xcodebuild -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
             xcodebuild -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+          elif [ -f Package.swift ]; then
+            echo "Xcode project is required once Package.swift exists."
+            exit 1
           else
             echo "Xcode project not present yet; bootstrap check passes."
           fi
