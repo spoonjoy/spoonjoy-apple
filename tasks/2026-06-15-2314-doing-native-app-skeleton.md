@@ -155,7 +155,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Tests/SpoonjoyCoreTests/KitchenStateTests.swift`.
 **Acceptance**: Filtered Swift tests fail before implementation.
 
-### ⬜ Unit 4b: Shopping/Cook/Settings Domain — Implementation
+### ✅ Unit 4b: Shopping/Cook/Settings Domain — Implementation
 **What**: Implement shopping-list operations, cook-mode progress persistence DTOs, capture draft state, settings state, and kitchen fixture state.
 **Output**: `Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift`, `CookModeProgress.swift`, `CaptureDraft.swift`, `SettingsState.swift`, and `KitchenFixtureState.swift`.
 **Acceptance**: Unit 4a tests pass using `swift test --filter KitchenStateTests --disable-xctest --parallel`; compiler emits no warnings.
@@ -454,3 +454,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 02:43 Unit 3b complete: implemented recipe/cookbook domain models, fixture catalog decoders, validation errors, cover presentation, and public search summaries; focused tests, full Swift tests, and warning-enforced Swift build pass.
 - 2026-06-16 02:53 Unit 3c complete: added edge tests for validation branches, missing IDs, summary fallbacks, cookbook encoding, and manual initializers; `RecipeCookbook` coverage enforcement passes at 100.00% (184/184), warning scan is clean, and warning-enforced build passes.
 - 2026-06-16 03:03 Unit 4a complete: added failing kitchen-state tests for shopping-list operations, cook-mode progress, capture drafts, settings/offline status, and kitchen fixture lead-object metadata; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-4a-red.log`.
+- 2026-06-16 03:19 Unit 4b complete: implemented shopping-list state operations, cook-mode progress snapshots, capture drafts, settings status, and kitchen fixture decoding; focused KitchenState tests pass with warnings as errors.
