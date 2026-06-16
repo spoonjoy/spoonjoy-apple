@@ -1,0 +1,7 @@
+FAIL: coverage/warning contract is not satisfied
+- scripts/enforce-swift-coverage.rb is missing
+- scripts/fail-on-warning.rb is missing
+- workflow must not combine coverage generation with --show-codecov-path
+- workflow must run the warning-enforced SwiftPM coverage generator
+- workflow must locate coverage JSON with a separate swift test --show-codecov-path step
+- workflow must run scripts/fail-on-warning.rb against saved logs

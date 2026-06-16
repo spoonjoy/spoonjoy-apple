@@ -119,7 +119,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Bootstrap coverage/build logs.
 **Acceptance**: `swift test --disable-xctest --parallel` passes; coverage command produces JSON; no implementation unit later fails because the package manifest is absent.
 
-### ⬜ Unit 2a: Coverage And Warning Enforcement Scripts — Tests
+### ✅ Unit 2a: Coverage And Warning Enforcement Scripts — Tests
 **What**: Add failing tests/checks for coverage JSON parsing, threshold enforcement, missing coverage file handling, warning-log failure behavior, and CI wiring expectations.
 **Output**: Script tests/checks for coverage and warning enforcement.
 **Acceptance**: Checks fail before `scripts/enforce-swift-coverage.rb` and `scripts/fail-on-warning.rb` exist.
@@ -444,3 +444,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 01:49 Addressed Unit 1b reviewer finding by loading package fixtures from the generated `Fixtures` resource subdirectory; full Swift package tests pass with warnings as errors.
 - 2026-06-16 01:55 Unit 1c complete: bootstrap tests and coverage generation pass; `Sources/SpoonjoyCore` is 100.0% covered in `unit-1c-codecov.json`; coverage flow corrected to run generation before the `--show-codecov-path` locator.
 - 2026-06-16 02:05 Added native link contract: Spoonjoy Apple must support Associated Domains for `applinks:spoonjoy.app`, a `spoonjoy` custom URL scheme fallback, and deterministic route parsing for canonical web links into the correct native screens.
+- 2026-06-16 02:10 Unit 2a complete: added coverage/warning contract checks; red log proves missing enforcement scripts and stale CI coverage/warning wiring fail before implementation.
