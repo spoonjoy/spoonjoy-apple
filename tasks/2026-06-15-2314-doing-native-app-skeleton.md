@@ -65,7 +65,10 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - **Shopping idempotency**: POST/PATCH send JSON `clientMutationId`; DELETE accepts JSON body `clientMutationId`, `X-Client-Mutation-Id`, or query `clientMutationId` and canonicalizes idempotency body to `{ clientMutationId }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md:663`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts:1427`.
 - **OAuth paths**: `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`. Register body includes `client_name`, exact HTTPS or localhost/127.0.0.1 `redirect_uris`, and `token_endpoint_auth_method: "none"`. Authorize sends `response_type=code`, `scope`, `state`, `code_challenge`, `code_challenge_method=S256`, and omits `resource` for REST. Token and revoke are `application/x-www-form-urlencoded`.
 - **Fixture paths**: `Sources/SpoonjoyCore/Fixtures/kitchen-fixture.json`, `recipes-fixture.json`, `cookbooks-fixture.json`, `shopping-list-fixture.json`, and `offline-snapshot-fixture.json`.
+- **Swift package targets**: `SpoonjoyCore` library target, `SpoonjoyScenarioVerifier` executable target at `Sources/SpoonjoyScenarioVerifier/main.swift`, and `SpoonjoyCoreTests` test target with fixture resources copied from `Sources/SpoonjoyCore/Fixtures`.
+- **Scenario verifier command/schema**: `swift run SpoonjoyScenarioVerifier --output ${ARTIFACT_ROOT}/scenario-report.json`. Output JSON has `ok: Bool`, `checks: [{ name: String, status: "pass" | "fail", detail: String }]`, and `nativeCapabilities: { appIntents: [String], spotlightIndexedTypes: [String], searchableScopes: [String], shareActions: [String], offlineFlows: [String] }`. `scripts/verify-native-scenarios.sh` fails if `ok` is false or any required native capability array is empty.
 - **Design invariants to encode**: lead object present on Kitchen; Recipe Detail uses hero/provenance/actions plus ingredient receipt and numbered method sections; Shopping List uses receipt rows with large check controls; Cook Mode has one focused step, large controls, persisted progress; Search uses native `.searchable` scopes and typed rows; Capture creates a local draft without claiming server recipe write; Settings includes offline/auth/environment state.
+- **Native integrations that must compile**: `SpoonjoyAppIntents` app-target source with at least `OpenRecipeIntent`, `StartCookModeIntent`, and `AddShoppingListItemIntent` when `canImport(AppIntents)`; `SpoonjoySpotlightIndexer` app-target source using `CoreSpotlight` when `canImport(CoreSpotlight)`. Package metadata may describe these capabilities, but app bundle builds must compile the guarded framework-backed code.
 - **Accessibility/design manifest schema**: `design-review.json` has booleans `mobileScreenshot`, `desktopScreenshot`, `dynamicType`, `voiceOverLabels`, `keyboardNavigation`, `reduceMotion`, `contrast`, `kitchenTableHierarchy`, `noOverlap`, and optional `blockers[]` entries shaped `{ "capability": String, "command": String, "timeoutSeconds": Int, "outputPath": String }`. Missing or false fields fail unless a matching blocker exists.
 - **CoreSimulator timeout rule**: simulator commands use one attempt and a 30-second timeout. Timeout writes a blocker JSON with `capability: "CoreSimulator"`, the exact command, `timeoutSeconds: 30`, and captured output. Other simulator failures fail the unit unless classified by reviewer as local machine capability.
 - **Build commands**: iOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. macOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration Debug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build`.
@@ -93,282 +96,297 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Determinism log in artifacts directory.
 **Acceptance**: Re-running the generator produces no git diff after the first generation.
 
-### ⬜ Unit 1a: Recipe/Cookbook Domain — Tests
+### ⬜ Unit 1a: Swift Package Bootstrap — Tests
+**What**: Add failing checks for `Package.swift` target declarations, fixture resource processing, empty `SpoonjoyCore` build, executable scenario target, and test target discovery.
+**Output**: `scripts/check-swift-package-structure.rb` and red log `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-1a-red.log`.
+**Acceptance**: Structure check and `swift test --list-tests` fail before `Package.swift` and target directories exist.
+
+### ⬜ Unit 1b: Swift Package Bootstrap — Implementation
+**What**: Create `Package.swift`, `Sources/SpoonjoyCore/SpoonjoyCore.swift`, `Sources/SpoonjoyCore/Fixtures/`, `Sources/SpoonjoyScenarioVerifier/main.swift`, and `Tests/SpoonjoyCoreTests/SpoonjoyCoreBootstrapTests.swift`.
+**Output**: Swift package manifest, placeholder targets, fixture resource directory, executable target, and bootstrap tests.
+**Acceptance**: `scripts/check-swift-package-structure.rb` passes; `swift test --list-tests` discovers `SpoonjoyCoreTests`; `swift run SpoonjoyScenarioVerifier --output ${ARTIFACT_ROOT}/scenario-report.json` runs and fails only expected missing-capability checks until Unit 8.
+
+### ⬜ Unit 1c: Swift Package Bootstrap — Coverage & Refactor
+**What**: Run Swift package tests and coverage command against bootstrap targets, then refactor manifest/resources if needed.
+**Output**: Bootstrap coverage/build logs.
+**Acceptance**: `swift test --disable-xctest --parallel` passes; coverage command produces JSON; no implementation unit later fails because the package manifest is absent.
+
+### ⬜ Unit 2a: Recipe/Cookbook Domain — Tests
 **What**: Write failing Swift tests for recipe, ingredient, step, chef, cookbook, cookbook cover, fixture decoding, and public search summary models.
 **Output**: `Tests/SpoonjoyCoreTests/RecipeCookbookTests.swift`.
 **Acceptance**: Filtered Swift tests fail because domain models do not exist yet.
 
-### ⬜ Unit 1b: Recipe/Cookbook Domain — Implementation
+### ⬜ Unit 2b: Recipe/Cookbook Domain — Implementation
 **What**: Implement recipe/cookbook domain models, fixture decoding, validation, and search-summary helpers.
 **Output**: `Sources/SpoonjoyCore/RecipeCookbook/` sources and fixtures.
-**Acceptance**: Unit 1a tests pass using `swift test --filter RecipeCookbookTests --disable-xctest --parallel`; compiler emits no warnings.
+**Acceptance**: Unit 2a tests pass using `swift test --filter RecipeCookbookTests --disable-xctest --parallel`; compiler emits no warnings.
 
-### ⬜ Unit 1c: Recipe/Cookbook Domain — Coverage & Refactor
+### ⬜ Unit 2c: Recipe/Cookbook Domain — Coverage & Refactor
 **What**: Run coverage for recipe/cookbook code, add edge tests, and refactor naming/boundaries.
 **Output**: Coverage log in artifacts directory.
 **Acceptance**: `scripts/enforce-swift-coverage.rb --coverage-json <path> --minimum 100 --include 'Sources/SpoonjoyCore/RecipeCookbook'` passes; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 2a: Shopping/Cook/Settings Domain — Tests
+### ⬜ Unit 3a: Shopping/Cook/Settings Domain — Tests
 **What**: Write failing Swift tests for shopping-list item operations, cook-mode progress, capture drafts, settings, and kitchen fixture state.
 **Output**: `Tests/SpoonjoyCoreTests/KitchenStateTests.swift`.
 **Acceptance**: Filtered Swift tests fail before implementation.
 
-### ⬜ Unit 2b: Shopping/Cook/Settings Domain — Implementation
+### ⬜ Unit 3b: Shopping/Cook/Settings Domain — Implementation
 **What**: Implement shopping-list operations, cook-mode progress persistence DTOs, capture draft state, settings state, and kitchen fixture state.
 **Output**: `Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift`, `CookModeProgress.swift`, `CaptureDraft.swift`, `SettingsState.swift`, and `KitchenFixtureState.swift`.
-**Acceptance**: Unit 2a tests pass using `swift test --filter KitchenStateTests --disable-xctest --parallel`; compiler emits no warnings.
+**Acceptance**: Unit 3a tests pass using `swift test --filter KitchenStateTests --disable-xctest --parallel`; compiler emits no warnings.
 
-### ⬜ Unit 2c: Shopping/Cook/Settings Domain — Coverage & Refactor
+### ⬜ Unit 3c: Shopping/Cook/Settings Domain — Coverage & Refactor
 **What**: Run coverage for kitchen state code, add missing edge/error tests, and refactor.
 **Output**: Coverage log in artifacts directory.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/KitchenState`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 3a: Public API v1 Read Client — Tests
+### ⬜ Unit 4a: Public API v1 Read Client — Tests
 **What**: Write failing tests for recipe/cookbook list/detail request builders, optional auth behavior, response envelopes, pagination, cache headers metadata, and error mapping.
 **Output**: `Tests/SpoonjoyCoreTests/APIReadClientTests.swift`.
 **Acceptance**: Tests fail with outbound-shape assertions for method, path, query, headers, and auth omission by default.
 
-### ⬜ Unit 3b: Public API v1 Read Client — Implementation
+### ⬜ Unit 4b: Public API v1 Read Client — Implementation
 **What**: Implement API base URL, request builder, envelope/error types, recipes/cookbooks list/detail requests, pagination cursor helpers, and optional-auth policy.
 **Output**: `Sources/SpoonjoyCore/API/APIClient.swift`, `APIEnvelope.swift`, `APIError.swift`, `APIRequestBuilder.swift`, `PublicCatalogRequests.swift`, and `PaginationCursor.swift`.
-**Acceptance**: Unit 3a tests pass; stale bearer tokens are not attached to anonymous public reads by default.
+**Acceptance**: Unit 4a tests pass; stale bearer tokens are not attached to anonymous public reads by default.
 
-### ⬜ Unit 3c: Public API v1 Read Client — Coverage & Refactor
+### ⬜ Unit 4c: Public API v1 Read Client — Coverage & Refactor
 **What**: Run coverage, add malformed URL/cursor/error edge tests, and refactor read-client boundaries.
 **Output**: Coverage and request-shape logs.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 4a: Shopping API Mutations — Tests
+### ⬜ Unit 5a: Shopping API Mutations — Tests
 **What**: Write failing tests for shopping-list read/sync, POST/PATCH/DELETE request builders, idempotency body/header/query forms, retry classification, and conflict/in-progress handling.
 **Output**: `Tests/SpoonjoyCoreTests/ShoppingAPIClientTests.swift`.
 **Acceptance**: Tests fail with outbound-shape assertions and DELETE `X-Client-Mutation-Id` expectations.
 
-### ⬜ Unit 4b: Shopping API Mutations — Implementation
+### ⬜ Unit 5b: Shopping API Mutations — Implementation
 **What**: Implement shopping-list API request builders, sync cursor helpers, mutation response parsing, idempotency metadata, and retry/error classification.
 **Output**: `Sources/SpoonjoyCore/API/ShoppingListAPI.swift`, `Sources/SpoonjoyCore/API/ShoppingListRequests.swift`, and `Sources/SpoonjoyCore/API/APIRetryPolicy.swift`.
-**Acceptance**: Unit 4a tests pass; DELETE supports header, query, and body idempotency forms.
+**Acceptance**: Unit 5a tests pass; DELETE supports header, query, and body idempotency forms.
 
-### ⬜ Unit 4c: Shopping API Mutations — Coverage & Refactor
+### ⬜ Unit 5c: Shopping API Mutations — Coverage & Refactor
 **What**: Run coverage, add edge/error tests for 401/403/409/429/5xx paths, and refactor.
 **Output**: Coverage and retry-classification logs.
 **Acceptance**: Coverage enforcement passes for shopping API files in `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 5a: OAuth/PKCE Request Construction — Tests
+### ⬜ Unit 6a: OAuth/PKCE Request Construction — Tests
 **What**: Write failing tests for PKCE verifier/challenge, state generation/validation, OAuth register/authorize/token/refresh/revoke request construction, redirect constraints, and REST `resource` omission.
 **Output**: `Tests/SpoonjoyCoreTests/OAuthRequestTests.swift`.
 **Acceptance**: Tests fail before OAuth helpers exist and assert form bodies/authorize query items.
 
-### ⬜ Unit 5b: OAuth/PKCE Request Construction — Implementation
+### ⬜ Unit 6b: OAuth/PKCE Request Construction — Implementation
 **What**: Implement PKCE/state helpers, OAuth request builders, redirect validation, and OAuth response types.
 **Output**: `Sources/SpoonjoyCore/Auth/OAuthPKCE.swift`, `Sources/SpoonjoyCore/Auth/OAuthRequests.swift`, `Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift`, and `Sources/SpoonjoyCore/Auth/OAuthResponses.swift`.
-**Acceptance**: Unit 5a tests pass; custom schemes are rejected and REST OAuth omits `resource`.
+**Acceptance**: Unit 6a tests pass; custom schemes are rejected and REST OAuth omits `resource`.
 
-### ⬜ Unit 5c: OAuth/PKCE Request Construction — Coverage & Refactor
+### ⬜ Unit 6c: OAuth/PKCE Request Construction — Coverage & Refactor
 **What**: Run coverage, add edge/error tests, and refactor OAuth request helpers.
 **Output**: OAuth coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Auth/OAuth*`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 6a: Token Vault And Refresh Coordination — Tests
+### ⬜ Unit 7a: Token Vault And Refresh Coordination — Tests
 **What**: Write failing tests for token vault protocol behavior, in-memory vault, persisted client id abstraction, atomic refresh-token rotation, invalid state handling, and single-flight refresh.
 **Output**: `Tests/SpoonjoyCoreTests/TokenRefreshTests.swift`.
 **Acceptance**: Tests fail before vault/coordinator implementation exists.
 
-### ⬜ Unit 6b: Token Vault And Refresh Coordination — Implementation
+### ⬜ Unit 7b: Token Vault And Refresh Coordination — Implementation
 **What**: Implement token vault abstractions, in-memory token vault, refresh coordinator, and disconnect/revoke state transitions.
 **Output**: `Sources/SpoonjoyCore/Auth/TokenVault.swift`, `Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift`, `Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift`, and `Sources/SpoonjoyCore/Auth/AuthSessionState.swift`.
-**Acceptance**: Unit 6a tests pass; concurrent refresh calls share one refresh operation in tests.
+**Acceptance**: Unit 7a tests pass; concurrent refresh calls share one refresh operation in tests.
 
-### ⬜ Unit 6c: Token Vault And Refresh Coordination — Coverage & Refactor
+### ⬜ Unit 7c: Token Vault And Refresh Coordination — Coverage & Refactor
 **What**: Run coverage, add concurrency/error tests, and refactor.
 **Output**: Coverage/concurrency logs.
 **Acceptance**: Coverage enforcement passes for token/refresh files in `Sources/SpoonjoyCore/Auth`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 7a: Offline Store And Mutation Queue — Tests
+### ⬜ Unit 8a: Offline Store And Mutation Queue — Tests
 **What**: Write failing tests for JSON file store, corrupt JSON recovery, durable cursor checkpointing, offline restore, and queued mutation serialization.
 **Output**: `Tests/SpoonjoyCoreTests/OfflineStoreTests.swift`.
 **Acceptance**: Tests fail before offline store implementation exists.
 
-### ⬜ Unit 7b: Offline Store And Mutation Queue — Implementation
+### ⬜ Unit 8b: Offline Store And Mutation Queue — Implementation
 **What**: Implement file-store abstractions, JSON encoding/decoding, cursor checkpointing, offline restore, and mutation queue models.
 **Output**: `Sources/SpoonjoyCore/Offline/JSONFileStore.swift`, `Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift`, `Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift`, and `Sources/SpoonjoyCore/Offline/MutationQueue.swift`.
-**Acceptance**: Unit 7a tests pass; corrupt JSON recovers without losing valid fallback fixtures.
+**Acceptance**: Unit 8a tests pass; corrupt JSON recovers without losing valid fallback fixtures.
 
-### ⬜ Unit 7c: Offline Store And Mutation Queue — Coverage & Refactor
+### ⬜ Unit 8c: Offline Store And Mutation Queue — Coverage & Refactor
 **What**: Run coverage, add filesystem/error edge tests, and refactor.
 **Output**: Offline coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Offline`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 8a: Native Metadata And Scenario Engine — Tests
-**What**: Write failing tests for App Intent descriptors, Spotlight/search metadata, native affordance flags, and deterministic scenario report generation.
+### ⬜ Unit 9a: Native Integrations And Scenario Engine — Tests
+**What**: Write failing tests/static checks for compileable AppIntents/CoreSpotlight app sources, App Intent descriptors, Spotlight/search metadata, native affordance flags, executable scenario command, and deterministic scenario report generation.
 **Output**: `Tests/SpoonjoyCoreTests/NativeScenarioTests.swift`.
-**Acceptance**: Tests fail before metadata/scenario engine exists.
+**Acceptance**: Tests fail before metadata/scenario engine and app integration source files exist.
 
-### ⬜ Unit 8b: Native Metadata And Scenario Engine — Implementation
-**What**: Implement native-value metadata descriptors and scenario report generator for first-run, fixture kitchen, recipe detail, cook progress, shopping checkoff, search, capture draft, settings, offline restore, and native affordance flags.
-**Output**: `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Sources/SpoonjoyCore/Native/ScenarioReport.swift`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, and `scripts/verify-native-scenarios.sh`.
-**Acceptance**: Unit 8a tests pass; scenario verifier exits nonzero when required metadata is absent.
+### ⬜ Unit 9b: Native Integrations And Scenario Engine — Implementation
+**What**: Implement native-value metadata descriptors, guarded AppIntents/CoreSpotlight app sources, executable scenario report generator, and verifier script for first-run, fixture kitchen, recipe detail, cook progress, shopping checkoff, search, capture draft, settings, offline restore, and native affordance flags.
+**Output**: `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Sources/SpoonjoyCore/Native/ScenarioReport.swift`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyScenarioVerifier/main.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`, and `scripts/verify-native-scenarios.sh`.
+**Acceptance**: Unit 9a tests pass; `swift run SpoonjoyScenarioVerifier --output ${ARTIFACT_ROOT}/scenario-report.json` emits the required schema; scenario verifier exits nonzero when required native arrays or guarded app integration source files are absent.
 
-### ⬜ Unit 8c: Native Metadata And Scenario Engine — Coverage & Refactor
+### ⬜ Unit 9c: Native Integrations And Scenario Engine — Coverage & Refactor
 **What**: Run coverage, polish scenario output, and refactor descriptors.
 **Output**: Scenario JSON/log and coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; verifier produces deterministic artifacts.
 
-### ⬜ Unit 9a: App State And Navigation View Models — Tests
+### ⬜ Unit 10a: App State And Navigation View Models — Tests
 **What**: Write failing tests for app route selection, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
 **Output**: `Tests/SpoonjoyCoreTests/AppStateTests.swift`.
 **Acceptance**: Tests fail before view-model state exists.
 
-### ⬜ Unit 9b: App State And Navigation View Models — Implementation
+### ⬜ Unit 10b: App State And Navigation View Models — Implementation
 **What**: Implement UI-independent app state/view models consumed by SwiftUI screens.
 **Output**: `Sources/SpoonjoyCore/AppState/AppRoute.swift`, `Sources/SpoonjoyCore/AppState/AppNavigationState.swift`, `Sources/SpoonjoyCore/AppState/SearchState.swift`, and `Sources/SpoonjoyCore/AppState/ScreenViewModels.swift`.
-**Acceptance**: Unit 9a tests pass; app targets do not own nontrivial business logic.
+**Acceptance**: Unit 10a tests pass; app targets do not own nontrivial business logic.
 
-### ⬜ Unit 9c: App State And Navigation View Models — Coverage & Refactor
+### ⬜ Unit 10c: App State And Navigation View Models — Coverage & Refactor
 **What**: Run coverage, add edge tests, and refactor.
 **Output**: App-state coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 10a: Xcode Project And App Targets — Tests
+### ⬜ Unit 11a: Xcode Project And App Targets — Tests
 **What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, deployment target labels, shared source membership, and build settings.
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
 
-### ⬜ Unit 10b: Xcode Project And App Targets — Implementation
+### ⬜ Unit 11b: Xcode Project And App Targets — Implementation
 **What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, and build settings.
 **Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, and `Apps/Spoonjoy/Shared/Info.plist`.
 **Acceptance**: Project checks pass; the exact iOS and macOS build commands from Contract Constants pass.
 
-### ⬜ Unit 10c: Xcode Project And App Targets — Determinism & Refactor
+### ⬜ Unit 11c: Xcode Project And App Targets — Determinism & Refactor
 **What**: Re-run generator, diff project, and refactor generated structure/settings.
 **Output**: Xcode generation determinism log.
 **Acceptance**: Re-running generator produces no git diff; exact iOS and macOS build commands still pass.
 
-### ⬜ Unit 11a: Native Shell Navigation — Tests
+### ⬜ Unit 12a: Native Shell Navigation — Tests
 **What**: Add failing app-state or static checks for `NavigationStack`, `NavigationSplitView`, toolbars, share actions, searchable routes, edit/check affordance metadata, and platform-specific shell decisions.
 **Output**: Tests/static checks for native shell affordances.
 **Acceptance**: Checks fail before SwiftUI shell implementation.
 
-### ⬜ Unit 11b: Native Shell Navigation — Implementation
+### ⬜ Unit 12b: Native Shell Navigation — Implementation
 **What**: Implement shared SwiftUI shell, signed-out setup, platform navigation, toolbar actions, `.searchable`, share affordances, and settings entry.
 **Output**: `Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift`, `Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift`, `Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift`, `Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift`, and `Apps/Spoonjoy/Shared/AppShell/ShareActions.swift`.
-**Acceptance**: Unit 11a checks pass; exact iOS and macOS build commands pass.
+**Acceptance**: Unit 12a checks pass; exact iOS and macOS build commands pass.
 
-### ⬜ Unit 11c: Native Shell Navigation — Coverage & Refactor
+### ⬜ Unit 12c: Native Shell Navigation — Coverage & Refactor
 **What**: Run package tests/builds and refactor shell state.
 **Output**: Build logs.
 **Acceptance**: `swift test --disable-xctest --parallel` and exact iOS/macOS build commands pass with no new warnings.
 
-### ⬜ Unit 12a: Kitchen And Recipe Surfaces — Tests
+### ⬜ Unit 13a: Kitchen And Recipe Surfaces — Tests
 **What**: Add failing tests/static checks for Kitchen lead object, recipe index rows, recipe detail cookbook spread, ingredients receipt, step list, native share, and Kitchen Table semantic tokens.
 **Output**: Tests/checks for kitchen and recipe surface contracts.
 **Acceptance**: Checks fail before surfaces exist.
 
-### ⬜ Unit 12b: Kitchen And Recipe Surfaces — Implementation
+### ⬜ Unit 13b: Kitchen And Recipe Surfaces — Implementation
 **What**: Implement Kitchen, Recipes, Recipe Detail, and Cookbooks surfaces using fixture/app state and native controls.
 **Output**: `Apps/Spoonjoy/Shared/Views/KitchenView.swift`, `Apps/Spoonjoy/Shared/Views/RecipesView.swift`, `Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift`, `Apps/Spoonjoy/Shared/Views/CookbooksView.swift`, and `Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift`.
-**Acceptance**: Unit 12a checks pass; iOS/macOS builds pass; scenario verifier covers fixture kitchen browsing and recipe detail.
+**Acceptance**: Unit 13a checks pass; exact iOS and macOS build commands pass; scenario verifier covers fixture kitchen browsing and recipe detail.
 
-### ⬜ Unit 12c: Kitchen And Recipe Surfaces — Build & Refactor
+### ⬜ Unit 13c: Kitchen And Recipe Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor surface components.
 **Output**: Build and scenario logs.
 **Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
 
-### ⬜ Unit 13a: Cook Mode And Shopping Surfaces — Tests
+### ⬜ Unit 14a: Cook Mode And Shopping Surfaces — Tests
 **What**: Add failing tests/static checks for focused cook-mode state, persisted progress, large kitchen-safe controls, receipt-like shopping list, checkoff behavior, and edit/check native affordances.
 **Output**: Tests/checks for cook/shopping surface contracts.
 **Acceptance**: Checks fail before surfaces exist.
 
-### ⬜ Unit 13b: Cook Mode And Shopping Surfaces — Implementation
+### ⬜ Unit 14b: Cook Mode And Shopping Surfaces — Implementation
 **What**: Implement Cook Mode and Shopping List SwiftUI surfaces using package state and native controls.
 **Output**: `Apps/Spoonjoy/Shared/Views/CookModeView.swift`, `Apps/Spoonjoy/Shared/Views/ShoppingListView.swift`, `Apps/Spoonjoy/Shared/Components/ReceiptListView.swift`, and `Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift`.
-**Acceptance**: Unit 13a checks pass; scenario verifier covers cook progress persistence and shopping checkoff; app builds pass.
+**Acceptance**: Unit 14a checks pass; scenario verifier covers cook progress persistence and shopping checkoff; exact iOS and macOS build commands pass.
 
-### ⬜ Unit 13c: Cook Mode And Shopping Surfaces — Build & Refactor
+### ⬜ Unit 14c: Cook Mode And Shopping Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor.
 **Output**: Build and scenario logs.
 **Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
 
-### ⬜ Unit 14a: Search, Capture, Settings Surfaces — Tests
+### ⬜ Unit 15a: Search, Capture, Settings Surfaces — Tests
 **What**: Add failing tests/static checks for native search scopes, capture draft creation, settings state, offline status, and rejected production-write claims.
 **Output**: Tests/checks for search/capture/settings contracts.
 **Acceptance**: Checks fail before surfaces exist.
 
-### ⬜ Unit 14b: Search, Capture, Settings Surfaces — Implementation
+### ⬜ Unit 15b: Search, Capture, Settings Surfaces — Implementation
 **What**: Implement Search, Capture, and Settings SwiftUI surfaces using native search/toolbars/forms and local draft state.
 **Output**: `Apps/Spoonjoy/Shared/Views/SearchView.swift`, `Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift`, `Apps/Spoonjoy/Shared/Views/SettingsView.swift`, and `Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift`.
-**Acceptance**: Unit 14a checks pass; scenario verifier covers search, capture draft creation, settings, and offline status.
+**Acceptance**: Unit 15a checks pass; scenario verifier covers search, capture draft creation, settings, and offline status.
 
-### ⬜ Unit 14c: Search, Capture, Settings Surfaces — Build & Refactor
+### ⬜ Unit 15c: Search, Capture, Settings Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor.
 **Output**: Build and scenario logs.
 **Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
 
-### ⬜ Unit 15a: Coverage Enforcement Script — Tests
+### ⬜ Unit 16a: Coverage Enforcement Script — Tests
 **What**: Add failing tests/checks for coverage JSON parsing, threshold enforcement, missing coverage file handling, and CI wiring expectations.
 **Output**: Script tests/checks for coverage enforcement.
 **Acceptance**: Checks fail before coverage enforcement exists.
 
-### ⬜ Unit 15b: Coverage Enforcement Script — Implementation
+### ⬜ Unit 16b: Coverage Enforcement Script — Implementation
 **What**: Implement coverage threshold script and update `Coverage` workflow to fail below threshold.
 **Output**: Coverage script and workflow changes.
 **Acceptance**: Coverage check fails below threshold and passes at threshold in local script tests.
 
-### ⬜ Unit 15c: Coverage Enforcement Script — Refactor
+### ⬜ Unit 16c: Coverage Enforcement Script — Refactor
 **What**: Run `swift test --enable-code-coverage --show-codecov-path`, threshold script, and full package tests.
 **Output**: Coverage artifacts and logs.
 **Acceptance**: Coverage artifacts are saved; CI coverage command is reproducible locally.
 
-### ⬜ Unit 16a: Launch Smoke And Screenshot Scripts — Tests
+### ⬜ Unit 17a: Launch Smoke And Screenshot Scripts — Tests
 **What**: Add failing checks for macOS launch smoke, iOS simulator smoke timeout reporting, exact screenshot artifact paths, and design/accessibility review manifest fields.
 **Output**: Script tests/checks for `scripts/smoke-macos.sh`, `scripts/smoke-ios-simulator.sh`, `scripts/capture-native-screenshots.sh`, and `scripts/validate-design-review.rb`.
 **Acceptance**: Checks fail before scripts exist.
 
-### ⬜ Unit 16b: Launch Smoke And Screenshot Scripts — Implementation
+### ⬜ Unit 17b: Launch Smoke And Screenshot Scripts — Implementation
 **What**: Implement macOS launch/smoke, iOS simulator smoke with bounded CoreSimulator handling, screenshot/design artifact generation, and a fail-closed design/accessibility manifest.
 **Output**: `scripts/smoke-macos.sh`, `scripts/smoke-ios-simulator.sh`, `scripts/capture-native-screenshots.sh`, `scripts/validate-design-review.rb`, and `tasks/2026-06-15-2314-doing-native-app-skeleton/design-review.json`.
 **Acceptance**: macOS launch/smoke runs locally; iOS smoke records CoreSimulator timeout as a local blocker if runtime listing remains unavailable; manifest includes pass/fail entries for mobile target, desktop target, Dynamic Type, VoiceOver labels, keyboard navigation, Reduce Motion, contrast, Kitchen Table hierarchy, and no-overlap layout review.
 
-### ⬜ Unit 16c: Launch Smoke And Screenshot Scripts — Refactor
+### ⬜ Unit 17c: Launch Smoke And Screenshot Scripts — Refactor
 **What**: Run launch/smoke and screenshot/design review scripts, save artifacts, and clean up output.
 **Output**: `tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-macos.log`, `smoke-ios-simulator.log`, `screenshots/ios-mobile.png`, `screenshots/macos-desktop.png`, and `design-review.json`.
 **Acceptance**: Available launch/screenshot validation passes or records concrete local capability blocker with command output; design review manifest fails if any required pass/fail field is missing or false without a documented capability blocker.
 
-### ⬜ Unit 17a: Full Local Matrix — Tests/Preparation
+### ⬜ Unit 18a: Full Local Matrix — Tests/Preparation
 **What**: Add a single local matrix script that orchestrates Swift tests, coverage, scenario verifier, Xcode builds, launch smoke, and screenshot/design checks.
 **Output**: `scripts/validate-native-local.sh` with failing pre-implementation assertions if any required script is missing.
 **Acceptance**: Matrix script fails before all required validation hooks are present.
 
-### ⬜ Unit 17b: Full Local Matrix — Implementation
+### ⬜ Unit 18b: Full Local Matrix — Implementation
 **What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same commands listed in Contract Constants.
 **Output**: Matrix script and workflow updates.
 **Acceptance**: Matrix runs each mandatory command from Contract Constants, writes `validation-matrix.json`, and exits nonzero on missing mandatory checks; GitHub workflow uses the same Swift test, coverage, scenario, and Xcode build commands except launch/screenshot checks that require an interactive local session.
 
-### ⬜ Unit 17c: Full Local Matrix — Evidence
+### ⬜ Unit 18c: Full Local Matrix — Evidence
 **What**: Run the full local matrix and save logs/artifacts.
 **Output**: Full validation artifacts under `tasks/2026-06-15-2314-doing-native-app-skeleton/`.
 **Acceptance**: All mandatory validation passes, or a blocker JSON matching Contract Constants exists for CoreSimulator-only smoke/screenshot limits.
 
-### ⬜ Unit 18a: Final Implementation Review — Review
+### ⬜ Unit 19a: Final Implementation Review — Review
 **What**: Spawn harsh implementation reviewer with full branch diff, planning/doing docs, and validation artifacts.
 **Output**: Reviewer verdict.
 **Acceptance**: Reviewer returns CONVERGED or FINDINGS.
 
-### ⬜ Unit 18b: Final Implementation Review — Fixes
+### ⬜ Unit 19b: Final Implementation Review — Fixes
 **What**: Address any BLOCKER/MAJOR reviewer findings with tests and implementation changes.
 **Output**: Fix commits and updated artifacts.
 **Acceptance**: Round 2 reviewer returns no BLOCKER/MAJOR findings.
 
-### ⬜ Unit 19a: PR And CI — Open
+### ⬜ Unit 20a: PR And CI — Open
 **What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, known Xcode 27 capability blocker, and reviewer gate results.
 **Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
-### ⬜ Unit 19b: PR And CI — Converge
+### ⬜ Unit 20b: PR And CI — Converge
 **What**: Wait for GitHub checks, fix any CI failures, and re-run reviewer if fixes are substantive.
 **Output**: Green CI, optional fix commits, and `tasks/2026-06-15-2314-doing-native-app-skeleton/github-checks.json`.
 **Acceptance**: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` pass on GitHub.
 
-### ⬜ Unit 19c: Merge And Sync
+### ⬜ Unit 20c: Merge And Sync
 **What**: Merge PR, fast-forward local main, verify branch protection remains intact, update Desk, and continue with next app slice.
 **Output**: Merged main, Desk update, and `tasks/2026-06-15-2314-doing-native-app-skeleton/branch-protection.json`.
 **Acceptance**: PR is merged to `main`; local main matches `origin/main`; branch-protection JSON shows strict required checks `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`; no active implementation branch residue.
@@ -394,3 +412,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Addressed ambiguity review with contract constants for API/OAuth/schema sources, coverage commands, artifact root, simulator blocker schema, design invariants, exact build commands, and commit cadence.
 - 2026-06-15 23:14 Ambiguity Round 2 converged with no remaining blockers.
 - 2026-06-15 23:14 Quality pass converged with all units explicit and TDD-shaped.
+- 2026-06-15 23:14 Addressed Tinfoil scrutiny with Swift package bootstrap, executable scenario verifier contract, and compileable AppIntents/CoreSpotlight integration requirements.
