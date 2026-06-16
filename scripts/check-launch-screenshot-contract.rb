@@ -139,6 +139,14 @@ SCRIPT_CONTRACTS.each do |relative_path, contract|
   fail_check("missing #{relative_path}") unless path.file?
 
   content = path.read
+  bad_absolute_path_lines = [
+    'app_path="$(pwd)/$app_path"',
+    'macos_app="$(pwd)/$macos_app"'
+  ]
+  if content.lines.map(&:strip).any? { |line| bad_absolute_path_lines.include?(line) }
+    fail_check("#{relative_path} must not prefix pwd onto app paths; absolute artifact roots must stay absolute")
+  end
+
   missing_tokens = contract.fetch(:tokens).reject { |token| content.include?(token) }
   fail_check("#{relative_path} missing required tokens: #{missing_tokens.join(", ")}") unless missing_tokens.empty?
 

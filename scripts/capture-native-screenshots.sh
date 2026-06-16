@@ -19,7 +19,10 @@ mkdir -p "$artifact_root/screenshots"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
 macos_app="$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app"
-macos_app="$(pwd)/$macos_app"
+case "$macos_app" in
+  /*) ;;
+  *) macos_app="$(pwd)/$macos_app" ;;
+esac
 design_review="$artifact_root/design-review.json"
 capture_log="$artifact_root/capture-native-screenshots.log"
 ios_blocker="$artifact_root/smoke-ios-simulator-blocker.json"

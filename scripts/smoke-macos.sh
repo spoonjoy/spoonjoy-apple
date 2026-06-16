@@ -20,7 +20,10 @@ log_path="$artifact_root/smoke-macos.log"
 blocker_path="$artifact_root/smoke-macos-blocker.json"
 derived_data_path="$artifact_root/DerivedData-macOS"
 app_path="$derived_data_path/Build/Products/BootstrapDebug/Spoonjoy.app"
-app_path="$(pwd)/$app_path"
+case "$app_path" in
+  /*) ;;
+  *) app_path="$(pwd)/$app_path" ;;
+esac
 state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 state_backup="$artifact_root/native-app-state-smoke-backup.json"
 route_query="codex-smoke-route-$(date +%s)"
