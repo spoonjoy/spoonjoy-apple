@@ -56,6 +56,8 @@ jobs:
           set -euo pipefail
           xcodebuild -version
           xcodebuild -version | grep -q '^Xcode 26\.5$'
+      - name: Check native design-language contract
+        run: ruby scripts/check-native-design-language.rb
       - name: Run native scenario verifier when present
         run: |
           set -euo pipefail
