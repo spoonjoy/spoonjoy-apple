@@ -96,7 +96,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Native justification doc and generator script.
 **Acceptance**: Unit 0a checks pass; `ruby -c scripts/generate-xcode-project.rb` passes; generator supports a dry-run/temp-output mode without writing `Spoonjoy.xcodeproj`; justification names accepted/rejected native platform levers.
 
-### ⬜ Unit 0c: Native Justification And Generator Contract — Determinism
+### ✅ Unit 0c: Native Justification And Generator Contract — Determinism
 **What**: Run generator dry-run/temp-output mode twice against a temporary directory, diff the temporary generated project output, and refactor generator/docs if nondeterministic.
 **Output**: Determinism log and temporary-output diff summary in artifacts directory.
 **Acceptance**: Dry-run/temp-output project generation is deterministic; no `Spoonjoy.xcodeproj` or generated `Apps/Spoonjoy/**` files are written to the repo before Unit 12, except Unit 10 may add native integration sources under `Apps/Spoonjoy/Shared/Native/`. Unit 0c must not block those native integration sources. A check fails on any pre-Unit-12 diff under `Spoonjoy.xcodeproj` or `Apps/Spoonjoy/**` outside `Apps/Spoonjoy/Shared/Native/**`.
@@ -435,3 +435,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 01:18 Addressed Unit 0a Round 2 findings by snapshotting forbidden repo outputs before/after temp generation and asserting deployment targets within bundle/config-specific build settings.
 - 2026-06-16 01:21 Addressed Unit 0a Round 3 finding by parsing real `XCBuildConfiguration` objects and matching their `name` fields before asserting deployment targets.
 - 2026-06-16 01:29 Unit 0b complete: added `docs/native-justification.md`, deterministic temp-output Xcode generator, and green log at `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0b-green.log`.
+- 2026-06-16 01:35 Unit 0c complete: generator temp-output determinism passed twice with no `Spoonjoy.xcodeproj` or `Apps/Spoonjoy` repo output; evidence saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0c-determinism.log`.
