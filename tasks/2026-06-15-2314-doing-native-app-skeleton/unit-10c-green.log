@@ -1,0 +1,127 @@
+[0/1] Planning build
+Building for debugging...
+[0/9] Write sources
+[3/9] Write swift-version--58304C5D6DBC2206.txt
+[5/41] Compiling SpoonjoyCore TokenVault.swift
+[6/41] Compiling SpoonjoyCore CaptureDraft.swift
+[7/41] Compiling SpoonjoyCore CookModeProgress.swift
+[8/44] Compiling SpoonjoyCore MutationQueue.swift
+[9/44] Compiling SpoonjoyCore OfflineSnapshot.swift
+[10/44] Compiling SpoonjoyCore SyncCheckpoint.swift
+[11/44] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[12/44] Compiling SpoonjoyCore OAuthRequests.swift
+[13/44] Compiling SpoonjoyCore OAuthResponses.swift
+[14/44] Compiling SpoonjoyCore RefreshCoordinator.swift
+[15/44] Compiling SpoonjoyCore DeepLinkManifest.swift
+[16/44] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[17/44] Compiling SpoonjoyCore ScenarioCommand.swift
+[18/44] Compiling SpoonjoyCore APIRetryPolicy.swift
+[19/44] Compiling SpoonjoyCore PaginationCursor.swift
+[20/44] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[21/44] Compiling SpoonjoyCore ShoppingListAPI.swift
+[22/44] Compiling SpoonjoyCore ScenarioReport.swift
+[23/44] Compiling SpoonjoyCore ScenarioVerifier.swift
+[24/44] Compiling SpoonjoyCore JSONFileStore.swift
+[25/44] Compiling SpoonjoyCore ShoppingListRequests.swift
+[26/44] Compiling SpoonjoyCore AuthSessionState.swift
+[27/44] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[28/44] Compiling SpoonjoyCore OAuthPKCE.swift
+[29/44] Compiling SpoonjoyCore APIClient.swift
+[30/44] Compiling SpoonjoyCore APIEnvelope.swift
+[31/44] Compiling SpoonjoyCore APIError.swift
+[32/44] Compiling SpoonjoyCore APIRequestBuilder.swift
+[33/44] Emitting module SpoonjoyCore
+[34/44] Compiling SpoonjoyCore KitchenFixtureState.swift
+[35/44] Compiling SpoonjoyCore SettingsState.swift
+[36/44] Compiling SpoonjoyCore ShoppingListState.swift
+[37/44] Compiling SpoonjoyCore RecipeCookbook.swift
+[38/44] Compiling SpoonjoyCore SpoonjoyCore.swift
+[39/44] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[40/57] Compiling SpoonjoyScenarioVerifier main.swift
+[41/57] Emitting module SpoonjoyScenarioVerifier
+[42/57] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[42/57] Write Objects.LinkFileList
+[43/57] Linking SpoonjoyScenarioVerifier
+[44/57] Applying SpoonjoyScenarioVerifier
+[46/57] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[47/57] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[48/57] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[49/57] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[50/57] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[51/57] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[52/57] Emitting module SpoonjoyCoreTests
+[53/57] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[54/57] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[55/57] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[56/59] Emitting module SpoonjoyApplePackageTests
+[57/59] Compiling SpoonjoyApplePackageTests runner.swift
+[57/59] Write Objects.LinkFileList
+[58/59] Linking SpoonjoyApplePackageTests
+Build complete! (5.28s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "app integration sources typecheck and declare expected native types" started.
+◇ Test "scenario verifier covers root override and failing native metadata checks" started.
+◇ Test "scenario command writes output and supports stdout mode" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "native metadata command parses stage and output path" started.
+◇ Test "native metadata report encoding is deterministic" started.
+✔ Test "native metadata command parses stage and output path" passed after 0.001 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.001 seconds.
+✔ Test "native metadata report encoding is deterministic" passed after 0.001 seconds.
+✔ Test "scenario verifier covers root override and failing native metadata checks" passed after 0.001 seconds.
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}
+✔ Test "scenario command writes output and supports stdout mode" passed after 0.002 seconds.
+✔ Test "app integration sources typecheck and declare expected native types" passed after 0.561 seconds.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 10.329 seconds.
+✔ Suite "Native scenario metadata" passed after 10.330 seconds.
+✔ Test run with 7 tests in 1 suite passed after 10.330 seconds.

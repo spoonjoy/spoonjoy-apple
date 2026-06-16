@@ -95,6 +95,61 @@ struct NativeScenarioTests {
         #expect(command == ScenarioCommand(stage: .nativeMetadata, outputPath: "/tmp/spoonjoy-native-metadata.json"))
     }
 
+    @Test("scenario command writes output and supports stdout mode")
+    func scenarioCommandWritesOutputAndSupportsStdoutMode() throws {
+        try withTemporaryDirectory { directory in
+            let outputURL = directory.appendingPathComponent("native-metadata.json")
+            let outputReport = try ScenarioCommand.run(arguments: [
+                "--stage", "native-metadata",
+                "--output", outputURL.path
+            ])
+            let outputData = try Data(contentsOf: outputURL)
+            let decodedReport = try JSONDecoder().decode(ScenarioReport.self, from: outputData)
+            let stdoutReport = try ScenarioCommand.run(arguments: ["--stage", "bootstrap"])
+
+            #expect(outputReport.stage == .nativeMetadata)
+            #expect(decodedReport == outputReport)
+            #expect(stdoutReport == ScenarioReporter.bootstrapReport())
+        }
+    }
+
+    @Test("scenario verifier covers root override and failing native metadata checks")
+    func scenarioVerifierCoversRootOverrideAndFailingNativeMetadataChecks() throws {
+        try withTemporaryDirectory { directory in
+            let fallbackRoot = ScenarioVerifier.defaultRootURL(
+                environment: [:],
+                currentDirectoryPath: repoURL.path
+            )
+            let overrideRoot = ScenarioVerifier.defaultRootURL(
+                environment: ["SPOONJOY_SCENARIO_ROOT": "  \(directory.path)  "],
+                currentDirectoryPath: repoURL.path
+            )
+            let missingSourceReport = ScenarioVerifier.nativeMetadataReport(rootURL: directory)
+            let missingSourceChecks = Dictionary(uniqueKeysWithValues: missingSourceReport.checks.map { ($0.name, $0.status) })
+            let emptyMetadata = NativeCapabilityMetadata(
+                appIntents: [],
+                spotlightIndexedTypes: [],
+                searchableScopes: [],
+                shareActions: [],
+                offlineFlows: [],
+                associatedDomains: [],
+                urlSchemes: [],
+                deepLinkRoutes: []
+            )
+            let emptyMetadataReport = ScenarioVerifier.nativeMetadataReport(rootURL: repoURL, metadata: emptyMetadata)
+            let emptyMetadataChecks = Dictionary(uniqueKeysWithValues: emptyMetadataReport.checks.map { ($0.name, $0.status) })
+
+            #expect(fallbackRoot.path == repoURL.path)
+            #expect(overrideRoot.path == directory.path)
+            #expect(!missingSourceReport.ok)
+            #expect(missingSourceChecks["app intents source"] == .fail)
+            #expect(missingSourceChecks["spotlight source"] == .fail)
+            #expect(!emptyMetadataReport.ok)
+            #expect(emptyMetadataChecks["native metadata"] == .fail)
+            #expect(emptyMetadataChecks["deep link metadata"] == .fail)
+        }
+    }
+
     @Test("app integration sources typecheck and declare expected native types")
     func appIntegrationSourcesTypecheckAndDeclareExpectedNativeTypes() throws {
         let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"

@@ -57,16 +57,6 @@ public struct ScenarioCommand: Equatable {
         return report
     }
 
-    public static func main(arguments: [String]) -> Never {
-        do {
-            try run(arguments: arguments)
-            exit(EXIT_SUCCESS)
-        } catch {
-            FileHandle.standardError.write(Data("Scenario verifier failed: \(error)\n".utf8))
-            exit(EXIT_FAILURE)
-        }
-    }
-
     public static func reportData(_ report: ScenarioReport) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

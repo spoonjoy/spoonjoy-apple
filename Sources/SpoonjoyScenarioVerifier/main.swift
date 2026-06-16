@@ -1,3 +1,1 @@
-import SpoonjoyCore
-
-ScenarioCommand.main(arguments: Array(CommandLine.arguments.dropFirst()))
+ScenarioProcessMain.main(arguments: Array(CommandLine.arguments.dropFirst()))

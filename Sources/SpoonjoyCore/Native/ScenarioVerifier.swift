@@ -12,14 +12,21 @@ public enum ScenarioReporter {
 
 public enum ScenarioVerifier {
     public static var defaultRootURL: URL {
-        let override = ProcessInfo.processInfo.environment["SPOONJOY_SCENARIO_ROOT"] ?? ""
+        defaultRootURL(
+            environment: ProcessInfo.processInfo.environment,
+            currentDirectoryPath: FileManager.default.currentDirectoryPath
+        )
+    }
+
+    public static func defaultRootURL(environment: [String: String], currentDirectoryPath: String) -> URL {
+        let override = environment["SPOONJOY_SCENARIO_ROOT"] ?? ""
         let trimmedOverride = override.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if !trimmedOverride.isEmpty {
             return URL(fileURLWithPath: trimmedOverride)
         }
 
-        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        return URL(fileURLWithPath: currentDirectoryPath)
     }
 
     public static func report(
@@ -57,8 +64,10 @@ public enum ScenarioVerifier {
         )
     }
 
-    public static func nativeMetadataReport(rootURL: URL) -> ScenarioReport {
-        let metadata = NativeCapabilityMetadata.spoonjoy
+    public static func nativeMetadataReport(
+        rootURL: URL,
+        metadata: NativeCapabilityMetadata = .spoonjoy
+    ) -> ScenarioReport {
         return ScenarioReport(
             stage: .nativeMetadata,
             checks: [
