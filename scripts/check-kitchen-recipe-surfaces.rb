@@ -37,7 +37,6 @@ REQUIRED_TOKENS = {
     "CookbookShelf",
     "KitchenFixtureState",
     "KitchenLeadObject",
-    "NavigationLink",
     "ScrollView",
     "KitchenTableTheme"
   ],
@@ -45,7 +44,7 @@ REQUIRED_TOKENS = {
     "RecipesView",
     "RecipeIndex",
     "List",
-    "NavigationLink",
+    "Button",
     "RecipeSummary",
     "KitchenTableTheme"
   ],
@@ -55,6 +54,7 @@ REQUIRED_TOKENS = {
     "ShareLink",
     "AsyncImage",
     "provenance",
+    "cookbookSpread",
     "ingredientReceipt",
     "methodSections",
     "ForEach",
@@ -65,7 +65,7 @@ REQUIRED_TOKENS = {
     "CookbookShelf",
     "CookbookCover",
     "ScrollView",
-    "NavigationLink",
+    "Button",
     "KitchenTableTheme"
   ]
 }.freeze

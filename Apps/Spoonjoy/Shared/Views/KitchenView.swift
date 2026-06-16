@@ -93,7 +93,6 @@ struct RecipeLead: View {
                     .buttonStyle(.borderedProminent)
                 Button("Start Cooking") { startCooking(recipe.id) }
                     .buttonStyle(.bordered)
-                NavigationLink("Recipe Page", value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail))
             }
         }
     }

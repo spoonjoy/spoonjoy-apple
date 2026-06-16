@@ -85,6 +85,46 @@ struct NativeScenarioTests {
         #expect(first.contains(#""shopping-list""#))
     }
 
+    @Test("surfaces report proves kitchen and recipe detail slice")
+    func surfacesReportProvesKitchenAndRecipeDetailSlice() throws {
+        let report = try ScenarioReporter.report(for: .surfaces)
+        let checksByName = Dictionary(uniqueKeysWithValues: report.checks.map { ($0.name, $0.status) })
+
+        #expect(report.ok)
+        #expect(report.stage == .surfaces)
+        #expect(checksByName["fixture kitchen browsing"] == .pass)
+        #expect(checksByName["recipe detail"] == .pass)
+        #expect(checksByName["kitchen surface source"] == .pass)
+        #expect(checksByName["recipe detail surface source"] == .pass)
+        #expect(checksByName["navigation surface source"] == .pass)
+        #expect(checksByName["later surfaces"] == .pending)
+        #expect(report.checks.filter { $0.status == .fail }.isEmpty)
+        #expect(Set(report.nativeCapabilities.deepLinkRoutes) == Set(expectedDeepLinkRoutes))
+    }
+
+    @Test("surfaces report fails when surface sources are missing")
+    func surfacesReportFailsWhenSurfaceSourcesAreMissing() throws {
+        try withTemporaryDirectory { directory in
+            let report = ScenarioVerifier.surfacesReport(rootURL: directory)
+            let checksByName = Dictionary(uniqueKeysWithValues: report.checks.map { ($0.name, $0.status) })
+
+            #expect(!report.ok)
+            #expect(checksByName["kitchen surface source"] == .fail)
+            #expect(checksByName["recipe detail surface source"] == .fail)
+            #expect(checksByName["navigation surface source"] == .fail)
+        }
+    }
+
+    @Test("scenario command parses surfaces stage")
+    func scenarioCommandParsesSurfacesStage() throws {
+        let command = try ScenarioCommand.parse(arguments: [
+            "--stage", "surfaces",
+            "--output", "/tmp/spoonjoy-surfaces.json"
+        ])
+
+        #expect(command == ScenarioCommand(stage: .surfaces, outputPath: "/tmp/spoonjoy-surfaces.json"))
+    }
+
     @Test("native metadata command parses stage and output path")
     func nativeMetadataCommandParsesStageAndOutputPath() throws {
         let command = try ScenarioCommand.parse(arguments: [
@@ -228,6 +268,21 @@ struct NativeScenarioTests {
             #expect(failure.exitCode != 0)
             #expect(failure.combinedOutput.contains("app intents source"))
             #expect(failure.combinedOutput.contains("spotlight source"))
+
+            let surfacesOutputURL = directory.appendingPathComponent("surfaces.json")
+            let surfaces = try runProcess(
+                scriptURL.path,
+                arguments: ["--stage", "surfaces", "--output", surfacesOutputURL.path],
+                environment: ["SPOONJOY_SCENARIO_SCRATCH_PATH": scratchURL.path],
+                currentDirectoryURL: repoURL
+            )
+            let surfacesData = try Data(contentsOf: surfacesOutputURL)
+            let surfacesReport = try JSONDecoder().decode(ScenarioReport.self, from: surfacesData)
+
+            #expect(surfaces.exitCode == 0, Comment(rawValue: surfaces.combinedOutput))
+            #expect(surfacesReport.ok)
+            #expect(surfacesReport.stage == .surfaces)
+            #expect(surfacesReport.checks.filter { $0.status == .pending }.map(\.name) == ["later surfaces"])
 
             let defaultOutputDirectory = directory.appendingPathComponent("default-output", isDirectory: true)
             try FileManager.default.createDirectory(at: defaultOutputDirectory, withIntermediateDirectories: true)

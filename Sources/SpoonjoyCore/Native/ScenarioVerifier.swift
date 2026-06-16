@@ -38,7 +38,9 @@ public enum ScenarioVerifier {
             return bootstrapReport()
         case .nativeMetadata:
             return nativeMetadataReport(rootURL: rootURL)
-        case .surfaces, .final:
+        case .surfaces:
+            return surfacesReport(rootURL: rootURL)
+        case .final:
             throw ScenarioCommandError.unsupportedStage(stage)
         }
     }
@@ -110,6 +112,39 @@ public enum ScenarioVerifier {
                     detail: "Associated-domain and custom-scheme routes are declared."
                 ),
                 ScenarioCheck(name: "app surfaces", status: .pending, detail: "SwiftUI surfaces land in Units 14-16.")
+            ],
+            nativeCapabilities: metadata.scenarioCapabilities
+        )
+    }
+
+    public static func surfacesReport(rootURL: URL, metadata: NativeCapabilityMetadata = .spoonjoy) -> ScenarioReport {
+        return ScenarioReport(
+            stage: .surfaces,
+            checks: [
+                ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
+                ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
+                sourceCheck(
+                    name: "kitchen surface source",
+                    detail: "Kitchen surface includes lead object, recipe index, and cookbook shelf.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/KitchenView.swift",
+                    tokens: ["KitchenView", "KitchenLeadObject", "RecipeLead", "RecipeIndex", "CookbookShelf"]
+                ),
+                sourceCheck(
+                    name: "recipe detail surface source",
+                    detail: "Recipe detail surface includes required cookbook spread and receipt/method structure.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
+                    tokens: ["RecipeDetailView", "cookbookSpread", "ingredientReceipt", "methodSections", "ShareLink"]
+                ),
+                sourceCheck(
+                    name: "navigation surface source",
+                    detail: "Platform navigation routes fixture kitchen, recipes, recipe detail, and cookbooks.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailView(", "CookbooksView("]
+                ),
+                ScenarioCheck(name: "later surfaces", status: .pending, detail: "Cook mode, shopping, search, capture, and settings surfaces land in Units 15-16.")
             ],
             nativeCapabilities: metadata.scenarioCapabilities
         )

@@ -54,7 +54,7 @@ allowed_pending = case stage
                   when "native-metadata"
                     ["app surfaces"]
                   when "surfaces"
-                    ["final validation"]
+                    ["later surfaces"]
                   else
                     []
                   end

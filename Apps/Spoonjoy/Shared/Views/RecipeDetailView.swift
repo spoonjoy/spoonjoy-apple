@@ -9,6 +9,7 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 hero
+                cookbookSpread
                 ingredientReceipt
                 method
             }
@@ -71,6 +72,28 @@ struct RecipeDetailView: View {
                     Spacer()
                     Text(quantityText(for: ingredient))
                         .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 6)
+            }
+        }
+        .padding()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var cookbookSpread: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Cookbook Spread")
+                .font(.title2)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+
+            ForEach(recipe.cookbooks, id: \.id) { cookbook in
+                HStack {
+                    Label(cookbook.title, systemImage: "book.closed")
+                    Spacer()
+                    Text(cookbook.canonicalURL.host() ?? "spoonjoy.app")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.brass)
                 }
                 .padding(.vertical, 6)
             }

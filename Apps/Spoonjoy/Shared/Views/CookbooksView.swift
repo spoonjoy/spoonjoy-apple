@@ -27,10 +27,12 @@ struct CookbookShelf: View {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(cookbooks, id: \.id) { cookbook in
-                        NavigationLink(value: AppRoute.cookbookDetail(id: cookbook.id)) {
+                        Button {
+                            openCookbook(cookbook.id)
+                        } label: {
                             CookbookCoverView(cookbook: cookbook)
                         }
-                        .simultaneousGesture(TapGesture().onEnded { openCookbook(cookbook.id) })
+                        .buttonStyle(.plain)
                     }
                 }
             }

@@ -7,10 +7,12 @@ struct RecipesView: View {
 
     var body: some View {
         List(recipeSummaries, id: \.id) { recipe in
-            NavigationLink(value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail)) {
+            Button {
+                openRecipe(recipe.id)
+            } label: {
                 RecipeIndexRow(recipe: recipe)
             }
-            .simultaneousGesture(TapGesture().onEnded { openRecipe(recipe.id) })
+            .buttonStyle(.plain)
         }
         .background(KitchenTableTheme.bone)
     }
