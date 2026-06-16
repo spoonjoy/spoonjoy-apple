@@ -230,7 +230,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Tests/SpoonjoyCoreTests/OfflineStoreTests.swift`.
 **Acceptance**: Tests fail before offline store implementation exists.
 
-### ⬜ Unit 9b: Offline Store And Mutation Queue — Implementation
+### ✅ Unit 9b: Offline Store And Mutation Queue — Implementation
 **What**: Implement file-store abstractions, JSON encoding/decoding, cursor checkpointing, offline restore, and mutation queue models.
 **Output**: `Sources/SpoonjoyCore/Offline/JSONFileStore.swift`, `Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift`, `Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift`, and `Sources/SpoonjoyCore/Offline/MutationQueue.swift`.
 **Acceptance**: Unit 9a tests pass; corrupt JSON recovers without losing valid fallback fixtures.
@@ -477,3 +477,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:47 Unit 8c complete: initial token/refresh coverage found 96.32% coverage, then edge tests covered blank token type/scope, invalid token-response expiry, blank persisted client id, and the coordinator was refactored to remove an unreachable signed-out branch; token/refresh coverage now passes at 100.00% (133/133), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.
 - 2026-06-16 08:50 Unit 9a complete: added failing offline-store tests for generic JSON file save/load/delete, corrupt local JSON recovery through fallback data without overwriting the corrupt file, durable shopping sync checkpoints, offline shopping-list restore state, queued shopping mutation serialization, removal, and duplicate client-mutation rejection; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-9a-red.log`.
 - 2026-06-16 08:57 Addressed Unit 8 reviewer findings by enforcing Bearer-only auth sessions with required shopping read/write scopes, adding a disconnect-vs-in-flight-refresh race test whose refresh operation ignores cancellation, moving refresh persistence behind coordinator generation checks, and saving red/green/Auth-wide coverage/full-test/build/warning evidence; Auth-wide coverage now passes at 100.00% (308/308), and `TokenVault.swift`/`OAuthResponses.swift` have no separate measured executable lines in the coverage file list.
+- 2026-06-16 08:58 Unit 9b complete: implemented generic JSON file storage with fallback-after-corruption recovery, durable shopping sync checkpoints, offline shopping-list restore snapshots, and serializable queued shopping add/check/delete mutations with duplicate client-mutation protection; focused OfflineStore tests, full Swift tests, warning scan, and warning-enforced Swift build pass.

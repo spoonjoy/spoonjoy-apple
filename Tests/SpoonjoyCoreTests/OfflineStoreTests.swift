@@ -66,7 +66,7 @@ struct OfflineStoreTests {
     func offlineSnapshotRestoresShoppingListCheckpointAndPendingMutations() throws {
         let shoppingList = try ShoppingListState.decodeFromBundle()
         let checkpoint = try SyncCheckpoint(
-            shoppingCursor: try #require(ShoppingSyncCursor(rawValue: shoppingList.nextCursor)),
+            shoppingCursor: try shoppingCursor(shoppingList.nextCursor),
             updatedAt: shoppingList.updatedAt
         )
         let queue = try MutationQueue().appending(shoppingAddMutation())
@@ -143,7 +143,7 @@ struct OfflineStoreTests {
             capturedAt: capturedAt,
             shoppingList: shoppingList,
             syncCheckpoint: try SyncCheckpoint(
-                shoppingCursor: try #require(ShoppingSyncCursor(rawValue: shoppingList.nextCursor)),
+                shoppingCursor: try shoppingCursor(shoppingList.nextCursor),
                 updatedAt: shoppingList.updatedAt
             ),
             pendingMutations: try MutationQueue().appending(shoppingAddMutation())
@@ -163,6 +163,10 @@ struct OfflineStoreTests {
                 iconKey: "egg"
             )
         )
+    }
+
+    private func shoppingCursor(_ rawValue: String) throws -> ShoppingSyncCursor {
+        try #require(ShoppingSyncCursor(rawValue: rawValue))
     }
 
     private func withTemporaryDirectory<T>(_ body: (URL) throws -> T) throws -> T {
