@@ -1,0 +1,62 @@
+name: Native
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  swift-tests:
+    name: Swift tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run Swift tests when package exists
+        run: |
+          if [ -f Package.swift ]; then
+            swift test
+          else
+            echo "Package.swift not present yet; bootstrap check passes."
+          fi
+
+  native-scenario-verifier:
+    name: Native scenario verifier
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run native scenario verifier when present
+        run: |
+          if [ -x scripts/verify-native-scenarios.sh ]; then
+            scripts/verify-native-scenarios.sh
+          else
+            echo "Native scenario verifier not present yet; bootstrap check passes."
+          fi
+
+  app-bundle:
+    name: App bundle
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build app bundle when Xcode project exists
+        run: |
+          if ls *.xcodeproj >/dev/null 2>&1; then
+            project="$(ls *.xcodeproj | head -n 1)"
+            xcodebuild -project "$project" -scheme Spoonjoy -destination 'platform=iOS Simulator,name=iPhone 17' build
+          else
+            echo "Xcode project not present yet; bootstrap check passes."
+          fi
+
+  coverage:
+    name: Coverage
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate coverage when package exists
+        run: |
+          if [ -f Package.swift ]; then
+            swift test --enable-code-coverage
+          else
+            echo "Package.swift not present yet; bootstrap check passes."
+          fi
+
