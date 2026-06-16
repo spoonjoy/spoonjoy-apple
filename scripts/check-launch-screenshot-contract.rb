@@ -61,6 +61,7 @@ SCRIPT_CONTRACTS = {
       "design-review.json",
       "xcrun simctl io",
       "screencapture",
+      "spoonjoy://kitchen",
       "mobileScreenshot",
       "desktopScreenshot"
     ]

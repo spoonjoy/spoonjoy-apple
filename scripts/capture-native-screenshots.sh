@@ -34,6 +34,8 @@ fi
 
 if [[ ! -f "$macos_blocker" ]]; then
   open -n "$macos_app" >> "$capture_log" 2>&1 || true
+  sleep 1
+  open "spoonjoy://kitchen" >> "$capture_log" 2>&1 || true
   sleep 3
   screencapture -x "$macos_screenshot" >> "$capture_log" 2>&1 || true
   osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >> "$capture_log" 2>&1 || true

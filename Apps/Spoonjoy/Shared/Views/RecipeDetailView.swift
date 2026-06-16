@@ -28,11 +28,7 @@ struct RecipeDetailView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AsyncImage(url: recipe.coverImageURL) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Rectangle().fill(KitchenTableTheme.brass.opacity(0.14))
-            }
+            RecipeCoverImage(url: recipe.coverImageURL)
             .frame(maxWidth: .infinity, minHeight: 280)
             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
             .overlay(alignment: .bottomLeading) {
@@ -42,6 +38,7 @@ struct RecipeDetailView: View {
                     .background(KitchenTableTheme.photoOverlay)
                     .foregroundStyle(.white)
             }
+            .accessibilityLabel("\(recipe.title) cover image")
 
             Text(recipe.title)
                 .font(KitchenTableTheme.displayTitle)

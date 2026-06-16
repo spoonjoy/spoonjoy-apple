@@ -53,12 +53,9 @@ private struct CookbookCoverView: View {
                     .fill(KitchenTableTheme.brass.opacity(0.18))
                     .aspectRatio(3 / 4, contentMode: .fit)
                 if let imageURL = cover.primaryImageURL {
-                    AsyncImage(url: imageURL) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        KitchenTableTheme.herb.opacity(0.12)
-                    }
+                    RecipeCoverImage(url: imageURL)
                     .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .accessibilityHidden(true)
                 }
             }
             .frame(width: 120)

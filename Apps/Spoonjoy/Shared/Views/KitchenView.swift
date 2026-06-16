@@ -68,14 +68,11 @@ struct RecipeLead: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack(alignment: .bottomLeading) {
-                AsyncImage(url: recipe.coverImageURL) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Rectangle().fill(KitchenTableTheme.brass.opacity(0.18))
-                }
+                RecipeCoverImage(url: recipe.coverImageURL)
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .overlay(KitchenTableTheme.photoOverlay)
+                .accessibilityLabel("\(recipe.title) cover image")
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(recipe.title)
@@ -113,13 +110,10 @@ struct RecipeIndex: View {
                     openRecipe(recipe.id)
                 } label: {
                     HStack {
-                        AsyncImage(url: recipe.coverImageURL) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            Rectangle().fill(KitchenTableTheme.brass.opacity(0.12))
-                        }
+                        RecipeCoverImage(url: recipe.coverImageURL)
                         .frame(width: 48, height: 48)
                         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                        .accessibilityHidden(true)
 
                         VStack(alignment: .leading) {
                             Text(recipe.title)

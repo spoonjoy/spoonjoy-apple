@@ -1,12 +1,12 @@
 import Foundation
 
-public enum SpotlightIndexType: String, Equatable {
+public enum SpotlightIndexType: String, Equatable, Sendable {
     case recipe
     case cookbook
     case shoppingListItem = "shopping-list-item"
 }
 
-public struct SpotlightIndexDocument: Equatable {
+public struct SpotlightIndexDocument: Equatable, Sendable {
     public let type: SpotlightIndexType
     public let id: String
     public let uniqueIdentifier: String

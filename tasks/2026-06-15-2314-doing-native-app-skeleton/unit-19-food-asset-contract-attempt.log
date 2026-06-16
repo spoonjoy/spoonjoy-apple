@@ -1,0 +1,6 @@
+scripts/check-kitchen-recipe-surfaces.rb:105:in `gsub': invalid byte sequence in UTF-8 (ArgumentError)
+	from scripts/check-kitchen-recipe-surfaces.rb:105:in `uncommented_swift'
+	from scripts/check-kitchen-recipe-surfaces.rb:126:in `block in <main>'
+	from scripts/check-kitchen-recipe-surfaces.rb:125:in `each'
+	from scripts/check-kitchen-recipe-surfaces.rb:125:in `flat_map'
+	from scripts/check-kitchen-recipe-surfaces.rb:125:in `<main>'

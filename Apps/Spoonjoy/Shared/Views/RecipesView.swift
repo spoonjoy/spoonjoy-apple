@@ -31,13 +31,10 @@ private struct RecipeIndexRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImage(url: recipe.coverImageURL) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Rectangle().fill(KitchenTableTheme.brass.opacity(0.12))
-            }
+            RecipeCoverImage(url: recipe.coverImageURL)
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(recipe.title)
