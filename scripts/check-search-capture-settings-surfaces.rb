@@ -125,9 +125,7 @@ end
   "SettingsView(viewModel: settingsViewModel)",
   "var settingsViewModel: SettingsViewModel",
   "SettingsState(",
-  "offline: offlineState",
-  "var offlineState: OfflineState",
-  "kitchen.offlineRestore.includesShoppingList"
+  "offline: appSnapshot.offlineState"
 ].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
 end

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SignedOutSetupView: View {
+    let openKitchen: () -> Void
     let openCapture: () -> Void
     let openSettings: () -> Void
 
@@ -14,8 +15,10 @@ struct SignedOutSetupView: View {
             }
 
             HStack(spacing: 12) {
-                Button("Capture Draft", action: openCapture)
+                Button("Open Kitchen", action: openKitchen)
                     .buttonStyle(.borderedProminent)
+                Button("Capture Draft", action: openCapture)
+                    .buttonStyle(.bordered)
                 Button("Settings", action: openSettings)
                     .buttonStyle(.bordered)
                 Link("spoonjoy.app", destination: URL(string: "https://spoonjoy.app") ?? URL(fileURLWithPath: "/"))

@@ -7,11 +7,11 @@ struct ShoppingListView: View {
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
 #endif
     @State private var viewModel: ShoppingListViewModel
-    private let viewModelDidChange: (ShoppingListViewModel) -> Void
+    private let viewModelDidChange: (ShoppingListViewModel, ShoppingListItem, Bool, String) -> Void
 
     init(
         viewModel: ShoppingListViewModel,
-        viewModelDidChange: @escaping (ShoppingListViewModel) -> Void = { _ in }
+        viewModelDidChange: @escaping (ShoppingListViewModel, ShoppingListItem, Bool, String) -> Void = { _, _, _, _ in }
     ) {
         _viewModel = State(initialValue: viewModel)
         self.viewModelDidChange = viewModelDidChange
@@ -68,10 +68,11 @@ struct ShoppingListView: View {
 
     private func setChecked(_ item: ShoppingListItem, _ checked: Bool) {
         let nextSortIndex = (shoppingList.activeItems.map(\.sortIndex).max() ?? -1) + 1
+        let changedAt = timestamp()
         guard let nextShoppingList = try? shoppingList.settingChecked(
             checked,
             itemID: item.id,
-            checkedAt: checked ? timestamp() : nil,
+            checkedAt: checked ? changedAt : nil,
             nextSortIndex: nextSortIndex
         ) else {
             return
@@ -79,7 +80,7 @@ struct ShoppingListView: View {
 
         let nextViewModel = ShoppingListViewModel(shoppingList: nextShoppingList)
         viewModel = nextViewModel
-        viewModelDidChange(nextViewModel)
+        viewModelDidChange(nextViewModel, item, checked, changedAt)
     }
 
     private func timestamp() -> String {

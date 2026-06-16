@@ -19,7 +19,13 @@ REQUIRED_FILES = [
 REQUIRED_SOURCE_TOKENS = {
   "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift" => [
     "AppNavigationState",
+    "NativeAppSnapshot",
+    "NativeAppStateStore",
     "DeepLinkRouter",
+    "SignedOutSetupView",
+    "hasCompletedFirstRun",
+    "completeFirstRun",
+    "persistSnapshot",
     ".onOpenURL",
     "onContinueUserActivity(NSUserActivityTypeBrowsingWeb)",
     "NSUserActivity",
@@ -33,8 +39,13 @@ REQUIRED_SOURCE_TOKENS = {
     ".searchable",
     "SearchState",
     "SearchScope",
+    "NativeAppSnapshot",
+    "persistSnapshot",
+    "updatingCookProgress",
+    "updatingShoppingList",
+    "updatingCaptureDraft",
+    "QueuedMutation",
     "AppRoute",
-    "SignedOutSetupView",
     ".spoonjoyToolbar",
     "#if os(macOS)",
     "#if os(iOS)"

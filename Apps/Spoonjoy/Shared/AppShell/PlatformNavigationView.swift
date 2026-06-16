@@ -4,24 +4,25 @@ import SwiftUI
 struct PlatformNavigationView: View {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
+    @Binding var appSnapshot: NativeAppSnapshot
     private let recipes: [Recipe]
     private let cookbooks: [Cookbook]
     private let kitchen: KitchenFixtureState
-    @State private var cookProgressByRecipeID: [String: CookModeProgress]
-    @State private var shoppingViewModel: ShoppingListViewModel?
-    @State private var captureViewModel: CaptureDraftViewModel?
+    private let persistSnapshot: (NativeAppSnapshot) -> Void
 
-    init(navigation: Binding<AppNavigationState>, search: Binding<SearchState>) {
+    init(
+        navigation: Binding<AppNavigationState>,
+        search: Binding<SearchState>,
+        appSnapshot: Binding<NativeAppSnapshot>,
+        persistSnapshot: @escaping (NativeAppSnapshot) -> Void
+    ) {
         _navigation = navigation
         _search = search
+        _appSnapshot = appSnapshot
         recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
         cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
         kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
-        _cookProgressByRecipeID = State(initialValue: [:])
-        _shoppingViewModel = State(
-            initialValue: (try? ShoppingListState.decodeFromBundle()).map { ShoppingListViewModel(shoppingList: $0) }
-        )
-        _captureViewModel = State(initialValue: nil)
+        self.persistSnapshot = persistSnapshot
     }
 
     var body: some View {
@@ -95,7 +96,7 @@ struct PlatformNavigationView: View {
                 CookModeView(
                     viewModel: CookModeViewModel(recipe: recipe, progress: cookProgress(for: recipe)),
                     progressDidChange: { progress in
-                        cookProgressByRecipeID[id] = progress
+                        persistAppSnapshot(appSnapshot.updatingCookProgress(progress, savedAt: timestamp()))
                     },
                     close: {
                         openRecipe(id)
@@ -116,8 +117,8 @@ struct PlatformNavigationView: View {
             if let shoppingViewModel {
                 ShoppingListView(
                     viewModel: shoppingViewModel,
-                    viewModelDidChange: { nextViewModel in
-                        self.shoppingViewModel = nextViewModel
+                    viewModelDidChange: { nextViewModel, item, checked, changedAt in
+                        persistShoppingList(nextViewModel.shoppingList, item: item, checked: checked, changedAt: changedAt)
                     }
                 )
             } else {
@@ -146,7 +147,7 @@ struct PlatformNavigationView: View {
             CaptureDraftView(
                 viewModel: captureViewModel,
                 draftDidChange: { nextViewModel in
-                    captureViewModel = nextViewModel
+                    persistAppSnapshot(appSnapshot.updatingCaptureDraft(nextViewModel.draft, savedAt: timestamp()))
                 }
             )
         case .settings:
@@ -254,7 +255,7 @@ struct PlatformNavigationView: View {
     }
 
     private func cookProgress(for recipe: Recipe) -> CookModeProgress {
-        cookProgressByRecipeID[recipe.id] ?? CookModeProgress(
+        appSnapshot.cookProgress(for: recipe.id) ?? CookModeProgress(
             recipeID: recipe.id,
             stepIDs: recipe.steps.map(\.id),
             startedAt: "2026-06-16T11:45:00.000Z"
@@ -272,6 +273,52 @@ struct PlatformNavigationView: View {
     private func openCookbook(_ id: String) {
         navigation.navigate(to: .cookbookDetail(id: id))
     }
+
+    private var shoppingViewModel: ShoppingListViewModel? {
+        appSnapshot.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
+    }
+
+    private var captureViewModel: CaptureDraftViewModel? {
+        appSnapshot.captureDraft.map(CaptureDraftViewModel.init(draft:))
+    }
+
+    private func persistShoppingList(
+        _ shoppingList: ShoppingListState,
+        item: ShoppingListItem,
+        checked: Bool,
+        changedAt: String
+    ) {
+        let mutation = QueuedMutation(
+            id: "queued-\(item.id)-\(Self.safeIdentifier(changedAt))",
+            clientMutationID: "native-check-\(item.id)-\(Self.safeIdentifier(changedAt))",
+            createdAt: changedAt,
+            kind: .shoppingCheck(itemID: item.id, checked: checked)
+        )
+        guard let nextSnapshot = try? appSnapshot.updatingShoppingList(
+            shoppingList,
+            queuedMutation: mutation,
+            savedAt: changedAt
+        ) else {
+            return
+        }
+
+        persistAppSnapshot(nextSnapshot)
+    }
+
+    private func persistAppSnapshot(_ snapshot: NativeAppSnapshot) {
+        appSnapshot = snapshot
+        persistSnapshot(snapshot)
+    }
+
+    private func timestamp() -> String {
+        ISO8601DateFormatter().string(from: Date())
+    }
+
+    private static func safeIdentifier(_ value: String) -> String {
+        value.map { character in
+            character.isLetter || character.isNumber ? String(character) : "-"
+        }.joined()
+    }
 }
 
 private extension PlatformNavigationView {
@@ -280,18 +327,10 @@ private extension PlatformNavigationView {
             settings: SettingsState(
                 auth: .signedOut,
                 environment: .production(baseURL: Self.productionBaseURL),
-                offline: offlineState,
+                offline: appSnapshot.offlineState,
                 preferredCookModeTextSize: .large
             )
         )
-    }
-
-    var offlineState: OfflineState {
-        if kitchen.offlineRestore.includesShoppingList {
-            return .available(snapshotCount: 1, lastRestoredAt: nil)
-        }
-
-        return .unavailable
     }
 
     static var productionBaseURL: URL {

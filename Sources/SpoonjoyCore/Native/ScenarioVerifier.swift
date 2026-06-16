@@ -185,14 +185,30 @@ public enum ScenarioVerifier {
             stage: .final,
             checks: [
                 ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
+                firstRunSessionSetupCheck(rootURL: rootURL),
                 ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
                 cookProgressPersistenceCheck(),
+                durableNativeStateCheck(),
                 shoppingCheckoffCheck(),
                 searchCheck(),
                 captureDraftCreationCheck(),
                 settingsStateCheck(),
                 offlineStatusCheck(),
                 safeUnknownLinkCheck(),
+                sourceCheck(
+                    name: "first-run setup source",
+                    detail: "Root view gates first launch through SignedOutSetupView and completes a persisted session before opening app routes.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+                    tokens: ["SignedOutSetupView(", "hasCompletedFirstRun", "completeFirstRun", "NativeAppStateStore", "loadOrCreate", "persistSnapshot"]
+                ),
+                sourceCheck(
+                    name: "native persistence source",
+                    detail: "Platform navigation persists cook progress, shopping checkoffs, capture drafts, and queued mutations through NativeAppSnapshot.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                    tokens: ["Binding<NativeAppSnapshot>", "persistSnapshot", "updatingCookProgress", "updatingShoppingList", "updatingCaptureDraft", "QueuedMutation"]
+                ),
                 sourceCheck(
                     name: "search surface source",
                     detail: "Search surface includes native searchable scopes and typed result rows.",
@@ -239,9 +255,7 @@ public enum ScenarioVerifier {
                         "SettingsView(viewModel: settingsViewModel)",
                         "var settingsViewModel: SettingsViewModel",
                         "SettingsState(",
-                        "offline: offlineState",
-                        "var offlineState: OfflineState",
-                        "kitchen.offlineRestore.includesShoppingList"
+                        "offline: appSnapshot.offlineState"
                     ],
                     forbiddenTokens: [
                         ".constant(routeSearch)",
@@ -293,6 +307,93 @@ public enum ScenarioVerifier {
                 name: "cook progress persistence",
                 status: .fail,
                 detail: "Cook mode progress persistence failed: \(error)"
+            )
+        }
+    }
+
+    static func firstRunSessionSetupCheck(rootURL: URL) -> ScenarioCheck {
+        let rootSource = sourceCheck(
+            name: "first-run session setup",
+            detail: "First run setup is reachable before the main platform navigation shell.",
+            rootURL: rootURL,
+            relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+            tokens: ["SignedOutSetupView(", "hasCompletedFirstRun", "completeFirstRun(opening:", "PlatformNavigationView("]
+        )
+        guard rootSource.status == .pass else {
+            return rootSource
+        }
+
+        let fallback = NativeAppSnapshot.bootstrap(shoppingList: nil, savedAt: "2026-06-16T13:35:00.000Z")
+        let completed = fallback.completingFirstRun(savedAt: "2026-06-16T13:36:00.000Z")
+        let status: ScenarioCheckStatus = !fallback.hasCompletedFirstRun && completed.hasCompletedFirstRun ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "first-run session setup",
+            status: status,
+            detail: "First-run state transitions from setup to the native shell before route navigation."
+        )
+    }
+
+    static func durableNativeStateCheck(
+        loadShoppingList: () throws -> ShoppingListState = { try ShoppingListState.decodeFromBundle() },
+        loadRecipes: () throws -> [Recipe] = { try RecipeFixtureCatalog.decodeFromBundle().recipes }
+    ) -> ScenarioCheck {
+        do {
+            let shoppingList = try loadShoppingList()
+            guard
+                let recipe = try loadRecipes().first,
+                let firstStep = recipe.steps.first
+            else {
+                return ScenarioCheck(name: "durable native state", status: .fail, detail: "Fixture data is missing durable-state inputs.")
+            }
+
+            let progress = try CookModeProgress(
+                recipeID: recipe.id,
+                stepIDs: recipe.steps.map(\.id),
+                startedAt: "2026-06-16T13:37:00.000Z"
+            )
+            .markingStepCompleted(firstStep.id, updatedAt: "2026-06-16T13:38:00.000Z")
+            let draft = try CaptureDraft.localText(
+                id: "scenario-durable-draft",
+                rawText: "https://example.com/recipe\npersist me",
+                createdAt: "2026-06-16T13:39:00.000Z"
+            )
+            let mutation = QueuedMutation(
+                id: "scenario-queued-check",
+                clientMutationID: "scenario-check",
+                createdAt: "2026-06-16T13:40:00.000Z",
+                kind: .shoppingCheck(itemID: "item_lemons", checked: true)
+            )
+            let checked = try shoppingList.settingChecked(
+                true,
+                itemID: "item_lemons",
+                checkedAt: "2026-06-16T13:40:00.000Z",
+                nextSortIndex: 99
+            )
+            let snapshot = try NativeAppSnapshot
+                .bootstrap(shoppingList: shoppingList, savedAt: "2026-06-16T13:36:00.000Z")
+                .completingFirstRun(savedAt: "2026-06-16T13:37:00.000Z")
+                .updatingCookProgress(progress, savedAt: "2026-06-16T13:38:00.000Z")
+                .updatingCaptureDraft(draft, savedAt: "2026-06-16T13:39:00.000Z")
+                .updatingShoppingList(checked, queuedMutation: mutation, savedAt: "2026-06-16T13:40:00.000Z")
+            let encoded = try JSONEncoder().encode(snapshot)
+            let restored = try JSONDecoder().decode(NativeAppSnapshot.self, from: encoded).validated()
+            let status: ScenarioCheckStatus = restored.hasCompletedFirstRun &&
+                restored.cookProgress(for: recipe.id) == progress &&
+                restored.shoppingList?.item(id: "item_lemons")?.checked == true &&
+                restored.captureDraft == draft &&
+                restored.pendingMutationCount == 1 ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "durable native state",
+                status: status,
+                detail: "Cook progress, shopping checkoff, local capture draft, and queued mutation survive native snapshot restore."
+            )
+        } catch {
+            return ScenarioCheck(
+                name: "durable native state",
+                status: .fail,
+                detail: "Durable native state failed: \(error)"
             )
         }
     }

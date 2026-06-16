@@ -118,14 +118,18 @@ struct NativeScenarioTests {
         #expect(report.checks.filter { $0.status == .fail }.isEmpty)
         #expect(report.checks.filter { $0.status == .pending }.isEmpty)
         #expect(checksByName["fixture kitchen browsing"] == .pass)
+        #expect(checksByName["first-run session setup"] == .pass)
         #expect(checksByName["recipe detail"] == .pass)
         #expect(checksByName["cook progress persistence"] == .pass)
+        #expect(checksByName["durable native state"] == .pass)
         #expect(checksByName["shopping checkoff"] == .pass)
         #expect(checksByName["search"] == .pass)
         #expect(checksByName["capture draft creation"] == .pass)
         #expect(checksByName["settings state"] == .pass)
         #expect(checksByName["offline status"] == .pass)
         #expect(checksByName["safe unknown link"] == .pass)
+        #expect(checksByName["first-run setup source"] == .pass)
+        #expect(checksByName["native persistence source"] == .pass)
         #expect(checksByName["search surface source"] == .pass)
         #expect(checksByName["capture surface source"] == .pass)
         #expect(checksByName["settings surface source"] == .pass)
@@ -198,21 +202,37 @@ struct NativeScenarioTests {
 
     @Test("final behavioral checks fail closed for weak settings offline and link safety")
     func finalBehavioralChecksFailClosedForWeakSettingsOfflineAndLinkSafety() throws {
-        let weakSettings = SettingsState(
-            auth: .signedOut,
-            environment: .local(baseURL: URL(fileURLWithPath: "/tmp/spoonjoy-local")),
-            offline: .unavailable,
-            preferredCookModeTextSize: .standard
-        )
-        let weakOffline = ScenarioVerifier.offlineStatusCheck(
-            available: .available(snapshotCount: 1, lastRestoredAt: nil),
-            unavailable: .unavailable
-        )
-        let unsafeLink = ScenarioVerifier.safeUnknownLinkCheck(routes: [.kitchen, .unknownLink])
+        try withTemporaryDirectory { directory in
+            let weakSettings = SettingsState(
+                auth: .signedOut,
+                environment: .local(baseURL: URL(fileURLWithPath: "/tmp/spoonjoy-local")),
+                offline: .unavailable,
+                preferredCookModeTextSize: .standard
+            )
+            let weakOffline = ScenarioVerifier.offlineStatusCheck(
+                available: .available(snapshotCount: 1, lastRestoredAt: nil),
+                unavailable: .unavailable
+            )
+            let unsafeLink = ScenarioVerifier.safeUnknownLinkCheck(routes: [.kitchen, .unknownLink])
+            let missingFirstRunSource = ScenarioVerifier.firstRunSessionSetupCheck(rootURL: directory)
+            let missingDurableInputs = ScenarioVerifier.durableNativeStateCheck(
+                loadShoppingList: { try ShoppingListState.decodeFromBundle() },
+                loadRecipes: { [] }
+            )
+            let throwingDurableInputs = ScenarioVerifier.durableNativeStateCheck(
+                loadShoppingList: { throw FixtureLoadError.unavailable },
+                loadRecipes: { throw FixtureLoadError.unavailable }
+            )
 
-        #expect(ScenarioVerifier.settingsStateCheck(settings: weakSettings).status == .fail)
-        #expect(weakOffline.status == .fail)
-        #expect(unsafeLink.status == .fail)
+            #expect(ScenarioVerifier.settingsStateCheck(settings: weakSettings).status == .fail)
+            #expect(weakOffline.status == .fail)
+            #expect(unsafeLink.status == .fail)
+            #expect(missingFirstRunSource.status == .fail)
+            #expect(missingDurableInputs.status == .fail)
+            #expect(missingDurableInputs.detail.contains("missing durable-state inputs"))
+            #expect(throwingDurableInputs.status == .fail)
+            #expect(throwingDurableInputs.detail.contains("Durable native state failed"))
+        }
     }
 
     @Test("scenario command parses surfaces stage")

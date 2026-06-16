@@ -173,7 +173,114 @@ struct AppStateTests {
         #expect(settingsCanWriteShoppingList)
     }
 
+    @Test("native app snapshot persists first run cook shopping capture and queued mutations")
+    func nativeAppSnapshotPersistsFirstRunCookShoppingCaptureAndQueuedMutations() throws {
+        try withTemporaryDirectory { directory in
+            let fileURL = directory.appendingPathComponent("native-state.json")
+            let store = NativeAppStateStore(fileURL: fileURL)
+            let shoppingList = try ShoppingListState.decodeFromBundle()
+            let recipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+            let progress = try CookModeProgress(
+                recipeID: recipe.id,
+                stepIDs: recipe.steps.map(\.id),
+                startedAt: "2026-06-16T13:30:00.000Z"
+            )
+            .markingStepCompleted(
+                try #require(recipe.steps.first?.id),
+                updatedAt: "2026-06-16T13:31:00.000Z"
+            )
+            let draft = try CaptureDraft.localText(
+                id: "draft-local-pasta",
+                rawText: "https://example.com/pasta\nsave this",
+                createdAt: "2026-06-16T13:32:00.000Z"
+            )
+            let queuedMutation = QueuedMutation(
+                id: "queued-check-lemons",
+                clientMutationID: "mutation-check-lemons",
+                createdAt: "2026-06-16T13:33:00.000Z",
+                kind: .shoppingCheck(itemID: "item_lemons", checked: true)
+            )
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: shoppingList,
+                savedAt: "2026-06-16T13:29:00.000Z"
+            )
+            let missingRecord = try store.loadOrCreate(fallback: fallback)
+
+            let changedShoppingList = try shoppingList.settingChecked(
+                true,
+                itemID: "item_lemons",
+                checkedAt: "2026-06-16T13:33:00.000Z",
+                nextSortIndex: 99
+            )
+            let saved = try missingRecord.value
+                .completingFirstRun(savedAt: "2026-06-16T13:30:00.000Z")
+                .updatingCookProgress(progress, savedAt: "2026-06-16T13:31:00.000Z")
+                .updatingCaptureDraft(draft, savedAt: "2026-06-16T13:32:00.000Z")
+                .updatingShoppingList(
+                    changedShoppingList,
+                    queuedMutation: queuedMutation,
+                    savedAt: "2026-06-16T13:33:00.000Z"
+                )
+
+            try store.save(saved)
+            let reloaded = try store.loadOrCreate(fallback: fallback).value
+
+            #expect(missingRecord.source == .fallback)
+            #expect(reloaded.hasCompletedFirstRun)
+            #expect(reloaded.cookProgress(for: recipe.id) == progress)
+            #expect(reloaded.shoppingList?.item(id: "item_lemons")?.checked == true)
+            #expect(reloaded.captureDraft == draft)
+            #expect(reloaded.pendingMutationCount == 1)
+            #expect(reloaded.pendingMutations.mutations.first == queuedMutation)
+            #expect(reloaded.offlineState.statusLabel == "Offline cache ready: 1 snapshot")
+        }
+    }
+
+    @Test("native app snapshot covers unavailable offline no-op queue and schema errors")
+    func nativeAppSnapshotCoversUnavailableOfflineNoOpQueueAndSchemaErrors() throws {
+        let shoppingList = try ShoppingListState.decodeFromBundle()
+        let empty = NativeAppSnapshot.bootstrap(
+            shoppingList: nil,
+            savedAt: "2026-06-16T13:41:00.000Z"
+        )
+        let withoutMutation = try empty.updatingShoppingList(
+            shoppingList,
+            queuedMutation: nil,
+            savedAt: "2026-06-16T13:42:00.000Z"
+        )
+        let invalid = NativeAppSnapshot(
+            schemaVersion: 2,
+            hasCompletedFirstRun: false,
+            cookProgressByRecipeID: [:],
+            shoppingList: nil,
+            captureDraft: nil,
+            pendingMutations: MutationQueue(),
+            savedAt: "2026-06-16T13:43:00.000Z"
+        )
+
+        #expect(empty.offlineState == .unavailable)
+        #expect(withoutMutation.shoppingList == shoppingList)
+        #expect(withoutMutation.pendingMutationCount == 0)
+        #expect(withoutMutation.cookProgress(for: "missing-recipe") == nil)
+        #expect(throws: NativeAppSnapshotError.self) {
+            try invalid.validated()
+        }
+        #expect(throws: NativeAppSnapshotError.self) {
+            try NativeAppStateStore(
+                fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("unused-native-state.json")
+            ).save(invalid)
+        }
+    }
+
     private func url(_ rawURL: String) throws -> URL {
         try #require(URL(string: rawURL))
+    }
+
+    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spoonjoy-app-state-tests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try body(directory)
     }
 }
