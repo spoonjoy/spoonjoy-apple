@@ -180,7 +180,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Coverage and request-shape logs.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 6a: Shopping API Mutations — Tests
+### ✅ Unit 6a: Shopping API Mutations — Tests
 **What**: Write failing tests for shopping-list read/sync, POST/PATCH/DELETE request builders, idempotency body/header/query forms, retry classification, and conflict/in-progress handling.
 **Output**: `Tests/SpoonjoyCoreTests/ShoppingAPIClientTests.swift`.
 **Acceptance**: Tests fail with outbound-shape assertions and DELETE `X-Client-Mutation-Id` expectations.
@@ -461,3 +461,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 03:54 Addressed Unit 4 reviewer finding: shopping-list add/restore now normalizes names and units like API v1, restores checked/deleted matches to the active tail sort position, and has focused tests plus 100% KitchenState coverage evidence.
 - 2026-06-16 03:57 Unit 5b complete: implemented API configuration, request builders, pagination cursors, public recipe/cookbook read requests, and success/error envelope decoding; focused API tests, full Swift tests, and warning-enforced Swift build pass.
 - 2026-06-16 04:09 Unit 5c complete: added API edge coverage for blank auth/query inputs, success/error envelope branches, malformed cursors, UTF-8 path encoding, and real cookbook-list summary payloads; `Sources/SpoonjoyCore/API` coverage passes at 100.00% (156/156), warning scan is clean, and warning-enforced Swift build passes.
+- 2026-06-16 04:17 Unit 6a complete: added failing shopping API client tests for authenticated list/sync requests, POST/PATCH/DELETE mutation outbound shapes, DELETE header/body/query idempotency, read/sync/mutation envelope decoding, and retry classification for idempotency and HTTP errors; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-6a-red.log`.
