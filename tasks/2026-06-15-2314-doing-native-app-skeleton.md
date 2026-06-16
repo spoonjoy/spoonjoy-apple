@@ -195,7 +195,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Coverage and retry-classification logs.
 **Acceptance**: Coverage enforcement passes for shopping API files in `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 7a: OAuth/PKCE Request Construction — Tests
+### ✅ Unit 7a: OAuth/PKCE Request Construction — Tests
 **What**: Write failing tests for PKCE verifier/challenge, state generation/validation, OAuth register/authorize/token/refresh/revoke request construction, redirect constraints, and REST `resource` omission.
 **Output**: `Tests/SpoonjoyCoreTests/OAuthRequestTests.swift`.
 **Acceptance**: Tests fail before OAuth helpers exist and assert form bodies/authorize query items.
@@ -465,3 +465,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:19 Unit 5 reviewer converged after the Unit 5c cookbook-list summary fix; fresh harsh reviewer returned `CONVERGED`.
 - 2026-06-16 08:19 Unit 6b complete: implemented shopping list read/sync request builders, POST/PATCH/DELETE mutation builders, DELETE header/body/query idempotency forms, shopping response DTOs, idempotency retry metadata, and API retry classification; focused Shopping API tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
 - 2026-06-16 08:22 Unit 6c complete: added edge coverage for blank shopping sync cursors and delete-only mutation responses with default created/updated flags; `Sources/SpoonjoyCore/API` coverage passes at 100.00% (295/295), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.
+- 2026-06-16 08:24 Unit 7a complete: added failing OAuth/PKCE tests for PKCE verifier/challenge behavior, state matching, redirect URI validation, register/authorize/token/refresh/revoke outbound request shapes, REST `resource` omission, and OAuth response decoding; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-7a-red.log`.
