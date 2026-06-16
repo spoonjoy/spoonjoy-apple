@@ -165,7 +165,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Coverage log in artifacts directory.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/KitchenState`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 5a: Public API v1 Read Client — Tests
+### ✅ Unit 5a: Public API v1 Read Client — Tests
 **What**: Write failing tests for recipe/cookbook list/detail request builders, optional auth behavior, response envelopes, pagination, cache headers metadata, and error mapping.
 **Output**: `Tests/SpoonjoyCoreTests/APIReadClientTests.swift`.
 **Acceptance**: Tests fail with outbound-shape assertions for method, path, query, headers, and auth omission by default.
@@ -457,3 +457,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 03:19 Unit 4b complete: implemented shopping-list state operations, cook-mode progress snapshots, capture drafts, settings status, and kitchen fixture decoding; focused KitchenState tests pass with warnings as errors.
 - 2026-06-16 03:27 Addressed Unit 3 reviewer findings: cookbook detail entries now decode full API v1 recipe summaries, source provenance URLs expose only safe HTTP(S) links, deleted source recipes suppress navigation, and recipe search summaries preserve free-form servings text; focused and full Swift tests pass.
 - 2026-06-16 03:39 Unit 4c complete: added KitchenState edge coverage for local shopping creates, nil-quantity merges, error descriptions, settings variants, cook-mode stale snapshots, and fixture encoding; KitchenState coverage enforcement passes at 100.00% (466/466), warning scan is clean, and warning-enforced build passes.
+- 2026-06-16 03:45 Unit 5a complete: added failing API read-client tests for recipe/cookbook request builders, optional auth, success/error envelopes, pagination cursors, and outbound request shape; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-5a-red.log`.
