@@ -64,6 +64,17 @@ jobs:
           path: .source/spoonjoy-v2
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc .source/spoonjoy-v2/docs/design-language.md
+      - name: Check native project and surface contracts
+        run: |
+          set -euo pipefail
+          ruby scripts/check-xcode-project-contract.rb
+          ruby scripts/check-xcode-generator-contract.rb
+          ruby scripts/check-kitchen-recipe-surfaces.rb
+          ruby scripts/check-cook-shopping-surfaces.rb
+          ruby scripts/check-search-capture-settings-surfaces.rb
+          ruby scripts/check-launch-screenshot-contract.rb
+      - name: Generate AASA validation or blocker artifact
+        run: ruby scripts/validate-aasa.rb --artifact-root "$RUNNER_TEMP/aasa"
       - name: Run native scenario verifier when present
         run: |
           set -euo pipefail
