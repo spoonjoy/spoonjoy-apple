@@ -23,11 +23,13 @@ jobs:
 
           if [ -f Package.swift ]; then
             swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors
-          elif ls *.xcodeproj >/dev/null 2>&1; then
-            project="$(ls *.xcodeproj | head -n 1)"
+          elif [ -d Spoonjoy.xcodeproj ]; then
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
-            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
-            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+            xcodebuild test -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+            xcodebuild test -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+          elif ls *.xcodeproj >/dev/null 2>&1; then
+            echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
+            exit 1
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
@@ -49,7 +51,7 @@ jobs:
           if [ -f scripts/verify-native-scenarios.sh ]; then
             test -x scripts/verify-native-scenarios.sh
             scripts/verify-native-scenarios.sh --stage final
-          elif [ -f Package.swift ] || ls *.xcodeproj >/dev/null 2>&1; then
+          elif [ -f Package.swift ] || [ -d Spoonjoy.xcodeproj ] || ls *.xcodeproj >/dev/null 2>&1; then
             echo "Native scenario verifier is required once Swift or Xcode sources exist."
             exit 1
           else
@@ -70,10 +72,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          if ls *.xcodeproj >/dev/null 2>&1; then
-            project="$(ls *.xcodeproj | head -n 1)"
-            xcodebuild -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
-            xcodebuild -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+          if [ -d Spoonjoy.xcodeproj ]; then
+            xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+            xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+          elif ls *.xcodeproj >/dev/null 2>&1; then
+            echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
+            exit 1
           elif [ -f Package.swift ]; then
             echo "Xcode project is required once Package.swift exists."
             exit 1
