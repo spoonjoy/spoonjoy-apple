@@ -1,0 +1,49 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/16] Compiling SpoonjoyCore ShoppingListState.swift
+[4/16] Compiling SpoonjoyCore APIError.swift
+[5/16] Compiling SpoonjoyCore APIRetryPolicy.swift
+[6/16] Compiling SpoonjoyCore APIRequestBuilder.swift
+[7/16] Emitting module SpoonjoyCore
+[8/16] Compiling SpoonjoyCore APIClient.swift
+[9/16] Compiling SpoonjoyCore ShoppingListRequests.swift
+[10/16] Compiling SpoonjoyCore APIEnvelope.swift
+[11/16] Compiling SpoonjoyCore ShoppingListAPI.swift
+[12/18] Compiling SpoonjoyCore CookModeProgress.swift
+[13/18] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[14/26] Compiling SpoonjoyScenarioVerifier main.swift
+[15/26] Emitting module SpoonjoyScenarioVerifier
+[15/26] Write Objects.LinkFileList
+[17/26] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[17/26] Linking SpoonjoyScenarioVerifier
+[18/26] Applying SpoonjoyScenarioVerifier
+[20/26] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[21/26] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[22/26] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[23/26] Emitting module SpoonjoyCoreTests
+[24/26] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[25/28] Compiling SpoonjoyApplePackageTests runner.swift
+[26/28] Emitting module SpoonjoyApplePackageTests
+[26/28] Write Objects.LinkFileList
+[27/28] Linking SpoonjoyApplePackageTests
+Build complete! (4.53s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Shopping API v1 client" started.
+◇ Test "shopping list envelopes decode read sync and mutation payloads" started.
+◇ Test "retry policy classifies idempotency and HTTP error responses" started.
+◇ Test "shopping list read and sync requests require bearer auth" started.
+◇ Test "add item request sends JSON mutation body" started.
+◇ Test "delete item request supports header body and query idempotency" started.
+◇ Test "check item request encodes item id and checked state" started.
+✔ Test "retry policy classifies idempotency and HTTP error responses" passed after 0.001 seconds.
+✔ Test "shopping list read and sync requests require bearer auth" passed after 0.001 seconds.
+✔ Test "delete item request supports header body and query idempotency" passed after 0.001 seconds.
+✔ Test "add item request sends JSON mutation body" passed after 0.001 seconds.
+✔ Test "check item request encodes item id and checked state" passed after 0.001 seconds.
+✔ Test "shopping list envelopes decode read sync and mutation payloads" passed after 0.001 seconds.
+✔ Suite "Shopping API v1 client" passed after 0.001 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.001 seconds.

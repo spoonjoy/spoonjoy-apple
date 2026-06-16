@@ -113,13 +113,18 @@ public struct ShoppingListReceiptSection: Equatable {
     public let items: [ShoppingListItem]
 }
 
-public struct ShoppingListMutationMetadata: Equatable {
+public struct ShoppingListMutationMetadata: Codable, Equatable {
     public let clientMutationID: String
     public let replayed: Bool
 
     public init(clientMutationID: String, replayed: Bool) {
         self.clientMutationID = clientMutationID
         self.replayed = replayed
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case clientMutationID = "clientMutationId"
+        case replayed
     }
 }
 

@@ -4,18 +4,42 @@ public struct APIRequestBuilder: Equatable {
     public let method: APIRequestMethod
     public let pathComponents: [String]
     public let queryItems: [URLQueryItem]
+    public let headers: [String: String]
+    public let body: Data?
+    public let defaultAuthorization: APIAuthorizationPolicy
+
+    public init(
+        method: APIRequestMethod,
+        pathComponents: [String],
+        queryItems: [URLQueryItem],
+        headers: [String: String] = [:],
+        body: Data? = nil,
+        defaultAuthorization: APIAuthorizationPolicy = .omit
+    ) {
+        self.method = method
+        self.pathComponents = pathComponents
+        self.queryItems = queryItems
+        self.headers = headers
+        self.body = body
+        self.defaultAuthorization = defaultAuthorization
+    }
 
     public func urlRequest(
         configuration: APIClientConfiguration,
-        authorization: APIAuthorizationPolicy = .omit
+        authorization: APIAuthorizationPolicy? = nil
     ) throws -> APIRequest {
         let path = "/" + pathComponents.map(Self.percentEncodePathSegment).joined(separator: "/")
-        var headers = ["Accept": "application/json"]
+        var requestHeaders = ["Accept": "application/json"]
 
+        for (name, value) in headers {
+            requestHeaders[name] = value
+        }
+
+        let authorization = authorization ?? defaultAuthorization
         if authorization == .includeBearerToken,
            let bearerToken = configuration.bearerToken?.trimmingCharacters(in: .whitespacesAndNewlines),
            !bearerToken.isEmpty {
-            headers["Authorization"] = "Bearer \(bearerToken)"
+            requestHeaders["Authorization"] = "Bearer \(bearerToken)"
         }
 
         return APIRequest(
@@ -26,8 +50,8 @@ public struct APIRequestBuilder: Equatable {
                 queryItems: queryItems
             ),
             queryItems: queryItems,
-            headers: headers,
-            body: nil
+            headers: requestHeaders,
+            body: body
         )
     }
 

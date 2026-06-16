@@ -21,6 +21,9 @@ public enum APIAuthorizationPolicy: Equatable, Sendable {
 
 public enum APIRequestMethod: String, Equatable, Sendable {
     case get = "GET"
+    case post = "POST"
+    case patch = "PATCH"
+    case delete = "DELETE"
 }
 
 public struct APIRequestURL: Equatable, Sendable {
