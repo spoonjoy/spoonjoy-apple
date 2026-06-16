@@ -1,0 +1,32 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Emitting module SpoonjoyCore
+[4/7] Compiling SpoonjoyCore RefreshCoordinator.swift
+[4/9] Write Objects.LinkFileList
+[6/9] Linking SpoonjoyScenarioVerifier
+[7/9] Applying SpoonjoyScenarioVerifier
+[8/9] Linking SpoonjoyApplePackageTests
+Build complete! (1.63s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Token vault and refresh coordination" started.
+◇ Test "disconnect invalidates every waiter on a shared in-flight refresh" started.
+◇ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" started.
+◇ Test "refresh failures preserve prior session and disconnect clears auth state" started.
+◇ Test "missing sessions are invalid refresh state" started.
+◇ Test "disconnect cancels in-flight refresh and prevents session resurrection" started.
+◇ Test "refresh coordinator returns valid sessions without network refresh" started.
+◇ Test "token vault persists client id and sessions independently" started.
+◇ Test "auth sessions validate, classify state, and rotate token responses" started.
+✔ Test "refresh coordinator returns valid sessions without network refresh" passed after 0.001 seconds.
+✔ Test "token vault persists client id and sessions independently" passed after 0.001 seconds.
+✔ Test "missing sessions are invalid refresh state" passed after 0.001 seconds.
+✔ Test "disconnect cancels in-flight refresh and prevents session resurrection" passed after 0.001 seconds.
+✔ Test "refresh failures preserve prior session and disconnect clears auth state" passed after 0.001 seconds.
+✔ Test "auth sessions validate, classify state, and rotate token responses" passed after 0.001 seconds.
+✔ Test "disconnect invalidates every waiter on a shared in-flight refresh" passed after 0.008 seconds.
+✔ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" passed after 0.026 seconds.
+✔ Suite "Token vault and refresh coordination" passed after 0.026 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.026 seconds.

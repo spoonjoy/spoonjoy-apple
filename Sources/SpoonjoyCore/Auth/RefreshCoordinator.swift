@@ -50,7 +50,10 @@ public actor RefreshCoordinator {
 
     private func refreshedSession(from session: AuthSession, at date: Date) async throws -> AuthSession {
         if let inFlightRefresh {
-            return try await inFlightRefresh.value
+            let generation = refreshGeneration
+            let refreshedSession = try await inFlightRefresh.value
+            try ensureCurrentRefreshGeneration(generation)
+            return refreshedSession
         }
 
         let refresh = self.refresh

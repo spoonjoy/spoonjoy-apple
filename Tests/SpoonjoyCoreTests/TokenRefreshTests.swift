@@ -192,6 +192,33 @@ struct TokenRefreshTests {
         #expect(await gate.calls == 1)
     }
 
+    @Test("disconnect invalidates every waiter on a shared in-flight refresh")
+    func disconnectInvalidatesEveryWaiterOnSharedInFlightRefresh() async throws {
+        let vault = InMemoryTokenVault()
+        let expired = try authSession(accessToken: "sj_access_old", refreshToken: "ort_refresh_old", expiresAt: now.addingTimeInterval(-1))
+        try await vault.saveClientID("cm_client_id")
+        try await vault.saveSession(expired)
+        let gate = RefreshGate(response: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", expiresIn: 600))
+        let coordinator = RefreshCoordinator(vault: vault) { clientID, refreshToken in
+            try await gate.refresh(clientID: clientID, refreshToken: refreshToken)
+        }
+
+        async let first = coordinator.validSession(at: now)
+        await gate.waitUntilStarted()
+        async let second = coordinator.validSession(at: now)
+        try await Task.sleep(nanoseconds: 5_000_000)
+        try await coordinator.disconnect()
+        await gate.finish()
+        let firstResult = try? await first
+        let secondResult = try? await second
+
+        #expect(firstResult == nil)
+        #expect(secondResult == nil)
+        #expect(try await vault.loadSession() == nil)
+        #expect(try await vault.loadClientID() == nil)
+        #expect(await gate.calls == 1)
+    }
+
     @Test("missing sessions are invalid refresh state")
     func missingSessionsAreInvalidRefreshState() async throws {
         let coordinator = RefreshCoordinator(vault: InMemoryTokenVault()) { _, _ in
