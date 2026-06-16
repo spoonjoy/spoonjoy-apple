@@ -39,11 +39,38 @@ def generated_repo_outputs
   end
 end
 
-def assert_contains(path, content, needle)
-  fail_check("#{path} is missing #{needle}") unless content.include?(needle)
+def output_snapshot
+  generated_repo_outputs.each_with_object({}) do |path, snapshot|
+    snapshot[path.relative_path_from(ROOT).to_s] = path.file? ? path.mtime.to_f : :directory
+  end
+end
+
+def assert_setting(block, setting, expected)
+  match = block.match(/#{Regexp.escape(setting)} = ([^;]+);/)
+  fail_check("missing #{setting} in build settings:\n#{block}") unless match
+  actual = match[1].strip
+  fail_check("expected #{setting} = #{expected}, got #{actual}") unless actual == expected
+end
+
+def build_settings_blocks(project_content)
+  project_content.scan(/buildSettings = \{(?<settings>.*?)\};/m).map(&:first)
+end
+
+def find_build_settings_block(project_content, bundle_id, configuration)
+  matches = build_settings_blocks(project_content).select do |settings|
+    settings.include?("PRODUCT_BUNDLE_IDENTIFIER = #{bundle_id};") &&
+      settings.include?("SPOONJOY_CONFIGURATION_NAME = #{configuration};")
+  end
+
+  fail_check("missing build settings for #{bundle_id} #{configuration}") if matches.empty?
+  fail_check("multiple build settings for #{bundle_id} #{configuration}") if matches.length > 1
+
+  matches.first
 end
 
 fail_check("#{GENERATOR.relative_path_from(ROOT)} is missing") unless GENERATOR.file?
+
+before_outputs = output_snapshot
 
 run!("ruby", "-c", GENERATOR)
 
@@ -71,22 +98,37 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   fail_check("temp output missing project.pbxproj") unless project_text.file?
 
   project_content = project_text.read
-  assert_contains(project_text, project_content, "PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy")
-  assert_contains(project_text, project_content, "PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy.mac")
-  assert_contains(project_text, project_content, "BootstrapDebug")
-  assert_contains(project_text, project_content, "IPHONEOS_DEPLOYMENT_TARGET = 26.5")
-  assert_contains(project_text, project_content, "MACOSX_DEPLOYMENT_TARGET = 26.2")
-  assert_contains(project_text, project_content, "IPHONEOS_DEPLOYMENT_TARGET = 27.0")
-  assert_contains(project_text, project_content, "MACOSX_DEPLOYMENT_TARGET = 27.0")
+  {
+    "app.spoonjoy.Spoonjoy" => {
+      "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
+      "Release" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
+      "BootstrapDebug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "26.5" }
+    },
+    "app.spoonjoy.Spoonjoy.mac" => {
+      "Debug" => { "MACOSX_DEPLOYMENT_TARGET" => "27.0" },
+      "Release" => { "MACOSX_DEPLOYMENT_TARGET" => "27.0" },
+      "BootstrapDebug" => { "MACOSX_DEPLOYMENT_TARGET" => "26.2" }
+    }
+  }.each do |bundle_id, configurations|
+    configurations.each do |configuration, settings|
+      block = find_build_settings_block(project_content, bundle_id, configuration)
+      settings.each do |setting, expected|
+        assert_setting(block, setting, expected)
+      end
+    end
+  end
 
   diff_stdout, diff_stderr, diff_status = Open3.capture3("diff", "-ru", one.to_s, two.to_s)
   fail_check("generator output is not deterministic\nSTDOUT:\n#{diff_stdout}\nSTDERR:\n#{diff_stderr}") unless diff_status.success?
 end
 
-written_outputs = generated_repo_outputs
-unless written_outputs.empty?
-  relative = written_outputs.map { |path| path.relative_path_from(ROOT).to_s }
-  fail_check("temp-output mode wrote repo outputs: #{relative.join(", ")}")
+after_outputs = output_snapshot
+changed_outputs = after_outputs.reject do |path, signature|
+  before_outputs.key?(path) && before_outputs[path] == signature
+end
+
+unless changed_outputs.empty?
+  fail_check("temp-output mode wrote or modified repo outputs: #{changed_outputs.keys.join(", ")}")
 end
 
 puts "xcode generator contract ok"
