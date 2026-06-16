@@ -117,7 +117,7 @@ root_shell = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swi
   fail_check("PlatformNavigationView.swift missing #{token}") unless root_shell.include?(token)
 end
 
-stdout, stderr, status = Open3.capture3("ruby", PROJECT_CONTRACT.to_s, chdir: ROOT.to_s)
+stdout, stderr, status = Open3.capture3(ROOT.join("scripts/bundle-exec.sh").to_s, "ruby", PROJECT_CONTRACT.to_s, chdir: ROOT.to_s)
 fail_check("xcode project contract failed\nSTDOUT:\n#{stdout}\nSTDERR:\n#{stderr}") unless status.success?
 
 puts "kitchen and recipe surfaces contract ok"

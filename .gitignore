@@ -20,3 +20,6 @@ coverage/
 *.profdata
 *.profraw
 
+# Ruby/Bundler local installs
+.bundle/
+vendor/bundle/

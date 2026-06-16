@@ -151,7 +151,7 @@ end
 verifier_script = ROOT.join("scripts/verify-native-scenarios.sh").read
 fail_check("verify-native-scenarios.sh must not allow pending final checks") unless verifier_script.include?("else") && verifier_script.include?("[]")
 
-stdout, stderr, status = Open3.capture3("ruby", PROJECT_CONTRACT.to_s, chdir: ROOT.to_s)
+stdout, stderr, status = Open3.capture3(ROOT.join("scripts/bundle-exec.sh").to_s, "ruby", PROJECT_CONTRACT.to_s, chdir: ROOT.to_s)
 fail_check("xcode project contract failed\nSTDOUT:\n#{stdout}\nSTDERR:\n#{stderr}") unless status.success?
 
 puts "search capture settings surfaces contract ok"

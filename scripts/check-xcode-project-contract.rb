@@ -5,6 +5,7 @@ require "json"
 require "open3"
 require "pathname"
 require "rubygems"
+require "bundler/setup"
 require "xcodeproj"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path

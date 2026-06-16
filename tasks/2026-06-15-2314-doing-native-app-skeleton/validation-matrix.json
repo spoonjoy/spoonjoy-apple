@@ -1,12 +1,19 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-16T20:15:43Z",
+  "generatedAt": "2026-06-16T20:29:27Z",
   "steps": [
     {
       "name": "xcode version",
       "status": "pass",
       "command": "bash -lc xcodebuild -version && xcodebuild -version | grep -q '^Xcode 26\\.5$'",
       "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-xcode-version.log",
+      "required": true
+    },
+    {
+      "name": "ruby bundle check",
+      "status": "pass",
+      "command": "scripts/bundle-check.sh",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-bundle-check.log",
       "required": true
     },
     {
@@ -47,14 +54,14 @@
     {
       "name": "xcode project contract",
       "status": "pass",
-      "command": "ruby scripts/check-xcode-project-contract.rb",
+      "command": "scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb",
       "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-project-contract.log",
       "required": true
     },
     {
       "name": "xcode generator contract",
       "status": "pass",
-      "command": "ruby scripts/check-xcode-generator-contract.rb",
+      "command": "scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb",
       "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-generator-contract.log",
       "required": true
     },
@@ -162,7 +169,7 @@
       "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/ios-app-bundle-blocker.json"
     },
     {
-      "generatedAt": "2026-06-16T13:14:58-07:00",
+      "generatedAt": "2026-06-16T13:28:32-07:00",
       "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
       "httpsNoRedirectExpected": true,
       "redirected": false,

@@ -4,6 +4,7 @@
 require "fileutils"
 require "optparse"
 require "pathname"
+require "bundler/setup"
 require "xcodeproj"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path

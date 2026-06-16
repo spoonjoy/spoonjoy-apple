@@ -8,6 +8,12 @@ require "tmpdir"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 GENERATOR = ROOT.join("scripts/generate-xcode-project.rb")
+PROJECT_CONTRACT = ROOT.join("scripts/check-xcode-project-contract.rb")
+GEMFILE = ROOT.join("Gemfile")
+GEMFILE_LOCK = ROOT.join("Gemfile.lock")
+WORKFLOW = ROOT.join(".github/workflows/native.yml")
+LOCAL_MATRIX = ROOT.join("scripts/validate-native-local.sh")
+BUNDLE_EXEC = [ROOT.join("scripts/bundle-exec.sh").to_s].freeze
 REPO_OUTPUT_ROOTS = [
   ROOT.join("Spoonjoy.xcodeproj"),
   ROOT.join("Apps/Spoonjoy")
@@ -79,12 +85,49 @@ def find_build_settings_block(project_content, bundle_id, configuration)
 end
 
 fail_check("#{GENERATOR.relative_path_from(ROOT)} is missing") unless GENERATOR.file?
+fail_check("#{PROJECT_CONTRACT.relative_path_from(ROOT)} is missing") unless PROJECT_CONTRACT.file?
+fail_check("Gemfile is missing") unless GEMFILE.file?
+fail_check("Gemfile.lock is missing") unless GEMFILE_LOCK.file?
+
+gemfile = GEMFILE.read
+gemfile_lock = GEMFILE_LOCK.read
+fail_check("Gemfile must pin xcodeproj 1.27.0") unless gemfile.include?('gem "xcodeproj", "1.27.0"')
+fail_check("Gemfile.lock must lock xcodeproj 1.27.0") unless gemfile_lock.include?("xcodeproj (1.27.0)")
+fail_check("Gemfile.lock must record Bundler 2.4.22") unless gemfile_lock.include?("BUNDLED WITH\n   2.4.22")
+
+{
+  GENERATOR => "generate-xcode-project.rb",
+  PROJECT_CONTRACT => "check-xcode-project-contract.rb"
+}.each do |path, label|
+  source = path.read
+  fail_check("#{label} must load bundler/setup before xcodeproj") unless source.include?('require "bundler/setup"') &&
+    source.index('require "bundler/setup"') < source.index('require "xcodeproj"')
+end
+
+workflow = WORKFLOW.read
+[
+  "ruby/setup-ruby@v1",
+  "bundler-cache: true",
+  "bundle exec ruby scripts/check-xcode-project-contract.rb",
+  "bundle exec ruby scripts/check-xcode-generator-contract.rb"
+].each do |token|
+  fail_check("native workflow missing #{token}") unless workflow.include?(token)
+end
+
+local_matrix = LOCAL_MATRIX.read
+[
+  "scripts/bundle-check.sh",
+  "scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb",
+  "scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb"
+].each do |token|
+  fail_check("local matrix missing #{token}") unless local_matrix.include?(token)
+end
 
 before_outputs = output_snapshot
 
 run!("ruby", "-c", GENERATOR)
 
-help = run!("ruby", GENERATOR, "--help")
+help = run!(*BUNDLE_EXEC, "ruby", GENERATOR, "--help")
 [
   "--output-dir",
   "Spoonjoy.xcodeproj",
@@ -98,8 +141,8 @@ end
 Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   one = Pathname.new(dir).join("one")
   two = Pathname.new(dir).join("two")
-  run!("ruby", GENERATOR, "--output-dir", one)
-  run!("ruby", GENERATOR, "--output-dir", two)
+  run!(*BUNDLE_EXEC, "ruby", GENERATOR, "--output-dir", one)
+  run!(*BUNDLE_EXEC, "ruby", GENERATOR, "--output-dir", two)
 
   fail_check("temp output one did not include Spoonjoy.xcodeproj") unless one.join("Spoonjoy.xcodeproj").directory?
   fail_check("temp output two did not include Spoonjoy.xcodeproj") unless two.join("Spoonjoy.xcodeproj").directory?

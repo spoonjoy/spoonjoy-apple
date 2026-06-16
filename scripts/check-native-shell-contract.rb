@@ -107,7 +107,7 @@ unexpected_web_tokens = app_shell_sources.flat_map do |path|
 end
 fail_check("web-shell tokens are not allowed: #{unexpected_web_tokens.join(", ")}") unless unexpected_web_tokens.empty?
 
-stdout, stderr, status = Open3.capture3("ruby", PROJECT_CONTRACT.to_s, chdir: ROOT.to_s)
+stdout, stderr, status = Open3.capture3(ROOT.join("scripts/bundle-exec.sh").to_s, "ruby", PROJECT_CONTRACT.to_s, chdir: ROOT.to_s)
 fail_check("xcode project contract failed\nSTDOUT:\n#{stdout}\nSTDERR:\n#{stderr}") unless status.success?
 
 puts "native shell contract ok"

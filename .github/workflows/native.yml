@@ -12,6 +12,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
       - name: Verify Xcode 26.5 runner
         run: |
           set -euo pipefail
@@ -51,6 +55,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
       - name: Verify Xcode 26.5 runner
         run: |
           set -euo pipefail
@@ -67,8 +75,8 @@ jobs:
       - name: Check native project and surface contracts
         run: |
           set -euo pipefail
-          ruby scripts/check-xcode-project-contract.rb
-          ruby scripts/check-xcode-generator-contract.rb
+          bundle exec ruby scripts/check-xcode-project-contract.rb
+          bundle exec ruby scripts/check-xcode-generator-contract.rb
           ruby scripts/check-kitchen-recipe-surfaces.rb
           ruby scripts/check-cook-shopping-surfaces.rb
           ruby scripts/check-search-capture-settings-surfaces.rb
@@ -102,6 +110,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
       - name: Verify Xcode 26.5 runner
         run: |
           set -euo pipefail
@@ -139,6 +151,10 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
       - name: Verify Xcode 26.5 runner
         run: |
           set -euo pipefail

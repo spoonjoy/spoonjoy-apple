@@ -26,6 +26,8 @@ required_hooks=(
   "scripts/verify-native-scenarios.sh"
   "scripts/check-xcode-project-contract.rb"
   "scripts/check-xcode-generator-contract.rb"
+  "scripts/bundle-check.sh"
+  "scripts/bundle-exec.sh"
   "scripts/check-native-design-language.rb"
   "scripts/check-kitchen-recipe-surfaces.rb"
   "scripts/check-cook-shopping-surfaces.rb"
@@ -42,6 +44,11 @@ missing_hooks=()
 for hook in "${required_hooks[@]}"; do
   if [[ ! -f "$hook" ]]; then
     missing_hooks+=("$hook")
+  fi
+done
+for bundle_file in Gemfile Gemfile.lock; do
+  if [[ ! -f "$bundle_file" ]]; then
+    missing_hooks+=("$bundle_file")
   fi
 done
 
@@ -122,6 +129,7 @@ overall_status=0
 coverage_json_path="$artifact_root/coverage-json-path.log"
 
 run_required "xcode version" "$artifact_root/matrix-xcode-version.log" bash -lc "xcodebuild -version && xcodebuild -version | grep -q '^Xcode 26\\.5$'" || overall_status=1
+run_required "ruby bundle check" "$artifact_root/matrix-bundle-check.log" scripts/bundle-check.sh || overall_status=1
 run_required "swift tests" "$artifact_root/matrix-swift-test.log" swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
 run_required "swift coverage test" "$artifact_root/matrix-coverage-test.log" swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
 run_required "swift coverage path" "$coverage_json_path" swift test --show-codecov-path || overall_status=1
@@ -130,8 +138,8 @@ if [[ -f "$coverage_json_path" ]]; then
   run_required "coverage enforcement" "$artifact_root/matrix-coverage-enforce.log" ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include "Sources/SpoonjoyCore" || overall_status=1
 fi
 run_required "native scenario final" "$artifact_root/matrix-final-scenario.log" scripts/verify-native-scenarios.sh --stage final --output "$artifact_root/matrix-final-report.json" || overall_status=1
-run_required "xcode project contract" "$artifact_root/matrix-project-contract.log" ruby scripts/check-xcode-project-contract.rb || overall_status=1
-run_required "xcode generator contract" "$artifact_root/matrix-generator-contract.log" ruby scripts/check-xcode-generator-contract.rb || overall_status=1
+run_required "xcode project contract" "$artifact_root/matrix-project-contract.log" scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb || overall_status=1
+run_required "xcode generator contract" "$artifact_root/matrix-generator-contract.log" scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb || overall_status=1
 run_required "native design contract" "$artifact_root/matrix-native-design-contract.log" ruby scripts/check-native-design-language.rb || overall_status=1
 run_required "kitchen surfaces contract" "$artifact_root/matrix-kitchen-surfaces-contract.log" ruby scripts/check-kitchen-recipe-surfaces.rb || overall_status=1
 run_required "cook shopping contract" "$artifact_root/matrix-cook-shopping-contract.log" ruby scripts/check-cook-shopping-surfaces.rb || overall_status=1
