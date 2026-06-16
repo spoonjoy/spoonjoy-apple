@@ -2,7 +2,7 @@
   "capability": "XcodeBuild",
   "blocked": true,
   "detectedAt": "2026-06-16T10:10:00-07:00",
-  "lastConfirmedAt": "2026-06-16T10:18:00-07:00",
+  "lastConfirmedAt": "2026-06-16T10:23:00-07:00",
   "xcode": {
     "developerDir": "/Applications/Xcode.app/Contents/Developer",
     "version": "Xcode 26.5",
@@ -23,7 +23,7 @@
     },
     {
       "command": "xcodebuild -list -project Spoonjoy.xcodeproj",
-      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-xcode-list.log",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-resume-xcode-list.log",
       "exitCode": 70
     },
     {
