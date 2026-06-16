@@ -4,7 +4,7 @@
 **Execution Mode**: direct
 **Created**: 2026-06-15 23:14
 **Planning**: ./2026-06-15-2314-planning-native-app-skeleton.md
-**Artifacts**: ./2026-06-15-2314-doing-native-app-skeleton/
+**Artifacts**: ./tasks/2026-06-15-2314-doing-native-app-skeleton/
 
 ## Execution Mode
 
@@ -54,6 +54,23 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 5. **Refactor**: Clean up, keep tests green.
 6. **No skipping**: Never write implementation without failing tests first.
 
+## Contract Constants
+
+- **Artifact root**: `tasks/2026-06-15-2314-doing-native-app-skeleton/`. Every log, JSON report, screenshot, branch-protection export, PR export, and blocker record goes under this path.
+- **Swift test command**: `swift test --disable-xctest --parallel`. Filtered red/green units use `swift test --filter <ExactTestClassOrMethod> --disable-xctest --parallel` and save output to `${ARTIFACT_ROOT}/unit-<unit>-red.log` or `${ARTIFACT_ROOT}/unit-<unit>-green.log`.
+- **Coverage command**: `swift test --enable-code-coverage --show-codecov-path --disable-xctest --parallel`. The coverage threshold is exactly `100.0` percent for files under `Sources/SpoonjoyCore/`. Exclude only generated Xcode project files, `Apps/` SwiftUI view files, `.build/`, `Tests/`, and scripts.
+- **Coverage input**: the JSON path printed by `--show-codecov-path`. `scripts/enforce-swift-coverage.rb --coverage-json <path> --minimum 100 --include 'Sources/SpoonjoyCore'` must fail below threshold.
+- **API base**: `https://spoonjoy.app`. REST paths: `/api/v1/recipes`, `/api/v1/recipes/{id}`, `/api/v1/cookbooks`, `/api/v1/cookbooks/{id}`, `/api/v1/shopping-list`, `/api/v1/shopping-list/sync`, `/api/v1/shopping-list/items`, `/api/v1/shopping-list/items/{itemId}`, `/api/v1/tokens`, `/api/v1/tokens/{credentialId}`.
+- **API envelope**: REST v1 success `{ ok: true, requestId: String, data: ... }`; REST v1 error `{ ok: false, requestId: String, error: { code, message, status } }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts`.
+- **Shopping idempotency**: POST/PATCH send JSON `clientMutationId`; DELETE accepts JSON body `clientMutationId`, `X-Client-Mutation-Id`, or query `clientMutationId` and canonicalizes idempotency body to `{ clientMutationId }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md:663`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts:1427`.
+- **OAuth paths**: `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`. Register body includes `client_name`, exact HTTPS or localhost/127.0.0.1 `redirect_uris`, and `token_endpoint_auth_method: "none"`. Authorize sends `response_type=code`, `scope`, `state`, `code_challenge`, `code_challenge_method=S256`, and omits `resource` for REST. Token and revoke are `application/x-www-form-urlencoded`.
+- **Fixture paths**: `Sources/SpoonjoyCore/Fixtures/kitchen-fixture.json`, `recipes-fixture.json`, `cookbooks-fixture.json`, `shopping-list-fixture.json`, and `offline-snapshot-fixture.json`.
+- **Design invariants to encode**: lead object present on Kitchen; Recipe Detail uses hero/provenance/actions plus ingredient receipt and numbered method sections; Shopping List uses receipt rows with large check controls; Cook Mode has one focused step, large controls, persisted progress; Search uses native `.searchable` scopes and typed rows; Capture creates a local draft without claiming server recipe write; Settings includes offline/auth/environment state.
+- **Accessibility/design manifest schema**: `design-review.json` has booleans `mobileScreenshot`, `desktopScreenshot`, `dynamicType`, `voiceOverLabels`, `keyboardNavigation`, `reduceMotion`, `contrast`, `kitchenTableHierarchy`, `noOverlap`, and optional `blockers[]` entries shaped `{ "capability": String, "command": String, "timeoutSeconds": Int, "outputPath": String }`. Missing or false fields fail unless a matching blocker exists.
+- **CoreSimulator timeout rule**: simulator commands use one attempt and a 30-second timeout. Timeout writes a blocker JSON with `capability: "CoreSimulator"`, the exact command, `timeoutSeconds: 30`, and captured output. Other simulator failures fail the unit unless classified by reviewer as local machine capability.
+- **Build commands**: iOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. macOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration Debug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build`.
+- **Deployment target labels**: generated build settings use `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` while this machine only has SDK 26.5. Docs and PR text must call this bootstrap validation only; product target remains iOS 27/macOS 27 forward.
+
 ## Work Units
 
 ### Legend
@@ -84,12 +101,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 1b: Recipe/Cookbook Domain — Implementation
 **What**: Implement recipe/cookbook domain models, fixture decoding, validation, and search-summary helpers.
 **Output**: `Sources/SpoonjoyCore/RecipeCookbook/` sources and fixtures.
-**Acceptance**: Unit 1a tests pass with no warnings.
+**Acceptance**: Unit 1a tests pass using `swift test --filter RecipeCookbookTests --disable-xctest --parallel`; compiler emits no warnings.
 
 ### ⬜ Unit 1c: Recipe/Cookbook Domain — Coverage & Refactor
 **What**: Run coverage for recipe/cookbook code, add edge tests, and refactor naming/boundaries.
 **Output**: Coverage log in artifacts directory.
-**Acceptance**: 100% coverage on recipe/cookbook package code where measurable; `swift test` passes.
+**Acceptance**: `scripts/enforce-swift-coverage.rb --coverage-json <path> --minimum 100 --include 'Sources/SpoonjoyCore/RecipeCookbook'` passes; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 2a: Shopping/Cook/Settings Domain — Tests
 **What**: Write failing Swift tests for shopping-list item operations, cook-mode progress, capture drafts, settings, and kitchen fixture state.
@@ -98,13 +115,13 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 2b: Shopping/Cook/Settings Domain — Implementation
 **What**: Implement shopping-list operations, cook-mode progress persistence DTOs, capture draft state, settings state, and kitchen fixture state.
-**Output**: `Sources/SpoonjoyCore/KitchenState/` sources.
-**Acceptance**: Unit 2a tests pass with no warnings.
+**Output**: `Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift`, `CookModeProgress.swift`, `CaptureDraft.swift`, `SettingsState.swift`, and `KitchenFixtureState.swift`.
+**Acceptance**: Unit 2a tests pass using `swift test --filter KitchenStateTests --disable-xctest --parallel`; compiler emits no warnings.
 
 ### ⬜ Unit 2c: Shopping/Cook/Settings Domain — Coverage & Refactor
 **What**: Run coverage for kitchen state code, add missing edge/error tests, and refactor.
 **Output**: Coverage log in artifacts directory.
-**Acceptance**: 100% coverage on kitchen-state package code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/KitchenState`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 3a: Public API v1 Read Client — Tests
 **What**: Write failing tests for recipe/cookbook list/detail request builders, optional auth behavior, response envelopes, pagination, cache headers metadata, and error mapping.
@@ -113,13 +130,13 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 3b: Public API v1 Read Client — Implementation
 **What**: Implement API base URL, request builder, envelope/error types, recipes/cookbooks list/detail requests, pagination cursor helpers, and optional-auth policy.
-**Output**: `Sources/SpoonjoyCore/API/` read-client sources.
+**Output**: `Sources/SpoonjoyCore/API/APIClient.swift`, `APIEnvelope.swift`, `APIError.swift`, `APIRequestBuilder.swift`, `PublicCatalogRequests.swift`, and `PaginationCursor.swift`.
 **Acceptance**: Unit 3a tests pass; stale bearer tokens are not attached to anonymous public reads by default.
 
 ### ⬜ Unit 3c: Public API v1 Read Client — Coverage & Refactor
 **What**: Run coverage, add malformed URL/cursor/error edge tests, and refactor read-client boundaries.
 **Output**: Coverage and request-shape logs.
-**Acceptance**: 100% coverage on read-client code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 4a: Shopping API Mutations — Tests
 **What**: Write failing tests for shopping-list read/sync, POST/PATCH/DELETE request builders, idempotency body/header/query forms, retry classification, and conflict/in-progress handling.
@@ -134,7 +151,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 4c: Shopping API Mutations — Coverage & Refactor
 **What**: Run coverage, add edge/error tests for 401/403/409/429/5xx paths, and refactor.
 **Output**: Coverage and retry-classification logs.
-**Acceptance**: 100% coverage on shopping API code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for shopping API files in `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 5a: OAuth/PKCE Request Construction — Tests
 **What**: Write failing tests for PKCE verifier/challenge, state generation/validation, OAuth register/authorize/token/refresh/revoke request construction, redirect constraints, and REST `resource` omission.
@@ -149,7 +166,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 5c: OAuth/PKCE Request Construction — Coverage & Refactor
 **What**: Run coverage, add edge/error tests, and refactor OAuth request helpers.
 **Output**: OAuth coverage log.
-**Acceptance**: 100% coverage on OAuth request code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Auth/OAuth*`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 6a: Token Vault And Refresh Coordination — Tests
 **What**: Write failing tests for token vault protocol behavior, in-memory vault, persisted client id abstraction, atomic refresh-token rotation, invalid state handling, and single-flight refresh.
@@ -164,7 +181,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 6c: Token Vault And Refresh Coordination — Coverage & Refactor
 **What**: Run coverage, add concurrency/error tests, and refactor.
 **Output**: Coverage/concurrency logs.
-**Acceptance**: 100% coverage on token/refresh code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for token/refresh files in `Sources/SpoonjoyCore/Auth`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 7a: Offline Store And Mutation Queue — Tests
 **What**: Write failing tests for JSON file store, corrupt JSON recovery, durable cursor checkpointing, offline restore, and queued mutation serialization.
@@ -179,7 +196,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 7c: Offline Store And Mutation Queue — Coverage & Refactor
 **What**: Run coverage, add filesystem/error edge tests, and refactor.
 **Output**: Offline coverage log.
-**Acceptance**: 100% coverage on offline store code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Offline`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 8a: Native Metadata And Scenario Engine — Tests
 **What**: Write failing tests for App Intent descriptors, Spotlight/search metadata, native affordance flags, and deterministic scenario report generation.
@@ -194,7 +211,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 8c: Native Metadata And Scenario Engine — Coverage & Refactor
 **What**: Run coverage, polish scenario output, and refactor descriptors.
 **Output**: Scenario JSON/log and coverage log.
-**Acceptance**: 100% coverage on scenario engine code where measurable; verifier produces deterministic artifacts.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; verifier produces deterministic artifacts.
 
 ### ⬜ Unit 9a: App State And Navigation View Models — Tests
 **What**: Write failing tests for app route selection, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
@@ -209,7 +226,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 9c: App State And Navigation View Models — Coverage & Refactor
 **What**: Run coverage, add edge tests, and refactor.
 **Output**: App-state coverage log.
-**Acceptance**: 100% coverage on app-state code where measurable; `swift test` passes.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 10a: Xcode Project And App Targets — Tests
 **What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, deployment target labels, shared source membership, and build settings.
@@ -219,12 +236,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 10b: Xcode Project And App Targets — Implementation
 **What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, and build settings.
 **Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, and `Apps/Spoonjoy/Shared/Info.plist`.
-**Acceptance**: Project checks pass; `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -destination 'generic/platform=iOS Simulator' build` passes; macOS build passes.
+**Acceptance**: Project checks pass; the exact iOS and macOS build commands from Contract Constants pass.
 
 ### ⬜ Unit 10c: Xcode Project And App Targets — Determinism & Refactor
 **What**: Re-run generator, diff project, and refactor generated structure/settings.
 **Output**: Xcode generation determinism log.
-**Acceptance**: Re-running generator produces no git diff; app bundle builds still pass.
+**Acceptance**: Re-running generator produces no git diff; exact iOS and macOS build commands still pass.
 
 ### ⬜ Unit 11a: Native Shell Navigation — Tests
 **What**: Add failing app-state or static checks for `NavigationStack`, `NavigationSplitView`, toolbars, share actions, searchable routes, edit/check affordance metadata, and platform-specific shell decisions.
@@ -234,12 +251,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 11b: Native Shell Navigation — Implementation
 **What**: Implement shared SwiftUI shell, signed-out setup, platform navigation, toolbar actions, `.searchable`, share affordances, and settings entry.
 **Output**: `Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift`, `Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift`, `Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift`, `Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift`, and `Apps/Spoonjoy/Shared/AppShell/ShareActions.swift`.
-**Acceptance**: Unit 11a checks pass; iOS/macOS builds pass.
+**Acceptance**: Unit 11a checks pass; exact iOS and macOS build commands pass.
 
 ### ⬜ Unit 11c: Native Shell Navigation — Coverage & Refactor
 **What**: Run package tests/builds and refactor shell state.
 **Output**: Build logs.
-**Acceptance**: `swift test`, iOS build, and macOS build pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel` and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 12a: Kitchen And Recipe Surfaces — Tests
 **What**: Add failing tests/static checks for Kitchen lead object, recipe index rows, recipe detail cookbook spread, ingredients receipt, step list, native share, and Kitchen Table semantic tokens.
@@ -254,7 +271,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 12c: Kitchen And Recipe Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor surface components.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test`, scenario verifier, iOS build, and macOS build pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 13a: Cook Mode And Shopping Surfaces — Tests
 **What**: Add failing tests/static checks for focused cook-mode state, persisted progress, large kitchen-safe controls, receipt-like shopping list, checkoff behavior, and edit/check native affordances.
@@ -269,7 +286,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 13c: Cook Mode And Shopping Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test`, scenario verifier, iOS build, and macOS build pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 14a: Search, Capture, Settings Surfaces — Tests
 **What**: Add failing tests/static checks for native search scopes, capture draft creation, settings state, offline status, and rejected production-write claims.
@@ -284,7 +301,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ### ⬜ Unit 14c: Search, Capture, Settings Surfaces — Build & Refactor
 **What**: Run tests/builds/scenario verifier and refactor.
 **Output**: Build and scenario logs.
-**Acceptance**: `swift test`, scenario verifier, iOS build, and macOS build pass with no new warnings.
+**Acceptance**: `swift test --disable-xctest --parallel`, scenario verifier, and exact iOS/macOS build commands pass with no new warnings.
 
 ### ⬜ Unit 15a: Coverage Enforcement Script — Tests
 **What**: Add failing tests/checks for coverage JSON parsing, threshold enforcement, missing coverage file handling, and CI wiring expectations.
@@ -322,14 +339,14 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Matrix script fails before all required validation hooks are present.
 
 ### ⬜ Unit 17b: Full Local Matrix — Implementation
-**What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same commands where feasible.
+**What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same commands listed in Contract Constants.
 **Output**: Matrix script and workflow updates.
-**Acceptance**: Matrix runs all available local validation and exits nonzero on missing mandatory checks.
+**Acceptance**: Matrix runs each mandatory command from Contract Constants, writes `validation-matrix.json`, and exits nonzero on missing mandatory checks; GitHub workflow uses the same Swift test, coverage, scenario, and Xcode build commands except launch/screenshot checks that require an interactive local session.
 
 ### ⬜ Unit 17c: Full Local Matrix — Evidence
 **What**: Run the full local matrix and save logs/artifacts.
 **Output**: Full validation artifacts under `tasks/2026-06-15-2314-doing-native-app-skeleton/`.
-**Acceptance**: All available validation passes; machine blockers are concrete and bounded.
+**Acceptance**: All mandatory validation passes, or a blocker JSON matching Contract Constants exists for CoreSimulator-only smoke/screenshot limits.
 
 ### ⬜ Unit 18a: Final Implementation Review — Review
 **What**: Spawn harsh implementation reviewer with full branch diff, planning/doing docs, and validation artifacts.
@@ -362,7 +379,8 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - Commit after each phase.
 - Push after each unit complete.
 - Run full test suite before marking unit done.
-- **All artifacts**: Save outputs, logs, screenshots, and data to `./2026-06-15-2314-doing-native-app-skeleton/`.
+- **All artifacts**: Save outputs, logs, screenshots, and data to `./tasks/2026-06-15-2314-doing-native-app-skeleton/`.
+- **Commit/push cadence**: Commit after every `a`, `b`, or `c` unit. Push after each commit. Unit review happens after each `c` unit or after standalone units 0c, 10c, 16c, 17c, 18b, 19b, and 19c.
 - **Fixes/blockers**: Spawn sub-agent immediately for ordinary implementation or review blockers.
 - **Decisions made**: Update docs immediately, commit right away.
 
@@ -373,3 +391,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Granularity Round 2 converged with no remaining blockers.
 - 2026-06-15 23:14 Addressed validation review with explicit source paths, design/accessibility manifest criteria, screenshot targets, and branch-protection evidence artifacts.
 - 2026-06-15 23:14 Validation Round 2 converged with no remaining blockers.
+- 2026-06-15 23:14 Addressed ambiguity review with contract constants for API/OAuth/schema sources, coverage commands, artifact root, simulator blocker schema, design invariants, exact build commands, and commit cadence.
