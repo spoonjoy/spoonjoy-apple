@@ -200,7 +200,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Tests/SpoonjoyCoreTests/OAuthRequestTests.swift`.
 **Acceptance**: Tests fail before OAuth helpers exist and assert form bodies/authorize query items.
 
-### ⬜ Unit 7b: OAuth/PKCE Request Construction — Implementation
+### ✅ Unit 7b: OAuth/PKCE Request Construction — Implementation
 **What**: Implement PKCE/state helpers, OAuth request builders, redirect validation, and OAuth response types.
 **Output**: `Sources/SpoonjoyCore/Auth/OAuthPKCE.swift`, `Sources/SpoonjoyCore/Auth/OAuthRequests.swift`, `Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift`, and `Sources/SpoonjoyCore/Auth/OAuthResponses.swift`.
 **Acceptance**: Unit 7a tests pass; custom schemes are rejected and REST OAuth omits `resource`.
@@ -466,3 +466,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:19 Unit 6b complete: implemented shopping list read/sync request builders, POST/PATCH/DELETE mutation builders, DELETE header/body/query idempotency forms, shopping response DTOs, idempotency retry metadata, and API retry classification; focused Shopping API tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
 - 2026-06-16 08:22 Unit 6c complete: added edge coverage for blank shopping sync cursors and delete-only mutation responses with default created/updated flags; `Sources/SpoonjoyCore/API` coverage passes at 100.00% (295/295), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.
 - 2026-06-16 08:24 Unit 7a complete: added failing OAuth/PKCE tests for PKCE verifier/challenge behavior, state matching, redirect URI validation, register/authorize/token/refresh/revoke outbound request shapes, REST `resource` omission, and OAuth response decoding; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-7a-red.log`.
+- 2026-06-16 08:28 Unit 7b complete: implemented PKCE S256 challenge helpers, OAuth state matching, redirect URI validation, dynamic client registration requests, authorize URL builders, form-encoded token/refresh/revoke requests, and snake-case OAuth response DTOs; focused OAuth tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
