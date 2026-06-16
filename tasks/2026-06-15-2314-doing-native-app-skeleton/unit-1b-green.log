@@ -1,0 +1,81 @@
+$ ruby scripts/check-swift-package-structure.rb
+swift package structure ok
+
+$ swift test list
+Building for debugging...
+[0/13] /Users/arimendelow/Projects/spoonjoy-apple/.build/arm64-apple-macosx/debug/SpoonjoyApplePackageTests.derived/runner.swift
+[1/13] Write sources
+[5/13] Copying Fixtures
+[6/13] Write SpoonjoyScenarioVerifier-entitlement.plist
+[7/13] Write swift-version--58304C5D6DBC2206.txt
+[9/16] Emitting module SpoonjoyCore
+[10/16] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[11/16] Compiling SpoonjoyCore SpoonjoyCore.swift
+[12/20] Emitting module SpoonjoyScenarioVerifier
+[13/20] Compiling SpoonjoyScenarioVerifier main.swift
+[13/20] Write Objects.LinkFileList
+[14/20] Linking SpoonjoyScenarioVerifier
+[15/20] Applying SpoonjoyScenarioVerifier
+[17/20] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[18/20] Emitting module SpoonjoyCoreTests
+[19/22] Emitting module SpoonjoyApplePackageTests
+[20/22] Compiling SpoonjoyApplePackageTests runner.swift
+[20/22] Write Objects.LinkFileList
+[21/22] Linking SpoonjoyApplePackageTests
+Build complete! (7.48s)
+SpoonjoyCoreTests.SpoonjoyCoreBootstrapTests/bootstrapReportPendingChecks()
+SpoonjoyCoreTests.SpoonjoyCoreBootstrapTests/fixtureResources()
+SpoonjoyCoreTests.SpoonjoyCoreBootstrapTests/productName()
+
+$ swift run -Xswiftc -warnings-as-errors SpoonjoyScenarioVerifier --stage bootstrap --output tasks/2026-06-15-2314-doing-native-app-skeleton/scenario-bootstrap.json
+[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+[2/7] Compiling SpoonjoyCore SpoonjoyCore.swift
+[3/7] Emitting module SpoonjoyCore
+[4/7] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[5/9] Compiling SpoonjoyScenarioVerifier main.swift
+[6/9] Emitting module SpoonjoyScenarioVerifier
+[6/8] Linking SpoonjoyScenarioVerifier
+[7/8] Applying SpoonjoyScenarioVerifier
+Build of product 'SpoonjoyScenarioVerifier' complete! (0.95s)
+
+$ cat tasks/2026-06-15-2314-doing-native-app-skeleton/scenario-bootstrap.json
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}
