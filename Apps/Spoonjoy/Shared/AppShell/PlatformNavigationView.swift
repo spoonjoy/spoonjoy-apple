@@ -7,8 +7,10 @@ struct PlatformNavigationView: View {
     private let recipes: [Recipe]
     private let cookbooks: [Cookbook]
     private let kitchen: KitchenFixtureState
+    private let settingsViewModel: SettingsViewModel
     @State private var cookProgressByRecipeID: [String: CookModeProgress]
     @State private var shoppingViewModel: ShoppingListViewModel?
+    @State private var captureViewModel: CaptureDraftViewModel?
 
     init(navigation: Binding<AppNavigationState>, search: Binding<SearchState>) {
         _navigation = navigation
@@ -16,10 +18,12 @@ struct PlatformNavigationView: View {
         recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
         cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
         kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
+        settingsViewModel = SettingsViewModel(settings: PlatformNavigationView.defaultSettings)
         _cookProgressByRecipeID = State(initialValue: [:])
         _shoppingViewModel = State(
             initialValue: (try? ShoppingListState.decodeFromBundle()).map { ShoppingListViewModel(shoppingList: $0) }
         )
+        _captureViewModel = State(initialValue: nil)
     }
 
     var body: some View {
@@ -122,11 +126,27 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Shopping list unavailable.")
             }
         case .search(let query, let scope):
-            ShellPlaceholderView(title: "Search", systemImage: "magnifyingglass", detail: "\(label(for: scope)): \(query)")
+            let routeSearch = SearchState(query: query, scope: scope)
+            SearchView(
+                search: search == routeSearch ? $search : .constant(routeSearch),
+                recipes: recipes,
+                cookbooks: cookbooks,
+                shoppingList: shoppingViewModel?.shoppingList,
+                openRecipe: openRecipe,
+                openCookbook: openCookbook,
+                openShoppingItem: { _ in
+                    navigation.navigate(to: .shoppingList)
+                }
+            )
         case .capture:
-            ShellPlaceholderView(title: "Capture", systemImage: "camera", detail: "Local draft capture is next.")
+            CaptureDraftView(
+                viewModel: captureViewModel,
+                draftDidChange: { nextViewModel in
+                    captureViewModel = nextViewModel
+                }
+            )
         case .settings:
-            ShellPlaceholderView(title: "Settings", systemImage: "gearshape", detail: "Offline, auth, and environment state.")
+            SettingsView(viewModel: settingsViewModel)
         case .unknownLink:
             ShellPlaceholderView(title: "Link Not Found", systemImage: "link.badge.plus", detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.")
         }
@@ -247,6 +267,24 @@ struct PlatformNavigationView: View {
 
     private func openCookbook(_ id: String) {
         navigation.navigate(to: .cookbookDetail(id: id))
+    }
+}
+
+private extension PlatformNavigationView {
+    static var defaultSettings: SettingsState {
+        SettingsState(
+            auth: .signedOut,
+            environment: .production(baseURL: productionBaseURL),
+            offline: .available(snapshotCount: 1, lastRestoredAt: "2026-06-16T12:12:00.000Z"),
+            preferredCookModeTextSize: .large
+        )
+    }
+
+    static var productionBaseURL: URL {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "spoonjoy.app"
+        return components.url ?? URL(fileURLWithPath: "/")
     }
 }
 

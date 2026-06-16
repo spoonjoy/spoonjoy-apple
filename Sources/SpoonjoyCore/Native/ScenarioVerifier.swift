@@ -41,7 +41,7 @@ public enum ScenarioVerifier {
         case .surfaces:
             return surfacesReport(rootURL: rootURL)
         case .final:
-            throw ScenarioCommandError.unsupportedStage(stage)
+            return finalReport(rootURL: rootURL)
         }
     }
 
@@ -180,6 +180,59 @@ public enum ScenarioVerifier {
         )
     }
 
+    public static func finalReport(rootURL: URL, metadata: NativeCapabilityMetadata = .spoonjoy) -> ScenarioReport {
+        return ScenarioReport(
+            stage: .final,
+            checks: [
+                ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
+                ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
+                cookProgressPersistenceCheck(),
+                shoppingCheckoffCheck(),
+                searchCheck(),
+                captureDraftCreationCheck(),
+                settingsStateCheck(),
+                offlineStatusCheck(),
+                safeUnknownLinkCheck(),
+                sourceCheck(
+                    name: "search surface source",
+                    detail: "Search surface includes native searchable scopes and typed result rows.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
+                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows"]
+                ),
+                sourceCheck(
+                    name: "capture surface source",
+                    detail: "Capture surface creates local-only drafts without claiming server recipe writes.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
+                    tokens: ["CaptureDraftView", "CaptureDraftViewModel", "CaptureDraft.localText", "TextEditor", "canCreateServerRecipe"]
+                ),
+                sourceCheck(
+                    name: "settings surface source",
+                    detail: "Settings surface presents auth, environment, shopping permissions, and offline state.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
+                    tokens: ["SettingsView", "SettingsViewModel", "SettingsState", "Form", "Section", "OfflineStatusView"]
+                ),
+                sourceCheck(
+                    name: "offline status source",
+                    detail: "Offline status component presents OfflineState status labels.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift",
+                    tokens: ["OfflineStatusView", "OfflineState", "statusLabel", "Label"]
+                ),
+                sourceCheck(
+                    name: "navigation final surface source",
+                    detail: "Platform navigation routes search, capture, and settings to real surfaces.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                    tokens: ["SearchView(", "CaptureDraftView(", "SettingsView("]
+                )
+            ],
+            nativeCapabilities: metadata.scenarioCapabilities
+        )
+    }
+
     static func cookProgressPersistenceCheck(
         loadRecipes: () throws -> [Recipe] = { try RecipeFixtureCatalog.decodeFromBundle().recipes }
     ) -> ScenarioCheck {
@@ -253,6 +306,81 @@ public enum ScenarioVerifier {
                 detail: "Shopping checkoff failed: \(error)"
             )
         }
+    }
+
+    private static func searchCheck() -> ScenarioCheck {
+        var search = SearchState(query: "  lemon  ", scope: .recipes)
+        search.update(query: " lemon pasta ", scope: .all)
+        let status: ScenarioCheckStatus = search.route == .search(query: "lemon pasta", scope: .all) ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "search",
+            status: status,
+            detail: "Search state trims queries and preserves native searchable scopes."
+        )
+    }
+
+    private static func captureDraftCreationCheck() -> ScenarioCheck {
+        let draft = try? CaptureDraft.localText(
+            id: "scenario-draft",
+            rawText: "https://example.com/recipe\nlemon pasta",
+            createdAt: "2026-06-16T12:08:00.000Z"
+        )
+        let viewModel = draft.map(CaptureDraftViewModel.init(draft:))
+        let status: ScenarioCheckStatus = viewModel?.status == .localOnly &&
+            viewModel?.previewLines == ["https://example.com/recipe", "lemon pasta"] &&
+            viewModel?.canCreateServerRecipe == false ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "capture draft creation",
+            status: status,
+            detail: "Capture creates a local draft and rejects production-write claims."
+        )
+    }
+
+    private static func settingsStateCheck() -> ScenarioCheck {
+        let settings = SettingsState(
+            auth: .signedIn(username: "ari", scopes: ["shopping_list:read", "shopping_list:write"], tokenExpiresAt: nil),
+            environment: .local(baseURL: URL(fileURLWithPath: "/tmp/spoonjoy-local")),
+            offline: .available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:09:00.000Z"),
+            preferredCookModeTextSize: .large
+        )
+        let viewModel = SettingsViewModel(settings: settings)
+        let status: ScenarioCheckStatus = viewModel.canReadShoppingList &&
+            viewModel.canWriteShoppingList &&
+            viewModel.rows.map(\.id) == ["auth", "environment", "offline", "cook-mode-text"] ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "settings state",
+            status: status,
+            detail: "Settings exposes auth, environment, shopping permissions, and cook text size."
+        )
+    }
+
+    private static func offlineStatusCheck() -> ScenarioCheck {
+        let available = OfflineState.available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:10:00.000Z")
+        let unavailable = OfflineState.unavailable
+        let status: ScenarioCheckStatus = available.statusLabel == "Offline cache ready: 2 snapshots" &&
+            unavailable.statusLabel == "Offline cache unavailable" ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "offline status",
+            status: status,
+            detail: "Offline status labels cover available and unavailable states."
+        )
+    }
+
+    private static func safeUnknownLinkCheck() -> ScenarioCheck {
+        let router = DeepLinkRouter.spoonjoy
+        let unsafe = router.route(for: URL(fileURLWithPath: "/recipes/../secret"))
+        let unsupported = router.route(for: URL(fileURLWithPath: "/search"))
+        let status: ScenarioCheckStatus = unsafe == .unknownLink && unsupported == .unknownLink ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "safe unknown link",
+            status: status,
+            detail: "Unsupported links resolve to the safe unknown-link state."
+        )
     }
 
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {

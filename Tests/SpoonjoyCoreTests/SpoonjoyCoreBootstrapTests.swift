@@ -35,20 +35,14 @@ struct SpoonjoyCoreBootstrapTests {
         #expect(command == ScenarioCommand(stage: .bootstrap, outputPath: "/tmp/spoonjoy-bootstrap.json"))
     }
 
-    @Test("scenario command reports unsupported future stages")
-    func scenarioCommandReportsUnsupportedFutureStages() throws {
+    @Test("scenario command parses final stage")
+    func scenarioCommandParsesFinalStage() throws {
         let command = try ScenarioCommand.parse(arguments: ["--stage", "final"])
-        var rejectedFinalStage = false
+        let report = try ScenarioReporter.report(for: command.stage)
 
-        do {
-            _ = try ScenarioReporter.report(for: command.stage)
-        } catch let error as ScenarioCommandError {
-            rejectedFinalStage = error == .unsupportedStage(.final)
-        } catch {
-            rejectedFinalStage = false
-        }
-
-        #expect(rejectedFinalStage)
+        #expect(command.stage == .final)
+        #expect(report.stage == .final)
+        #expect(report.checks.filter { $0.status == .pending }.isEmpty)
     }
 
     @Test("scenario command rejects malformed arguments")
