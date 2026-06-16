@@ -433,3 +433,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 01:08 Unit 0a complete: native justification and Xcode generator contract checks fail red against missing docs/generator; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0a-red.log`.
 - 2026-06-16 01:13 Addressed Unit 0a reviewer findings by broadening generator temp-output repo-write detection and asserting generated product/bootstrap deployment settings.
 - 2026-06-16 01:18 Addressed Unit 0a Round 2 findings by snapshotting forbidden repo outputs before/after temp generation and asserting deployment targets within bundle/config-specific build settings.
+- 2026-06-16 01:21 Addressed Unit 0a Round 3 finding by parsing real `XCBuildConfiguration` objects and matching their `name` fields before asserting deployment targets.
