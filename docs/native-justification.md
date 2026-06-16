@@ -7,6 +7,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 - Cook mode stays usable offline, preserves progress locally, and gives large kitchen-safe controls for the current step.
 - Shopping checkoff is fast and local-first, with receipt rows, native edit/check controls, and queued sync back to `spoonjoy.app`.
 - Recipe and cookbook browsing use native navigation, search, share, and platform layouts instead of a web clone.
+- Universal links from `spoonjoy.app` and the `spoonjoy` fallback URL scheme open the matching native screen, including recipe detail, cook mode, cookbooks, shopping list, search, capture, and settings.
 - Capture creates local drafts from native entry points without pretending the REST API already supports production recipe writes.
 - Settings exposes auth, offline, environment, and validation state in native forms.
 
@@ -15,6 +16,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 - SwiftUI navigation with `NavigationStack` on compact layouts and `NavigationSplitView` on macOS and desktop-class layouts.
 - App Intents for `OpenRecipeIntent`, `StartCookModeIntent`, and `AddShoppingListItemIntent`.
 - Spotlight metadata for recipes, cookbooks, shopping items, and searchable scopes.
+- Associated Domains for `applinks:spoonjoy.app` plus a custom `spoonjoy` URL scheme fallback, backed by deterministic route parsing.
 - Share actions, toolbars, `.searchable`, edit mode, check controls, forms, and platform keyboard behavior.
 - Offline local state for recipes, cook progress, shopping checkoff, capture drafts, and sync checkpoints.
 - Keychain-ready token storage and OAuth/PKCE through the Spoonjoy OAuth paths.
