@@ -85,8 +85,8 @@ struct NativeScenarioTests {
         #expect(first.contains(#""shopping-list""#))
     }
 
-    @Test("surfaces report proves kitchen and recipe detail slice")
-    func surfacesReportProvesKitchenAndRecipeDetailSlice() throws {
+    @Test("surfaces report proves kitchen recipe cook and shopping slices")
+    func surfacesReportProvesKitchenRecipeCookAndShoppingSlices() throws {
         let report = try ScenarioReporter.report(for: .surfaces)
         let checksByName = Dictionary(uniqueKeysWithValues: report.checks.map { ($0.name, $0.status) })
 
@@ -94,10 +94,16 @@ struct NativeScenarioTests {
         #expect(report.stage == .surfaces)
         #expect(checksByName["fixture kitchen browsing"] == .pass)
         #expect(checksByName["recipe detail"] == .pass)
+        #expect(checksByName["cook progress persistence"] == .pass)
+        #expect(checksByName["shopping checkoff"] == .pass)
         #expect(checksByName["kitchen surface source"] == .pass)
         #expect(checksByName["recipe detail surface source"] == .pass)
+        #expect(checksByName["cook mode surface source"] == .pass)
+        #expect(checksByName["shopping surface source"] == .pass)
+        #expect(checksByName["receipt controls source"] == .pass)
+        #expect(checksByName["kitchen safe controls source"] == .pass)
         #expect(checksByName["navigation surface source"] == .pass)
-        #expect(checksByName["later surfaces"] == .pending)
+        #expect(checksByName["remaining surfaces"] == .pending)
         #expect(report.checks.filter { $0.status == .fail }.isEmpty)
         #expect(Set(report.nativeCapabilities.deepLinkRoutes) == Set(expectedDeepLinkRoutes))
     }
@@ -111,8 +117,58 @@ struct NativeScenarioTests {
             #expect(!report.ok)
             #expect(checksByName["kitchen surface source"] == .fail)
             #expect(checksByName["recipe detail surface source"] == .fail)
+            #expect(checksByName["cook mode surface source"] == .fail)
+            #expect(checksByName["shopping surface source"] == .fail)
+            #expect(checksByName["receipt controls source"] == .fail)
+            #expect(checksByName["kitchen safe controls source"] == .fail)
             #expect(checksByName["navigation surface source"] == .fail)
         }
+    }
+
+    @Test("surface behavioral checks fail closed for missing or throwing fixture data")
+    func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() {
+        let defaultRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck()
+        let defaultShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck()
+        let missingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: { [] })
+        let throwingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: {
+            throw FixtureLoadError.unavailable
+        })
+        let emptyShoppingList = ShoppingListState(
+            id: "shopping-empty",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            items: [
+                ShoppingListItem(
+                    id: "item_deleted",
+                    name: "deleted basil",
+                    quantity: nil,
+                    unit: nil,
+                    checked: false,
+                    checkedAt: nil,
+                    deletedAt: "2026-06-16T11:45:00.000Z",
+                    categoryKey: nil,
+                    iconKey: nil,
+                    sortIndex: 0,
+                    updatedAt: "2026-06-16T11:45:00.000Z"
+                )
+            ],
+            nextCursor: "cursor-empty",
+            updatedAt: "2026-06-16T11:45:00.000Z"
+        )
+        let missingShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(loadShoppingList: { emptyShoppingList })
+        let throwingShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(loadShoppingList: {
+            throw FixtureLoadError.unavailable
+        })
+
+        #expect(defaultRecipeCheck.status == .pass)
+        #expect(defaultShoppingCheck.status == .pass)
+        #expect(missingRecipeCheck.status == .fail)
+        #expect(missingRecipeCheck.detail.contains("no cookable steps"))
+        #expect(throwingRecipeCheck.status == .fail)
+        #expect(throwingRecipeCheck.detail.contains("failed"))
+        #expect(missingShoppingCheck.status == .fail)
+        #expect(missingShoppingCheck.detail.contains("no active checkoff items"))
+        #expect(throwingShoppingCheck.status == .fail)
+        #expect(throwingShoppingCheck.detail.contains("failed"))
     }
 
     @Test("scenario command parses surfaces stage")
@@ -282,7 +338,7 @@ struct NativeScenarioTests {
             #expect(surfaces.exitCode == 0, Comment(rawValue: surfaces.combinedOutput))
             #expect(surfacesReport.ok)
             #expect(surfacesReport.stage == .surfaces)
-            #expect(surfacesReport.checks.filter { $0.status == .pending }.map(\.name) == ["later surfaces"])
+            #expect(surfacesReport.checks.filter { $0.status == .pending }.map(\.name) == ["remaining surfaces"])
 
             let defaultOutputDirectory = directory.appendingPathComponent("default-output", isDirectory: true)
             try FileManager.default.createDirectory(at: defaultOutputDirectory, withIntermediateDirectories: true)
@@ -370,6 +426,10 @@ struct NativeScenarioTests {
 
         try body(directory)
     }
+}
+
+private enum FixtureLoadError: Error {
+    case unavailable
 }
 
 private struct ProcessResult {

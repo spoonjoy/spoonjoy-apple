@@ -123,6 +123,8 @@ public enum ScenarioVerifier {
             checks: [
                 ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
                 ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
+                cookProgressPersistenceCheck(),
+                shoppingCheckoffCheck(),
                 sourceCheck(
                     name: "kitchen surface source",
                     detail: "Kitchen surface includes lead object, recipe index, and cookbook shelf.",
@@ -138,16 +140,119 @@ public enum ScenarioVerifier {
                     tokens: ["RecipeDetailView", "cookbookSpread", "ingredientReceipt", "methodSections", "ShareLink"]
                 ),
                 sourceCheck(
+                    name: "cook mode surface source",
+                    detail: "Cook mode surface includes focused step, controls, progress, and persisted progress text.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
+                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "currentStep", "KitchenSafeControls"]
+                ),
+                sourceCheck(
+                    name: "shopping surface source",
+                    detail: "Shopping surface includes native edit mode, large check affordance, and ShoppingListState behavior.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift",
+                    tokens: ["ShoppingListView", "ShoppingListViewModel", "ShoppingListState", "ReceiptListView", "settingChecked"]
+                ),
+                sourceCheck(
+                    name: "receipt controls source",
+                    detail: "Receipt list uses native list sections, toggles, and swipe actions.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
+                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List", "Section", "Toggle", "swipeActions"]
+                ),
+                sourceCheck(
+                    name: "kitchen safe controls source",
+                    detail: "Kitchen-safe controls use large native buttons with accessibility labels.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift",
+                    tokens: ["KitchenSafeControls", "Button", "controlSize", "accessibilityLabel"]
+                ),
+                sourceCheck(
                     name: "navigation surface source",
-                    detail: "Platform navigation routes fixture kitchen, recipes, recipe detail, and cookbooks.",
+                    detail: "Platform navigation routes fixture kitchen, recipes, recipe detail, cook mode, shopping, and cookbooks.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailView(", "CookbooksView("]
+                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailView(", "CookModeView(", "ShoppingListView(", "CookbooksView("]
                 ),
-                ScenarioCheck(name: "later surfaces", status: .pending, detail: "Cook mode, shopping, search, capture, and settings surfaces land in Units 15-16.")
+                ScenarioCheck(name: "remaining surfaces", status: .pending, detail: "Search, capture, and settings surfaces land in Unit 16.")
             ],
             nativeCapabilities: metadata.scenarioCapabilities
         )
+    }
+
+    static func cookProgressPersistenceCheck(
+        loadRecipes: () throws -> [Recipe] = { try RecipeFixtureCatalog.decodeFromBundle().recipes }
+    ) -> ScenarioCheck {
+        do {
+            guard
+                let recipe = try loadRecipes().first,
+                let step = recipe.steps.first
+            else {
+                return ScenarioCheck(name: "cook progress persistence", status: .fail, detail: "Fixture recipe has no cookable steps.")
+            }
+
+            let progress = CookModeProgress(
+                recipeID: recipe.id,
+                stepIDs: recipe.steps.map(\.id),
+                startedAt: "2026-06-16T11:40:00.000Z"
+            )
+            let advanced = try progress
+                .markingStepCompleted(step.id, updatedAt: "2026-06-16T11:41:00.000Z")
+                .advancing()
+            let restored = try CookModeProgress.restore(from: advanced.snapshot())
+            let viewModel = CookModeViewModel(recipe: recipe, progress: restored)
+            let stepIDs = recipe.steps.map(\.id)
+            let currentStepIsValid = viewModel.currentStepID.map { stepIDs.contains($0) } == true
+            let status: ScenarioCheckStatus = restored == advanced &&
+                restored.completedStepIDs.contains(step.id) &&
+                viewModel.completionFraction > 0 &&
+                currentStepIsValid ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cook progress persistence",
+                status: status,
+                detail: "Cook mode progress snapshots restore completed steps and current step."
+            )
+        } catch {
+            return ScenarioCheck(
+                name: "cook progress persistence",
+                status: .fail,
+                detail: "Cook mode progress persistence failed: \(error)"
+            )
+        }
+    }
+
+    static func shoppingCheckoffCheck(
+        loadShoppingList: () throws -> ShoppingListState = { try ShoppingListState.decodeFromBundle() }
+    ) -> ScenarioCheck {
+        do {
+            let viewModel = ShoppingListViewModel(shoppingList: try loadShoppingList())
+            guard let itemID = viewModel.checkControlItemIDs.first else {
+                return ScenarioCheck(name: "shopping checkoff", status: .fail, detail: "Fixture shopping list has no active checkoff items.")
+            }
+
+            let checked = try viewModel.togglingItem(
+                id: itemID,
+                checked: true,
+                at: "2026-06-16T11:42:00.000Z"
+            )
+            let item = checked.shoppingList.item(id: itemID)
+            let status: ScenarioCheckStatus = item?.checked == true &&
+                item?.checkedAt == "2026-06-16T11:42:00.000Z" &&
+                checked.sections.flatMap(\.items).contains { $0.id == itemID } ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "shopping checkoff",
+                status: status,
+                detail: "Shopping list checkoff uses ShoppingListViewModel and preserves receipt sections."
+            )
+        } catch {
+            return ScenarioCheck(
+                name: "shopping checkoff",
+                status: .fail,
+                detail: "Shopping checkoff failed: \(error)"
+            )
+        }
     }
 
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {

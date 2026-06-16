@@ -7,6 +7,8 @@ struct PlatformNavigationView: View {
     private let recipes: [Recipe]
     private let cookbooks: [Cookbook]
     private let kitchen: KitchenFixtureState
+    @State private var cookProgressByRecipeID: [String: CookModeProgress]
+    @State private var shoppingViewModel: ShoppingListViewModel?
 
     init(navigation: Binding<AppNavigationState>, search: Binding<SearchState>) {
         _navigation = navigation
@@ -14,6 +16,10 @@ struct PlatformNavigationView: View {
         recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
         cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
         kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
+        _cookProgressByRecipeID = State(initialValue: [:])
+        _shoppingViewModel = State(
+            initialValue: (try? ShoppingListState.decodeFromBundle()).map { ShoppingListViewModel(shoppingList: $0) }
+        )
     }
 
     var body: some View {
@@ -83,7 +89,19 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
             }
         case .recipeDetail(let id, .cook):
-            ShellPlaceholderView(title: "Cook Mode", systemImage: "flame", detail: id)
+            if let recipe = recipe(id: id) {
+                CookModeView(
+                    viewModel: CookModeViewModel(recipe: recipe, progress: cookProgress(for: recipe)),
+                    progressDidChange: { progress in
+                        cookProgressByRecipeID[id] = progress
+                    },
+                    close: {
+                        openRecipe(id)
+                    }
+                )
+            } else {
+                ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
+            }
         case .cookbooks:
             CookbooksView(cookbooks: cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
@@ -93,7 +111,16 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
             }
         case .shoppingList:
-            ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Receipt rows are next.")
+            if let shoppingViewModel {
+                ShoppingListView(
+                    viewModel: shoppingViewModel,
+                    viewModelDidChange: { nextViewModel in
+                        self.shoppingViewModel = nextViewModel
+                    }
+                )
+            } else {
+                ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Shopping list unavailable.")
+            }
         case .search(let query, let scope):
             ShellPlaceholderView(title: "Search", systemImage: "magnifyingglass", detail: "\(label(for: scope)): \(query)")
         case .capture:
@@ -200,6 +227,14 @@ struct PlatformNavigationView: View {
 
     private func cookbook(id: String) -> Cookbook? {
         cookbooks.first { $0.id == id }
+    }
+
+    private func cookProgress(for recipe: Recipe) -> CookModeProgress {
+        cookProgressByRecipeID[recipe.id] ?? CookModeProgress(
+            recipeID: recipe.id,
+            stepIDs: recipe.steps.map(\.id),
+            startedAt: "2026-06-16T11:45:00.000Z"
+        )
     }
 
     private func openRecipe(_ id: String) {
