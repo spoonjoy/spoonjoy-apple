@@ -11,6 +11,8 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - Create a Swift package for Spoonjoy domain models, API request construction, offline JSON cache logic, search/filter helpers, cook-mode progress, shopping-list operations, and fixture-driven app state.
 - Create a real Xcode project with separate iOS and macOS SwiftUI app targets using bundle IDs under `app.spoonjoy.*`.
 - Add native app screens for signed-out setup, Kitchen, Recipes, Recipe Detail, Cook Mode, Cookbooks, Shopping List, Search, Capture, and Settings.
+- Use Spoonjoy REST API v1 contracts at `https://spoonjoy.app/api/v1` for client request builders. Treat legacy `/api/*`, old GraphQL, and MCP routes as non-native-app contracts.
+- Scaffold native OAuth/PKCE planning and request construction against `/oauth/register`, `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`; persistable token storage abstractions must be present, but production auth completion can wait for app-link/signing capability.
 - Add native affordance scaffolds: `NavigationStack`/`NavigationSplitView`, `.searchable`, native toolbars, share links, edit/check controls, App Intent descriptors or compileable App Intents where the installed SDK supports them, offline status, and local persistence.
 - Encode Spoonjoy native justification in repo docs before major code lands.
 - Update CI/scripts so protected checks build iOS and macOS bundles, run Swift tests, run coverage, and run a native scenario verifier.
@@ -55,6 +57,9 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - Use one Xcode project with separate iOS and macOS SwiftUI app targets; share source and domain logic rather than creating two separate apps.
 - Use bundle namespace `app.spoonjoy.*`, with the primary iOS bundle as `app.spoonjoy.Spoonjoy` and macOS as `app.spoonjoy.Spoonjoy.macOS` unless project generation requires a stricter suffix.
 - Build the first app around local fixture/offline-capable state plus API-client contracts. Real OAuth/token entry belongs in the app foundation, but production secrets and paid signing do not.
+- REST API v1 is the native backend contract. Read endpoints are `GET /api/v1/recipes`, `GET /api/v1/recipes/{id}`, `GET /api/v1/cookbooks`, and `GET /api/v1/cookbooks/{id}`. Shopping-list endpoints are `GET /api/v1/shopping-list`, `GET /api/v1/shopping-list/sync`, `POST /api/v1/shopping-list/items`, `PATCH /api/v1/shopping-list/items/{itemId}`, and `DELETE /api/v1/shopping-list/items/{itemId}`. Mutations must include `clientMutationId`.
+- Use OAuth/PKCE public-client flow for real auth, omitting `resource` for REST API v1. Register once per app/environment with `token_endpoint_auth_method: "none"`, use ASWebAuthenticationSession/AppAuth shape for authorization, rotate refresh tokens atomically, and prefer HTTPS universal/app links for production redirects. Custom schemes are rejected by the server today.
+- Do not reuse `sj-mobile` implementation code or auth assumptions. It was an archived Expo/Apollo/JWT app against old GraphQL/Rails-era infrastructure. Mine it only for product ideas like photo-first recipe detail, saved collections/library, search across object types, and staged recipe creation.
 - Treat App Intents, Spotlight, capture, offline cook-mode, and shopping-list checkoff as native-value proof points. Build compileable scaffolds now; deeper production server sync can follow in later PRs without redoing the app architecture.
 - Preserve iOS/macOS 27 as product baseline in docs; set build settings to the highest installed SDK-supported minimum only when necessary for local CI, with an explicit validation note.
 
@@ -65,7 +70,14 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - `/Users/arimendelow/Projects/spoonjoy-v2/docs/design-language.md`
 - `/Users/arimendelow/Projects/spoonjoy-v2/docs/ui-systems-audit-backlog.md`
 - `/Users/arimendelow/Projects/spoonjoy-v2/app/routes/api.$.ts`
+- `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md`
+- `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts`
+- `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts`
+- `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/oauth-routes.server.ts`
+- `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/oauth-server.server.ts`
 - `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/spoonjoy-api.server.ts`
+- `spoonjoy/sj-mobile` archived GitHub repo, product archaeology only; avoid code/auth reuse.
+- `/Users/arimendelow/Projects/spoonjoy`, old Capacitor/web repo, product/domain reference only.
 - `/Users/arimendelow/.codex/skills/build-native-apple-app/SKILL.md`
 - `/Users/arimendelow/.codex/skills/build-native-apple-app/references/wwdc26-native-levers.md`
 - `/Users/arimendelow/.codex/skills/build-native-apple-app/references/validation-matrix.md`
@@ -76,7 +88,10 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - The current native repo has no project files yet; protected checks bootstrap-pass until this branch adds `Package.swift` and `Spoonjoy.xcodeproj`.
 - The web design language requires food/object hierarchy over dashboard grids; the native shell should default to native lists/split views/toolbars while keeping cookbook authorship visible.
 - The app should be useful for dogfooding without production signing: local fixtures, offline state, token/session entry, and deterministic scenario checks all matter.
+- API explorer confirmed API v1 does not expose recipe/cookbook writes for native clients yet. This branch should not fake those mutations; capture/create screens can create local drafts and request builders, with sync expansion handled by later backend/native PRs if needed.
+- Prior mobile-code explorer found no reusable native implementation. The current Apple repo design brief and current v2 API docs are authoritative.
 
 # Progress Log
 
 - 2026-06-15 23:14 Created initial planning doc from repo contracts, native skill workflow, design docs, local preflight, and current platform constraints.
+- 2026-06-15 23:14 Incorporated explorer findings for REST API v1, OAuth/PKCE, prior mobile-code archaeology, and non-reuse decisions.
