@@ -44,6 +44,9 @@ struct OAuthRequestTests {
             try OAuthRedirectValidator.validate(URL(string: "http://example.com/oauth/callback")!)
         }
         #expect(throws: OAuthRedirectValidationError.self) {
+            try OAuthRedirectValidator.validate(URL(string: "https://evil.example/oauth/callback")!)
+        }
+        #expect(throws: OAuthRedirectValidationError.self) {
             try OAuthRedirectValidator.validate(URL(string: "https://user:pass@example.com/oauth/callback")!)
         }
         #expect(throws: OAuthRedirectValidationError.self) {
@@ -98,6 +101,7 @@ struct OAuthRequestTests {
 
         #expect(request.method == .get)
         #expect(request.url.path == "/oauth/authorize")
+        #expect(request.headers["Accept"] == "application/json")
         #expect(request.headers["Authorization"] == nil)
         #expect(request.body == nil)
         #expect(request.queryItems == [
@@ -134,6 +138,8 @@ struct OAuthRequestTests {
 
         #expect(exchange.method == .post)
         #expect(exchange.url.path == "/oauth/token")
+        #expect(exchange.queryItems.isEmpty)
+        #expect(exchange.headers["Accept"] == "application/json")
         #expect(exchange.headers["Content-Type"] == "application/x-www-form-urlencoded")
         #expect(exchange.headers["Authorization"] == nil)
         #expect(try formBody(from: exchange) == [
@@ -147,6 +153,10 @@ struct OAuthRequestTests {
 
         #expect(refresh.method == .post)
         #expect(refresh.url.path == "/oauth/token")
+        #expect(refresh.queryItems.isEmpty)
+        #expect(refresh.headers["Accept"] == "application/json")
+        #expect(refresh.headers["Content-Type"] == "application/x-www-form-urlencoded")
+        #expect(refresh.headers["Authorization"] == nil)
         #expect(try formBody(from: refresh) == [
             "grant_type": "refresh_token",
             "client_id": "cm_client_id_from_register",
@@ -155,6 +165,10 @@ struct OAuthRequestTests {
 
         #expect(revoke.method == .post)
         #expect(revoke.url.path == "/oauth/revoke")
+        #expect(revoke.queryItems.isEmpty)
+        #expect(revoke.headers["Accept"] == "application/json")
+        #expect(revoke.headers["Content-Type"] == "application/x-www-form-urlencoded")
+        #expect(revoke.headers["Authorization"] == nil)
         #expect(try formBody(from: revoke) == [
             "token": "ort_refresh",
             "client_id": "cm_client_id_from_register",

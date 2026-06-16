@@ -1,0 +1,34 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Emitting module SpoonjoyCore
+[4/7] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[5/12] Emitting module SpoonjoyScenarioVerifier
+[5/12] Write Objects.LinkFileList
+[6/12] Linking SpoonjoyScenarioVerifier
+[7/12] Applying SpoonjoyScenarioVerifier
+[9/12] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[10/12] Emitting module SpoonjoyCoreTests
+[10/12] Write Objects.LinkFileList
+[11/12] Linking SpoonjoyApplePackageTests
+Build complete! (2.77s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "OAuth PKCE request construction" started.
+◇ Test "authorize request builds browser URL and omits REST resource" started.
+◇ Test "PKCE verifier validation and S256 challenge match RFC vector" started.
+◇ Test "OAuth state trims and validates exact callback state" started.
+◇ Test "register request sends dynamic client registration JSON" started.
+◇ Test "token exchange refresh and revoke requests are form encoded" started.
+◇ Test "OAuth register and token responses decode snake case payloads" started.
+◇ Test "redirect validator accepts app links and localhost loopback only" started.
+✔ Test "OAuth state trims and validates exact callback state" passed after 0.001 seconds.
+✔ Test "authorize request builds browser URL and omits REST resource" passed after 0.001 seconds.
+✔ Test "token exchange refresh and revoke requests are form encoded" passed after 0.001 seconds.
+✔ Test "OAuth register and token responses decode snake case payloads" passed after 0.001 seconds.
+✔ Test "register request sends dynamic client registration JSON" passed after 0.001 seconds.
+✔ Test "PKCE verifier validation and S256 challenge match RFC vector" passed after 0.001 seconds.
+✔ Test "redirect validator accepts app links and localhost loopback only" passed after 0.001 seconds.
+✔ Suite "OAuth PKCE request construction" passed after 0.001 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.001 seconds.

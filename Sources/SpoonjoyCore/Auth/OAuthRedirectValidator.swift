@@ -4,6 +4,7 @@ public enum OAuthRedirectValidationError: Error, Equatable {
     case missingHost
     case unsupportedScheme(String?)
     case remoteHTTPHost(String)
+    case remoteHTTPSHost(String)
     case credentialsNotAllowed
     case fragmentNotAllowed
 }
@@ -27,6 +28,10 @@ public enum OAuthRedirectValidator {
 
         switch scheme {
         case "https":
+            guard host == "spoonjoy.app" else {
+                throw OAuthRedirectValidationError.remoteHTTPSHost(host)
+            }
+
             return true
         case "http":
             guard host == "localhost" || host == "127.0.0.1" else {
