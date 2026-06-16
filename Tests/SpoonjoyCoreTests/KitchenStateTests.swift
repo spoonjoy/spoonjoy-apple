@@ -57,9 +57,9 @@ struct KitchenStateTests {
     func shoppingListAddOrRestoreMergesMatchingDisplayItems() throws {
         let state = try ShoppingListState.decodeFromBundle()
         let result = try state.addingOrRestoringItem(
-            name: "lemons",
+            name: " LEMONS ",
             quantity: 1,
-            unit: "each",
+            unit: " EACH ",
             categoryKey: "produce",
             iconKey: "lemon",
             clientMutationID: "mutation_add_lemons"
@@ -73,15 +73,16 @@ struct KitchenStateTests {
         #expect(lemons.displayQuantity == "3 each")
         #expect(!lemons.checked)
         #expect(lemons.deletedAt == nil)
+        #expect(lemons.sortIndex == 0)
     }
 
     @Test("shopping list operations cover local create, display, grouping, and error edges")
     func shoppingListOperationsCoverLocalCreateDisplayGroupingAndErrors() throws {
         let state = try ShoppingListState.decodeFromBundle()
         let created = try state.addingOrRestoringItem(
-            name: "  butter  ",
+            name: "  Butter  ",
             quantity: nil,
-            unit: "stick",
+            unit: " Stick ",
             categoryKey: nil,
             iconKey: nil,
             clientMutationID: "mutation_add_butter"
@@ -91,6 +92,7 @@ struct KitchenStateTests {
         #expect(created.created)
         #expect(!created.updated)
         #expect(butter.name == "butter")
+        #expect(butter.unit == "stick")
         #expect(butter.displayQuantity == "stick")
         #expect(created.shoppingList.receiptSections.last?.title == "Other")
 
@@ -179,6 +181,48 @@ struct KitchenStateTests {
             clientMutationID: "mutation_merge_pepper"
         )
         #expect(mergedNilQuantity.shoppingList.item(id: "item_empty_quantity")?.quantity == 2)
+    }
+
+    @Test("shopping list restore matches normalized unit and moves restored rows to active tail")
+    func shoppingListRestoreMatchesNormalizedUnitAndMovesRestoredRowsToTail() throws {
+        let state = try ShoppingListState.decodeFromBundle()
+        let checkedState = try state.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: "2026-06-01T00:20:00.000Z",
+            nextSortIndex: 4
+        )
+        let restoredChecked = try checkedState.addingOrRestoringItem(
+            name: " lemons ",
+            quantity: 1,
+            unit: " EACH ",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "mutation_restore_checked_lemons"
+        )
+        let restoredLemons = try #require(restoredChecked.shoppingList.item(id: "item_lemons"))
+
+        #expect(restoredLemons.quantity == 3)
+        #expect(!restoredLemons.checked)
+        #expect(restoredLemons.checkedAt == nil)
+        #expect(restoredLemons.sortIndex == 5)
+        #expect(restoredChecked.shoppingList.activeItems.map(\.id) == ["item_spaghetti", "item_parmesan", "item_lemons"])
+
+        let restoredDeleted = try state.addingOrRestoringItem(
+            name: " BASIL ",
+            quantity: 2,
+            unit: " BUNCH ",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "mutation_restore_deleted_basil"
+        )
+        let restoredBasil = try #require(restoredDeleted.shoppingList.item(id: "item_removed_basil"))
+
+        #expect(restoredBasil.quantity == 3)
+        #expect(restoredBasil.unit == "bunch")
+        #expect(restoredBasil.deletedAt == nil)
+        #expect(restoredBasil.sortIndex == 3)
+        #expect(restoredDeleted.shoppingList.activeItems.map(\.id) == ["item_lemons", "item_spaghetti", "item_parmesan", "item_removed_basil"])
     }
 
     @Test("shopping list operations report useful errors")

@@ -1,0 +1,50 @@
+$ swift test --filter KitchenStateTests --disable-xctest --parallel -Xswiftc -warnings-as-errors
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[2/6] Write swift-version--58304C5D6DBC2206.txt
+[4/8] Emitting module SpoonjoyCore
+[5/8] Compiling SpoonjoyCore ShoppingListState.swift
+[6/12] Emitting module SpoonjoyScenarioVerifier
+[6/12] Write Objects.LinkFileList
+[7/12] Linking SpoonjoyScenarioVerifier
+[8/12] Applying SpoonjoyScenarioVerifier
+[10/12] Emitting module SpoonjoyCoreTests
+[11/12] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[11/13] Write Objects.LinkFileList
+[12/13] Linking SpoonjoyApplePackageTests
+Build complete! (3.04s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Kitchen state domain" started.
+◇ Test "capture drafts stay local until explicitly promoted" started.
+◇ Test "shopping list operations report useful errors" started.
+◇ Test "settings state describes auth environment and offline readiness" started.
+◇ Test "shopping list add or restore merges matching display items" started.
+◇ Test "kitchen fixture associated values encode back to fixture shape" started.
+◇ Test "cook mode progress handles empty, duplicate, invalid, and stale state" started.
+◇ Test "shopping list fixture decodes receipt rows and active ordering" started.
+◇ Test "settings state handles signed-out local and kitchen-scope variants" started.
+◇ Test "kitchen fixture exposes the lead food object and restore metadata" started.
+◇ Test "capture drafts reject empty local text" started.
+◇ Test "cook mode progress persists current step and completion" started.
+◇ Test "shopping list operations cover local create, display, grouping, and error edges" started.
+◇ Test "shopping list restore matches normalized unit and moves restored rows to active tail" started.
+◇ Test "shopping list checkoff and removal keep receipt ordering stable" started.
+✔ Test "capture drafts reject empty local text" passed after 0.001 seconds.
+✔ Test "capture drafts stay local until explicitly promoted" passed after 0.001 seconds.
+✔ Test "settings state handles signed-out local and kitchen-scope variants" passed after 0.001 seconds.
+✔ Test "settings state describes auth environment and offline readiness" passed after 0.001 seconds.
+✔ Test "cook mode progress handles empty, duplicate, invalid, and stale state" passed after 0.001 seconds.
+✔ Test "cook mode progress persists current step and completion" passed after 0.001 seconds.
+✔ Test "kitchen fixture exposes the lead food object and restore metadata" passed after 0.004 seconds.
+✔ Test "shopping list add or restore merges matching display items" passed after 0.004 seconds.
+✔ Test "shopping list operations report useful errors" passed after 0.004 seconds.
+✔ Test "shopping list checkoff and removal keep receipt ordering stable" passed after 0.004 seconds.
+✔ Test "kitchen fixture associated values encode back to fixture shape" passed after 0.004 seconds.
+✔ Test "shopping list restore matches normalized unit and moves restored rows to active tail" passed after 0.004 seconds.
+✔ Test "shopping list fixture decodes receipt rows and active ordering" passed after 0.004 seconds.
+✔ Test "shopping list operations cover local create, display, grouping, and error edges" passed after 0.004 seconds.
+✔ Suite "Kitchen state domain" passed after 0.005 seconds.
+✔ Test run with 14 tests in 1 suite passed after 0.005 seconds.

@@ -78,7 +78,12 @@ public struct ShoppingListItem: Codable, Equatable {
         )
     }
 
-    func merging(quantity addedQuantity: Double?, categoryKey: String?, iconKey: String?) -> ShoppingListItem {
+    func merging(
+        quantity addedQuantity: Double?,
+        categoryKey: String?,
+        iconKey: String?,
+        restoredSortIndex: Int?
+    ) -> ShoppingListItem {
         let mergedQuantity: Double?
 
         if let addedQuantity {
@@ -97,7 +102,7 @@ public struct ShoppingListItem: Codable, Equatable {
             deletedAt: nil,
             categoryKey: categoryKey ?? self.categoryKey,
             iconKey: iconKey ?? self.iconKey,
-            sortIndex: sortIndex,
+            sortIndex: restoredSortIndex ?? sortIndex,
             updatedAt: updatedAt
         )
     }
@@ -198,13 +203,15 @@ public struct ShoppingListState: Codable, Equatable {
         iconKey: String?,
         clientMutationID: String
     ) throws -> ShoppingListMutationResult {
-        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedName = Self.normalizedName(name)
         guard !normalizedName.isEmpty else {
             throw KitchenStateError.emptyItemName
         }
+        let normalizedUnit = Self.normalizedOptionalName(unit)
 
         let matchIndex = items.firstIndex { item in
-            item.name.localizedCaseInsensitiveCompare(normalizedName) == .orderedSame && item.unit == unit
+            Self.normalizedName(item.name) == normalizedName &&
+                Self.normalizedOptionalName(item.unit) == normalizedUnit
         }
 
         let mutation = ShoppingListMutationMetadata(clientMutationID: clientMutationID, replayed: false)
@@ -214,13 +221,13 @@ public struct ShoppingListState: Codable, Equatable {
                 id: "item_local_\(clientMutationID)",
                 name: normalizedName,
                 quantity: quantity,
-                unit: unit,
+                unit: normalizedUnit,
                 checked: false,
                 checkedAt: nil,
                 deletedAt: nil,
                 categoryKey: categoryKey,
                 iconKey: iconKey,
-                sortIndex: (items.map(\.sortIndex).max() ?? -1) + 1,
+                sortIndex: nextActiveSortIndex(),
                 updatedAt: updatedAt
             )
             return ShoppingListMutationResult(
@@ -238,10 +245,13 @@ public struct ShoppingListState: Codable, Equatable {
         }
 
         var updatedItems = items
+        let matchedItem = items[matchIndex]
+        let shouldRestoreToTail = matchedItem.checked || matchedItem.checkedAt != nil || matchedItem.deletedAt != nil
         updatedItems[matchIndex] = items[matchIndex].merging(
             quantity: quantity,
             categoryKey: categoryKey,
-            iconKey: iconKey
+            iconKey: iconKey,
+            restoredSortIndex: shouldRestoreToTail ? nextActiveSortIndex() : nil
         )
 
         return ShoppingListMutationResult(
@@ -289,5 +299,21 @@ public struct ShoppingListState: Codable, Equatable {
                 word.prefix(1).uppercased() + word.dropFirst()
             }
             .joined(separator: " ")
+    }
+
+    private func nextActiveSortIndex() -> Int {
+        (activeItems.map(\.sortIndex).max() ?? -1) + 1
+    }
+
+    private static func normalizedName(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func normalizedOptionalName(_ value: String?) -> String? {
+        guard let normalized = value.map(normalizedName), !normalized.isEmpty else {
+            return nil
+        }
+
+        return normalized
     }
 }
