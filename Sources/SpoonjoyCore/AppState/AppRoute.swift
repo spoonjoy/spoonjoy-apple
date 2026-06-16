@@ -73,4 +73,31 @@ public enum AppRoute: Hashable, Sendable {
             false
         }
     }
+
+    public var stateIdentifier: String {
+        switch self {
+        case .kitchen:
+            "kitchen"
+        case .recipes:
+            "recipes"
+        case .recipeDetail(let id, .detail):
+            "recipe:\(id)"
+        case .recipeDetail(let id, .cook):
+            "recipe-cook:\(id)"
+        case .cookbooks:
+            "cookbooks"
+        case .cookbookDetail(let id):
+            "cookbook:\(id)"
+        case .shoppingList:
+            "shopping-list"
+        case .search(let query, let scope):
+            "search:\(scope.rawValue):\(query)"
+        case .capture:
+            "capture"
+        case .settings:
+            "settings"
+        case .unknownLink:
+            "unknown-link"
+        }
+    }
 }

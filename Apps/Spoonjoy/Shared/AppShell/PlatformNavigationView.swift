@@ -26,6 +26,7 @@ struct PlatformNavigationView: View {
     }
 
     var body: some View {
+        let spotlightDocuments = spotlightIndexDocuments
         NavigationSplitView {
             sidebar
                 .navigationTitle("Spoonjoy")
@@ -50,6 +51,9 @@ struct PlatformNavigationView: View {
                 navigation.navigate(to: search.route)
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
+            .task(id: spotlightIndexIdentity) {
+                await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
+            }
         }
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
@@ -278,6 +282,26 @@ struct PlatformNavigationView: View {
         appSnapshot.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
     }
 
+    private var spotlightIndexIdentity: String {
+        [
+            recipes.map(\.id).joined(separator: ","),
+            cookbooks.map(\.id).joined(separator: ","),
+            appSnapshot.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
+        ].joined(separator: "|")
+    }
+
+    private var spotlightIndexDocuments: [SpotlightIndexDocument] {
+        guard let shoppingList = appSnapshot.shoppingList else {
+            return []
+        }
+
+        return SpotlightIndexPlan.documents(
+            recipes: recipes,
+            cookbooks: cookbooks,
+            shoppingList: shoppingList
+        )
+    }
+
     private var captureViewModel: CaptureDraftViewModel? {
         appSnapshot.captureDraft.map(CaptureDraftViewModel.init(draft:))
     }
@@ -308,6 +332,14 @@ struct PlatformNavigationView: View {
     private func persistAppSnapshot(_ snapshot: NativeAppSnapshot) {
         appSnapshot = snapshot
         persistSnapshot(snapshot)
+    }
+
+    private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *), !documents.isEmpty {
+            try? await SpoonjoySpotlightIndexer().index(documents: documents)
+        }
+#endif
     }
 
     private func timestamp() -> String {

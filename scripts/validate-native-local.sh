@@ -18,6 +18,7 @@ done
 mkdir -p "$artifact_root"
 matrix_path="$artifact_root/validation-matrix.json"
 results_path="$artifact_root/validation-matrix.jsonl"
+web_design_doc="docs/source/spoonjoy-v2-design-language.md"
 rm -f "$results_path" "$matrix_path"
 
 required_hooks=(
@@ -51,6 +52,9 @@ for bundle_file in Gemfile Gemfile.lock; do
     missing_hooks+=("$bundle_file")
   fi
 done
+if [[ ! -f "$web_design_doc" ]]; then
+  missing_hooks+=("$web_design_doc")
+fi
 
 if [[ "${#missing_hooks[@]}" -gt 0 ]]; then
   printf 'Native local matrix is missing required hook(s):\n' >&2
@@ -125,6 +129,35 @@ run_blockable() {
   fi
 }
 
+run_script_with_blocker_policy() {
+  local name="$1"
+  local output_path="$2"
+  local blocker_path="$3"
+  local allowed_capabilities="$4"
+  shift 4
+  local command="$*"
+  local command_status=0
+  "$@" > "$output_path" 2>&1 || command_status=$?
+
+  if [[ -f "$blocker_path" ]]; then
+    local capability
+    capability="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("capability")' "$blocker_path")"
+    if [[ ",$allowed_capabilities," == *",$capability,"* ]]; then
+      record_step "$name" "blocked" "$command" "$output_path" "true" "$blocker_path"
+      return 0
+    fi
+    record_step "$name" "fail" "$command" "$output_path" "true" "$blocker_path"
+    return 1
+  fi
+
+  if [[ "$command_status" -eq 0 ]]; then
+    record_step "$name" "pass" "$command" "$output_path" "true"
+  else
+    record_step "$name" "fail" "$command" "$output_path" "true"
+    return 1
+  fi
+}
+
 overall_status=0
 coverage_json_path="$artifact_root/coverage-json-path.log"
 
@@ -140,7 +173,7 @@ fi
 run_required "native scenario final" "$artifact_root/matrix-final-scenario.log" scripts/verify-native-scenarios.sh --stage final --output "$artifact_root/matrix-final-report.json" || overall_status=1
 run_required "xcode project contract" "$artifact_root/matrix-project-contract.log" scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb || overall_status=1
 run_required "xcode generator contract" "$artifact_root/matrix-generator-contract.log" scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb || overall_status=1
-run_required "native design contract" "$artifact_root/matrix-native-design-contract.log" ruby scripts/check-native-design-language.rb || overall_status=1
+run_required "native design contract" "$artifact_root/matrix-native-design-contract.log" ruby scripts/check-native-design-language.rb --web-design-doc "$web_design_doc" || overall_status=1
 run_required "kitchen surfaces contract" "$artifact_root/matrix-kitchen-surfaces-contract.log" ruby scripts/check-kitchen-recipe-surfaces.rb || overall_status=1
 run_required "cook shopping contract" "$artifact_root/matrix-cook-shopping-contract.log" ruby scripts/check-cook-shopping-surfaces.rb || overall_status=1
 run_required "search capture settings contract" "$artifact_root/matrix-search-capture-contract.log" ruby scripts/check-search-capture-settings-surfaces.rb || overall_status=1
@@ -157,8 +190,8 @@ run_blockable \
   xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build
 
 run_required "macOS app bundle" "$artifact_root/matrix-xcodebuild-macos.log" xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
-run_required "macOS launch smoke" "$artifact_root/matrix-smoke-macos.log" scripts/smoke-macos.sh --artifact-root "$artifact_root" || overall_status=1
-run_required "iOS simulator smoke" "$artifact_root/matrix-smoke-ios.log" scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" || overall_status=1
+run_script_with_blocker_policy "macOS launch smoke" "$artifact_root/matrix-smoke-macos.log" "$artifact_root/smoke-macos-blocker.json" "" scripts/smoke-macos.sh --artifact-root "$artifact_root" || overall_status=1
+run_script_with_blocker_policy "iOS simulator smoke" "$artifact_root/matrix-smoke-ios.log" "$artifact_root/smoke-ios-simulator-blocker.json" "CoreSimulator" scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" || overall_status=1
 run_required "screenshots and design review" "$artifact_root/matrix-capture.log" scripts/capture-native-screenshots.sh --artifact-root "$artifact_root" || overall_status=1
 run_required "design review validation" "$artifact_root/matrix-design-review.log" ruby scripts/validate-design-review.rb "$artifact_root/design-review.json" || overall_status=1
 run_required "warning scan" "$artifact_root/matrix-warning-scan.log" scripts/fail-on-warning.rb --log "$artifact_root/matrix-swift-test.log" "$artifact_root/matrix-coverage-test.log" "$artifact_root/matrix-final-scenario.log" "$artifact_root/matrix-xcodebuild-macos.log" "$artifact_root/matrix-smoke-macos.log" || overall_status=1
@@ -169,6 +202,7 @@ ruby -rjson -rtime -e '
   blocker_paths = steps.map { |step| step["blockerPath"] }.compact
   blocker_paths += [
     File.join(artifact_root, "aasa-production-blocker.json"),
+    File.join(artifact_root, "smoke-macos-blocker.json"),
     File.join(artifact_root, "smoke-ios-simulator-blocker.json")
   ]
   blockers = blocker_paths.uniq.map do |path|

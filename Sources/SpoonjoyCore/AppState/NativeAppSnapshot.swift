@@ -11,6 +11,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
     public let pendingMutations: MutationQueue
+    public let lastOpenedRoute: String?
     public let savedAt: String
 
     public static func bootstrap(shoppingList: ShoppingListState?, savedAt: String) -> NativeAppSnapshot {
@@ -21,6 +22,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
             shoppingList: shoppingList,
             captureDraft: nil,
             pendingMutations: MutationQueue(),
+            lastOpenedRoute: nil,
             savedAt: savedAt
         )
     }
@@ -81,12 +83,17 @@ public struct NativeAppSnapshot: Codable, Equatable {
         copy(captureDraft: captureDraft, savedAt: savedAt)
     }
 
+    public func recordingOpenedRoute(_ route: AppRoute, savedAt: String) -> NativeAppSnapshot {
+        copy(lastOpenedRoute: route.stateIdentifier, savedAt: savedAt)
+    }
+
     private func copy(
         hasCompletedFirstRun: Bool? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         shoppingList: ShoppingListState?? = nil,
         captureDraft: CaptureDraft?? = nil,
         pendingMutations: MutationQueue? = nil,
+        lastOpenedRoute: String?? = nil,
         savedAt: String
     ) -> NativeAppSnapshot {
         NativeAppSnapshot(
@@ -96,8 +103,26 @@ public struct NativeAppSnapshot: Codable, Equatable {
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
             pendingMutations: pendingMutations ?? self.pendingMutations,
+            lastOpenedRoute: lastOpenedRoute ?? self.lastOpenedRoute,
             savedAt: savedAt
         )
+    }
+}
+
+public enum NativeAppStateLocation {
+    public static let appDirectoryName = "Spoonjoy"
+    public static let fileName = "native-app-state.json"
+
+    public static func defaultFileURL(
+        applicationSupportURLs: [URL]? = nil,
+        fileManager: FileManager = .default,
+        temporaryDirectory: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    ) -> URL {
+        let baseURL = (applicationSupportURLs ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)).first ??
+            temporaryDirectory
+        let directoryURL = baseURL.appendingPathComponent(appDirectoryName, isDirectory: true)
+        try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        return directoryURL.appendingPathComponent(fileName)
     }
 }
 

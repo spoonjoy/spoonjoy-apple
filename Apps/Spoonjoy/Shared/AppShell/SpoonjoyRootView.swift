@@ -1,6 +1,10 @@
 import SpoonjoyCore
 import SwiftUI
 
+#if canImport(CoreSpotlight)
+import CoreSpotlight
+#endif
+
 struct SpoonjoyRootView: View {
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
@@ -29,6 +33,13 @@ struct SpoonjoyRootView: View {
                     applyURL(url)
                 }
             }
+#if canImport(CoreSpotlight)
+            .onContinueUserActivity(CSSearchableItemActionType) { userActivity in
+                if let uniqueIdentifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
+                    applySpotlightIdentifier(uniqueIdentifier)
+                }
+            }
+#endif
     }
 
     @ViewBuilder private var rootContent: some View {
@@ -50,16 +61,30 @@ struct SpoonjoyRootView: View {
 
     private func applyURL(_ url: URL) {
         let route = router.route(for: url)
-        if !appSnapshot.hasCompletedFirstRun {
-            persistSnapshot(appSnapshot.completingFirstRun(savedAt: Self.timestamp()))
-        }
+        persistOpening(route)
+        search.apply(route: route)
+        navigation.navigate(to: route)
+    }
+
+    private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
+        let route = SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier)
+        persistOpening(route)
         search.apply(route: route)
         navigation.navigate(to: route)
     }
 
     private func completeFirstRun(opening route: AppRoute) {
-        persistSnapshot(appSnapshot.completingFirstRun(savedAt: Self.timestamp()))
+        persistOpening(route)
         navigation.navigate(to: route)
+    }
+
+    private func persistOpening(_ route: AppRoute) {
+        let savedAt = Self.timestamp()
+        var nextSnapshot = appSnapshot
+        if !nextSnapshot.hasCompletedFirstRun {
+            nextSnapshot = nextSnapshot.completingFirstRun(savedAt: savedAt)
+        }
+        persistSnapshot(nextSnapshot.recordingOpenedRoute(route, savedAt: savedAt))
     }
 
     private func persistSnapshot(_ snapshot: NativeAppSnapshot) {
@@ -75,15 +100,7 @@ struct SpoonjoyRootView: View {
     }
 
     private static func defaultStateStore() -> NativeAppStateStore {
-        NativeAppStateStore(fileURL: defaultStateURL())
-    }
-
-    private static func defaultStateURL() -> URL {
-        let baseURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ??
-            FileManager.default.temporaryDirectory
-        return baseURL
-            .appendingPathComponent("Spoonjoy", isDirectory: true)
-            .appendingPathComponent("native-app-state.json")
+        NativeAppStateStore(fileURL: NativeAppStateLocation.defaultFileURL())
     }
 
     private static func timestamp() -> String {

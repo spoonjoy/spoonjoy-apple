@@ -34,6 +34,11 @@ SCRIPT_CONTRACTS = {
       "generic/platform=macOS",
       "CODE_SIGNING_ALLOWED=NO",
       "open",
+      "open location",
+      "spoonjoy://search?q=${route_query}&scope=recipes",
+      "lastOpenedRoute",
+      "hasCompletedFirstRun",
+      "native-app-state.json",
       "MacOSLaunch"
     ]
   },
@@ -61,7 +66,11 @@ SCRIPT_CONTRACTS = {
       "design-review.json",
       "xcrun simctl io",
       "screencapture",
+      "open location",
       "spoonjoy://kitchen",
+      "lastOpenedRoute",
+      "hasCompletedFirstRun",
+      "native-app-state.json",
       "mobileScreenshot",
       "desktopScreenshot"
     ]

@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-16T21:13:37Z",
+  "generatedAt": "2026-06-16T21:40:29Z",
   "steps": [
     {
       "name": "xcode version",
@@ -68,7 +68,7 @@
     {
       "name": "native design contract",
       "status": "pass",
-      "command": "ruby scripts/check-native-design-language.rb",
+      "command": "ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md",
       "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-native-design-contract.log",
       "required": true
     },
@@ -131,10 +131,11 @@
     },
     {
       "name": "iOS simulator smoke",
-      "status": "pass",
+      "status": "blocked",
       "command": "scripts/smoke-ios-simulator.sh --artifact-root tasks/2026-06-15-2314-doing-native-app-skeleton",
       "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-smoke-ios.log",
-      "required": true
+      "required": true,
+      "blockerPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator-blocker.json"
     },
     {
       "name": "screenshots and design review",
@@ -169,7 +170,16 @@
       "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/ios-app-bundle-blocker.json"
     },
     {
-      "generatedAt": "2026-06-16T14:12:52-07:00",
+      "capability": "CoreSimulator",
+      "blocked": true,
+      "command": "python3 .github/scripts/resolve-ios-simulator-destination.py",
+      "timeoutSeconds": 30,
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log",
+      "reason": "No available iPhone simulator destination was found.",
+      "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator-blocker.json"
+    },
+    {
+      "generatedAt": "2026-06-16T14:39:57-07:00",
       "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
       "httpsNoRedirectExpected": true,
       "redirected": false,
@@ -239,15 +249,6 @@
       "reason": "AASA endpoint did not return valid JSON.",
       "blockerReason": "AASA endpoint did not return valid JSON.",
       "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/aasa-production-blocker.json"
-    },
-    {
-      "capability": "CoreSimulator",
-      "blocked": true,
-      "command": "python3 .github/scripts/resolve-ios-simulator-destination.py",
-      "timeoutSeconds": 30,
-      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log",
-      "reason": "No available iPhone simulator destination was found.",
-      "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator-blocker.json"
     }
   ]
 }

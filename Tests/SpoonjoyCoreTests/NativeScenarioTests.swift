@@ -186,15 +186,23 @@ struct NativeScenarioTests {
         #expect(recipe.keywords.contains("Spoonjoy"))
         #expect(recipe.keywords.contains("recipe"))
         #expect(recipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: recipe.uniqueIdentifier) == recipe.route)
+        #expect(DeepLinkURLBuilder.url(for: recipe.route) == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
         #expect(cookbook.type == .cookbook)
         #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
         #expect(cookbook.contentDescription.contains("2 recipes"))
         #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: cookbook.uniqueIdentifier) == cookbook.route)
+        #expect(DeepLinkURLBuilder.url(for: cookbook.route) == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
         #expect(shoppingItem.type == .shoppingListItem)
         #expect(shoppingItem.domainIdentifier == "app.spoonjoy.shopping-list-item")
         #expect(shoppingItem.title == "lemons")
         #expect(shoppingItem.contentDescription.contains("Shopping list"))
         #expect(shoppingItem.route == .shoppingList)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: shoppingItem.uniqueIdentifier) == .shoppingList)
+        #expect(DeepLinkURLBuilder.url(for: shoppingItem.route) == URL(string: "spoonjoy://shopping-list"))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "recipe:../secret") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "unknown:item") == .unknownLink)
     }
 
     @Test("spotlight index plan covers fallback copy singular counts and uncategorized items")
@@ -531,8 +539,12 @@ struct NativeScenarioTests {
     func appIntegrationSourcesTypecheckAndDeclareExpectedNativeTypes() throws {
         let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
         let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
+        let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
+        let platformNavigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let appIntentsSource = try readRepoFile(appIntentsPath)
         let spotlightSource = try readRepoFile(spotlightPath)
+        let rootViewSource = try readRepoFile(rootViewPath)
+        let platformNavigationSource = try readRepoFile(platformNavigationPath)
 
         for declaration in [
             "struct OpenRecipeIntent: AppIntent",
@@ -550,6 +562,8 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains("OpenURLIntent"))
         #expect(appIntentsSource.contains(".result(opensIntent:"))
         #expect(appIntentsSource.contains("dialog:"))
+        #expect(appIntentsSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(!appIntentsSource.contains("native-app-snapshot.json"))
         #expect(!appIntentsSource.contains("func perform() async throws -> some IntentResult {\n        .result()\n    }"))
 
         for declaration in [
@@ -565,10 +579,22 @@ struct NativeScenarioTests {
         ] {
             #expect(spotlightSource.contains(declaration))
         }
+        #expect(spotlightSource.contains("attributes.contentURL"))
+        #expect(spotlightSource.contains("DeepLinkURLBuilder.url(for: document.route)"))
         #expect(spotlightSource.contains("#if canImport(CoreSpotlight)"))
         #expect(spotlightSource.contains("import CoreSpotlight"))
         #expect(spotlightSource.contains("import SpoonjoyCore"))
         #expect(spotlightSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
+        #expect(rootViewSource.contains("import CoreSpotlight"))
+        #expect(rootViewSource.contains("onContinueUserActivity(CSSearchableItemActionType)"))
+        #expect(rootViewSource.contains("CSSearchableItemActivityIdentifier"))
+        #expect(rootViewSource.contains("SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier)"))
+        #expect(rootViewSource.contains("recordingOpenedRoute(route"))
+        #expect(rootViewSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(!rootViewSource.contains("native-app-snapshot.json"))
+        #expect(platformNavigationSource.contains(".task(id: spotlightIndexIdentity)"))
+        #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().index("))
+        #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
         try assertSwiftSourceTypechecks(appIntentsPath)
         try assertSwiftSourceTypechecks(spotlightPath)

@@ -127,7 +127,7 @@ private enum SpoonjoyIntentClock {
 private struct SpoonjoyIntentStateWriter {
     private let store: NativeAppStateStore
 
-    init(fileURL: URL = Self.defaultStateURL()) {
+    init(fileURL: URL = NativeAppStateLocation.defaultFileURL()) {
         store = NativeAppStateStore(fileURL: fileURL)
     }
 
@@ -174,14 +174,5 @@ private struct SpoonjoyIntentStateWriter {
         return try store.loadOrCreate(fallback: fallback).value
     }
 
-    private static func defaultStateURL() -> URL {
-        let baseURL = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let directoryURL = baseURL.appendingPathComponent("Spoonjoy", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        return directoryURL.appendingPathComponent("native-app-snapshot.json")
-    }
 }
 #endif

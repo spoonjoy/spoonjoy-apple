@@ -19,10 +19,13 @@ mkdir -p "$artifact_root/screenshots"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
 macos_app="$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app"
+macos_app="$(pwd)/$macos_app"
 design_review="$artifact_root/design-review.json"
 capture_log="$artifact_root/capture-native-screenshots.log"
 ios_blocker="$artifact_root/smoke-ios-simulator-blocker.json"
 macos_blocker="$artifact_root/smoke-macos-blocker.json"
+state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
+state_backup="$artifact_root/native-app-state-capture-backup.json"
 
 : > "$capture_log"
 scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" >> "$capture_log" 2>&1 || true
@@ -33,10 +36,47 @@ if [[ ! -f "$ios_blocker" ]]; then
 fi
 
 if [[ ! -f "$macos_blocker" ]]; then
+  state_had_backup=false
+  mkdir -p "$(dirname "$state_file")"
+  if [[ -f "$state_file" ]]; then
+    cp "$state_file" "$state_backup"
+    state_had_backup=true
+  else
+    rm -f "$state_backup"
+  fi
+  restore_capture_state() {
+    if [[ "$state_had_backup" == "true" && -f "$state_backup" ]]; then
+      mkdir -p "$(dirname "$state_file")"
+      cp "$state_backup" "$state_file"
+    else
+      rm -f "$state_file"
+    fi
+  }
+  trap restore_capture_state EXIT
+  rm -f "$state_file"
+  osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >> "$capture_log" 2>&1 || true
+  sleep 1
   open -n "$macos_app" >> "$capture_log" 2>&1 || true
   sleep 1
-  open "spoonjoy://kitchen" >> "$capture_log" 2>&1 || true
-  sleep 3
+  osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://kitchen\"" >> "$capture_log" 2>&1 || true
+  for _ in $(seq 1 20); do
+    if ruby -rjson -e '
+      path = ARGV.fetch(0)
+      snapshot = JSON.parse(File.read(path))
+      exit(1) unless snapshot.fetch("hasCompletedFirstRun") == true
+      exit(1) unless snapshot.fetch("lastOpenedRoute") == "kitchen"
+    ' "$state_file" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.5
+  done
+  ruby -rjson -e '
+    path = ARGV.fetch(0)
+    snapshot = JSON.parse(File.read(path))
+    abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
+    actual_route = snapshot.fetch("lastOpenedRoute")
+    abort("expected lastOpenedRoute kitchen, got #{actual_route}") unless actual_route == "kitchen"
+  ' "$state_file" >> "$capture_log" 2>&1
   screencapture -x "$macos_screenshot" >> "$capture_log" 2>&1 || true
   osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >> "$capture_log" 2>&1 || true
 fi

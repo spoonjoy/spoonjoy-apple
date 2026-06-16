@@ -92,7 +92,32 @@ public enum SpotlightIndexPlan {
         )
     }
 
+    public static func route(uniqueIdentifier: String) -> AppRoute {
+        let parts = uniqueIdentifier.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let type = SpotlightIndexType(rawValue: parts[0]) else {
+            return .unknownLink
+        }
+
+        let id = parts[1]
+        switch type {
+        case .recipe:
+            guard isSafeObjectID(id) else { return .unknownLink }
+            return .recipeDetail(id: id, presentation: .detail)
+        case .cookbook:
+            guard isSafeObjectID(id) else { return .unknownLink }
+            return .cookbookDetail(id: id)
+        case .shoppingListItem:
+            return .shoppingList
+        }
+    }
+
     private static func recipeCountLabel(_ recipeCount: Int) -> String {
         recipeCount == 1 ? "recipe" : "recipes"
+    }
+
+    private static func isSafeObjectID(_ id: String) -> Bool {
+        !id.isEmpty && id.allSatisfy { character in
+            character.isLetter || character.isNumber || character == "_" || character == "-"
+        }
     }
 }

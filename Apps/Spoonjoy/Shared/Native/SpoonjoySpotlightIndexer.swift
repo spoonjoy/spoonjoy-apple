@@ -25,6 +25,7 @@ struct SpoonjoySpotlightIndexer {
         attributes.title = document.title
         attributes.contentDescription = document.contentDescription
         attributes.keywords = document.keywords
+        attributes.contentURL = DeepLinkURLBuilder.url(for: document.route)
 
         return CSSearchableItem(
             uniqueIdentifier: document.uniqueIdentifier,

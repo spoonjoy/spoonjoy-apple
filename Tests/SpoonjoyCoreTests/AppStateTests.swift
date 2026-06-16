@@ -233,6 +233,14 @@ struct AppStateTests {
             #expect(reloaded.pendingMutationCount == 1)
             #expect(reloaded.pendingMutations.mutations.first == queuedMutation)
             #expect(reloaded.offlineState.statusLabel == "Offline cache ready: 1 snapshot")
+            #expect(reloaded.lastOpenedRoute == nil)
+
+            let routeRecorded = reloaded.recordingOpenedRoute(
+                .search(query: "codex-smoke-route", scope: .recipes),
+                savedAt: "2026-06-16T13:34:00.000Z"
+            )
+            #expect(routeRecorded.lastOpenedRoute == "search:recipes:codex-smoke-route")
+            #expect(routeRecorded.savedAt == "2026-06-16T13:34:00.000Z")
         }
     }
 
@@ -255,6 +263,7 @@ struct AppStateTests {
             shoppingList: nil,
             captureDraft: nil,
             pendingMutations: MutationQueue(),
+            lastOpenedRoute: nil,
             savedAt: "2026-06-16T13:43:00.000Z"
         )
 
@@ -269,6 +278,43 @@ struct AppStateTests {
             try NativeAppStateStore(
                 fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("unused-native-state.json")
             ).save(invalid)
+        }
+    }
+
+    @Test("native app state location is shared by app and native intents")
+    func nativeAppStateLocationIsSharedByAppAndNativeIntents() {
+        let fileURL = NativeAppStateLocation.defaultFileURL()
+        let fallbackURL = NativeAppStateLocation.defaultFileURL(
+            applicationSupportURLs: [],
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/spoonjoy-native-state-fallback", isDirectory: true)
+        )
+
+        #expect(NativeAppStateLocation.appDirectoryName == "Spoonjoy")
+        #expect(NativeAppStateLocation.fileName == "native-app-state.json")
+        #expect(fileURL.lastPathComponent == NativeAppStateLocation.fileName)
+        #expect(fileURL.deletingLastPathComponent().lastPathComponent == NativeAppStateLocation.appDirectoryName)
+        #expect(fallbackURL.path == "/tmp/spoonjoy-native-state-fallback/Spoonjoy/native-app-state.json")
+    }
+
+    @Test("route identifiers and native URLs cover every app route")
+    func routeIdentifiersAndNativeURLsCoverEveryAppRoute() throws {
+        let cases: [(AppRoute, String, String)] = [
+            (.kitchen, "kitchen", "spoonjoy://kitchen"),
+            (.recipes, "recipes", "spoonjoy://recipes"),
+            (.recipeDetail(id: "recipe_lemon", presentation: .detail), "recipe:recipe_lemon", "spoonjoy://recipes/recipe_lemon"),
+            (.recipeDetail(id: "recipe_lemon", presentation: .cook), "recipe-cook:recipe_lemon", "spoonjoy://recipes/recipe_lemon/cook"),
+            (.cookbooks, "cookbooks", "spoonjoy://cookbooks"),
+            (.cookbookDetail(id: "cookbook_weeknights"), "cookbook:cookbook_weeknights", "spoonjoy://cookbooks/cookbook_weeknights"),
+            (.shoppingList, "shopping-list", "spoonjoy://shopping-list"),
+            (.search(query: "lemon pasta", scope: .shoppingList), "search:shopping-list:lemon pasta", "spoonjoy://search?q=lemon%20pasta&scope=shopping-list"),
+            (.capture, "capture", "spoonjoy://capture"),
+            (.settings, "settings", "spoonjoy://settings"),
+            (.unknownLink, "unknown-link", "spoonjoy://unknown")
+        ]
+
+        for (route, identifier, rawURL) in cases {
+            #expect(route.stateIdentifier == identifier)
+            #expect(DeepLinkURLBuilder.url(for: route) == URL(string: rawURL), "\(route)")
         }
     }
 
