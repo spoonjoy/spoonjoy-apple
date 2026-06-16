@@ -1,0 +1,12 @@
+$ ruby scripts/check-xcode-generator-contract.rb
+xcode generator contract ok
+
+$ ruby scripts/generate-xcode-project.rb --output-dir "$tmp/one"
+Generated ../../../../var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/tmp.VG0xUmCpop/one/Spoonjoy.xcodeproj
+$ ruby scripts/generate-xcode-project.rb --output-dir "$tmp/two"
+Generated ../../../../var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/tmp.VG0xUmCpop/two/Spoonjoy.xcodeproj
+
+$ diff -ru "$tmp/one" "$tmp/two"
+
+$ test ! -e Spoonjoy.xcodeproj && test ! -e Apps/Spoonjoy
+No repo Spoonjoy.xcodeproj or Apps/Spoonjoy output exists.
