@@ -53,7 +53,7 @@ ruby -rjson -e '
   end.compact
   mobile = File.file?(ios_screenshot) && File.size(ios_screenshot).positive?
   desktop = File.file?(macos_screenshot) && File.size(macos_screenshot).positive?
-  if !mobile && blockers.empty?
+  if !mobile && blockers.none? { |blocker| blocker.fetch("capability") == "CoreSimulator" }
     blockers << {
       "capability" => "CoreSimulator",
       "command" => "xcrun simctl io booted screenshot #{ios_screenshot}",
@@ -61,7 +61,7 @@ ruby -rjson -e '
       "outputPath" => capture_log
     }
   end
-  if !desktop && blockers.empty?
+  if !desktop && blockers.none? { |blocker| blocker.fetch("capability") == "MacOSLaunch" }
     blockers << {
       "capability" => "MacOSLaunch",
       "command" => "screencapture -x #{macos_screenshot}",

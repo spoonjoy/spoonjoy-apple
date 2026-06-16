@@ -129,6 +129,17 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
       }
     ]
   )
+  desktop_false_with_only_ios_blocker = valid_manifest.merge(
+    "desktopScreenshot" => false,
+    "blockers" => [
+      {
+        "capability" => "CoreSimulator",
+        "command" => "xcrun simctl boot",
+        "timeoutSeconds" => 30,
+        "outputPath" => "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log"
+      }
+    ]
+  )
   bad_blocker = false_without_blocker.merge(
     "blockers" => [
       {
@@ -144,6 +155,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "missing.json" => [missing_manifest, false, "missing design review field"],
     "false-without-blocker.json" => [false_without_blocker, false, "false field without blocker"],
     "false-with-blocker.json" => [false_with_blocker, true, "false field with blocker"],
+    "desktop-false-with-ios-blocker.json" => [desktop_false_with_only_ios_blocker, false, "desktop false field with unrelated iOS blocker"],
     "bad-blocker.json" => [bad_blocker, false, "invalid blocker"]
   }.each do |filename, (manifest, expected_success, label)|
     path = temp_root.join(filename)

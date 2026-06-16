@@ -16,6 +16,12 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
+FIELD_BLOCKER_CAPABILITIES = {
+  "mobileScreenshot" => ["CoreSimulator"],
+  "desktopScreenshot" => ["MacOSLaunch"],
+  "noOverlap" => ["CoreSimulator", "MacOSLaunch"]
+}.freeze
+
 def fail_check(message)
   warn "FAIL: #{message}"
   exit 1
@@ -53,6 +59,14 @@ blockers.each_with_index do |blocker, index|
 end
 
 false_fields = REQUIRED_FIELDS.select { |field| manifest[field] == false }
-fail_check("#{path} false fields require at least one blocker: #{false_fields.join(", ")}") if false_fields.any? && blockers.empty?
+false_fields.each do |field|
+  allowed_capabilities = FIELD_BLOCKER_CAPABILITIES.fetch(field, [])
+  fail_check("#{path} #{field}=false is not blockable") if allowed_capabilities.empty?
+
+  matching_blocker = blockers.any? do |blocker|
+    allowed_capabilities.include?(blocker.fetch("capability"))
+  end
+  fail_check("#{path} #{field}=false requires blocker capability: #{allowed_capabilities.join(", ")}") unless matching_blocker
+end
 
 puts "design review ok"
