@@ -117,6 +117,11 @@ end
 
 ios_target = project.new_target(:application, "#{PROJECT_NAME} iOS", :ios, "26.5")
 mac_target = project.new_target(:application, "#{PROJECT_NAME} macOS", :osx, "26.2")
+ios_target.frameworks_build_phase.files.clear
+mac_target.frameworks_build_phase.files.clear
+project.files
+  .select { |file| ["Foundation.framework", "Cocoa.framework"].include?(file.display_name) }
+  .each(&:remove_from_project)
 
 apply_common_settings(
   ios_target,

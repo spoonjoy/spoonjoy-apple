@@ -81,6 +81,10 @@ root_projects = ROOT.children.select { |path| path.extname == ".xcodeproj" }.map
 unexpected_projects = root_projects - ["#{PROJECT_NAME}.xcodeproj"]
 fail_check("unexpected root Xcode project(s): #{unexpected_projects.join(", ")}") unless unexpected_projects.empty?
 fail_check("missing #{PROJECT_NAME}.xcodeproj") unless PROJECT_PATH.directory?
+project_text = PROJECT_PATH.join("project.pbxproj").read
+if project_text.match?(%r{SDKs/[A-Za-z]+[0-9]+\.[0-9]+\.sdk})
+  fail_check("project contains version-pinned SDK framework paths; use current SDKROOT instead")
+end
 
 EXPECTED_FILES.each do |path|
   fail_check("missing #{relative(path)}") unless path.exist?
