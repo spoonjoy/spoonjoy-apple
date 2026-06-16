@@ -1,0 +1,70 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+◇ Test "scenario command writes output and supports stdout mode" started.
+◇ Test "app integration sources typecheck and declare expected native types" started.
+◇ Test "native metadata report encoding is deterministic" started.
+◇ Test "native metadata command parses stage and output path" started.
+◇ Test "scenario verifier covers root override and failing native metadata checks" started.
+✔ Test "native metadata command parses stage and output path" passed after 0.002 seconds.
+✔ Test "scenario verifier covers root override and failing native metadata checks" passed after 0.003 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.003 seconds.
+✔ Test "native metadata report encoding is deterministic" passed after 0.004 seconds.
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}
+✔ Test "scenario command writes output and supports stdout mode" passed after 0.004 seconds.
+✔ Test "app integration sources typecheck and declare expected native types" passed after 0.665 seconds.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 11.161 seconds.
+✔ Suite "Native scenario metadata" passed after 11.161 seconds.
+✔ Test run with 7 tests in 1 suite passed after 11.161 seconds.

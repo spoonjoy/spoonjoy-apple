@@ -228,6 +228,36 @@ struct NativeScenarioTests {
             #expect(failure.exitCode != 0)
             #expect(failure.combinedOutput.contains("app intents source"))
             #expect(failure.combinedOutput.contains("spotlight source"))
+
+            let defaultOutputDirectory = directory.appendingPathComponent("default-output", isDirectory: true)
+            try FileManager.default.createDirectory(at: defaultOutputDirectory, withIntermediateDirectories: true)
+            let firstDefaultOutput = try runProcess(
+                scriptURL.path,
+                arguments: ["--stage", "native-metadata"],
+                environment: [
+                    "SPOONJOY_SCENARIO_SCRATCH_PATH": scratchURL.path,
+                    "TMPDIR": defaultOutputDirectory.path + "/"
+                ],
+                currentDirectoryURL: repoURL
+            )
+            let secondDefaultOutput = try runProcess(
+                scriptURL.path,
+                arguments: ["--stage", "native-metadata"],
+                environment: [
+                    "SPOONJOY_SCENARIO_SCRATCH_PATH": scratchURL.path,
+                    "TMPDIR": defaultOutputDirectory.path + "/"
+                ],
+                currentDirectoryURL: repoURL
+            )
+            let defaultArtifacts = try FileManager.default.contentsOfDirectory(
+                atPath: defaultOutputDirectory.path
+            ).filter {
+                $0.hasPrefix("spoonjoy-scenario-native-metadata.") && $0.hasSuffix(".json")
+            }
+
+            #expect(firstDefaultOutput.exitCode == 0, Comment(rawValue: firstDefaultOutput.combinedOutput))
+            #expect(secondDefaultOutput.exitCode == 0, Comment(rawValue: secondDefaultOutput.combinedOutput))
+            #expect(defaultArtifacts.count == 2)
         }
     }
 

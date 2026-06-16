@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$output" ]]; then
-  output="$(mktemp "${TMPDIR:-/tmp}/spoonjoy-scenario-${stage}.XXXXXX.json")"
+  output="$(mktemp "${TMPDIR:-/tmp}/spoonjoy-scenario-${stage}.XXXXXX").json"
 fi
 
 swift_args=(run)
