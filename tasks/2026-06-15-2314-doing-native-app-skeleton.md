@@ -75,7 +75,8 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - **Accessibility/design manifest schema**: `design-review.json` has booleans `mobileScreenshot`, `desktopScreenshot`, `dynamicType`, `voiceOverLabels`, `keyboardNavigation`, `reduceMotion`, `contrast`, `kitchenTableHierarchy`, `noOverlap`, and optional `blockers[]` entries shaped `{ "capability": String, "command": String, "timeoutSeconds": Int, "outputPath": String }`. Missing or false fields fail unless a matching blocker exists.
 - **CoreSimulator timeout rule**: simulator commands use one attempt and a 30-second timeout. Timeout writes a blocker JSON with `capability: "CoreSimulator"`, the exact command, `timeoutSeconds: 30`, and captured output. Other simulator failures fail the unit unless classified by reviewer as local machine capability.
 - **Build commands**: iOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build`. macOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
-- **Deployment target policy**: deployment target build settings are actual minimum runtimes, not labels. Product configs must encode the iOS 27/macOS 27 baseline. The generated `BootstrapDebug` config may set `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` only so this Xcode 26.5 machine and GitHub `macos-26` runners can build; release/TestFlight/App Store claims remain blocked until Xcode 27 validation is available.
+- **Deployment target policy**: deployment target build settings are actual minimum runtimes, not labels. Product configs must encode the iOS 27/macOS 27 baseline. The generated `BootstrapDebug` config may set `IPHONEOS_DEPLOYMENT_TARGET = 26.5` for iOS simulator bootstrap builds, but must set `MACOSX_DEPLOYMENT_TARGET = 26.2` so the mandatory local macOS launch/smoke can run on this macOS 26.2 host. Release/TestFlight/App Store claims remain blocked until Xcode 27 validation is available.
+- **Local macOS smoke floor**: `sw_vers -productVersion` currently reports `26.2`; scripts and generated project checks must fail if `BootstrapDebug` macOS deployment target exceeds the local host major.minor.
 
 ## Work Units
 
@@ -85,12 +86,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
 ### ⬜ Unit 0a: Native Justification And Generator Contract — Tests
-**What**: Add failing checks for `docs/native-justification.md` required headings, deployment-target labeling, project generator syntax, and deterministic project regeneration contract.
+**What**: Add failing checks for `docs/native-justification.md` required headings, bootstrap-vs-product deployment-target policy, project generator syntax, and deterministic project regeneration contract.
 **Output**: Shell/Ruby checks under `scripts/` or artifact commands proving missing docs/generator fail.
 **Acceptance**: The checks fail before the doc/generator implementation exists.
 
 ### ⬜ Unit 0b: Native Justification And Generator Contract — Implementation
-**What**: Add `docs/native-justification.md`, `scripts/generate-xcode-project.rb`, and bootstrap validation notes for 26.5 vs 27.
+**What**: Add `docs/native-justification.md`, `scripts/generate-xcode-project.rb`, and bootstrap validation notes for iOS simulator 26.5, local macOS smoke floor 26.2, and product baseline 27.
 **Output**: Native justification doc and generator script.
 **Acceptance**: Unit 0a checks pass; `ruby -c scripts/generate-xcode-project.rb` passes; justification names accepted/rejected native platform levers.
 
@@ -265,14 +266,14 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 12a: Xcode Project And App Targets — Tests
-**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, product baseline settings, `BootstrapDebug` deployment-target isolation, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
+**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, product baseline settings, `BootstrapDebug` deployment-target isolation, local macOS smoke-floor compatibility, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
 
 ### ⬜ Unit 12b: Xcode Project And App Targets — Implementation
-**What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, product configs that preserve the iOS/macOS 27 baseline, and a clearly named Xcode-26.5-compatible `BootstrapDebug` config.
+**What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, product configs that preserve the iOS/macOS 27 baseline, and a clearly named `BootstrapDebug` config compatible with Xcode 26.5 iOS simulator builds and macOS 26.2 local launch/smoke.
 **Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, and `Apps/Spoonjoy/Shared/Info.plist`.
-**Acceptance**: Project checks pass, including AppIntents/CoreSpotlight source membership in both app targets; product configs do not mislabel 26.5 as the product baseline; the exact iOS and macOS bootstrap build commands from Contract Constants pass.
+**Acceptance**: Project checks pass, including AppIntents/CoreSpotlight source membership in both app targets; product configs do not mislabel 26.5 or 26.2 as the product baseline; `BootstrapDebug` macOS target is not above the local host major.minor; the exact iOS and macOS bootstrap build commands from Contract Constants pass.
 
 ### ⬜ Unit 12c: Xcode Project And App Targets — Determinism & Refactor
 **What**: Re-run generator, diff project, and refactor generated structure/settings.
@@ -380,7 +381,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Round 2 reviewer returns no BLOCKER/MAJOR findings.
 
 ### ⬜ Unit 20a: PR And CI — Open
-**What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, GitHub `macos-26`/Xcode 26.5 bootstrap evidence, known Xcode 27 capability blocker, and reviewer gate results.
+**What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, GitHub `macos-26`/Xcode 26.5 bootstrap evidence, local macOS 26.2 launch/smoke evidence, known Xcode 27 capability blocker, and reviewer gate results.
 **Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
@@ -422,3 +423,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 00:24 Addressed Stranger With Candy findings by pinning CI to `macos-26`, enforcing warnings as errors, isolating Xcode 26.5 to `BootstrapDebug`, and tightening coverage/script accounting.
 - 2026-06-16 00:24 Tightened CI script checks so present-but-nonexecutable verifier scripts cannot silently bootstrap-pass and Ruby coverage enforcement does not depend on executable mode.
 - 2026-06-16 00:24 Addressed Stranger With Candy Round 2 findings by making missing scenario and coverage enforcement scripts fail once Swift/Xcode sources exist.
+- 2026-06-16 00:24 Addressed Tinfoil finding by setting the bootstrap macOS deployment target to the local macOS 26.2 smoke floor while keeping product configs at macOS 27.
