@@ -270,7 +270,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: App-state coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 12a: Xcode Project And App Targets — Tests
+### ✅ Unit 12a: Xcode Project And App Targets — Tests
 **What**: Add failing generator/project checks for first real repo project generation, root project set exactly empty-or-`Spoonjoy.xcodeproj`, iOS/macOS targets, bundle IDs, Associated Domains entitlement, custom URL scheme Info.plist registration, product baseline settings, `BootstrapDebug` deployment-target isolation, local macOS smoke-floor compatibility, synchronized `Apps/Spoonjoy/**` file inclusion or explicit target membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
@@ -493,3 +493,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 09:47 Addressed Unit 10 reviewer finding by fixing the macOS `mktemp` template in `scripts/verify-native-scenarios.sh` default-output mode and adding a double-run behavioral regression test; focused Native tests, default-output script check, and warning scan pass.
 - 2026-06-16 09:47 Unit 11b complete: implemented UI-independent app routes, deep-link router, navigation state, search state, and screen view models under `Sources/SpoonjoyCore/AppState`; focused AppState/DeepLink tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
 - 2026-06-16 09:56 Unit 11c complete: added AppState/DeepLink coverage edges for custom routers, route section mapping, invalid link IDs, search-state initialization, shopping toggle view-model behavior, unknown-route sidebar defaults, and empty-active-list sort indexes; `Sources/SpoonjoyCore/AppState` coverage passes at 100.00% (332/332), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.
+- 2026-06-16 09:58 Unit 12a complete: added `scripts/check-xcode-project-contract.rb` to fail closed on the real repo Xcode project, required app files, iOS/macOS targets, bundle IDs, Info.plist URL scheme, Associated Domains entitlement, warning/deployment settings, macOS smoke-floor compatibility, and `Apps/Spoonjoy/**` Swift target membership; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12a-red.log`.
