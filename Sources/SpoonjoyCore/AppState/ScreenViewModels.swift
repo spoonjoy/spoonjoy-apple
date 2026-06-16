@@ -65,7 +65,7 @@ public struct ShoppingListViewModel: Equatable {
     }
 
     public func togglingItem(id: String, checked: Bool, at checkedAt: String) throws -> ShoppingListViewModel {
-        let nextSortIndex = (shoppingList.activeItems.map(\.sortIndex).max() ?? 0) + 1
+        let nextSortIndex = (shoppingList.activeItems.map(\.sortIndex).max() ?? -1) + 1
         return ShoppingListViewModel(
             shoppingList: try shoppingList.settingChecked(
                 checked,

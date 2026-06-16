@@ -12,9 +12,7 @@ public struct DeepLinkRouter: Equatable, Sendable {
     public static let spoonjoy = DeepLinkRouter(webHost: "spoonjoy.app", scheme: "spoonjoy")
 
     public func route(for url: URL) -> AppRoute {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return .unknownLink
-        }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
 
         switch components.scheme?.lowercased() {
         case "https":
@@ -85,14 +83,14 @@ public struct DeepLinkRouter: Equatable, Sendable {
     }
 
     private func routeSchemePath(_ components: URLComponents) -> AppRoute {
-        guard components.host?.isEmpty == false else {
+        guard let host = components.host, !host.isEmpty else {
             return .unknownLink
         }
         guard components.percentEncodedPath.isEmpty || !components.percentEncodedPath.hasSuffix("/") else {
             return .unknownLink
         }
 
-        let segments = [components.host ?? ""] + decodedSegments(components.percentEncodedPath)
+        let segments = [host] + decodedSegments(components.percentEncodedPath)
 
         if segments == ["kitchen"] {
             return .kitchen
@@ -178,7 +176,7 @@ public struct DeepLinkRouter: Equatable, Sendable {
         percentEncodedPath
             .split(separator: "/", omittingEmptySubsequences: true)
             .map(String.init)
-            .map { $0.removingPercentEncoding ?? $0 }
+            .map { $0.removingPercentEncoding! }
     }
 
     private func safeID(_ id: String) -> Bool {

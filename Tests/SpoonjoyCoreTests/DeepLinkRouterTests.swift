@@ -42,17 +42,22 @@ struct DeepLinkRouterTests {
     @Test("rejects unsafe or unsupported links as unknown")
     func rejectsUnsafeOrUnsupportedLinksAsUnknown() throws {
         let unknownURLs = [
+            "http://spoonjoy.app/",
             "https://example.com/recipes/recipe_lemon_pantry_pasta",
             "https://spoonjoy.app/recipes/",
             "https://spoonjoy.app/recipes/%20%20",
             "https://spoonjoy.app/recipes/..",
             "https://spoonjoy.app/recipes/%2E%2E%2Fsecret",
+            "https://spoonjoy.app/cookbooks/%2E%2E%2Fsecret",
             "https://spoonjoy.app/search?q=lemon%20pasta&scope=shopping",
             "https://spoonjoy.app/search?scope=recipes",
             "https://spoonjoy.app/search?q=%20%20&scope=recipes",
             "https://spoonjoy.app/unknown",
+            "spoonjoy:///recipes/recipe_lemon_pantry_pasta",
             "spoonjoy://recipes/",
             "spoonjoy://recipes/%2E%2E%2Fsecret",
+            "spoonjoy://recipes/%2E%2E%2Fsecret/cook",
+            "spoonjoy://cookbooks/%2E%2E%2Fsecret",
             "spoonjoy://search?q=lemon&scope=bad-scope",
             "spoonjoy://unknown"
         ]
@@ -72,6 +77,24 @@ struct DeepLinkRouterTests {
             DeepLinkRouter.spoonjoy.route(for: try url("spoonjoy://search?q=crispy%20rice")) ==
                 .search(query: "crispy rice", scope: .all)
         )
+    }
+
+    @Test("custom router configuration and route sections stay explicit")
+    func customRouterConfigurationAndRouteSectionsStayExplicit() throws {
+        let router = DeepLinkRouter(webHost: "staging.spoonjoy.app", scheme: "spoonjoy-beta")
+
+        #expect(router.route(for: try url("https://staging.spoonjoy.app/")) == .kitchen)
+        #expect(router.route(for: try url("spoonjoy-beta://settings")) == .settings)
+        #expect(router.route(for: try url("https://spoonjoy.app/")) == .unknownLink)
+
+        #expect(AppRoute.cookbooks.section == .cookbooks)
+        #expect(AppRoute.cookbookDetail(id: "cookbook_weeknight").section == .cookbooks)
+        #expect(AppRoute.search(query: "rice", scope: .all).section == .search)
+        #expect(AppRoute.capture.section == .capture)
+        #expect(AppRoute.settings.section == .settings)
+        #expect(AppRoute.unknownLink.section == nil)
+        #expect(AppRoute.cookbookDetail(id: "cookbook_weeknight").selectedRecipeID == nil)
+        #expect(!AppRoute.search(query: "rice", scope: .recipes).isCookModeActive)
     }
 
     private func url(_ rawURL: String) throws -> URL {

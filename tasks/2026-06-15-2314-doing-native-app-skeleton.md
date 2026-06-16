@@ -265,7 +265,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/AppState/AppRoute.swift`, `Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift`, `Sources/SpoonjoyCore/AppState/AppNavigationState.swift`, `Sources/SpoonjoyCore/AppState/SearchState.swift`, and `Sources/SpoonjoyCore/AppState/ScreenViewModels.swift`.
 **Acceptance**: Unit 11a tests pass; app targets do not own nontrivial business logic.
 
-### ⬜ Unit 11c: App State And Navigation View Models — Coverage & Refactor
+### ✅ Unit 11c: App State And Navigation View Models — Coverage & Refactor
 **What**: Run coverage, add edge tests, and refactor.
 **Output**: App-state coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
@@ -492,3 +492,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 09:42 Unit 11a complete: added failing app-state and deep-link router tests for route selection, contract-table URL parsing, safe unknown-link handling, sidebar/tab state, search state, recipe/cook-mode selection, capture draft status, shopping checkoff view-model state, and settings state; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-11a-red.log`.
 - 2026-06-16 09:47 Addressed Unit 10 reviewer finding by fixing the macOS `mktemp` template in `scripts/verify-native-scenarios.sh` default-output mode and adding a double-run behavioral regression test; focused Native tests, default-output script check, and warning scan pass.
 - 2026-06-16 09:47 Unit 11b complete: implemented UI-independent app routes, deep-link router, navigation state, search state, and screen view models under `Sources/SpoonjoyCore/AppState`; focused AppState/DeepLink tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
+- 2026-06-16 09:56 Unit 11c complete: added AppState/DeepLink coverage edges for custom routers, route section mapping, invalid link IDs, search-state initialization, shopping toggle view-model behavior, unknown-route sidebar defaults, and empty-active-list sort indexes; `Sources/SpoonjoyCore/AppState` coverage passes at 100.00% (332/332), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.
