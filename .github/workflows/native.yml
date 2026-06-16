@@ -49,6 +49,9 @@ jobs:
           if [ -f scripts/verify-native-scenarios.sh ]; then
             test -x scripts/verify-native-scenarios.sh
             scripts/verify-native-scenarios.sh --stage final
+          elif [ -f Package.swift ] || ls *.xcodeproj >/dev/null 2>&1; then
+            echo "Native scenario verifier is required once Swift or Xcode sources exist."
+            exit 1
           else
             echo "Native scenario verifier not present yet; bootstrap check passes."
           fi
@@ -96,7 +99,8 @@ jobs:
             if [ -f scripts/enforce-swift-coverage.rb ]; then
               ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
             else
-              echo "Coverage enforcement script not present yet; bootstrap coverage generation passes."
+              echo "Coverage enforcement script is required once Package.swift exists."
+              exit 1
             fi
           elif ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"

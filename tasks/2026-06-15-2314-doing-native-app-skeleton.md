@@ -421,3 +421,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Tinfoil scrutiny converged after Round 5.
 - 2026-06-16 00:24 Addressed Stranger With Candy findings by pinning CI to `macos-26`, enforcing warnings as errors, isolating Xcode 26.5 to `BootstrapDebug`, and tightening coverage/script accounting.
 - 2026-06-16 00:24 Tightened CI script checks so present-but-nonexecutable verifier scripts cannot silently bootstrap-pass and Ruby coverage enforcement does not depend on executable mode.
+- 2026-06-16 00:24 Addressed Stranger With Candy Round 2 findings by making missing scenario and coverage enforcement scripts fail once Swift/Xcode sources exist.
