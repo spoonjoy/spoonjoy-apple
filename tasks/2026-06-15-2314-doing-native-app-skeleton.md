@@ -190,7 +190,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/API/ShoppingListAPI.swift`, `Sources/SpoonjoyCore/API/ShoppingListRequests.swift`, and `Sources/SpoonjoyCore/API/APIRetryPolicy.swift`.
 **Acceptance**: Unit 6a tests pass; DELETE supports header, query, and body idempotency forms.
 
-### ⬜ Unit 6c: Shopping API Mutations — Coverage & Refactor
+### ✅ Unit 6c: Shopping API Mutations — Coverage & Refactor
 **What**: Run coverage, add edge/error tests for 401/403/409/429/5xx paths, and refactor.
 **Output**: Coverage and retry-classification logs.
 **Acceptance**: Coverage enforcement passes for shopping API files in `Sources/SpoonjoyCore/API`; `swift test --disable-xctest --parallel` passes.
@@ -464,3 +464,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 04:17 Unit 6a complete: added failing shopping API client tests for authenticated list/sync requests, POST/PATCH/DELETE mutation outbound shapes, DELETE header/body/query idempotency, read/sync/mutation envelope decoding, and retry classification for idempotency and HTTP errors; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-6a-red.log`.
 - 2026-06-16 08:19 Unit 5 reviewer converged after the Unit 5c cookbook-list summary fix; fresh harsh reviewer returned `CONVERGED`.
 - 2026-06-16 08:19 Unit 6b complete: implemented shopping list read/sync request builders, POST/PATCH/DELETE mutation builders, DELETE header/body/query idempotency forms, shopping response DTOs, idempotency retry metadata, and API retry classification; focused Shopping API tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
+- 2026-06-16 08:22 Unit 6c complete: added edge coverage for blank shopping sync cursors and delete-only mutation responses with default created/updated flags; `Sources/SpoonjoyCore/API` coverage passes at 100.00% (295/295), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.

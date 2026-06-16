@@ -124,6 +124,7 @@ struct ShoppingAPIClientTests {
         let read = try APIEnvelope<ShoppingListReadData>.decode(Self.shoppingListReadEnvelope)
         let sync = try APIEnvelope<ShoppingListSyncData>.decode(Self.shoppingListSyncEnvelope)
         let mutation = try APIEnvelope<ShoppingItemMutationData>.decode(Self.shoppingItemMutationEnvelope)
+        let removal = try APIEnvelope<ShoppingItemMutationData>.decode(Self.shoppingItemRemovalEnvelope)
 
         #expect(read.data.shoppingList.id == "shopping_list_ari")
         #expect(read.data.shoppingList.chef == ChefSummary(id: "chef_ari", username: "ari"))
@@ -140,6 +141,18 @@ struct ShoppingAPIClientTests {
         #expect(mutation.data.removed == nil)
         #expect(mutation.data.item.name == "eggs")
         #expect(mutation.data.mutation == ShoppingListMutationMetadata(clientMutationID: "shopping-add-eggs", replayed: false))
+
+        #expect(removal.data.created == false)
+        #expect(removal.data.updated == false)
+        #expect(removal.data.removed == true)
+        #expect(removal.data.mutation == ShoppingListMutationMetadata(clientMutationID: "shopping-delete-eggs", replayed: true))
+    }
+
+    @Test("shopping sync cursor rejects blank values")
+    func shoppingSyncCursorRejectsBlankValues() throws {
+        #expect(ShoppingSyncCursor(rawValue: "  v1.cursor  ")?.rawValue == "v1.cursor")
+        #expect(ShoppingSyncCursor(rawValue: " \n ") == nil)
+        #expect(try JSONDecoder().decode(ShoppingSyncCursor.self, from: Data(#""v1.cursor""#.utf8)).rawValue == "v1.cursor")
     }
 
     @Test("retry policy classifies idempotency and HTTP error responses")
@@ -284,6 +297,35 @@ struct ShoppingAPIClientTests {
             "mutation": {
               "clientMutationId": "shopping-add-eggs",
               "replayed": false
+            }
+          }
+        }
+        """.utf8
+    )
+
+    private static let shoppingItemRemovalEnvelope = Data(
+        """
+        {
+          "ok": true,
+          "requestId": "req_shopping_removal",
+          "data": {
+            "removed": true,
+            "item": {
+              "id": "item_eggs",
+              "name": "eggs",
+              "quantity": 12,
+              "unit": "each",
+              "checked": false,
+              "checkedAt": null,
+              "deletedAt": "2026-06-01T00:10:00.000Z",
+              "categoryKey": "dairy",
+              "iconKey": "egg",
+              "sortIndex": 0,
+              "updatedAt": "2026-06-01T00:10:00.000Z"
+            },
+            "mutation": {
+              "clientMutationId": "shopping-delete-eggs",
+              "replayed": true
             }
           }
         }
