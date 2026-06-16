@@ -35,6 +35,7 @@ SCRIPT_CONTRACTS = {
       "CODE_SIGNING_ALLOWED=NO",
       "open",
       "open location",
+      "pkill -x Spoonjoy",
       "spoonjoy://search?q=${route_query}&scope=recipes",
       "lastOpenedRoute",
       "hasCompletedFirstRun",
@@ -64,15 +65,33 @@ SCRIPT_CONTRACTS = {
       "screenshots/ios-mobile.png",
       "screenshots/macos-desktop.png",
       "design-review.json",
+      "rm -f \"$ios_screenshot\" \"$macos_screenshot\"",
       "xcrun simctl io",
-      "screencapture",
+      "scripts/find-macos-window-id.swift",
+      "pgrep -x Spoonjoy",
+      "screencapture -x -l",
       "open location",
+      "sleep 3",
+      "to activate",
+      "pkill -x Spoonjoy",
+      "Spoonjoy window not found for macOS screenshot capture",
       "spoonjoy://kitchen",
       "lastOpenedRoute",
       "hasCompletedFirstRun",
       "native-app-state.json",
       "mobileScreenshot",
       "desktopScreenshot"
+    ]
+  },
+  "scripts/find-macos-window-id.swift" => {
+    syntax: ["swiftc", "-parse"],
+    tokens: [
+      "CGWindowListCopyWindowInfo",
+      "kCGWindowOwnerPID",
+      "optionOnScreenOnly",
+      "excludeDesktopElements",
+      "localizedCaseInsensitiveContains",
+      "No on-screen layer-0 window found"
     ]
   },
   "scripts/validate-design-review.rb" => {
