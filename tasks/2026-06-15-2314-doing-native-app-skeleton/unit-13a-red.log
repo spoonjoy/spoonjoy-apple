@@ -1,0 +1,1 @@
+FAIL: missing native shell files: Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift, Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift, Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift, Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift, Apps/Spoonjoy/Shared/AppShell/ShareActions.swift
