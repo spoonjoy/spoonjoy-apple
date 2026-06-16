@@ -1,0 +1,8 @@
+$ ruby scripts/check-native-justification.rb
+native justification contract ok
+
+$ ruby scripts/check-xcode-generator-contract.rb
+xcode generator contract ok
+
+$ ruby -c scripts/generate-xcode-project.rb
+Syntax OK
