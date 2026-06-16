@@ -28,11 +28,17 @@ jobs:
           fi
 
           if [ -f Package.swift ]; then
-            swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors
+            swift_log="$RUNNER_TEMP/swift-tests.log"
+            swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$swift_log"
+            ruby scripts/fail-on-warning.rb --log "$swift_log"
           elif [ -d Spoonjoy.xcodeproj ]; then
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
-            xcodebuild test -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
-            xcodebuild test -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+            ios_test_log="$RUNNER_TEMP/xcode-ios-tests.log"
+            macos_test_log="$RUNNER_TEMP/xcode-macos-tests.log"
+            xcodebuild test -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$ios_test_log"
+            ruby scripts/fail-on-warning.rb --log "$ios_test_log"
+            xcodebuild test -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_test_log"
+            ruby scripts/fail-on-warning.rb --log "$macos_test_log"
           elif ls *.xcodeproj >/dev/null 2>&1; then
             echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
             exit 1
@@ -62,7 +68,9 @@ jobs:
 
           if [ -f scripts/verify-native-scenarios.sh ]; then
             test -x scripts/verify-native-scenarios.sh
-            scripts/verify-native-scenarios.sh --stage final
+            scenario_log="$RUNNER_TEMP/native-scenario.log"
+            scripts/verify-native-scenarios.sh --stage final 2>&1 | tee "$scenario_log"
+            ruby scripts/fail-on-warning.rb --log "$scenario_log"
           elif [ -f Package.swift ] || [ -d Spoonjoy.xcodeproj ] || ls *.xcodeproj >/dev/null 2>&1; then
             echo "Native scenario verifier is required once Swift or Xcode sources exist."
             exit 1
@@ -91,8 +99,12 @@ jobs:
           fi
 
           if [ -d Spoonjoy.xcodeproj ]; then
-            xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
-            xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+            ios_build_log="$RUNNER_TEMP/xcode-ios-build.log"
+            macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
+            xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_build_log"
+            ruby scripts/fail-on-warning.rb --log "$ios_build_log"
+            xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
+            ruby scripts/fail-on-warning.rb --log "$macos_build_log"
           elif ls *.xcodeproj >/dev/null 2>&1; then
             echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
             exit 1
@@ -125,8 +137,9 @@ jobs:
 
           if [ -f Package.swift ]; then
             coverage_log="$RUNNER_TEMP/swift-coverage.log"
-            swift test --enable-code-coverage --show-codecov-path --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$coverage_log"
-            coverage_json="$(tail -n 1 "$coverage_log")"
+            swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$coverage_log"
+            ruby scripts/fail-on-warning.rb --log "$coverage_log"
+            coverage_json="$(swift test --show-codecov-path)"
             if [ -f scripts/enforce-swift-coverage.rb ]; then
               ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
             else
