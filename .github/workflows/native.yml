@@ -20,6 +20,12 @@ jobs:
       - name: Run Swift or Xcode tests when testable sources exist
         run: |
           set -euo pipefail
+          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
+          if [ -n "$unexpected_projects" ]; then
+            echo "Unexpected Xcode project(s):"
+            echo "$unexpected_projects"
+            exit 1
+          fi
 
           if [ -f Package.swift ]; then
             swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors
@@ -47,6 +53,12 @@ jobs:
       - name: Run native scenario verifier when present
         run: |
           set -euo pipefail
+          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
+          if [ -n "$unexpected_projects" ]; then
+            echo "Unexpected Xcode project(s):"
+            echo "$unexpected_projects"
+            exit 1
+          fi
 
           if [ -f scripts/verify-native-scenarios.sh ]; then
             test -x scripts/verify-native-scenarios.sh
@@ -71,6 +83,12 @@ jobs:
       - name: Build iOS and macOS app bundles when Xcode project exists
         run: |
           set -euo pipefail
+          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
+          if [ -n "$unexpected_projects" ]; then
+            echo "Unexpected Xcode project(s):"
+            echo "$unexpected_projects"
+            exit 1
+          fi
 
           if [ -d Spoonjoy.xcodeproj ]; then
             xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
@@ -98,6 +116,12 @@ jobs:
       - name: Generate and enforce Swift or Xcode coverage when testable sources exist
         run: |
           set -euo pipefail
+          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
+          if [ -n "$unexpected_projects" ]; then
+            echo "Unexpected Xcode project(s):"
+            echo "$unexpected_projects"
+            exit 1
+          fi
 
           if [ -f Package.swift ]; then
             coverage_log="$RUNNER_TEMP/swift-coverage.log"
