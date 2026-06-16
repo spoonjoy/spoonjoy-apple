@@ -1,3 +1,152 @@
 {
-  "recipes": []
+  "recipes": [
+    {
+      "id": "recipe_lemon_pantry_pasta",
+      "title": "Lemon Pantry Pasta",
+      "description": "Bright pantry pasta with lemon, garlic, and parmesan.",
+      "servings": "4",
+      "chef": {
+        "id": "chef_ari",
+        "username": "ari"
+      },
+      "coverImageUrl": "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg",
+      "coverProvenanceLabel": "Chef photo",
+      "coverSourceType": "chef-upload",
+      "coverVariant": "image",
+      "href": "/recipes/recipe_lemon_pantry_pasta",
+      "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+      "attribution": {
+        "creditText": "Lemon Pantry Pasta by ari on Spoonjoy",
+        "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+        "sourceUrl": "https://example.com/lemon-pantry-pasta",
+        "sourceHost": "example.com",
+        "sourceRecipe": null
+      },
+      "createdAt": "2026-06-01T00:00:00.000Z",
+      "updatedAt": "2026-06-01T00:00:00.000Z",
+      "steps": [
+        {
+          "id": "step_lemon_pasta_1",
+          "stepNum": 1,
+          "stepTitle": "Boil Pasta",
+          "description": "Boil the pasta until just shy of al dente.",
+          "duration": 10,
+          "ingredients": [
+            {
+              "id": "ingredient_lemon_pasta_salt",
+              "name": "kosher salt",
+              "quantity": 1,
+              "unit": "tbsp"
+            },
+            {
+              "id": "ingredient_lemon_pasta_spaghetti",
+              "name": "spaghetti",
+              "quantity": 12,
+              "unit": "oz"
+            }
+          ]
+        },
+        {
+          "id": "step_lemon_pasta_2",
+          "stepNum": 2,
+          "stepTitle": "Build Sauce",
+          "description": "Warm the aromatics and lemon until glossy.",
+          "duration": 5,
+          "ingredients": [
+            {
+              "id": "ingredient_lemon_pasta_garlic",
+              "name": "garlic",
+              "quantity": 2,
+              "unit": "clove"
+            },
+            {
+              "id": "ingredient_lemon_pasta_lemon",
+              "name": "lemon",
+              "quantity": 1,
+              "unit": "each"
+            },
+            {
+              "id": "ingredient_lemon_pasta_oil",
+              "name": "olive oil",
+              "quantity": 2,
+              "unit": "tbsp"
+            }
+          ]
+        },
+        {
+          "id": "step_lemon_pasta_3",
+          "stepNum": 3,
+          "stepTitle": "Finish",
+          "description": "Toss pasta with sauce, parmesan, and pasta water.",
+          "duration": 3,
+          "ingredients": [
+            {
+              "id": "ingredient_lemon_pasta_parmesan",
+              "name": "parmesan",
+              "quantity": 0.5,
+              "unit": "cup"
+            }
+          ]
+        }
+      ],
+      "cookbooks": [
+        {
+          "id": "cookbook_weeknights",
+          "title": "Weeknights",
+          "href": "/cookbooks/cookbook_weeknights",
+          "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights"
+        }
+      ]
+    },
+    {
+      "id": "recipe_tomato_toast",
+      "title": "Tomato Toast",
+      "description": "A quick summer toast with salted tomato and herbs.",
+      "servings": "2",
+      "chef": {
+        "id": "chef_ari",
+        "username": "ari"
+      },
+      "coverImageUrl": "https://spoonjoy.app/photos/recipes/recipe_tomato_toast/cover.jpg",
+      "coverProvenanceLabel": "Imported photo",
+      "coverSourceType": "imported",
+      "coverVariant": "image",
+      "href": "/recipes/recipe_tomato_toast",
+      "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+      "attribution": {
+        "creditText": "Tomato Toast by ari on Spoonjoy",
+        "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+        "sourceUrl": null,
+        "sourceHost": null,
+        "sourceRecipe": null
+      },
+      "createdAt": "2026-06-01T00:10:00.000Z",
+      "updatedAt": "2026-06-01T00:10:00.000Z",
+      "steps": [
+        {
+          "id": "step_tomato_toast_1",
+          "stepNum": 1,
+          "stepTitle": "Assemble",
+          "description": "Toast bread, rub with garlic, and pile on salted tomato.",
+          "duration": 7,
+          "ingredients": [
+            {
+              "id": "ingredient_tomato_toast_tomato",
+              "name": "tomato",
+              "quantity": 1,
+              "unit": "each"
+            }
+          ]
+        }
+      ],
+      "cookbooks": [
+        {
+          "id": "cookbook_weeknights",
+          "title": "Weeknights",
+          "href": "/cookbooks/cookbook_weeknights",
+          "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights"
+        }
+      ]
+    }
+  ]
 }

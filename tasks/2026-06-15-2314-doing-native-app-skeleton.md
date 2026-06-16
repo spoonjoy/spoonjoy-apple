@@ -140,7 +140,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Tests/SpoonjoyCoreTests/RecipeCookbookTests.swift`.
 **Acceptance**: Filtered Swift tests fail because domain models do not exist yet.
 
-### ⬜ Unit 3b: Recipe/Cookbook Domain — Implementation
+### ✅ Unit 3b: Recipe/Cookbook Domain — Implementation
 **What**: Implement recipe/cookbook domain models, fixture decoding, validation, and search-summary helpers.
 **Output**: `Sources/SpoonjoyCore/RecipeCookbook/` sources and fixtures.
 **Acceptance**: Unit 3a tests pass using `swift test --filter RecipeCookbookTests --disable-xctest --parallel`; compiler emits no warnings.
@@ -451,3 +451,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 02:24 Unit 2b complete: implemented coverage threshold and warning-log scripts, corrected CI to generate coverage before locating JSON, and wired warning scans into SwiftPM, scenario, and future Xcode logs.
 - 2026-06-16 02:28 Unit 2c complete: full Swift package tests, coverage generation, warning scans, and 100% `Sources/SpoonjoyCore` coverage enforcement all pass with artifacts saved.
 - 2026-06-16 02:35 Unit 3a complete: added failing recipe/cookbook domain tests for fixture decoding, validation, cover modeling, and public search summaries; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-3a-red.log`.
+- 2026-06-16 02:43 Unit 3b complete: implemented recipe/cookbook domain models, fixture catalog decoders, validation errors, cover presentation, and public search summaries; focused tests, full Swift tests, and warning-enforced Swift build pass.

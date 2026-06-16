@@ -1,3 +1,58 @@
 {
-  "cookbooks": []
+  "cookbooks": [
+    {
+      "id": "cookbook_weeknights",
+      "title": "Weeknights",
+      "chef": {
+        "id": "chef_ari",
+        "username": "ari"
+      },
+      "recipeCount": 2,
+      "coverImageUrls": [
+        "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg",
+        "https://spoonjoy.app/photos/recipes/recipe_tomato_toast/cover.jpg"
+      ],
+      "href": "/cookbooks/cookbook_weeknights",
+      "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+      "attribution": {
+        "creditText": "Weeknights by ari on Spoonjoy",
+        "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights"
+      },
+      "createdAt": "2026-06-01T00:00:00.000Z",
+      "updatedAt": "2026-06-01T00:10:00.000Z",
+      "recipes": [
+        {
+          "id": "recipe_lemon_pantry_pasta",
+          "title": "Lemon Pantry Pasta",
+          "href": "/recipes/recipe_lemon_pantry_pasta",
+          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"
+        },
+        {
+          "id": "recipe_tomato_toast",
+          "title": "Tomato Toast",
+          "href": "/recipes/recipe_tomato_toast",
+          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast"
+        }
+      ]
+    },
+    {
+      "id": "cookbook_no_covers",
+      "title": "Inbox",
+      "chef": {
+        "id": "chef_ari",
+        "username": "ari"
+      },
+      "recipeCount": 0,
+      "coverImageUrls": [],
+      "href": "/cookbooks/cookbook_no_covers",
+      "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_no_covers",
+      "attribution": {
+        "creditText": "Inbox by ari on Spoonjoy",
+        "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_no_covers"
+      },
+      "createdAt": "2026-06-01T00:00:00.000Z",
+      "updatedAt": "2026-06-01T00:00:00.000Z",
+      "recipes": []
+    }
+  ]
 }
