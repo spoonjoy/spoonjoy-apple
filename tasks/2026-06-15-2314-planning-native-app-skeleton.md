@@ -18,7 +18,7 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - Add native affordance scaffolds: `NavigationStack`/`NavigationSplitView`, `.searchable`, native toolbars, share links, edit/check controls, App Intent descriptors or compileable App Intents where the installed SDK supports them, offline status, and local persistence.
 - Encode Spoonjoy native justification in repo docs before major code lands.
 - Update CI/scripts so protected checks build iOS and macOS bundles, run Swift tests, run coverage, and run a native scenario verifier.
-- Validate against the installed Xcode 26.5 SDK using explicit deployment targets `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` only as an engineering bootstrap compatibility label. Product baseline remains iOS 27/macOS 27 forward in `AGENTS.md` and docs. True SDK-27 validation is a capability blocker until Xcode 27 is installed.
+- Validate against the installed Xcode 26.5 SDK using a clearly named `BootstrapDebug` configuration on GitHub Actions `macos-26` runners. Product configs must preserve iOS 27/macOS 27 as the baseline; `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` may appear only in the bootstrap config because deployment targets are actual minimum runtimes, not labels. True SDK-27 validation is a capability blocker until Xcode 27 is installed.
 - Add local launch/smoke scripts and screenshot artifacts for iOS simulator when CoreSimulator is available, plus macOS app launch/smoke and desktop-class screenshot review.
 - Use sub-agent reviewer gates for plan, doing doc, implementation units, and final merge readiness.
 
@@ -32,8 +32,8 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 
 # Completion Criteria
 
-- `Package.swift` exists and `swift test` passes with focused coverage for all new core logic and edge/error paths.
-- `Spoonjoy.xcodeproj` exists and app bundles build for iOS simulator and macOS destinations without warnings introduced by this branch.
+- `Package.swift` exists and the warning-enforced Swift test command passes with focused coverage for all new core logic and edge/error paths.
+- `Spoonjoy.xcodeproj` exists and `BootstrapDebug` app bundles build for iOS simulator and macOS destinations with warnings treated as errors.
 - The native scenario verifier proves first-run/session setup, fixture kitchen browsing, recipe detail, cook-mode progress persistence, shopping-list checkoff, search, capture draft creation, settings state, App Intent/search indexing metadata, offline cache restore, and native affordance flags through deterministic command-line checks.
 - iOS simulator launch/smoke runs when CoreSimulator responds; if local CoreSimulator times out, the result is recorded as a local machine blocker while CI still builds the iOS bundle. macOS app launch/smoke must run locally.
 - Screenshot/design review artifacts exist for mobile-width and desktop-class layouts, or the plan records a concrete simulator/runtime blocker with the last command output.
@@ -41,12 +41,12 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - `docs/native-justification.md` explains why Spoonjoy Apple earns being native and which tempting APIs are intentionally postponed or rejected.
 - `docs/native-design-language.md` remains consistent with the web Kitchen Table language and the app code reflects those invariants in structure, naming, colors, typography, and object hierarchy.
 - CI protected checks pass on the PR: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`.
-- The `Coverage` check enforces the configured Swift package coverage threshold for new package code instead of only generating coverage output.
+- The `Coverage` check enforces the configured Swift package coverage threshold for new SwiftPM-measurable code instead of only generating coverage output.
 - Harsh sub-agent review converges with no BLOCKER/MAJOR findings before merge.
 
 # Code Coverage Requirements
 
-- New Swift package code must have 100% line/branch coverage where measurable by SwiftPM coverage; the CI `Coverage` job must fail below the threshold.
+- New Swift package code must have 100% line/branch coverage where measurable by SwiftPM coverage; shell/Ruby scripts and thin app/executable adapters need red/green behavioral checks; the CI `Coverage` job must fail below the threshold.
 - Request-building code must assert outbound HTTP method, URL path/query, headers, and JSON/form body shape, not only response handling.
 - Offline/cache/search/cook-mode/shopping logic must cover valid, empty, invalid, boundary, and error paths.
 - OAuth/PKCE logic must cover code-verifier/challenge generation, state generation/validation, register/authorize/token/refresh/revoke request construction, redirect validation, persisted client id, atomic refresh-token rotation, and single-flight refresh behavior.
@@ -57,7 +57,7 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 
 - None requiring human approval under the current no-human-gates mandate.
 - API/OAuth and prior mobile-code explorer findings are incorporated.
-- True iOS 27/macOS 27 SDK validation is blocked by local Xcode 26.5. The branch must label 26.5 as bootstrap validation only and include a follow-up validation gate for Xcode 27, without weakening the product baseline.
+- True iOS 27/macOS 27 SDK validation is blocked by local Xcode 26.5. The branch must keep iOS/macOS 27 in product config metadata, isolate 26.5 to `BootstrapDebug`, and include a follow-up validation gate for Xcode 27 without weakening the product baseline.
 
 # Decisions Made
 
@@ -70,7 +70,7 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - Use OAuth/PKCE public-client flow for real auth, omitting `resource` for REST API v1. Register once per app/environment with `token_endpoint_auth_method: "none"`, use ASWebAuthenticationSession/AppAuth shape for authorization, rotate refresh tokens atomically, and prefer HTTPS universal/app links for production redirects. Custom schemes are rejected by the server today.
 - Do not reuse `sj-mobile` implementation code or auth assumptions. It was an archived Expo/Apollo/JWT app against old GraphQL/Rails-era infrastructure. Mine it only for product ideas like photo-first recipe detail, saved collections/library, search across object types, and staged recipe creation.
 - Treat App Intents, Spotlight/search metadata, capture draft creation, offline cook-mode persistence, share/search toolbars, and shopping-list checkoff as native-value proof points. Build compileable scaffolds and scenario-verifiable metadata now; deeper production server sync can follow in later PRs without redoing the app architecture.
-- Preserve iOS/macOS 27 as product baseline in docs. Use exact 26.5 deployment targets only in generated build settings while this machine's installed SDK is 26.5, and label every such validation as bootstrap validation rather than product-baseline validation.
+- Preserve iOS/macOS 27 as product baseline in docs and product build settings. Use exact 26.5 deployment targets only in a generated `BootstrapDebug` configuration while this machine's installed SDK is 26.5, and label every such validation as bootstrap validation rather than product-baseline validation.
 
 # Context / References
 
@@ -107,3 +107,4 @@ This branch should leave `spoonjoy-apple` with a real app skeleton that builds l
 - 2026-06-15 23:14 Incorporated explorer findings for REST API v1, OAuth/PKCE, prior mobile-code archaeology, and non-reuse decisions.
 - 2026-06-15 23:14 Addressed Round 1 planning reviewer findings with concrete SDK target labeling, launch/screenshot validation, native-value criteria, OAuth and coverage enforcement, and shopping DELETE idempotency detail.
 - 2026-06-15 23:14 Planning approved after Round 2 sub-agent review converged.
+- 2026-06-16 00:24 Addressed doing-doc scrutiny by separating product iOS/macOS 27 baseline from Xcode 26.5 bootstrap validation and requiring warning-enforced native checks.

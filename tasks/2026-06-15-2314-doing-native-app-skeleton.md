@@ -20,8 +20,8 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ## Completion Criteria
 
-- [ ] `Package.swift` exists and `swift test` passes with focused coverage for all new core logic and edge/error paths.
-- [ ] `Spoonjoy.xcodeproj` exists and app bundles build for iOS simulator and macOS destinations without warnings introduced by this branch.
+- [ ] `Package.swift` exists and the warning-enforced Swift test command passes with focused coverage for all new core logic and edge/error paths.
+- [ ] `Spoonjoy.xcodeproj` exists and `BootstrapDebug` app bundles build for iOS simulator and macOS destinations with warnings treated as errors.
 - [ ] The native scenario verifier proves first-run/session setup, fixture kitchen browsing, recipe detail, cook-mode progress persistence, shopping-list checkoff, search, capture draft creation, settings state, App Intent/search indexing metadata, offline cache restore, and native affordance flags through deterministic command-line checks.
 - [ ] iOS simulator launch/smoke runs when CoreSimulator responds; if local CoreSimulator times out, the result is recorded as a local machine blocker while CI still builds the iOS bundle. macOS app launch/smoke must run locally.
 - [ ] Screenshot/design review artifacts exist for mobile-width and desktop-class layouts, or the plan records a concrete simulator/runtime blocker with the last command output.
@@ -29,12 +29,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - [ ] `docs/native-justification.md` explains why Spoonjoy Apple earns being native and which tempting APIs are intentionally postponed or rejected.
 - [ ] `docs/native-design-language.md` remains consistent with the web Kitchen Table language and the app code reflects those invariants in structure, naming, colors, typography, and object hierarchy.
 - [ ] CI protected checks pass on the PR: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`.
-- [ ] The `Coverage` check enforces the configured Swift package coverage threshold for new package code instead of only generating coverage output.
+- [ ] The `Coverage` check enforces the configured Swift package coverage threshold for new SwiftPM-measurable code instead of only generating coverage output.
 - [ ] Harsh sub-agent review converges with no BLOCKER/MAJOR findings before merge.
 
 ## Code Coverage Requirements
 
-**MANDATORY: 100% coverage on all new code.**
+**MANDATORY: 100% coverage on all new SwiftPM-measurable code, plus behavioral checks for scripts and app-target adapters.**
 - No `[ExcludeFromCodeCoverage]` or equivalent on new code.
 - All branches covered where SwiftPM coverage can measure them.
 - All error paths tested.
@@ -43,6 +43,8 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - OAuth/PKCE tests must cover code-verifier/challenge generation, state generation/validation, register/authorize/token/refresh/revoke request construction, redirect validation, persisted client id, atomic refresh-token rotation, and single-flight refresh behavior.
 - Shopping-list mutation tests must cover POST/PATCH JSON `clientMutationId`, DELETE idempotency through `X-Client-Mutation-Id`, query, and body forms, plus idempotency conflict/in-progress response handling.
 - UI app target code is covered through compile/build plus scenario verifier until XCTest UI automation is added; nontrivial UI-independent logic belongs in the Swift package.
+- `Sources/SpoonjoyScenarioVerifier/main.swift` must remain a thin, non-branching adapter. CLI parsing/report generation logic belongs in `Sources/SpoonjoyCore/Native/` so SwiftPM coverage measures it; the executable wrapper is covered by command-level verifier tests.
+- Shell/Ruby scripts are not SwiftPM-measurable; each script must have red/green behavioral checks before it is trusted by CI.
 
 ## TDD Requirements
 
@@ -57,12 +59,13 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 ## Contract Constants
 
 - **Artifact root**: `tasks/2026-06-15-2314-doing-native-app-skeleton/`. Every log, JSON report, screenshot, branch-protection export, PR export, and blocker record goes under this path.
-- **Swift test command**: `swift test --disable-xctest --parallel`. Filtered red/green units use `swift test --filter <ExactTestClassOrMethod> --disable-xctest --parallel` and save output to `${ARTIFACT_ROOT}/unit-<unit>-red.log` or `${ARTIFACT_ROOT}/unit-<unit>-green.log`.
-- **Coverage command**: `swift test --enable-code-coverage --show-codecov-path --disable-xctest --parallel`. The coverage threshold is exactly `100.0` percent for files under `Sources/SpoonjoyCore/`. Exclude only generated Xcode project files, `Apps/` SwiftUI view files, `.build/`, `Tests/`, and scripts.
+- **CI runner**: GitHub Actions jobs use `runs-on: macos-26` and must verify `xcodebuild -version` reports `Xcode 26.5` before running native checks.
+- **Swift test command**: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors`. Filtered red/green units use `swift test --filter <ExactTestClassOrMethod> --disable-xctest --parallel -Xswiftc -warnings-as-errors` and save output to `${ARTIFACT_ROOT}/unit-<unit>-red.log` or `${ARTIFACT_ROOT}/unit-<unit>-green.log`. Any unit shorthand that says `swift test --disable-xctest --parallel` inherits this warning-enforced command.
+- **Coverage command**: `swift test --enable-code-coverage --show-codecov-path --disable-xctest --parallel -Xswiftc -warnings-as-errors`. The coverage threshold is exactly `100.0` percent for SwiftPM-measurable files under `Sources/SpoonjoyCore/`. Exclude only generated Xcode project files, thin executable wrappers, `Apps/` SwiftUI view files, `.build/`, `Tests/`, and scripts after behavioral tests prove those excluded adapters.
 - **Coverage input**: the JSON path printed by `--show-codecov-path`. `scripts/enforce-swift-coverage.rb --coverage-json <path> --minimum 100 --include 'Sources/SpoonjoyCore'` must fail below threshold.
 - **API base**: `https://spoonjoy.app`. REST paths: `/api/v1/recipes`, `/api/v1/recipes/{id}`, `/api/v1/cookbooks`, `/api/v1/cookbooks/{id}`, `/api/v1/shopping-list`, `/api/v1/shopping-list/sync`, `/api/v1/shopping-list/items`, `/api/v1/shopping-list/items/{itemId}`, `/api/v1/tokens`, `/api/v1/tokens/{credentialId}`.
 - **API envelope**: REST v1 success `{ ok: true, requestId: String, data: ... }`; REST v1 error `{ ok: false, requestId: String, error: { code, message, status } }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts`.
-- **Shopping idempotency**: POST/PATCH send JSON `clientMutationId`; DELETE accepts JSON body `clientMutationId`, `X-Client-Mutation-Id`, or query `clientMutationId` and canonicalizes idempotency body to `{ clientMutationId }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md:663`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts:1427`.
+- **Shopping idempotency**: POST/PATCH send JSON `clientMutationId`; DELETE accepts JSON body `clientMutationId`, `X-Client-Mutation-Id`, or query `clientMutationId` and canonicalizes idempotency body to `{ clientMutationId }`. Source refs: `/Users/arimendelow/Projects/spoonjoy-v2/docs/api.md:670`, `/Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1.server.ts:1431`.
 - **OAuth paths**: `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`. Register body includes `client_name`, exact HTTPS or localhost/127.0.0.1 `redirect_uris`, and `token_endpoint_auth_method: "none"`. Authorize sends `response_type=code`, `scope`, `state`, `code_challenge`, `code_challenge_method=S256`, and omits `resource` for REST. Token and revoke are `application/x-www-form-urlencoded`.
 - **Fixture paths**: `Sources/SpoonjoyCore/Fixtures/kitchen-fixture.json`, `recipes-fixture.json`, `cookbooks-fixture.json`, `shopping-list-fixture.json`, and `offline-snapshot-fixture.json`.
 - **Swift package targets**: `SpoonjoyCore` library target, `SpoonjoyScenarioVerifier` executable target at `Sources/SpoonjoyScenarioVerifier/main.swift`, and `SpoonjoyCoreTests` test target with fixture resources copied from `Sources/SpoonjoyCore/Fixtures`.
@@ -71,8 +74,8 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - **Native integrations that must compile**: `SpoonjoyAppIntents` app-target source with at least `OpenRecipeIntent`, `StartCookModeIntent`, and `AddShoppingListItemIntent` when `canImport(AppIntents)`; `SpoonjoySpotlightIndexer` app-target source using `CoreSpotlight` when `canImport(CoreSpotlight)`. Package metadata may describe these capabilities, but app bundle builds must compile the guarded framework-backed code.
 - **Accessibility/design manifest schema**: `design-review.json` has booleans `mobileScreenshot`, `desktopScreenshot`, `dynamicType`, `voiceOverLabels`, `keyboardNavigation`, `reduceMotion`, `contrast`, `kitchenTableHierarchy`, `noOverlap`, and optional `blockers[]` entries shaped `{ "capability": String, "command": String, "timeoutSeconds": Int, "outputPath": String }`. Missing or false fields fail unless a matching blocker exists.
 - **CoreSimulator timeout rule**: simulator commands use one attempt and a 30-second timeout. Timeout writes a blocker JSON with `capability: "CoreSimulator"`, the exact command, `timeoutSeconds: 30`, and captured output. Other simulator failures fail the unit unless classified by reviewer as local machine capability.
-- **Build commands**: iOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`. macOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration Debug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build`.
-- **Deployment target labels**: generated build settings use `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` while this machine only has SDK 26.5. Docs and PR text must call this bootstrap validation only; product target remains iOS 27/macOS 27 forward.
+- **Build commands**: iOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build`. macOS bootstrap build is `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
+- **Deployment target policy**: deployment target build settings are actual minimum runtimes, not labels. Product configs must encode the iOS 27/macOS 27 baseline. The generated `BootstrapDebug` config may set `IPHONEOS_DEPLOYMENT_TARGET = 26.5` and `MACOSX_DEPLOYMENT_TARGET = 26.5` only so this Xcode 26.5 machine and GitHub `macos-26` runners can build; release/TestFlight/App Store claims remain blocked until Xcode 27 validation is available.
 
 ## Work Units
 
@@ -111,20 +114,20 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Bootstrap coverage/build logs.
 **Acceptance**: `swift test --disable-xctest --parallel` passes; coverage command produces JSON; no implementation unit later fails because the package manifest is absent.
 
-### ⬜ Unit 2a: Coverage Enforcement Script — Tests
-**What**: Add failing tests/checks for coverage JSON parsing, threshold enforcement, missing coverage file handling, and CI wiring expectations.
-**Output**: Script tests/checks for coverage enforcement.
-**Acceptance**: Checks fail before `scripts/enforce-swift-coverage.rb` exists.
+### ⬜ Unit 2a: Coverage And Warning Enforcement Scripts — Tests
+**What**: Add failing tests/checks for coverage JSON parsing, threshold enforcement, missing coverage file handling, warning-log failure behavior, and CI wiring expectations.
+**Output**: Script tests/checks for coverage and warning enforcement.
+**Acceptance**: Checks fail before `scripts/enforce-swift-coverage.rb` and `scripts/fail-on-warning.rb` exist.
 
-### ⬜ Unit 2b: Coverage Enforcement Script — Implementation
-**What**: Implement coverage threshold script and update `Coverage` workflow to fail below threshold.
-**Output**: `scripts/enforce-swift-coverage.rb` and `.github/workflows/native.yml` coverage updates.
-**Acceptance**: Coverage check fails below threshold and passes at threshold in local script tests.
+### ⬜ Unit 2b: Coverage And Warning Enforcement Scripts — Implementation
+**What**: Implement coverage threshold script, warning-log enforcement script, and update workflow commands to use the Contract Constants.
+**Output**: `scripts/enforce-swift-coverage.rb`, `scripts/fail-on-warning.rb`, and `.github/workflows/native.yml` coverage/warning updates.
+**Acceptance**: Coverage check fails below threshold and passes at threshold in local script tests; warning enforcement fails on branch-source warnings.
 
-### ⬜ Unit 2c: Coverage Enforcement Script — Refactor
-**What**: Run `swift test --enable-code-coverage --show-codecov-path`, threshold script, and full package tests.
+### ⬜ Unit 2c: Coverage And Warning Enforcement Scripts — Refactor
+**What**: Run the warning-enforced coverage command, threshold script, warning parser against saved logs, and full package tests.
 **Output**: Coverage artifacts and logs.
-**Acceptance**: Coverage artifacts are saved; CI coverage command is reproducible locally; `scripts/enforce-swift-coverage.rb` exists before Unit 3c.
+**Acceptance**: Coverage artifacts are saved; CI coverage command is reproducible locally; `scripts/enforce-swift-coverage.rb` and `scripts/fail-on-warning.rb` exist before Unit 3c.
 
 ### ⬜ Unit 3a: Recipe/Cookbook Domain — Tests
 **What**: Write failing Swift tests for recipe, ingredient, step, chef, cookbook, cookbook cover, fixture decoding, and public search summary models.
@@ -237,14 +240,14 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Tests fail before metadata/scenario engine and app integration source files exist.
 
 ### ⬜ Unit 10b: Native Integrations And Scenario Engine — Implementation
-**What**: Implement native-value metadata descriptors, guarded AppIntents/CoreSpotlight app sources, executable scenario report generator, and verifier script for first-run, fixture kitchen, recipe detail, cook progress, shopping checkoff, search, capture draft, settings, offline restore, and native affordance flags.
-**Output**: `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Sources/SpoonjoyCore/Native/ScenarioReport.swift`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyScenarioVerifier/main.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`, and `scripts/verify-native-scenarios.sh`.
+**What**: Implement native-value metadata descriptors, guarded AppIntents/CoreSpotlight app sources, executable scenario report generator, thin CLI adapter, and verifier script for first-run, fixture kitchen, recipe detail, cook progress, shopping checkoff, search, capture draft, settings, offline restore, and native affordance flags.
+**Output**: `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Sources/SpoonjoyCore/Native/ScenarioReport.swift`, `Sources/SpoonjoyCore/Native/ScenarioCommand.swift`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyScenarioVerifier/main.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`, and `scripts/verify-native-scenarios.sh`.
 **Acceptance**: Unit 10a tests pass; `swift run SpoonjoyScenarioVerifier --stage native-metadata --output ${ARTIFACT_ROOT}/scenario-native-metadata.json` emits the required schema; `scripts/verify-native-scenarios.sh --stage native-metadata` exits nonzero when AppIntents/CoreSpotlight metadata or guarded app integration source files are absent, while allowing explicitly pending surface checks for Units 14-16.
 
 ### ⬜ Unit 10c: Native Integrations And Scenario Engine — Coverage & Refactor
 **What**: Run coverage, polish scenario output, and refactor descriptors.
 **Output**: Scenario JSON/log and coverage log.
-**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; `scripts/verify-native-scenarios.sh --stage native-metadata` produces deterministic artifacts and allows only surface checks to remain pending.
+**Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Native`; a static check proves `Sources/SpoonjoyScenarioVerifier/main.swift` is a thin adapter with no branching; `scripts/verify-native-scenarios.sh --stage native-metadata` produces deterministic artifacts and allows only surface checks to remain pending.
 
 ### ⬜ Unit 11a: App State And Navigation View Models — Tests
 **What**: Write failing tests for app route selection, sidebar/tab state, search state, recipe selection, cook-mode state, capture draft state, shopping checkoff state, and settings state used by SwiftUI.
@@ -262,14 +265,14 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/AppState`; `swift test --disable-xctest --parallel` passes.
 
 ### ⬜ Unit 12a: Xcode Project And App Targets — Tests
-**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, deployment target labels, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
+**What**: Add failing generator/project checks for iOS/macOS targets, bundle IDs, product baseline settings, `BootstrapDebug` deployment-target isolation, shared source membership, build settings, and iOS/macOS target membership for `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift` plus `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`.
 **Output**: Project generation checks under `scripts/`.
 **Acceptance**: Checks fail before the project/targets are generated.
 
 ### ⬜ Unit 12b: Xcode Project And App Targets — Implementation
-**What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, and build settings.
+**What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, product configs that preserve the iOS/macOS 27 baseline, and a clearly named Xcode-26.5-compatible `BootstrapDebug` config.
 **Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, and `Apps/Spoonjoy/Shared/Info.plist`.
-**Acceptance**: Project checks pass, including AppIntents/CoreSpotlight source membership in both app targets; the exact iOS and macOS build commands from Contract Constants pass.
+**Acceptance**: Project checks pass, including AppIntents/CoreSpotlight source membership in both app targets; product configs do not mislabel 26.5 as the product baseline; the exact iOS and macOS bootstrap build commands from Contract Constants pass.
 
 ### ⬜ Unit 12c: Xcode Project And App Targets — Determinism & Refactor
 **What**: Re-run generator, diff project, and refactor generated structure/settings.
@@ -357,9 +360,9 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Matrix script fails before all required validation hooks are present.
 
 ### ⬜ Unit 18b: Full Local Matrix — Implementation
-**What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same commands listed in Contract Constants.
+**What**: Wire all validation hooks into the local matrix and align `.github/workflows/native.yml` with the same runner, warning-enforced Swift test, coverage, scenario, and Xcode bootstrap build commands listed in Contract Constants.
 **Output**: Matrix script and workflow updates.
-**Acceptance**: Matrix runs each mandatory command from Contract Constants, writes `validation-matrix.json`, and exits nonzero on missing mandatory checks; GitHub workflow uses the same Swift test, coverage, scenario, and Xcode build commands except launch/screenshot checks that require an interactive local session.
+**Acceptance**: Matrix runs each mandatory command from Contract Constants, writes `validation-matrix.json`, and exits nonzero on missing mandatory checks; GitHub workflow uses `macos-26`, verifies Xcode 26.5, and uses the same Swift test, coverage, scenario, and Xcode build commands except launch/screenshot checks that require an interactive local session.
 
 ### ⬜ Unit 18c: Full Local Matrix — Evidence
 **What**: Run the full local matrix and save logs/artifacts.
@@ -377,7 +380,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Round 2 reviewer returns no BLOCKER/MAJOR findings.
 
 ### ⬜ Unit 20a: PR And CI — Open
-**What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, known Xcode 27 capability blocker, and reviewer gate results.
+**What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, GitHub `macos-26`/Xcode 26.5 bootstrap evidence, known Xcode 27 capability blocker, and reviewer gate results.
 **Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
@@ -398,7 +401,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - Push after each unit complete.
 - Run full test suite before marking unit done.
 - **All artifacts**: Save outputs, logs, screenshots, and data to `./tasks/2026-06-15-2314-doing-native-app-skeleton/`.
-- **Commit/push cadence**: Commit after every `a`, `b`, or `c` unit. Push after each commit. Unit review happens after each `c` unit or after standalone units 0c, 10c, 16c, 17c, 18b, 19b, and 19c.
+- **Commit/push cadence**: Commit after every `a`, `b`, or `c` unit. Push after each commit. Unit review happens after each `c` unit or after standalone units 0c, 10c, 16c, 17c, 18b, and 19b.
 - **Fixes/blockers**: Spawn sub-agent immediately for ordinary implementation or review blockers.
 - **Decisions made**: Update docs immediately, commit right away.
 
@@ -416,3 +419,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Addressed Tinfoil Round 3 findings with stage-specific verifier commands and explicit native integration target-membership checks.
 - 2026-06-15 23:14 Addressed Tinfoil Round 4 finding by pinning Unit 16c to final scenario verification.
 - 2026-06-15 23:14 Tinfoil scrutiny converged after Round 5.
+- 2026-06-16 00:24 Addressed Stranger With Candy findings by pinning CI to `macos-26`, enforcing warnings as errors, isolating Xcode 26.5 to `BootstrapDebug`, and tightening coverage/script accounting.

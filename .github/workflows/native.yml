@@ -9,72 +9,99 @@ on:
 jobs:
   swift-tests:
     name: Swift tests
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - name: Verify Xcode 26.5 runner
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26\.5$'
       - name: Run Swift or Xcode tests when testable sources exist
         run: |
           set -euo pipefail
 
           if [ -f Package.swift ]; then
-            swift test
+            swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors
           elif ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
-            xcodebuild test -project "$project" -scheme Spoonjoy -destination "$ios_destination"
-            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS'
+            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
 
   native-scenario-verifier:
     name: Native scenario verifier
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - name: Verify Xcode 26.5 runner
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26\.5$'
       - name: Run native scenario verifier when present
         run: |
           set -euo pipefail
 
           if [ -x scripts/verify-native-scenarios.sh ]; then
-            scripts/verify-native-scenarios.sh
+            scripts/verify-native-scenarios.sh --stage final
           else
             echo "Native scenario verifier not present yet; bootstrap check passes."
           fi
 
   app-bundle:
     name: App bundle
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
+      - name: Verify Xcode 26.5 runner
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26\.5$'
       - name: Build iOS and macOS app bundles when Xcode project exists
         run: |
           set -euo pipefail
 
           if ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"
-            xcodebuild -project "$project" -scheme Spoonjoy -destination 'generic/platform=iOS Simulator' build
-            xcodebuild -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS' build
+            xcodebuild -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+            xcodebuild -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build
           else
             echo "Xcode project not present yet; bootstrap check passes."
           fi
 
   coverage:
     name: Coverage
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v6
-      - name: Generate Swift or Xcode coverage when testable sources exist
+      - name: Verify Xcode 26.5 runner
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26\.5$'
+      - name: Generate and enforce Swift or Xcode coverage when testable sources exist
         run: |
           set -euo pipefail
 
           if [ -f Package.swift ]; then
-            swift test --enable-code-coverage
+            coverage_log="$RUNNER_TEMP/swift-coverage.log"
+            swift test --enable-code-coverage --show-codecov-path --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$coverage_log"
+            coverage_json="$(tail -n 1 "$coverage_log")"
+            if [ -x scripts/enforce-swift-coverage.rb ]; then
+              scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
+            else
+              echo "Coverage enforcement script not present yet; bootstrap coverage generation passes."
+            fi
           elif ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
-            xcodebuild test -project "$project" -scheme Spoonjoy -destination "$ios_destination" -enableCodeCoverage YES
-            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS' -enableCodeCoverage YES
+            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination "$ios_destination" -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
+            xcodebuild test -project "$project" -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
