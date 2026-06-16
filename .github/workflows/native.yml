@@ -46,7 +46,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -x scripts/verify-native-scenarios.sh ]; then
+          if [ -f scripts/verify-native-scenarios.sh ]; then
+            test -x scripts/verify-native-scenarios.sh
             scripts/verify-native-scenarios.sh --stage final
           else
             echo "Native scenario verifier not present yet; bootstrap check passes."
@@ -92,8 +93,8 @@ jobs:
             coverage_log="$RUNNER_TEMP/swift-coverage.log"
             swift test --enable-code-coverage --show-codecov-path --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$coverage_log"
             coverage_json="$(tail -n 1 "$coverage_log")"
-            if [ -x scripts/enforce-swift-coverage.rb ]; then
-              scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
+            if [ -f scripts/enforce-swift-coverage.rb ]; then
+              ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
             else
               echo "Coverage enforcement script not present yet; bootstrap coverage generation passes."
             fi
