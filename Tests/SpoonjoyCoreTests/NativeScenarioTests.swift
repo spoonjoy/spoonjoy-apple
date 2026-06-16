@@ -5,13 +5,12 @@ import Testing
 @Suite("Native scenario metadata")
 struct NativeScenarioTests {
     private let expectedAppIntents = [
-        "SpoonjoyOpenRecipeIntent",
-        "SpoonjoyStartCookingIntent",
-        "SpoonjoyAddShoppingItemIntent",
-        "SpoonjoyCaptureRecipeIntent"
+        "OpenRecipeIntent",
+        "StartCookModeIntent",
+        "AddShoppingListItemIntent"
     ]
-    private let expectedSpotlightIndexedTypes = ["recipe", "cookbook", "shoppingItem"]
-    private let expectedSearchableScopes = ["recipes", "cookbooks", "shopping"]
+    private let expectedSpotlightIndexedTypes = ["recipe", "cookbook", "shopping-list-item"]
+    private let expectedSearchableScopes = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
     private let expectedShareActions = ["capture-recipe-url", "share-recipe"]
     private let expectedOfflineFlows = [
         "fixture-offline-restore",
@@ -22,59 +21,68 @@ struct NativeScenarioTests {
     private let expectedURLSchemes = ["spoonjoy"]
     private let expectedDeepLinkRoutes = [
         "https://spoonjoy.app/",
+        "https://spoonjoy.app/recipes",
         "https://spoonjoy.app/recipes/{id}",
-        "https://spoonjoy.app/recipes/{id}?mode=cook",
         "https://spoonjoy.app/recipes/{id}#cook",
+        "https://spoonjoy.app/recipes/{id}?mode=cook",
+        "https://spoonjoy.app/cookbooks",
         "https://spoonjoy.app/cookbooks/{id}",
-        "https://spoonjoy.app/search?q={query}",
-        "https://spoonjoy.app/search?q={query}&scope={recipes|cookbooks|shopping}",
-        "https://spoonjoy.app/shopping",
-        "https://spoonjoy.app/capture",
-        "https://spoonjoy.app/settings",
+        "https://spoonjoy.app/shopping-list",
+        "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+        "https://spoonjoy.app/recipes/new",
+        "https://spoonjoy.app/account/settings",
+        "spoonjoy://kitchen",
+        "spoonjoy://recipes",
         "spoonjoy://recipes/{id}",
-        "spoonjoy://shopping",
-        "spoonjoy://capture"
+        "spoonjoy://recipes/{id}/cook",
+        "spoonjoy://cookbooks",
+        "spoonjoy://cookbooks/{id}",
+        "spoonjoy://shopping-list",
+        "spoonjoy://search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+        "spoonjoy://capture",
+        "spoonjoy://settings"
     ]
 
     @Test("native metadata report exposes Apple-native capabilities")
     func nativeMetadataReportExposesAppleNativeCapabilities() throws {
         let report = try ScenarioReporter.report(for: .nativeMetadata)
+        let checksByName = Dictionary(uniqueKeysWithValues: report.checks.map { ($0.name, $0.status) })
 
         #expect(report.ok)
         #expect(report.stage == .nativeMetadata)
-        #expect(report.checks == [
-            ScenarioCheck(name: "fixture bundle", status: .pass, detail: "Fixture resources are packaged."),
-            ScenarioCheck(name: "native metadata", status: .pass, detail: "Apple-native capability metadata is complete."),
-            ScenarioCheck(name: "app intents source", status: .pass, detail: "AppIntents integration source is present."),
-            ScenarioCheck(name: "spotlight source", status: .pass, detail: "CoreSpotlight integration source is present."),
-            ScenarioCheck(name: "deep link metadata", status: .pass, detail: "Associated-domain and custom-scheme routes are declared."),
-            ScenarioCheck(name: "app surfaces", status: .pending, detail: "SwiftUI surfaces land in Units 13-16.")
-        ])
-        #expect(report.nativeCapabilities.appIntents == expectedAppIntents)
-        #expect(report.nativeCapabilities.spotlightIndexedTypes == expectedSpotlightIndexedTypes)
-        #expect(report.nativeCapabilities.searchableScopes == expectedSearchableScopes)
-        #expect(report.nativeCapabilities.shareActions == expectedShareActions)
-        #expect(report.nativeCapabilities.offlineFlows == expectedOfflineFlows)
+        #expect(report.checks.filter { $0.status == .fail }.isEmpty)
+        #expect(report.checks.filter { $0.status == .pending }.map(\.name) == ["app surfaces"])
+        #expect(checksByName["fixture bundle"] == .pass)
+        #expect(checksByName["native metadata"] == .pass)
+        #expect(checksByName["app intents source"] == .pass)
+        #expect(checksByName["spotlight source"] == .pass)
+        #expect(checksByName["deep link metadata"] == .pass)
+        #expect(report.checks.first { $0.name == "app surfaces" }?.detail.contains("Units 14-16") == true)
+        #expect(Set(report.nativeCapabilities.appIntents).isSuperset(of: Set(expectedAppIntents)))
+        #expect(!report.nativeCapabilities.appIntents.contains { $0.hasPrefix("Spoonjoy") })
+        #expect(Set(report.nativeCapabilities.spotlightIndexedTypes).isSuperset(of: Set(expectedSpotlightIndexedTypes)))
+        #expect(Set(report.nativeCapabilities.searchableScopes) == Set(expectedSearchableScopes))
+        #expect(Set(report.nativeCapabilities.shareActions) == Set(expectedShareActions))
+        #expect(Set(report.nativeCapabilities.offlineFlows) == Set(expectedOfflineFlows))
         #expect(report.nativeCapabilities.associatedDomains == expectedAssociatedDomains)
         #expect(report.nativeCapabilities.urlSchemes == expectedURLSchemes)
-        #expect(report.nativeCapabilities.deepLinkRoutes == expectedDeepLinkRoutes)
+        #expect(Set(report.nativeCapabilities.deepLinkRoutes) == Set(expectedDeepLinkRoutes))
+        #expect(report.nativeCapabilities.deepLinkRoutes.count == expectedDeepLinkRoutes.count)
     }
 
     @Test("native metadata report encoding is deterministic")
     func nativeMetadataReportEncodingIsDeterministic() throws {
         let report = try ScenarioReporter.report(for: .nativeMetadata)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-
-        let first = try #require(String(data: try encoder.encode(report), encoding: .utf8))
-        let second = try #require(String(data: try encoder.encode(report), encoding: .utf8))
+        let first = try #require(String(data: try ScenarioCommand.reportData(report), encoding: .utf8))
+        let second = try #require(String(data: try ScenarioCommand.reportData(report), encoding: .utf8))
 
         #expect(first == second)
         #expect(first.contains(#""stage" : "native-metadata""#))
-        #expect(first.contains(#""associatedDomains" : ["#))
         #expect(first.contains(#""applinks:spoonjoy.app""#))
-        #expect(first.contains(#""urlSchemes" : ["#))
-        #expect(first.contains(#""spoonjoy""#))
+        #expect(first.contains(#""https:\/\/spoonjoy.app\/shopping-list""#))
+        #expect(first.contains(#""spoonjoy:\/\/shopping-list""#))
+        #expect(first.contains(#""all""#))
+        #expect(first.contains(#""shopping-list""#))
     }
 
     @Test("native metadata command parses stage and output path")
@@ -87,58 +95,149 @@ struct NativeScenarioTests {
         #expect(command == ScenarioCommand(stage: .nativeMetadata, outputPath: "/tmp/spoonjoy-native-metadata.json"))
     }
 
-    @Test("app integration sources declare compile guards and expected symbols")
-    func appIntegrationSourcesDeclareCompileGuardsAndExpectedSymbols() throws {
-        let appIntentsSource = try readRepoFile("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
-        let spotlightSource = try readRepoFile("Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift")
+    @Test("app integration sources typecheck and declare expected native types")
+    func appIntegrationSourcesTypecheckAndDeclareExpectedNativeTypes() throws {
+        let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
+        let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
+        let appIntentsSource = try readRepoFile(appIntentsPath)
+        let spotlightSource = try readRepoFile(spotlightPath)
 
-        for token in [
-            "#if canImport(AppIntents)",
-            "import AppIntents",
-            "@available(iOS 27.0, macOS 27.0, *)",
-            "SpoonjoyOpenRecipeIntent",
-            "SpoonjoyStartCookingIntent",
-            "SpoonjoyAddShoppingItemIntent",
-            "SpoonjoyCaptureRecipeIntent"
+        for declaration in [
+            "struct OpenRecipeIntent: AppIntent",
+            "struct StartCookModeIntent: AppIntent",
+            "struct AddShoppingListItemIntent: AppIntent"
         ] {
-            #expect(appIntentsSource.contains(token))
+            #expect(appIntentsSource.contains(declaration))
         }
+        #expect(appIntentsSource.contains("#if canImport(AppIntents)"))
+        #expect(appIntentsSource.contains("import AppIntents"))
+        #expect(appIntentsSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
 
-        for token in [
-            "#if canImport(CoreSpotlight)",
-            "import CoreSpotlight",
-            "@available(iOS 27.0, macOS 27.0, *)",
-            "SpoonjoySpotlightIndexer",
+        for declaration in [
+            "struct SpoonjoySpotlightIndexer",
             "CSSearchableItem",
             "CSSearchableItemAttributeSet",
-            "recipe",
-            "cookbook",
-            "shoppingItem"
+            "shopping-list-item"
         ] {
-            #expect(spotlightSource.contains(token))
+            #expect(spotlightSource.contains(declaration))
+        }
+        #expect(spotlightSource.contains("#if canImport(CoreSpotlight)"))
+        #expect(spotlightSource.contains("import CoreSpotlight"))
+        #expect(spotlightSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
+
+        try assertSwiftSourceTypechecks(appIntentsPath)
+        try assertSwiftSourceTypechecks(spotlightPath)
+    }
+
+    @Test("verify native scenarios script gates native metadata behavior")
+    func verifyNativeScenariosScriptGatesNativeMetadataBehavior() throws {
+        let scriptPath = "scripts/verify-native-scenarios.sh"
+        let scriptURL = repoURL.appendingPathComponent(scriptPath)
+        let attributes = try FileManager.default.attributesOfItem(atPath: scriptURL.path)
+        let permissions = try #require(attributes[.posixPermissions] as? NSNumber).intValue
+
+        #expect(permissions & 0o111 != 0)
+
+        try withTemporaryDirectory { directory in
+            let outputURL = directory.appendingPathComponent("native-metadata.json")
+            let scratchURL = directory.appendingPathComponent("swiftpm-scratch")
+            let success = try runProcess(
+                scriptURL.path,
+                arguments: ["--stage", "native-metadata", "--output", outputURL.path],
+                environment: ["SPOONJOY_SCENARIO_SCRATCH_PATH": scratchURL.path],
+                currentDirectoryURL: repoURL
+            )
+
+            #expect(success.exitCode == 0, Comment(rawValue: success.combinedOutput))
+
+            let data = try Data(contentsOf: outputURL)
+            let report = try JSONDecoder().decode(ScenarioReport.self, from: data)
+            #expect(report.ok)
+            #expect(report.stage == .nativeMetadata)
+            #expect(report.checks.filter { $0.status == .fail }.isEmpty)
+            #expect(report.checks.filter { $0.status == .pending }.map(\.name) == ["app surfaces"])
+
+            let missingSourceRoot = directory.appendingPathComponent("missing-source-root")
+            try FileManager.default.createDirectory(at: missingSourceRoot, withIntermediateDirectories: true)
+            let missingOutputURL = directory.appendingPathComponent("native-metadata-missing.json")
+            let failure = try runProcess(
+                scriptURL.path,
+                arguments: ["--stage", "native-metadata", "--output", missingOutputURL.path],
+                environment: [
+                    "SPOONJOY_SCENARIO_ROOT": missingSourceRoot.path,
+                    "SPOONJOY_SCENARIO_SCRATCH_PATH": scratchURL.path
+                ],
+                currentDirectoryURL: repoURL
+            )
+
+            #expect(failure.exitCode != 0)
+            #expect(failure.combinedOutput.contains("app intents source"))
+            #expect(failure.combinedOutput.contains("spotlight source"))
         }
     }
 
-    @Test("verify native scenarios script gates native metadata")
-    func verifyNativeScenariosScriptGatesNativeMetadata() throws {
-        let script = try readRepoFile("scripts/verify-native-scenarios.sh")
-
-        for token in [
-            "swift run -Xswiftc -warnings-as-errors SpoonjoyScenarioVerifier",
-            "--stage",
-            "--output",
-            "native-metadata",
-            "associatedDomains",
-            "urlSchemes",
-            "deepLinkRoutes"
-        ] {
-            #expect(script.contains(token))
-        }
+    private var repoURL: URL {
+        URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     }
 
     private func readRepoFile(_ relativePath: String) throws -> String {
-        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent(relativePath)
+        let url = repoURL.appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func assertSwiftSourceTypechecks(_ relativePath: String) throws {
+        let result = try runProcess(
+            "/usr/bin/xcrun",
+            arguments: ["swiftc", "-typecheck", "-warnings-as-errors", repoURL.appendingPathComponent(relativePath).path],
+            currentDirectoryURL: repoURL
+        )
+
+        #expect(result.exitCode == 0, Comment(rawValue: result.combinedOutput))
+    }
+
+    private func runProcess(
+        _ executablePath: String,
+        arguments: [String],
+        environment: [String: String] = [:],
+        currentDirectoryURL: URL
+    ) throws -> ProcessResult {
+        let process = Process()
+        let output = Pipe()
+        let error = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
+        process.currentDirectoryURL = currentDirectoryURL
+        process.standardOutput = output
+        process.standardError = error
+        process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
+
+        try process.run()
+        process.waitUntilExit()
+
+        let outputText = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let errorText = String(data: error.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return ProcessResult(exitCode: process.terminationStatus, output: outputText, error: errorText)
+    }
+
+    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
+        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("spoonjoy-native-scenario-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        try body(directory)
+    }
+}
+
+private struct ProcessResult {
+    let exitCode: Int32
+    let output: String
+    let error: String
+
+    var combinedOutput: String {
+        output + error
     }
 }

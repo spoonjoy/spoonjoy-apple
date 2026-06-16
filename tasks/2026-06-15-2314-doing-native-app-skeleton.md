@@ -240,12 +240,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Offline coverage log.
 **Acceptance**: Coverage enforcement passes for `Sources/SpoonjoyCore/Offline`; `swift test --disable-xctest --parallel` passes.
 
-### ⬜ Unit 10a: Native Integrations And Scenario Engine — Tests
+### ✅ Unit 10a: Native Integrations And Scenario Engine — Tests
 **What**: Write failing tests/static checks for compileable AppIntents/CoreSpotlight app sources, App Intent descriptors, Spotlight/search metadata, associated-domain/custom-scheme metadata, native affordance flags, executable scenario command, and deterministic scenario report generation.
 **Output**: `Tests/SpoonjoyCoreTests/NativeScenarioTests.swift`.
 **Acceptance**: Tests fail before metadata/scenario engine and app integration source files exist.
 
-### ⬜ Unit 10b: Native Integrations And Scenario Engine — Implementation
+### ✅ Unit 10b: Native Integrations And Scenario Engine — Implementation
 **What**: Implement native-value metadata descriptors, guarded AppIntents/CoreSpotlight app sources, associated-domain/custom-scheme metadata, executable scenario report generator, thin CLI adapter, and verifier script for first-run, fixture kitchen, recipe detail, cook progress, shopping checkoff, search, capture draft, settings, offline restore, deep links, and native affordance flags.
 **Output**: `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Sources/SpoonjoyCore/Native/ScenarioReport.swift`, `Sources/SpoonjoyCore/Native/ScenarioCommand.swift`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyCore/Native/DeepLinkManifest.swift`, `Sources/SpoonjoyScenarioVerifier/main.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift`, and `scripts/verify-native-scenarios.sh`.
 **Acceptance**: Unit 10a tests pass; `swift run -Xswiftc -warnings-as-errors SpoonjoyScenarioVerifier --stage native-metadata --output ${ARTIFACT_ROOT}/scenario-native-metadata.json` emits the required schema; `scripts/verify-native-scenarios.sh --stage native-metadata` exits nonzero when AppIntents/CoreSpotlight/deep-link metadata or guarded app integration source files are absent, while allowing explicitly pending surface checks for Units 14-16.
@@ -483,3 +483,5 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 09:11 Addressed Unit 9 reviewer findings by adding an explicit versioned queued-mutation JSON schema, canonical queued client-mutation ID storage/removal, and filesystem-read error handling distinct from corrupt JSON fallback; focused Offline tests, `Sources/SpoonjoyCore/Offline` coverage at 100.00% (202/202), full Swift tests, warning scan, and warning-enforced Swift build pass.
 - 2026-06-16 09:12 Unit 8 review Round 3 converged with no remaining findings.
 - 2026-06-16 09:15 Unit 10a complete: added failing native scenario tests for Apple-native capability metadata, deterministic native-metadata reports, AppIntents/CoreSpotlight guarded app sources, associated-domain/custom-scheme/deep-link declarations, and the native scenario verifier script; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-10a-red.log`.
+- 2026-06-16 09:27 Addressed Unit 10a sidecar review findings by aligning route metadata with the accepted deep-link contract, requiring `OpenRecipeIntent`, `StartCookModeIntent`, and `AddShoppingListItemIntent`, typechecking guarded AppIntents/CoreSpotlight sources, and making the verifier script test execute the real script with isolated SwiftPM scratch state; review-fix red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-10a-review-fix-red.log`.
+- 2026-06-16 09:27 Unit 10b complete: implemented native capability metadata, deterministic scenario reports, a core-owned scenario command, thin executable adapter, guarded AppIntents/CoreSpotlight app sources, and `scripts/verify-native-scenarios.sh`; focused native tests, scenario command, verifier script, full Swift tests, warning scan, and warning-enforced Swift build pass.
