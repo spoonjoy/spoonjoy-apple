@@ -1,0 +1,74 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+[2/34] Compiling SpoonjoyCore AuthSessionState.swift
+[3/34] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[4/34] Compiling SpoonjoyCore OAuthPKCE.swift
+[5/34] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[6/34] Compiling SpoonjoyCore ShoppingListAPI.swift
+[7/34] Compiling SpoonjoyCore ShoppingListRequests.swift
+[8/34] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[9/34] Compiling SpoonjoyCore OAuthRequests.swift
+[10/34] Compiling SpoonjoyCore OAuthResponses.swift
+[11/34] Compiling SpoonjoyCore CookModeProgress.swift
+[12/34] Compiling SpoonjoyCore KitchenFixtureState.swift
+[13/34] Compiling SpoonjoyCore SettingsState.swift
+[14/34] Emitting module SpoonjoyCore
+[15/36] Compiling SpoonjoyCore SpoonjoyCore.swift
+[16/36] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[17/36] Compiling SpoonjoyCore ShoppingListState.swift
+[18/36] Compiling SpoonjoyCore JSONFileStore.swift
+[19/36] Compiling SpoonjoyCore MutationQueue.swift
+[20/36] Compiling SpoonjoyCore OfflineSnapshot.swift
+[21/36] Compiling SpoonjoyCore SyncCheckpoint.swift
+[22/36] Compiling SpoonjoyCore RecipeCookbook.swift
+[23/36] Compiling SpoonjoyCore APIClient.swift
+[24/36] Compiling SpoonjoyCore APIEnvelope.swift
+[25/36] Compiling SpoonjoyCore APIError.swift
+[26/36] Compiling SpoonjoyCore APIRequestBuilder.swift
+[27/36] Compiling SpoonjoyCore APIRetryPolicy.swift
+[28/36] Compiling SpoonjoyCore PaginationCursor.swift
+[29/36] Compiling SpoonjoyCore RefreshCoordinator.swift
+[30/36] Compiling SpoonjoyCore TokenVault.swift
+[31/36] Compiling SpoonjoyCore CaptureDraft.swift
+[32/47] Compiling SpoonjoyScenarioVerifier main.swift
+[33/47] Emitting module SpoonjoyScenarioVerifier
+[33/47] Write Objects.LinkFileList
+[34/47] Linking SpoonjoyScenarioVerifier
+[35/47] Applying SpoonjoyScenarioVerifier
+[37/47] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[38/47] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[39/47] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[40/47] Emitting module SpoonjoyCoreTests
+[41/47] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[42/47] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[43/47] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[44/47] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[45/47] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[46/49] Compiling SpoonjoyApplePackageTests runner.swift
+[47/49] Emitting module SpoonjoyApplePackageTests
+[47/49] Write Objects.LinkFileList
+[48/49] Linking SpoonjoyApplePackageTests
+Build complete! (6.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Offline store and mutation queue" started.
+◇ Test "JSON file store saves loads deletes and reports file source" started.
+◇ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" started.
+◇ Test "offline snapshot restores shopping list checkpoint and pending mutations" started.
+◇ Test "mutation queue serializes shopping mutations and rejects duplicates" started.
+◇ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" started.
+◇ Test "sync checkpoint persists trimmed durable shopping cursor" started.
+◇ Test "JSON file store does not fallback for filesystem read errors" started.
+◇ Test "JSON file store reports non-decoding parser failures as unreadable" started.
+✔ Test "mutation queue serializes shopping mutations and rejects duplicates" passed after 0.002 seconds.
+✔ Test "JSON file store reports non-decoding parser failures as unreadable" passed after 0.002 seconds.
+✔ Test "sync checkpoint persists trimmed durable shopping cursor" passed after 0.002 seconds.
+✔ Test "offline snapshot restores shopping list checkpoint and pending mutations" passed after 0.004 seconds.
+✔ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" passed after 0.005 seconds.
+✔ Test "JSON file store does not fallback for filesystem read errors" passed after 0.005 seconds.
+✔ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" passed after 0.005 seconds.
+✔ Test "JSON file store saves loads deletes and reports file source" passed after 0.005 seconds.
+✔ Suite "Offline store and mutation queue" passed after 0.006 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.006 seconds.

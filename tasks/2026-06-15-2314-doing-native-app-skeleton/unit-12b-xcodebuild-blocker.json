@@ -1,0 +1,83 @@
+{
+  "capability": "XcodeBuild",
+  "blocked": true,
+  "detectedAt": "2026-06-16T10:10:00-07:00",
+  "lastConfirmedAt": "2026-06-16T10:23:00-07:00",
+  "xcode": {
+    "developerDir": "/Applications/Xcode.app/Contents/Developer",
+    "version": "Xcode 26.5",
+    "build": "17F42"
+  },
+  "reason": "Every xcodebuild project mode fails before reading Spoonjoy.xcodeproj because com.apple.dt.IDESimulatorFoundation cannot load against the installed /Library/Developer/PrivateFrameworks/DVTDownloads.framework.",
+  "dyldError": "Symbol not found: _$s12DVTDownloads21DownloadableAssetTypeO22developerDocumentationyA2CmFWC",
+  "failedCommands": [
+    {
+      "command": "xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-ios-build.log",
+      "exitCode": 70
+    },
+    {
+      "command": "xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-macos-build.log",
+      "exitCode": 70
+    },
+    {
+      "command": "xcodebuild -list -project Spoonjoy.xcodeproj",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-resume-xcode-list.log",
+      "exitCode": 70
+    },
+    {
+      "command": "xcodebuild -project Spoonjoy.xcodeproj -target 'Spoonjoy macOS' -configuration BootstrapDebug -sdk macosx CODE_SIGNING_ALLOWED=NO build",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-macos-target-build.log",
+      "exitCode": 70
+    }
+  ],
+  "repairAttempts": [
+    {
+      "command": "xcodebuild -checkFirstLaunchStatus",
+      "exitCode": 69,
+      "detail": "First-launch work is pending."
+    },
+    {
+      "command": "xcodebuild -runFirstLaunch",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-xcode-run-first-launch.log",
+      "detail": "Non-privileged first-launch repair produced no output and was terminated after hanging."
+    },
+    {
+      "command": "sudo -n true",
+      "detail": "Passwordless sudo is unavailable, so the agent cannot run privileged first-launch repair."
+    }
+  ],
+  "reviewerFindingsAddressed": [
+    {
+      "reviewer": "Halley",
+      "severity": "MAJOR",
+      "finding": "Generated project contained version-pinned SDK framework paths for iPhoneOS18.0 Foundation.framework and MacOSX15.0 Cocoa.framework.",
+      "resolution": "Generator now removes xcodeproj default Foundation/Cocoa framework references from app targets and the project contract rejects version-pinned SDK framework paths.",
+      "evidence": [
+        "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-contracts.log",
+        "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-macos-typecheck.log",
+        "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-ios-typecheck.log"
+      ]
+    }
+  ],
+  "passingFallbackChecks": [
+    {
+      "command": "ruby scripts/check-xcode-generator-contract.rb",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-contracts.log"
+    },
+    {
+      "command": "ruby scripts/check-xcode-project-contract.rb",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-contracts.log"
+    },
+    {
+      "command": "swiftc -typecheck -parse-as-library -target arm64-apple-macos26.2 ...",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-macos-typecheck.log"
+    },
+    {
+      "command": "swiftc -typecheck -parse-as-library -target arm64-apple-ios26.5-simulator ...",
+      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/unit-12b-review-fix-ios-typecheck.log"
+    }
+  ],
+  "requiredResolution": "Run privileged Xcode first-launch repair or reinstall/update Xcode so /Library/Developer private frameworks match Xcode 26.5, then rerun the exact iOS and macOS BootstrapDebug xcodebuild commands."
+}

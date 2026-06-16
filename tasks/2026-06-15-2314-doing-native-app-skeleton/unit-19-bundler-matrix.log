@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "generatedAt": "2026-06-16T20:29:27Z",
+  "stepCount": 22,
+  "bundleCheck": {
+    "name": "ruby bundle check",
+    "status": "pass",
+    "command": "scripts/bundle-check.sh",
+    "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-bundle-check.log",
+    "required": true
+  },
+  "failedSteps": [
+
+  ],
+  "blockedSteps": [
+    {
+      "name": "iOS app bundle",
+      "blockerPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/ios-app-bundle-blocker.json"
+    }
+  ],
+  "blockers": [
+    {
+      "capability": "XcodePlatform",
+      "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/ios-app-bundle-blocker.json",
+      "reason": "Local Xcode cannot build the iOS simulator bundle, usually because the matching iOS simulator platform/runtime is not installed."
+    },
+    {
+      "capability": "AASAProductionValidation",
+      "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/aasa-production-blocker.json",
+      "reason": "AASA endpoint did not return valid JSON."
+    },
+    {
+      "capability": "CoreSimulator",
+      "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator-blocker.json",
+      "reason": "No available iPhone simulator destination was found."
+    }
+  ]
+}

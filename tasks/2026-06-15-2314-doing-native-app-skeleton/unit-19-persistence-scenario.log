@@ -1,0 +1,11 @@
+Another instance of SwiftPM (PID: 94476) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.14s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "final report proves search capture settings and deep link safety" started.
+✔ Test "final report proves search capture settings and deep link safety" passed after 0.013 seconds.
+✔ Suite "Native scenario metadata" passed after 0.014 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.014 seconds.

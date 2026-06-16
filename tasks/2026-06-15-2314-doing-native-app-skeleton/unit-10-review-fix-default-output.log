@@ -1,0 +1,13 @@
+$ TMPDIR=/tmp/spoonjoy-native-default.RaWu1a/ scripts/verify-native-scenarios.sh --stage native-metadata
+[0/1] Planning build
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build of product 'SpoonjoyScenarioVerifier' complete! (0.17s)
+native scenario verification ok: native-metadata
+$ TMPDIR=/tmp/spoonjoy-native-default.RaWu1a/ scripts/verify-native-scenarios.sh --stage native-metadata
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build of product 'SpoonjoyScenarioVerifier' complete! (0.13s)
+native scenario verification ok: native-metadata
+$ find /tmp/spoonjoy-native-default.RaWu1a -maxdepth 1 -name "spoonjoy-scenario-native-metadata.*.json" | wc -l
+       2

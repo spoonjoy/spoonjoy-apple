@@ -1,0 +1,46 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/9] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[4/9] Emitting module SpoonjoyCore
+[5/9] Compiling SpoonjoyCore RecipeCookbook.swift
+[6/9] Compiling SpoonjoyCore APIRequestBuilder.swift
+[7/13] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[8/13] Compiling SpoonjoyCore SettingsState.swift
+[9/13] Compiling SpoonjoyCore APIClient.swift
+[10/13] Compiling SpoonjoyCore ShoppingListState.swift
+[11/22] Compiling SpoonjoyScenarioVerifier main.swift
+[12/22] Emitting module SpoonjoyScenarioVerifier
+[12/22] Write Objects.LinkFileList
+[13/22] Linking SpoonjoyScenarioVerifier
+[14/22] Applying SpoonjoyScenarioVerifier
+[16/22] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[17/22] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[18/22] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[19/22] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[20/22] Emitting module SpoonjoyCoreTests
+[20/22] Write Objects.LinkFileList
+[21/22] Linking SpoonjoyApplePackageTests
+Build complete! (3.70s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Public API v1 read client" started.
+◇ Test "success envelopes decode recipe list data and pagination metadata" started.
+◇ Test "cookbook list and detail requests share public read policy" started.
+◇ Test "recipe detail request encodes path ids and omits stale bearer token by default" started.
+◇ Test "error envelopes map API errors without losing status or request id" started.
+◇ Test "pagination cursor rejects blank raw values" started.
+◇ Test "recipe list request builds anonymous GET with query parameters" started.
+◇ Test "cookbook list data decodes summary rows without detail recipes" started.
+◇ Test "public reads keep blank bearer tokens and blank queries out of requests" started.
+✔ Test "recipe detail request encodes path ids and omits stale bearer token by default" passed after 0.001 seconds.
+✔ Test "cookbook list and detail requests share public read policy" passed after 0.001 seconds.
+✔ Test "public reads keep blank bearer tokens and blank queries out of requests" passed after 0.001 seconds.
+✔ Test "recipe list request builds anonymous GET with query parameters" passed after 0.001 seconds.
+✔ Test "success envelopes decode recipe list data and pagination metadata" passed after 0.001 seconds.
+✔ Test "cookbook list data decodes summary rows without detail recipes" passed after 0.001 seconds.
+✔ Test "pagination cursor rejects blank raw values" passed after 0.001 seconds.
+✔ Test "error envelopes map API errors without losing status or request id" passed after 0.001 seconds.
+✔ Suite "Public API v1 read client" passed after 0.001 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.001 seconds.

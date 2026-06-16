@@ -1,0 +1,2 @@
+$ ruby scripts/check-xcode-project-contract.rb
+FAIL: missing Spoonjoy.xcodeproj

@@ -1,0 +1,1 @@
+FAIL: /var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/tmp.aBs3h9hcP0 SHA-256 88a909c2ba6a646cef93d86e6d043b92a0869a6c90579e50d224a4c4a534bed9 does not match expected 9c2ebdb8cbfa71e202a344099e23c544899482b256353a4c828f10d0c047ab56; update docs/native-design-language.md and this contract intentionally

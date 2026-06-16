@@ -1,0 +1,212 @@
+$ swift test --filter APIReadClientTests --disable-xctest --parallel -Xswiftc -warnings-as-errors
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+[3/9] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[4/9] Emitting module SpoonjoyCoreTests
+[5/9] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[6/9] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[7/9] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:9:27: error: cannot find 'PublicCatalogRequests' in scope
+  7 |     @Test("recipe list request builds anonymous GET with query parameters")
+  8 |     func recipeListRequestBuildsAnonymousGETWithQueryParameters() throws {
+  9 |         let request = try PublicCatalogRequests.listRecipes(
+    |                           `- error: cannot find 'PublicCatalogRequests' in scope
+ 10 |             query: "lemon pasta",
+ 11 |             limit: 20,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:12:21: error: cannot find 'PaginationCursor' in scope
+ 10 |             query: "lemon pasta",
+ 11 |             limit: 20,
+ 12 |             cursor: PaginationCursor(rawValue: "v1.cursor.next")
+    |                     `- error: cannot find 'PaginationCursor' in scope
+ 13 |         )
+ 14 |         .urlRequest(configuration: .spoonjoyProduction)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:14:37: error: cannot infer contextual base in reference to member 'spoonjoyProduction'
+ 12 |             cursor: PaginationCursor(rawValue: "v1.cursor.next")
+ 13 |         )
+ 14 |         .urlRequest(configuration: .spoonjoyProduction)
+    |                                     `- error: cannot infer contextual base in reference to member 'spoonjoyProduction'
+ 15 | 
+ 16 |         #expect(request.method == .get)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:16:36: error: cannot infer contextual base in reference to member 'get'
+ 14 |         .urlRequest(configuration: .spoonjoyProduction)
+ 15 | 
+ 16 |         #expect(request.method == .get)
+    |                                    `- error: cannot infer contextual base in reference to member 'get'
+ 17 |         #expect(request.url.path == "/api/v1/recipes")
+ 18 |         #expect(request.queryItems == [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:30:29: error: cannot find 'APIClientConfiguration' in scope
+ 28 |     @Test("recipe detail request encodes path ids and omits stale bearer token by default")
+ 29 |     func recipeDetailRequestEncodesPathAndOmitsBearerByDefault() throws {
+ 30 |         let configuration = APIClientConfiguration(
+    |                             `- error: cannot find 'APIClientConfiguration' in scope
+ 31 |             baseURL: URL(string: "https://spoonjoy.app")!,
+ 32 |             bearerToken: "stale-token"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:34:36: error: cannot find 'PublicCatalogRequests' in scope
+ 32 |             bearerToken: "stale-token"
+ 33 |         )
+ 34 |         let anonymousRequest = try PublicCatalogRequests.recipeDetail(id: "recipe/with spaces")
+    |                                    `- error: cannot find 'PublicCatalogRequests' in scope
+ 35 |             .urlRequest(configuration: configuration)
+ 36 |         let authenticatedRequest = try PublicCatalogRequests.recipeDetail(id: "recipe_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:36:40: error: cannot find 'PublicCatalogRequests' in scope
+ 34 |         let anonymousRequest = try PublicCatalogRequests.recipeDetail(id: "recipe/with spaces")
+ 35 |             .urlRequest(configuration: configuration)
+ 36 |         let authenticatedRequest = try PublicCatalogRequests.recipeDetail(id: "recipe_1")
+    |                                        `- error: cannot find 'PublicCatalogRequests' in scope
+ 37 |             .urlRequest(configuration: configuration, authorization: .includeBearerToken)
+ 38 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:37:71: error: cannot infer contextual base in reference to member 'includeBearerToken'
+ 35 |             .urlRequest(configuration: configuration)
+ 36 |         let authenticatedRequest = try PublicCatalogRequests.recipeDetail(id: "recipe_1")
+ 37 |             .urlRequest(configuration: configuration, authorization: .includeBearerToken)
+    |                                                                       `- error: cannot infer contextual base in reference to member 'includeBearerToken'
+ 38 | 
+ 39 |         #expect(anonymousRequest.method == .get)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:39:45: error: cannot infer contextual base in reference to member 'get'
+ 37 |             .urlRequest(configuration: configuration, authorization: .includeBearerToken)
+ 38 | 
+ 39 |         #expect(anonymousRequest.method == .get)
+    |                                             `- error: cannot infer contextual base in reference to member 'get'
+ 40 |         #expect(anonymousRequest.url.path == "/api/v1/recipes/recipe%2Fwith%20spaces")
+ 41 |         #expect(anonymousRequest.headers["Authorization"] == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:47:24: error: cannot find 'PublicCatalogRequests' in scope
+ 45 |     @Test("cookbook list and detail requests share public read policy")
+ 46 |     func cookbookRequestsSharePublicReadPolicy() throws {
+ 47 |         let list = try PublicCatalogRequests.listCookbooks(query: nil, limit: 10, cursor: nil)
+    |                        `- error: cannot find 'PublicCatalogRequests' in scope
+ 48 |             .urlRequest(configuration: .spoonjoyProduction)
+ 49 |         let detail = try PublicCatalogRequests.cookbookDetail(id: "cookbook_weeknights")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:47:67: error: 'nil' requires a contextual type
+ 45 |     @Test("cookbook list and detail requests share public read policy")
+ 46 |     func cookbookRequestsSharePublicReadPolicy() throws {
+ 47 |         let list = try PublicCatalogRequests.listCookbooks(query: nil, limit: 10, cursor: nil)
+    |                                                                   `- error: 'nil' requires a contextual type
+ 48 |             .urlRequest(configuration: .spoonjoyProduction)
+ 49 |         let detail = try PublicCatalogRequests.cookbookDetail(id: "cookbook_weeknights")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:47:91: error: 'nil' requires a contextual type
+ 45 |     @Test("cookbook list and detail requests share public read policy")
+ 46 |     func cookbookRequestsSharePublicReadPolicy() throws {
+ 47 |         let list = try PublicCatalogRequests.listCookbooks(query: nil, limit: 10, cursor: nil)
+    |                                                                                           `- error: 'nil' requires a contextual type
+ 48 |             .urlRequest(configuration: .spoonjoyProduction)
+ 49 |         let detail = try PublicCatalogRequests.cookbookDetail(id: "cookbook_weeknights")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:48:41: error: cannot infer contextual base in reference to member 'spoonjoyProduction'
+ 46 |     func cookbookRequestsSharePublicReadPolicy() throws {
+ 47 |         let list = try PublicCatalogRequests.listCookbooks(query: nil, limit: 10, cursor: nil)
+ 48 |             .urlRequest(configuration: .spoonjoyProduction)
+    |                                         `- error: cannot infer contextual base in reference to member 'spoonjoyProduction'
+ 49 |         let detail = try PublicCatalogRequests.cookbookDetail(id: "cookbook_weeknights")
+ 50 |             .urlRequest(configuration: .spoonjoyProduction)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:49:26: error: cannot find 'PublicCatalogRequests' in scope
+ 47 |         let list = try PublicCatalogRequests.listCookbooks(query: nil, limit: 10, cursor: nil)
+ 48 |             .urlRequest(configuration: .spoonjoyProduction)
+ 49 |         let detail = try PublicCatalogRequests.cookbookDetail(id: "cookbook_weeknights")
+    |                          `- error: cannot find 'PublicCatalogRequests' in scope
+ 50 |             .urlRequest(configuration: .spoonjoyProduction)
+ 51 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:50:41: error: cannot infer contextual base in reference to member 'spoonjoyProduction'
+ 48 |             .urlRequest(configuration: .spoonjoyProduction)
+ 49 |         let detail = try PublicCatalogRequests.cookbookDetail(id: "cookbook_weeknights")
+ 50 |             .urlRequest(configuration: .spoonjoyProduction)
+    |                                         `- error: cannot infer contextual base in reference to member 'spoonjoyProduction'
+ 51 | 
+ 52 |         #expect(list.method == .get)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:52:33: error: cannot infer contextual base in reference to member 'get'
+ 50 |             .urlRequest(configuration: .spoonjoyProduction)
+ 51 | 
+ 52 |         #expect(list.method == .get)
+    |                                 `- error: cannot infer contextual base in reference to member 'get'
+ 53 |         #expect(list.url.path == "/api/v1/cookbooks")
+ 54 |         #expect(list.queryItems == [URLQueryItem(name: "limit", value: "10")])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:56:35: error: cannot infer contextual base in reference to member 'get'
+ 54 |         #expect(list.queryItems == [URLQueryItem(name: "limit", value: "10")])
+ 55 |         #expect(list.headers["Authorization"] == nil)
+ 56 |         #expect(detail.method == .get)
+    |                                   `- error: cannot infer contextual base in reference to member 'get'
+ 57 |         #expect(detail.url.path == "/api/v1/cookbooks/cookbook_weeknights")
+ 58 |         #expect(detail.queryItems.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:64:28: error: cannot find 'APIEnvelope' in scope
+ 62 |     @Test("success envelopes decode recipe list data and pagination metadata")
+ 63 |     func successEnvelopesDecodeRecipeListAndPagination() throws {
+ 64 |         let envelope = try APIEnvelope<RecipeListData>.decode(
+    |                            `- error: cannot find 'APIEnvelope' in scope
+ 65 |             Data(
+ 66 |                 """
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:64:40: error: cannot find type 'RecipeListData' in scope
+ 62 |     @Test("success envelopes decode recipe list data and pagination metadata")
+ 63 |     func successEnvelopesDecodeRecipeListAndPagination() throws {
+ 64 |         let envelope = try APIEnvelope<RecipeListData>.decode(
+    |                                       |`- error: cannot find type 'RecipeListData' in scope
+    |                                       `- note: while parsing this '<' as a type parameter bracket
+ 65 |             Data(
+ 66 |                 """
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:108:45: error: cannot find 'PaginationCursor' in scope
+106 |         #expect(envelope.requestID == "req_recipe_list")
+107 |         #expect(envelope.data.query == "lemon")
+108 |         #expect(envelope.data.nextCursor == PaginationCursor(rawValue: "v1.next"))
+    |                                             `- error: cannot find 'PaginationCursor' in scope
+109 |         #expect(envelope.data.hasMore)
+110 |         #expect(envelope.data.recipes.first?.id == "recipe_lemon_pantry_pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:115:26: error: cannot find 'APIEnvelope' in scope
+113 |     @Test("error envelopes map API errors without losing status or request id")
+114 |     func errorEnvelopesMapAPIErrors() throws {
+115 |         let result = try APIEnvelope<RecipeListData>.decodeResult(
+    |                          `- error: cannot find 'APIEnvelope' in scope
+116 |             Data(
+117 |                 """
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:115:38: error: cannot find type 'RecipeListData' in scope
+113 |     @Test("error envelopes map API errors without losing status or request id")
+114 |     func errorEnvelopesMapAPIErrors() throws {
+115 |         let result = try APIEnvelope<RecipeListData>.decodeResult(
+    |                                     |`- error: cannot find type 'RecipeListData' in scope
+    |                                     `- note: while parsing this '<' as a type parameter bracket
+116 |             Data(
+117 |                 """
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:131:36: error: cannot find 'APIError' in scope
+129 |         )
+130 | 
+131 |         #expect(result == .failure(APIError(requestID: "req_error", code: "not_found", message: "Recipe not found", status: 404)))
+    |                                    `- error: cannot find 'APIError' in scope
+132 |     }
+133 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:136:17: error: cannot find 'PaginationCursor' in scope
+134 |     @Test("pagination cursor rejects blank raw values")
+135 |     func paginationCursorRejectsBlankValues() {
+136 |         #expect(PaginationCursor(rawValue: "v1.valid")?.rawValue == "v1.valid")
+    |                 `- error: cannot find 'PaginationCursor' in scope
+137 |         #expect(PaginationCursor(rawValue: "   ") == nil)
+138 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APIReadClientTests.swift:137:17: error: cannot find 'PaginationCursor' in scope
+135 |     func paginationCursorRejectsBlankValues() {
+136 |         #expect(PaginationCursor(rawValue: "v1.valid")?.rawValue == "v1.valid")
+137 |         #expect(PaginationCursor(rawValue: "   ") == nil)
+    |                 `- error: cannot find 'PaginationCursor' in scope
+138 |     }
+139 | }
+error: fatalError

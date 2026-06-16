@@ -1,0 +1,4 @@
+$ ruby scripts/check-xcode-generator-contract.rb
+xcode generator contract ok
+$ ruby scripts/check-xcode-project-contract.rb
+xcode project contract ok

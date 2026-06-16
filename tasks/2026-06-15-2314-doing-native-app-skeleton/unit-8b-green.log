@@ -1,0 +1,44 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/13] Compiling SpoonjoyCore TokenVault.swift
+[4/13] Compiling SpoonjoyCore RefreshCoordinator.swift
+[5/13] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[6/13] Compiling SpoonjoyCore OAuthResponses.swift
+[7/13] Emitting module SpoonjoyCore
+[8/13] Compiling SpoonjoyCore AuthSessionState.swift
+[9/23] Emitting module SpoonjoyScenarioVerifier
+[10/23] Compiling SpoonjoyScenarioVerifier main.swift
+[10/23] Write Objects.LinkFileList
+[11/23] Linking SpoonjoyScenarioVerifier
+[12/23] Applying SpoonjoyScenarioVerifier
+[14/23] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[15/23] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[16/23] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[17/23] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[18/23] Emitting module SpoonjoyCoreTests
+[19/23] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[20/23] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[21/23] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[21/23] Write Objects.LinkFileList
+[22/23] Linking SpoonjoyApplePackageTests
+Build complete! (3.91s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Token vault and refresh coordination" started.
+◇ Test "auth sessions validate, classify state, and rotate token responses" started.
+◇ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" started.
+◇ Test "missing sessions are invalid refresh state" started.
+◇ Test "refresh failures preserve prior session and disconnect clears auth state" started.
+◇ Test "token vault persists client id and sessions independently" started.
+◇ Test "refresh coordinator returns valid sessions without network refresh" started.
+✔ Test "token vault persists client id and sessions independently" passed after 0.001 seconds.
+✔ Test "refresh failures preserve prior session and disconnect clears auth state" passed after 0.001 seconds.
+✔ Test "refresh coordinator returns valid sessions without network refresh" passed after 0.001 seconds.
+✔ Test "missing sessions are invalid refresh state" passed after 0.001 seconds.
+✔ Test "auth sessions validate, classify state, and rotate token responses" passed after 0.001 seconds.
+✔ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" passed after 0.031 seconds.
+✔ Suite "Token vault and refresh coordination" passed after 0.031 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.032 seconds.

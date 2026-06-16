@@ -1,0 +1,63 @@
+{
+  "id": "shopping_list_ari",
+  "chef": {
+    "id": "chef_ari",
+    "username": "ari"
+  },
+  "nextCursor": "v1.fixture.shopping.cursor",
+  "updatedAt": "2026-06-01T00:15:00.000Z",
+  "items": [
+    {
+      "id": "item_lemons",
+      "name": "lemons",
+      "quantity": 2,
+      "unit": "each",
+      "checked": false,
+      "checkedAt": null,
+      "deletedAt": null,
+      "categoryKey": "produce",
+      "iconKey": "lemon",
+      "sortIndex": 0,
+      "updatedAt": "2026-06-01T00:00:00.000Z"
+    },
+    {
+      "id": "item_spaghetti",
+      "name": "spaghetti",
+      "quantity": 12,
+      "unit": "oz",
+      "checked": false,
+      "checkedAt": null,
+      "deletedAt": null,
+      "categoryKey": "pantry",
+      "iconKey": "pasta",
+      "sortIndex": 1,
+      "updatedAt": "2026-06-01T00:01:00.000Z"
+    },
+    {
+      "id": "item_parmesan",
+      "name": "parmesan",
+      "quantity": 0.5,
+      "unit": "cup",
+      "checked": false,
+      "checkedAt": null,
+      "deletedAt": null,
+      "categoryKey": "dairy",
+      "iconKey": "cheese",
+      "sortIndex": 2,
+      "updatedAt": "2026-06-01T00:02:00.000Z"
+    },
+    {
+      "id": "item_removed_basil",
+      "name": "basil",
+      "quantity": 1,
+      "unit": "bunch",
+      "checked": false,
+      "checkedAt": null,
+      "deletedAt": "2026-06-01T00:05:00.000Z",
+      "categoryKey": "produce",
+      "iconKey": "herb",
+      "sortIndex": 3,
+      "updatedAt": "2026-06-01T00:05:00.000Z"
+    }
+  ]
+}

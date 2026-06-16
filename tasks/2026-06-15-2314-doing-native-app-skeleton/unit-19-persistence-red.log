@@ -1,0 +1,63 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+[3/15] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[4/15] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[5/15] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[6/15] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[7/16] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[8/16] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[9/16] Emitting module SpoonjoyCoreTests
+[10/16] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[11/16] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[12/16] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/AppStateTests.swift:178:13: error: cannot find 'withTemporaryDirectory' in scope
+176 |     @Test("native app snapshot persists first run cook shopping capture and queued mutations")
+177 |     func nativeAppSnapshotPersistsFirstRunCookShoppingCaptureAndQueuedMutations() throws {
+178 |         try withTemporaryDirectory { directory in
+    |             `- error: cannot find 'withTemporaryDirectory' in scope
+179 |             let fileURL = directory.appendingPathComponent("native-state.json")
+180 |             let store = NativeAppStateStore(fileURL: fileURL)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/AppStateTests.swift:180:25: error: cannot find 'NativeAppStateStore' in scope
+178 |         try withTemporaryDirectory { directory in
+179 |             let fileURL = directory.appendingPathComponent("native-state.json")
+180 |             let store = NativeAppStateStore(fileURL: fileURL)
+    |                         `- error: cannot find 'NativeAppStateStore' in scope
+181 |             let shoppingList = try ShoppingListState.decodeFromBundle()
+182 |             let recipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/AppStateTests.swift:203:28: error: cannot find 'NativeAppSnapshot' in scope
+201 |                 kind: .shoppingCheck(itemID: "item_lemons", checked: true)
+202 |             )
+203 |             let fallback = NativeAppSnapshot.bootstrap(
+    |                            `- error: cannot find 'NativeAppSnapshot' in scope
+204 |                 shoppingList: shoppingList,
+205 |                 savedAt: "2026-06-16T13:29:00.000Z"
+[13/16] Compiling SpoonjoyCoreTests AppStateTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/AppStateTests.swift:178:13: error: cannot find 'withTemporaryDirectory' in scope
+176 |     @Test("native app snapshot persists first run cook shopping capture and queued mutations")
+177 |     func nativeAppSnapshotPersistsFirstRunCookShoppingCaptureAndQueuedMutations() throws {
+178 |         try withTemporaryDirectory { directory in
+    |             `- error: cannot find 'withTemporaryDirectory' in scope
+179 |             let fileURL = directory.appendingPathComponent("native-state.json")
+180 |             let store = NativeAppStateStore(fileURL: fileURL)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/AppStateTests.swift:180:25: error: cannot find 'NativeAppStateStore' in scope
+178 |         try withTemporaryDirectory { directory in
+179 |             let fileURL = directory.appendingPathComponent("native-state.json")
+180 |             let store = NativeAppStateStore(fileURL: fileURL)
+    |                         `- error: cannot find 'NativeAppStateStore' in scope
+181 |             let shoppingList = try ShoppingListState.decodeFromBundle()
+182 |             let recipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/AppStateTests.swift:203:28: error: cannot find 'NativeAppSnapshot' in scope
+201 |                 kind: .shoppingCheck(itemID: "item_lemons", checked: true)
+202 |             )
+203 |             let fallback = NativeAppSnapshot.bootstrap(
+    |                            `- error: cannot find 'NativeAppSnapshot' in scope
+204 |                 shoppingList: shoppingList,
+205 |                 savedAt: "2026-06-16T13:29:00.000Z"
+[14/16] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+error: fatalError

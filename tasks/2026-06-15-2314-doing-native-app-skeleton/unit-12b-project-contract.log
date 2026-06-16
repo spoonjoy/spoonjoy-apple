@@ -1,0 +1,2 @@
+$ ruby scripts/check-xcode-project-contract.rb
+xcode project contract ok

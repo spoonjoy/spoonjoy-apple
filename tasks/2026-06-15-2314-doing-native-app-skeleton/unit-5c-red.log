@@ -1,0 +1,57 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/21] Compiling SpoonjoyCore KitchenFixtureState.swift
+[4/22] Compiling SpoonjoyCore PaginationCursor.swift
+[5/22] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[6/22] Compiling SpoonjoyCore APIError.swift
+[7/22] Compiling SpoonjoyCore APIRequestBuilder.swift
+[8/22] Compiling SpoonjoyCore SettingsState.swift
+[9/22] Compiling SpoonjoyCore SpoonjoyCore.swift
+[10/22] Compiling SpoonjoyCore ShoppingListState.swift
+[11/22] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[12/22] Compiling SpoonjoyCore CaptureDraft.swift
+[13/22] Compiling SpoonjoyCore CookModeProgress.swift
+[14/22] Emitting module SpoonjoyCore
+[15/22] Compiling SpoonjoyCore RecipeCookbook.swift
+[16/22] Compiling SpoonjoyCore APIClient.swift
+[17/22] Compiling SpoonjoyCore APIEnvelope.swift
+[18/29] Compiling SpoonjoyScenarioVerifier main.swift
+[19/29] Emitting module SpoonjoyScenarioVerifier
+[19/29] Write Objects.LinkFileList
+[21/29] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[22/29] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[22/29] Linking SpoonjoyScenarioVerifier
+[23/29] Applying SpoonjoyScenarioVerifier
+[25/29] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[26/29] Emitting module SpoonjoyCoreTests
+[27/29] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[28/31] Compiling SpoonjoyApplePackageTests runner.swift
+[29/31] Emitting module SpoonjoyApplePackageTests
+[29/31] Write Objects.LinkFileList
+[30/31] Linking SpoonjoyApplePackageTests
+Build complete! (4.67s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Public API v1 read client" started.
+◇ Test "cookbook list data decodes summary rows without detail recipes" started.
+◇ Test "cookbook list and detail requests share public read policy" started.
+◇ Test "recipe list request builds anonymous GET with query parameters" started.
+◇ Test "pagination cursor rejects blank raw values" started.
+◇ Test "error envelopes map API errors without losing status or request id" started.
+◇ Test "public reads keep blank bearer tokens and blank queries out of requests" started.
+◇ Test "success envelopes decode recipe list data and pagination metadata" started.
+◇ Test "recipe detail request encodes path ids and omits stale bearer token by default" started.
+✔ Test "public reads keep blank bearer tokens and blank queries out of requests" passed after 0.001 seconds.
+✔ Test "success envelopes decode recipe list data and pagination metadata" passed after 0.001 seconds.
+✔ Test "cookbook list and detail requests share public read policy" passed after 0.001 seconds.
+✔ Test "recipe list request builds anonymous GET with query parameters" passed after 0.001 seconds.
+✔ Test "recipe detail request encodes path ids and omits stale bearer token by default" passed after 0.001 seconds.
+✘ Test "cookbook list data decodes summary rows without detail recipes" recorded an issue at APIReadClientTests.swift:90:6: Caught error: .keyNotFound(CodingKeys(stringValue: "recipes", intValue: nil), Swift.DecodingError.Context(codingPath: [CodingKeys(stringValue: "data", intValue: nil), CodingKeys(stringValue: "cookbooks", intValue: nil), _CodingKey(stringValue: "Index 0", intValue: 0)], debugDescription: "No value associated with key CodingKeys(stringValue: \"recipes\", intValue: nil) (\"recipes\").", underlyingError: nil))
+✔ Test "pagination cursor rejects blank raw values" passed after 0.001 seconds.
+✔ Test "error envelopes map API errors without losing status or request id" passed after 0.001 seconds.
+✘ Test "cookbook list data decodes summary rows without detail recipes" failed after 0.001 seconds with 1 issue.
+✘ Suite "Public API v1 read client" failed after 0.001 seconds with 1 issue.
+✘ Test run with 8 tests in 1 suite failed after 0.001 seconds with 1 issue.

@@ -1,0 +1,21 @@
+{
+  "status": "ready",
+  "leadObject": {
+    "kind": "recipe",
+    "id": "recipe_lemon_pantry_pasta",
+    "title": "Lemon Pantry Pasta"
+  },
+  "primaryAction": {
+    "kind": "startCookMode",
+    "recipeID": "recipe_lemon_pantry_pasta"
+  },
+  "counts": {
+    "recipes": 2,
+    "cookbooks": 2,
+    "shoppingItems": 3
+  },
+  "offlineRestore": {
+    "snapshotID": "snapshot_weeknight",
+    "includesShoppingList": true
+  }
+}

@@ -1,0 +1,52 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/10] Compiling SpoonjoyCore AppRoute.swift
+[4/13] Compiling SpoonjoyCore AppNavigationState.swift
+[5/13] Compiling SpoonjoyCore SearchState.swift
+[6/13] Compiling SpoonjoyCore ScreenViewModels.swift
+[7/13] Compiling SpoonjoyCore DeepLinkRouter.swift
+[8/13] Emitting module SpoonjoyCore
+[9/26] Emitting module SpoonjoyScenarioVerifier
+[10/26] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[10/26] Write Objects.LinkFileList
+[12/26] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[12/27] Linking SpoonjoyScenarioVerifier
+[13/27] Applying SpoonjoyScenarioVerifier
+[15/27] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[16/27] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[17/27] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[18/27] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[19/27] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[20/27] Compiling SpoonjoyCoreTests AppStateTests.swift
+[21/27] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[22/27] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[23/27] Emitting module SpoonjoyCoreTests
+[24/27] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[25/27] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[25/27] Write Objects.LinkFileList
+[26/27] Linking SpoonjoyApplePackageTests
+Build complete! (3.73s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Deep link router" started.
+◇ Suite "App state and screen view models" started.
+◇ Test "routes every accepted web and scheme URL" started.
+◇ Test "preserves decoded search query and defaults missing scope to all" started.
+◇ Test "screen view models delegate to existing domain state" started.
+◇ Test "navigation applies deep links through the shared router" started.
+◇ Test "rejects unsafe or unsupported links as unknown" started.
+◇ Test "navigation state tracks route sidebar recipe and cook mode" started.
+◇ Test "search state trims queries and exposes a route" started.
+✔ Test "navigation state tracks route sidebar recipe and cook mode" passed after 0.001 seconds.
+✔ Test "search state trims queries and exposes a route" passed after 0.001 seconds.
+✔ Test "preserves decoded search query and defaults missing scope to all" passed after 0.001 seconds.
+✔ Test "rejects unsafe or unsupported links as unknown" passed after 0.001 seconds.
+✔ Test "navigation applies deep links through the shared router" passed after 0.002 seconds.
+✔ Test "routes every accepted web and scheme URL" passed after 0.002 seconds.
+✔ Suite "Deep link router" passed after 0.002 seconds.
+✔ Test "screen view models delegate to existing domain state" passed after 0.005 seconds.
+✔ Suite "App state and screen view models" passed after 0.005 seconds.
+✔ Test run with 7 tests in 2 suites passed after 0.006 seconds.

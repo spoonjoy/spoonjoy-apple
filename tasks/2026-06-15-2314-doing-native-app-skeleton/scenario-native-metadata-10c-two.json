@@ -1,0 +1,94 @@
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Apple-native capability metadata is complete.",
+      "name" : "native metadata",
+      "status" : "pass"
+    },
+    {
+      "detail" : "AppIntents integration source is present.",
+      "name" : "app intents source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "CoreSpotlight integration source is present.",
+      "name" : "spotlight source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Associated-domain and custom-scheme routes are declared.",
+      "name" : "deep link metadata",
+      "status" : "pass"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 14-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+      "OpenRecipeIntent",
+      "StartCookModeIntent",
+      "AddShoppingListItemIntent",
+      "CaptureRecipeIntent"
+    ],
+    "associatedDomains" : [
+      "applinks:spoonjoy.app"
+    ],
+    "deepLinkRoutes" : [
+      "https:\/\/spoonjoy.app\/",
+      "https:\/\/spoonjoy.app\/recipes",
+      "https:\/\/spoonjoy.app\/recipes\/{id}",
+      "https:\/\/spoonjoy.app\/recipes\/{id}#cook",
+      "https:\/\/spoonjoy.app\/recipes\/{id}?mode=cook",
+      "https:\/\/spoonjoy.app\/cookbooks",
+      "https:\/\/spoonjoy.app\/cookbooks\/{id}",
+      "https:\/\/spoonjoy.app\/shopping-list",
+      "https:\/\/spoonjoy.app\/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+      "https:\/\/spoonjoy.app\/recipes\/new",
+      "https:\/\/spoonjoy.app\/account\/settings",
+      "spoonjoy:\/\/kitchen",
+      "spoonjoy:\/\/recipes",
+      "spoonjoy:\/\/recipes\/{id}",
+      "spoonjoy:\/\/recipes\/{id}\/cook",
+      "spoonjoy:\/\/cookbooks",
+      "spoonjoy:\/\/cookbooks\/{id}",
+      "spoonjoy:\/\/shopping-list",
+      "spoonjoy:\/\/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+      "spoonjoy:\/\/capture",
+      "spoonjoy:\/\/settings"
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore",
+      "shopping-queue-replay",
+      "cook-mode-progress-restore"
+    ],
+    "searchableScopes" : [
+      "all",
+      "recipes",
+      "cookbooks",
+      "chefs",
+      "shopping-list"
+    ],
+    "shareActions" : [
+      "capture-recipe-url",
+      "share-recipe"
+    ],
+    "spotlightIndexedTypes" : [
+      "recipe",
+      "cookbook",
+      "shopping-list-item"
+    ],
+    "urlSchemes" : [
+      "spoonjoy"
+    ]
+  },
+  "ok" : true,
+  "stage" : "native-metadata"
+}

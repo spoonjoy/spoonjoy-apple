@@ -1,0 +1,25 @@
+$ swift build -Xswiftc -warnings-as-errors
+[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+[2/18] Compiling SpoonjoyCore SettingsState.swift
+[3/18] Compiling SpoonjoyCore CaptureDraft.swift
+[4/18] Compiling SpoonjoyCore CookModeProgress.swift
+[5/18] Compiling SpoonjoyCore RecipeCookbook.swift
+[6/18] Compiling SpoonjoyCore PaginationCursor.swift
+[7/18] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[8/18] Emitting module SpoonjoyCore
+[9/18] Compiling SpoonjoyCore APIClient.swift
+[10/18] Compiling SpoonjoyCore APIEnvelope.swift
+[11/18] Compiling SpoonjoyCore SpoonjoyCore.swift
+[12/18] Compiling SpoonjoyCore KitchenFixtureState.swift
+[13/18] Compiling SpoonjoyCore APIError.swift
+[14/18] Compiling SpoonjoyCore APIRequestBuilder.swift
+[15/18] Compiling SpoonjoyCore ShoppingListState.swift
+[16/19] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[17/21] Emitting module SpoonjoyScenarioVerifier
+[18/21] Compiling SpoonjoyScenarioVerifier main.swift
+[18/21] Write Objects.LinkFileList
+[19/21] Linking SpoonjoyScenarioVerifier
+[20/21] Applying SpoonjoyScenarioVerifier
+Build complete! (4.24s)

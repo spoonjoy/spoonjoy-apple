@@ -1,0 +1,30 @@
+import Foundation
+
+public enum DeepLinkManifest {
+    public static let webDomain = "spoonjoy.app"
+    public static let associatedDomains = ["applinks:spoonjoy.app"]
+    public static let urlSchemes = ["spoonjoy"]
+    public static let routes = [
+        "https://spoonjoy.app/",
+        "https://spoonjoy.app/recipes",
+        "https://spoonjoy.app/recipes/{id}",
+        "https://spoonjoy.app/recipes/{id}#cook",
+        "https://spoonjoy.app/recipes/{id}?mode=cook",
+        "https://spoonjoy.app/cookbooks",
+        "https://spoonjoy.app/cookbooks/{id}",
+        "https://spoonjoy.app/shopping-list",
+        "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+        "https://spoonjoy.app/recipes/new",
+        "https://spoonjoy.app/account/settings",
+        "spoonjoy://kitchen",
+        "spoonjoy://recipes",
+        "spoonjoy://recipes/{id}",
+        "spoonjoy://recipes/{id}/cook",
+        "spoonjoy://cookbooks",
+        "spoonjoy://cookbooks/{id}",
+        "spoonjoy://shopping-list",
+        "spoonjoy://search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+        "spoonjoy://capture",
+        "spoonjoy://settings"
+    ]
+}

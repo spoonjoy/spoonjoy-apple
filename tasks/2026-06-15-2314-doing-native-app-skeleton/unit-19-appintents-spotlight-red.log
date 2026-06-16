@@ -1,0 +1,222 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:90:24: error: cannot find 'NativeIntentActionResolver' in scope
+ 88 |     @Test("native intent actions resolve routes local mutations and capture drafts")
+ 89 |     func nativeIntentActionsResolveRoutesLocalMutationsAndCaptureDrafts() throws {
+ 90 |         let resolver = NativeIntentActionResolver()
+    |                        `- error: cannot find 'NativeIntentActionResolver' in scope
+ 91 |         let openRecipe = try resolver.openRecipe(recipeID: " recipe_lemon_pantry_pasta ")
+ 92 |         let cookMode = try resolver.startCookMode(recipeID: "recipe_lemon_pantry_pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:106:38: error: cannot infer contextual base in reference to member 'recipeDetail'
+104 |         let captureDraft = try #require(captureAction.captureDraft)
+105 | 
+106 |         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                      `- error: cannot infer contextual base in reference to member 'recipeDetail'
+107 |         #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+108 |         #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:106:99: error: cannot infer contextual base in reference to member 'detail'
+104 |         let captureDraft = try #require(captureAction.captureDraft)
+105 | 
+106 |         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                                                                                   `- error: cannot infer contextual base in reference to member 'detail'
+107 |         #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+108 |         #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:108:36: error: cannot infer contextual base in reference to member 'recipeDetail'
+106 |         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+107 |         #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+108 |         #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+    |                                    `- error: cannot infer contextual base in reference to member 'recipeDetail'
+109 |         #expect(cookMode.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta/cook"))
+110 |         #expect(shoppingMutation.id == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:108:97: error: cannot infer contextual base in reference to member 'cook'
+106 |         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+107 |         #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+108 |         #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+    |                                                                                                 `- error: cannot infer contextual base in reference to member 'cook'
+109 |         #expect(cookMode.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta/cook"))
+110 |         #expect(shoppingMutation.id == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:114:39: error: cannot infer contextual base in reference to member 'shoppingAdd'
+112 |         #expect(shoppingMutation.createdAt == "2026-06-16T14:00:00.000Z")
+113 |         #expect(
+114 |             shoppingMutation.kind == .shoppingAdd(
+    |                                       `- error: cannot infer contextual base in reference to member 'shoppingAdd'
+115 |                 name: "preserved lemons",
+116 |                 quantity: 2,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:118:30: error: 'nil' requires a contextual type
+116 |                 quantity: 2,
+117 |                 unit: "jar",
+118 |                 categoryKey: nil,
+    |                              `- error: 'nil' requires a contextual type
+119 |                 iconKey: nil
+120 |             )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:119:26: error: 'nil' requires a contextual type
+117 |                 unit: "jar",
+118 |                 categoryKey: nil,
+119 |                 iconKey: nil
+    |                          `- error: 'nil' requires a contextual type
+120 |             )
+121 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:124:41: error: cannot infer contextual base in reference to member 'localOnly'
+122 |         #expect(captureDraft.id == "intent-capture-2026-06-16T14-02-00-000Z")
+123 |         #expect(captureDraft.previewLines == ["https://example.com/lemon-pasta", "Add parsley."])
+124 |         #expect(captureDraft.status == .localOnly)
+    |                                         `- error: cannot infer contextual base in reference to member 'localOnly'
+125 | 
+126 |         #expect(throws: NativeIntentActionError.self) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:126:25: error: cannot find 'NativeIntentActionError' in scope
+124 |         #expect(captureDraft.status == .localOnly)
+125 | 
+126 |         #expect(throws: NativeIntentActionError.self) {
+    |                         `- error: cannot find 'NativeIntentActionError' in scope
+127 |             try resolver.openRecipe(recipeID: "../secret")
+128 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:129:25: error: cannot find 'NativeIntentActionError' in scope
+127 |             try resolver.openRecipe(recipeID: "../secret")
+128 |         }
+129 |         #expect(throws: NativeIntentActionError.self) {
+    |                         `- error: cannot find 'NativeIntentActionError' in scope
+130 |             try resolver.addShoppingListItem(
+131 |                 name: "   ",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:132:27: error: 'nil' requires a contextual type
+130 |             try resolver.addShoppingListItem(
+131 |                 name: "   ",
+132 |                 quantity: nil,
+    |                           `- error: 'nil' requires a contextual type
+133 |                 unit: nil,
+134 |                 createdAt: "2026-06-16T14:01:00.000Z"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:133:23: error: 'nil' requires a contextual type
+131 |                 name: "   ",
+132 |                 quantity: nil,
+133 |                 unit: nil,
+    |                       `- error: 'nil' requires a contextual type
+134 |                 createdAt: "2026-06-16T14:01:00.000Z"
+135 |             )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:137:25: error: cannot find 'NativeIntentActionError' in scope
+135 |             )
+136 |         }
+137 |         #expect(throws: NativeIntentActionError.self) {
+    |                         `- error: cannot find 'NativeIntentActionError' in scope
+138 |             try resolver.captureRecipe(source: "  ", createdAt: "2026-06-16T14:03:00.000Z")
+139 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:103:32: error: no calls to throwing functions occur within 'try' expression
+101 |             createdAt: "2026-06-16T14:02:00.000Z"
+102 |         )
+103 |         let shoppingMutation = try #require(shoppingAction.queuedMutation)
+    |                                `- error: no calls to throwing functions occur within 'try' expression
+104 |         let captureDraft = try #require(captureAction.captureDraft)
+105 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:104:28: error: no calls to throwing functions occur within 'try' expression
+102 |         )
+103 |         let shoppingMutation = try #require(shoppingAction.queuedMutation)
+104 |         let captureDraft = try #require(captureAction.captureDraft)
+    |                            `- error: no calls to throwing functions occur within 'try' expression
+105 | 
+106 |         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:147:25: error: cannot find 'SpotlightIndexPlan' in scope
+145 |         let cookbooks = try CookbookFixtureCatalog.decodeFromBundle().cookbooks
+146 |         let shoppingList = try ShoppingListState.decodeFromBundle()
+147 |         let documents = SpotlightIndexPlan.documents(
+    |                         `- error: cannot find 'SpotlightIndexPlan' in scope
+148 |             recipes: recipes,
+149 |             cookbooks: cookbooks,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:157:33: error: cannot infer contextual base in reference to member 'recipe'
+155 | 
+156 |         #expect(documents.count == recipes.count + cookbooks.count + shoppingList.activeItems.count)
+157 |         #expect(recipe.type == .recipe)
+    |                                 `- error: cannot infer contextual base in reference to member 'recipe'
+158 |         #expect(recipe.domainIdentifier == "app.spoonjoy.recipe")
+159 |         #expect(recipe.title == "Lemon Pantry Pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:163:34: error: cannot infer contextual base in reference to member 'recipeDetail'
+161 |         #expect(recipe.keywords.contains("Spoonjoy"))
+162 |         #expect(recipe.keywords.contains("recipe"))
+163 |         #expect(recipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                  `- error: cannot infer contextual base in reference to member 'recipeDetail'
+164 |         #expect(cookbook.type == .cookbook)
+165 |         #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:163:95: error: cannot infer contextual base in reference to member 'detail'
+161 |         #expect(recipe.keywords.contains("Spoonjoy"))
+162 |         #expect(recipe.keywords.contains("recipe"))
+163 |         #expect(recipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                                                                               `- error: cannot infer contextual base in reference to member 'detail'
+164 |         #expect(cookbook.type == .cookbook)
+165 |         #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:164:35: error: cannot infer contextual base in reference to member 'cookbook'
+162 |         #expect(recipe.keywords.contains("recipe"))
+163 |         #expect(recipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+164 |         #expect(cookbook.type == .cookbook)
+    |                                   `- error: cannot infer contextual base in reference to member 'cookbook'
+165 |         #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+166 |         #expect(cookbook.contentDescription.contains("2 recipes"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:167:36: error: cannot infer contextual base in reference to member 'cookbookDetail'
+165 |         #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+166 |         #expect(cookbook.contentDescription.contains("2 recipes"))
+167 |         #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
+    |                                    `- error: cannot infer contextual base in reference to member 'cookbookDetail'
+168 |         #expect(shoppingItem.type == .shoppingListItem)
+169 |         #expect(shoppingItem.domainIdentifier == "app.spoonjoy.shopping-list-item")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:168:39: error: cannot infer contextual base in reference to member 'shoppingListItem'
+166 |         #expect(cookbook.contentDescription.contains("2 recipes"))
+167 |         #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
+168 |         #expect(shoppingItem.type == .shoppingListItem)
+    |                                       `- error: cannot infer contextual base in reference to member 'shoppingListItem'
+169 |         #expect(shoppingItem.domainIdentifier == "app.spoonjoy.shopping-list-item")
+170 |         #expect(shoppingItem.title == "lemons")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:172:40: error: cannot infer contextual base in reference to member 'shoppingList'
+170 |         #expect(shoppingItem.title == "lemons")
+171 |         #expect(shoppingItem.contentDescription.contains("Shopping list"))
+172 |         #expect(shoppingItem.route == .shoppingList)
+    |                                        `- error: cannot infer contextual base in reference to member 'shoppingList'
+173 |     }
+174 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:152:22: error: no calls to throwing functions occur within 'try' expression
+150 |             shoppingList: shoppingList
+151 |         )
+152 |         let recipe = try #require(documents.first { $0.uniqueIdentifier == "recipe:recipe_lemon_pantry_pasta" })
+    |                      `- error: no calls to throwing functions occur within 'try' expression
+153 |         let cookbook = try #require(documents.first { $0.uniqueIdentifier == "cookbook:cookbook_weeknights" })
+154 |         let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "shopping-list-item:item_lemons" })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:153:24: error: no calls to throwing functions occur within 'try' expression
+151 |         )
+152 |         let recipe = try #require(documents.first { $0.uniqueIdentifier == "recipe:recipe_lemon_pantry_pasta" })
+153 |         let cookbook = try #require(documents.first { $0.uniqueIdentifier == "cookbook:cookbook_weeknights" })
+    |                        `- error: no calls to throwing functions occur within 'try' expression
+154 |         let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "shopping-list-item:item_lemons" })
+155 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeScenarioTests.swift:154:28: error: no calls to throwing functions occur within 'try' expression
+152 |         let recipe = try #require(documents.first { $0.uniqueIdentifier == "recipe:recipe_lemon_pantry_pasta" })
+153 |         let cookbook = try #require(documents.first { $0.uniqueIdentifier == "cookbook:cookbook_weeknights" })
+154 |         let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "shopping-list-item:item_lemons" })
+    |                            `- error: no calls to throwing functions occur within 'try' expression
+155 | 
+156 |         #expect(documents.count == recipes.count + cookbooks.count + shoppingList.activeItems.count)
+error: fatalError
