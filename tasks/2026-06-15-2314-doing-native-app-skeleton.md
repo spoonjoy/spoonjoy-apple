@@ -91,7 +91,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Shell/Ruby checks under `scripts/` or artifact commands proving missing docs/generator fail.
 **Acceptance**: The checks fail before the doc/generator implementation exists.
 
-### ⬜ Unit 0b: Native Justification And Generator Contract — Implementation
+### ✅ Unit 0b: Native Justification And Generator Contract — Implementation
 **What**: Add `docs/native-justification.md`, `scripts/generate-xcode-project.rb`, and bootstrap validation notes for iOS simulator 26.5, local macOS smoke floor 26.2, and product baseline 27.
 **Output**: Native justification doc and generator script.
 **Acceptance**: Unit 0a checks pass; `ruby -c scripts/generate-xcode-project.rb` passes; generator supports a dry-run/temp-output mode without writing `Spoonjoy.xcodeproj`; justification names accepted/rejected native platform levers.
@@ -434,3 +434,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 01:13 Addressed Unit 0a reviewer findings by broadening generator temp-output repo-write detection and asserting generated product/bootstrap deployment settings.
 - 2026-06-16 01:18 Addressed Unit 0a Round 2 findings by snapshotting forbidden repo outputs before/after temp generation and asserting deployment targets within bundle/config-specific build settings.
 - 2026-06-16 01:21 Addressed Unit 0a Round 3 finding by parsing real `XCBuildConfiguration` objects and matching their `name` fields before asserting deployment targets.
+- 2026-06-16 01:29 Unit 0b complete: added `docs/native-justification.md`, deterministic temp-output Xcode generator, and green log at `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0b-green.log`.
