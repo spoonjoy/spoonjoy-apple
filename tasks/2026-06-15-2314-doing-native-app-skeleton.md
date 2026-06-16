@@ -86,7 +86,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0a: Native Justification And Generator Contract — Tests
+### ✅ Unit 0a: Native Justification And Generator Contract — Tests
 **What**: Add failing checks for `docs/native-justification.md` required headings, bootstrap-vs-product deployment-target policy, project generator syntax, dry-run/temp-output mode, and deterministic generator contract.
 **Output**: Shell/Ruby checks under `scripts/` or artifact commands proving missing docs/generator fail.
 **Acceptance**: The checks fail before the doc/generator implementation exists.
@@ -430,3 +430,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 00:24 Addressed Stranger With Candy Round 4 findings by requiring exact `Spoonjoy.xcodeproj`, narrowing Unit 0c's pre-Unit-12 ban, and removing API v1 token-management paths from this slice.
 - 2026-06-16 00:24 Addressed final review findings by adding extra-project guards, warning-enforced scenario runs, broader pre-Unit-12 app-output checks, and target-membership checks for later SwiftUI files.
 - 2026-06-16 01:06 Final Tinfoil and Stranger With Candy doing-doc reviews converged; execution may start under Work Suite autopilot.
+- 2026-06-16 01:08 Unit 0a complete: native justification and Xcode generator contract checks fail red against missing docs/generator; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-0a-red.log`.
