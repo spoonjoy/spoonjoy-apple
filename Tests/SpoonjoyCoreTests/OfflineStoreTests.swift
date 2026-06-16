@@ -39,6 +39,27 @@ struct OfflineStoreTests {
         }
     }
 
+    @Test("JSON file store covers missing fallback corrupt without fallback and empty delete")
+    func jsonFileStoreCoversMissingFallbackCorruptWithoutFallbackAndEmptyDelete() throws {
+        try withTemporaryDirectory { directory in
+            let fileURL = directory.appendingPathComponent("snapshot.json")
+            let fallback = try offlineSnapshot(capturedAt: "2026-06-16T08:45:30.000Z")
+            let fallbackData = try JSONEncoder().encode(fallback)
+            let fallbackStore = JSONFileStore<OfflineSnapshot>(fileURL: fileURL, fallbackData: fallbackData)
+            let emptyStore = JSONFileStore<OfflineSnapshot>(fileURL: fileURL)
+
+            let fallbackLoaded = try #require(try fallbackStore.load())
+            #expect(fallbackLoaded.source == .fallback)
+            #expect(fallbackLoaded.value == fallback)
+
+            try emptyStore.delete()
+            try Data("{ nope".utf8).write(to: fileURL)
+            #expect(throws: JSONFileStoreError.self) {
+                try emptyStore.load()
+            }
+        }
+    }
+
     @Test("sync checkpoint persists trimmed durable shopping cursor")
     func syncCheckpointPersistsTrimmedDurableShoppingCursor() throws {
         try withTemporaryDirectory { directory in
@@ -93,6 +114,24 @@ struct OfflineStoreTests {
                 pendingMutations: .init()
             ).restore()
         }
+        #expect(throws: OfflineSnapshotError.self) {
+            try OfflineSnapshot(
+                schemaVersion: 2,
+                capturedAt: "2026-06-16T08:49:00.000Z",
+                shoppingList: shoppingList,
+                syncCheckpoint: checkpoint,
+                pendingMutations: .init()
+            ).restore()
+        }
+        #expect(throws: OfflineSnapshotError.self) {
+            try OfflineSnapshot(
+                schemaVersion: 1,
+                capturedAt: " \n ",
+                shoppingList: shoppingList,
+                syncCheckpoint: checkpoint,
+                pendingMutations: .init()
+            ).restore()
+        }
     }
 
     @Test("mutation queue serializes shopping mutations and rejects duplicates")
@@ -133,6 +172,9 @@ struct OfflineStoreTests {
         ])
         #expect(throws: MutationQueueError.self) {
             try queue.appending(shoppingAddMutation(clientMutationID: "mutation-add-eggs"))
+        }
+        #expect(throws: MutationQueueError.self) {
+            try queue.appending(shoppingAddMutation(clientMutationID: " \n "))
         }
     }
 

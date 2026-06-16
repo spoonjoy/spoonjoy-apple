@@ -1,0 +1,71 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/35] Compiling SpoonjoyCore AuthSessionState.swift
+[4/35] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[5/35] Compiling SpoonjoyCore OAuthPKCE.swift
+[6/37] Emitting module SpoonjoyCore
+[7/37] Compiling SpoonjoyCore RefreshCoordinator.swift
+[8/37] Compiling SpoonjoyCore TokenVault.swift
+[9/37] Compiling SpoonjoyCore CaptureDraft.swift
+[10/37] Compiling SpoonjoyCore ShoppingListState.swift
+[11/37] Compiling SpoonjoyCore JSONFileStore.swift
+[12/37] Compiling SpoonjoyCore MutationQueue.swift
+[13/37] Compiling SpoonjoyCore APIClient.swift
+[14/37] Compiling SpoonjoyCore APIEnvelope.swift
+[15/37] Compiling SpoonjoyCore APIError.swift
+[16/37] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[17/37] Compiling SpoonjoyCore OAuthRequests.swift
+[18/37] Compiling SpoonjoyCore OAuthResponses.swift
+[19/37] Compiling SpoonjoyCore SpoonjoyCore.swift
+[20/37] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[21/37] Compiling SpoonjoyCore CookModeProgress.swift
+[22/37] Compiling SpoonjoyCore KitchenFixtureState.swift
+[23/37] Compiling SpoonjoyCore SettingsState.swift
+[24/37] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[25/37] Compiling SpoonjoyCore ShoppingListAPI.swift
+[26/37] Compiling SpoonjoyCore ShoppingListRequests.swift
+[27/37] Compiling SpoonjoyCore OfflineSnapshot.swift
+[28/37] Compiling SpoonjoyCore SyncCheckpoint.swift
+[29/37] Compiling SpoonjoyCore RecipeCookbook.swift
+[30/37] Compiling SpoonjoyCore APIRequestBuilder.swift
+[31/37] Compiling SpoonjoyCore APIRetryPolicy.swift
+[32/37] Compiling SpoonjoyCore PaginationCursor.swift
+[33/48] Emitting module SpoonjoyScenarioVerifier
+[34/48] Compiling SpoonjoyScenarioVerifier main.swift
+[34/48] Write Objects.LinkFileList
+[35/48] Linking SpoonjoyScenarioVerifier
+[36/48] Applying SpoonjoyScenarioVerifier
+[38/48] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[39/48] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[40/48] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[41/48] Emitting module SpoonjoyCoreTests
+[42/48] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[43/48] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[44/48] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[45/48] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[46/48] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[47/50] Emitting module SpoonjoyApplePackageTests
+[48/50] Compiling SpoonjoyApplePackageTests runner.swift
+[48/50] Write Objects.LinkFileList
+[49/50] Linking SpoonjoyApplePackageTests
+Build complete! (5.35s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Offline store and mutation queue" started.
+◇ Test "offline snapshot restores shopping list checkpoint and pending mutations" started.
+◇ Test "sync checkpoint persists trimmed durable shopping cursor" started.
+◇ Test "JSON file store saves loads deletes and reports file source" started.
+◇ Test "mutation queue serializes shopping mutations and rejects duplicates" started.
+◇ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" started.
+◇ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" started.
+✔ Test "mutation queue serializes shopping mutations and rejects duplicates" passed after 0.001 seconds.
+✔ Test "sync checkpoint persists trimmed durable shopping cursor" passed after 0.004 seconds.
+✔ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" passed after 0.007 seconds.
+✔ Test "JSON file store saves loads deletes and reports file source" passed after 0.007 seconds.
+✔ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" passed after 0.007 seconds.
+✔ Test "offline snapshot restores shopping list checkpoint and pending mutations" passed after 0.008 seconds.
+✔ Suite "Offline store and mutation queue" passed after 0.008 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.008 seconds.
