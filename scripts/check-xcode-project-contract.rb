@@ -67,6 +67,14 @@ def assert_setting(settings, key, expected, label)
   fail_check("#{label} expected #{key}=#{expected.inspect}, got #{actual.inspect}") unless actual == expected
 end
 
+def assert_named_asset_exists(settings, key, extension, label)
+  asset_name = settings[key]
+  return if asset_name.nil? || asset_name.to_s.empty?
+
+  asset_path = APP_ROOT.join("Shared/Assets.xcassets/#{asset_name}.#{extension}")
+  fail_check("#{label} #{key} points at missing #{relative(asset_path)}") unless asset_path.directory?
+end
+
 def plist_json(path)
   fail_check("missing #{relative(path)}") unless path.file?
 
@@ -139,6 +147,8 @@ end
     assert_setting(build_settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
     assert_setting(build_settings, "INFOPLIST_FILE", relative(INFO_PLIST), label)
     assert_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", relative(ENTITLEMENTS), label)
+    assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_APPICON_NAME", "appiconset", label)
+    assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME", "colorset", label)
 
     settings.each do |key, expected|
       assert_setting(build_settings, key, expected, label)

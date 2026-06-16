@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-16T22:29:51Z",
+  "generatedAt": "2026-06-16T22:37:26Z",
   "steps": [
     {
       "name": "xcode version",
@@ -179,7 +179,7 @@
       "path": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator-blocker.json"
     },
     {
-      "generatedAt": "2026-06-16T15:28:57-07:00",
+      "generatedAt": "2026-06-16T15:36:20-07:00",
       "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
       "httpsNoRedirectExpected": true,
       "redirected": false,
