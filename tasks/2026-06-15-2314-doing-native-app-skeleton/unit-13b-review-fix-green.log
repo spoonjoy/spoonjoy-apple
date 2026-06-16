@@ -1,0 +1,26 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module SpoonjoyCoreTests
+[4/6] Compiling SpoonjoyCoreTests AppStateTests.swift
+[5/8] Compiling SpoonjoyApplePackageTests runner.swift
+[6/8] Emitting module SpoonjoyApplePackageTests
+[6/8] Write Objects.LinkFileList
+[7/8] Linking SpoonjoyApplePackageTests
+Build complete! (2.40s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "App state and screen view models" started.
+◇ Test "navigation state tracks route sidebar recipe and cook mode" started.
+◇ Test "navigation applies deep links through the shared router" started.
+◇ Test "search state trims queries and exposes a route" started.
+◇ Test "search state hydrates from search routes" started.
+◇ Test "screen view models delegate to existing domain state" started.
+✔ Test "search state hydrates from search routes" passed after 0.001 seconds.
+✔ Test "search state trims queries and exposes a route" passed after 0.001 seconds.
+✔ Test "navigation state tracks route sidebar recipe and cook mode" passed after 0.001 seconds.
+✔ Test "navigation applies deep links through the shared router" passed after 0.001 seconds.
+✔ Test "screen view models delegate to existing domain state" passed after 0.005 seconds.
+✔ Suite "App state and screen view models" passed after 0.005 seconds.
+✔ Test run with 5 tests in 1 suite passed after 0.005 seconds.

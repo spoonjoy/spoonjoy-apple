@@ -20,6 +20,7 @@ struct SpoonjoyToolbar: ViewModifier {
                         Button("Capture Draft") { navigation.navigate(to: .capture) }
                         Button("Settings") { navigation.navigate(to: .settings) }
                         Button(search.hasQuery ? "Open Search" : "Search All") {
+                            search.apply(route: search.route)
                             navigation.navigate(to: search.route)
                         }
                     } label: {
@@ -47,9 +48,6 @@ struct SpoonjoyToolbar: ViewModifier {
         Button(editButtonTitle) {
             toggleEditMode()
         }
-#else
-        Button("Select") {}
-            .disabled(true)
 #endif
     }
 }

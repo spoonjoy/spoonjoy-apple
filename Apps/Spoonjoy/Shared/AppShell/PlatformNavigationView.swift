@@ -34,14 +34,14 @@ struct PlatformNavigationView: View {
     }
 
     private var sidebar: some View {
-        List {
-            sidebarButton(section: .kitchen, title: "Kitchen", systemImage: "house", route: .kitchen)
-            sidebarButton(section: .recipes, title: "Recipes", systemImage: "book.closed", route: .recipes)
-            sidebarButton(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical", route: .cookbooks)
-            sidebarButton(section: .shoppingList, title: "Shopping", systemImage: "checklist", route: .shoppingList)
-            sidebarButton(section: .search, title: "Search", systemImage: "magnifyingglass", route: search.route)
-            sidebarButton(section: .capture, title: "Capture", systemImage: "camera", route: .capture)
-            sidebarButton(section: .settings, title: "Settings", systemImage: "gearshape", route: .settings)
+        List(selection: sidebarSelection) {
+            sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
+            sidebarLink(section: .recipes, title: "Recipes", systemImage: "book.closed")
+            sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
+            sidebarLink(section: .shoppingList, title: "Shopping", systemImage: "checklist")
+            sidebarLink(section: .search, title: "Search", systemImage: "magnifyingglass")
+            sidebarLink(section: .capture, title: "Capture", systemImage: "camera")
+            sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
         }
     }
 
@@ -93,15 +93,39 @@ struct PlatformNavigationView: View {
         )
     }
 
-    private func sidebarButton(section: AppSection, title: String, systemImage: String, route: AppRoute) -> some View {
-        Button {
-            navigation.navigate(to: route)
-        } label: {
-            Label(title, systemImage: systemImage)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    private var sidebarSelection: Binding<AppSection?> {
+        Binding(
+            get: { navigation.sidebarSelection },
+            set: { section in
+                guard let section else { return }
+                navigateToSidebar(section)
+            }
+        )
+    }
+
+    private func sidebarLink(section: AppSection, title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .tag(section)
+    }
+
+    private func navigateToSidebar(_ section: AppSection) {
+        switch section {
+        case .kitchen:
+            navigation.navigate(to: .kitchen)
+        case .recipes:
+            navigation.navigate(to: .recipes)
+        case .cookbooks:
+            navigation.navigate(to: .cookbooks)
+        case .shoppingList:
+            navigation.navigate(to: .shoppingList)
+        case .search:
+            search.apply(route: search.route)
+            navigation.navigate(to: search.route)
+        case .capture:
+            navigation.navigate(to: .capture)
+        case .settings:
+            navigation.navigate(to: .settings)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(navigation.sidebarSelection == section ? .primary : .secondary)
     }
 
     private func title(for route: AppRoute) -> String {

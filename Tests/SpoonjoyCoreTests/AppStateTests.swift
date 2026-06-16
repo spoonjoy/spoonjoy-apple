@@ -67,6 +67,23 @@ struct AppStateTests {
         #expect(search.route == .search(query: "", scope: .chefs))
     }
 
+    @Test("search state hydrates from search routes")
+    func searchStateHydratesFromSearchRoutes() {
+        var search = SearchState(query: "old", scope: .all)
+        let ignoredNonSearchRoute = search.apply(route: .recipes)
+
+        #expect(ignoredNonSearchRoute == false)
+        #expect(search.query == "old")
+        #expect(search.scope == .all)
+
+        let appliedSearchRoute = search.apply(route: .search(query: "  lemon  ", scope: .recipes))
+
+        #expect(appliedSearchRoute)
+        #expect(search.query == "lemon")
+        #expect(search.scope == .recipes)
+        #expect(search.route == .search(query: "lemon", scope: .recipes))
+    }
+
     @Test("screen view models delegate to existing domain state")
     func screenViewModelsDelegateToExistingDomainState() throws {
         let recipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipe(id: "recipe_lemon_pantry_pasta"))

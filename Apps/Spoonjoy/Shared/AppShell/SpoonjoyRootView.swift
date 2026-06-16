@@ -14,12 +14,18 @@ struct SpoonjoyRootView: View {
     var body: some View {
         PlatformNavigationView(navigation: $navigation, search: $search)
             .onOpenURL { url in
-                navigation.applyDeepLink(url, router: router)
+                applyURL(url)
             }
             .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
                 if let url = userActivity.webpageURL {
-                    navigation.applyDeepLink(url, router: router)
+                    applyURL(url)
                 }
             }
+    }
+
+    private func applyURL(_ url: URL) {
+        let route = router.route(for: url)
+        search.apply(route: route)
+        navigation.navigate(to: route)
     }
 }

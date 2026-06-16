@@ -21,4 +21,14 @@ public struct SearchState: Equatable {
         self.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         self.scope = scope
     }
+
+    @discardableResult
+    public mutating func apply(route: AppRoute) -> Bool {
+        guard case .search(let query, let scope) = route else {
+            return false
+        }
+
+        update(query: query, scope: scope)
+        return true
+    }
 }
