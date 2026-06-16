@@ -385,12 +385,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: Fix commits and updated artifacts.
 **Acceptance**: Round 2 reviewer returns no BLOCKER/MAJOR findings.
 
-### 🔄 Unit 20a: PR And CI — Open
+### ✅ Unit 20a: PR And CI — Open
 **What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, GitHub `macos-26`/Xcode 26.5 bootstrap evidence, local macOS 26.2 launch/smoke evidence, AASA validation/blocker evidence, known Xcode 27 capability blocker, and reviewer gate results.
 **Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
-### ⬜ Unit 20b: PR And CI — Converge
+### 🔄 Unit 20b: PR And CI — Converge
 **What**: Wait for GitHub checks, fix any CI failures, and re-run reviewer if fixes are substantive.
 **Output**: Green CI, optional fix commits, and `tasks/2026-06-15-2314-doing-native-app-skeleton/github-checks.json`.
 **Acceptance**: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` pass on GitHub.
@@ -531,3 +531,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 14:14 Refreshed the full native local matrix after the Unit 19 review fixes. `validation-matrix.json` is `ok: true` across 22 steps: Swift tests, coverage, final scenario, project/generator/design/surface contracts, macOS app build, macOS smoke, screenshot capture/design review, and warning scan pass. Accepted blockers remain `XcodePlatform` for missing local iOS simulator platform/runtime, `CoreSimulator` for no available iPhone simulator destination, and `AASAProductionValidation` for the unpublished/invalid production AASA endpoint.
 - 2026-06-16 14:42 Unit 19 Round 1 review fixes landed for Hubble/Epicurus findings: App Intents and app shell now share `NativeAppStateLocation.defaultFileURL()`, app route opens persist `lastOpenedRoute`, Spotlight indexing runs from real app fixture/snapshot data and hands searchable items back through route-aware URLs/user activities, macOS smoke and screenshot capture prove first-run URL handoff against the built app via direct AppleEvents, iOS simulator smoke is recorded as `blocked` instead of `pass`, and the web design-language source is vendored for clean-clone reproducibility. Evidence: focused AppState/native tests, 110 full Swift tests, 100.00% core coverage (3110/3110), final scenario verification, design/project/generator/surface/launch contracts, macOS smoke route proof, refreshed screenshot, and full local matrix `ok: true` with accepted `XcodePlatform`, `CoreSimulator`, and `AASAProductionValidation` blockers.
 - 2026-06-16 15:04 Unit 19b complete after final validation-honesty review: screenshot capture now deletes stale artifacts, proves Kitchen route handoff after launch, captures only the Spoonjoy app window by PID/window ID, and fails closed if window capture cannot be proven. Evidence: `unit-19-route-proof-launch-contract-9.log`, `unit-19-route-proof-capture-7.log`, refreshed app-window-only `screenshots/macos-desktop.png`, and `validation-matrix.json` `ok: true` with macOS build/launch/screenshot pass plus honest `XcodePlatform`, `CoreSimulator`, and `AASAProductionValidation` blockers. Pauli returned `CONVERGED` with no BLOCKER/MAJOR findings; Unit 20 PR/CI/merge remains open.
+- 2026-06-16 15:10 Unit 20a complete: opened ready PR https://github.com/spoonjoy/spoonjoy-apple/pull/2 for `slugger/native-app-skeleton`, saved metadata to `pr-open.json`, and confirmed the protected checks `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` started on GitHub Actions. Unit 20b is active until checks converge green.
