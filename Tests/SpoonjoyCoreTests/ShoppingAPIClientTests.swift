@@ -76,7 +76,9 @@ struct ShoppingAPIClientTests {
 
         #expect(request.method == .patch)
         #expect(request.url.path == "/api/v1/shopping-list/items/item%2Fcheck%20123")
+        #expect(request.queryItems.isEmpty)
         #expect(request.headers["Authorization"] == "Bearer sj_write_token")
+        #expect(request.headers["Accept"] == "application/json")
         #expect(request.headers["Content-Type"] == "application/json")
         #expect(body == CheckShoppingItemBody(clientMutationId: "shopping-check-item-123", checked: true))
     }
@@ -104,17 +106,28 @@ struct ShoppingAPIClientTests {
 
         #expect(header.method == .delete)
         #expect(header.url.path == "/api/v1/shopping-list/items/item%2Fdelete%20123")
+        #expect(header.queryItems.isEmpty)
+        #expect(header.headers["Authorization"] == "Bearer sj_write_token")
+        #expect(header.headers["Accept"] == "application/json")
         #expect(header.headers["X-Client-Mutation-Id"] == "shopping-delete-item-123")
         #expect(header.headers["Content-Type"] == nil)
         #expect(header.body == nil)
 
         #expect(body.method == .delete)
+        #expect(body.url.path == "/api/v1/shopping-list/items/item-delete-body")
+        #expect(body.queryItems.isEmpty)
+        #expect(body.headers["Authorization"] == "Bearer sj_write_token")
+        #expect(body.headers["Accept"] == "application/json")
         #expect(body.headers["X-Client-Mutation-Id"] == nil)
         #expect(body.headers["Content-Type"] == "application/json")
         #expect(try decodeBody(DeleteShoppingItemBody.self, from: body) == DeleteShoppingItemBody(clientMutationId: "shopping-delete-body"))
 
         #expect(query.method == .delete)
+        #expect(query.url.path == "/api/v1/shopping-list/items/item-delete-query")
+        #expect(query.headers["Authorization"] == "Bearer sj_write_token")
+        #expect(query.headers["Accept"] == "application/json")
         #expect(query.headers["X-Client-Mutation-Id"] == nil)
+        #expect(query.headers["Content-Type"] == nil)
         #expect(query.body == nil)
         #expect(query.queryItems == [URLQueryItem(name: "clientMutationId", value: "shopping-delete-query")])
     }
@@ -187,6 +200,12 @@ struct ShoppingAPIClientTests {
             message: "Refresh required",
             status: 401
         )) == .refreshAuthentication)
+        #expect(APIRetryPolicy.decision(for: APIError(
+            requestID: "req_insufficient_scope",
+            code: "insufficient_scope",
+            message: "Missing scope",
+            status: 403
+        )) == .doNotRetry)
         #expect(APIRetryPolicy.decision(for: APIError(
             requestID: "req_validation",
             code: "validation_error",

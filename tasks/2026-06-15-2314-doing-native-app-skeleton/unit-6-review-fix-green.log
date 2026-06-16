@@ -1,0 +1,24 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.18s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Shopping API v1 client" started.
+◇ Test "delete item request supports header body and query idempotency" started.
+◇ Test "retry policy classifies idempotency and HTTP error responses" started.
+◇ Test "shopping sync cursor rejects blank values" started.
+◇ Test "add item request sends JSON mutation body" started.
+◇ Test "check item request encodes item id and checked state" started.
+◇ Test "shopping list envelopes decode read sync and mutation payloads" started.
+◇ Test "shopping list read and sync requests require bearer auth" started.
+✔ Test "add item request sends JSON mutation body" passed after 0.001 seconds.
+✔ Test "shopping sync cursor rejects blank values" passed after 0.001 seconds.
+✔ Test "retry policy classifies idempotency and HTTP error responses" passed after 0.001 seconds.
+✔ Test "shopping list read and sync requests require bearer auth" passed after 0.001 seconds.
+✔ Test "check item request encodes item id and checked state" passed after 0.001 seconds.
+✔ Test "delete item request supports header body and query idempotency" passed after 0.001 seconds.
+✔ Test "shopping list envelopes decode read sync and mutation payloads" passed after 0.001 seconds.
+✔ Suite "Shopping API v1 client" passed after 0.002 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.002 seconds.
