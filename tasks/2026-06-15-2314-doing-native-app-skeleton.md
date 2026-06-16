@@ -390,12 +390,12 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
-### 🔄 Unit 20b: PR And CI — Converge
+### ✅ Unit 20b: PR And CI — Converge
 **What**: Wait for GitHub checks, fix any CI failures, and re-run reviewer if fixes are substantive.
 **Output**: Green CI, optional fix commits, and `tasks/2026-06-15-2314-doing-native-app-skeleton/github-checks.json`.
 **Acceptance**: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` pass on GitHub.
 
-### ⬜ Unit 20c: Merge And Sync
+### 🔄 Unit 20c: Merge And Sync
 **What**: Merge PR, fast-forward local main, verify branch protection remains intact, update Desk, and continue with next app slice.
 **Output**: Merged main, Desk update, and `tasks/2026-06-15-2314-doing-native-app-skeleton/branch-protection.json`.
 **Acceptance**: PR is merged to `main`; local main matches `origin/main`; branch-protection JSON shows strict required checks `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`; no active implementation branch residue.
@@ -535,3 +535,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 15:21 Unit 20b CI fix in progress: first GitHub run `27651488207` failed all protected jobs during `ruby/setup-ruby` because `CFPropertyList 3.0.9` rejects Ruby 3.3. Pinned `CFPropertyList 3.0.8`, strengthened the generator contract against the incompatible lockfile, hardened macOS screenshot capture with owner fallback plus relaunch retry, and reran local bundle/generator/launch/capture checks plus the full native matrix. `validation-matrix.json` is `ok: true`, `design-review.json` has `desktopScreenshot: true`, and accepted blockers remain `XcodePlatform`, `CoreSimulator`, and `AASAProductionValidation`.
 - 2026-06-16 15:30 Unit 20b CI fix in progress: second GitHub run `27652199548` reached the Xcode preflight but failed all protected jobs because `xcodebuild -version | grep -q` triggers a broken-pipe abort on GitHub's Xcode 26.5 runner. Replaced the pipe with a captured `xcode_version` string comparison in the workflow and local matrix, added a generator-contract guard against the pipe form, and reran targeted Xcode-version/generator checks plus the full local matrix. `matrix-xcode-version.log` prints Xcode 26.5 / build 17F42 and `validation-matrix.json` remains `ok: true`.
 - 2026-06-16 15:37 Unit 20b CI fix in progress: third GitHub run `27652443750` passed `Swift tests`, `Native scenario verifier`, and `Coverage`; `App bundle` reached the iOS asset catalog build and failed because the generated project pointed at absent placeholder `AppIcon` and `AccentColor` assets. Updated the generator to remove those default asset-catalog setting names until real assets exist, added a project-contract check that any named app icon/accent asset must exist, regenerated `Spoonjoy.xcodeproj`, and reran project/generator contracts plus the full local matrix. `validation-matrix.json` remains `ok: true`.
+- 2026-06-16 15:43 Unit 20b complete: GitHub run `27652793572` passed all protected checks on head `8b25859`: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`. Saved final `github-checks.json` and run metadata; Ramanujan reviewed the Unit 20 CI-fix delta and returned `CONVERGED` with no BLOCKER/MAJOR findings. Unit 20c merge/sync is active.
