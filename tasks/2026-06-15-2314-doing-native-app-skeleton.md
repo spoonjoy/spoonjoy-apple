@@ -128,7 +128,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 4b: Shopping API Mutations — Implementation
 **What**: Implement shopping-list API request builders, sync cursor helpers, mutation response parsing, idempotency metadata, and retry/error classification.
-**Output**: Shopping API sources.
+**Output**: `Sources/SpoonjoyCore/API/ShoppingListAPI.swift`, `Sources/SpoonjoyCore/API/ShoppingListRequests.swift`, and `Sources/SpoonjoyCore/API/APIRetryPolicy.swift`.
 **Acceptance**: Unit 4a tests pass; DELETE supports header, query, and body idempotency forms.
 
 ### ⬜ Unit 4c: Shopping API Mutations — Coverage & Refactor
@@ -143,7 +143,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 5b: OAuth/PKCE Request Construction — Implementation
 **What**: Implement PKCE/state helpers, OAuth request builders, redirect validation, and OAuth response types.
-**Output**: OAuth request sources.
+**Output**: `Sources/SpoonjoyCore/Auth/OAuthPKCE.swift`, `Sources/SpoonjoyCore/Auth/OAuthRequests.swift`, `Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift`, and `Sources/SpoonjoyCore/Auth/OAuthResponses.swift`.
 **Acceptance**: Unit 5a tests pass; custom schemes are rejected and REST OAuth omits `resource`.
 
 ### ⬜ Unit 5c: OAuth/PKCE Request Construction — Coverage & Refactor
@@ -158,7 +158,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 6b: Token Vault And Refresh Coordination — Implementation
 **What**: Implement token vault abstractions, in-memory token vault, refresh coordinator, and disconnect/revoke state transitions.
-**Output**: Token and refresh coordination sources.
+**Output**: `Sources/SpoonjoyCore/Auth/TokenVault.swift`, `Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift`, `Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift`, and `Sources/SpoonjoyCore/Auth/AuthSessionState.swift`.
 **Acceptance**: Unit 6a tests pass; concurrent refresh calls share one refresh operation in tests.
 
 ### ⬜ Unit 6c: Token Vault And Refresh Coordination — Coverage & Refactor
@@ -173,7 +173,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 7b: Offline Store And Mutation Queue — Implementation
 **What**: Implement file-store abstractions, JSON encoding/decoding, cursor checkpointing, offline restore, and mutation queue models.
-**Output**: Offline store sources.
+**Output**: `Sources/SpoonjoyCore/Offline/JSONFileStore.swift`, `Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift`, `Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift`, and `Sources/SpoonjoyCore/Offline/MutationQueue.swift`.
 **Acceptance**: Unit 7a tests pass; corrupt JSON recovers without losing valid fallback fixtures.
 
 ### ⬜ Unit 7c: Offline Store And Mutation Queue — Coverage & Refactor
@@ -188,7 +188,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 8b: Native Metadata And Scenario Engine — Implementation
 **What**: Implement native-value metadata descriptors and scenario report generator for first-run, fixture kitchen, recipe detail, cook progress, shopping checkoff, search, capture draft, settings, offline restore, and native affordance flags.
-**Output**: Scenario engine sources and `scripts/verify-native-scenarios.sh`.
+**Output**: `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Sources/SpoonjoyCore/Native/ScenarioReport.swift`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, and `scripts/verify-native-scenarios.sh`.
 **Acceptance**: Unit 8a tests pass; scenario verifier exits nonzero when required metadata is absent.
 
 ### ⬜ Unit 8c: Native Metadata And Scenario Engine — Coverage & Refactor
@@ -203,7 +203,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 9b: App State And Navigation View Models — Implementation
 **What**: Implement UI-independent app state/view models consumed by SwiftUI screens.
-**Output**: App state sources in the Swift package.
+**Output**: `Sources/SpoonjoyCore/AppState/AppRoute.swift`, `Sources/SpoonjoyCore/AppState/AppNavigationState.swift`, `Sources/SpoonjoyCore/AppState/SearchState.swift`, and `Sources/SpoonjoyCore/AppState/ScreenViewModels.swift`.
 **Acceptance**: Unit 9a tests pass; app targets do not own nontrivial business logic.
 
 ### ⬜ Unit 9c: App State And Navigation View Models — Coverage & Refactor
@@ -218,7 +218,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 10b: Xcode Project And App Targets — Implementation
 **What**: Generate `Spoonjoy.xcodeproj` with iOS and macOS app targets, shared SwiftUI source files, asset catalogs, and build settings.
-**Output**: Xcode project and app target scaffolding.
+**Output**: `Spoonjoy.xcodeproj`, `Apps/Spoonjoy/Shared/SpoonjoyApp.swift`, `Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift`, `Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift`, `Apps/Spoonjoy/Shared/Assets.xcassets/`, and `Apps/Spoonjoy/Shared/Info.plist`.
 **Acceptance**: Project checks pass; `xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy -destination 'generic/platform=iOS Simulator' build` passes; macOS build passes.
 
 ### ⬜ Unit 10c: Xcode Project And App Targets — Determinism & Refactor
@@ -233,7 +233,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 11b: Native Shell Navigation — Implementation
 **What**: Implement shared SwiftUI shell, signed-out setup, platform navigation, toolbar actions, `.searchable`, share affordances, and settings entry.
-**Output**: SwiftUI shell sources.
+**Output**: `Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift`, `Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift`, `Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift`, `Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift`, and `Apps/Spoonjoy/Shared/AppShell/ShareActions.swift`.
 **Acceptance**: Unit 11a checks pass; iOS/macOS builds pass.
 
 ### ⬜ Unit 11c: Native Shell Navigation — Coverage & Refactor
@@ -248,7 +248,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 12b: Kitchen And Recipe Surfaces — Implementation
 **What**: Implement Kitchen, Recipes, Recipe Detail, and Cookbooks surfaces using fixture/app state and native controls.
-**Output**: SwiftUI surface files.
+**Output**: `Apps/Spoonjoy/Shared/Views/KitchenView.swift`, `Apps/Spoonjoy/Shared/Views/RecipesView.swift`, `Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift`, `Apps/Spoonjoy/Shared/Views/CookbooksView.swift`, and `Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift`.
 **Acceptance**: Unit 12a checks pass; iOS/macOS builds pass; scenario verifier covers fixture kitchen browsing and recipe detail.
 
 ### ⬜ Unit 12c: Kitchen And Recipe Surfaces — Build & Refactor
@@ -263,7 +263,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 13b: Cook Mode And Shopping Surfaces — Implementation
 **What**: Implement Cook Mode and Shopping List SwiftUI surfaces using package state and native controls.
-**Output**: SwiftUI cook/shopping files.
+**Output**: `Apps/Spoonjoy/Shared/Views/CookModeView.swift`, `Apps/Spoonjoy/Shared/Views/ShoppingListView.swift`, `Apps/Spoonjoy/Shared/Components/ReceiptListView.swift`, and `Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift`.
 **Acceptance**: Unit 13a checks pass; scenario verifier covers cook progress persistence and shopping checkoff; app builds pass.
 
 ### ⬜ Unit 13c: Cook Mode And Shopping Surfaces — Build & Refactor
@@ -278,7 +278,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 14b: Search, Capture, Settings Surfaces — Implementation
 **What**: Implement Search, Capture, and Settings SwiftUI surfaces using native search/toolbars/forms and local draft state.
-**Output**: SwiftUI search/capture/settings files.
+**Output**: `Apps/Spoonjoy/Shared/Views/SearchView.swift`, `Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift`, `Apps/Spoonjoy/Shared/Views/SettingsView.swift`, and `Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift`.
 **Acceptance**: Unit 14a checks pass; scenario verifier covers search, capture draft creation, settings, and offline status.
 
 ### ⬜ Unit 14c: Search, Capture, Settings Surfaces — Build & Refactor
@@ -302,19 +302,19 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Acceptance**: Coverage artifacts are saved; CI coverage command is reproducible locally.
 
 ### ⬜ Unit 16a: Launch Smoke And Screenshot Scripts — Tests
-**What**: Add failing checks for macOS launch smoke, iOS simulator smoke timeout reporting, screenshot artifact paths, and design review manifest.
-**Output**: Script tests/checks for launch and screenshot validation.
+**What**: Add failing checks for macOS launch smoke, iOS simulator smoke timeout reporting, exact screenshot artifact paths, and design/accessibility review manifest fields.
+**Output**: Script tests/checks for `scripts/smoke-macos.sh`, `scripts/smoke-ios-simulator.sh`, `scripts/capture-native-screenshots.sh`, and `scripts/validate-design-review.rb`.
 **Acceptance**: Checks fail before scripts exist.
 
 ### ⬜ Unit 16b: Launch Smoke And Screenshot Scripts — Implementation
-**What**: Implement macOS launch/smoke, iOS simulator smoke with bounded CoreSimulator handling, screenshot/design artifact generation where tooling allows, and validation manifest output.
-**Output**: Launch/screenshot scripts.
-**Acceptance**: macOS launch/smoke runs locally; iOS smoke records CoreSimulator timeout as a local blocker if runtime listing remains unavailable.
+**What**: Implement macOS launch/smoke, iOS simulator smoke with bounded CoreSimulator handling, screenshot/design artifact generation, and a fail-closed design/accessibility manifest.
+**Output**: `scripts/smoke-macos.sh`, `scripts/smoke-ios-simulator.sh`, `scripts/capture-native-screenshots.sh`, `scripts/validate-design-review.rb`, and `tasks/2026-06-15-2314-doing-native-app-skeleton/design-review.json`.
+**Acceptance**: macOS launch/smoke runs locally; iOS smoke records CoreSimulator timeout as a local blocker if runtime listing remains unavailable; manifest includes pass/fail entries for mobile target, desktop target, Dynamic Type, VoiceOver labels, keyboard navigation, Reduce Motion, contrast, Kitchen Table hierarchy, and no-overlap layout review.
 
 ### ⬜ Unit 16c: Launch Smoke And Screenshot Scripts — Refactor
 **What**: Run launch/smoke and screenshot/design review scripts, save artifacts, and clean up output.
-**Output**: Smoke logs, screenshots if available, and design review manifest.
-**Acceptance**: Available launch/screenshot validation passes or records concrete local capability blocker with command output.
+**Output**: `tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-macos.log`, `smoke-ios-simulator.log`, `screenshots/ios-mobile.png`, `screenshots/macos-desktop.png`, and `design-review.json`.
+**Acceptance**: Available launch/screenshot validation passes or records concrete local capability blocker with command output; design review manifest fails if any required pass/fail field is missing or false without a documented capability blocker.
 
 ### ⬜ Unit 17a: Full Local Matrix — Tests/Preparation
 **What**: Add a single local matrix script that orchestrates Swift tests, coverage, scenario verifier, Xcode builds, launch smoke, and screenshot/design checks.
@@ -343,18 +343,18 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 
 ### ⬜ Unit 19a: PR And CI — Open
 **What**: Open PR for `slugger/native-app-skeleton` with summary, validation evidence, known Xcode 27 capability blocker, and reviewer gate results.
-**Output**: PR URL.
+**Output**: PR URL and `tasks/2026-06-15-2314-doing-native-app-skeleton/pr-open.json`.
 **Acceptance**: PR exists and protected checks start.
 
 ### ⬜ Unit 19b: PR And CI — Converge
 **What**: Wait for GitHub checks, fix any CI failures, and re-run reviewer if fixes are substantive.
-**Output**: Green CI and optional fix commits.
+**Output**: Green CI, optional fix commits, and `tasks/2026-06-15-2314-doing-native-app-skeleton/github-checks.json`.
 **Acceptance**: `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` pass on GitHub.
 
 ### ⬜ Unit 19c: Merge And Sync
 **What**: Merge PR, fast-forward local main, verify branch protection remains intact, update Desk, and continue with next app slice.
-**Output**: Merged main and Desk update.
-**Acceptance**: PR is merged to `main`; local main matches `origin/main`; no active implementation branch residue.
+**Output**: Merged main, Desk update, and `tasks/2026-06-15-2314-doing-native-app-skeleton/branch-protection.json`.
+**Acceptance**: PR is merged to `main`; local main matches `origin/main`; branch-protection JSON shows strict required checks `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`; no active implementation branch residue.
 
 ## Execution
 
@@ -371,3 +371,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-15 23:14 Created doing doc from approved planning doc.
 - 2026-06-15 23:14 Addressed granularity review by splitting broad units into atomic test/implementation/coverage groups.
 - 2026-06-15 23:14 Granularity Round 2 converged with no remaining blockers.
+- 2026-06-15 23:14 Addressed validation review with explicit source paths, design/accessibility manifest criteria, screenshot targets, and branch-protection evidence artifacts.
