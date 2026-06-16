@@ -27,4 +27,19 @@ struct SpoonjoyCoreBootstrapTests {
             #expect(!data.isEmpty)
         }
     }
+
+    @Test("missing fixture reports file-not-found")
+    func missingFixtureReportsFileNotFound() {
+        var didThrowFileNotFound = false
+
+        do {
+            _ = try SpoonjoyFixture.data(named: "missing-fixture")
+        } catch let error as CocoaError {
+            didThrowFileNotFound = error.code == .fileNoSuchFile
+        } catch {
+            didThrowFileNotFound = false
+        }
+
+        #expect(didThrowFileNotFound)
+    }
 }

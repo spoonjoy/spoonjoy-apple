@@ -1,0 +1,18 @@
+[0/1] Planning build
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.20s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "SpoonjoyCore bootstrap" started.
+◇ Test "product name is stable" started.
+◇ Test "missing fixture reports file-not-found" started.
+◇ Test "bootstrap report allows only future native/app checks to remain pending" started.
+◇ Test "fixture resources are copied into test bundle" started.
+✔ Test "product name is stable" passed after 0.001 seconds.
+✔ Test "bootstrap report allows only future native/app checks to remain pending" passed after 0.001 seconds.
+✔ Test "missing fixture reports file-not-found" passed after 0.004 seconds.
+✔ Test "fixture resources are copied into test bundle" passed after 0.005 seconds.
+✔ Suite "SpoonjoyCore bootstrap" passed after 0.005 seconds.
+✔ Test run with 4 tests in 1 suite passed after 0.005 seconds.
