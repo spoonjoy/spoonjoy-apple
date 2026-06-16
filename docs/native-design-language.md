@@ -8,6 +8,8 @@ Spoonjoy's product language is **The Kitchen Table**: quiet bone paper, charcoal
 
 The native app should not copy the web UI surface-for-surface. It should preserve the product family while letting Apple platform conventions take over where they are better.
 
+Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `9c2ebdb8cbfa71e202a344099e23c544899482b256353a4c828f10d0c047ab56`. A changed source hash means the native brief and contract must be intentionally reviewed together.
+
 ## Invariants To Preserve
 
 - **Food leads.** Every primary surface needs a dominant recipe, cookbook, shopping, or cooking object.

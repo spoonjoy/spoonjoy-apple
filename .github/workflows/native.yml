@@ -56,8 +56,14 @@ jobs:
           set -euo pipefail
           xcodebuild -version
           xcodebuild -version | grep -q '^Xcode 26\.5$'
+      - name: Check out Spoonjoy web design source
+        uses: actions/checkout@v6
+        with:
+          repository: spoonjoy/spoonjoy-v2
+          ref: main
+          path: .source/spoonjoy-v2
       - name: Check native design-language contract
-        run: ruby scripts/check-native-design-language.rb
+        run: ruby scripts/check-native-design-language.rb --web-design-doc .source/spoonjoy-v2/docs/design-language.md
       - name: Run native scenario verifier when present
         run: |
           set -euo pipefail

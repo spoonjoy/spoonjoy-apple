@@ -2,15 +2,18 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "digest"
 require "pathname"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 DEFAULT_NATIVE_DOC = ROOT.join("docs/native-design-language.md")
 DEFAULT_WEB_DOC = ROOT.parent.join("spoonjoy-v2/docs/design-language.md")
+EXPECTED_WEB_DESIGN_SHA256 = "9c2ebdb8cbfa71e202a344099e23c544899482b256353a4c828f10d0c047ab56"
+ENV_WEB_DOC = ENV["SPOONJOY_WEB_DESIGN_DOC"]
 
 options = {
   native_doc: DEFAULT_NATIVE_DOC,
-  web_doc: ENV["SPOONJOY_WEB_DESIGN_DOC"]
+  web_doc: ENV_WEB_DOC && !ENV_WEB_DOC.empty? ? ENV_WEB_DOC : DEFAULT_WEB_DOC
 }
 
 OptionParser.new do |parser|
@@ -25,11 +28,7 @@ OptionParser.new do |parser|
 end.parse!
 
 options[:native_doc] = Pathname.new(options[:native_doc]).expand_path
-if options[:web_doc]
-  options[:web_doc] = Pathname.new(options[:web_doc]).expand_path
-elsif DEFAULT_WEB_DOC.file?
-  options[:web_doc] = DEFAULT_WEB_DOC
-end
+options[:web_doc] = Pathname.new(options[:web_doc]).expand_path
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -183,25 +182,28 @@ assert_includes(native_content, anti_patterns, "anti-pattern coverage", native_d
 fail_check("must reference spoonjoy.app, not spoonjoy.com") if native_content.include?("spoonjoy.com")
 
 web_doc = options[:web_doc]
-if web_doc
-  fail_check("#{display_path(web_doc)} is missing") if options[:web_doc_explicit] && !web_doc.file?
-
-  if web_doc.file?
-    web_content = web_doc.read
-    web_source_markers = [
-      "# Spoonjoy Design Language",
-      "## Non-Negotiables",
-      "Food leads.",
-      "No default cards.",
-      "No section cards.",
-      "No equal-weight grids as the primary experience.",
-      "Rounded corners are semantic.",
-      "Color is role-bound.",
-      "Typography has jobs.",
-      "The UI must work in a kitchen."
-    ]
-    assert_includes(web_content, web_source_markers, "web source design markers", web_doc)
-  end
+assert_file(web_doc)
+actual_web_sha = Digest::SHA256.file(web_doc).hexdigest
+unless actual_web_sha == EXPECTED_WEB_DESIGN_SHA256
+  fail_check(
+    "#{display_path(web_doc)} SHA-256 #{actual_web_sha} does not match expected " \
+    "#{EXPECTED_WEB_DESIGN_SHA256}; update #{display_path(native_doc)} and this contract intentionally"
+  )
 end
+
+web_content = web_doc.read
+web_source_markers = [
+  "# Spoonjoy Design Language",
+  "## Non-Negotiables",
+  "Food leads.",
+  "No default cards.",
+  "No section cards.",
+  "No equal-weight grids as the primary experience.",
+  "Rounded corners are semantic.",
+  "Color is role-bound.",
+  "Typography has jobs.",
+  "The UI must work in a kitchen."
+]
+assert_includes(web_content, web_source_markers, "web source design markers", web_doc)
 
 puts "native design language contract ok"
