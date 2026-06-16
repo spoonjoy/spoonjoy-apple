@@ -20,7 +20,8 @@ jobs:
             swift test
           elif ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"
-            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=iOS Simulator'
+            ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+            xcodebuild test -project "$project" -scheme Spoonjoy -destination "$ios_destination"
             xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS'
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
@@ -71,7 +72,8 @@ jobs:
             swift test --enable-code-coverage
           elif ls *.xcodeproj >/dev/null 2>&1; then
             project="$(ls *.xcodeproj | head -n 1)"
-            xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=iOS Simulator' -enableCodeCoverage YES
+            ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+            xcodebuild test -project "$project" -scheme Spoonjoy -destination "$ios_destination" -enableCodeCoverage YES
             xcodebuild test -project "$project" -scheme Spoonjoy -destination 'generic/platform=macOS' -enableCodeCoverage YES
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
