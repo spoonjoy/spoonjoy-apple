@@ -79,6 +79,15 @@ struct DeepLinkRouterTests {
         )
     }
 
+    @Test("malformed component and percent decode inputs stay safe")
+    func malformedComponentAndPercentDecodeInputsStaySafe() {
+        let router = DeepLinkRouter.spoonjoy
+        let missingComponents: URLComponents? = nil
+
+        #expect(router.route(for: missingComponents) == .unknownLink)
+        #expect(router.decodedSegments("/recipes/%E0%A4%A") == ["recipes", "%E0%A4%A"])
+    }
+
     @Test("custom router configuration and route sections stay explicit")
     func customRouterConfigurationAndRouteSectionsStayExplicit() throws {
         let router = DeepLinkRouter(webHost: "staging.spoonjoy.app", scheme: "spoonjoy-beta")

@@ -12,7 +12,13 @@ public struct DeepLinkRouter: Equatable, Sendable {
     public static let spoonjoy = DeepLinkRouter(webHost: "spoonjoy.app", scheme: "spoonjoy")
 
     public func route(for url: URL) -> AppRoute {
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        route(for: URLComponents(url: url, resolvingAgainstBaseURL: false))
+    }
+
+    func route(for components: URLComponents?) -> AppRoute {
+        guard let components else {
+            return .unknownLink
+        }
 
         switch components.scheme?.lowercased() {
         case "https":
@@ -172,11 +178,11 @@ public struct DeepLinkRouter: Equatable, Sendable {
         return .search(query: rawQuery, scope: scope)
     }
 
-    private func decodedSegments(_ percentEncodedPath: String) -> [String] {
+    func decodedSegments(_ percentEncodedPath: String) -> [String] {
         percentEncodedPath
             .split(separator: "/", omittingEmptySubsequences: true)
             .map(String.init)
-            .map { $0.removingPercentEncoding! }
+            .map { $0.removingPercentEncoding ?? $0 }
     }
 
     private func safeID(_ id: String) -> Bool {
