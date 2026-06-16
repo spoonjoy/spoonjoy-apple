@@ -32,14 +32,11 @@ public actor RefreshCoordinator {
             throw TokenRefreshError.missingSession
         }
 
-        switch session.state(at: date) {
-        case .signedOut:
-            throw TokenRefreshError.missingSession
-        case .authenticated:
+        if case .authenticated = session.state(at: date) {
             return session
-        case .refreshRequired:
-            return try await refreshedSession(from: session, at: date)
         }
+
+        return try await refreshedSession(from: session, at: date)
     }
 
     public func disconnect() async throws {

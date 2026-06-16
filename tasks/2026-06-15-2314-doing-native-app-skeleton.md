@@ -220,7 +220,7 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 **Output**: `Sources/SpoonjoyCore/Auth/TokenVault.swift`, `Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift`, `Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift`, and `Sources/SpoonjoyCore/Auth/AuthSessionState.swift`.
 **Acceptance**: Unit 8a tests pass; concurrent refresh calls share one refresh operation in tests.
 
-### ⬜ Unit 8c: Token Vault And Refresh Coordination — Coverage & Refactor
+### ✅ Unit 8c: Token Vault And Refresh Coordination — Coverage & Refactor
 **What**: Run coverage, add concurrency/error tests, and refactor.
 **Output**: Coverage/concurrency logs.
 **Acceptance**: Coverage enforcement passes for token/refresh files in `Sources/SpoonjoyCore/Auth`; `swift test --disable-xctest --parallel` passes.
@@ -474,3 +474,4 @@ Build the first complete, runnable native Spoonjoy Apple app slice: a protected,
 - 2026-06-16 08:43 Unit 7 review Round 2 converged with no remaining findings.
 - 2026-06-16 08:43 Unit 8a complete: added failing token vault and refresh coordination tests for validated auth sessions, persisted client id/session storage, signed-out and expired-token state, atomic refresh-token rotation, refresh-failure preservation, local disconnect clearing, and concurrent single-flight refresh behavior; red log saved to `tasks/2026-06-15-2314-doing-native-app-skeleton/unit-8a-red.log`.
 - 2026-06-16 08:44 Unit 8b complete: implemented validated `AuthSession` state classification and rotation, `TokenVault`, `InMemoryTokenVault`, and actor-isolated `RefreshCoordinator` with single-flight refresh, refresh-failure preservation, and local disconnect clearing; focused TokenRefresh tests, full Swift tests, warning scan, and warning-enforced Swift build pass.
+- 2026-06-16 08:47 Unit 8c complete: initial token/refresh coverage found 96.32% coverage, then edge tests covered blank token type/scope, invalid token-response expiry, blank persisted client id, and the coordinator was refactored to remove an unreachable signed-out branch; token/refresh coverage now passes at 100.00% (133/133), full Swift tests pass, warning scan is clean, and warning-enforced Swift build passes.

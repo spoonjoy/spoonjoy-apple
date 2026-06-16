@@ -44,6 +44,18 @@ struct TokenRefreshTests {
         #expect(throws: AuthSessionError.self) {
             try authSession(accessToken: "sj_access", refreshToken: " \n ", expiresAt: now)
         }
+        #expect(throws: AuthSessionError.self) {
+            try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", tokenType: " \n ", expiresAt: now)
+        }
+        #expect(throws: AuthSessionError.self) {
+            try authSession(accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now, scope: " \n ")
+        }
+        #expect(throws: AuthSessionError.self) {
+            try expired.rotated(
+                with: tokenResponse(accessToken: "sj_access_new", refreshToken: "ort_refresh_new", expiresIn: 0),
+                receivedAt: now
+            )
+        }
     }
 
     @Test("token vault persists client id and sessions independently")
@@ -58,6 +70,15 @@ struct TokenRefreshTests {
         try await vault.saveSession(session)
         #expect(try await vault.loadClientID() == "cm_client_id")
         #expect(try await vault.loadSession() == session)
+
+        var blankClientIDRejected = false
+        do {
+            try await vault.saveClientID(" \n ")
+        } catch AuthSessionError.invalidClientID {
+            blankClientIDRejected = true
+        }
+        #expect(blankClientIDRejected)
+        #expect(try await vault.loadClientID() == "cm_client_id")
 
         try await vault.clearSession()
         #expect(try await vault.loadSession() == nil)
