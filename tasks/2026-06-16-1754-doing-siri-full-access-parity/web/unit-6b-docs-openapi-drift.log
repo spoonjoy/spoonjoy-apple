@@ -1,0 +1,19 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/developers-playground.test.tsx (37 tests) 5973ms
+     ✓ covers generated OAuth, mutation id, example body, and secret-response playground controls  512ms
+     ✓ copies generated playground values and reports clipboard failures  1832ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  574ms
+     ✓ handles OAuth callback validation failures and redirect submissions  804ms
+ ✓ test/routes/developers.test.tsx (8 tests) 606ms
+     ✓ renders the API reference, auth model, and integration guidance without Pebble-specific framing  331ms
+ ✓ test/routes/api-v1-openapi.test.ts (2 tests) 126ms
+ ✓ test/lib/api-v1-openapi.server.test.ts (11 tests) 135ms
+ ✓ test/scripts/generate-api-playground.test.ts (2 tests) 112ms
+
+ Test Files  5 passed (5)
+      Tests  60 passed (60)
+   Start at  09:38:07
+   Duration  11.72s (transform 1.02s, setup 429ms, import 2.49s, tests 6.95s, environment 1.12s)
+
