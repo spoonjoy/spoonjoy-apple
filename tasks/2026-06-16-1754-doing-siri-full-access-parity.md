@@ -11,7 +11,7 @@
 
 - **spawn**: Execute dependency waves with sub-agent implementors for disjoint backend, native core, app-surface, documentation, and validation write scopes. The orchestrator owns sequencing, integration, reviewer gates, commits, pushes, PRs, merges, and final validation.
 - Dependency Wave 0 is orchestrator-only: Unit 0 baseline plus any docs/review fixes.
-- Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Unit 1b is orchestrator-only because it changes the shared REST contract registry. Spawn only disjoint backend workers by endpoint family after Unit 1b; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
+- Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Unit 1b and all backend implementation units 2b, 3b, 4b, 5b, 6b, 7b, 8b, 9b, 10b, and 10e are orchestrator-only because they wire shared route dispatch, REST contracts, OpenAPI, docs, generated playground output, and endpoint helper modules together. Spawn backend workers only for red tests, endpoint-family helper preparation, migrations, and integration-note drafts after Unit 1b; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, implementation-unit acceptance, and final merge of backend changes.
 - Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, and sync; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, `Sources/SpoonjoyCore/AppState/**`, AppShell, or project files through the orchestrator. Execute Wave 2 in this exact DAG: 11a-11c first; 12a-12c only after 11c is green; 13a-13c and 14a-14c may run in parallel only after 12c is green; 15a-15c only after both 13c and 14c are green and any orchestrator-applied AppState/MutationQueue integration notes from Units 13-14 are committed; 16a-16c only after 15c and all Wave 2 integration notes are green. Unit 16b is orchestrator-only.
 - Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files. Units 20a-20c are orchestrator-only because they cross native routing, entitlements, web AASA routes, docs, and production-domain validation.
 - Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files. Execute Wave 4 in this exact order, ignoring lexical/unit-label sort: 21a-21c, 21d-21f, 21m-21o, 21p-21r, 21g-21i, 21j-21l, 22a-22c, 22d-22f, 22g-22i, 22m-22o, 22p-22r, 22j-22l, 22s-22u, 22v-22x. Units 21j-21l are orchestrator-only because they integrate Spotlight/App Shortcuts/transfer metadata across all entity domains and must run after every entity-domain group.
@@ -38,7 +38,7 @@ Native workers may edit only the files in the unit's Output plus the worker-owne
 | 21a-22x | `Sources/SpoonjoyCore/AppIntents/<domain>/**` | Unit-named App Intents tests and `scripts/check-app-intents-contract.rb` domain cases | `Apps/Spoonjoy/Shared/Native/**`, `SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, native capability metadata |
 | 23a-27 | None unless the unit explicitly says otherwise | Review, validation, docs, and merge artifacts | Orchestrator-owned |
 
-Backend workers may edit only the test files named in the unit Output, migrations required by that endpoint family, and the helper file listed below. Shared route dispatch, contract registration, OpenAPI schemas, generated playground output, and docs are always orchestrator-owned integration work from the required `web/integration-notes/<unit-slug>.md`.
+Backend workers may edit only the test files named in the unit Output, migrations required by that endpoint family, and the helper file listed below when explicitly delegated by the orchestrator. Shared route dispatch, contract registration, OpenAPI schemas, generated playground output, docs, and backend implementation-unit acceptance are always orchestrator-owned integration work from the required `web/integration-notes/<unit-slug>.md`; implementation units 2b, 3b, 4b, 5b, 6b, 7b, 8b, 9b, 10b, and 10e are not complete until the orchestrator applies that shared integration and reruns the red unit tests green.
 
 | Units | Domain | Worker-owned helper file |
 | --- | --- | --- |
@@ -105,7 +105,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ## Validation Command Matrix
 
-All native validation shorthand resolves through this matrix. Run `export ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity` before any matrix command; commands run from `/Users/arimendelow/Projects/spoonjoy-apple`; `<unit-slug>` is deterministic. If a unit Output says `Validation Command Matrix artifacts for <slug>`, use that `<slug>`. If a unit Output names explicit logs instead, use the common prefix before `-red`, `-green`, `-coverage-test`, `-coverage-enforce`, `-warning-scan`, `-xcodebuild-ios`, `-xcodebuild-macos`, or another matrix suffix; for example `apple/unit-11c-native-api-green.log` and `apple/unit-11c-native-api-coverage-test.log` both resolve to `unit-11c-native-api`. No worker may invent alternate slugs.
+All native validation shorthand resolves through this matrix. Run `export ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity` before any matrix command; commands run from `/Users/arimendelow/Projects/spoonjoy-apple`; `<unit-slug>` is deterministic. If a unit Output says `Validation Command Matrix artifacts for <slug>`, use that `<slug>`. If a unit Output names explicit logs instead, use the common prefix before `-red`, `-green`, `-coverage-test`, `-coverage-enforce`, `-warning-scan`, `-xcodebuild-ios`, `-xcodebuild-macos`, or another matrix suffix; for example `apple/unit-11c-native-api-green.log` and `apple/unit-11c-native-api-coverage-test.log` both resolve to `unit-11c-native-api`. Explicit `apple/<unit-slug>-green.log` names are aliases for the `swift-focused` matrix output `apple/<unit-slug>-swift-test.log`; the matrix filename is authoritative and no separate green log is required. No worker may invent alternate slugs.
 
 - `swift-focused`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter <TestSuiteName> | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-test.log"`.
 - `swift-full`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-full.log"`.
@@ -164,7 +164,7 @@ Only these native blocker artifact capabilities are acceptable during execution:
 
 ## Web Command Matrix
 
-All web validation shorthand resolves through this matrix. Run `export ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity` before any matrix command; commands run from `/Users/arimendelow/Projects/spoonjoy-v2`; `<unit-slug>` follows the same deterministic slug rule as the native matrix. If a unit Output says `Web Command Matrix artifacts for <slug>`, use that `<slug>`; if explicit logs are named, use the common prefix before `-red`, `-green`, or a matrix suffix, such as `unit-20c-aasa` from `web/unit-20c-aasa-green.log`.
+All web validation shorthand resolves through this matrix. Run `export ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity` before any matrix command; commands run from `/Users/arimendelow/Projects/spoonjoy-v2`; `<unit-slug>` follows the same deterministic slug rule as the native matrix. If a unit Output says `Web Command Matrix artifacts for <slug>`, use that `<slug>`; if explicit logs are named, use the common prefix before `-red`, `-green`, or a matrix suffix, such as `unit-20c-aasa` from `web/unit-20c-aasa-green.log`. Explicit `web/<unit-slug>-green.log` names are aliases for the `web-focused` matrix output `web/<unit-slug>-vitest.log`; the matrix filename is authoritative and no separate green log is required.
 
 - `web-focused`: `pnpm exec vitest run <test-files> --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-vitest.log"`.
 - `web-route-coverage`: `pnpm exec vitest run test/config/api-v1-route-coverage.test.ts --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-route-coverage.log"`.
@@ -218,8 +218,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail with missing handlers or incomplete payloads; failures assert exact response envelope keys, private no-store headers, validation errors, and scope requirements.
 
 ### ⬜ Unit 2b: Native Bootstrap And Account API - Implementation
-**What**: Implement native bootstrap/account handlers in `app/lib/api-v1.server.ts` using existing account, auth, notification, token, and session helpers; add a tested Prisma migration for a dedicated `NativePushDevice` table instead of reusing `PushSubscription`, because APNs needs platform/environment/device-token metadata that web-push endpoint keys do not model.
-**Output**: API handlers, helper functions, Prisma schema/migration/tests for `NativePushDevice`, and docs examples.
+**What**: Orchestrator-only: implement native bootstrap/account endpoint-family helper code, shared `app/lib/api-v1.server.ts` wiring, contracts/docs/OpenAPI/playground updates, and a tested Prisma migration for a dedicated `NativePushDevice` table instead of reusing `PushSubscription`, because APNs needs platform/environment/device-token metadata that web-push endpoint keys do not model.
+**Output**: `app/lib/api-v1-account.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, Prisma schema/migration/tests for `NativePushDevice`, and `web/integration-notes/unit-2b-account.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 2a tests pass; bearer and session auth both work; passkey/password/provider-link actions return exact web handoff URLs rather than fake native mutations; APNs registration stores user id, platform, environment, device identifier, hashed APNs token, token prefix, enabled/revoked timestamps, and last registration timestamp without writing a `PushSubscription` row.
 
 ### ⬜ Unit 2c: Native Bootstrap And Account API - Coverage & Refactor
@@ -233,8 +233,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before handlers exist and assert payload parity with profile/search web surfaces, anonymous vs authenticated search behavior, shopping-list auth, and invalid scope errors.
 
 ### ⬜ Unit 3b: Profile, Chef Graph, And Search API - Implementation
-**What**: Implement profile, chef graph, and search handlers using `app/lib/fellow-chefs.server.ts`, `app/lib/search.server.ts`, current Prisma relations, and v1 envelope helpers.
-**Output**: `app/lib/api-v1.server.ts` handler additions plus extracted serializer helpers for profile and search payloads.
+**What**: Orchestrator-only: implement profile, chef graph, and search endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/fellow-chefs.server.ts`, `app/lib/search.server.ts`, current Prisma relations, and v1 envelope helpers.
+**Output**: `app/lib/api-v1-users-search.server.ts`, orchestrator-applied `app/lib/api-v1.server.ts` wiring, shared docs/OpenAPI/playground updates, and `web/integration-notes/unit-3b-users-search.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 3a tests pass; deleted recipes/spoons stay hidden; shopping-list search requires auth; profile payload includes recipes, cookbooks, spoons, fellow chefs, and kitchen visitors.
 
 ### ⬜ Unit 3c: Profile, Chef Graph, And Search API - Coverage & Refactor
@@ -248,8 +248,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before write handlers exist and assert exact mutation envelopes, `clientMutationId`, and scope requirements.
 
 ### ⬜ Unit 4b: Recipe Create Update Delete Fork API - Implementation
-**What**: Implement recipe write handlers using `app/lib/recipe-create.server.ts`, `app/lib/recipe-fork.server.ts`, validation helpers, and v1 idempotency helpers.
-**Output**: API handlers and serializer/helper extraction.
+**What**: Orchestrator-only: implement recipe write endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/recipe-create.server.ts`, `app/lib/recipe-fork.server.ts`, validation helpers, and v1 idempotency helpers.
+**Output**: `app/lib/api-v1-recipe-writes.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, serializer/helper extraction, and `web/integration-notes/unit-4b-recipe-writes.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 4a tests pass; writes require ownership where required; soft delete preserves tombstone data for sync; fork copies source graph consistently with web helper behavior.
 
 ### ⬜ Unit 4c: Recipe Create Update Delete Fork API - Coverage & Refactor
@@ -263,8 +263,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before handlers exist and cover invalid step ids, duplicate step numbers, dependency cycles/invalid refs, protected deletion, malformed quantities, and owner-only access.
 
 ### ⬜ Unit 5b: Recipe Step Ingredient Dependency API - Implementation
-**What**: Implement handlers using existing step deletion/reorder/dependency helpers: `app/lib/step-deletion-validation.server.ts`, `app/lib/step-reorder-validation.server.ts`, `app/lib/step-output-use-mutations.server.ts`, and validation helpers.
-**Output**: API handlers and shared mutation helpers.
+**What**: Orchestrator-only: implement recipe step/dependency endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using existing step deletion/reorder/dependency helpers: `app/lib/step-deletion-validation.server.ts`, `app/lib/step-reorder-validation.server.ts`, `app/lib/step-output-use-mutations.server.ts`, and validation helpers.
+**Output**: `app/lib/api-v1-recipe-steps.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, shared mutation helpers, and `web/integration-notes/unit-5b-recipe-steps.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 5a tests pass; recipe graphs returned through v1 detail reflect changed steps, ingredients, and dependencies.
 
 ### ⬜ Unit 5c: Recipe Step Ingredient Dependency API - Coverage & Refactor
@@ -278,8 +278,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before v1 handlers exist and assert exact cover history response shapes, upload constraints, and structured AI/provider blocker responses for missing local secrets.
 
 ### ⬜ Unit 6b: Recipe Image And Cover Lifecycle API - Implementation
-**What**: Implement image/cover handlers using `app/lib/image-storage.server.ts`, `app/lib/recipe-cover.server.ts`, `app/lib/recipe-image-assignment.server.ts`, spoon cover helpers, and background task boundaries.
-**Output**: API handlers, docs/OpenAPI schemas, tested no-secret behavior, and `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` when local provider secrets are unavailable.
+**What**: Orchestrator-only: implement image/cover endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/image-storage.server.ts`, `app/lib/recipe-cover.server.ts`, `app/lib/recipe-image-assignment.server.ts`, spoon cover helpers, and background task boundaries.
+**Output**: `app/lib/api-v1-recipe-covers.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, tested no-secret behavior, `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` when local provider secrets are unavailable, and `web/integration-notes/unit-6b-covers.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 6a tests pass; upload, active cover, archive, regenerate, and spoon-cover flows match web behavior; missing provider secrets emit only the canonical `ProviderSecret` blocker for `recipe-covers`.
 
 ### ⬜ Unit 6c: Recipe Image And Cover Lifecycle API - Coverage & Refactor
@@ -293,8 +293,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before v1 spoon handlers exist and assert exact response envelopes plus private/public cache behavior.
 
 ### ⬜ Unit 7b: Spoon Cook Log API - Implementation
-**What**: Implement spoon handlers using `app/lib/recipe-spoon.server.ts`, recipe detail serializers, notification helpers, and v1 idempotency for writes.
-**Output**: API handlers, serializers, docs/OpenAPI schemas, and playground examples.
+**What**: Orchestrator-only: implement spoon endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/recipe-spoon.server.ts`, recipe detail serializers, notification helpers, and v1 idempotency for writes.
+**Output**: `app/lib/api-v1-spoons.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, serializers, and `web/integration-notes/unit-7b-spoons.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 7a tests pass; spoon list/detail payloads feed native cook log, profile, Spotlight, and cover-from-spoon flows.
 
 ### ⬜ Unit 7c: Spoon Cook Log API - Coverage & Refactor
@@ -308,8 +308,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before write handlers exist and cover duplicate titles, missing recipes, already-added recipes, owner checks, delete semantics, replay, conflict, and in-progress idempotency.
 
 ### ⬜ Unit 8b: Cookbook Write API - Implementation
-**What**: Implement cookbook write handlers using Prisma cookbook relations and v1 idempotency helpers.
-**Output**: API handlers, serializers, docs/OpenAPI schemas, and playground examples.
+**What**: Orchestrator-only: implement cookbook write endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using Prisma cookbook relations and v1 idempotency helpers.
+**Output**: `app/lib/api-v1-cookbook-writes.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, serializers, and `web/integration-notes/unit-8b-cookbook-writes.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 8a tests pass; cookbook detail reads reflect mutations and native offline sync receives updated/tombstoned cookbook records.
 
 ### ⬜ Unit 8c: Cookbook Write API - Coverage & Refactor
@@ -323,8 +323,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before handlers exist and cover scale factor, checked/deleted rows, empty list, owner recipes, public recipe add, idempotency replay/conflict, and exact mutation envelopes.
 
 ### ⬜ Unit 9b: Shopping Parity API - Implementation
-**What**: Implement shopping parity handlers using `app/lib/shopping-list.server.ts` behavior and v1 idempotency helpers.
-**Output**: API handlers, docs/OpenAPI schemas, and playground examples.
+**What**: Orchestrator-only: implement shopping parity endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/shopping-list.server.ts` behavior and v1 idempotency helpers.
+**Output**: `app/lib/api-v1-shopping.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, and `web/integration-notes/unit-9b-shopping-parity.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 9a tests pass; existing shopping v1 tests remain green.
 
 ### ⬜ Unit 9c: Shopping Parity API - Coverage & Refactor
@@ -338,8 +338,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before sync payload exists and assert deterministic cursor ordering plus tombstone shapes for offline cache reconciliation.
 
 ### ⬜ Unit 10b: Private Sync Tombstone Freshness API - Implementation
-**What**: Implement private sync handlers and serializers for current chef data, recipes, cookbooks, spoons, shopping items, profiles, notification preferences, deleted/tombstoned objects, and freshness metadata.
-**Output**: `app/lib/api-v1.server.ts` sync handlers plus extracted serializers.
+**What**: Orchestrator-only: implement private sync endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring for current chef data, recipes, cookbooks, spoons, shopping items, profiles, notification preferences, deleted/tombstoned objects, and freshness metadata.
+**Output**: `app/lib/api-v1-native-sync.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, extracted serializers, and `web/integration-notes/unit-10b-sync.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 10a tests pass; sync output is stable across pages and can rebuild native cache from scratch.
 
 ### ⬜ Unit 10c: Private Sync Tombstone Freshness API - Coverage & Refactor
@@ -353,8 +353,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before the REST v1 import handler exists and assert the outbound/native contract that capture drafts will call.
 
 ### ⬜ Unit 10e: Recipe Import API - Implementation
-**What**: Implement `POST /api/v1/recipes/import` using existing import helpers in `app/lib/recipe-import*.server.ts`, recipe creation helpers, v1 idempotency helpers, request body limits, and structured provider-secret blocker responses.
-**Output**: Import API handler, serializers, docs/OpenAPI schemas, generated playground examples, and `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-import.json` when local provider secrets are unavailable.
+**What**: Orchestrator-only: implement the recipe import endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring for `POST /api/v1/recipes/import` using existing import helpers in `app/lib/recipe-import*.server.ts`, recipe creation helpers, v1 idempotency helpers, request body limits, and structured provider-secret blocker responses.
+**Output**: `app/lib/api-v1-recipe-import.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, serializers, `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-import.json` when local provider secrets are unavailable, and `web/integration-notes/unit-10e-recipe-import.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 10d tests pass; missing AI/provider secrets return only the canonical `ProviderSecret` blocker for `recipe-import` rather than silently pretending import completed.
 
 ### ⬜ Unit 10f: Recipe Import API - Coverage & Refactor
@@ -448,7 +448,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Unit 16a tests pass; shell can render signed-out, restoring cache, live synced, offline stale, and sync-failed states.
 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
-**What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `scenario:surfaces`, `project-contract`, `xcodebuild-macos`, and `warning-scan`.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `coverage`, `scenario:surfaces`, `project-contract`, `xcodebuild-macos`, and `warning-scan`.
 **Output**: Validation Command Matrix artifacts for `unit-16c-live-store`.
 **Acceptance**: Store logic has 100% measured coverage and app target static/screenshot checks cover non-SwiftPM shell adapters.
 
@@ -458,8 +458,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before catalog/detail parity exists and assert exact view model states plus route actions for read-only recipe browsing.
 
 ### ⬜ Unit 17b: Native Recipe Catalog And Detail - Implementation
-**What**: Implement catalog/detail view models and SwiftUI wiring for `RecipesView.swift` and `RecipeDetailView.swift` using live repositories, cache state, native search, native share affordance placeholders, and Spoonjoy design hierarchy.
-**Output**: Updated recipe catalog/detail Swift files, view models, and `apple/integration-notes/unit-17b-recipe-catalog-detail.md` for orchestrator-applied project/scenario metadata.
+**What**: Implement catalog/detail feature models under `Sources/SpoonjoyCore/Features/RecipeCatalog/**` using live repositories, cache state, native search, native share affordance placeholders, and Spoonjoy design hierarchy; shared `RecipesView.swift` and `RecipeDetailView.swift` wiring is orchestrator-applied from integration notes.
+**Output**: Recipe catalog/detail feature source files, view models, and `apple/integration-notes/unit-17b-recipe-catalog-detail.md` covering orchestrator-applied shared view, project, and scenario metadata updates.
 **Acceptance**: Unit 17a tests pass; catalog/detail reads come from live/cache repositories and fixtures remain test/demo fallback only.
 
 ### ⬜ Unit 17c: Native Recipe Catalog And Detail - Coverage & Refactor
@@ -473,8 +473,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before cook-mode parity exists and assert exact progress persistence and route behavior.
 
 ### ⬜ Unit 17e: Native Cook Mode - Implementation
-**What**: Implement `CookModeView.swift`, cook-mode view models, progress persistence, timer state, scale/dependency/checkoff controls, and route/Siri handoff integration.
-**Output**: Cook mode Swift files, view models, and `apple/integration-notes/unit-17e-cook-mode.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement cook-mode feature models under `Sources/SpoonjoyCore/Features/CookMode/**`, progress persistence, timer state, scale/dependency/checkoff controls, and route/Siri handoff integration notes; shared `CookModeView.swift` wiring is orchestrator-applied from integration notes.
+**Output**: Cook-mode feature source files, view models, and `apple/integration-notes/unit-17e-cook-mode.md` covering orchestrator-applied shared view, scenario verifier, route, Siri handoff, and project membership updates.
 **Acceptance**: Unit 17d tests pass; cook mode works from cached data while offline and syncs progress-related queued writes only through declared contracts.
 
 ### ⬜ Unit 17f: Native Cook Mode - Coverage & Refactor
@@ -488,8 +488,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before editor parity exists and assert exact request/mutation kinds and validation messages.
 
 ### ⬜ Unit 17h: Native Recipe Editor - Implementation
-**What**: Implement native recipe editor view models and SwiftUI forms using native controls, REST v1 recipe/step/ingredient/dependency endpoints, offline queued drafts, and owner confirmations.
-**Output**: Recipe editor Swift files, view models, and `apple/integration-notes/unit-17h-recipe-editor.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement native recipe editor feature models under `Sources/SpoonjoyCore/Features/RecipeEditor/**` using REST v1 recipe/step/ingredient/dependency endpoints, offline queued drafts, and owner confirmations; shared SwiftUI forms are orchestrator-applied from integration notes.
+**Output**: Recipe editor feature source files, view models, and `apple/integration-notes/unit-17h-recipe-editor.md` covering orchestrator-applied shared view/form, scenario verifier, and project membership updates.
 **Acceptance**: Unit 17g tests pass; editor mutations use live REST contracts or durable offline queue entries.
 
 ### ⬜ Unit 17i: Native Recipe Editor - Coverage & Refactor
@@ -503,8 +503,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before recipe action parity exists and assert exact queued or live mutation behavior for each action.
 
 ### ⬜ Unit 17k: Native Recipe Actions - Implementation
-**What**: Implement recipe action view models and UI affordances in recipe detail/cook surfaces using native menus/buttons/confirmation dialogs and live REST contracts.
-**Output**: Recipe action Swift files, view model updates, and `apple/integration-notes/unit-17k-recipe-actions.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement recipe action feature models under `Sources/SpoonjoyCore/Features/RecipeActions/**` using live REST contracts; shared recipe detail/cook-surface UI affordances are orchestrator-applied from integration notes.
+**Output**: Recipe action feature source files, view model updates, and `apple/integration-notes/unit-17k-recipe-actions.md` covering orchestrator-applied shared menu/button/confirmation UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 17j tests pass; destructive actions require confirmation and ownership checks.
 
 ### ⬜ Unit 17l: Native Recipe Actions - Coverage & Refactor
@@ -518,8 +518,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before spoon surfaces exist and assert exact view model states plus REST/offline mutation behavior.
 
 ### ⬜ Unit 18b: Native Spoon Cook Logs - Implementation
-**What**: Implement spoon/cook-log view models and SwiftUI sheets/rows using live spoon endpoints, local offline drafts, and confirmation on delete.
-**Output**: Spoon Swift views/components, view models, and `apple/integration-notes/unit-18b-spoon-logs.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement spoon/cook-log feature models under `Sources/SpoonjoyCore/Features/Spoons/**` using live spoon endpoints, local offline drafts, and confirmation state; shared SwiftUI sheets/rows are orchestrator-applied from integration notes.
+**Output**: Spoon feature source files, view models, and `apple/integration-notes/unit-18b-spoon-logs.md` covering orchestrator-applied shared sheet/row UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 18a tests pass; spoon photo/note/nextTime/cookedAt workflows sync through REST v1.
 
 ### ⬜ Unit 18c: Native Spoon Cook Logs - Coverage & Refactor
@@ -533,8 +533,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before cover controls exist and assert exact request/mutation behavior plus confirmation state.
 
 ### ⬜ Unit 18e: Native Cover Controls - Implementation
-**What**: Implement cover controls in recipe owner surfaces using REST v1 image/cover endpoints, spoon-cover integration, native photo/file affordances, and tested blocker display.
-**Output**: Cover Swift views/components, view models, and `apple/integration-notes/unit-18e-cover-controls.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement cover-control feature models under `Sources/SpoonjoyCore/Features/Covers/**` using REST v1 image/cover endpoints, spoon-cover integration, native photo/file affordance state, and tested blocker display; shared recipe owner controls are orchestrator-applied from integration notes.
+**Output**: Cover feature source files, view models, and `apple/integration-notes/unit-18e-cover-controls.md` covering orchestrator-applied shared cover UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 18d tests pass; cover lifecycle behavior matches web and does not require production secrets for local validation.
 
 ### ⬜ Unit 18f: Native Cover Controls - Coverage & Refactor
@@ -548,8 +548,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before capture/import parity exists and assert exact capture draft to backend import transition.
 
 ### ⬜ Unit 18h: Native Capture And Import - Implementation
-**What**: Implement capture/import UI and view models using native share/camera/photo affordances, local drafts, import endpoint requests, and sync retry.
-**Output**: Capture/import Swift views/components, view models, and `apple/integration-notes/unit-18h-capture-import.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement capture/import feature models under `Sources/SpoonjoyCore/Features/CaptureImport/**` using native share/camera/photo affordance state, local drafts, import endpoint requests, and sync retry; shared capture/import UI is orchestrator-applied from integration notes.
+**Output**: Capture/import feature source files, view models, and `apple/integration-notes/unit-18h-capture-import.md` covering orchestrator-applied shared capture UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 18g tests pass; local capture works offline and import submits through the REST v1 import contract.
 
 ### ⬜ Unit 18i: Native Capture And Import - Coverage & Refactor
@@ -563,8 +563,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before first-class sharing exists and assert that Spoonjoy does not adopt Messages/Mail schemas.
 
 ### ⬜ Unit 18k: Native Sharing Payloads - Implementation
-**What**: Implement native share payload builders, `ShareLink` usage, Shortcuts/Siri transfer values, and public URL builders for recipe/cookbook/shopping/spoon/capture objects.
-**Output**: Sharing Swift files/components, view model updates, and `apple/integration-notes/unit-18k-sharing.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement native share payload builders, Shortcuts/Siri transfer values, and public URL builders for recipe/cookbook/shopping/spoon/capture objects; shared `ShareLink` usage in app views is orchestrator-applied from integration notes.
+**Output**: Sharing feature source files, view model updates, and `apple/integration-notes/unit-18k-sharing.md` covering orchestrator-applied shared ShareLink UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 18j tests pass; sharing opens system share sheet destinations without adding Spoonjoy messaging or mail product surfaces.
 
 ### ⬜ Unit 18l: Native Sharing Payloads - Coverage & Refactor
@@ -578,8 +578,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before cookbook parity exists and assert exact REST/offline mutation behavior.
 
 ### ⬜ Unit 19b: Native Cookbook Surfaces - Implementation
-**What**: Implement cookbook views and view models in `CookbooksView.swift` and supporting components using native forms, lists, toolbars, and live REST contracts.
-**Output**: Cookbook Swift views/components, view models, and `apple/integration-notes/unit-19b-cookbooks.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement cookbook feature models under `Sources/SpoonjoyCore/Features/Cookbooks/**` using live REST contracts; shared `CookbooksView.swift` and supporting components are orchestrator-applied from integration notes.
+**Output**: Cookbook feature source files, view models, and `apple/integration-notes/unit-19b-cookbooks.md` covering orchestrator-applied shared cookbook view/component, scenario verifier, and project membership updates.
 **Acceptance**: Unit 19a tests pass; cookbook create/rename/delete/add/remove actions use declared REST v1 endpoints with confirmation where destructive.
 
 ### ⬜ Unit 19c: Native Cookbook Surfaces - Coverage & Refactor
@@ -593,8 +593,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before profile parity exists and assert exact cached/live profile payload states.
 
 ### ⬜ Unit 19e: Native Profile And Chef Graph Surfaces - Implementation
-**What**: Implement profile and chef graph SwiftUI surfaces/view models using profile/search/sync endpoints and Spoonjoy social-derived product model.
-**Output**: Profile Swift views/components, view models, and `apple/integration-notes/unit-19e-profiles.md` for orchestrator-applied scenario verifier and route updates.
+**What**: Implement profile and chef graph feature models under `Sources/SpoonjoyCore/Features/Profiles/**` using profile/search/sync endpoints and Spoonjoy social-derived product model; shared profile SwiftUI surfaces are orchestrator-applied from integration notes.
+**Output**: Profile feature source files, view models, and `apple/integration-notes/unit-19e-profiles.md` covering orchestrator-applied shared profile view, scenario verifier, and route updates.
 **Acceptance**: Unit 19d tests pass; profiles show only existing product concepts and do not add follows, comments, or feeds.
 
 ### ⬜ Unit 19f: Native Profile And Chef Graph Surfaces - Coverage & Refactor
@@ -608,8 +608,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before settings/token parity exists and assert exact native vs web-handoff boundaries.
 
 ### ⬜ Unit 19h: Native Settings Tokens And Connections - Implementation
-**What**: Implement settings, API credential, OAuth connection, logout/revoke, and secure handoff UI using native forms/lists/confirmation dialogs and live REST contracts.
-**Output**: `SettingsView.swift`, settings components/view models, and `apple/integration-notes/unit-19h-settings-tokens.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement settings, API credential, OAuth connection, logout/revoke, and secure handoff feature models under `Sources/SpoonjoyCore/Features/Settings/**` using live REST contracts; shared `SettingsView.swift` and settings components are orchestrator-applied from integration notes.
+**Output**: Settings feature source files, view models, and `apple/integration-notes/unit-19h-settings-tokens.md` covering orchestrator-applied shared settings UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 19g tests pass; API credential list/create/revoke and connection disconnect are native REST-backed flows.
 
 ### ⬜ Unit 19i: Native Settings Tokens And Connections - Coverage & Refactor
@@ -623,8 +623,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before notification/APNs parity exists and assert production APNs delivery is represented only as a structured account/team blocker.
 
 ### ⬜ Unit 19k: Native Notification Preferences And APNs State - Implementation
-**What**: Implement notification preference UI, APNs registration-state UI, device registration/revocation request plumbing, and blocker artifact display for missing Apple Developer Program/team capability.
-**Output**: Notification settings Swift files/view models, `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` when Apple account/team capability is unavailable, and `apple/integration-notes/unit-19k-notifications.md` for orchestrator-applied scenario verifier and project membership updates.
+**What**: Implement notification preference and APNs registration-state feature models under `Sources/SpoonjoyCore/Features/Notifications/**`, device registration/revocation request plumbing, and blocker-display state for missing Apple Developer Program/team capability; shared notification settings UI is orchestrator-applied from integration notes.
+**Output**: Notification settings feature source files/view models, `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` when Apple account/team capability is unavailable, and `apple/integration-notes/unit-19k-notifications.md` covering orchestrator-applied shared notification UI, scenario verifier, and project membership updates.
 **Acceptance**: Unit 19j tests pass; preference APIs are native REST-backed and production APNs delivery remains blocked only by the canonical `AppleDeveloperProgram` blocker.
 
 ### ⬜ Unit 19l: Native Notification Preferences And APNs State - Coverage & Refactor
@@ -952,3 +952,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 19:34 Addressed ambiguity review findings by marking the doing doc executable with reviewer gates, adding exact worker write-scope contracts, defining matrix slug rules, completing Xcode/CoreSimulator blocker contracts, and fixing cross-repo artifact commit ownership.
 - 2026-06-16 19:41 Addressed ambiguity review findings by adding the Wave 2 dependency DAG, routing Unit 15 AppState/MutationQueue and Unit 16 AppShell edits through orchestrator ownership, marking Unit 20 orchestrator-only, mapping AppIntentsSDK blocker producers, and defining web/native validation audit commands.
 - 2026-06-16 19:47 Addressed ambiguity review findings by fixing implementation integration timing, constraining screenshot blockers to existing capability contracts, making Unit 21l the Spotlight SDK blocker producer, adding Unit 20a web audit evidence, fully qualifying Unit 26b matrix artifacts, and splitting Unit 27 into merged vs blocked terminal outcomes.
+- 2026-06-16 19:54 Addressed ambiguity review findings by marking backend implementation units orchestrator-only, separating surface feature-model work from orchestrator-applied shared SwiftUI edits, defining `*-green.log` aliases to matrix artifacts, and adding Unit 16c coverage evidence.
