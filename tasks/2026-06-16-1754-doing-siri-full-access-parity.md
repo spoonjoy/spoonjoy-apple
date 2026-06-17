@@ -304,7 +304,7 @@ All web validation shorthand resolves through this matrix. Run `export ARTIFACT_
 - `web-typecheck`: `bash -lc 'set -euo pipefail; pnpm run typecheck | tee "$ARTIFACT_ROOT/web/<unit-slug>-typecheck.log"'`.
 - `web-build`: `bash -lc 'set -euo pipefail; pnpm run build | tee "$ARTIFACT_ROOT/web/<unit-slug>-build.log"'`.
 - `web-coverage-full`: `bash -lc 'set -euo pipefail; pnpm run test:coverage | tee "$ARTIFACT_ROOT/web/<unit-slug>-coverage.log"'`.
-- `web-warning-scan`: `bash -lc 'set -euo pipefail; shopt -s nullglob; logs=("$ARTIFACT_ROOT/web/<unit-slug>"*.log); out="$ARTIFACT_ROOT/web/<unit-slug>-warning-scan.log"; [[ ${#logs[@]} -gt 0 ]] || { echo "no logs found for <unit-slug>" | tee "$out"; exit 1; }; set +e; rg -n "\\b(warning|WARN)\\b" "${logs[@]}" > "$out"; status=$?; set -e; cat "$out"; if [[ $status -eq 0 ]]; then exit 1; elif [[ $status -eq 1 ]]; then echo "No warnings found" | tee "$out"; exit 0; else echo "warning scan failed with rg status $status" | tee -a "$out"; exit "$status"; fi'`.
+- `web-warning-scan`: `bash -lc 'set -euo pipefail; shopt -s nullglob; logs=("$ARTIFACT_ROOT/web/<unit-slug>"*.log); out="$ARTIFACT_ROOT/web/<unit-slug>-warning-scan.log"; [[ ${#logs[@]} -gt 0 ]] || { echo "no logs found for <unit-slug>" | tee "$out"; exit 1; }; set +e; rg -in "\\bwarning\\b|\\bwarn\\b" "${logs[@]}" > "$out"; status=$?; set -e; cat "$out"; if [[ $status -eq 0 ]]; then exit 1; elif [[ $status -eq 1 ]]; then echo "No warnings found" | tee "$out"; exit 0; else echo "warning scan failed with rg status $status" | tee -a "$out"; exit "$status"; fi'`.
 
 Matrix-generated log and JSON names are authoritative for validation artifacts. Unit `Output` lines may also name summary files, changed source files, or human-readable review documents, but artifact audits must verify the matrix-generated paths above when a unit lists a matrix entry in `What`.
 
@@ -581,7 +581,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `coverage`, `scenario:surfaces`, `project-contract`, `xcodebuild-macos`, and `warning-scan`.
 **Output**: Validation Command Matrix artifacts for `unit-16c-live-store`.
-**Acceptance**: Store logic has 100% measured coverage and app target static/screenshot checks cover non-SwiftPM shell adapters.
+**Acceptance**: Store logic has 100% measured coverage and app target static checks cover non-SwiftPM shell adapters.
 
 ### ⬜ Unit 17a: Native Recipe Catalog And Detail - Tests
 **What**: Write failing Swift tests/static scenario checks for live recipe catalog loading, search/filter state, recipe detail cache restore, cover/provenance display, chef attribution, servings, steps, ingredients, dependencies, spoon summary, cookbook-save state, owner-tool visibility, and offline stale state.
@@ -1090,3 +1090,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 20:20 Addressed ambiguity review findings by aligning Endpoint Scope with the approved planning scope and making offline queueability, freshness thresholds, retry policy, and media-staging limits executable.
 - 2026-06-16 20:29 Addressed ambiguity review findings by making native/web validation matrix commands fail-fast with pipefail and defining `design-review-blocked.json` as the canonical screenshot-runtime blocker companion.
 - 2026-06-16 20:36 Addressed ambiguity review findings by removing unplanned APNs device reads, routing xcodebuild blockers through an explicit wrapper, fixing web warning-scan status handling, and preventing stale design-review blockers from masking screenshot success.
+- 2026-06-16 20:42 Ambiguity pass converged after Erdos review; addressed non-gating notes by making web warning scans case-insensitive and removing stray Unit 16c screenshot wording.
