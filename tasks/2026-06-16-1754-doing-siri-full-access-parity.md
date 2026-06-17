@@ -104,23 +104,20 @@ For this doing doc, `Scope` means the exact endpoint table below. Unit 1a, Unit 
 | PATCH | `/api/v1/recipes/{id}/steps/{stepId}` | 5a-5c |
 | DELETE | `/api/v1/recipes/{id}/steps/{stepId}` | 5a-5c |
 | POST | `/api/v1/recipes/{id}/steps/reorder` | 5a-5c |
-| POST | `/api/v1/recipes/{id}/ingredients` | 5a-5c |
-| DELETE | `/api/v1/recipes/{id}/ingredients/{ingredientId}` | 5a-5c |
+| POST | `/api/v1/recipes/{id}/steps/{stepId}/ingredients` | 5a-5c |
+| DELETE | `/api/v1/recipes/{id}/steps/{stepId}/ingredients/{ingredientId}` | 5a-5c |
 | PUT | `/api/v1/recipes/{id}/step-output-uses` | 5a-5c |
 | POST | `/api/v1/recipes/{id}/image` | 6a-6c |
 | GET | `/api/v1/recipes/{id}/covers` | 6a-6c |
 | POST | `/api/v1/recipes/{id}/covers` | 6a-6c |
-| PATCH | `/api/v1/recipes/{id}/covers/{coverId}/active` | 6a-6c |
+| PATCH | `/api/v1/recipes/{id}/covers/{coverId}` | 6a-6c |
 | DELETE | `/api/v1/recipes/{id}/covers/{coverId}` | 6a-6c |
-| POST | `/api/v1/recipes/{id}/covers/{coverId}/archive` | 6a-6c |
 | POST | `/api/v1/recipes/{id}/covers/regenerate` | 6a-6c |
-| POST | `/api/v1/recipes/{id}/covers/from-spoon` | 6a-6c |
+| POST | `/api/v1/recipes/{id}/covers/from-spoon/{spoonId}` | 6a-6c |
 | GET | `/api/v1/recipes/{id}/spoons` | 7a-7c |
-| GET | `/api/v1/recipes/{id}/spoons/{spoonId}` | 7a-7c |
 | POST | `/api/v1/recipes/{id}/spoons` | 7a-7c |
 | PATCH | `/api/v1/recipes/{id}/spoons/{spoonId}` | 7a-7c |
 | DELETE | `/api/v1/recipes/{id}/spoons/{spoonId}` | 7a-7c |
-| POST | `/api/v1/recipes/{id}/spoons/{spoonId}/photo` | 7a-7c |
 | GET | `/api/v1/cookbooks` | 1a-1c, 11a-11c, 19a-19c |
 | GET | `/api/v1/cookbooks/{id}` | 1a-1c, 11a-11c, 19a-19c |
 | POST | `/api/v1/cookbooks` | 8a-8c |
@@ -172,13 +169,25 @@ Offline is required native product behavior, not an implementation optimization.
 
 | Domain | Cached read behavior | Local write behavior | Indicator/UX requirement |
 | --- | --- | --- | --- |
-| Auth, profile, settings, and account state | Cache `me`, kitchen, notification preferences, API token metadata, connection status, and APNs registration status by account/environment. Never store bearer tokens, refresh tokens, one-time token values, provider secrets, passkey material, or raw credential values in general cache storage; use Keychain/session storage only for auth material. | Profile, notification preference, APNs registration/revocation, token revocation, and connection-disconnect mutations use the same mutation queue where safe; passkey/password/provider-link flows use exact secure web handoff and are online-only. | Offline account screens show cached state with precise disabled/retry/handoff affordances for online-only credential work. |
+| Auth, profile, settings, and account state | Cache `me`, kitchen, notification preferences, API token metadata, connection status, and APNs registration status by account/environment. Never store bearer tokens, refresh tokens, one-time token values, provider secrets, passkey material, or raw credential values in general cache storage; use Keychain/session storage only for auth material. | Profile display-field updates and notification preference updates are queueable. API token create/revoke, OAuth connection disconnect, logout/session revoke, passkey/password/provider-link actions, APNs permission prompts, and APNs device token acquisition are online-only. APNs device registration/revocation is queueable only after the system device token already exists. | Offline account screens show cached state with precise disabled/retry/handoff affordances for online-only credential work. |
 | Recipes, cookbooks, chef graph, and search | Cache catalog pages, recipe details, recipe steps/ingredients/dependencies, cover metadata, spoon summaries, cookbooks, profile/chef graph reads, and recent search results with account/environment/schema version/fetched-at/source-endpoint/server-cursor metadata. Prefetch signed-in kitchen/bootstrap data, recently viewed recipe details, active cook-mode data, cookbooks, shopping list, and viewed profiles. | Recipe, step, ingredient, dependency, fork, cookbook, save/remove, and owner delete mutations use stable client mutation IDs, durable payloads, idempotency, tombstone handling, replay order, and conflict classification. | Cached pages show freshness state when stale/offline and keep destructive confirmation/auth policy intact. |
 | Cook mode and shopping | Cache active cook session state, checked ingredients/step outputs, timers, scale factor, shopping list items, and shopping sync cursor. | Cook progress, checkoffs, add-from-recipe, item add/check/delete, clear completed, and clear all persist through app restart and drain only through declared REST contracts. | Queued work count and sync failure/conflict state are always visible until resolved. |
-| Spoons, covers, capture, and import | Cache spoon/cook-log lists/details, cover history/active state, local photo/file references, capture URL/text/camera/share drafts, and provider-blocker state. Media blobs may be locally staged with bounded eviction and privacy-safe file names; durable shared payloads must use public Spoonjoy URLs or transfer values, not secret signed URLs. | Spoon edits/photos, cover upload/archive/regenerate/from-spoon, capture draft updates, and import submissions survive restart and replay with retry/backoff/conflict state. | Drafts and staged uploads are visible offline; provider-secret blockers remain visible as blockers, not generic offline errors. |
+| Spoons, covers, capture, and import | Cache spoon/cook-log lists/details, cover history/active state, local photo/file references, capture URL/text/camera/share drafts, and provider-blocker state. Media blobs may be locally staged only under the Local media staging policy below and with privacy-safe file names; durable shared payloads must use public Spoonjoy URLs or transfer values, not secret signed URLs. | Spoon edits/photos, cover upload/archive/regenerate/from-spoon, capture draft updates, and import submissions survive restart and replay with retry/backoff/conflict state. | Drafts and staged uploads are visible offline; provider-secret blockers remain visible as blockers, not generic offline errors. |
 | App Intents, Spotlight, links, and sharing | App entity queries, Spotlight indexes, universal-link routing, and share/transfer payloads resolve from the same live cache. Fixture-only entities are invalid outside tests/demo. | Siri writes use the same confirmation/auth/mutation queue policies as in-app UI. Open/search/share/read intents may operate from cache while offline. | Siri/Shortcut responses clearly distinguish cached reads, queued writes, online-only handoffs, and true blockers. |
 
 Every cached record must carry at least `accountId`, `environment`, `schemaVersion`, `fetchedAt`, `lastValidatedAt`, `sourceEndpoint`, and a server revision marker when available (`cursor`, `etag`, `updatedAt`, or tombstone/delete token). Cache migrations must preserve user drafts, cook progress, shopping queue, and capture/import drafts or explicitly produce tested migration-failure recovery. Dismissal of the offline/freshness indicator may hide only informational offline/stale states until connectivity, cache freshness, or account state changes; dismissal must never hide queued work, sync failure, conflict, blocker, or destructive-confirmation state.
+
+Freshness thresholds are fixed for implementation and tests: signed-in bootstrap/account/settings/shopping data is fresh for 15 minutes after `lastValidatedAt`; recipe/cookbook detail, spoon lists, profile/chef graph, and active cook-mode backing data are fresh for 6 hours; catalog/search result pages are fresh for 24 hours; local cook progress, queued mutations, capture drafts, and staged media are locally authoritative until synced, discarded, or conflicted. The app must attempt revalidation on launch, foreground, account/environment change, network recovery, and when a visible surface opens with stale data. If revalidation fails, the app keeps serving cache with the matching stale/offline/sync-failed indicator state.
+
+Offline queue policy is fixed for implementation and tests:
+
+| Queueable while offline | Online-only while offline |
+| --- | --- |
+| Recipe create/update/delete/fork; step create/update/delete/reorder; step ingredient add/delete; dependency edits; cookbook create/rename/delete/add/remove recipe; shopping item add/check/delete/add-from-recipe/clear-completed/clear-all; cook progress/checkoff/timer/scale changes; spoon create/update/delete/photo payload updates; cover upload/set-active/remove/archive/regenerate/from-spoon; capture draft create/edit/discard; import submit; profile display-field update; notification preference update; APNs device registration/revocation after a device token exists; Siri writes that map to one of these queueable mutations. | OAuth sign-in/callback; token create; token revoke; OAuth connection disconnect; logout/session revoke; passkey/password/provider-link actions; APNs permission prompt; APNs device-token acquisition; production AASA/APNs/TestFlight validation; provider-generated cover regeneration or recipe import when the matching `ProviderSecret` blocker exists; destructive production operation approval. |
+
+Queued mutations must include stable `clientMutationId`, endpoint path, method, idempotency key, payload schema version, created-at time, dependency ordering key, retry count, and last error. Queue replay is FIFO within an object dependency key and may run independent keys concurrently only after tests prove no ordering conflict. Retry backoff is 5 seconds, 30 seconds, 5 minutes, then 30 minutes with jitter capped at 20%; auth failure pauses the queue until reauth, validation conflict marks only that mutation conflicted, and server tombstones remove or conflict local records according to the endpoint-specific tests.
+
+Local media staging policy is fixed for implementation and tests: individual staged media files are capped at 25 MB; temporary generated previews are capped at 128 MB total and may be LRU-evicted after successful upload or discard; unsynced user-selected media is capped at 512 MB total or 100 files per account/environment. Unsynced user media is never silently evicted; if the cap is reached, new staging fails with a visible local-storage state that tells the user to sync or delete drafts.
 
 ## Upstream Work Items
 
@@ -395,14 +404,14 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Touched step/dependency code has 100% coverage and no warnings.
 
 ### ⬜ Unit 6a: Recipe Image And Cover Lifecycle API - Tests
-**What**: Write failing tests for `POST /api/v1/recipes/{id}/image`, cover list/create/set/remove/archive/regenerate/from-spoon endpoints, owner checks, source variants, failure states, malformed uploads, and no-production-secret behavior for AI generation, including `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json`.
+**What**: Write failing tests for `POST /api/v1/recipes/{id}/image`, `GET/POST /api/v1/recipes/{id}/covers`, `PATCH/DELETE /api/v1/recipes/{id}/covers/{coverId}`, `POST /api/v1/recipes/{id}/covers/regenerate`, and `POST /api/v1/recipes/{id}/covers/from-spoon/{spoonId}`, covering set-active/remove/archive behavior through the declared cover mutation endpoints, owner checks, source variants, failure states, malformed uploads, and no-production-secret behavior for AI generation, including `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json`.
 **Output**: `test/routes/api-v1-recipe-covers.test.ts` and `web/unit-6a-covers-red.log`.
 **Acceptance**: Tests fail before v1 handlers exist and assert exact cover history response shapes, upload constraints, and structured AI/provider blocker responses for missing local secrets.
 
 ### ⬜ Unit 6b: Recipe Image And Cover Lifecycle API - Implementation
 **What**: Orchestrator-only: implement image/cover endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/image-storage.server.ts`, `app/lib/recipe-cover.server.ts`, `app/lib/recipe-image-assignment.server.ts`, spoon cover helpers, and background task boundaries.
 **Output**: `app/lib/api-v1-recipe-covers.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, tested no-secret behavior, `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` when local provider secrets are unavailable, and `web/integration-notes/unit-6b-covers.md` if backend workers prepared helper patches.
-**Acceptance**: Unit 6a tests pass; upload, active cover, archive, regenerate, and spoon-cover flows match web behavior; missing provider secrets emit only the canonical `ProviderSecret` blocker for `recipe-covers`.
+**Acceptance**: Unit 6a tests pass; upload, active cover, archive, regenerate, and spoon-cover flows use only the Endpoint Scope cover paths and match web behavior; missing provider secrets emit only the canonical `ProviderSecret` blocker for `recipe-covers`.
 
 ### ⬜ Unit 6c: Recipe Image And Cover Lifecycle API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-covers.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
@@ -410,14 +419,14 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Touched cover/image code has 100% coverage and every provider/blocker/error branch is tested, including `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 7a: Spoon Cook Log API - Tests
-**What**: Write failing tests for `GET/POST/PATCH/DELETE /api/v1/recipes/{id}/spoons/{spoonId?}` covering list pagination, create, update, delete, photo URL/upload contract, note/nextTime/cookedAt validation, owner checks, origin-cook notification flags, deleted spoons, and cover-from-spoon integration.
+**What**: Write failing tests for `GET /api/v1/recipes/{id}/spoons`, `POST /api/v1/recipes/{id}/spoons`, `PATCH /api/v1/recipes/{id}/spoons/{spoonId}`, and `DELETE /api/v1/recipes/{id}/spoons/{spoonId}`, covering list pagination, create, update, delete, photo URL/upload payload contract, note/nextTime/cookedAt validation, owner checks, origin-cook notification flags, deleted spoons, and cover-from-spoon integration.
 **Output**: `test/routes/api-v1-spoons.test.ts` and `web/unit-7a-spoons-red.log`.
 **Acceptance**: Tests fail before v1 spoon handlers exist and assert exact response envelopes plus private/public cache behavior.
 
 ### ⬜ Unit 7b: Spoon Cook Log API - Implementation
 **What**: Orchestrator-only: implement spoon endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/recipe-spoon.server.ts`, recipe detail serializers, notification helpers, and v1 idempotency for writes.
 **Output**: `app/lib/api-v1-spoons.server.ts`, orchestrator-applied shared REST/docs/OpenAPI/playground wiring, serializers, and `web/integration-notes/unit-7b-spoons.md` if backend workers prepared helper patches.
-**Acceptance**: Unit 7a tests pass; spoon list/detail payloads feed native cook log, profile, Spotlight, and cover-from-spoon flows.
+**Acceptance**: Unit 7a tests pass; spoon list and recipe-detail payloads feed native cook log, profile, Spotlight, and cover-from-spoon flows without adding endpoints outside Endpoint Scope.
 
 ### ⬜ Unit 7c: Spoon Cook Log API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-spoons.test.ts test/lib/spoonjoy-api-spoons.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
@@ -530,9 +539,9 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: SwiftPM auth code has 100% coverage; app adapter compile/static checks cover Keychain and ASWebAuthenticationSession boundaries.
 
 ### ⬜ Unit 14a: Native Cache Schema And Freshness Indicator - Tests
-**What**: Write failing Swift tests for the Offline Product Contract, durable cache schema version 2, cached recipes/cookbooks/details/shopping/cook progress/capture/profile/notifications/tokens/connections/APNs status, record metadata, intelligent prefetch policy, privacy-safe media staging metadata, freshness states, dismissed indicator persistence, stale thresholds, sync failure display, queued-work display, conflict/blocker/destructive-confirmation display, secret-safe cache rejection, and corrupt-cache recovery.
+**What**: Write failing Swift tests for the Offline Product Contract, durable cache schema version 2, cached recipes/cookbooks/details/shopping/cook progress/capture/profile/notifications/tokens/connections/APNs status, record metadata, intelligent prefetch policy, privacy-safe media staging metadata, exact freshness thresholds, dismissed indicator persistence, sync failure display, queued-work display, conflict/blocker/destructive-confirmation display, secret-safe cache rejection, and corrupt-cache recovery.
 **Output**: `Tests/SpoonjoyCoreTests/NativeCacheFreshnessTests.swift` and `apple/unit-14a-cache-red.log`.
-**Acceptance**: Tests fail before expanded cache/freshness model exists and assert exact state transitions for synced, offline, stale, queued, failed, conflict, blocker, destructive-confirmation, and dismissed states; tests prove dismissing the indicator never hides queued/failure/conflict/blocker/destructive-confirmation state and general cache storage rejects auth secrets/raw credential values.
+**Acceptance**: Tests fail before expanded cache/freshness model exists and assert exact state transitions for synced, offline, stale, queued, failed, conflict, blocker, destructive-confirmation, and dismissed states; tests prove the Offline Product Contract freshness and media-staging thresholds, dismissal rules, and secret-safe storage policy.
 
 ### ⬜ Unit 14b: Native Cache Schema And Freshness Indicator - Implementation
 **What**: Implement expanded offline snapshot/cache models, record metadata, prefetch policy, privacy-safe media staging metadata, freshness state machine, dismissible indicator state, cache migration from schema version 1, and app `OfflineStatusView` updates.
@@ -545,9 +554,9 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Cache/freshness code has 100% measured coverage and UI static checks prove indicator labels/icons, dismissal behavior, and non-dismissable severity for every Offline Product Contract state.
 
 ### ⬜ Unit 15a: Native Sync Engine And Mutation Queue Expansion - Tests
-**What**: Write failing Swift tests for Offline Product Contract sync bootstrapping, foreground/network recovery, cursor checkpoints, conflict classification, retry backoff, queue drain, replay removal, idempotency keys, tombstone application, persisted mutation payloads, and queued mutation kinds for recipe, cookbook, spoon, cover, shopping, profile, notification, APNs, and capture/import writes.
+**What**: Write failing Swift tests for Offline Product Contract sync bootstrapping, foreground/network recovery, cursor checkpoints, conflict classification, exact retry backoff, FIFO object dependency ordering, queue drain, replay removal, idempotency keys, tombstone application, persisted mutation payloads, queueable vs online-only mutation policy, and queued mutation kinds for recipe, cookbook, spoon, cover, shopping, profile, notification, APNs, and capture/import writes.
 **Output**: `Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift` and `apple/unit-15a-sync-engine-red.log`.
-**Acceptance**: Tests fail before sync engine exists and assert outgoing request order plus cache mutation results.
+**Acceptance**: Tests fail before sync engine exists and assert outgoing request order, retry timing classes, queueability decisions, and cache mutation results.
 
 ### ⬜ Unit 15b: Native Sync Engine And Mutation Queue Expansion - Implementation
 **What**: Implement native repositories, sync engine, mutation queue expansion, conflict models, and retry scheduling under `Sources/SpoonjoyCore/Sync` and `Sources/SpoonjoyCore/Offline`; do not edit `Sources/SpoonjoyCore/AppState/**` or `MutationQueue` directly from a spawned worker.
@@ -1078,3 +1087,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 20:00 Addressed ambiguity review findings by defining Endpoint Scope locally, adding Wave 3 dependency gates, aligning Units 23-27 as orchestrator-owned, assigning feature-local static-check paths, replacing the native audit range with explicit units, requiring `aasa-validation.json` on AASA success, and making Unit 27 exactly one PR per repo.
 - 2026-06-16 20:09 Addressed ambiguity review findings by replacing circular Scope with an exact endpoint table, naming audit artifact paths and Unit 0 verification, splitting 21j-21l as orchestrator-only, allowing screenshot commands to produce canonical runtime blockers, and adding HumanCredential/ProductionOperationApproval blocker contracts.
 - 2026-06-16 20:12 Added an Offline Product Contract covering intelligent cache policy, secret-safe storage, durable queued writes, App Intents/cache behavior, and non-dismissable severe offline states.
+- 2026-06-16 20:20 Addressed ambiguity review findings by aligning Endpoint Scope with the approved planning scope and making offline queueability, freshness thresholds, retry policy, and media-staging limits executable.
