@@ -1,14 +1,14 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts (7 tests | 6 failed) 268ms
-     ✓ declares cookbook write routes as authenticated kitchen mutations 16ms
-     × creates cookbooks with trimmed titles, exact mutation envelopes, and replay semantics 50ms
-     × updates owned cookbook titles and rejects duplicate or cross-owner updates 24ms
-     × deletes owned cookbooks idempotently, cascading links without deleting recipes 28ms
-     × adds and removes active recipes with idempotency, detail refresh, and cookbook-save notifications 32ms
-     × validates auth, scope, title, recipe state, and owner checks before writes 21ms
-     × rejects cookbook idempotency conflicts across bodies, paths, operations, and in-progress reservations 21ms
+ ❯ test/routes/api-v1-cookbook-writes.test.ts (7 tests | 6 failed) 690ms
+     ✓ declares cookbook write routes as authenticated kitchen mutations 21ms
+     × creates cookbooks with trimmed titles, exact mutation envelopes, and replay semantics 61ms
+     × updates owned cookbook titles and rejects duplicate or cross-owner updates 29ms
+     × deletes owned cookbooks idempotently, cascading links without deleting recipes 34ms
+     × adds and removes active recipes with idempotency, detail refresh, and cookbook-save notifications 28ms
+     × validates auth, scope, title, recipe state, and owner checks before writes 155ms
+     × rejects cookbook idempotency conflicts across bodies, paths, operations, and in-progress reservations 244ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -21,13 +21,13 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts:269:26
-    267|     const firstPayload = await readJson(first);
-    268| 
-    269|     expect(first.status).toBe(201);
+ ❯ test/routes/api-v1-cookbook-writes.test.ts:266:26
+    264|     const firstPayload = await readJson(first);
+    265| 
+    266|     expect(first.status).toBe(201);
        |                          ^
-    270|     expectPrivateEnvelopeHeaders(first, "req_cookbook_create");
-    271|     expectSuccessEnvelope(firstPayload, "req_cookbook_create");
+    267|     expectPrivateEnvelopeHeaders(first, "req_cookbook_create");
+    268|     expectSuccessEnvelope(firstPayload, "req_cookbook_create");
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
 
@@ -40,13 +40,13 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts:309:28
-    307|     const payload = await readJson(updated);
-    308| 
-    309|     expect(updated.status).toBe(200);
+ ❯ test/routes/api-v1-cookbook-writes.test.ts:306:28
+    304|     const payload = await readJson(updated);
+    305| 
+    306|     expect(updated.status).toBe(200);
        |                            ^
-    310|     expectPrivateEnvelopeHeaders(updated, "req_cookbook_update");
-    311|     expectUpdateCookbookData(payload.data, body.clientMutationId);
+    307|     expectPrivateEnvelopeHeaders(updated, "req_cookbook_update");
+    308|     expectUpdateCookbookData(payload.data, body.clientMutationId);
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
 
@@ -59,13 +59,13 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts:362:26
-    360|     const payload = await readJson(first);
-    361| 
-    362|     expect(first.status).toBe(200);
+ ❯ test/routes/api-v1-cookbook-writes.test.ts:359:26
+    357|     const payload = await readJson(first);
+    358| 
+    359|     expect(first.status).toBe(200);
        |                          ^
-    363|     expectPrivateEnvelopeHeaders(first, "req_cookbook_delete");
-    364|     expectDeleteCookbookData(payload.data, body.clientMutationId);
+    360|     expectPrivateEnvelopeHeaders(first, "req_cookbook_delete");
+    361|     expectDeleteCookbookData(payload.data, body.clientMutationId);
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
 
@@ -78,13 +78,13 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts:409:29
-    407|     const addPayload = await readJson(firstAdd);
-    408| 
-    409|     expect(firstAdd.status).toBe(201);
+ ❯ test/routes/api-v1-cookbook-writes.test.ts:406:29
+    404|     const addPayload = await readJson(firstAdd);
+    405| 
+    406|     expect(firstAdd.status).toBe(201);
        |                             ^
-    410|     expectPrivateEnvelopeHeaders(firstAdd, "req_cookbook_add_recipe");
-    411|     expectCookbookRecipeMutationData(addPayload.data, addBody.clientMu…
+    407|     expectPrivateEnvelopeHeaders(firstAdd, "req_cookbook_add_recipe");
+    408|     expectCookbookRecipeMutationData(addPayload.data, addBody.clientMu…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
 
@@ -97,13 +97,13 @@ AssertionError: expected 405 to be 401 // Object.is equality
 - 401
 + 405
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts:516:36
-    514|       "cookbooks",
-    515|     ).args);
-    516|     expect(unauthenticated.status).toBe(401);
+ ❯ test/routes/api-v1-cookbook-writes.test.ts:513:36
+    511|       "cookbooks",
+    512|     ).args);
+    513|     expect(unauthenticated.status).toBe(401);
        |                                    ^
-    517|     expectPrivateEnvelopeHeaders(unauthenticated, "req_cookbook_create…
-    518|     expectErrorEnvelope(await readJson(unauthenticated), "req_cookbook…
+    514|     expectPrivateEnvelopeHeaders(unauthenticated, "req_cookbook_create…
+    515|     expectErrorEnvelope(await readJson(unauthenticated), "req_cookbook…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
 
@@ -116,19 +116,19 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-cookbook-writes.test.ts:596:26
-    594|       "cookbooks",
-    595|     ).args);
-    596|     expect(first.status).toBe(201);
+ ❯ test/routes/api-v1-cookbook-writes.test.ts:607:26
+    605|       "cookbooks",
+    606|     ).args);
+    607|     expect(first.status).toBe(201);
        |                          ^
-    597| 
-    598|     const differentCreateBody = await action(routeArgs(
+    608| 
+    609|     const differentCreateBody = await action(routeArgs(
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
 
 
  Test Files  1 failed (1)
       Tests  6 failed | 1 passed (7)
-   Start at  14:00:09
-   Duration  2.70s (transform 741ms, setup 244ms, import 1.42s, tests 268ms, environment 587ms)
+   Start at  14:05:29
+   Duration  2.98s (transform 640ms, setup 197ms, import 1.36s, tests 690ms, environment 326ms)
 
