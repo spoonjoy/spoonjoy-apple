@@ -13,9 +13,10 @@
 - Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Spawn only disjoint backend workers by endpoint family; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
 - Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, sync, and shell wiring; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, or project files through the orchestrator.
 - Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files.
-- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files.
-- Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
+- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files. Units 21j-21l are orchestrator-only because they integrate Spotlight/App Shortcuts/transfer metadata across all entity domains.
+- Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. Units 23a-23c and 26a-27 are orchestrator-only. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
 - Spawned native workers must not edit orchestrator-owned shared paths directly: `Sources/SpoonjoyCore/AppState/**`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Apps/Spoonjoy/Shared/AppShell/**`, `Apps/Spoonjoy/Shared/Components/**`, `Apps/Spoonjoy/Shared/Design/**`, shared `Apps/Spoonjoy/Shared/Views/**` files used by multiple surface units, `Apps/Spoonjoy/Shared/Native/**`, `scripts/generate-xcode-project.rb`, `Spoonjoy.xcodeproj/**`, and `.github/workflows/**`. Workers produce feature-local files, tests, and patch notes; the orchestrator serializes shared-path integration commits.
+- Spawned-unit Output lines that mention scenario verifier updates, scenario metadata, project generator updates, project membership, route updates, core metadata updates, native capability metadata, shared App Intents files, shared Spotlight files, AppShell, shared Design, or shared Components mean feature-local patch notes only. The worker must write `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes/<unit-slug>.md` with `Needed shared paths`, `Expected tokens/tests`, and `Patch sketch`; the orchestrator applies those shared edits in a serialized integration commit before the unit's coverage/refactor step.
 
 ## Objective
 
@@ -64,6 +65,29 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 5. **Refactor**: Clean up, keep tests green.
 6. **No skipping**: Never write implementation without failing test first.
 
+## Validation Command Matrix
+
+All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity`; commands run from `/Users/arimendelow/Projects/spoonjoy-apple`; `<unit-slug>` is the exact unit artifact stem already named in that unit's Output, such as `unit-17c-recipe-catalog-detail`.
+
+- `swift-focused`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter <TestSuiteName> | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-test.log"`.
+- `swift-full`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-full.log"`.
+- `coverage`: `swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$ARTIFACT_ROOT/apple/<unit-slug>-coverage-test.log"`, then `coverage_json="$(swift test --show-codecov-path | tail -n 1)"`, then `ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include "Sources/SpoonjoyCore" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-coverage-enforce.log"`.
+- `warning-scan`: `ruby scripts/fail-on-warning.rb --log "$ARTIFACT_ROOT/apple/<unit-slug>-swift-test.log" --log "$ARTIFACT_ROOT/apple/<unit-slug>-swift-full.log" --log "$ARTIFACT_ROOT/apple/<unit-slug>-coverage-test.log" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-warning-scan.log"`.
+- `project-contract`: `scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-project-contract.log"`.
+- `project-generator-contract`: `scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-project-generator-contract.log"`.
+- `surface:recipe`: `ruby scripts/check-kitchen-recipe-surfaces.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-surface-kitchen-recipe.log"`.
+- `surface:cook-shopping`: `ruby scripts/check-cook-shopping-surfaces.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-surface-cook-shopping.log"`.
+- `surface:search-capture-settings`: `ruby scripts/check-search-capture-settings-surfaces.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-surface-search-capture-settings.log"`.
+- `design-contract`: `ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md | tee "$ARTIFACT_ROOT/apple/<unit-slug>-native-design-contract.log"`.
+- `appintents-contract`: create `scripts/check-app-intents-contract.rb` in the first App Entity red-test unit, then run `ruby scripts/check-app-intents-contract.rb --domain <domain> | tee "$ARTIFACT_ROOT/apple/<unit-slug>-app-intents-contract.log"`. The script must fail on unknown domains and must cover `recipe-cookbook`, `shopping`, `spoon`, `capture-draft`, `chef-profile`, `spotlight-shortcuts`, `open-search-share-cook`, `recipe-action`, `shopping-intents`, `spoon-intents`, `capture-import-intents`, `cookbook-intents`, `profile-settings-intents`, and `notification-intents`.
+- `scenario:bootstrap`: `scripts/verify-native-scenarios.sh --stage bootstrap --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-bootstrap.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-bootstrap.log"`.
+- `scenario:native-metadata`: `scripts/verify-native-scenarios.sh --stage native-metadata --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-native-metadata.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-native-metadata.log"`.
+- `scenario:surfaces`: `scripts/verify-native-scenarios.sh --stage surfaces --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-surfaces.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-surfaces.log"`.
+- `scenario:final`: `scripts/verify-native-scenarios.sh --stage final --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.log"`.
+- `screenshots`: `scripts/capture-native-screenshots.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-screenshots.log"`; required artifacts are `$ARTIFACT_ROOT/screenshots/ios-mobile.png`, `$ARTIFACT_ROOT/screenshots/macos-desktop.png`, and `$ARTIFACT_ROOT/design-review.json` or structured blocker JSON produced by the script.
+- `aasa`: `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-aasa.log"`.
+- `native-final-matrix`: `scripts/validate-native-local.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-validate-native-local.log"`; stable matrix artifacts are `matrix-swift-test.log`, `matrix-coverage-test.log`, `matrix-coverage-enforce.log`, `matrix-final-scenario.log`, `matrix-project-contract.log`, `matrix-generator-contract.log`, `matrix-native-design-contract.log`, `matrix-kitchen-surfaces-contract.log`, `matrix-cook-shopping-contract.log`, `matrix-search-capture-contract.log`, `matrix-capture.log`, `matrix-design-review.log`, `matrix-warning-scan.log`, `validation-matrix.jsonl`, and `validation-matrix.json`.
+
 ## Work Units
 
 ### Legend
@@ -97,9 +121,9 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Tests fail with missing handlers or incomplete payloads; failures assert exact response envelope keys, private no-store headers, validation errors, and scope requirements.
 
 ### ⬜ Unit 2b: Native Bootstrap And Account API - Implementation
-**What**: Implement native bootstrap/account handlers in `app/lib/api-v1.server.ts` using existing account, auth, notification, token, and session helpers; add a minimal APNs device registry contract using existing schema or a tested migration if storage is required.
-**Output**: API handlers, helper functions, optional Prisma migration/tests for APNs device records, and docs examples.
-**Acceptance**: Unit 2a tests pass; bearer and session auth both work; passkey/password/provider-link actions return exact web handoff URLs rather than fake native mutations.
+**What**: Implement native bootstrap/account handlers in `app/lib/api-v1.server.ts` using existing account, auth, notification, token, and session helpers; add a tested Prisma migration for a dedicated `NativePushDevice` table instead of reusing `PushSubscription`, because APNs needs platform/environment/device-token metadata that web-push endpoint keys do not model.
+**Output**: API handlers, helper functions, Prisma schema/migration/tests for `NativePushDevice`, and docs examples.
+**Acceptance**: Unit 2a tests pass; bearer and session auth both work; passkey/password/provider-link actions return exact web handoff URLs rather than fake native mutations; APNs registration stores user id, platform, environment, device identifier, hashed APNs token, token prefix, enabled/revoked timestamps, and last registration timestamp without writing a `PushSubscription` row.
 
 ### ⬜ Unit 2c: Native Bootstrap And Account API - Coverage & Refactor
 **What**: Run focused account/token/APNs tests, docs drift tests, typecheck, and coverage for touched files.
@@ -252,7 +276,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Unit 11a tests pass; no request builder sends bearer tokens to anonymous public catalog reads by default.
 
 ### ⬜ Unit 11c: Native Request Builders For Expanded REST V1 - Coverage & Refactor
-**What**: Run focused Swift API tests, full `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors`, Swift coverage, and coverage enforcement for `Sources/SpoonjoyCore/API`.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeAPIExpansionTests`, `swift-full`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-11c-native-api-green.log`, coverage JSON path, and coverage enforcement log.
 **Acceptance**: New Swift API code has 100% measured coverage and no warnings.
 
@@ -267,7 +291,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Unit 12a tests pass; transport is injectable into repositories and app targets without global singletons.
 
 ### ⬜ Unit 12c: Native URLSession Transport And Error Pipeline - Coverage & Refactor
-**What**: Run focused transport tests, full Swift tests, Swift build, coverage enforcement for API transport files, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `APITransportTests`, `swift-full`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-12c-transport-green.log`, `apple/unit-12c-coverage.log`, and warning log.
 **Acceptance**: Transport code has 100% measured coverage and no warnings.
 
@@ -278,11 +302,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 13b: Native OAuth, Keychain, And Session Store - Implementation
 **What**: Implement Keychain-backed vault in app target, session repository in `Sources/SpoonjoyCore/Auth`, ASWebAuthenticationSession adapters, universal-link callback handling, and settings sign-in/out/revoke actions.
-**Output**: Auth/session Swift sources, app adapter sources, project generator updates, and docs for local non-production signing.
+**Output**: Auth/session Swift sources, app adapter sources, feature-local project integration notes for the orchestrator, and docs for local non-production signing.
 **Acceptance**: Unit 13a tests pass; app static checks prove associated-domain OAuth callback and custom-scheme fallback are separate.
 
 ### ⬜ Unit 13c: Native OAuth, Keychain, And Session Store - Coverage & Refactor
-**What**: Run focused auth tests, full Swift tests, project generator contract, macOS/iOS app build or blocker artifact, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeAuthSessionTests`, `swift-full`, `project-generator-contract`, `project-contract`, `coverage`, and `warning-scan`; run focused macOS/iOS app build commands or write the structured Xcode/SDK blocker artifact named by the app build command.
 **Output**: `apple/unit-13c-auth-green.log`, coverage artifact, and app build logs.
 **Acceptance**: SwiftPM auth code has 100% coverage; app adapter compile/static checks cover Keychain and ASWebAuthenticationSession boundaries.
 
@@ -293,11 +317,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 14b: Native Cache Schema And Freshness Indicator - Implementation
 **What**: Implement expanded offline snapshot/cache models, freshness state machine, dismissible indicator state, cache migration from schema version 1, and app `OfflineStatusView` updates.
-**Output**: Swift core cache files, updated `OfflineStatusView.swift`, fixtures, and scenario verifier metadata.
+**Output**: Swift core cache files, updated `OfflineStatusView.swift`, fixtures, and feature-local scenario metadata integration notes for the orchestrator.
 **Acceptance**: Unit 14a tests pass; dismissing the indicator persists only the dismissal state and never hides sync failure or conflict state.
 
 ### ⬜ Unit 14c: Native Cache Schema And Freshness Indicator - Coverage & Refactor
-**What**: Run focused cache tests, full Swift tests, coverage enforcement for `Sources/SpoonjoyCore/Offline` and `AppState`, scenario verifier stage, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeCacheFreshnessTests`, `swift-full`, `coverage`, `scenario:bootstrap`, and `warning-scan`.
 **Output**: `apple/unit-14c-cache-green.log`, coverage artifact, and scenario report.
 **Acceptance**: Cache/freshness code has 100% measured coverage and UI static checks prove indicator labels/icons for every state.
 
@@ -308,11 +332,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 15b: Native Sync Engine And Mutation Queue Expansion - Implementation
 **What**: Implement native repositories, sync engine, mutation queue expansion, conflict models, and retry scheduling under `Sources/SpoonjoyCore/Offline` and `Sources/SpoonjoyCore/AppState`.
-**Output**: Sync engine sources, repository protocols, fixtures, and scenario verifier updates.
+**Output**: Sync engine sources, repository protocols, fixtures, and feature-local scenario verifier integration notes for the orchestrator.
 **Acceptance**: Unit 15a tests pass; offline writes survive app restart and drain once transport reports network success.
 
 ### ⬜ Unit 15c: Native Sync Engine And Mutation Queue Expansion - Coverage & Refactor
-**What**: Run focused sync-engine tests, full Swift tests, coverage enforcement, scenario verifier final-stage subset, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeSyncEngineTests`, `swift-full`, `coverage`, `scenario:native-metadata`, and `warning-scan`.
 **Output**: `apple/unit-15c-sync-engine-green.log`, coverage artifact, and scenario report.
 **Acceptance**: Sync engine code has 100% measured coverage and no hidden untested error branches.
 
@@ -323,11 +347,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 16b: Native Live Store And Shell Wiring - Implementation
 **What**: Wire `SpoonjoyRootView`, `PlatformNavigationView`, settings model, and shared app store to auth/session/transport/cache/sync repositories.
-**Output**: App shell Swift updates, project generator updates, and scenario verifier checks.
+**Output**: App shell Swift updates plus orchestrator-applied project generator and scenario verifier checks.
 **Acceptance**: Unit 16a tests pass; shell can render signed-out, restoring cache, live synced, offline stale, and sync-failed states.
 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
-**What**: Run focused live-store tests, full Swift tests, scenario verifier surfaces stage, macOS typecheck/build, project contract, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `scenario:surfaces`, `project-contract`, and `warning-scan`; run focused macOS typecheck/build and save `apple/unit-16c-live-store-macos-build.log`.
 **Output**: `apple/unit-16c-live-store-green.log`, scenario report, and build logs.
 **Acceptance**: Store logic has 100% measured coverage and app target static/screenshot checks cover non-SwiftPM shell adapters.
 
@@ -338,11 +362,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 17b: Native Recipe Catalog And Detail - Implementation
 **What**: Implement catalog/detail view models and SwiftUI wiring for `RecipesView.swift` and `RecipeDetailView.swift` using live repositories, cache state, native search, native share affordance placeholders, and Spoonjoy design hierarchy.
-**Output**: Updated recipe catalog/detail Swift files, view models, project generator updates, and scenario metadata.
+**Output**: Updated recipe catalog/detail Swift files, view models, and `apple/integration-notes/unit-17b-recipe-catalog-detail.md` for orchestrator-applied project/scenario metadata.
 **Acceptance**: Unit 17a tests pass; catalog/detail reads come from live/cache repositories and fixtures remain test/demo fallback only.
 
 ### ⬜ Unit 17c: Native Recipe Catalog And Detail - Coverage & Refactor
-**What**: Run focused catalog/detail tests, full Swift tests, surface contract scripts, scenario verifier surfaces subset, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `RecipeCatalogDetailTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-17c-recipe-catalog-detail-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Catalog/detail view-model code has 100% measured coverage and static/screenshot checks preserve Kitchen Table hierarchy.
 
@@ -353,11 +377,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 17e: Native Cook Mode - Implementation
 **What**: Implement `CookModeView.swift`, cook-mode view models, progress persistence, timer state, scale/dependency/checkoff controls, and route/Siri handoff integration.
-**Output**: Cook mode Swift files, view models, scenario verifier updates, and project generator updates.
+**Output**: Cook mode Swift files, view models, and `apple/integration-notes/unit-17e-cook-mode.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 17d tests pass; cook mode works from cached data while offline and syncs progress-related queued writes only through declared contracts.
 
 ### ⬜ Unit 17f: Native Cook Mode - Coverage & Refactor
-**What**: Run focused cook-mode tests, full Swift tests, cook/shopping surface contract script, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CookModeParityTests`, `swift-full`, `surface:cook-shopping`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-17f-cook-mode-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Cook-mode logic has 100% measured coverage and no timer/checkoff branch lacks tests.
 
@@ -368,11 +392,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 17h: Native Recipe Editor - Implementation
 **What**: Implement native recipe editor view models and SwiftUI forms using native controls, REST v1 recipe/step/ingredient/dependency endpoints, offline queued drafts, and owner confirmations.
-**Output**: Recipe editor Swift files, view models, scenario verifier updates, and project generator updates.
+**Output**: Recipe editor Swift files, view models, and `apple/integration-notes/unit-17h-recipe-editor.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 17g tests pass; editor mutations use live REST contracts or durable offline queue entries.
 
 ### ⬜ Unit 17i: Native Recipe Editor - Coverage & Refactor
-**What**: Run focused editor tests, full Swift tests, recipe surface contract scripts, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `RecipeEditorParityTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-17i-recipe-editor-green.log`, coverage logs, and scenario report.
 **Acceptance**: Editor view-model code has 100% measured coverage and all validation/conflict/error states are tested.
 
@@ -383,11 +407,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 17k: Native Recipe Actions - Implementation
 **What**: Implement recipe action view models and UI affordances in recipe detail/cook surfaces using native menus/buttons/confirmation dialogs and live REST contracts.
-**Output**: Recipe action Swift files, view model updates, scenario verifier updates, and project generator updates.
+**Output**: Recipe action Swift files, view model updates, and `apple/integration-notes/unit-17k-recipe-actions.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 17j tests pass; destructive actions require confirmation and ownership checks.
 
 ### ⬜ Unit 17l: Native Recipe Actions - Coverage & Refactor
-**What**: Run focused recipe-action tests, full Swift tests, surface contract scripts, scenario verifier, coverage enforcement, screenshots, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `RecipeActionParityTests`, `swift-full`, `surface:recipe`, `surface:cook-shopping`, `scenario:surfaces`, `coverage`, `screenshots`, and `warning-scan`.
 **Output**: `apple/unit-17l-recipe-actions-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Recipe action logic has 100% measured coverage and does not introduce comments/feed/reactions.
 
@@ -398,11 +422,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 18b: Native Spoon Cook Logs - Implementation
 **What**: Implement spoon/cook-log view models and SwiftUI sheets/rows using live spoon endpoints, local offline drafts, and confirmation on delete.
-**Output**: Spoon Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Output**: Spoon Swift views/components, view models, and `apple/integration-notes/unit-18b-spoon-logs.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 18a tests pass; spoon photo/note/nextTime/cookedAt workflows sync through REST v1.
 
 ### ⬜ Unit 18c: Native Spoon Cook Logs - Coverage & Refactor
-**What**: Run focused spoon tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `SpoonCookLogSurfaceTests`, `swift-full`, `surface:recipe`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-18c-spoon-logs-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Spoon view-model logic has 100% measured coverage and deleted/owner/conflict states are tested.
 
@@ -413,11 +437,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 18e: Native Cover Controls - Implementation
 **What**: Implement cover controls in recipe owner surfaces using REST v1 image/cover endpoints, spoon-cover integration, native photo/file affordances, and tested blocker display.
-**Output**: Cover Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Output**: Cover Swift views/components, view models, and `apple/integration-notes/unit-18e-cover-controls.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 18d tests pass; cover lifecycle behavior matches web and does not require production secrets for local validation.
 
 ### ⬜ Unit 18f: Native Cover Controls - Coverage & Refactor
-**What**: Run focused cover-control tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CoverControlSurfaceTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-18f-cover-controls-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Cover-control view-model logic has 100% measured coverage and every provider/blocker state is visible.
 
@@ -428,11 +452,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 18h: Native Capture And Import - Implementation
 **What**: Implement capture/import UI and view models using native share/camera/photo affordances, local drafts, import endpoint requests, and sync retry.
-**Output**: Capture/import Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Output**: Capture/import Swift views/components, view models, and `apple/integration-notes/unit-18h-capture-import.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 18g tests pass; local capture works offline and import submits through the REST v1 import contract.
 
 ### ⬜ Unit 18i: Native Capture And Import - Coverage & Refactor
-**What**: Run focused capture/import tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CaptureImportSurfaceTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-18i-capture-import-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Capture/import view-model logic has 100% measured coverage and no import path bypasses the backend contract.
 
@@ -443,11 +467,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 18k: Native Sharing Payloads - Implementation
 **What**: Implement native share payload builders, `ShareLink` usage, Shortcuts/Siri transfer values, and public URL builders for recipe/cookbook/shopping/spoon/capture objects.
-**Output**: Sharing Swift files/components, view model updates, scenario verifier updates, and project generator updates.
+**Output**: Sharing Swift files/components, view model updates, and `apple/integration-notes/unit-18k-sharing.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 18j tests pass; sharing opens system share sheet destinations without adding Spoonjoy messaging or mail product surfaces.
 
 ### ⬜ Unit 18l: Native Sharing Payloads - Coverage & Refactor
-**What**: Run focused sharing tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeSharingTests`, `swift-full`, `surface:recipe`, `surface:cook-shopping`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-18l-sharing-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Sharing logic has 100% measured coverage and all generated public URLs route through `spoonjoy.app`.
 
@@ -458,11 +482,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 19b: Native Cookbook Surfaces - Implementation
 **What**: Implement cookbook views and view models in `CookbooksView.swift` and supporting components using native forms, lists, toolbars, and live REST contracts.
-**Output**: Cookbook Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Output**: Cookbook Swift views/components, view models, and `apple/integration-notes/unit-19b-cookbooks.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 19a tests pass; cookbook create/rename/delete/add/remove actions use declared REST v1 endpoints with confirmation where destructive.
 
 ### ⬜ Unit 19c: Native Cookbook Surfaces - Coverage & Refactor
-**What**: Run focused cookbook tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CookbookSurfaceParityTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-19c-cookbooks-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Cookbook view-model logic has 100% measured coverage and UI uses platform-correct native controls.
 
@@ -473,11 +497,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 19e: Native Profile And Chef Graph Surfaces - Implementation
 **What**: Implement profile and chef graph SwiftUI surfaces/view models using profile/search/sync endpoints and Spoonjoy social-derived product model.
-**Output**: Profile Swift views/components, view models, scenario verifier updates, and route updates.
+**Output**: Profile Swift views/components, view models, and `apple/integration-notes/unit-19e-profiles.md` for orchestrator-applied scenario verifier and route updates.
 **Acceptance**: Unit 19d tests pass; profiles show only existing product concepts and do not add follows, comments, or feeds.
 
 ### ⬜ Unit 19f: Native Profile And Chef Graph Surfaces - Coverage & Refactor
-**What**: Run focused profile tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `ProfileChefGraphSurfaceTests`, `swift-full`, `surface:recipe`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-19f-profiles-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Profile view-model logic has 100% measured coverage and deleted/private object states are tested.
 
@@ -488,11 +512,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 19h: Native Settings Tokens And Connections - Implementation
 **What**: Implement settings, API credential, OAuth connection, logout/revoke, and secure handoff UI using native forms/lists/confirmation dialogs and live REST contracts.
-**Output**: `SettingsView.swift`, settings components/view models, scenario verifier updates, and project generator updates.
+**Output**: `SettingsView.swift`, settings components/view models, and `apple/integration-notes/unit-19h-settings-tokens.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 19g tests pass; API credential list/create/revoke and connection disconnect are native REST-backed flows.
 
 ### ⬜ Unit 19i: Native Settings Tokens And Connections - Coverage & Refactor
-**What**: Run focused settings/token/connection tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `SettingsTokenConnectionTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-19i-settings-tokens-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Settings/token/connection view-model logic has 100% measured coverage and all destructive actions have confirmation evidence.
 
@@ -503,11 +527,11 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 19k: Native Notification Preferences And APNs State - Implementation
 **What**: Implement notification preference UI, APNs registration-state UI, device registration/revocation request plumbing, and blocker artifact display for missing Apple Developer Program/team capability.
-**Output**: Notification settings Swift files/view models, scenario verifier updates, and project generator updates.
+**Output**: Notification settings Swift files/view models and `apple/integration-notes/unit-19k-notifications.md` for orchestrator-applied scenario verifier and project membership updates.
 **Acceptance**: Unit 19j tests pass; preference APIs are native REST-backed and production APNs delivery remains blocked only by Apple account/team capability.
 
 ### ⬜ Unit 19l: Native Notification Preferences And APNs State - Coverage & Refactor
-**What**: Run focused notification/APNs tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NotificationAPNsSurfaceTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: `apple/unit-19l-notifications-green.log`, screenshot artifacts, coverage logs, and scenario report.
 **Acceptance**: Notification/APNs view-model logic has 100% measured coverage and no test pretends TestFlight/APNs production delivery is available.
 
@@ -522,232 +546,232 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Unit 20a tests pass; unknown routes go to safe unknown-link state.
 
 ### ⬜ Unit 20c: Universal Links Routes And AASA Contract - Coverage & Refactor
-**What**: Run focused link tests, project generator contract, AASA validator, scenario verifier, typecheck/builds, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `DeepLinkParityTests`, `project-generator-contract`, `project-contract`, `aasa`, `scenario:surfaces`, `swift-full`, and `warning-scan`; run the matching web AASA route tests from `spoonjoy-v2` and save `web/unit-20c-aasa-green.log`.
 **Output**: `apple/unit-20c-links-green.log`, `web/unit-20c-aasa-green.log`, and AASA blocker/validation artifact.
 **Acceptance**: Production AASA validation is green or blocked only by missing Apple Team ID/App ID.
 
 ### ⬜ Unit 21a: Recipe And Cookbook App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for recipe and cookbook `AppEntity`, `EntityQuery`, `EntityStringQuery`, display representations, identifiers, disambiguation, transfer values, and cache-backed lookup.
-**Output**: `Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift`, AppIntents static checks, and `apple/unit-21a-recipe-cookbook-entities-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift`, initial `scripts/check-app-intents-contract.rb`, AppIntents contract red log `apple/unit-21a-recipe-cookbook-entities-app-intents-contract-red.log`, and `apple/unit-21a-recipe-cookbook-entities-red.log`.
 **Acceptance**: Tests fail before recipe/cookbook entities exist and prove string-ID-only recipe/cookbook intents are insufficient.
 
 ### ⬜ Unit 21b: Recipe And Cookbook App Entities - Implementation
 **What**: Implement recipe and cookbook entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
-**Output**: App Intents entity Swift files, core metadata updates, scenario verifier updates, and project generator updates.
+**Output**: Recipe/cookbook entity Swift files and `apple/integration-notes/unit-21b-recipe-cookbook-entities.md` for orchestrator-applied native capability metadata, scenario verifier, shared App Intents registrar, and project membership updates.
 **Acceptance**: Unit 21a tests pass; recipe/cookbook entities resolve by identifier and search string from live cached data.
 
 ### ⬜ Unit 21c: Recipe And Cookbook App Entities - Coverage & Refactor
-**What**: Run recipe/cookbook entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `RecipeCookbookEntityTests`, `appintents-contract` with `--domain recipe-cookbook`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21c-recipe-cookbook-entities-green.log`, scenario report, and build logs.
 **Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 21d: Shopping App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for shopping list and shopping item entities, queries, display representations, transfer values, and cache-backed lookup.
-**Output**: `Tests/SpoonjoyCoreTests/ShoppingEntityTests.swift`, AppIntents static checks, and `apple/unit-21d-shopping-entities-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/ShoppingEntityTests.swift`, AppIntents contract red log `apple/unit-21d-shopping-entities-app-intents-contract-red.log`, and `apple/unit-21d-shopping-entities-red.log`.
 **Acceptance**: Tests fail before shopping entities exist and assert offline cached shopping lookup.
 
 ### ⬜ Unit 21e: Shopping App Entities - Implementation
 **What**: Implement shopping list/item entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
-**Output**: Shopping entity Swift files, core metadata updates, orchestrator-integrated scenario verifier updates, and project generator updates.
+**Output**: Shopping entity Swift files and `apple/integration-notes/unit-21e-shopping-entities.md` for orchestrator-applied native capability metadata, scenario verifier, shared App Intents registrar, and project membership updates.
 **Acceptance**: Unit 21d tests pass; shopping entities resolve from live cached data and expose safe transfer values.
 
 ### ⬜ Unit 21f: Shopping App Entities - Coverage & Refactor
-**What**: Run shopping entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `ShoppingEntityTests`, `appintents-contract` with `--domain shopping`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21f-shopping-entities-green.log`, scenario report, and build logs.
 **Acceptance**: Shopping entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 21m: Spoon Cook Log App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for spoon/cook-log entities, queries, display representations, transfer values, recipe relationship metadata, and cache-backed lookup.
-**Output**: `Tests/SpoonjoyCoreTests/SpoonEntityTests.swift`, AppIntents static checks, and `apple/unit-21m-spoon-entities-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/SpoonEntityTests.swift`, AppIntents contract red log `apple/unit-21m-spoon-entities-app-intents-contract-red.log`, and `apple/unit-21m-spoon-entities-red.log`.
 **Acceptance**: Tests fail before spoon entities exist and assert cached spoon lookup plus deleted-spoon exclusion.
 
 ### ⬜ Unit 21n: Spoon Cook Log App Entities - Implementation
 **What**: Implement spoon/cook-log entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
-**Output**: Spoon entity Swift files, core metadata updates, orchestrator-integrated scenario verifier updates, and project generator updates.
+**Output**: Spoon entity Swift files and `apple/integration-notes/unit-21n-spoon-entities.md` for orchestrator-applied native capability metadata, scenario verifier, shared App Intents registrar, and project membership updates.
 **Acceptance**: Unit 21m tests pass; spoon entities resolve from live cached data and expose safe transfer values.
 
 ### ⬜ Unit 21o: Spoon Cook Log App Entities - Coverage & Refactor
-**What**: Run spoon entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `SpoonEntityTests`, `appintents-contract` with `--domain spoon`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21o-spoon-entities-green.log`, scenario report, and build logs.
 **Acceptance**: Spoon entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 21p: Capture Draft App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for capture draft entities, queries, display representations, transfer values, import-submission relationship metadata, and local-cache lookup.
-**Output**: `Tests/SpoonjoyCoreTests/CaptureDraftEntityTests.swift`, AppIntents static checks, and `apple/unit-21p-capture-draft-entities-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/CaptureDraftEntityTests.swift`, AppIntents contract red log `apple/unit-21p-capture-draft-entities-app-intents-contract-red.log`, and `apple/unit-21p-capture-draft-entities-red.log`.
 **Acceptance**: Tests fail before capture draft entities exist and assert local/offline capture draft lookup.
 
 ### ⬜ Unit 21q: Capture Draft App Entities - Implementation
 **What**: Implement capture draft entity/query/display/transfer types using local cache repositories and guarded AppIntents symbols.
-**Output**: Capture draft entity Swift files, core metadata updates, orchestrator-integrated scenario verifier updates, and project generator updates.
+**Output**: Capture draft entity Swift files and `apple/integration-notes/unit-21q-capture-draft-entities.md` for orchestrator-applied native capability metadata, scenario verifier, shared App Intents registrar, and project membership updates.
 **Acceptance**: Unit 21p tests pass; capture draft entities resolve from local/offline data and expose safe transfer values.
 
 ### ⬜ Unit 21r: Capture Draft App Entities - Coverage & Refactor
-**What**: Run capture draft entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CaptureDraftEntityTests`, `appintents-contract` with `--domain capture-draft`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21r-capture-draft-entities-green.log`, scenario report, and build logs.
 **Acceptance**: Capture draft entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 21g: Chef And Profile App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for chef/profile entities, profile lookup by username/id, display representation, disambiguation, transfer values, and profile route opening.
-**Output**: `Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift`, AppIntents static checks, and `apple/unit-21g-chef-profile-entities-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift`, AppIntents contract red log `apple/unit-21g-chef-profile-entities-app-intents-contract-red.log`, and `apple/unit-21g-chef-profile-entities-red.log`.
 **Acceptance**: Tests fail before chef/profile entities exist and assert no follow/comment/feed semantics are exposed.
 
 ### ⬜ Unit 21h: Chef And Profile App Entities - Implementation
 **What**: Implement chef/profile entity/query/display/transfer types using cached profile and chef graph data.
-**Output**: App Intents entity Swift files, core metadata updates, scenario verifier updates, and project generator updates.
+**Output**: Chef/profile entity Swift files and `apple/integration-notes/unit-21h-chef-profile-entities.md` for orchestrator-applied native capability metadata, scenario verifier, shared App Intents registrar, and project membership updates.
 **Acceptance**: Unit 21g tests pass; chef/profile entities open existing profile surfaces only.
 
 ### ⬜ Unit 21i: Chef And Profile App Entities - Coverage & Refactor
-**What**: Run chef/profile entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `ChefProfileEntityTests`, `appintents-contract` with `--domain chef-profile`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21i-chef-profile-entities-green.log`, scenario report, and build logs.
 **Acceptance**: Chef/profile entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 21j: Spotlight App Shortcuts And Transfer Integration - Tests
 **What**: Write failing Swift tests/static checks for Spotlight documents, indexed identifiers, App Shortcuts provider phrases, entity donations, relevant entities, view annotations, and transfer/value representations across every shipped entity domain.
-**Output**: `Tests/SpoonjoyCoreTests/SpotlightShortcutTransferTests.swift`, AppIntents/CoreSpotlight static checks, and `apple/unit-21j-spotlight-shortcuts-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/SpotlightShortcutTransferTests.swift`, AppIntents/CoreSpotlight contract red log `apple/unit-21j-spotlight-shortcuts-app-intents-contract-red.log`, and `apple/unit-21j-spotlight-shortcuts-red.log`.
 **Acceptance**: Tests fail before Spotlight/App Shortcuts integration uses live cached entities across all domains.
 
 ### ⬜ Unit 21k: Spotlight App Shortcuts And Transfer Integration - Implementation
 **What**: Implement Spotlight indexing from live cached recipes, cookbooks, shopping items, spoons, chefs, profiles, and capture drafts; add App Shortcuts phrases, donations, relevant entities, and transfer/view annotations with SDK guards.
-**Output**: Updated `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, core metadata, scenario verifier updates, and structured SDK blocker artifacts for unavailable symbols.
+**Output**: Orchestrator-applied updates to `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, native capability metadata, scenario verifier, and structured SDK blocker artifacts for unavailable symbols.
 **Acceptance**: Unit 21j tests pass; Spotlight indexes live cached entities, including spoons/cook logs, not fixture-only data.
 
 ### ⬜ Unit 21l: Spotlight App Shortcuts And Transfer Integration - Coverage & Refactor
-**What**: Run Spotlight/Shortcut/transfer tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata/final subset, app builds, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `SpotlightShortcutTransferTests`, `appintents-contract` with `--domain spotlight-shortcuts`, `scenario:native-metadata`, `scenario:final`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21l-spotlight-shortcuts-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Spotlight/Shortcut/transfer contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 22a: Open Search Share And Cook Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for entity-backed open recipe, open cookbook, open profile, search Spoonjoy, share recipe, share cookbook, share shopping list, start cook mode, and continue cook mode intents.
-**Output**: `Tests/SpoonjoyCoreTests/OpenSearchShareCookIntentTests.swift`, AppIntents static checks, and `apple/unit-22a-open-search-share-cook-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/OpenSearchShareCookIntentTests.swift`, AppIntents contract red log `apple/unit-22a-open-search-share-cook-intents-app-intents-contract-red.log`, and `apple/unit-22a-open-search-share-cook-intents-red.log`.
 **Acceptance**: Tests fail before these intents exist and assert entity-backed parameters, disambiguation, transfer values, and no string-ID-only action paths.
 
 ### ⬜ Unit 22b: Open Search Share And Cook Siri Intents - Implementation
 **What**: Implement open/search/share/cook intent resolvers, App Intent types, donations, relevant entities, and route/open URL behavior using entity queries and live cache.
-**Output**: App Intents source updates, core resolver updates, scenario verifier updates, and project generator updates.
+**Output**: Intent-family source/resolver updates and `apple/integration-notes/unit-22b-open-search-share-cook-intents.md` for orchestrator-applied scenario verifier, shared App Intents registrar, and project membership updates.
 **Acceptance**: Unit 22a tests pass; read/open/share/cook intents do not require destructive confirmations but still honor auth/cache state.
 
 ### ⬜ Unit 22c: Open Search Share And Cook Siri Intents - Coverage & Refactor
-**What**: Run focused open/search/share/cook intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `OpenSearchShareCookIntentTests`, `appintents-contract` with `--domain open-search-share-cook`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22c-open-search-share-cook-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Open/search/share/cook intent contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 22d: Shopping Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for add shopping item, check shopping item, remove shopping item, clear completed shopping items, and add recipe ingredients to shopping intents.
-**Output**: `Tests/SpoonjoyCoreTests/ShoppingIntentTests.swift`, AppIntents static checks, and `apple/unit-22d-shopping-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/ShoppingIntentTests.swift`, AppIntents contract red log `apple/unit-22d-shopping-intents-app-intents-contract-red.log`, and `apple/unit-22d-shopping-intents-red.log`.
 **Acceptance**: Tests fail before shopping intents exist and assert confirmation/auth policy for remove/clear/add-from-recipe actions plus offline queue behavior.
 
 ### ⬜ Unit 22e: Shopping Siri Intents - Implementation
 **What**: Implement shopping intent resolvers and App Intent types using shopping entities, mutation queue, REST v1 request builders, confirmations, and ownership/auth checks.
-**Output**: App Intents source updates, core resolver updates, cache/sync integration, and scenario verifier updates.
+**Output**: Shopping intent source/resolver updates, cache/sync integration, and `apple/integration-notes/unit-22e-shopping-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
 **Acceptance**: Unit 22d tests pass; Siri shopping writes use the same mutation queue and REST contracts as app UI.
 
 ### ⬜ Unit 22f: Shopping Siri Intents - Coverage & Refactor
-**What**: Run focused shopping intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `ShoppingIntentTests`, `appintents-contract` with `--domain shopping-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22f-shopping-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Shopping intent contracts have confirmation/auth evidence for destructive paths and 100% measured resolver coverage.
 
 ### ⬜ Unit 22g: Recipe Action Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for fork recipe, save recipe to cookbook, remove recipe from cookbook, add recipe ingredients to shopping from recipe context, and owner recipe delete intent paths.
-**Output**: `Tests/SpoonjoyCoreTests/RecipeActionIntentTests.swift`, AppIntents static checks, and `apple/unit-22g-recipe-action-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeActionIntentTests.swift`, AppIntents contract red log `apple/unit-22g-recipe-action-intents-app-intents-contract-red.log`, and `apple/unit-22g-recipe-action-intents-red.log`.
 **Acceptance**: Tests fail before recipe action intents exist and assert confirmation/auth/ownership for fork, save/remove, add-to-shopping, and delete actions.
 
 ### ⬜ Unit 22h: Recipe Action Siri Intents - Implementation
 **What**: Implement recipe action intent resolvers and App Intent types using recipe/cookbook/shopping entities with offline queue and REST v1 contracts.
-**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Output**: Recipe action intent source/resolver updates, feature-local cache/sync patch notes, and `apple/integration-notes/unit-22h-recipe-action-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
 **Acceptance**: Unit 22g tests pass; Siri recipe action writes use the same queue and backend contracts as the app UI.
 
 ### ⬜ Unit 22i: Recipe Action Siri Intents - Coverage & Refactor
-**What**: Run focused recipe action intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `RecipeActionIntentTests`, `appintents-contract` with `--domain recipe-action`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22i-recipe-action-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Recipe action intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 22m: Spoon Cook Log Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for log cook, edit cook log, delete cook log, and create cover from spoon intent paths.
-**Output**: `Tests/SpoonjoyCoreTests/SpoonIntentTests.swift`, AppIntents static checks, and `apple/unit-22m-spoon-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/SpoonIntentTests.swift`, AppIntents contract red log `apple/unit-22m-spoon-intents-app-intents-contract-red.log`, and `apple/unit-22m-spoon-intents-red.log`.
 **Acceptance**: Tests fail before spoon intents exist and assert confirmation/auth/ownership for cook-log writes and cover-from-spoon action.
 
 ### ⬜ Unit 22n: Spoon Cook Log Siri Intents - Implementation
 **What**: Implement spoon/cook-log intent resolvers and App Intent types using spoon and recipe entities with offline queue and REST v1 contracts.
-**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Output**: Spoon intent source/resolver updates, feature-local cache/sync patch notes, and `apple/integration-notes/unit-22n-spoon-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
 **Acceptance**: Unit 22m tests pass; Siri spoon writes use the same queue and backend contracts as the app UI.
 
 ### ⬜ Unit 22o: Spoon Cook Log Siri Intents - Coverage & Refactor
-**What**: Run focused spoon intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `SpoonIntentTests`, `appintents-contract` with `--domain spoon-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22o-spoon-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Spoon intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 22p: Capture Import Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for create capture draft, submit capture import, open capture draft, and discard capture draft intent paths.
-**Output**: `Tests/SpoonjoyCoreTests/CaptureImportIntentTests.swift`, AppIntents static checks, and `apple/unit-22p-capture-import-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/CaptureImportIntentTests.swift`, AppIntents contract red log `apple/unit-22p-capture-import-intents-app-intents-contract-red.log`, and `apple/unit-22p-capture-import-intents-red.log`.
 **Acceptance**: Tests fail before capture/import intents exist and assert confirmation/auth/offline behavior for import submit and discard actions.
 
 ### ⬜ Unit 22q: Capture Import Siri Intents - Implementation
 **What**: Implement capture/import intent resolvers and App Intent types using capture draft entities, local/offline storage, and `POST /api/v1/recipes/import`.
-**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Output**: Capture/import intent source/resolver updates, feature-local cache/sync patch notes, and `apple/integration-notes/unit-22q-capture-import-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
 **Acceptance**: Unit 22p tests pass; Siri capture import submits through the same backend import contract as app UI.
 
 ### ⬜ Unit 22r: Capture Import Siri Intents - Coverage & Refactor
-**What**: Run focused capture/import intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CaptureImportIntentTests`, `appintents-contract` with `--domain capture-import-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22r-capture-import-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Capture/import intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 22j: Cookbook Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for create cookbook, rename cookbook, delete cookbook, add recipe to cookbook, and remove recipe from cookbook intent paths.
-**Output**: `Tests/SpoonjoyCoreTests/CookbookIntentTests.swift`, AppIntents static checks, and `apple/unit-22j-cookbook-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/CookbookIntentTests.swift`, AppIntents contract red log `apple/unit-22j-cookbook-intents-app-intents-contract-red.log`, and `apple/unit-22j-cookbook-intents-red.log`.
 **Acceptance**: Tests fail before cookbook intents exist and assert confirmations/auth for cookbook mutations.
 
 ### ⬜ Unit 22k: Cookbook Siri Intents - Implementation
 **What**: Implement cookbook intent resolvers and App Intent types using cookbook and recipe entities, live cache, REST v1 contracts, and confirmation/auth policy.
-**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Output**: Cookbook intent source/resolver updates, feature-local cache/sync patch notes, and `apple/integration-notes/unit-22k-cookbook-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
 **Acceptance**: Unit 22j tests pass; cookbook Siri writes use the same queue/backend contracts as app UI.
 
 ### ⬜ Unit 22l: Cookbook Siri Intents - Coverage & Refactor
-**What**: Run focused cookbook intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `CookbookIntentTests`, `appintents-contract` with `--domain cookbook-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22l-cookbook-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Cookbook intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 22s: Profile And Settings Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for profile open, API-token status open, settings open, account connection open, and passkey/password/provider-link secure web handoff intents.
-**Output**: `Tests/SpoonjoyCoreTests/ProfileSettingsIntentTests.swift`, AppIntents static checks, and `apple/unit-22s-profile-settings-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/ProfileSettingsIntentTests.swift`, AppIntents contract red log `apple/unit-22s-profile-settings-intents-app-intents-contract-red.log`, and `apple/unit-22s-profile-settings-intents-red.log`.
 **Acceptance**: Tests fail before profile/settings intents exist and assert exact secure web-auth handoff routes for canonical web auth flows.
 
 ### ⬜ Unit 22t: Profile And Settings Siri Intents - Implementation
 **What**: Implement profile/settings intent resolvers and App Intent types using profile entities, settings routes, live cache, and secure web handoff URLs.
-**Output**: App Intents source updates, core resolver updates, route integration notes, and scenario verifier updates.
+**Output**: Profile/settings intent source/resolver updates and `apple/integration-notes/unit-22t-profile-settings-intents.md` for orchestrator-applied route, scenario verifier, and shared App Intents registrar updates.
 **Acceptance**: Unit 22s tests pass; passkey/password/provider-link actions open exact secure web-auth handoff routes instead of fake native mutations.
 
 ### ⬜ Unit 22u: Profile And Settings Siri Intents - Coverage & Refactor
-**What**: Run focused profile/settings intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `ProfileSettingsIntentTests`, `appintents-contract` with `--domain profile-settings-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22u-profile-settings-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Profile/settings intent contracts have route/handoff evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 22v: Notification Preference Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for notification preference read/update intents and APNs status open intent.
-**Output**: `Tests/SpoonjoyCoreTests/NotificationIntentTests.swift`, AppIntents static checks, and `apple/unit-22v-notification-intents-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/NotificationIntentTests.swift`, AppIntents contract red log `apple/unit-22v-notification-intents-app-intents-contract-red.log`, and `apple/unit-22v-notification-intents-red.log`.
 **Acceptance**: Tests fail before notification intents exist and assert auth/confirmation for preference updates plus APNs blocker display behavior.
 
 ### ⬜ Unit 22w: Notification Preference Siri Intents - Implementation
 **What**: Implement notification preference intent resolvers and App Intent types using REST v1 preference contracts and APNs capability blocker state.
-**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Output**: Notification intent source/resolver updates, feature-local cache/sync patch notes, and `apple/integration-notes/unit-22w-notification-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
 **Acceptance**: Unit 22v tests pass; notification preference writes use the same backend contracts as settings UI.
 
 ### ⬜ Unit 22x: Notification Preference Siri Intents - Coverage & Refactor
-**What**: Run focused notification intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NotificationIntentTests`, `appintents-contract` with `--domain notification-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22x-notification-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
-**What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots.
+**What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots; checks must use or extend `design-contract`, `screenshots`, and `ruby scripts/validate-design-review.rb "$ARTIFACT_ROOT/design-review.json"` from the Validation Command Matrix.
 **Output**: Design validator updates and `apple/unit-23a-design-red.log`.
 **Acceptance**: Checks fail until every new surface reports the required accessibility/design manifest coverage.
 
 ### ⬜ Unit 23b: Native Design Accessibility And Visual Validation - Implementation
-**What**: Update native views/components/styles to satisfy design/accessibility checks, regenerate project, capture screenshots, and produce `design-review.json`.
+**What**: Orchestrator-only: update native views/components/styles to satisfy design/accessibility checks, regenerate project, run `screenshots`, and produce `design-review.json`.
 **Output**: UI polish changes, screenshot artifacts, design review manifest, and updated native design docs.
 **Acceptance**: Unit 23a checks pass; screenshots show native controls with Spoonjoy design language and no incoherent overlap.
 
 ### ⬜ Unit 23c: Native Design Accessibility And Visual Validation - Coverage & Refactor
-**What**: Run design validator, screenshot capture, macOS/iOS smoke, scenario verifier, app builds, and warning scan.
+**What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `scenario:final`, `project-contract`, `swift-full`, and `warning-scan`, plus `xcodebuild` macOS/iOS smoke commands through `native-final-matrix` if focused app builds are not enough.
 **Output**: `apple/unit-23c-design-green.log`, screenshots, and `design-review.json`.
 **Acceptance**: Design/accessibility validation is green or blocked only by CoreSimulator/Xcode capability artifact.
 
@@ -782,12 +806,12 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Reviewers converge with no BLOCKER/MAJOR findings; any MINOR/NIT disposition is recorded in the doing progress log.
 
 ### ⬜ Unit 26a: Native Full Validation - Tests
-**What**: Run native validation audit proving artifacts exist for Swift red/green phases, coverage, AppIntents/static checks, scenario verifier, app bundle builds, screenshots, design review, AASA validation/blocker, macOS smoke, and iOS simulator smoke.
+**What**: Run native validation audit proving artifacts exist for Swift red/green phases, `coverage`, `appintents-contract`, `scenario:*`, app bundle builds, `screenshots`, design review, AASA validation/blocker, macOS smoke, and iOS simulator smoke.
 **Output**: `apple/unit-26a-validation-audit.log`.
 **Acceptance**: Audit fails until every native unit has red/green evidence and final validation prerequisites are present.
 
 ### ⬜ Unit 26b: Native Full Validation - Implementation
-**What**: Run `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors`, Swift coverage, `swift test --show-codecov-path`, `ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include "Sources/SpoonjoyCore"`, `scripts/verify-native-scenarios.sh --stage final`, `scripts/validate-native-local.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity`, project generator contract, app bundle builds, macOS launch/smoke, iOS simulator smoke, screenshots, and design review.
+**What**: Run Validation Command Matrix entry `native-final-matrix`; if any matrix step fails, fix it with tests-first sub-units or write the structured true blocker artifact that `validate-native-local.sh` recognizes.
 **Output**: Native full validation matrix and command logs under `apple/` and the task artifact root.
 **Acceptance**: All native commands pass or produce structured true blocker artifacts limited to SDK/Xcode/CoreSimulator/Apple Team ID capability.
 
@@ -821,3 +845,4 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 - 2026-06-16 18:33 Addressed granularity review findings by adding recipe import API units, splitting native surface/App Intents units, and adding dependency wave ownership.
 - 2026-06-16 18:38 Granularity pass converged after Round 3.
 - 2026-06-16 18:49 Addressed source-validation finding by replacing the bare native coverage script command with the required argument form.
+- 2026-06-16 18:57 Addressed ambiguity review findings by adding a native validation command matrix, making spawned-worker shared-path patch-note ownership explicit, and choosing a dedicated `NativePushDevice` APNs storage migration.
