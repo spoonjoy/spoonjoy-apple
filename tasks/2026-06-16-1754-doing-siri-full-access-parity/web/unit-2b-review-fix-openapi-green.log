@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/lib/api-v1-openapi.server.test.ts (10 tests) 953ms
+     ✓ uses response examples whose status and envelope shape match each response  538ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  00:47:40
+   Duration  1.88s (transform 229ms, setup 172ms, import 221ms, tests 953ms, environment 333ms)
+
