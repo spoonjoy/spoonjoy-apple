@@ -1,0 +1,13 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-recipe-steps.test.ts (18 tests) 1391ms
+ ✓ test/routes/api-v1-recipe-writes.test.ts (10 tests) 622ms
+ ✓ test/routes/api-v1-telemetry.test.ts (19 tests) 1415ms
+     ✓ captures public recipe list/detail requests without query strings or recipe text  389ms
+
+ Test Files  3 passed (3)
+      Tests  47 passed (47)
+   Start at  07:57:20
+   Duration  6.68s (transform 576ms, setup 303ms, import 1.87s, tests 3.43s, environment 633ms)
+
