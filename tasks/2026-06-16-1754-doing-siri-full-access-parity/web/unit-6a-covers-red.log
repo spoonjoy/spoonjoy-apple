@@ -1,17 +1,18 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-recipe-covers.test.ts (8 tests | 8 failed) 406ms
-     × declares the whole cover family as bearer kitchen-write routes and enforces auth before lifecycle access 56ms
-     × lists owner cover history, active state, archived rows, and available spoon photo sources 43ms
-     × rejects foreign writer cover mutations before storage, cover, or active-state side effects 39ms
-     × uploads a recipe image as an active raw cover and rejects malformed uploads without side effects 26ms
-     × creates idempotent uploaded-image cover candidates only from safe owner-owned Spoonjoy photo URLs 29ms
-     × sets active cover variants and archives inactive or active covers through explicit lifecycle choices 31ms
+ ❯ test/routes/api-v1-recipe-covers.test.ts (9 tests | 9 failed) 372ms
+     × declares the whole cover family as bearer kitchen-write routes and enforces auth before lifecycle access 58ms
+     × lists owner cover history, active state, archived rows, and available spoon photo sources 41ms
+     × rejects foreign writer cover mutations before storage, cover, or active-state side effects 34ms
+     × uploads a recipe image as an active raw cover and rejects malformed uploads without side effects 20ms
+     × creates idempotent uploaded-image cover candidates only from safe owner-owned Spoonjoy photo URLs 21ms
+     × sets active cover variants and archives inactive or active covers through explicit lifecycle choices 26ms
      × regenerates covers with canonical provider-secret blocker artifacts when local AI secrets are absent 25ms
-     × creates cover candidates from existing spoon photos without inventing comments or social surfaces 29ms
+     × returns canonical provider-secret blockers for editorial upload, URL, and spoon cover creation 24ms
+     × creates cover candidates from existing spoon photos without inventing comments or social surfaces 43ms
 
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > declares the whole cover family as bearer kitchen-write routes and enforces auth before lifecycle access
 AssertionError: expected 405 to be 401 // Object.is equality
@@ -30,7 +31,7 @@ AssertionError: expected 405 to be 401 // Object.is equality
     343|     expectErrorEnvelope(await readJson(anonymous), "req_covers_anon", …
     344|
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > lists owner cover history, active state, archived rows, and available spoon photo sources
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -49,7 +50,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
     452|     expectPrivateEnvelopeHeaders(response, "req_cover_history");
     453|     expectSuccessEnvelope(payload, "req_cover_history");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > rejects foreign writer cover mutations before storage, cover, or active-state side effects
 AssertionError: expected 405 to be 403 // Object.is equality
@@ -68,7 +69,7 @@ AssertionError: expected 405 to be 403 // Object.is equality
     613|       expectErrorEnvelope(await readJson(response), requestId, "insuff…
     614|     }
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > uploads a recipe image as an active raw cover and rejects malformed uploads without side effects
 AssertionError: expected 405 to be 201 // Object.is equality
@@ -87,7 +88,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
     647|     expectPrivateEnvelopeHeaders(response, "req_cover_image_upload");
     648|     expectSuccessEnvelope(payload, "req_cover_image_upload");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > creates idempotent uploaded-image cover candidates only from safe owner-owned Spoonjoy photo URLs
 AssertionError: expected 405 to be 201 // Object.is equality
@@ -98,15 +99,15 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:761:26
-    759|     const replayPayload = await readJson(replay);
-    760|
-    761|     expect(first.status).toBe(201);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:797:26
+    795|     const replayPayload = await readJson(replay);
+    796|
+    797|     expect(first.status).toBe(201);
        |                          ^
-    762|     expectSuccessEnvelope(firstPayload, "req_cover_create_url");
-    763|     expectCoverMutationData(firstPayload.data, clientMutationId, false…
+    798|     expectSuccessEnvelope(firstPayload, "req_cover_create_url");
+    799|     expectCoverMutationData(firstPayload.data, clientMutationId, false…
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > sets active cover variants and archives inactive or active covers through explicit lifecycle choices
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -117,15 +118,15 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:861:29
-    859|     const activateReplayPayload = await readJson(activateReplay);
-    860|
-    861|     expect(activate.status).toBe(200);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:909:29
+    907|     const activateReplayPayload = await readJson(activateReplay);
+    908|
+    909|     expect(activate.status).toBe(200);
        |                             ^
-    862|     expectSuccessEnvelope(activatePayload, "req_cover_activate");
-    863|     expectActiveCoverMutationData(activatePayload.data, activateBody.c…
+    910|     expectSuccessEnvelope(activatePayload, "req_cover_activate");
+    911|     expectActiveCoverMutationData(activatePayload.data, activateBody.c…
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > regenerates covers with canonical provider-secret blocker artifacts when local AI secrets are absent
 AssertionError: expected 405 to be 202 // Object.is equality
@@ -136,15 +137,34 @@ AssertionError: expected 405 to be 202 // Object.is equality
 - 202
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:966:29
-    964|     const payload = await readJson(response);
-    965|
-    966|     expect(response.status).toBe(202);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:1110:29
+    1108|     const payload = await readJson(response);
+    1109|
+    1110|     expect(response.status).toBe(202);
        |                             ^
-    967|     expectPrivateEnvelopeHeaders(response, "req_cover_regenerate_no_pr…
-    968|     expectSuccessEnvelope(payload, "req_cover_regenerate_no_provider");
+    1111|     expectPrivateEnvelopeHeaders(response, "req_cover_regenerate_no_pr…
+    1112|     expectSuccessEnvelope(payload, "req_cover_regenerate_no_provider");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > returns canonical provider-secret blockers for editorial upload, URL, and spoon cover creation
+AssertionError: expected 405 to be 202 // Object.is equality
+
+- Expected
++ Received
+
+- 202
++ 405
+
+ ❯ test/routes/api-v1-recipe-covers.test.ts:1218:27
+    1216|     ));
+    1217|     const uploadPayload = await readJson(upload);
+    1218|     expect(upload.status).toBe(202);
+       |                           ^
+    1219|     expectSuccessEnvelope(uploadPayload, "req_cover_image_upload_provi…
+    1220|     expectCoverMutationData(uploadPayload.data, uploadClientMutationId…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
 
  FAIL  test/routes/api-v1-recipe-covers.test.ts > API v1 recipe image and cover lifecycle endpoints > creates cover candidates from existing spoon photos without inventing comments or social surfaces
 AssertionError: expected 405 to be 201 // Object.is equality
@@ -155,19 +175,19 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:1052:29
-    1050|     const payload = await readJson(response);
-    1051|
-    1052|     expect(response.status).toBe(201);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:1357:29
+    1355|     const payload = await readJson(response);
+    1356|
+    1357|     expect(response.status).toBe(201);
        |                             ^
-    1053|     expectPrivateEnvelopeHeaders(response, "req_cover_from_spoon");
-    1054|     expectSuccessEnvelope(payload, "req_cover_from_spoon");
+    1358|     expectPrivateEnvelopeHeaders(response, "req_cover_from_spoon");
+    1359|     expectSuccessEnvelope(payload, "req_cover_from_spoon");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
 
 
  Test Files  1 failed (1)
-      Tests  8 failed (8)
-   Start at  08:36:30
-   Duration  2.32s (transform 589ms, setup 212ms, import 1.13s, tests 406ms, environment 375ms)
+      Tests  9 failed (9)
+   Start at  08:46:55
+   Duration  2.28s (transform 607ms, setup 184ms, import 1.22s, tests 372ms, environment 330ms)
 
