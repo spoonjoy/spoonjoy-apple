@@ -787,7 +787,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Audit fails until every native unit has red/green evidence and final validation prerequisites are present.
 
 ### ⬜ Unit 26b: Native Full Validation - Implementation
-**What**: Run `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors`, Swift coverage, `scripts/enforce-swift-coverage.rb`, `scripts/verify-native-scenarios.sh --stage final`, `scripts/validate-native-local.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity`, project generator contract, app bundle builds, macOS launch/smoke, iOS simulator smoke, screenshots, and design review.
+**What**: Run `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors`, Swift coverage, `swift test --show-codecov-path`, `ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include "Sources/SpoonjoyCore"`, `scripts/verify-native-scenarios.sh --stage final`, `scripts/validate-native-local.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity`, project generator contract, app bundle builds, macOS launch/smoke, iOS simulator smoke, screenshots, and design review.
 **Output**: Native full validation matrix and command logs under `apple/` and the task artifact root.
 **Acceptance**: All native commands pass or produce structured true blocker artifacts limited to SDK/Xcode/CoreSimulator/Apple Team ID capability.
 
@@ -820,3 +820,4 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 - 2026-06-16 18:23 Created from planning doc.
 - 2026-06-16 18:33 Addressed granularity review findings by adding recipe import API units, splitting native surface/App Intents units, and adding dependency wave ownership.
 - 2026-06-16 18:38 Granularity pass converged after Round 3.
+- 2026-06-16 18:49 Addressed source-validation finding by replacing the bare native coverage script command with the required argument form.
