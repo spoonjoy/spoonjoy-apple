@@ -16,7 +16,7 @@ This is not a thin web clone and not a new social/product expansion. The native 
   - `tasks/2026-06-16-1754-planning-siri-full-access-parity/native-parity-matrix.md`
 - Implement a live native API client, transport, auth/session, token refresh, Keychain-backed storage, cache bootstrap, and sync pipeline. Current request builders and fixture-backed screens are not enough.
 - Add the REST v1 backend endpoints needed for native parity rather than relying on app-only legacy `/api/*` routes:
-  - Native bootstrap/session/account: `GET /api/v1/me`, `PATCH /api/v1/me`, `GET /api/v1/me/kitchen`, `GET /api/v1/me/sync`, `GET /api/v1/me/notification-preferences`, `PATCH /api/v1/me/notification-preferences`, `POST /api/v1/me/apns-devices`, `DELETE /api/v1/me/apns-devices/{deviceId}`, `GET /api/v1/me/connections`, and scoped disconnect/revoke endpoints for account settings surfaces that cannot be handled by existing token endpoints.
+  - Native bootstrap/session/account/API credentials: `GET /api/v1/me`, `PATCH /api/v1/me`, `GET /api/v1/me/kitchen`, `GET /api/v1/me/sync`, `GET /api/v1/me/notification-preferences`, `PATCH /api/v1/me/notification-preferences`, `POST /api/v1/me/apns-devices`, `DELETE /api/v1/me/apns-devices/{deviceId}`, `GET /api/v1/me/connections`, `DELETE /api/v1/me/connections/{connectionId}`, `GET /api/v1/tokens`, `POST /api/v1/tokens`, and `DELETE /api/v1/tokens/{credentialId}`.
   - Profile and chef graph reads: `GET /api/v1/users/{identifier}`, `GET /api/v1/users/{identifier}/fellow-chefs`, and `GET /api/v1/users/{identifier}/kitchen-visitors`.
   - Search: `GET /api/v1/search` with `all`, `recipes`, `cookbooks`, `chefs`, and `shopping-list` scopes.
   - Recipe writes: `POST /api/v1/recipes`, `PATCH /api/v1/recipes/{id}`, `DELETE /api/v1/recipes/{id}`, `POST /api/v1/recipes/{id}/fork`, `POST /api/v1/recipes/import`, `POST /api/v1/recipes/{id}/steps`, `PATCH /api/v1/recipes/{id}/steps/{stepId}`, `DELETE /api/v1/recipes/{id}/steps/{stepId}`, `POST /api/v1/recipes/{id}/steps/reorder`, `POST /api/v1/recipes/{id}/steps/{stepId}/ingredients`, `DELETE /api/v1/recipes/{id}/steps/{stepId}/ingredients/{ingredientId}`, and `PUT /api/v1/recipes/{id}/step-output-uses`.
@@ -61,7 +61,7 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - The three audit artifacts remain committed and are referenced by planning/doing docs.
 - The planning doc passes harsh sub-agent review with no BLOCKER/MAJOR findings and is marked approved.
 - A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
-- `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, with OpenAPI/docs/playground updates and no drift from implementation.
+- `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, including `GET/POST /api/v1/tokens` and `DELETE /api/v1/tokens/{credentialId}` in native account/API credential flows, with OpenAPI/docs/playground updates and no drift from implementation.
 - Native Apple uses live Spoonjoy contracts for every read and write endpoint listed in Scope, with fixtures only as deterministic fallback/test data.
 - Offline mode works as product behavior: cached read access, durable cook progress, capture drafts, shopping mutation queue, sync/retry/conflict/freshness states, and a dismissible offline indicator.
 - Native surfaces cover the audited current product concepts or provide exact native secure handoff for credential/account operations where web/OAuth/passkey surfaces are canonical.
@@ -70,7 +70,7 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - Destructive or sensitive Siri/native actions have confirmation/auth/ownership policy.
 - Local validation is green to the available capability floor:
   - `spoonjoy-apple`: Swift tests, coverage, scenario verifier, warning scan, app bundle build, macOS launch/screenshot, project/generator/static contracts, or a structured Xcode/SDK/hardware blocker artifact for any command the installed toolchain cannot run.
-  - `spoonjoy-v2`: relevant Vitest suites, docs/OpenAPI route coverage, build/typecheck, warning checks required by the repo.
+  - `spoonjoy-v2`: targeted Vitest route/lib/doc suites for every touched API surface, `pnpm run test:coverage`, `pnpm run typecheck`, `pnpm run build`, generated playground drift checks, OpenAPI route coverage tests, and zero-warning output.
 - Any remaining non-green validation is backed by a structured true blocker artifact, such as Apple Developer Program, missing simulator runtime, Xcode installation fault, production secret, or unavailable hardware.
 - Reviewer sub-agents converge on implementation, offline/sync, API contract, native design, and App Intents readiness.
 - PRs are opened, checks pass or true blockers are recorded, branches are merged to `main`, local repos are synced, temporary branches/worktrees are cleaned up, Desk state is updated, and Slugger is notified.
@@ -83,6 +83,7 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - `spoonjoy-v2` additions must satisfy the repo's 100% coverage and zero-warning policy for touched code, including API route coverage, OpenAPI/docs drift tests, idempotency conflicts, authorization/scope failures, validation errors, and tombstone/sync behavior.
 - Documentation and generated OpenAPI/playground changes need tests that fail when the documented/native contract drifts from implemented REST v1 resources.
 - UI parity that is not unit-testable must be covered by scenario verifier, static contracts, screenshots, and design-review artifacts.
+- Web validation must save artifacts for `pnpm run test:coverage`, `pnpm run typecheck`, `pnpm run build`, generated API playground output, docs/OpenAPI route coverage, and every targeted Vitest command used during red/green units.
 
 # Open Questions
 
@@ -142,3 +143,4 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - 2026-06-16 18:19 Added committed web product, API dogfood, and native parity audit artifacts.
 - 2026-06-16 18:24 Replaced provisional plan with audited full-moon scope, including REST v1 parity, native offline, and entity-backed Siri access.
 - 2026-06-16 18:39 Addressed reviewer findings by replacing optional language with explicit API, offline, App Intents, notification, and sync scope.
+- 2026-06-16 18:47 Addressed Round 2 reviewer findings by making API credential endpoints and web validation commands explicit.
