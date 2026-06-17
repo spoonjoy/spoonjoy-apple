@@ -142,7 +142,7 @@ build/client/assets/chunk-JZWAC4HX-BWgHnysW.js                         125.17 kB
 build/client/assets/index-wnAe5EVe.js                                  175.88 kB │ gzip: 57.86 kB
 build/client/assets/entry.client-Du0c-emh.js                           187.26 kB │ gzip: 59.28 kB
 build/client/assets/badge-DD_U8FIR.js                                  407.77 kB │ gzip: 26.36 kB
-✓ built in 6.38s
+✓ built in 7.26s
 vite v7.3.1 building ssr environment for production...
 transforming...
 ✓ 3201 modules transformed.
@@ -168,4 +168,4 @@ build/server/assets/server-build-DE-0F3K1.js        4,708.95 kB
 ✓ 1 asset copied from React Router server build to client assets.
 build/client/assets/server-build-Boy3OHsV.css
 
-✓ built in 9.94s
+✓ built in 10.58s

@@ -1,13 +1,10 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ✓ test/routes/api-v1-cookbook-writes.test.ts (9 tests) 2541ms
-     ✓ creates cookbooks with trimmed titles, exact mutation envelopes, and replay semantics  935ms
-     ✓ updates owned cookbook titles and rejects duplicate or cross-owner updates  536ms
- ✓ test/lib/spoonjoy-api-cookbook-notification.test.ts (4 tests) 180ms
+ ✓ test/routes/api-v1-cookbook-writes.test.ts (9 tests) 757ms
+ ✓ test/lib/spoonjoy-api-cookbook-notification.test.ts (4 tests) 141ms
 
  Test Files  2 passed (2)
       Tests  13 passed (13)
-   Start at  15:13:33
-   Duration  6.15s (transform 1.03s, setup 283ms, import 2.06s, tests 2.72s, environment 746ms)
-
+   Start at  15:24:42
+   Duration  3.76s (transform 860ms, setup 303ms, import 1.63s, tests 898ms, environment 588ms)
