@@ -392,12 +392,13 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: New account/bootstrap/token code has 100% branch/error coverage, zero warnings, and no stale generated playground output.
 **Evidence**: `spoonjoy-v2` commit `8ec46638`; `web/unit-2c-account-vitest.log`; `web/unit-2c-account-docs-drift.log`; `web/unit-2c-account-api-playground-generate.log`; `web/unit-2c-account-api-playground-drift.log`; `web/unit-2c-account-typecheck.log`; `web/unit-2c-account-coverage.log` (305 files, 6095 tests, 100% statements/branches/functions/lines); `web/unit-2c-account-developer-tests-green.log` records the full-coverage-discovered generated-doc test hardening; `web/unit-2c-account-warning-scan.log`.
 
-### ⬜ Unit 3a: Profile, Chef Graph, And Search API - Tests
+### ✅ Unit 3a: Profile, Chef Graph, And Search API - Tests
 **What**: Write failing tests for `GET /api/v1/users/{identifier}`, `GET /api/v1/users/{identifier}/fellow-chefs`, `GET /api/v1/users/{identifier}/kitchen-visitors`, and `GET /api/v1/search` with `all`, `recipes`, `cookbooks`, `chefs`, and `shopping-list` scopes.
 **Output**: `test/routes/api-v1-users-search.test.ts` and `web/unit-3a-users-search-red.log`.
 **Acceptance**: Tests fail before handlers exist and assert payload parity with profile/search web surfaces, anonymous vs authenticated search behavior, shopping-list auth, and invalid scope errors.
+**Evidence**: `test/routes/api-v1-users-search.test.ts`; `web/unit-3a-users-search-red.log` exits 1 with all four Unit 3a tests failing on current `405` known-path handler fallback for `/api/v1/users/*` and `/api/v1/search`.
 
-### ⬜ Unit 3b: Profile, Chef Graph, And Search API - Implementation
+### 🔄 Unit 3b: Profile, Chef Graph, And Search API - Implementation
 **What**: Orchestrator-only: implement profile, chef graph, and search endpoint-family helper code plus shared route/contract/docs/OpenAPI/playground wiring using `app/lib/fellow-chefs.server.ts`, `app/lib/search.server.ts`, current Prisma relations, and v1 envelope helpers.
 **Output**: `app/lib/api-v1-users-search.server.ts`, orchestrator-applied `app/lib/api-v1.server.ts` wiring, shared docs/OpenAPI/playground updates, and `web/integration-notes/unit-3b-users-search.md` if backend workers prepared helper patches.
 **Acceptance**: Unit 3a tests pass; deleted recipes/spoons stay hidden; shopping-list search requires auth; profile payload includes recipes, cookbooks, spoons, fellow chefs, and kitchen visitors.

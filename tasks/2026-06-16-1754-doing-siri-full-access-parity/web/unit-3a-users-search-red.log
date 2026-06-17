@@ -1,0 +1,93 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-users-search.test.ts (4 tests | 4 failed) 211ms
+     × returns a public chef profile by username with recipes, cookbooks, recent spoons, and graph counts 59ms
+     × returns fellow-chef and kitchen-visitor graph pages with stable pagination metadata 23ms
+     × returns search results for public scopes and keeps shopping-list matches private to the authenticated owner 29ms
+     × returns v1 envelopes for missing profile identifiers and invalid search limits 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-users-search.test.ts > API v1 profile, chef graph, and search reads > returns a public chef profile by username with recipes, cookbooks, recent spoons, and graph counts
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-users-search.test.ts:160:29
+    158|     const payload = await readJson(response);
+    159| 
+    160|     expect(response.status).toBe(200);
+       |                             ^
+    161|     expectPublicEnvelopeHeaders(response, "req_user_profile");
+    162|     expectSuccessEnvelope(payload, "req_user_profile");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  test/routes/api-v1-users-search.test.ts > API v1 profile, chef graph, and search reads > returns fellow-chef and kitchen-visitor graph pages with stable pagination metadata
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-users-search.test.ts:224:35
+    222|     const fellowPayload = await readJson(fellowResponse);
+    223| 
+    224|     expect(fellowResponse.status).toBe(200);
+       |                                   ^
+    225|     expectPublicEnvelopeHeaders(fellowResponse, "req_user_fellow_chefs…
+    226|     expectSuccessEnvelope(fellowPayload, "req_user_fellow_chefs");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  test/routes/api-v1-users-search.test.ts > API v1 profile, chef graph, and search reads > returns search results for public scopes and keeps shopping-list matches private to the authenticated owner
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-users-search.test.ts:295:33
+    293|     const publicPayload = await readJson(publicSearch);
+    294| 
+    295|     expect(publicSearch.status).toBe(200);
+       |                                 ^
+    296|     expectPublicEnvelopeHeaders(publicSearch, "req_search_public");
+    297|     expectSuccessEnvelope(publicPayload, "req_search_public");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  test/routes/api-v1-users-search.test.ts > API v1 profile, chef graph, and search reads > returns v1 envelopes for missing profile identifiers and invalid search limits
+AssertionError: expected 405 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 405
+
+ ❯ test/routes/api-v1-users-search.test.ts:369:28
+    367|     const missingPayload = await readJson(missing);
+    368| 
+    369|     expect(missing.status).toBe(404);
+       |                            ^
+    370|     expect(missing.headers.get("X-Request-Id")).toBe("req_user_missing…
+    371|     expectErrorEnvelope(missingPayload, "req_user_missing", "not_found…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  01:28:48
+   Duration  1.85s (transform 402ms, setup 214ms, import 901ms, tests 211ms, environment 340ms)
+
