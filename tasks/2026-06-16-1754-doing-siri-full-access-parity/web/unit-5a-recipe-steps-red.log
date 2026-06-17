@@ -1,15 +1,15 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-recipe-steps.test.ts (8 tests | 7 failed) 313ms
-     ✓ declares the recipe step mutation scope rows 15ms
-     × creates, updates, replays, and deletes steps while returning dependency-aware recipe graphs 40ms
-     × adds and deletes step ingredients with exact idempotent mutation envelopes 28ms
-     × reorders steps and replaces step-output dependencies without losing graph parity 37ms
-     × enforces authentication, kitchen write scope, and recipe ownership before step writes 32ms
-     × rejects duplicate step numbers, malformed ingredients, missing ids, invalid dependency refs, and dependency cycles 21ms
-     × rejects nested step and ingredient ids that do not belong to the routed recipe graph 21ms
-     × protects step deletion and reorder operations that would break step-output dependencies 26ms
+ ❯ test/routes/api-v1-recipe-steps.test.ts (8 tests | 7 failed) 380ms
+     ✓ declares the recipe step mutation scope rows 17ms
+     × creates, updates, replays, and deletes steps while returning dependency-aware recipe graphs 46ms
+     × adds and deletes step ingredients with exact idempotent mutation envelopes 27ms
+     × reorders steps and replaces step-output dependencies without losing graph parity 28ms
+     × enforces authentication, kitchen write scope, and recipe ownership before step writes 30ms
+     × rejects duplicate step numbers, malformed ingredients, missing ids, invalid dependency refs, and dependency cycles 59ms
+     × rejects nested step and ingredient ids that do not belong to the routed recipe graph 30ms
+     × protects step deletion and reorder operations that would break step-output dependencies 56ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -117,13 +117,13 @@ AssertionError: expected 405 to be 404 // Object.is equality
 - 404
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:735:31
-    733|         path,
-    734|       ));
-    735|       expect(response.status).toBe(404);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:741:31
+    739|         path,
+    740|       ));
+    741|       expect(response.status).toBe(404);
        |                               ^
-    736|       expectErrorEnvelope(await readJson(response), requestId, "not_fo…
-    737|     }
+    742|       expectErrorEnvelope(await readJson(response), requestId, "not_fo…
+    743|     }
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
 
@@ -136,19 +136,19 @@ AssertionError: expected 405 to be 400 // Object.is equality
 - 400
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:749:36
-    747|       `recipes/${fixture.recipe.id}/steps/${fixture.steps[0].id}`,
-    748|     ));
-    749|     expect(protectedDelete.status).toBe(400);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:755:36
+    753|       `recipes/${fixture.recipe.id}/steps/${fixture.steps[0].id}`,
+    754|     ));
+    755|     expect(protectedDelete.status).toBe(400);
        |                                    ^
-    750|     const deletePayload = await readJson(protectedDelete);
-    751|     expectErrorEnvelope(deletePayload, "req_step_delete_protected", "v…
+    756|     const deletePayload = await readJson(protectedDelete);
+    757|     expectErrorEnvelope(deletePayload, "req_step_delete_protected", "v…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
 
 
  Test Files  1 failed (1)
       Tests  7 failed | 1 passed (8)
-   Start at  05:26:07
-   Duration  2.06s (transform 481ms, setup 210ms, import 1.01s, tests 313ms, environment 341ms)
+   Start at  05:29:05
+   Duration  3.16s (transform 688ms, setup 225ms, import 1.54s, tests 380ms, environment 405ms)
 
