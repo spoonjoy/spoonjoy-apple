@@ -139,9 +139,9 @@ This is not a thin web clone and not a new social/product expansion. The native 
 
 # Progress Log
 
-- 2026-06-16 17:54 Created initial planning draft before the required web/API/native parity audit.
-- 2026-06-16 18:19 Added committed web product, API dogfood, and native parity audit artifacts.
-- 2026-06-16 18:24 Replaced provisional plan with audited full-moon scope, including REST v1 parity, native offline, and entity-backed Siri access.
-- 2026-06-16 18:39 Addressed reviewer findings by replacing optional language with explicit API, offline, App Intents, notification, and sync scope.
-- 2026-06-16 18:47 Addressed Round 2 reviewer findings by making API credential endpoints and web validation commands explicit.
-- 2026-06-16 18:51 Planning review converged and status moved to approved.
+- 2026-06-16 17:56 Created initial planning draft before the required web/API/native parity audit.
+- 2026-06-16 18:06 Added committed web product, API dogfood, and native parity audit artifacts.
+- 2026-06-16 18:08 Replaced provisional plan with audited full-moon scope, including REST v1 parity, native offline, and entity-backed Siri access.
+- 2026-06-16 18:16 Addressed reviewer findings by replacing optional language with explicit API, offline, App Intents, notification, and sync scope.
+- 2026-06-16 18:20 Addressed Round 2 reviewer findings by making API credential endpoints and web validation commands explicit.
+- 2026-06-16 18:21 Planning review converged and status moved to approved.
