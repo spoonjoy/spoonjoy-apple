@@ -1,16 +1,17 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-recipe-steps.test.ts (7 tests | 6 failed) 334ms
-     ✓ declares the recipe step mutation scope rows 21ms
-     × creates, updates, replays, and deletes steps while returning dependency-aware recipe graphs 61ms
-     × adds and deletes step ingredients with exact idempotent mutation envelopes 24ms
-     × reorders steps and replaces step-output dependencies without losing graph parity 26ms
-     × enforces authentication, kitchen write scope, and recipe ownership before step writes 26ms
-     × rejects duplicate step numbers, malformed ingredients, missing ids, invalid dependency refs, and dependency cycles 27ms
-     × protects step deletion and reorder operations that would break step-output dependencies 25ms
+ ❯ test/routes/api-v1-recipe-steps.test.ts (8 tests | 7 failed) 313ms
+     ✓ declares the recipe step mutation scope rows 15ms
+     × creates, updates, replays, and deletes steps while returning dependency-aware recipe graphs 40ms
+     × adds and deletes step ingredients with exact idempotent mutation envelopes 28ms
+     × reorders steps and replaces step-output dependencies without losing graph parity 37ms
+     × enforces authentication, kitchen write scope, and recipe ownership before step writes 32ms
+     × rejects duplicate step numbers, malformed ingredients, missing ids, invalid dependency refs, and dependency cycles 21ms
+     × rejects nested step and ingredient ids that do not belong to the routed recipe graph 21ms
+     × protects step deletion and reorder operations that would break step-output dependencies 26ms
 
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > creates, updates, replays, and deletes steps while returning dependency-aware recipe graphs
 AssertionError: expected 405 to be 201 // Object.is equality
@@ -21,15 +22,15 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:260:28
-    258|     const createPayload = await readJson(created);
-    259| 
-    260|     expect(created.status).toBe(201);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:289:28
+    287|     const createPayload = await readJson(created);
+    288|
+    289|     expect(created.status).toBe(201);
        |                            ^
-    261|     expectPrivateEnvelopeHeaders(created, "req_step_create");
-    262|     expectSuccessEnvelope(createPayload, "req_step_create");
+    290|     expectPrivateEnvelopeHeaders(created, "req_step_create");
+    291|     expectSuccessEnvelope(createPayload, "req_step_create");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
 
  FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > adds and deletes step ingredients with exact idempotent mutation envelopes
 AssertionError: expected 405 to be 201 // Object.is equality
@@ -40,15 +41,15 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:355:26
-    353|     const addPayload = await readJson(added);
-    354| 
-    355|     expect(added.status).toBe(201);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:422:26
+    420|     const addPayload = await readJson(added);
+    421|
+    422|     expect(added.status).toBe(201);
        |                          ^
-    356|     expectSuccessEnvelope(addPayload, "req_step_ingredient_add");
-    357|     expect(addPayload.data).toMatchObject({
+    423|     expectSuccessEnvelope(addPayload, "req_step_ingredient_add");
+    424|     expect(addPayload.data).toMatchObject({
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
 
  FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > reorders steps and replaces step-output dependencies without losing graph parity
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -59,15 +60,15 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:403:30
-    401|     const reorderPayload = await readJson(reordered);
-    402| 
-    403|     expect(reordered.status).toBe(200);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:514:30
+    512|     const reorderPayload = await readJson(reordered);
+    513|
+    514|     expect(reordered.status).toBe(200);
        |                              ^
-    404|     expectSuccessEnvelope(reorderPayload, "req_step_reorder");
-    405|     expect(reorderPayload.data).toMatchObject({
+    515|     expectSuccessEnvelope(reorderPayload, "req_step_reorder");
+    516|     expect(reorderPayload.data).toMatchObject({
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
 
  FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > enforces authentication, kitchen write scope, and recipe ownership before step writes
 AssertionError: expected 405 to be 401 // Object.is equality
@@ -78,15 +79,15 @@ AssertionError: expected 405 to be 401 // Object.is equality
 - 401
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:474:30
-    472|       `recipes/${fixture.recipe.id}/steps`,
-    473|     ));
-    474|     expect(anonymous.status).toBe(401);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:617:30
+    615|       `recipes/${fixture.recipe.id}/steps`,
+    616|     ));
+    617|     expect(anonymous.status).toBe(401);
        |                              ^
-    475|     expectErrorEnvelope(await readJson(anonymous), "req_step_auth_anon…
-    476| 
+    618|     expectErrorEnvelope(await readJson(anonymous), "req_step_auth_anon…
+    619|
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
 
  FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > rejects duplicate step numbers, malformed ingredients, missing ids, invalid dependency refs, and dependency cycles
 AssertionError: expected 405 to be 400 // Object.is equality
@@ -97,15 +98,34 @@ AssertionError: expected 405 to be 400 // Object.is equality
 - 400
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:534:31
-    532|         path,
-    533|       ));
-    534|       expect(response.status).toBe(requestId === "req_step_missing_id"…
+ ❯ test/routes/api-v1-recipe-steps.test.ts:677:31
+    675|         path,
+    676|       ));
+    677|       expect(response.status).toBe(requestId === "req_step_missing_id"…
        |                               ^
-    535|       expectErrorEnvelope(
-    536|         await readJson(response),
+    678|       expectErrorEnvelope(
+    679|         await readJson(response),
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > rejects nested step and ingredient ids that do not belong to the routed recipe graph
+AssertionError: expected 405 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 405
+
+ ❯ test/routes/api-v1-recipe-steps.test.ts:735:31
+    733|         path,
+    734|       ));
+    735|       expect(response.status).toBe(404);
+       |                               ^
+    736|       expectErrorEnvelope(await readJson(response), requestId, "not_fo…
+    737|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
 
  FAIL  test/routes/api-v1-recipe-steps.test.ts > API v1 recipe step and dependency mutations > protects step deletion and reorder operations that would break step-output dependencies
 AssertionError: expected 405 to be 400 // Object.is equality
@@ -116,19 +136,19 @@ AssertionError: expected 405 to be 400 // Object.is equality
 - 400
 + 405
 
- ❯ test/routes/api-v1-recipe-steps.test.ts:553:36
-    551|       `recipes/${fixture.recipe.id}/steps/${fixture.steps[0].id}`,
-    552|     ));
-    553|     expect(protectedDelete.status).toBe(400);
+ ❯ test/routes/api-v1-recipe-steps.test.ts:749:36
+    747|       `recipes/${fixture.recipe.id}/steps/${fixture.steps[0].id}`,
+    748|     ));
+    749|     expect(protectedDelete.status).toBe(400);
        |                                    ^
-    554|     const deletePayload = await readJson(protectedDelete);
-    555|     expectErrorEnvelope(deletePayload, "req_step_delete_protected", "v…
+    750|     const deletePayload = await readJson(protectedDelete);
+    751|     expectErrorEnvelope(deletePayload, "req_step_delete_protected", "v…
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
 
 
  Test Files  1 failed (1)
-      Tests  6 failed | 1 passed (7)
-   Start at  05:19:11
-   Duration  3.29s (transform 689ms, setup 424ms, import 1.38s, tests 334ms, environment 921ms)
+      Tests  7 failed | 1 passed (8)
+   Start at  05:26:07
+   Duration  2.06s (transform 481ms, setup 210ms, import 1.01s, tests 313ms, environment 341ms)
 
