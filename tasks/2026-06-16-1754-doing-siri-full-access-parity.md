@@ -86,11 +86,12 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 - `scenario:surfaces`: `scripts/verify-native-scenarios.sh --stage surfaces --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-surfaces.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-surfaces.log"`.
 - `scenario:final`: `scripts/verify-native-scenarios.sh --stage final --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.log"`.
 - `screenshots`: `scripts/capture-native-screenshots.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-screenshots.log"`; required artifacts are `$ARTIFACT_ROOT/screenshots/ios-mobile.png`, `$ARTIFACT_ROOT/screenshots/macos-desktop.png`, and `$ARTIFACT_ROOT/design-review.json` or structured blocker JSON produced by the script.
+- `design-review`: `ruby scripts/validate-design-review.rb "$ARTIFACT_ROOT/design-review.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-design-review.log"`.
 - `aasa`: `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-aasa.log"`.
 - `xcodebuild-ios`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-ios.log"`; if the command fails only because the required simulator platform/runtime is unavailable, write `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json` with `capability: "XcodePlatform"`, the command, output path, timeout, and reason.
-- `xcodebuild-macos`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-macos.log"`.
+- `xcodebuild-macos`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-macos.log"`; any build/test failure after project parsing is a hard failure to fix. Only a local Xcode installation/SDK fault that prevents project parsing may produce `$ARTIFACT_ROOT/apple/<unit-slug>-macos-app-bundle-blocker.json` with `capability: "XcodePlatform"`, the command, output path, timeout, and reason.
 - `smoke-ios`: `scripts/smoke-ios-simulator.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-ios.log"`; if CoreSimulator is unavailable, accept only the script-produced `$ARTIFACT_ROOT/smoke-ios-simulator-blocker.json`.
-- `smoke-macos`: `scripts/smoke-macos.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos.log"`.
+- `smoke-macos`: `scripts/smoke-macos.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos.log"`; app crash, route failure, or screenshot failure is a hard failure to fix. Only local macOS GUI/session capability failure may produce `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` with `capability: "MacOSLaunch"`, the command, output path, timeout, and reason.
 - `native-final-matrix`: `scripts/validate-native-local.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-validate-native-local.log"`; stable matrix artifacts are `matrix-swift-test.log`, `matrix-coverage-test.log`, `matrix-coverage-enforce.log`, `matrix-final-scenario.log`, `matrix-project-contract.log`, `matrix-generator-contract.log`, `matrix-native-design-contract.log`, `matrix-kitchen-surfaces-contract.log`, `matrix-cook-shopping-contract.log`, `matrix-search-capture-contract.log`, `matrix-capture.log`, `matrix-design-review.log`, `matrix-warning-scan.log`, `validation-matrix.jsonl`, and `validation-matrix.json`.
 
 ## Web Command Matrix
@@ -295,7 +296,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 11c: Native Request Builders For Expanded REST V1 - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeAPIExpansionTests`, `swift-full`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-11c-native-api-green.log`, coverage JSON path, and coverage enforcement log.
+**Output**: `apple/unit-11c-native-api-green.log`, `apple/unit-11c-native-api-coverage-test.log`, `apple/unit-11c-native-api-coverage-enforce.log`, and `apple/unit-11c-native-api-warning-scan.log`.
 **Acceptance**: New Swift API code has 100% measured coverage and no warnings.
 
 ### ⬜ Unit 12a: Native URLSession Transport And Error Pipeline - Tests
@@ -555,7 +556,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 20a: Universal Links Routes And AASA Contract - Tests
 **What**: Write failing Swift and web tests for every `spoonjoy.app` route and `spoonjoy://` fallback route needed by native parity, including profiles, fellow chefs, kitchen visitors, account sections, notification preferences, API credentials, cookbook actions, spoon logging, covers, shopping clear/add-from-recipe, search, capture, and OAuth redirect.
-**Output**: `Tests/SpoonjoyCoreTests/DeepLinkParityTests.swift`, web AASA tests, and `apple/unit-20a-links-red.log`.
+**Output**: `Tests/SpoonjoyCoreTests/DeepLinkParityTests.swift`, `spoonjoy-v2/test/routes/aasa-contract.test.ts`, `apple/unit-20a-links-red.log`, and `web/unit-20a-aasa-red.log`.
 **Acceptance**: Tests fail until route parser/builders and web AASA docs cover the full route list; OAuth redirect remains HTTPS universal link only.
 
 ### ⬜ Unit 20b: Universal Links Routes And AASA Contract - Implementation
@@ -564,7 +565,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 **Acceptance**: Unit 20a tests pass; unknown routes go to safe unknown-link state.
 
 ### ⬜ Unit 20c: Universal Links Routes And AASA Contract - Coverage & Refactor
-**What**: Run Validation Command Matrix entries `swift-focused` with `DeepLinkParityTests`, `project-generator-contract`, `project-contract`, `aasa`, `scenario:surfaces`, `swift-full`, and `warning-scan`; run the matching web AASA route tests from `spoonjoy-v2` and save `web/unit-20c-aasa-green.log`.
+**What**: Run Validation Command Matrix entries `swift-focused` with `DeepLinkParityTests`, `project-generator-contract`, `project-contract`, `aasa`, `scenario:surfaces`, `swift-full`, and `warning-scan`; run Web Command Matrix entry `web-focused` with `test/routes/aasa-contract.test.ts`.
 **Output**: `apple/unit-20c-links-green.log`, `web/unit-20c-aasa-green.log`, and AASA blocker/validation artifact.
 **Acceptance**: Production AASA validation is green or blocked only by missing Apple Team ID/App ID.
 
@@ -779,7 +780,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 **Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
-**What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots; checks must use or extend `design-contract`, `screenshots`, and `ruby scripts/validate-design-review.rb "$ARTIFACT_ROOT/design-review.json"` from the Validation Command Matrix.
+**What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots; checks must use or extend Validation Command Matrix entries `design-contract`, `screenshots`, and `design-review`.
 **Output**: Design validator updates and `apple/unit-23a-design-red.log`.
 **Acceptance**: Checks fail until every new surface reports the required accessibility/design manifest coverage.
 
@@ -789,7 +790,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 **Acceptance**: Unit 23a checks pass; screenshots show native controls with Spoonjoy design language and no incoherent overlap.
 
 ### ⬜ Unit 23c: Native Design Accessibility And Visual Validation - Coverage & Refactor
-**What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `scenario:final`, `project-contract`, `swift-full`, `xcodebuild-ios`, `xcodebuild-macos`, `smoke-ios`, `smoke-macos`, and `warning-scan`.
+**What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `design-review`, `scenario:final`, `project-contract`, `swift-full`, `xcodebuild-ios`, `xcodebuild-macos`, `smoke-ios`, `smoke-macos`, and `warning-scan`.
 **Output**: `apple/unit-23c-design-green.log`, screenshots, and `design-review.json`.
 **Acceptance**: Design/accessibility validation is green or blocked only by CoreSimulator/Xcode capability artifact.
 
@@ -865,3 +866,4 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 - 2026-06-16 18:49 Addressed source-validation finding by replacing the bare native coverage script command with the required argument form.
 - 2026-06-16 18:57 Addressed ambiguity review findings by adding a native validation command matrix, making spawned-worker shared-path patch-note ownership explicit, and choosing a dedicated `NativePushDevice` APNs storage migration.
 - 2026-06-16 19:04 Addressed ambiguity review findings by making warning scans log-discovery based, adding native app build/smoke matrix commands, adding a web command matrix, and defining backend shared-file integration notes.
+- 2026-06-16 19:08 Addressed ambiguity review findings by adding macOS build/smoke blocker policy, routing AASA web validation through `web-focused`, and adding a `design-review` matrix entry.
