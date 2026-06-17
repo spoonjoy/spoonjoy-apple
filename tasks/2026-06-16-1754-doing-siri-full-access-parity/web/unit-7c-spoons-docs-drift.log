@@ -1,0 +1,21 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/developers-playground.test.tsx (39 tests) 6902ms
+     ✓ uses query params and bearer auth only after the user enables it  380ms
+     ✓ covers generated OAuth, mutation id, example body, and secret-response playground controls  1180ms
+     ✓ copies generated playground values and reports clipboard failures  1689ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  546ms
+     ✓ handles OAuth callback validation failures and redirect submissions  419ms
+     ✓ reports when a custom manifest omits the OAuth token operation  325ms
+ ✓ test/docs/developer-platform-guide.test.ts (2 tests) 152ms
+ ✓ test/routes/api-v1-openapi.test.ts (2 tests) 116ms
+ ✓ test/lib/api-v1-openapi.server.test.ts (11 tests) 187ms
+ ✓ test/scripts/generate-api-playground.test.ts (2 tests) 151ms
+ ✓ test/docs/developer-platform-docs.test.ts (7 tests) 38ms
+
+ Test Files  6 passed (6)
+      Tests  63 passed (63)
+   Start at  13:43:00
+   Duration  13.48s (transform 1.38s, setup 564ms, import 3.00s, tests 7.55s, environment 1.48s)
+
