@@ -15,34 +15,37 @@ This is not a thin web clone and not a new social/product expansion. The native 
   - `tasks/2026-06-16-1754-planning-siri-full-access-parity/api-native-dogfood-audit.md`
   - `tasks/2026-06-16-1754-planning-siri-full-access-parity/native-parity-matrix.md`
 - Implement a live native API client, transport, auth/session, token refresh, Keychain-backed storage, cache bootstrap, and sync pipeline. Current request builders and fixture-backed screens are not enough.
-- Add the REST v1 backend endpoints needed for native parity instead of depending on app-only legacy `/api/*` routes:
-  - `/api/v1/me` and native bootstrap/session status.
-  - Recipe writes: create, update, delete, fork, step/ingredient/dependency writes, and import/capture submission where native capture leaves local draft state.
-  - Cookbook writes: create, rename, delete, add/remove recipe.
-  - Spoon/cook-log reads and writes: list, create, update/delete owned logs, and photo/note/next-time/cooked-at behavior.
-  - Shopping parity gaps: clear completed/all and add recipe ingredients where the current native app needs them.
-  - Sync/tombstone/freshness endpoints where required for offline cache reconciliation.
+- Add the REST v1 backend endpoints needed for native parity rather than relying on app-only legacy `/api/*` routes:
+  - Native bootstrap/session/account: `GET /api/v1/me`, `PATCH /api/v1/me`, `GET /api/v1/me/kitchen`, `GET /api/v1/me/sync`, `GET /api/v1/me/notification-preferences`, `PATCH /api/v1/me/notification-preferences`, `POST /api/v1/me/apns-devices`, `DELETE /api/v1/me/apns-devices/{deviceId}`, `GET /api/v1/me/connections`, and scoped disconnect/revoke endpoints for account settings surfaces that cannot be handled by existing token endpoints.
+  - Profile and chef graph reads: `GET /api/v1/users/{identifier}`, `GET /api/v1/users/{identifier}/fellow-chefs`, and `GET /api/v1/users/{identifier}/kitchen-visitors`.
+  - Search: `GET /api/v1/search` with `all`, `recipes`, `cookbooks`, `chefs`, and `shopping-list` scopes.
+  - Recipe writes: `POST /api/v1/recipes`, `PATCH /api/v1/recipes/{id}`, `DELETE /api/v1/recipes/{id}`, `POST /api/v1/recipes/{id}/fork`, `POST /api/v1/recipes/import`, `POST /api/v1/recipes/{id}/steps`, `PATCH /api/v1/recipes/{id}/steps/{stepId}`, `DELETE /api/v1/recipes/{id}/steps/{stepId}`, `POST /api/v1/recipes/{id}/steps/reorder`, `POST /api/v1/recipes/{id}/steps/{stepId}/ingredients`, `DELETE /api/v1/recipes/{id}/steps/{stepId}/ingredients/{ingredientId}`, and `PUT /api/v1/recipes/{id}/step-output-uses`.
+  - Recipe image and cover lifecycle: `POST /api/v1/recipes/{id}/image`, `GET /api/v1/recipes/{id}/covers`, `POST /api/v1/recipes/{id}/covers`, `PATCH /api/v1/recipes/{id}/covers/{coverId}`, `DELETE /api/v1/recipes/{id}/covers/{coverId}`, `POST /api/v1/recipes/{id}/covers/regenerate`, and `POST /api/v1/recipes/{id}/covers/from-spoon/{spoonId}`.
+  - Spoon/cook-log reads and writes: `GET /api/v1/recipes/{id}/spoons`, `POST /api/v1/recipes/{id}/spoons`, `PATCH /api/v1/recipes/{id}/spoons/{spoonId}`, and `DELETE /api/v1/recipes/{id}/spoons/{spoonId}`, covering photo/note/next-time/cooked-at behavior.
+  - Cookbook writes: `POST /api/v1/cookbooks`, `PATCH /api/v1/cookbooks/{id}`, `DELETE /api/v1/cookbooks/{id}`, `POST /api/v1/cookbooks/{id}/recipes/{recipeId}`, and `DELETE /api/v1/cookbooks/{id}/recipes/{recipeId}`.
+  - Shopping parity gaps: `POST /api/v1/shopping-list/add-from-recipe`, `POST /api/v1/shopping-list/clear-completed`, and `POST /api/v1/shopping-list/clear-all`, preserving the existing idempotent add/check/delete resources.
+  - Sync/tombstone/freshness contracts: cursor-based private sync payloads for recipes, cookbooks, spoons, shopping items, profiles, notification preferences, and deleted/tombstoned objects so offline cache reconciliation is deterministic.
 - Update `spoonjoy-v2` API docs, OpenAPI, generated playground/profile docs, and in-product developer documentation to reflect what native dogfooding uses and what remains human/account gated.
 - Replace native fixture-primary state with live data plus durable offline cache. Fixtures may remain only as test/demo fallback.
 - Make offline usage first-class:
-  - Cache recipes, cookbooks, recipe details, shopping list, cook progress, capture drafts, and enough profile/account state to resume meaningfully.
+  - Cache recipes, cookbooks, recipe details, shopping list, cook progress, capture drafts, current chef profile, chef graph/profile reads, notification preferences, API token metadata, connection status, and APNs registration status.
   - Queue safe mutations with stable client mutation IDs and visible retry/conflict states.
   - Sync on launch/foreground/network recovery.
   - Show a dismissible offline/freshness indicator that distinguishes offline, stale cache, queued work, sync failure, and synced state.
 - Bring native surfaces to current web parity where product concepts exist today:
   - Kitchen, recipe catalog/detail/edit/create/fork, cook mode, spoons/cook logs, cover controls, cookbooks/detail/editor, shopping list, search, profiles/activity-derived chef graph, settings/session/API access/notification preferences, and capture drafts/import handoff.
-  - Use native web-auth handoff only where the canonical secure surface is deliberately web/OAuth/passkey based; the native app must still route users to the exact action and return cleanly.
+  - Use native web-auth handoff only for passkey enrollment/removal, password set/change/remove, and provider link/unlink flows that remain canonical web/OAuth/passkey surfaces; the native app must route users to the exact action and return cleanly.
 - Preserve Spoonjoy Kitchen Table design language while using SwiftUI/AppKit/UIKit platform primitives where they feel premium.
 - Implement first-class recipe/cookbook/shopping sharing through `ShareLink`, share sheet destinations, public URLs, and Siri/Shortcuts transfer/value representations. Messages, Mail, and social destinations are outcomes, not Spoonjoy-owned messaging/mail schemas.
 - Implement App Intents/Siri full access for the current model:
-  - App entities and queries for recipes, cookbooks, shopping items/lists, spoons/cook logs, chefs where useful, and capture drafts.
+  - App entities and queries for recipes, cookbooks, shopping items, shopping lists, spoons/cook logs, chefs, profiles, and capture drafts.
   - Spotlight/semantic indexing from live cached entities.
-  - App Shortcuts and phrase catalogs for high-value actions.
-  - Entity-backed intents for open/search/share/start cook mode/continue cook mode/add shopping/check shopping/remove shopping/clear shopping/add recipe ingredients/log cook/create capture/fork/save-to-cookbook/cookbook management where useful.
+  - App Shortcuts and phrase catalogs for open recipe, search Spoonjoy, start cook mode, continue cook mode, add shopping item, check shopping item, remove shopping item, clear completed shopping items, add recipe ingredients to shopping, log cook, create capture draft, fork recipe, save recipe to cookbook, create cookbook, rename cookbook, add recipe to cookbook, remove recipe from cookbook, and share recipe/cookbook/shopping list.
+  - Entity-backed intents for open/search/share/start cook mode/continue cook mode/add shopping/check shopping/remove shopping/clear shopping/add recipe ingredients/log cook/create capture/fork/save-to-cookbook/create cookbook/rename cookbook/delete cookbook/add recipe to cookbook/remove recipe from cookbook/profile open/notification preference update.
   - Confirmation, authentication policy, and ownership checks for writes/destructive actions; assume Apple HITL helps but do not rely on it as the only guard.
-  - Donations, relevant entities, transfer/value representations, and view annotations where supported by the installed SDK.
-  - AppIntentsTesting or compile/static fallback contracts depending on SDK availability.
-- Validate locally and in CI to the fullest available extent, including Swift tests, coverage, scenario verifier, warning scans, app bundle checks, macOS launch/screenshot, API/docs tests, and protected GitHub checks.
+  - Donations, relevant entities, transfer/value representations, and view annotations for every shipped entity/action whose symbols compile in the installed SDK; unsupported WWDC26/27 symbols require structured SDK blocker artifacts and guarded fallbacks.
+  - AppIntentsTesting coverage for compiled intent contracts; if the installed SDK lacks AppIntentsTesting, compile/static contracts must cover entities, queries, shortcut phrases, confirmations, auth policy, and transfer representations.
+- Run local and CI validation commands for Swift tests, coverage, scenario verifier, warning scans, app bundle checks, macOS launch/screenshot, API/docs tests, and protected GitHub checks; record structured blocker artifacts only for Xcode/SDK/account/hardware/secret capabilities outside local control.
 - Use harsh sub-agent reviewers for planning, doing, unit reviews, design review, API contract review, App Intents review, offline/sync review, and merge readiness. Human gates are waived except for true credentials/hardware/account/destructive-production blockers.
 
 ## Out of Scope
@@ -59,14 +62,14 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - The planning doc passes harsh sub-agent review with no BLOCKER/MAJOR findings and is marked approved.
 - A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
 - `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, with OpenAPI/docs/playground updates and no drift from implementation.
-- Native Apple uses live Spoonjoy contracts for reads and supported writes, with fixtures only as deterministic fallback/test data.
+- Native Apple uses live Spoonjoy contracts for every read and write endpoint listed in Scope, with fixtures only as deterministic fallback/test data.
 - Offline mode works as product behavior: cached read access, durable cook progress, capture drafts, shopping mutation queue, sync/retry/conflict/freshness states, and a dismissible offline indicator.
 - Native surfaces cover the audited current product concepts or provide exact native secure handoff for credential/account operations where web/OAuth/passkey surfaces are canonical.
-- Siri/App Intents uses entity-backed access and not just string IDs. The implementation covers useful current concepts and explicitly skips only schema domains that are semantically false for Spoonjoy.
+- Siri/App Intents uses entity-backed access and not just string IDs for recipes, cookbooks, shopping items/lists, spoons/cook logs, chefs, profiles, and capture drafts. It explicitly skips only schema domains that are semantically false for Spoonjoy.
 - Recipe/cookbook/shopping sharing is first-class through native share and Siri/Shortcuts transfer surfaces without adding comments/social feed.
 - Destructive or sensitive Siri/native actions have confirmation/auth/ownership policy.
 - Local validation is green to the available capability floor:
-  - `spoonjoy-apple`: Swift tests, coverage, scenario verifier, warning scan, app bundle build where Xcode permits, macOS launch/screenshot, project/generator/static contracts.
+  - `spoonjoy-apple`: Swift tests, coverage, scenario verifier, warning scan, app bundle build, macOS launch/screenshot, project/generator/static contracts, or a structured Xcode/SDK/hardware blocker artifact for any command the installed toolchain cannot run.
   - `spoonjoy-v2`: relevant Vitest suites, docs/OpenAPI route coverage, build/typecheck, warning checks required by the repo.
 - Any remaining non-green validation is backed by a structured true blocker artifact, such as Apple Developer Program, missing simulator runtime, Xcode installation fault, production secret, or unavailable hardware.
 - Reviewer sub-agents converge on implementation, offline/sync, API contract, native design, and App Intents readiness.
@@ -96,7 +99,7 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - Use HTTPS universal-link OAuth redirect for the native app. Custom URL schemes remain deep-link fallback, not OAuth redirect URIs.
 - Use `app.spoonjoy.Spoonjoy`-style bundle IDs because the canonical domain is `spoonjoy.app`.
 - Keep the product baseline iOS 27/macOS 27 forward while using bootstrap/local validation floors only where the repo already documents them.
-- Use full Siri access for useful current Spoonjoy actions, including sensitive/destructive ones, with confirmation/auth/ownership policy and tests.
+- Use full Siri access for the current Spoonjoy actions listed in Scope, including sensitive/destructive ones, with confirmation/auth/ownership policy and tests.
 - Use Apple schema domains only when semantically honest. Messaging/Mail are share destinations, not Spoonjoy-owned domains. Fitness/media/meal-planning schemas are skipped until those product surfaces exist.
 - Human gates are waived under repo instructions and the user's full-moon mandate. Approval means harsh sub-agent reviewer convergence unless a true human-only credential/account/hardware/destructive-production blocker appears.
 
@@ -131,9 +134,11 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - The implementation sequence should keep both repos runnable after each atomic unit. Backend API endpoints and docs should land before native client units that rely on them.
 - The offline implementation should prefer a small explicit local store and sync state over magical hidden caching. The user must be able to tell when data is offline, stale, queued, failed, or synced.
 - Recipe sharing should remain URL/public-object based. There is no current product concept of sending messages or mail inside Spoonjoy.
+- Production APNs delivery and TestFlight remain blocked by Apple Developer Program/team capability, but native notification preference UI, backend preference APIs, APNs device-registration contract, local compile/static checks, and structured blocker artifacts are in scope now.
 
 # Progress Log
 
 - 2026-06-16 17:54 Created initial planning draft before the required web/API/native parity audit.
 - 2026-06-16 18:19 Added committed web product, API dogfood, and native parity audit artifacts.
 - 2026-06-16 18:24 Replaced provisional plan with audited full-moon scope, including REST v1 parity, native offline, and entity-backed Siri access.
+- 2026-06-16 18:39 Addressed reviewer findings by replacing optional language with explicit API, offline, App Intents, notification, and sync scope.
