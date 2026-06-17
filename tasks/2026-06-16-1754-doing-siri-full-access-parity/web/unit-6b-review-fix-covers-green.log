@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-recipe-covers.test.ts (9 tests) 796ms
+ ✓ test/lib/api-v1-recipe-covers.server.test.ts (3 tests) 69ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  09:58:28
+   Duration  3.34s (transform 567ms, setup 247ms, import 1.23s, tests 865ms, environment 609ms)
+
