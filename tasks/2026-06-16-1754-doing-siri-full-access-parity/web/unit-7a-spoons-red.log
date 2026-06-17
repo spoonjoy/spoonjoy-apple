@@ -1,15 +1,15 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-spoons.test.ts (8 tests | 8 failed) 407ms
-     × declares spoon routes with optional public reads and bearer write gates 54ms
-     × lists recipe spoons with cursor pagination, deleted-row filtering, active cover context, and public/private cache behavior 37ms
-     × creates JSON cook logs with trimmed fields, cookedAt validation, idempotency metadata, and origin-owner notification flags 29ms
-     × accepts uploaded spoon photos, auto-seeds owner origin covers, and ignores forged cover opt-ins from non-owners 29ms
-     × validates empty content, cookedAt, GIF uploads, and owner-owned photoUrl assignment 23ms
-     × validates note and nextTime payload types and length on create and update 28ms
-     × updates and deletes only owned active spoons on the recipe path while excluding deleted spoons from reads 44ms
-     × lets a deleted prior owner spoon reopen origin-cook cover seeding 30ms
+ ❯ test/routes/api-v1-spoons.test.ts (8 tests | 8 failed) 428ms
+     × declares spoon routes with optional public reads and bearer write gates 63ms
+     × lists recipe spoons with cursor pagination, deleted-row filtering, active cover context, and public/private cache behavior 62ms
+     × creates JSON cook logs with trimmed fields, cookedAt validation, idempotency metadata, and origin-owner notification flags 30ms
+     × accepts uploaded spoon photos, auto-seeds owner origin covers, and ignores forged cover opt-ins from non-owners 37ms
+     × validates empty content, cookedAt, GIF uploads, and owner-owned photoUrl assignment 26ms
+     × validates note and nextTime payload types and length on create and update 33ms
+     × updates and deletes only owned active spoons on the recipe path while excluding deleted spoons from reads 40ms
+     × lets a deleted prior owner spoon reopen origin-cook cover seeding 49ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -168,6 +168,6 @@ AssertionError: expected 405 to be 201 // Object.is equality
 
  Test Files  1 failed (1)
       Tests  8 failed (8)
-   Start at  11:34:20
-   Duration  2.52s (transform 685ms, setup 229ms, import 1.33s, tests 407ms, environment 346ms)
+   Start at  11:37:48
+   Duration  2.65s (transform 681ms, setup 251ms, import 1.28s, tests 428ms, environment 406ms)
 
