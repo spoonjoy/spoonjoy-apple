@@ -166,6 +166,20 @@ For this doing doc, `Scope` means the exact endpoint table below. Unit 1a, Unit 
 | `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-planning-siri-full-access-parity/api-native-dogfood-audit.md` | `spoonjoy-apple` | Planning pass before doing conversion | Unit 0 baseline must verify the file exists, is committed, and is referenced by this doing doc and the planning doc. |
 | `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-planning-siri-full-access-parity/native-parity-matrix.md` | `spoonjoy-apple` | Planning pass before doing conversion | Unit 0 baseline must verify the file exists, is committed, and is referenced by this doing doc and the planning doc. |
 
+## Offline Product Contract
+
+Offline is required native product behavior, not an implementation optimization. All cache, sync, surface, App Intents, design, docs, and final-review units must evaluate their work against this contract.
+
+| Domain | Cached read behavior | Local write behavior | Indicator/UX requirement |
+| --- | --- | --- | --- |
+| Auth, profile, settings, and account state | Cache `me`, kitchen, notification preferences, API token metadata, connection status, and APNs registration status by account/environment. Never store bearer tokens, refresh tokens, one-time token values, provider secrets, passkey material, or raw credential values in general cache storage; use Keychain/session storage only for auth material. | Profile, notification preference, APNs registration/revocation, token revocation, and connection-disconnect mutations use the same mutation queue where safe; passkey/password/provider-link flows use exact secure web handoff and are online-only. | Offline account screens show cached state with precise disabled/retry/handoff affordances for online-only credential work. |
+| Recipes, cookbooks, chef graph, and search | Cache catalog pages, recipe details, recipe steps/ingredients/dependencies, cover metadata, spoon summaries, cookbooks, profile/chef graph reads, and recent search results with account/environment/schema version/fetched-at/source-endpoint/server-cursor metadata. Prefetch signed-in kitchen/bootstrap data, recently viewed recipe details, active cook-mode data, cookbooks, shopping list, and viewed profiles. | Recipe, step, ingredient, dependency, fork, cookbook, save/remove, and owner delete mutations use stable client mutation IDs, durable payloads, idempotency, tombstone handling, replay order, and conflict classification. | Cached pages show freshness state when stale/offline and keep destructive confirmation/auth policy intact. |
+| Cook mode and shopping | Cache active cook session state, checked ingredients/step outputs, timers, scale factor, shopping list items, and shopping sync cursor. | Cook progress, checkoffs, add-from-recipe, item add/check/delete, clear completed, and clear all persist through app restart and drain only through declared REST contracts. | Queued work count and sync failure/conflict state are always visible until resolved. |
+| Spoons, covers, capture, and import | Cache spoon/cook-log lists/details, cover history/active state, local photo/file references, capture URL/text/camera/share drafts, and provider-blocker state. Media blobs may be locally staged with bounded eviction and privacy-safe file names; durable shared payloads must use public Spoonjoy URLs or transfer values, not secret signed URLs. | Spoon edits/photos, cover upload/archive/regenerate/from-spoon, capture draft updates, and import submissions survive restart and replay with retry/backoff/conflict state. | Drafts and staged uploads are visible offline; provider-secret blockers remain visible as blockers, not generic offline errors. |
+| App Intents, Spotlight, links, and sharing | App entity queries, Spotlight indexes, universal-link routing, and share/transfer payloads resolve from the same live cache. Fixture-only entities are invalid outside tests/demo. | Siri writes use the same confirmation/auth/mutation queue policies as in-app UI. Open/search/share/read intents may operate from cache while offline. | Siri/Shortcut responses clearly distinguish cached reads, queued writes, online-only handoffs, and true blockers. |
+
+Every cached record must carry at least `accountId`, `environment`, `schemaVersion`, `fetchedAt`, `lastValidatedAt`, `sourceEndpoint`, and a server revision marker when available (`cursor`, `etag`, `updatedAt`, or tombstone/delete token). Cache migrations must preserve user drafts, cook progress, shopping queue, and capture/import drafts or explicitly produce tested migration-failure recovery. Dismissal of the offline/freshness indicator may hide only informational offline/stale states until connectivity, cache freshness, or account state changes; dismissal must never hide queued work, sync failure, conflict, blocker, or destructive-confirmation state.
+
 ## Upstream Work Items
 
 - None
@@ -177,7 +191,7 @@ For this doing doc, `Scope` means the exact endpoint table below. Unit 1a, Unit 
 - [ ] A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
 - [ ] `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, including `GET/POST /api/v1/tokens` and `DELETE /api/v1/tokens/{credentialId}` in native account/API credential flows, with OpenAPI/docs/playground updates and no drift from implementation.
 - [ ] Native Apple uses live Spoonjoy contracts for every read and write endpoint listed in Scope, with fixtures only as deterministic fallback/test data.
-- [ ] Offline mode works as product behavior: cached read access, durable cook progress, capture drafts, shopping mutation queue, sync/retry/conflict/freshness states, and a dismissible offline indicator.
+- [ ] Offline mode works as product behavior under the Offline Product Contract: intelligent cached read access, durable cook progress, capture drafts, shopping mutation queue, safe queued writes, sync/retry/conflict/freshness states, secret-safe cache policy, and a dismissible offline indicator that never hides queued work, sync failures, conflicts, blockers, or destructive confirmations.
 - [ ] Native surfaces cover the audited current product concepts or provide exact native secure handoff for credential/account operations where web/OAuth/passkey surfaces are canonical.
 - [ ] Siri/App Intents uses entity-backed access and not just string IDs for recipes, cookbooks, shopping items/lists, spoons/cook logs, chefs, profiles, and capture drafts. It explicitly skips only schema domains that are semantically false for Spoonjoy.
 - [ ] Recipe/cookbook/shopping sharing is first-class through native share and Siri/Shortcuts transfer surfaces without adding comments/social feed.
@@ -516,22 +530,22 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: SwiftPM auth code has 100% coverage; app adapter compile/static checks cover Keychain and ASWebAuthenticationSession boundaries.
 
 ### ⬜ Unit 14a: Native Cache Schema And Freshness Indicator - Tests
-**What**: Write failing Swift tests for durable cache schema version 2, cached recipes/cookbooks/details/shopping/cook progress/capture/profile/notifications/tokens/connections/APNs status, freshness states, dismissed indicator persistence, stale thresholds, sync failure display, queued-work display, and corrupt-cache recovery.
+**What**: Write failing Swift tests for the Offline Product Contract, durable cache schema version 2, cached recipes/cookbooks/details/shopping/cook progress/capture/profile/notifications/tokens/connections/APNs status, record metadata, intelligent prefetch policy, privacy-safe media staging metadata, freshness states, dismissed indicator persistence, stale thresholds, sync failure display, queued-work display, conflict/blocker/destructive-confirmation display, secret-safe cache rejection, and corrupt-cache recovery.
 **Output**: `Tests/SpoonjoyCoreTests/NativeCacheFreshnessTests.swift` and `apple/unit-14a-cache-red.log`.
-**Acceptance**: Tests fail before expanded cache/freshness model exists and assert exact state transitions for synced, offline, stale, queued, failed, and dismissed states.
+**Acceptance**: Tests fail before expanded cache/freshness model exists and assert exact state transitions for synced, offline, stale, queued, failed, conflict, blocker, destructive-confirmation, and dismissed states; tests prove dismissing the indicator never hides queued/failure/conflict/blocker/destructive-confirmation state and general cache storage rejects auth secrets/raw credential values.
 
 ### ⬜ Unit 14b: Native Cache Schema And Freshness Indicator - Implementation
-**What**: Implement expanded offline snapshot/cache models, freshness state machine, dismissible indicator state, cache migration from schema version 1, and app `OfflineStatusView` updates.
+**What**: Implement expanded offline snapshot/cache models, record metadata, prefetch policy, privacy-safe media staging metadata, freshness state machine, dismissible indicator state, cache migration from schema version 1, and app `OfflineStatusView` updates.
 **Output**: Swift core cache files, fixtures, and `apple/integration-notes/unit-14b-cache.md` covering orchestrator-applied `OfflineStatusView.swift` and scenario metadata updates.
-**Acceptance**: Unit 14a tests pass; dismissing the indicator persists only the dismissal state and never hides sync failure or conflict state.
+**Acceptance**: Unit 14a tests pass; dismissing the indicator persists only the dismissal state and never hides queued work, sync failure, conflicts, blockers, or destructive confirmations.
 
 ### ⬜ Unit 14c: Native Cache Schema And Freshness Indicator - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeCacheFreshnessTests`, `swift-full`, `coverage`, `scenario:bootstrap`, and `warning-scan`.
 **Output**: `apple/unit-14c-cache-green.log`, `apple/unit-14c-cache-coverage-test.log`, `apple/unit-14c-cache-coverage-enforce.log`, and `apple/unit-14c-cache-scenario-bootstrap.json`.
-**Acceptance**: Cache/freshness code has 100% measured coverage and UI static checks prove indicator labels/icons for every state.
+**Acceptance**: Cache/freshness code has 100% measured coverage and UI static checks prove indicator labels/icons, dismissal behavior, and non-dismissable severity for every Offline Product Contract state.
 
 ### ⬜ Unit 15a: Native Sync Engine And Mutation Queue Expansion - Tests
-**What**: Write failing Swift tests for sync bootstrapping, foreground/network recovery, cursor checkpoints, conflict classification, retry backoff, queue drain, replay removal, tombstone application, and queued mutation kinds for recipe, cookbook, spoon, cover, shopping, profile, notification, APNs, and capture/import writes.
+**What**: Write failing Swift tests for Offline Product Contract sync bootstrapping, foreground/network recovery, cursor checkpoints, conflict classification, retry backoff, queue drain, replay removal, idempotency keys, tombstone application, persisted mutation payloads, and queued mutation kinds for recipe, cookbook, spoon, cover, shopping, profile, notification, APNs, and capture/import writes.
 **Output**: `Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift` and `apple/unit-15a-sync-engine-red.log`.
 **Acceptance**: Tests fail before sync engine exists and assert outgoing request order plus cache mutation results.
 
@@ -546,14 +560,14 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Sync engine code has 100% measured coverage and no hidden untested error branches.
 
 ### ⬜ Unit 16a: Native Live Store And Shell Wiring - Tests
-**What**: Write failing Swift tests/static checks for replacing fixture-primary app state with live repositories, bootstrap loading, signed-out state, signed-in cache restore, environment switching, global search scopes, and deterministic fixture fallback only in tests/demo.
+**What**: Write failing Swift tests/static checks for replacing fixture-primary app state with live repositories, bootstrap loading, signed-out state, signed-in cache restore, environment switching, global search scopes, shell-level Offline Product Contract indicator wiring, and deterministic fixture fallback only in tests/demo.
 **Output**: `Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift`, shell static checks, and `apple/unit-16a-live-store-red.log`.
 **Acceptance**: Tests fail before live store wiring exists and assert no production path silently uses fixtures after auth/cache bootstrap succeeds.
 
 ### ⬜ Unit 16b: Native Live Store And Shell Wiring - Implementation
-**What**: Orchestrator-only: wire `SpoonjoyRootView`, `PlatformNavigationView`, settings model, `Sources/SpoonjoyCore/AppState/**`, and shared app store to auth/session/transport/cache/sync repositories.
+**What**: Orchestrator-only: wire `SpoonjoyRootView`, `PlatformNavigationView`, settings model, `Sources/SpoonjoyCore/AppState/**`, shared app store, and dismissible offline/freshness indicator to auth/session/transport/cache/sync repositories.
 **Output**: Orchestrator-applied AppShell/AppState Swift updates, `apple/integration-notes/unit-16b-live-store.md` if spawned test workers requested shell wiring, plus project generator and scenario verifier checks.
-**Acceptance**: Unit 16a tests pass; shell can render signed-out, restoring cache, live synced, offline stale, and sync-failed states.
+**Acceptance**: Unit 16a tests pass; shell can render signed-out, restoring cache, live synced, offline stale, queued work, conflict, blocker, destructive-confirmation, and sync-failed states.
 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `coverage`, `scenario:surfaces`, `project-contract`, `xcodebuild-macos`, and `warning-scan`.
@@ -966,9 +980,9 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage, including `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` handling when APNs account/team capability is unavailable, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-notification-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
-**What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots; checks must use or extend Validation Command Matrix entries `design-contract`, `screenshots`, and `design-review`.
+**What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, desktop screenshots, and Offline Product Contract indicator states; checks must use or extend Validation Command Matrix entries `design-contract`, `screenshots`, and `design-review`.
 **Output**: Design validator updates and `apple/unit-23a-design-red.log`.
-**Acceptance**: Checks fail until every new surface reports the required accessibility/design manifest coverage.
+**Acceptance**: Checks fail until every new surface reports the required accessibility/design manifest coverage and the dismissible offline indicator remains native-feeling, non-overlapping, VoiceOver-labeled, keyboard-accessible, and severity-correct.
 
 ### ⬜ Unit 23b: Native Design Accessibility And Visual Validation - Implementation
 **What**: Orchestrator-only: update native views/components/styles to satisfy design/accessibility checks, regenerate project, run `screenshots`, and produce `design-review.json`.
@@ -981,14 +995,14 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Design/accessibility validation is green or blocked only by `CoreSimulator`, `XcodePlatform`, or `MacOSLaunch` JSON matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 24a: API Documentation And Native Dogfood Guide - Tests
-**What**: Write failing docs tests for native quickstart, OAuth universal-link callback, Keychain persistence, token refresh, endpoint examples, DELETE idempotency guidance, scope defaults, REST vs MCP token rules, and SDK/OpenAPI profiles.
+**What**: Write failing docs tests for native quickstart, OAuth universal-link callback, Keychain persistence, token refresh, endpoint examples, DELETE idempotency guidance, scope defaults, REST vs MCP token rules, SDK/OpenAPI profiles, and the Offline Product Contract API/cache/sync responsibilities.
 **Output**: Docs test changes and `web/unit-24a-docs-red.log`.
 **Acceptance**: Tests fail before docs are updated and catch the documented drifts from the API audit.
 
 ### ⬜ Unit 24b: API Documentation And Native Dogfood Guide - Implementation
 **What**: Update `docs/api.md`, developer routes, generated playground/profile docs, OpenAPI examples, and native repo docs to describe the exact contracts dogfooded by Spoonjoy Apple.
 **Output**: Docs, generated playground output, and native dogfood guide references.
-**Acceptance**: Unit 24a docs tests pass; docs state `spoonjoy.app`, HTTPS OAuth redirect, persisted `client_id`, token storage, refresh, DELETE idempotency options, and REST/MCP resource-token boundaries.
+**Acceptance**: Unit 24a docs tests pass; docs state `spoonjoy.app`, HTTPS OAuth redirect, persisted `client_id`, token storage, refresh, DELETE idempotency options, REST/MCP resource-token boundaries, offline cache metadata, sync cursors/tombstones, and queued mutation idempotency.
 
 ### ⬜ Unit 24c: API Documentation And Native Dogfood Guide - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-docs-drift`, `web-route-coverage`, `web-playground-generate`, `web-typecheck`, `web-build`, and `web-warning-scan`.
@@ -1023,7 +1037,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 26c: Native Full Validation - Coverage & Refactor
 **What**: Run harsh native design, offline/sync, App Intents, and implementation reviewers against the final native diff and validation artifacts.
 **Output**: `apple/native-design-review.md`, `apple/offline-sync-review.md`, `apple/app-intents-review.md`, `apple/implementation-review.md`.
-**Acceptance**: Reviewers converge with no BLOCKER/MAJOR findings; every reviewer finding has a fix commit or documented no-op disposition.
+**Acceptance**: Reviewers converge with no BLOCKER/MAJOR findings; every reviewer finding has a fix commit or documented no-op disposition; offline/sync review explicitly checks every row of the Offline Product Contract.
 
 ### ⬜ Unit 27: PRs, CI, Merge, Cleanup, Desk, Slugger
 **What**: Open exactly one PR for `spoonjoy-v2` and exactly one PR for `spoonjoy-apple`, push branches, wait for protected checks, run harsh merge-readiness reviewer, merge to `main` only when all merge-blocking checks pass, sync local repos, clean temporary worktrees/branches, update Desk state, add lessons/friction, and notify Slugger. If earlier atomic work produced multiple branch/PR candidates, squash or stack locally until the terminal merge set is one PR per repo.
@@ -1063,3 +1077,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 19:54 Addressed ambiguity review findings by marking backend implementation units orchestrator-only, separating surface feature-model work from orchestrator-applied shared SwiftUI edits, defining `*-green.log` aliases to matrix artifacts, and adding Unit 16c coverage evidence.
 - 2026-06-16 20:00 Addressed ambiguity review findings by defining Endpoint Scope locally, adding Wave 3 dependency gates, aligning Units 23-27 as orchestrator-owned, assigning feature-local static-check paths, replacing the native audit range with explicit units, requiring `aasa-validation.json` on AASA success, and making Unit 27 exactly one PR per repo.
 - 2026-06-16 20:09 Addressed ambiguity review findings by replacing circular Scope with an exact endpoint table, naming audit artifact paths and Unit 0 verification, splitting 21j-21l as orchestrator-only, allowing screenshot commands to produce canonical runtime blockers, and adding HumanCredential/ProductionOperationApproval blocker contracts.
+- 2026-06-16 20:12 Added an Offline Product Contract covering intelligent cache policy, secret-safe storage, durable queued writes, App Intents/cache behavior, and non-dismissable severe offline states.

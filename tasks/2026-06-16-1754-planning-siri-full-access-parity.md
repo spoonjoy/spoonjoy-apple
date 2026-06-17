@@ -28,10 +28,11 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - Update `spoonjoy-v2` API docs, OpenAPI, generated playground/profile docs, and in-product developer documentation to reflect what native dogfooding uses and what remains human/account gated.
 - Replace native fixture-primary state with live data plus durable offline cache. Fixtures may remain only as test/demo fallback.
 - Make offline usage first-class:
-  - Cache recipes, cookbooks, recipe details, shopping list, cook progress, capture drafts, current chef profile, chef graph/profile reads, notification preferences, API token metadata, connection status, and APNs registration status.
-  - Queue safe mutations with stable client mutation IDs and visible retry/conflict states.
-  - Sync on launch/foreground/network recovery.
-  - Show a dismissible offline/freshness indicator that distinguishes offline, stale cache, queued work, sync failure, and synced state.
+  - Cache recipes, cookbooks, recipe details, shopping list, cook progress, capture drafts, current chef profile, chef graph/profile reads, notification preferences, API token metadata, connection status, and APNs registration status in explicit local stores keyed by account, environment, schema version, fetched-at time, and server revision/cursor where the API provides one.
+  - Intelligently prefetch signed-in kitchen/bootstrap data, recently viewed recipe details, active cook-mode data, shopping list, cookbooks, and profile/chef graph reads without caching secrets, bearer tokens, one-time token values, provider credentials, or passkey material outside Keychain.
+  - Queue safe mutations with stable client mutation IDs, durable payloads, replay ordering, idempotency, and visible retry/conflict states.
+  - Sync on launch/foreground/network recovery and preserve local drafts/progress across app restart.
+  - Show a dismissible offline/freshness indicator that distinguishes offline, stale cache, queued work, sync failure, conflicts, and synced state. Dismissal may hide only informational offline/stale states until connectivity/cache state changes; it must never hide queued work, sync failures, or conflicts.
 - Bring native surfaces to current web parity where product concepts exist today:
   - Kitchen, recipe catalog/detail/edit/create/fork, cook mode, spoons/cook logs, cover controls, cookbooks/detail/editor, shopping list, search, profiles/activity-derived chef graph, settings/session/API access/notification preferences, and capture drafts/import handoff.
   - Use native web-auth handoff only for passkey enrollment/removal, password set/change/remove, and provider link/unlink flows that remain canonical web/OAuth/passkey surfaces; the native app must route users to the exact action and return cleanly.
@@ -63,7 +64,7 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
 - `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, including `GET/POST /api/v1/tokens` and `DELETE /api/v1/tokens/{credentialId}` in native account/API credential flows, with OpenAPI/docs/playground updates and no drift from implementation.
 - Native Apple uses live Spoonjoy contracts for every read and write endpoint listed in Scope, with fixtures only as deterministic fallback/test data.
-- Offline mode works as product behavior: cached read access, durable cook progress, capture drafts, shopping mutation queue, sync/retry/conflict/freshness states, and a dismissible offline indicator.
+- Offline mode works as product behavior: intelligent cached read access, durable cook progress, capture drafts, shopping mutation queue, safe queued writes, sync/retry/conflict/freshness states, secret-safe cache policy, and a dismissible offline indicator that never hides queued work, sync failures, or conflicts.
 - Native surfaces cover the audited current product concepts or provide exact native secure handoff for credential/account operations where web/OAuth/passkey surfaces are canonical.
 - Siri/App Intents uses entity-backed access and not just string IDs for recipes, cookbooks, shopping items/lists, spoons/cook logs, chefs, profiles, and capture drafts. It explicitly skips only schema domains that are semantically false for Spoonjoy.
 - Recipe/cookbook/shopping sharing is first-class through native share and Siri/Shortcuts transfer surfaces without adding comments/social feed.
@@ -96,6 +97,8 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - Product parity comes before new social or meal-planning surfaces. Do not invent comments, feeds, pantry inventory, nutrition, or media surfaces.
 - Native parity requires REST v1 parity endpoints. Do not lean on app-only legacy `/api/*` routes for the native product.
 - Native offline is a core product requirement and a major reason for the native app to exist.
+- Offline caching must be explicit and inspectable rather than magical. Cache user/product data that makes Spoonjoy useful offline; keep credentials, bearer tokens, provider secrets, one-time token values, and passkey material out of general cache storage.
+- The offline indicator is dismissible only for informational offline/stale states. Queued writes, sync failure, and conflict states stay visible until resolved.
 - Use `spoonjoy.app` as the canonical domain. Do not assume `spoonjoy.com`.
 - Use HTTPS universal-link OAuth redirect for the native app. Custom URL schemes remain deep-link fallback, not OAuth redirect URIs.
 - Use `app.spoonjoy.Spoonjoy`-style bundle IDs because the canonical domain is `spoonjoy.app`.
@@ -145,3 +148,4 @@ This is not a thin web clone and not a new social/product expansion. The native 
 - 2026-06-16 18:16 Addressed reviewer findings by replacing optional language with explicit API, offline, App Intents, notification, and sync scope.
 - 2026-06-16 18:20 Addressed Round 2 reviewer findings by making API credential endpoints and web validation commands explicit.
 - 2026-06-16 18:21 Planning review converged and status moved to approved.
+- 2026-06-16 20:12 Strengthened offline scope with explicit intelligent caching, secret-safe storage, durable queued writes, and dismissible-indicator behavior.
