@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-telemetry.test.ts (22 tests) 505ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  15:13:47
+   Duration  2.01s (transform 559ms, setup 98ms, import 978ms, tests 505ms, environment 230ms)
+
