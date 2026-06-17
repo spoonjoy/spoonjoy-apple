@@ -35,7 +35,8 @@ Native workers may edit only the files in the unit's Output plus the worker-owne
 | 16a, 16c | `Sources/SpoonjoyCore/Stores/**` | `Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift` | Unit 16b, `Sources/SpoonjoyCore/AppState/**`, AppShell wiring |
 | 17a-19l | `Sources/SpoonjoyCore/Features/<feature>/**` | Unit-named `Tests/SpoonjoyCoreTests/*Tests.swift`; feature-local static checks under `Tests/SpoonjoyCoreTests/SurfaceContracts/<unit-slug>/**` | Shared surface validator scripts, all `Apps/Spoonjoy/Shared/Views/**`, `Apps/Spoonjoy/Shared/Components/**`, route maps, design manifests, project membership |
 | 20a-20c | None | Deep-link/AASA tests and validation artifacts | Orchestrator-only native/web universal-link integration |
-| 21a-22x | `Sources/SpoonjoyCore/AppIntents/<domain>/**` | Unit-named App Intents tests and `scripts/check-app-intents-contract.rb` domain cases | `Apps/Spoonjoy/Shared/Native/**`, `SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, native capability metadata |
+| 21a-21i, 21m-21r, 22a-22x | `Sources/SpoonjoyCore/AppIntents/<domain>/**` | Unit-named App Intents tests and `scripts/check-app-intents-contract.rb` domain cases | `Apps/Spoonjoy/Shared/Native/**`, `SpoonjoyAppIntents.swift`, native capability metadata |
+| 21j-21l | None | `Tests/SpoonjoyCoreTests/SpotlightShortcutTransferTests.swift` and `scripts/check-app-intents-contract.rb --domain spotlight-shortcuts` | Orchestrator-only Spotlight/App Shortcuts/transfer integration, `SpoonjoySpotlightIndexer.swift`, shared App Intents registrar, native capability metadata |
 | 23a-27 | None unless the unit explicitly says otherwise | Review, validation, docs, and merge artifacts | Orchestrator-owned |
 
 Backend workers may edit only the test files named in the unit Output, migrations required by that endpoint family, and the helper file listed below when explicitly delegated by the orchestrator. Shared route dispatch, contract registration, OpenAPI schemas, generated playground output, docs, and backend implementation-unit acceptance are always orchestrator-owned integration work from the required `web/integration-notes/<unit-slug>.md`; implementation units 2b, 3b, 4b, 5b, 6b, 7b, 8b, 9b, 10b, and 10e are not complete until the orchestrator applies that shared integration and reruns the red unit tests green.
@@ -84,7 +85,86 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ## Endpoint Scope
 
-For this doing doc, `Scope` means the REST/native contract surface named in Units 2a, 3a, 4a, 5a, 6a, 7a, 8a, 9a, 10a, 10d, 20a, and 24a, with the exact route list asserted by those red tests and then registered by Unit 1b/coverage Units 1c, 20c, 24c, and 25b. When a completion criterion says every endpoint listed in Scope, the authoritative local source is this unit set plus the generated Unit 1b REST registry after it exists; the planning/audit artifacts are supporting context, not a second source of endpoint truth.
+For this doing doc, `Scope` means the exact endpoint table below. Unit 1a, Unit 1b, native request builders, API docs, OpenAPI, route coverage, and final audits must use this table as the source of truth; planning/audit artifacts are supporting context, not a second source of endpoint truth.
+
+| Method | Path | Owner units |
+| --- | --- | --- |
+| GET | `/api/v1` | 1a-1c |
+| GET | `/api/v1/health` | 1a-1c |
+| GET | `/api/v1/openapi.json` | 1a-1c |
+| GET | `/api/v1/openapi.sdk.json` | 1a-1c |
+| GET | `/api/v1/openapi.connector.json` | 1a-1c |
+| GET | `/api/v1/recipes` | 1a-1c, 11a-11c, 17a-17c |
+| GET | `/api/v1/recipes/{id}` | 1a-1c, 11a-11c, 17a-17c |
+| POST | `/api/v1/recipes` | 4a-4c |
+| PATCH | `/api/v1/recipes/{id}` | 4a-4c |
+| DELETE | `/api/v1/recipes/{id}` | 4a-4c |
+| POST | `/api/v1/recipes/{id}/fork` | 4a-4c |
+| POST | `/api/v1/recipes/{id}/steps` | 5a-5c |
+| PATCH | `/api/v1/recipes/{id}/steps/{stepId}` | 5a-5c |
+| DELETE | `/api/v1/recipes/{id}/steps/{stepId}` | 5a-5c |
+| POST | `/api/v1/recipes/{id}/steps/reorder` | 5a-5c |
+| POST | `/api/v1/recipes/{id}/ingredients` | 5a-5c |
+| DELETE | `/api/v1/recipes/{id}/ingredients/{ingredientId}` | 5a-5c |
+| PUT | `/api/v1/recipes/{id}/step-output-uses` | 5a-5c |
+| POST | `/api/v1/recipes/{id}/image` | 6a-6c |
+| GET | `/api/v1/recipes/{id}/covers` | 6a-6c |
+| POST | `/api/v1/recipes/{id}/covers` | 6a-6c |
+| PATCH | `/api/v1/recipes/{id}/covers/{coverId}/active` | 6a-6c |
+| DELETE | `/api/v1/recipes/{id}/covers/{coverId}` | 6a-6c |
+| POST | `/api/v1/recipes/{id}/covers/{coverId}/archive` | 6a-6c |
+| POST | `/api/v1/recipes/{id}/covers/regenerate` | 6a-6c |
+| POST | `/api/v1/recipes/{id}/covers/from-spoon` | 6a-6c |
+| GET | `/api/v1/recipes/{id}/spoons` | 7a-7c |
+| GET | `/api/v1/recipes/{id}/spoons/{spoonId}` | 7a-7c |
+| POST | `/api/v1/recipes/{id}/spoons` | 7a-7c |
+| PATCH | `/api/v1/recipes/{id}/spoons/{spoonId}` | 7a-7c |
+| DELETE | `/api/v1/recipes/{id}/spoons/{spoonId}` | 7a-7c |
+| POST | `/api/v1/recipes/{id}/spoons/{spoonId}/photo` | 7a-7c |
+| GET | `/api/v1/cookbooks` | 1a-1c, 11a-11c, 19a-19c |
+| GET | `/api/v1/cookbooks/{id}` | 1a-1c, 11a-11c, 19a-19c |
+| POST | `/api/v1/cookbooks` | 8a-8c |
+| PATCH | `/api/v1/cookbooks/{id}` | 8a-8c |
+| DELETE | `/api/v1/cookbooks/{id}` | 8a-8c |
+| POST | `/api/v1/cookbooks/{id}/recipes/{recipeId}` | 8a-8c |
+| DELETE | `/api/v1/cookbooks/{id}/recipes/{recipeId}` | 8a-8c |
+| GET | `/api/v1/shopping-list` | 9a-9c |
+| GET | `/api/v1/shopping-list/sync` | 9a-9c |
+| POST | `/api/v1/shopping-list/items` | 9a-9c |
+| PATCH | `/api/v1/shopping-list/items/{itemId}` | 9a-9c |
+| DELETE | `/api/v1/shopping-list/items/{itemId}` | 9a-9c |
+| POST | `/api/v1/shopping-list/add-from-recipe` | 9a-9c |
+| POST | `/api/v1/shopping-list/clear-completed` | 9a-9c |
+| POST | `/api/v1/shopping-list/clear-all` | 9a-9c |
+| GET | `/api/v1/me` | 2a-2c |
+| PATCH | `/api/v1/me` | 2a-2c |
+| GET | `/api/v1/me/kitchen` | 2a-2c |
+| GET | `/api/v1/me/notification-preferences` | 2a-2c |
+| PATCH | `/api/v1/me/notification-preferences` | 2a-2c |
+| GET | `/api/v1/me/apns-devices` | 2a-2c |
+| POST | `/api/v1/me/apns-devices` | 2a-2c |
+| DELETE | `/api/v1/me/apns-devices/{deviceId}` | 2a-2c |
+| GET | `/api/v1/me/connections` | 2a-2c |
+| DELETE | `/api/v1/me/connections/{connectionId}` | 2a-2c |
+| GET | `/api/v1/tokens` | 2a-2c |
+| POST | `/api/v1/tokens` | 2a-2c |
+| DELETE | `/api/v1/tokens/{credentialId}` | 2a-2c |
+| GET | `/api/v1/me/sync` | 10a-10c |
+| GET | `/api/v1/users/{identifier}` | 3a-3c |
+| GET | `/api/v1/users/{identifier}/fellow-chefs` | 3a-3c |
+| GET | `/api/v1/users/{identifier}/kitchen-visitors` | 3a-3c |
+| GET | `/api/v1/search` | 3a-3c |
+| POST | `/api/v1/recipes/import` | 10d-10f |
+| GET | `/.well-known/apple-app-site-association` | 20a-20c |
+| GET | `/devtools-well-known` | 20a-20c |
+
+## Audit Artifacts
+
+| Artifact | Repository | Producer | Verification consumer |
+| --- | --- | --- | --- |
+| `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-planning-siri-full-access-parity/web-product-surface-audit.md` | `spoonjoy-apple` | Planning pass before doing conversion | Unit 0 baseline must verify the file exists, is committed, and is referenced by this doing doc and the planning doc. |
+| `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-planning-siri-full-access-parity/api-native-dogfood-audit.md` | `spoonjoy-apple` | Planning pass before doing conversion | Unit 0 baseline must verify the file exists, is committed, and is referenced by this doing doc and the planning doc. |
+| `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-planning-siri-full-access-parity/native-parity-matrix.md` | `spoonjoy-apple` | Planning pass before doing conversion | Unit 0 baseline must verify the file exists, is committed, and is referenced by this doing doc and the planning doc. |
 
 ## Upstream Work Items
 
@@ -92,7 +172,7 @@ For this doing doc, `Scope` means the REST/native contract surface named in Unit
 
 ## Completion Criteria
 
-- [ ] The three audit artifacts remain committed and are referenced by planning/doing docs.
+- [ ] The three audit artifacts listed in Audit Artifacts remain committed and are referenced by planning/doing docs.
 - [ ] The planning doc passes harsh sub-agent review with no BLOCKER/MAJOR findings and is marked approved.
 - [ ] A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
 - [ ] `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, including `GET/POST /api/v1/tokens` and `DELETE /api/v1/tokens/{credentialId}` in native account/API credential flows, with OpenAPI/docs/playground updates and no drift from implementation.
@@ -104,7 +184,7 @@ For this doing doc, `Scope` means the REST/native contract surface named in Unit
 - [ ] Destructive or sensitive Siri/native actions have confirmation/auth/ownership policy.
 - [ ] `spoonjoy-apple`: Swift tests, coverage, scenario verifier, warning scan, app bundle build, macOS launch/screenshot, project/generator/static contracts, or a structured Xcode/SDK/hardware blocker artifact for any command the installed toolchain cannot run.
 - [ ] `spoonjoy-v2`: targeted Vitest route/lib/doc suites for every touched API surface, `pnpm run test:coverage`, `pnpm run typecheck`, `pnpm run build`, generated playground drift checks, OpenAPI route coverage tests, and zero-warning output.
-- [ ] Any remaining non-green validation is backed by a structured true blocker artifact, such as Apple Developer Program, missing simulator runtime, Xcode installation fault, production secret, or unavailable hardware.
+- [ ] Any remaining non-green validation is backed by a structured true blocker artifact matching the Blocker Artifact Contract, such as Apple Developer Program, missing simulator runtime, Xcode installation fault, production secret, unavailable hardware, human credential, or production-operation approval.
 - [ ] Reviewer sub-agents converge on implementation, offline/sync, API contract, native design, and App Intents readiness.
 - [ ] PRs are opened, checks pass or true blockers are recorded, branches are merged to `main`, local repos are synced, temporary branches/worktrees are cleaned up, Desk state is updated, and Slugger is notified.
 
@@ -148,7 +228,7 @@ All native validation shorthand resolves through this matrix. Run `export ARTIFA
 - `scenario:native-metadata`: `scripts/verify-native-scenarios.sh --stage native-metadata --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-native-metadata.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-native-metadata.log"`.
 - `scenario:surfaces`: `scripts/verify-native-scenarios.sh --stage surfaces --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-surfaces.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-surfaces.log"`.
 - `scenario:final`: `scripts/verify-native-scenarios.sh --stage final --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.log"`.
-- `screenshots`: `scripts/capture-native-screenshots.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-screenshots.log"`; required artifacts are `$ARTIFACT_ROOT/screenshots/ios-mobile.png`, `$ARTIFACT_ROOT/screenshots/macos-desktop.png`, and `$ARTIFACT_ROOT/design-review.json`. Screenshot layout/design failures are hard failures. Local runtime inability to capture screenshots is accepted only through existing canonical `XcodePlatform`, `CoreSimulator`, or `MacOSLaunch` blockers from the Blocker Artifact Contract; this command does not introduce a separate screenshot blocker capability or path.
+- `screenshots`: `scripts/capture-native-screenshots.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-screenshots.log"`; required artifacts are `$ARTIFACT_ROOT/screenshots/ios-mobile.png`, `$ARTIFACT_ROOT/screenshots/macos-desktop.png`, and `$ARTIFACT_ROOT/design-review.json`. Screenshot layout/design failures are hard failures. Local runtime inability to capture screenshots may produce only the existing canonical capabilities `XcodePlatform`, `CoreSimulator`, or `MacOSLaunch` at `$ARTIFACT_ROOT/apple/<unit-slug>-screenshots-xcode-platform-blocker.json`, `$ARTIFACT_ROOT/apple/<unit-slug>-screenshots-core-simulator-blocker.json`, or `$ARTIFACT_ROOT/apple/<unit-slug>-screenshots-macos-launch-blocker.json` matching the Blocker Artifact Contract; this command does not introduce a separate screenshot blocker capability.
 - `design-review`: `ruby scripts/validate-design-review.rb "$ARTIFACT_ROOT/design-review.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-design-review.log"`.
 - `aasa`: `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-aasa.log"`; on success the script must write `$ARTIFACT_ROOT/aasa-validation.json`; missing Team ID/App ID is accepted only as `$ARTIFACT_ROOT/aasa-production-blocker.json` with `capability: "AASAProductionValidation"` matching the Blocker Artifact Contract.
 - `xcodebuild-ios`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-ios.log"`; if the command fails only because the required simulator platform/runtime is unavailable, write `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json` with `capability: "XcodePlatform"` matching the Blocker Artifact Contract.
@@ -159,15 +239,17 @@ All native validation shorthand resolves through this matrix. Run `export ARTIFA
 
 ## Blocker Artifact Contract
 
-Only these native blocker artifact capabilities are acceptable during execution: `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, and `ProviderSecret`. Every blocker artifact must be JSON with `blocked: true`, `capability`, `command`, `outputPath`, `reason`, and `ownerAction`; app-build/smoke blockers also include `timeoutSeconds`; SDK blockers also include `sdkSymbol`, `requiredAvailability`, and `fallbackBehavior`.
+Only these blocker artifact capabilities are acceptable during execution: `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, `ProviderSecret`, `HumanCredential`, and `ProductionOperationApproval`. Every blocker artifact must be JSON with `blocked: true`, `capability`, `command`, `outputPath`, `reason`, and `ownerAction`; app-build/smoke/screenshot blockers also include `timeoutSeconds`; SDK blockers also include `sdkSymbol`, `requiredAvailability`, and `fallbackBehavior`.
 
 - AASA production blockers are produced only by `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT"` at `$ARTIFACT_ROOT/aasa-production-blocker.json`; consumers are Unit 20c and Unit 26b.
 - App Intents or Spotlight SDK blockers are produced only by the orchestrator-run `appintents-contract` command in the coverage/refactor unit mapped in the App Intents SDK Blocker Producer Map. The path is `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-<domain>.json` with `capability: "AppIntentsSDK"` and `<domain>` equal to the `appintents-contract --domain` value. Spawned App Intents workers never write these blockers directly; they request unavailable-SDK handling through `apple/integration-notes/<unit-slug>.md`. Consumers are `appintents-contract`, `scenario:native-metadata`, the mapped coverage/refactor unit, downstream integrated App Intents units, and Unit 26b.
-- Xcode platform blockers are produced only by `xcodebuild-ios` at `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json`, `xcodebuild-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-macos-app-bundle-blocker.json`, or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/xcode-platform-blocker.json` with `capability: "XcodePlatform"`; consumers are Unit 13c, Unit 16c, Unit 23c, and Unit 26b.
-- CoreSimulator blockers are produced only by `smoke-ios` or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-ios-simulator-blocker.json` with `capability: "CoreSimulator"`; consumers are Unit 23c and Unit 26b.
-- macOS launch blockers are produced only by `smoke-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` or by `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-macos-blocker.json`; consumers are Unit 23c and Unit 26b.
+- Xcode platform blockers are produced only by `xcodebuild-ios` at `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json`, `xcodebuild-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-macos-app-bundle-blocker.json`, `screenshots` at `$ARTIFACT_ROOT/apple/<unit-slug>-screenshots-xcode-platform-blocker.json`, or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/xcode-platform-blocker.json` with `capability: "XcodePlatform"`; consumers are Unit 13c, Unit 16c, Unit 23b, Unit 23c, and Unit 26b.
+- CoreSimulator blockers are produced only by `smoke-ios`, `screenshots` at `$ARTIFACT_ROOT/apple/<unit-slug>-screenshots-core-simulator-blocker.json`, or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-ios-simulator-blocker.json` with `capability: "CoreSimulator"`; consumers are Unit 23b, Unit 23c, and Unit 26b.
+- macOS launch blockers are produced only by `smoke-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json`, `screenshots` at `$ARTIFACT_ROOT/apple/<unit-slug>-screenshots-macos-launch-blocker.json`, or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-macos-blocker.json`; consumers are Unit 23b, Unit 23c, and Unit 26b.
 - Apple Developer Program blockers are produced only by APNs/capability units at `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` with `capability: "AppleDeveloperProgram"`; consumers are Unit 19l, Unit 22x, and Unit 26b.
 - Provider secret blockers are produced only by provider-bound backend units at `$ARTIFACT_ROOT/web/provider-secret-blocker-<domain>.json` with `capability: "ProviderSecret"` and `<domain>` equal to `recipe-covers` or `recipe-import`; consumers are Unit 6c, Unit 10f, Unit 18f, Unit 18i, and Unit 26b.
+- Human credential blockers are produced only by the orchestrator when a required credential, account session, private repository permission, or third-party account action cannot be obtained programmatically; write `$ARTIFACT_ROOT/human-credential-blocker-<domain>.json` with `capability: "HumanCredential"` and `<domain>` equal to `github`, `apple-account`, `cloudflare`, `provider-secret`, or `local-keychain`; consumers are Unit 0, Unit 23c, Unit 25b, Unit 26b, and Unit 27.
+- Production operation approval blockers are produced only by the orchestrator when a destructive production operation has no safe staged path; write `$ARTIFACT_ROOT/production-operation-approval-blocker.json` with `capability: "ProductionOperationApproval"`; consumer is Unit 27.
 
 ## App Intents SDK Blocker Producer Map
 
@@ -219,17 +301,17 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
 ### ⬜ Unit 0: Artifact Root And Cross-Repo Baseline
-**What**: Create baseline artifact files under `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/` for both repos, record `git status`, remotes, current branches, protected-check names, tool versions, and branch-protection evidence for `spoonjoy/spoonjoy-v2` and `spoonjoy/spoonjoy-apple`.
+**What**: Create baseline artifact files under `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/` for both repos, record `git status`, remotes, current branches, protected-check names, tool versions, branch-protection evidence for `spoonjoy/spoonjoy-v2` and `spoonjoy/spoonjoy-apple`, and verify every path in Audit Artifacts is committed and referenced by this doing doc and the planning doc.
 **Output**: `baseline-apple.json`, `baseline-web.json`, `branch-protection-apple.json`, `branch-protection-web.json`, and `toolchain.json` in the artifact directory.
-**Acceptance**: Both repos are clean except current docs/artifacts, both remotes point at `https://github.com/spoonjoy/...`, required checks are recorded, and no implementation starts until this evidence exists.
+**Acceptance**: Both repos are clean except current docs/artifacts, both remotes point at `https://github.com/spoonjoy/...`, required checks are recorded, all Audit Artifacts are committed/referenced, and no implementation starts until this evidence exists.
 
 ### ⬜ Unit 1a: REST V1 Contract Registry - Tests
-**What**: In `spoonjoy-v2`, write failing tests for `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, `test/config/api-v1-route-coverage.test.ts`, and developer docs drift covering every endpoint named in the planning doc.
+**What**: In `spoonjoy-v2`, write failing tests for `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, `test/config/api-v1-route-coverage.test.ts`, and developer docs drift covering every `/api/v1` method/path row in Endpoint Scope; the non-REST AASA/devtools rows are excluded from the REST registry and covered by Unit 20a.
 **Output**: Red artifacts `web/unit-1a-contract-red.log` and test changes under `test/config/`, `test/lib/`, and `test/docs/`.
 **Acceptance**: Targeted tests fail because `/api/v1/me`, profile, search, recipe write, cover, spoon, cookbook write, shopping clear/add-from-recipe, sync, APNs, and token-native-account contract rows are missing or undocumented.
 
 ### ⬜ Unit 1b: REST V1 Contract Registry - Implementation
-**What**: Extend `API_V1_RESOURCES`, `API_V1_SCOPE_REQUIREMENTS`, operation telemetry mapping, OpenAPI builders, generated playground metadata, and docs so every native dogfood endpoint is declared with auth mode, scopes, schemas, examples, and error envelopes.
+**What**: Extend `API_V1_RESOURCES`, `API_V1_SCOPE_REQUIREMENTS`, operation telemetry mapping, OpenAPI builders, generated playground metadata, and docs so every `/api/v1` row in Endpoint Scope is declared with auth mode, scopes, schemas, examples, and error envelopes.
 **Output**: Updated `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, `docs/api.md`, `scripts/generate-api-playground.ts`, and generated playground output.
 **Acceptance**: Unit 1a tests pass; `pnpm run api:playground:generate` produces no uncommitted generated drift; no implementation handler returns success for unimplemented write resources yet.
 
@@ -891,7 +973,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 23b: Native Design Accessibility And Visual Validation - Implementation
 **What**: Orchestrator-only: update native views/components/styles to satisfy design/accessibility checks, regenerate project, run `screenshots`, and produce `design-review.json`.
 **Output**: UI polish changes, screenshot artifacts, design review manifest, and updated native design docs.
-**Acceptance**: Unit 23a checks pass; screenshots show native controls with Spoonjoy design language and no incoherent overlap.
+**Acceptance**: Unit 23a checks pass; screenshots show native controls with Spoonjoy design language and no incoherent overlap, or screenshot capture is blocked only by a canonical `XcodePlatform`, `CoreSimulator`, or `MacOSLaunch` blocker produced by `screenshots` and consumed by Unit 23c/26b.
 
 ### ⬜ Unit 23c: Native Design Accessibility And Visual Validation - Coverage & Refactor
 **What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `design-review`, `scenario:final`, `project-contract`, `swift-full`, `xcodebuild-ios`, `xcodebuild-macos`, `smoke-ios`, `smoke-macos`, and `warning-scan`.
@@ -936,7 +1018,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 26b: Native Full Validation - Implementation
 **What**: Run Validation Command Matrix entry `native-final-matrix`; if any matrix step fails, fix it with tests-first sub-units. If the only failure is that `validate-native-local.sh` rejects a JSON blocker capability allowed by the Blocker Artifact Contract, first add tests for that blocker-capability acceptance, update `validate-native-local.sh`, then rerun `native-final-matrix`.
 **Output**: Validation Command Matrix artifacts for `unit-26b-native-full-validation`, plus the exact `$ARTIFACT_ROOT/apple/matrix-*`, `$ARTIFACT_ROOT/apple/validation-matrix.jsonl`, and `$ARTIFACT_ROOT/apple/validation-matrix.json` artifacts listed in `native-final-matrix`.
-**Acceptance**: All native commands pass or produce JSON matching the Blocker Artifact Contract with capability limited to `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, or `ProviderSecret`; `AppleDeveloperProgram` and `ProviderSecret` blockers use only the canonical paths named in the Blocker Artifact Contract.
+**Acceptance**: All native commands pass or produce JSON matching the Blocker Artifact Contract with capability limited to `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, `ProviderSecret`, or `HumanCredential`; `AppleDeveloperProgram`, `ProviderSecret`, and `HumanCredential` blockers use only the canonical paths named in the Blocker Artifact Contract.
 
 ### ⬜ Unit 26c: Native Full Validation - Coverage & Refactor
 **What**: Run harsh native design, offline/sync, App Intents, and implementation reviewers against the final native diff and validation artifacts.
@@ -957,7 +1039,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - Task artifact logs, blocker JSON, review markdown, and integration notes under `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/` are committed only in `spoonjoy-apple`. For a web unit that changes `spoonjoy-v2`, commit and push the `spoonjoy-v2` source/test/docs/generated changes first, then commit and push the corresponding artifact-root logs or integration notes in `spoonjoy-apple`. For validation-only web units with no `spoonjoy-v2` source changes, commit only the `spoonjoy-apple` artifacts. Generated files physically located in `spoonjoy-v2`, such as `app/lib/generated/api-v1-playground.ts`, are committed in `spoonjoy-v2` before their `spoonjoy-apple` logs.
 - Spawn implementor sub-agents for disjoint write scopes within each dependency wave; the orchestrator reviews, integrates, and owns commits.
 - Spawn harsh reviewer sub-agents after every unit before marking it done. Tests-only red units may use a focused test-quality reviewer; implementation, coverage/refactor, validation, design, docs, App Intents, offline/sync, API contract, and merge units require harsh domain reviewers with no BLOCKER/MAJOR findings before completion.
-- Treat only credentials, paid Apple Developer Program enrollment, production secrets, unavailable local hardware/runtime, unavailable SDK symbols, and destructive production operations without a staged path as human-only blockers.
+- Treat only credentials, paid Apple Developer Program enrollment, production secrets, unavailable local hardware/runtime, unavailable SDK symbols, and destructive production operations without a staged path as human-only blockers; every such blocker must be written as a JSON artifact matching the Blocker Artifact Contract before any unit can be marked blocked.
 - Run web commands from `/Users/arimendelow/Projects/spoonjoy-v2`; run native commands from `/Users/arimendelow/Projects/spoonjoy-apple`.
 - Use `pnpm run test:coverage`, `pnpm run typecheck`, and `pnpm run build` for final web validation.
 - Use `scripts/validate-native-local.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity` for final native validation after focused Swift and app checks are green.
@@ -980,3 +1062,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 19:47 Addressed ambiguity review findings by fixing implementation integration timing, constraining screenshot blockers to existing capability contracts, making Unit 21l the Spotlight SDK blocker producer, adding Unit 20a web audit evidence, fully qualifying Unit 26b matrix artifacts, and splitting Unit 27 into merged vs blocked terminal outcomes.
 - 2026-06-16 19:54 Addressed ambiguity review findings by marking backend implementation units orchestrator-only, separating surface feature-model work from orchestrator-applied shared SwiftUI edits, defining `*-green.log` aliases to matrix artifacts, and adding Unit 16c coverage evidence.
 - 2026-06-16 20:00 Addressed ambiguity review findings by defining Endpoint Scope locally, adding Wave 3 dependency gates, aligning Units 23-27 as orchestrator-owned, assigning feature-local static-check paths, replacing the native audit range with explicit units, requiring `aasa-validation.json` on AASA success, and making Unit 27 exactly one PR per repo.
+- 2026-06-16 20:09 Addressed ambiguity review findings by replacing circular Scope with an exact endpoint table, naming audit artifact paths and Unit 0 verification, splitting 21j-21l as orchestrator-only, allowing screenshot commands to produce canonical runtime blockers, and adding HumanCredential/ProductionOperationApproval blocker contracts.
