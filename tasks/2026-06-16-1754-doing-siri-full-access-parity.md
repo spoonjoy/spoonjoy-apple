@@ -13,8 +13,9 @@
 - Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Spawn only disjoint backend workers by endpoint family; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
 - Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, sync, and shell wiring; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, or project files through the orchestrator.
 - Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files.
-- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22l. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files.
+- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files.
 - Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
+- Spawned native workers must not edit orchestrator-owned shared paths directly: `Sources/SpoonjoyCore/AppState/**`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Apps/Spoonjoy/Shared/AppShell/**`, `Apps/Spoonjoy/Shared/Components/**`, `Apps/Spoonjoy/Shared/Design/**`, shared `Apps/Spoonjoy/Shared/Views/**` files used by multiple surface units, `Apps/Spoonjoy/Shared/Native/**`, `scripts/generate-xcode-project.rb`, `Spoonjoy.xcodeproj/**`, and `.github/workflows/**`. Workers produce feature-local files, tests, and patch notes; the orchestrator serializes shared-path integration commits.
 
 ## Objective
 
@@ -540,20 +541,50 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Output**: `apple/unit-21c-recipe-cookbook-entities-green.log`, scenario report, and build logs.
 **Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
-### ⬜ Unit 21d: Shopping Spoon And Capture App Entities - Tests
-**What**: Write failing Swift tests/static AppIntents checks for shopping list, shopping item, spoon/cook-log, and capture draft entities, queries, display representations, transfer values, and cache-backed lookup.
-**Output**: `Tests/SpoonjoyCoreTests/ShoppingSpoonCaptureEntityTests.swift`, AppIntents static checks, and `apple/unit-21d-shopping-spoon-capture-entities-red.log`.
-**Acceptance**: Tests fail before shopping/spoon/capture entities exist and assert offline cached entity lookup.
+### ⬜ Unit 21d: Shopping App Entities - Tests
+**What**: Write failing Swift tests/static AppIntents checks for shopping list and shopping item entities, queries, display representations, transfer values, and cache-backed lookup.
+**Output**: `Tests/SpoonjoyCoreTests/ShoppingEntityTests.swift`, AppIntents static checks, and `apple/unit-21d-shopping-entities-red.log`.
+**Acceptance**: Tests fail before shopping entities exist and assert offline cached shopping lookup.
 
-### ⬜ Unit 21e: Shopping Spoon And Capture App Entities - Implementation
-**What**: Implement shopping list/item, spoon/cook-log, and capture draft entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
-**Output**: App Intents entity Swift files, core metadata updates, scenario verifier updates, and project generator updates.
-**Acceptance**: Unit 21d tests pass; shopping/spoon/capture entities resolve from live cached data and expose safe transfer values.
+### ⬜ Unit 21e: Shopping App Entities - Implementation
+**What**: Implement shopping list/item entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
+**Output**: Shopping entity Swift files, core metadata updates, orchestrator-integrated scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 21d tests pass; shopping entities resolve from live cached data and expose safe transfer values.
 
-### ⬜ Unit 21f: Shopping Spoon And Capture App Entities - Coverage & Refactor
-**What**: Run shopping/spoon/capture entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
-**Output**: `apple/unit-21f-shopping-spoon-capture-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Shopping/spoon/capture entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+### ⬜ Unit 21f: Shopping App Entities - Coverage & Refactor
+**What**: Run shopping entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**Output**: `apple/unit-21f-shopping-entities-green.log`, scenario report, and build logs.
+**Acceptance**: Shopping entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+
+### ⬜ Unit 21m: Spoon Cook Log App Entities - Tests
+**What**: Write failing Swift tests/static AppIntents checks for spoon/cook-log entities, queries, display representations, transfer values, recipe relationship metadata, and cache-backed lookup.
+**Output**: `Tests/SpoonjoyCoreTests/SpoonEntityTests.swift`, AppIntents static checks, and `apple/unit-21m-spoon-entities-red.log`.
+**Acceptance**: Tests fail before spoon entities exist and assert cached spoon lookup plus deleted-spoon exclusion.
+
+### ⬜ Unit 21n: Spoon Cook Log App Entities - Implementation
+**What**: Implement spoon/cook-log entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
+**Output**: Spoon entity Swift files, core metadata updates, orchestrator-integrated scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 21m tests pass; spoon entities resolve from live cached data and expose safe transfer values.
+
+### ⬜ Unit 21o: Spoon Cook Log App Entities - Coverage & Refactor
+**What**: Run spoon entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**Output**: `apple/unit-21o-spoon-entities-green.log`, scenario report, and build logs.
+**Acceptance**: Spoon entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+
+### ⬜ Unit 21p: Capture Draft App Entities - Tests
+**What**: Write failing Swift tests/static AppIntents checks for capture draft entities, queries, display representations, transfer values, import-submission relationship metadata, and local-cache lookup.
+**Output**: `Tests/SpoonjoyCoreTests/CaptureDraftEntityTests.swift`, AppIntents static checks, and `apple/unit-21p-capture-draft-entities-red.log`.
+**Acceptance**: Tests fail before capture draft entities exist and assert local/offline capture draft lookup.
+
+### ⬜ Unit 21q: Capture Draft App Entities - Implementation
+**What**: Implement capture draft entity/query/display/transfer types using local cache repositories and guarded AppIntents symbols.
+**Output**: Capture draft entity Swift files, core metadata updates, orchestrator-integrated scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 21p tests pass; capture draft entities resolve from local/offline data and expose safe transfer values.
+
+### ⬜ Unit 21r: Capture Draft App Entities - Coverage & Refactor
+**What**: Run capture draft entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**Output**: `apple/unit-21r-capture-draft-entities-green.log`, scenario report, and build logs.
+**Acceptance**: Capture draft entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
 ### ⬜ Unit 21g: Chef And Profile App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for chef/profile entities, profile lookup by username/id, display representation, disambiguation, transfer values, and profile route opening.
@@ -615,35 +646,95 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Output**: `apple/unit-22f-shopping-intents-green.log`, scenario report, coverage logs, and build logs.
 **Acceptance**: Shopping intent contracts have confirmation/auth evidence for destructive paths and 100% measured resolver coverage.
 
-### ⬜ Unit 22g: Recipe Spoon And Capture Siri Intents - Tests
-**What**: Write failing Swift tests/static checks for log cook, create capture draft, submit capture import, fork recipe, save recipe to cookbook, and owner recipe delete intent paths.
-**Output**: `Tests/SpoonjoyCoreTests/RecipeSpoonCaptureIntentTests.swift`, AppIntents static checks, and `apple/unit-22g-recipe-spoon-capture-intents-red.log`.
-**Acceptance**: Tests fail before these intents exist and assert confirmation/auth/ownership for fork, save, import submit, log cook, and delete actions.
+### ⬜ Unit 22g: Recipe Action Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for fork recipe, save recipe to cookbook, remove recipe from cookbook, add recipe ingredients to shopping from recipe context, and owner recipe delete intent paths.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeActionIntentTests.swift`, AppIntents static checks, and `apple/unit-22g-recipe-action-intents-red.log`.
+**Acceptance**: Tests fail before recipe action intents exist and assert confirmation/auth/ownership for fork, save/remove, add-to-shopping, and delete actions.
 
-### ⬜ Unit 22h: Recipe Spoon And Capture Siri Intents - Implementation
-**What**: Implement recipe/spoon/capture intent resolvers and App Intent types using recipe, spoon, cookbook, and capture entities with offline queue and REST v1 contracts.
-**Output**: App Intents source updates, core resolver updates, cache/sync integration, and scenario verifier updates.
-**Acceptance**: Unit 22g tests pass; Siri recipe/spoon/capture writes use the same queue and backend contracts as the app UI.
+### ⬜ Unit 22h: Recipe Action Siri Intents - Implementation
+**What**: Implement recipe action intent resolvers and App Intent types using recipe/cookbook/shopping entities with offline queue and REST v1 contracts.
+**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Acceptance**: Unit 22g tests pass; Siri recipe action writes use the same queue and backend contracts as the app UI.
 
-### ⬜ Unit 22i: Recipe Spoon And Capture Siri Intents - Coverage & Refactor
-**What**: Run focused recipe/spoon/capture intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
-**Output**: `apple/unit-22i-recipe-spoon-capture-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Recipe/spoon/capture intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+### ⬜ Unit 22i: Recipe Action Siri Intents - Coverage & Refactor
+**What**: Run focused recipe action intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22i-recipe-action-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Recipe action intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
-### ⬜ Unit 22j: Cookbook Profile Settings And Notification Siri Intents - Tests
-**What**: Write failing Swift tests/static checks for create cookbook, rename cookbook, delete cookbook, add recipe to cookbook, remove recipe from cookbook, profile open, notification preference update, API-token status open, and settings handoff intents.
-**Output**: `Tests/SpoonjoyCoreTests/CookbookProfileSettingsIntentTests.swift`, AppIntents static checks, and `apple/unit-22j-cookbook-profile-settings-intents-red.log`.
-**Acceptance**: Tests fail before these intents exist and assert confirmations/auth for cookbook mutations and notification preference updates.
+### ⬜ Unit 22m: Spoon Cook Log Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for log cook, edit cook log, delete cook log, and create cover from spoon intent paths.
+**Output**: `Tests/SpoonjoyCoreTests/SpoonIntentTests.swift`, AppIntents static checks, and `apple/unit-22m-spoon-intents-red.log`.
+**Acceptance**: Tests fail before spoon intents exist and assert confirmation/auth/ownership for cook-log writes and cover-from-spoon action.
 
-### ⬜ Unit 22k: Cookbook Profile Settings And Notification Siri Intents - Implementation
-**What**: Implement cookbook/profile/settings/notification intent resolvers and App Intent types using entities, live cache, REST v1 contracts, secure web handoff routes, and confirmation/auth policy.
-**Output**: App Intents source updates, core resolver updates, cache/sync integration, and scenario verifier updates.
-**Acceptance**: Unit 22j tests pass; settings/passkey/password/provider-link actions open exact secure web-auth handoff routes instead of fake native mutations.
+### ⬜ Unit 22n: Spoon Cook Log Siri Intents - Implementation
+**What**: Implement spoon/cook-log intent resolvers and App Intent types using spoon and recipe entities with offline queue and REST v1 contracts.
+**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Acceptance**: Unit 22m tests pass; Siri spoon writes use the same queue and backend contracts as the app UI.
 
-### ⬜ Unit 22l: Cookbook Profile Settings And Notification Siri Intents - Coverage & Refactor
-**What**: Run focused cookbook/profile/settings/notification intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
-**Output**: `apple/unit-22l-cookbook-profile-settings-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Cookbook/profile/settings/notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+### ⬜ Unit 22o: Spoon Cook Log Siri Intents - Coverage & Refactor
+**What**: Run focused spoon intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22o-spoon-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Spoon intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+
+### ⬜ Unit 22p: Capture Import Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for create capture draft, submit capture import, open capture draft, and discard capture draft intent paths.
+**Output**: `Tests/SpoonjoyCoreTests/CaptureImportIntentTests.swift`, AppIntents static checks, and `apple/unit-22p-capture-import-intents-red.log`.
+**Acceptance**: Tests fail before capture/import intents exist and assert confirmation/auth/offline behavior for import submit and discard actions.
+
+### ⬜ Unit 22q: Capture Import Siri Intents - Implementation
+**What**: Implement capture/import intent resolvers and App Intent types using capture draft entities, local/offline storage, and `POST /api/v1/recipes/import`.
+**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Acceptance**: Unit 22p tests pass; Siri capture import submits through the same backend import contract as app UI.
+
+### ⬜ Unit 22r: Capture Import Siri Intents - Coverage & Refactor
+**What**: Run focused capture/import intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22r-capture-import-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Capture/import intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+
+### ⬜ Unit 22j: Cookbook Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for create cookbook, rename cookbook, delete cookbook, add recipe to cookbook, and remove recipe from cookbook intent paths.
+**Output**: `Tests/SpoonjoyCoreTests/CookbookIntentTests.swift`, AppIntents static checks, and `apple/unit-22j-cookbook-intents-red.log`.
+**Acceptance**: Tests fail before cookbook intents exist and assert confirmations/auth for cookbook mutations.
+
+### ⬜ Unit 22k: Cookbook Siri Intents - Implementation
+**What**: Implement cookbook intent resolvers and App Intent types using cookbook and recipe entities, live cache, REST v1 contracts, and confirmation/auth policy.
+**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Acceptance**: Unit 22j tests pass; cookbook Siri writes use the same queue/backend contracts as app UI.
+
+### ⬜ Unit 22l: Cookbook Siri Intents - Coverage & Refactor
+**What**: Run focused cookbook intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22l-cookbook-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Cookbook intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+
+### ⬜ Unit 22s: Profile And Settings Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for profile open, API-token status open, settings open, account connection open, and passkey/password/provider-link secure web handoff intents.
+**Output**: `Tests/SpoonjoyCoreTests/ProfileSettingsIntentTests.swift`, AppIntents static checks, and `apple/unit-22s-profile-settings-intents-red.log`.
+**Acceptance**: Tests fail before profile/settings intents exist and assert exact secure web-auth handoff routes for canonical web auth flows.
+
+### ⬜ Unit 22t: Profile And Settings Siri Intents - Implementation
+**What**: Implement profile/settings intent resolvers and App Intent types using profile entities, settings routes, live cache, and secure web handoff URLs.
+**Output**: App Intents source updates, core resolver updates, route integration notes, and scenario verifier updates.
+**Acceptance**: Unit 22s tests pass; passkey/password/provider-link actions open exact secure web-auth handoff routes instead of fake native mutations.
+
+### ⬜ Unit 22u: Profile And Settings Siri Intents - Coverage & Refactor
+**What**: Run focused profile/settings intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22u-profile-settings-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Profile/settings intent contracts have route/handoff evidence and 100% measured resolver coverage.
+
+### ⬜ Unit 22v: Notification Preference Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for notification preference read/update intents and APNs status open intent.
+**Output**: `Tests/SpoonjoyCoreTests/NotificationIntentTests.swift`, AppIntents static checks, and `apple/unit-22v-notification-intents-red.log`.
+**Acceptance**: Tests fail before notification intents exist and assert auth/confirmation for preference updates plus APNs blocker display behavior.
+
+### ⬜ Unit 22w: Notification Preference Siri Intents - Implementation
+**What**: Implement notification preference intent resolvers and App Intent types using REST v1 preference contracts and APNs capability blocker state.
+**Output**: App Intents source updates, core resolver updates, orchestrator-integrated cache/sync updates, and scenario verifier updates.
+**Acceptance**: Unit 22v tests pass; notification preference writes use the same backend contracts as settings UI.
+
+### ⬜ Unit 22x: Notification Preference Siri Intents - Coverage & Refactor
+**What**: Run focused notification intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22x-notification-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
 **What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots.
