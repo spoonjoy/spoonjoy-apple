@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-06-17T05:16:52.942Z",
+  "entries": [
+    {
+      "rel": "apple",
+      "abs": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple",
+      "exists": true,
+      "gitkeepExists": true
+    },
+    {
+      "rel": "web",
+      "abs": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web",
+      "exists": true,
+      "gitkeepExists": true
+    },
+    {
+      "rel": "screenshots",
+      "abs": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/screenshots",
+      "exists": true,
+      "gitkeepExists": true
+    },
+    {
+      "rel": "apple/integration-notes",
+      "abs": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes",
+      "exists": true,
+      "gitkeepExists": true
+    },
+    {
+      "rel": "web/integration-notes",
+      "abs": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/integration-notes",
+      "exists": true,
+      "gitkeepExists": true
+    }
+  ],
+  "ok": true
+}

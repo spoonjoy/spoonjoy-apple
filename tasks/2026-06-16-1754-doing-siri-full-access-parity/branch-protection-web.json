@@ -1,0 +1,243 @@
+{
+  "generatedAt": "2026-06-17T05:16:55.373Z",
+  "repository": "spoonjoy/spoonjoy-v2",
+  "branch": "main",
+  "expectedRequiredChecks": [
+    "coverage",
+    "e2e",
+    "build-storybook"
+  ],
+  "requiredCheckNames": [
+    "coverage",
+    "e2e",
+    "build-storybook"
+  ],
+  "missingExpectedRequiredChecks": [],
+  "strictStatusChecks": true,
+  "enforceAdmins": true,
+  "requiredPullRequestReviews": null,
+  "restrictions": null,
+  "evidence": {
+    "branch": {
+      "name": "main",
+      "commit": {
+        "sha": "fce74f221252478d8452789b52d5bedef9cd1e9e",
+        "node_id": "C_kwDORAeQkNoAKGZjZTc0ZjIyMTI1MjQ3OGQ4NDUyNzg5YjUyZDViZWRlZjljZDFlOWU",
+        "commit": {
+          "author": {
+            "name": "Codex",
+            "email": "codex@example.com",
+            "date": "2026-06-16T05:35:04Z"
+          },
+          "committer": {
+            "name": "Ari Mendelow",
+            "email": "arimendelow+github@microsoft.com",
+            "date": "2026-06-16T05:48:16Z"
+          },
+          "message": "docs: enable work-suite autopilot in AGENTS.md",
+          "tree": {
+            "sha": "45fe012c75e35e75ed2c4f091222a01fb5a1c024",
+            "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/git/trees/45fe012c75e35e75ed2c4f091222a01fb5a1c024"
+          },
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/git/commits/fce74f221252478d8452789b52d5bedef9cd1e9e",
+          "comment_count": 0,
+          "verification": {
+            "verified": false,
+            "reason": "unsigned",
+            "signature": null,
+            "payload": null,
+            "verified_at": null
+          }
+        },
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/commits/fce74f221252478d8452789b52d5bedef9cd1e9e",
+        "html_url": "https://github.com/spoonjoy/spoonjoy-v2/commit/fce74f221252478d8452789b52d5bedef9cd1e9e",
+        "comments_url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/commits/fce74f221252478d8452789b52d5bedef9cd1e9e/comments",
+        "author": {
+          "login": "abiatarprado",
+          "id": 53842349,
+          "node_id": "MDQ6VXNlcjUzODQyMzQ5",
+          "avatar_url": "https://avatars.githubusercontent.com/u/53842349?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/abiatarprado",
+          "html_url": "https://github.com/abiatarprado",
+          "followers_url": "https://api.github.com/users/abiatarprado/followers",
+          "following_url": "https://api.github.com/users/abiatarprado/following{/other_user}",
+          "gists_url": "https://api.github.com/users/abiatarprado/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/abiatarprado/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/abiatarprado/subscriptions",
+          "organizations_url": "https://api.github.com/users/abiatarprado/orgs",
+          "repos_url": "https://api.github.com/users/abiatarprado/repos",
+          "events_url": "https://api.github.com/users/abiatarprado/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/abiatarprado/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "committer": {
+          "login": "arimendelow",
+          "id": 16390116,
+          "node_id": "MDQ6VXNlcjE2MzkwMTE2",
+          "avatar_url": "https://avatars.githubusercontent.com/u/16390116?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/arimendelow",
+          "html_url": "https://github.com/arimendelow",
+          "followers_url": "https://api.github.com/users/arimendelow/followers",
+          "following_url": "https://api.github.com/users/arimendelow/following{/other_user}",
+          "gists_url": "https://api.github.com/users/arimendelow/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/arimendelow/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/arimendelow/subscriptions",
+          "organizations_url": "https://api.github.com/users/arimendelow/orgs",
+          "repos_url": "https://api.github.com/users/arimendelow/repos",
+          "events_url": "https://api.github.com/users/arimendelow/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/arimendelow/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": true
+        },
+        "parents": [
+          {
+            "sha": "8580dc5167c8c1c794330262ffe83e30326504fb",
+            "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/commits/8580dc5167c8c1c794330262ffe83e30326504fb",
+            "html_url": "https://github.com/spoonjoy/spoonjoy-v2/commit/8580dc5167c8c1c794330262ffe83e30326504fb"
+          }
+        ]
+      },
+      "_links": {
+        "self": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main",
+        "html": "https://github.com/spoonjoy/spoonjoy-v2/tree/main"
+      },
+      "protected": true,
+      "protection": {
+        "enabled": true,
+        "required_status_checks": {
+          "enforcement_level": "everyone",
+          "contexts": [
+            "coverage",
+            "e2e",
+            "build-storybook"
+          ],
+          "checks": [
+            {
+              "context": "coverage",
+              "app_id": null
+            },
+            {
+              "context": "e2e",
+              "app_id": null
+            },
+            {
+              "context": "build-storybook",
+              "app_id": null
+            }
+          ]
+        }
+      },
+      "protection_url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection"
+    },
+    "protection": {
+      "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection",
+      "required_status_checks": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_status_checks",
+        "strict": true,
+        "contexts": [
+          "coverage",
+          "e2e",
+          "build-storybook"
+        ],
+        "contexts_url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_status_checks/contexts",
+        "checks": [
+          {
+            "context": "coverage",
+            "app_id": null
+          },
+          {
+            "context": "e2e",
+            "app_id": null
+          },
+          {
+            "context": "build-storybook",
+            "app_id": null
+          }
+        ]
+      },
+      "required_signatures": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_signatures",
+        "enabled": false
+      },
+      "enforce_admins": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/enforce_admins",
+        "enabled": true
+      },
+      "required_linear_history": {
+        "enabled": true
+      },
+      "allow_force_pushes": {
+        "enabled": false
+      },
+      "allow_deletions": {
+        "enabled": false
+      },
+      "block_creations": {
+        "enabled": false
+      },
+      "required_conversation_resolution": {
+        "enabled": true
+      },
+      "lock_branch": {
+        "enabled": false
+      },
+      "allow_fork_syncing": {
+        "enabled": false
+      }
+    },
+    "rulesets": []
+  },
+  "commands": {
+    "branch": {
+      "argv": [
+        "gh",
+        "api",
+        "repos/spoonjoy/spoonjoy-v2/branches/main"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:54.637Z",
+      "finishedAt": "2026-06-17T05:16:55.037Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "{\"name\":\"main\",\"commit\":{\"sha\":\"fce74f221252478d8452789b52d5bedef9cd1e9e\",\"node_id\":\"C_kwDORAeQkNoAKGZjZTc0ZjIyMTI1MjQ3OGQ4NDUyNzg5YjUyZDViZWRlZjljZDFlOWU\",\"commit\":{\"author\":{\"name\":\"Codex\",\"email\":\"codex@example.com\",\"date\":\"2026-06-16T05:35:04Z\"},\"committer\":{\"name\":\"Ari Mendelow\",\"email\":\"arimendelow+github@microsoft.com\",\"date\":\"2026-06-16T05:48:16Z\"},\"message\":\"docs: enable work-suite autopilot in AGENTS.md\",\"tree\":{\"sha\":\"45fe012c75e35e75ed2c4f091222a01fb5a1c024\",\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/git/trees/45fe012c75e35e75ed2c4f091222a01fb5a1c024\"},\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/git/commits/fce74f221252478d8452789b52d5bedef9cd1e9e\",\"comment_count\":0,\"verification\":{\"verified\":false,\"reason\":\"unsigned\",\"signature\":null,\"payload\":null,\"verified_at\":null}},\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/commits/fce74f221252478d8452789b52d5bedef9cd1e9e\",\"html_url\":\"https://github.com/spoonjoy/spoonjoy-v2/commit/fce74f221252478d8452789b52d5bedef9cd1e9e\",\"comments_url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/commits/fce74f221252478d8452789b52d5bedef9cd1e9e/comments\",\"author\":{\"login\":\"abiatarprado\",\"id\":53842349,\"node_id\":\"MDQ6VXNlcjUzODQyMzQ5\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/53842349?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/abiatarprado\",\"html_url\":\"https://github.com/abiatarprado\",\"followers_url\":\"https://api.github.com/users/abiatarprado/followers\",\"following_url\":\"https://api.github.com/users/abiatarprado/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/abiatarprado/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/abiatarprado/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/abiatarprado/subscriptions\",\"organizations_url\":\"https://api.github.com/users/abiatarprado/orgs\",\"repos_url\":\"https://api.github.com/users/abiatarprado/repos\",\"events_url\":\"https://api.github.com/users/abiatarprado/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/abiatarprado/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":false},\"committer\":{\"login\":\"arimendelow\",\"id\":16390116,\"node_id\":\"MDQ6VXNlcjE2MzkwMTE2\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/16390116?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/arimendelow\",\"html_url\":\"https://github.com/arimendelow\",\"followers_url\":\"https://api.github.com/users/arimendelow/followers\",\"following_url\":\"https://api.github.com/users/arimendelow/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/arimendelow/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/arimendelow/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/arimendelow/subscriptions\",\"organizations_url\":\"https://api.github.com/users/arimendelow/orgs\",\"repos_url\":\"https://api.github.com/users/arimendelow/repos\",\"events_url\":\"https://api.github.com/users/arimendelow/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/arimendelow/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":true},\"parents\":[{\"sha\":\"8580dc5167c8c1c794330262ffe83e30326504fb\",\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/commits/8580dc5167c8c1c794330262ffe83e30326504fb\",\"html_url\":\"https://github.com/spoonjoy/spoonjoy-v2/commit/8580dc5167c8c1c794330262ffe83e30326504fb\"}]},\"_links\":{\"self\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main\",\"html\":\"https://github.com/spoonjoy/spoonjoy-v2/tree/main\"},\"protected\":true,\"protection\":{\"enabled\":true,\"required_status_checks\":{\"enforcement_level\":\"everyone\",\"contexts\":[\"coverage\",\"e2e\",\"build-storybook\"],\"checks\":[{\"context\":\"coverage\",\"app_id\":null},{\"context\":\"e2e\",\"app_id\":null},{\"context\":\"build-storybook\",\"app_id\":null}]}},\"protection_url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection\"}",
+      "stderr": ""
+    },
+    "protection": {
+      "argv": [
+        "gh",
+        "api",
+        "repos/spoonjoy/spoonjoy-v2/branches/main/protection"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:54.325Z",
+      "finishedAt": "2026-06-17T05:16:54.637Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection\",\"required_status_checks\":{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_status_checks\",\"strict\":true,\"contexts\":[\"coverage\",\"e2e\",\"build-storybook\"],\"contexts_url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_status_checks/contexts\",\"checks\":[{\"context\":\"coverage\",\"app_id\":null},{\"context\":\"e2e\",\"app_id\":null},{\"context\":\"build-storybook\",\"app_id\":null}]},\"required_signatures\":{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/required_signatures\",\"enabled\":false},\"enforce_admins\":{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-v2/branches/main/protection/enforce_admins\",\"enabled\":true},\"required_linear_history\":{\"enabled\":true},\"allow_force_pushes\":{\"enabled\":false},\"allow_deletions\":{\"enabled\":false},\"block_creations\":{\"enabled\":false},\"required_conversation_resolution\":{\"enabled\":true},\"lock_branch\":{\"enabled\":false},\"allow_fork_syncing\":{\"enabled\":false}}",
+      "stderr": ""
+    },
+    "rulesets": {
+      "argv": [
+        "gh",
+        "api",
+        "repos/spoonjoy/spoonjoy-v2/rulesets"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:55.037Z",
+      "finishedAt": "2026-06-17T05:16:55.373Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "[]",
+      "stderr": ""
+    }
+  },
+  "ok": true
+}

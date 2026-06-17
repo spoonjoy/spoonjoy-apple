@@ -1,0 +1,160 @@
+{
+  "generatedAt": "2026-06-17T05:16:56.741Z",
+  "summary": {
+    "xcodebuildVersion": "Xcode 26.5\nBuild version 17F42",
+    "xcodebuildFirstLaunchOk": true,
+    "xcodeDeveloperDirectory": "/Applications/Xcode.app/Contents/Developer",
+    "swiftVersion": "Apple Swift version 6.3.2 (swiftlang-6.3.2.1.108 clang-2100.1.1.101)\nTarget: arm64-apple-macosx26.0",
+    "gitVersion": "git version 2.50.1 (Apple Git-155)",
+    "ghVersionFirstLine": "gh version 2.86.0 (2026-01-21)",
+    "nodeVersion": "v22.22.0",
+    "pnpmVersion": "10.28.1",
+    "rubyVersion": "ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin25]",
+    "availableRuntimes": []
+  },
+  "commands": {
+    "xcodebuildVersion": {
+      "argv": [
+        "xcodebuild",
+        "-version"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:55.466Z",
+      "finishedAt": "2026-06-17T05:16:55.671Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "Xcode 26.5\nBuild version 17F42",
+      "stderr": ""
+    },
+    "xcodebuildFirstLaunch": {
+      "argv": [
+        "xcodebuild",
+        "-checkFirstLaunchStatus"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:55.671Z",
+      "finishedAt": "2026-06-17T05:16:55.860Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "",
+      "stderr": ""
+    },
+    "xcodeSelectPath": {
+      "argv": [
+        "xcode-select",
+        "-p"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:55.860Z",
+      "finishedAt": "2026-06-17T05:16:55.864Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "/Applications/Xcode.app/Contents/Developer",
+      "stderr": ""
+    },
+    "swiftVersion": {
+      "argv": [
+        "swift",
+        "--version"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:55.864Z",
+      "finishedAt": "2026-06-17T05:16:56.281Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "Apple Swift version 6.3.2 (swiftlang-6.3.2.1.108 clang-2100.1.1.101)\nTarget: arm64-apple-macosx26.0",
+      "stderr": "swift-driver version: 1.148.6"
+    },
+    "simctlRuntimesJson": {
+      "argv": [
+        "xcrun",
+        "simctl",
+        "list",
+        "runtimes",
+        "--json"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:56.281Z",
+      "finishedAt": "2026-06-17T05:16:56.426Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "{\n  \"runtimes\" : [\n\n  ]\n}",
+      "stderr": ""
+    },
+    "gitVersion": {
+      "argv": [
+        "git",
+        "--version"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:56.426Z",
+      "finishedAt": "2026-06-17T05:16:56.437Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "git version 2.50.1 (Apple Git-155)",
+      "stderr": ""
+    },
+    "ghVersion": {
+      "argv": [
+        "gh",
+        "--version"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:56.437Z",
+      "finishedAt": "2026-06-17T05:16:56.466Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "gh version 2.86.0 (2026-01-21)\nhttps://github.com/cli/cli/releases/tag/v2.86.0",
+      "stderr": ""
+    },
+    "nodeVersion": {
+      "argv": [
+        "node",
+        "-v"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:56.466Z",
+      "finishedAt": "2026-06-17T05:16:56.486Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "v22.22.0",
+      "stderr": ""
+    },
+    "pnpmVersion": {
+      "argv": [
+        "pnpm",
+        "-v"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:56.486Z",
+      "finishedAt": "2026-06-17T05:16:56.729Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "10.28.1",
+      "stderr": ""
+    },
+    "rubyVersion": {
+      "argv": [
+        "ruby",
+        "-v"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:56.730Z",
+      "finishedAt": "2026-06-17T05:16:56.741Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "ruby 2.6.10p210 (2022-04-12 revision 67958) [universal.arm64e-darwin25]",
+      "stderr": ""
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-06-17T05:16:56.743Z",
+  "ok": true,
+  "appleCleanExceptAllowedArtifacts": true,
+  "webClean": true,
+  "appleRemoteOk": true,
+  "webRemoteOk": true,
+  "appleBranchProtectionOk": true,
+  "webBranchProtectionOk": true,
+  "auditArtifactsOk": true,
+  "supportingArtifactScanOk": true,
+  "artifactDirectoriesOk": true,
+  "xcodebuildVersion": "Xcode 26.5\nBuild version 17F42"
+}
