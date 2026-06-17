@@ -9,6 +9,12 @@
 ## Execution Mode
 
 - **spawn**: Execute dependency waves with sub-agent implementors for disjoint backend, native core, app-surface, documentation, and validation write scopes. The orchestrator owns sequencing, integration, reviewer gates, commits, pushes, PRs, merges, and final validation.
+- Dependency Wave 0 is orchestrator-only: Unit 0 baseline plus any docs/review fixes.
+- Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Spawn only disjoint backend workers by endpoint family; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
+- Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, sync, and shell wiring; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, or project files through the orchestrator.
+- Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files.
+- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22l. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files.
+- Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
 
 ## Objective
 
@@ -106,7 +112,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ### ⬜ Unit 3b: Profile, Chef Graph, And Search API - Implementation
 **What**: Implement profile, chef graph, and search handlers using `app/lib/fellow-chefs.server.ts`, `app/lib/search.server.ts`, current Prisma relations, and v1 envelope helpers.
-**Output**: `app/lib/api-v1.server.ts` handler additions plus extracted serializer helpers when shared serializers reduce duplication.
+**Output**: `app/lib/api-v1.server.ts` handler additions plus extracted serializer helpers for profile and search payloads.
 **Acceptance**: Unit 3a tests pass; deleted recipes/spoons stay hidden; shopping-list search requires auth; profile payload includes recipes, cookbooks, spoons, fellow chefs, and kitchen visitors.
 
 ### ⬜ Unit 3c: Profile, Chef Graph, And Search API - Coverage & Refactor
@@ -219,6 +225,21 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Output**: `web/unit-10c-sync-green.log`, `web/unit-10c-typecheck.log`, and coverage artifact.
 **Acceptance**: Touched sync code has 100% coverage, including invalid cursors, empty states, and tombstone-only pages.
 
+### ⬜ Unit 10d: Recipe Import API - Tests
+**What**: Write failing tests for `POST /api/v1/recipes/import` covering URL import, text import, JSON-LD import, video URL import, local no-provider-secret behavior, duplicate title behavior, validation errors, auth/scope failures, idempotency replay/conflict, and exact capture/import response envelopes.
+**Output**: `test/routes/api-v1-recipe-import.test.ts` and `web/unit-10d-recipe-import-red.log`.
+**Acceptance**: Tests fail before the REST v1 import handler exists and assert the outbound/native contract that capture drafts will call.
+
+### ⬜ Unit 10e: Recipe Import API - Implementation
+**What**: Implement `POST /api/v1/recipes/import` using existing import helpers in `app/lib/recipe-import*.server.ts`, recipe creation helpers, v1 idempotency helpers, request body limits, and structured provider-secret blocker responses.
+**Output**: Import API handler, serializers, docs/OpenAPI schemas, and generated playground examples.
+**Acceptance**: Unit 10d tests pass; missing AI/provider secrets return a tested structured response rather than silently pretending import completed.
+
+### ⬜ Unit 10f: Recipe Import API - Coverage & Refactor
+**What**: Run focused import tests, route coverage, docs/OpenAPI drift tests, `pnpm run typecheck`, coverage, and warning checks.
+**Output**: `web/unit-10f-recipe-import-green.log`, `web/unit-10f-typecheck.log`, and coverage artifact.
+**Acceptance**: Touched import API code has 100% coverage, including invalid URL/text, provider failure, replay, conflict, auth, scope, and duplicate-title branches.
+
 ### ⬜ Unit 11a: Native Request Builders For Expanded REST V1 - Tests
 **What**: In `spoonjoy-apple`, write failing Swift tests for request builders covering every new backend endpoint, auth policy, JSON/form/multipart bodies, idempotency keys, query/cursor handling, private/public cache metadata, and error envelope decoding.
 **Output**: `Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift` and `apple/unit-11a-native-api-red.log`.
@@ -309,50 +330,185 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Output**: `apple/unit-16c-live-store-green.log`, scenario report, and build logs.
 **Acceptance**: Store logic has 100% measured coverage and app target static/screenshot checks cover non-SwiftPM shell adapters.
 
-### ⬜ Unit 17a: Native Recipe Detail Cook Mode And Editor Surfaces - Tests
-**What**: Write failing Swift tests/static scenario checks for recipe catalog/detail, cover/provenance, scale factor, ingredient and step-output checkoff, duration timers, cook progress persistence, create/edit/delete, step/ingredient/dependency forms, fork, save to cookbook, add ingredients to shopping, owner tools, and share actions.
-**Output**: `Tests/SpoonjoyCoreTests/RecipeSurfaceParityTests.swift`, surface contract tests, and `apple/unit-17a-recipe-surfaces-red.log`.
-**Acceptance**: Tests fail before parity surfaces exist and assert exact view model states plus route actions for every web recipe concept.
+### ⬜ Unit 17a: Native Recipe Catalog And Detail - Tests
+**What**: Write failing Swift tests/static scenario checks for live recipe catalog loading, search/filter state, recipe detail cache restore, cover/provenance display, chef attribution, servings, steps, ingredients, dependencies, spoon summary, cookbook-save state, owner-tool visibility, and offline stale state.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift`, surface contract tests, and `apple/unit-17a-recipe-catalog-detail-red.log`.
+**Acceptance**: Tests fail before catalog/detail parity exists and assert exact view model states plus route actions for read-only recipe browsing.
 
-### ⬜ Unit 17b: Native Recipe Detail Cook Mode And Editor Surfaces - Implementation
-**What**: Implement recipe catalog/detail/cook/editor surfaces and view models using live repositories, native controls, offline queueing, and Spoonjoy design language.
-**Output**: Updated `RecipesView.swift`, `RecipeDetailView.swift`, `CookModeView.swift`, new editor components, view models, and scenario metadata.
-**Acceptance**: Unit 17a tests pass; native flows use live contracts or queued mutations and do not invent comments/feed/reactions.
+### ⬜ Unit 17b: Native Recipe Catalog And Detail - Implementation
+**What**: Implement catalog/detail view models and SwiftUI wiring for `RecipesView.swift` and `RecipeDetailView.swift` using live repositories, cache state, native search, native share affordance placeholders, and Spoonjoy design hierarchy.
+**Output**: Updated recipe catalog/detail Swift files, view models, project generator updates, and scenario metadata.
+**Acceptance**: Unit 17a tests pass; catalog/detail reads come from live/cache repositories and fixtures remain test/demo fallback only.
 
-### ⬜ Unit 17c: Native Recipe Detail Cook Mode And Editor Surfaces - Coverage & Refactor
-**What**: Run focused recipe-surface tests, full Swift tests, surface contract scripts, scenario verifier surfaces/final subset, screenshots, and warning scan.
-**Output**: `apple/unit-17c-recipe-surfaces-green.log`, screenshot artifacts, and scenario report.
-**Acceptance**: View-model code has 100% measured coverage; UI static/screenshot checks show no text overlap and Kitchen Table hierarchy is preserved.
+### ⬜ Unit 17c: Native Recipe Catalog And Detail - Coverage & Refactor
+**What**: Run focused catalog/detail tests, full Swift tests, surface contract scripts, scenario verifier surfaces subset, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-17c-recipe-catalog-detail-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Catalog/detail view-model code has 100% measured coverage and static/screenshot checks preserve Kitchen Table hierarchy.
 
-### ⬜ Unit 18a: Native Spoons Covers Capture And Sharing Surfaces - Tests
-**What**: Write failing Swift tests/static checks for cook log list/create/edit/delete, photo/note/nextTime/cookedAt drafts, cover history/set/remove/regenerate/archive/from-spoon, capture draft URL/text/camera/share-sheet intake, import submission, and recipe/cookbook/shopping share payloads.
-**Output**: `Tests/SpoonjoyCoreTests/SpoonCoverCaptureSharingTests.swift`, surface contract tests, and `apple/unit-18a-spoon-cover-red.log`.
-**Acceptance**: Tests fail before surfaces exist and assert offline draft behavior plus exact native share values.
+### ⬜ Unit 17d: Native Cook Mode - Tests
+**What**: Write failing Swift tests/static checks for start/continue cook mode, active step navigation, scale factor, ingredient checkoff, step-output dependency checkoff, duration timers for duration-bearing steps, durable progress, offline progress restore, and Siri/deep-link routes into cook mode.
+**Output**: `Tests/SpoonjoyCoreTests/CookModeParityTests.swift`, cook-mode surface checks, and `apple/unit-17d-cook-mode-red.log`.
+**Acceptance**: Tests fail before cook-mode parity exists and assert exact progress persistence and route behavior.
 
-### ⬜ Unit 18b: Native Spoons Covers Capture And Sharing Surfaces - Implementation
-**What**: Implement spoon/cook-log UI, cover controls, capture/import UI, and first-class `ShareLink`/transfer payloads without Messages/Mail schemas.
-**Output**: App Swift views/components, view models, project generator updates, and scenario verifier updates.
-**Acceptance**: Unit 18a tests pass; capture and spoon photo workflows use local drafts offline and sync through REST v1.
+### ⬜ Unit 17e: Native Cook Mode - Implementation
+**What**: Implement `CookModeView.swift`, cook-mode view models, progress persistence, timer state, scale/dependency/checkoff controls, and route/Siri handoff integration.
+**Output**: Cook mode Swift files, view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 17d tests pass; cook mode works from cached data while offline and syncs progress-related queued writes only through declared contracts.
 
-### ⬜ Unit 18c: Native Spoons Covers Capture And Sharing Surfaces - Coverage & Refactor
-**What**: Run focused spoon/cover/capture/share tests, full Swift tests, surface scripts, scenario verifier, screenshots, and warning scan.
-**Output**: `apple/unit-18c-spoon-cover-green.log`, screenshot artifacts, and coverage logs.
-**Acceptance**: View-model/share logic has 100% measured coverage and UI adapters have static/screenshot coverage.
+### ⬜ Unit 17f: Native Cook Mode - Coverage & Refactor
+**What**: Run focused cook-mode tests, full Swift tests, cook/shopping surface contract script, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-17f-cook-mode-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Cook-mode logic has 100% measured coverage and no timer/checkoff branch lacks tests.
 
-### ⬜ Unit 19a: Native Cookbooks Profiles Settings Notifications Surfaces - Tests
-**What**: Write failing Swift tests/static checks for cookbook detail/create/rename/delete/add/remove recipe, profile views, fellow chefs, kitchen visitors, settings session/API token status/create/revoke, OAuth connection status/disconnect, notification preferences, APNs registration state, and secure web-auth handoff routes.
-**Output**: `Tests/SpoonjoyCoreTests/CookbookProfileSettingsParityTests.swift`, surface contract tests, and `apple/unit-19a-settings-red.log`.
-**Acceptance**: Tests fail before surfaces exist and assert exact view model states, destructive confirmations, and offline/cache fallbacks.
+### ⬜ Unit 17g: Native Recipe Editor - Tests
+**What**: Write failing Swift tests/static checks for create, edit, delete, step create/update/delete/reorder, ingredient add/delete, dependency editing, validation, owner-only tools, offline queued drafts, and conflict display.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift`, editor surface checks, and `apple/unit-17g-recipe-editor-red.log`.
+**Acceptance**: Tests fail before editor parity exists and assert exact request/mutation kinds and validation messages.
 
-### ⬜ Unit 19b: Native Cookbooks Profiles Settings Notifications Surfaces - Implementation
-**What**: Implement cookbook/profile/settings/notification/API credential surfaces using native forms, lists, toolbars, confirmations, and secure web handoff for passkey/password/provider-link actions.
-**Output**: Updated `CookbooksView.swift`, `SettingsView.swift`, profile views, settings components, and scenario verifier updates.
-**Acceptance**: Unit 19a tests pass; API credential list/create/revoke and notification preferences are native REST-backed flows.
+### ⬜ Unit 17h: Native Recipe Editor - Implementation
+**What**: Implement native recipe editor view models and SwiftUI forms using native controls, REST v1 recipe/step/ingredient/dependency endpoints, offline queued drafts, and owner confirmations.
+**Output**: Recipe editor Swift files, view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 17g tests pass; editor mutations use live REST contracts or durable offline queue entries.
 
-### ⬜ Unit 19c: Native Cookbooks Profiles Settings Notifications Surfaces - Coverage & Refactor
-**What**: Run focused cookbook/profile/settings tests, full Swift tests, surface scripts, scenario verifier, screenshots, macOS build, and warning scan.
-**Output**: `apple/unit-19c-settings-green.log`, screenshot artifacts, and coverage logs.
-**Acceptance**: View-model code has 100% measured coverage and native design review confirms platform-correct controls.
+### ⬜ Unit 17i: Native Recipe Editor - Coverage & Refactor
+**What**: Run focused editor tests, full Swift tests, recipe surface contract scripts, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-17i-recipe-editor-green.log`, coverage logs, and scenario report.
+**Acceptance**: Editor view-model code has 100% measured coverage and all validation/conflict/error states are tested.
+
+### ⬜ Unit 17j: Native Recipe Actions - Tests
+**What**: Write failing Swift tests/static checks for fork, save to cookbook, remove from cookbook, add recipe ingredients to shopping, owner delete confirmation, owner cover-entry routing, and route/action state from recipe detail.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift`, action surface checks, and `apple/unit-17j-recipe-actions-red.log`.
+**Acceptance**: Tests fail before recipe action parity exists and assert exact queued or live mutation behavior for each action.
+
+### ⬜ Unit 17k: Native Recipe Actions - Implementation
+**What**: Implement recipe action view models and UI affordances in recipe detail/cook surfaces using native menus/buttons/confirmation dialogs and live REST contracts.
+**Output**: Recipe action Swift files, view model updates, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 17j tests pass; destructive actions require confirmation and ownership checks.
+
+### ⬜ Unit 17l: Native Recipe Actions - Coverage & Refactor
+**What**: Run focused recipe-action tests, full Swift tests, surface contract scripts, scenario verifier, coverage enforcement, screenshots, and warning scan.
+**Output**: `apple/unit-17l-recipe-actions-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Recipe action logic has 100% measured coverage and does not introduce comments/feed/reactions.
+
+### ⬜ Unit 18a: Native Spoon Cook Logs - Tests
+**What**: Write failing Swift tests/static checks for cook log list, create, edit, delete, photo URL/upload draft, note, nextTime, cookedAt, owner checks, offline draft persistence, and profile/detail reuse.
+**Output**: `Tests/SpoonjoyCoreTests/SpoonCookLogSurfaceTests.swift`, spoon surface checks, and `apple/unit-18a-spoon-logs-red.log`.
+**Acceptance**: Tests fail before spoon surfaces exist and assert exact view model states plus REST/offline mutation behavior.
+
+### ⬜ Unit 18b: Native Spoon Cook Logs - Implementation
+**What**: Implement spoon/cook-log view models and SwiftUI sheets/rows using live spoon endpoints, local offline drafts, and confirmation on delete.
+**Output**: Spoon Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 18a tests pass; spoon photo/note/nextTime/cookedAt workflows sync through REST v1.
+
+### ⬜ Unit 18c: Native Spoon Cook Logs - Coverage & Refactor
+**What**: Run focused spoon tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-18c-spoon-logs-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Spoon view-model logic has 100% measured coverage and deleted/owner/conflict states are tested.
+
+### ⬜ Unit 18d: Native Cover Controls - Tests
+**What**: Write failing Swift tests/static checks for cover history, active variant display, upload entry, set active, remove/archive, regenerate, cover-from-spoon, provider-secret blocker display, owner-only controls, and offline state.
+**Output**: `Tests/SpoonjoyCoreTests/CoverControlSurfaceTests.swift`, cover surface checks, and `apple/unit-18d-cover-controls-red.log`.
+**Acceptance**: Tests fail before cover controls exist and assert exact request/mutation behavior plus confirmation state.
+
+### ⬜ Unit 18e: Native Cover Controls - Implementation
+**What**: Implement cover controls in recipe owner surfaces using REST v1 image/cover endpoints, spoon-cover integration, native photo/file affordances, and tested blocker display.
+**Output**: Cover Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 18d tests pass; cover lifecycle behavior matches web and does not require production secrets for local validation.
+
+### ⬜ Unit 18f: Native Cover Controls - Coverage & Refactor
+**What**: Run focused cover-control tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-18f-cover-controls-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Cover-control view-model logic has 100% measured coverage and every provider/blocker state is visible.
+
+### ⬜ Unit 18g: Native Capture And Import - Tests
+**What**: Write failing Swift tests/static checks for capture draft URL/text/camera/share-sheet intake, local draft persistence, import submission to `POST /api/v1/recipes/import`, provider-secret blocker handling, imported recipe routing, and offline retry.
+**Output**: `Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift`, capture surface checks, and `apple/unit-18g-capture-import-red.log`.
+**Acceptance**: Tests fail before capture/import parity exists and assert exact capture draft to backend import transition.
+
+### ⬜ Unit 18h: Native Capture And Import - Implementation
+**What**: Implement capture/import UI and view models using native share/camera/photo affordances, local drafts, import endpoint requests, and sync retry.
+**Output**: Capture/import Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 18g tests pass; local capture works offline and import submits through the REST v1 import contract.
+
+### ⬜ Unit 18i: Native Capture And Import - Coverage & Refactor
+**What**: Run focused capture/import tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-18i-capture-import-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Capture/import view-model logic has 100% measured coverage and no import path bypasses the backend contract.
+
+### ⬜ Unit 18j: Native Sharing Payloads - Tests
+**What**: Write failing Swift tests/static checks for recipe, cookbook, shopping-list, spoon, and capture-draft share payloads, public URL generation, `ShareLink` presentation state, transfer values for Shortcuts/Siri, and share-sheet destination neutrality.
+**Output**: `Tests/SpoonjoyCoreTests/NativeSharingTests.swift`, sharing surface checks, and `apple/unit-18j-sharing-red.log`.
+**Acceptance**: Tests fail before first-class sharing exists and assert that Spoonjoy does not adopt Messages/Mail schemas.
+
+### ⬜ Unit 18k: Native Sharing Payloads - Implementation
+**What**: Implement native share payload builders, `ShareLink` usage, Shortcuts/Siri transfer values, and public URL builders for recipe/cookbook/shopping/spoon/capture objects.
+**Output**: Sharing Swift files/components, view model updates, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 18j tests pass; sharing opens system share sheet destinations without adding Spoonjoy messaging or mail product surfaces.
+
+### ⬜ Unit 18l: Native Sharing Payloads - Coverage & Refactor
+**What**: Run focused sharing tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-18l-sharing-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Sharing logic has 100% measured coverage and all generated public URLs route through `spoonjoy.app`.
+
+### ⬜ Unit 19a: Native Cookbook Surfaces - Tests
+**What**: Write failing Swift tests/static checks for cookbook list/detail, recipe contents, create, rename, delete, add recipe, remove recipe, share, owner checks, destructive confirmations, offline cache restore, and queued mutations.
+**Output**: `Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift`, cookbook surface checks, and `apple/unit-19a-cookbooks-red.log`.
+**Acceptance**: Tests fail before cookbook parity exists and assert exact REST/offline mutation behavior.
+
+### ⬜ Unit 19b: Native Cookbook Surfaces - Implementation
+**What**: Implement cookbook views and view models in `CookbooksView.swift` and supporting components using native forms, lists, toolbars, and live REST contracts.
+**Output**: Cookbook Swift views/components, view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 19a tests pass; cookbook create/rename/delete/add/remove actions use declared REST v1 endpoints with confirmation where destructive.
+
+### ⬜ Unit 19c: Native Cookbook Surfaces - Coverage & Refactor
+**What**: Run focused cookbook tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-19c-cookbooks-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Cookbook view-model logic has 100% measured coverage and UI uses platform-correct native controls.
+
+### ⬜ Unit 19d: Native Profile And Chef Graph Surfaces - Tests
+**What**: Write failing Swift tests/static checks for profile views, profile recipes, cookbooks, spoons, fellow chefs, kitchen visitors, route handling by username/id, public cache restore, and signed-in personalization.
+**Output**: `Tests/SpoonjoyCoreTests/ProfileChefGraphSurfaceTests.swift`, profile surface checks, and `apple/unit-19d-profiles-red.log`.
+**Acceptance**: Tests fail before profile parity exists and assert exact cached/live profile payload states.
+
+### ⬜ Unit 19e: Native Profile And Chef Graph Surfaces - Implementation
+**What**: Implement profile and chef graph SwiftUI surfaces/view models using profile/search/sync endpoints and Spoonjoy social-derived product model.
+**Output**: Profile Swift views/components, view models, scenario verifier updates, and route updates.
+**Acceptance**: Unit 19d tests pass; profiles show only existing product concepts and do not add follows, comments, or feeds.
+
+### ⬜ Unit 19f: Native Profile And Chef Graph Surfaces - Coverage & Refactor
+**What**: Run focused profile tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-19f-profiles-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Profile view-model logic has 100% measured coverage and deleted/private object states are tested.
+
+### ⬜ Unit 19g: Native Settings Tokens And Connections - Tests
+**What**: Write failing Swift tests/static checks for signed-in/out settings, environment status, API token list/create/revoke, OAuth app connection status/disconnect, logout/revoke, secure web-auth handoff routes for passkey/password/provider-link actions, and offline account cache.
+**Output**: `Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift`, settings surface checks, and `apple/unit-19g-settings-tokens-red.log`.
+**Acceptance**: Tests fail before settings/token parity exists and assert exact native vs web-handoff boundaries.
+
+### ⬜ Unit 19h: Native Settings Tokens And Connections - Implementation
+**What**: Implement settings, API credential, OAuth connection, logout/revoke, and secure handoff UI using native forms/lists/confirmation dialogs and live REST contracts.
+**Output**: `SettingsView.swift`, settings components/view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 19g tests pass; API credential list/create/revoke and connection disconnect are native REST-backed flows.
+
+### ⬜ Unit 19i: Native Settings Tokens And Connections - Coverage & Refactor
+**What**: Run focused settings/token/connection tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-19i-settings-tokens-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Settings/token/connection view-model logic has 100% measured coverage and all destructive actions have confirmation evidence.
+
+### ⬜ Unit 19j: Native Notification Preferences And APNs State - Tests
+**What**: Write failing Swift tests/static checks for notification preference reads/writes, APNs registration status, APNs device register/revoke request flow, missing Developer Program blocker display, permission denial display, and offline cached preferences.
+**Output**: `Tests/SpoonjoyCoreTests/NotificationAPNsSurfaceTests.swift`, notification surface checks, and `apple/unit-19j-notifications-red.log`.
+**Acceptance**: Tests fail before notification/APNs parity exists and assert production APNs delivery is represented only as a structured account/team blocker.
+
+### ⬜ Unit 19k: Native Notification Preferences And APNs State - Implementation
+**What**: Implement notification preference UI, APNs registration-state UI, device registration/revocation request plumbing, and blocker artifact display for missing Apple Developer Program/team capability.
+**Output**: Notification settings Swift files/view models, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 19j tests pass; preference APIs are native REST-backed and production APNs delivery remains blocked only by Apple account/team capability.
+
+### ⬜ Unit 19l: Native Notification Preferences And APNs State - Coverage & Refactor
+**What**: Run focused notification/APNs tests, full Swift tests, surface scripts, scenario verifier, screenshots, coverage enforcement, and warning scan.
+**Output**: `apple/unit-19l-notifications-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Acceptance**: Notification/APNs view-model logic has 100% measured coverage and no test pretends TestFlight/APNs production delivery is available.
 
 ### ⬜ Unit 20a: Universal Links Routes And AASA Contract - Tests
 **What**: Write failing Swift and web tests for every `spoonjoy.app` route and `spoonjoy://` fallback route needed by native parity, including profiles, fellow chefs, kitchen visitors, account sections, notification preferences, API credentials, cookbook actions, spoon logging, covers, shopping clear/add-from-recipe, search, capture, and OAuth redirect.
@@ -369,35 +525,125 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Output**: `apple/unit-20c-links-green.log`, `web/unit-20c-aasa-green.log`, and AASA blocker/validation artifact.
 **Acceptance**: Production AASA validation is green or blocked only by missing Apple Team ID/App ID.
 
-### ⬜ Unit 21a: App Entities Queries Spotlight And App Shortcuts - Tests
-**What**: Write failing Swift tests/static AppIntents checks for `AppEntity`, `EntityQuery`, `EntityStringQuery`, display representations, Spotlight documents, indexed identifiers, App Shortcuts phrases, entity disambiguation, and transfer values for recipes, cookbooks, shopping items/lists, spoons, chefs, profiles, and capture drafts.
-**Output**: `Tests/SpoonjoyCoreTests/AppIntentEntityTests.swift`, app static checks, and `apple/unit-21a-app-entities-red.log`.
-**Acceptance**: Tests fail before entity-backed App Intents exist and prove string-ID-only intents are no longer sufficient.
+### ⬜ Unit 21a: Recipe And Cookbook App Entities - Tests
+**What**: Write failing Swift tests/static AppIntents checks for recipe and cookbook `AppEntity`, `EntityQuery`, `EntityStringQuery`, display representations, identifiers, disambiguation, transfer values, and cache-backed lookup.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift`, AppIntents static checks, and `apple/unit-21a-recipe-cookbook-entities-red.log`.
+**Acceptance**: Tests fail before recipe/cookbook entities exist and prove string-ID-only recipe/cookbook intents are insufficient.
 
-### ⬜ Unit 21b: App Entities Queries Spotlight And App Shortcuts - Implementation
-**What**: Implement entity models/queries in app target, live-cache-backed lookup, Spotlight indexing from cached data, App Shortcuts provider/phrases, transfer/value representations, and guarded WWDC26/27 APIs with blocker artifacts for symbols absent from installed SDK.
-**Output**: Updated `SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, core metadata, project generator updates, and scenario verifier updates.
-**Acceptance**: Unit 21a tests pass; Spotlight indexes live cached entities, including spoons/cook logs, not fixture-only data.
+### ⬜ Unit 21b: Recipe And Cookbook App Entities - Implementation
+**What**: Implement recipe and cookbook entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
+**Output**: App Intents entity Swift files, core metadata updates, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 21a tests pass; recipe/cookbook entities resolve by identifier and search string from live cached data.
 
-### ⬜ Unit 21c: App Entities Queries Spotlight And App Shortcuts - Coverage & Refactor
-**What**: Run AppIntents static/AppIntentsTesting coverage, Swift tests, scenario verifier native metadata/final subset, app builds, and warning scan.
-**Output**: `apple/unit-21c-app-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Entity/query/Shortcut contracts are covered by compiled tests or structured SDK blocker artifacts.
+### ⬜ Unit 21c: Recipe And Cookbook App Entities - Coverage & Refactor
+**What**: Run recipe/cookbook entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**Output**: `apple/unit-21c-recipe-cookbook-entities-green.log`, scenario report, and build logs.
+**Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or structured SDK blocker artifacts.
 
-### ⬜ Unit 22a: Entity-Backed Siri Intents And Confirmations - Tests
-**What**: Write failing Swift tests/static checks for entity-backed intents: open/search/share/start cook/continue cook/add shopping/check shopping/remove shopping/clear completed/add recipe ingredients/log cook/create capture/fork/save-to-cookbook/create cookbook/rename cookbook/delete cookbook/add recipe to cookbook/remove recipe from cookbook/profile open/notification preference update.
-**Output**: `Tests/SpoonjoyCoreTests/AppIntentActionTests.swift`, app static checks, and `apple/unit-22a-app-intents-red.log`.
-**Acceptance**: Tests fail before intents exist and assert confirmation/auth/ownership policy for all sensitive or destructive writes.
+### ⬜ Unit 21d: Shopping Spoon And Capture App Entities - Tests
+**What**: Write failing Swift tests/static AppIntents checks for shopping list, shopping item, spoon/cook-log, and capture draft entities, queries, display representations, transfer values, and cache-backed lookup.
+**Output**: `Tests/SpoonjoyCoreTests/ShoppingSpoonCaptureEntityTests.swift`, AppIntents static checks, and `apple/unit-21d-shopping-spoon-capture-entities-red.log`.
+**Acceptance**: Tests fail before shopping/spoon/capture entities exist and assert offline cached entity lookup.
 
-### ⬜ Unit 22b: Entity-Backed Siri Intents And Confirmations - Implementation
-**What**: Implement intent action resolvers, confirmations, authentication policy, ownership checks, request-value/disambiguation behavior, donations, relevant entities, and offline queue behavior for Siri-triggered writes.
+### ⬜ Unit 21e: Shopping Spoon And Capture App Entities - Implementation
+**What**: Implement shopping list/item, spoon/cook-log, and capture draft entity/query/display/transfer types using live cache repositories and guarded AppIntents symbols.
+**Output**: App Intents entity Swift files, core metadata updates, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 21d tests pass; shopping/spoon/capture entities resolve from live cached data and expose safe transfer values.
+
+### ⬜ Unit 21f: Shopping Spoon And Capture App Entities - Coverage & Refactor
+**What**: Run shopping/spoon/capture entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**Output**: `apple/unit-21f-shopping-spoon-capture-entities-green.log`, scenario report, and build logs.
+**Acceptance**: Shopping/spoon/capture entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+
+### ⬜ Unit 21g: Chef And Profile App Entities - Tests
+**What**: Write failing Swift tests/static AppIntents checks for chef/profile entities, profile lookup by username/id, display representation, disambiguation, transfer values, and profile route opening.
+**Output**: `Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift`, AppIntents static checks, and `apple/unit-21g-chef-profile-entities-red.log`.
+**Acceptance**: Tests fail before chef/profile entities exist and assert no follow/comment/feed semantics are exposed.
+
+### ⬜ Unit 21h: Chef And Profile App Entities - Implementation
+**What**: Implement chef/profile entity/query/display/transfer types using cached profile and chef graph data.
+**Output**: App Intents entity Swift files, core metadata updates, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 21g tests pass; chef/profile entities open existing profile surfaces only.
+
+### ⬜ Unit 21i: Chef And Profile App Entities - Coverage & Refactor
+**What**: Run chef/profile entity tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata subset, app build, and warning scan.
+**Output**: `apple/unit-21i-chef-profile-entities-green.log`, scenario report, and build logs.
+**Acceptance**: Chef/profile entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+
+### ⬜ Unit 21j: Spotlight App Shortcuts And Transfer Integration - Tests
+**What**: Write failing Swift tests/static checks for Spotlight documents, indexed identifiers, App Shortcuts provider phrases, entity donations, relevant entities, view annotations, and transfer/value representations across every shipped entity domain.
+**Output**: `Tests/SpoonjoyCoreTests/SpotlightShortcutTransferTests.swift`, AppIntents/CoreSpotlight static checks, and `apple/unit-21j-spotlight-shortcuts-red.log`.
+**Acceptance**: Tests fail before Spotlight/App Shortcuts integration uses live cached entities across all domains.
+
+### ⬜ Unit 21k: Spotlight App Shortcuts And Transfer Integration - Implementation
+**What**: Implement Spotlight indexing from live cached recipes, cookbooks, shopping items, spoons, chefs, profiles, and capture drafts; add App Shortcuts phrases, donations, relevant entities, and transfer/view annotations with SDK guards.
+**Output**: Updated `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, core metadata, scenario verifier updates, and structured SDK blocker artifacts for unavailable symbols.
+**Acceptance**: Unit 21j tests pass; Spotlight indexes live cached entities, including spoons/cook logs, not fixture-only data.
+
+### ⬜ Unit 21l: Spotlight App Shortcuts And Transfer Integration - Coverage & Refactor
+**What**: Run Spotlight/Shortcut/transfer tests, AppIntents static/AppIntentsTesting checks, Swift tests, scenario verifier native metadata/final subset, app builds, coverage enforcement, and warning scan.
+**Output**: `apple/unit-21l-spotlight-shortcuts-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Spotlight/Shortcut/transfer contracts are covered by compiled tests or structured SDK blocker artifacts.
+
+### ⬜ Unit 22a: Open Search Share And Cook Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for entity-backed open recipe, open cookbook, open profile, search Spoonjoy, share recipe, share cookbook, share shopping list, start cook mode, and continue cook mode intents.
+**Output**: `Tests/SpoonjoyCoreTests/OpenSearchShareCookIntentTests.swift`, AppIntents static checks, and `apple/unit-22a-open-search-share-cook-intents-red.log`.
+**Acceptance**: Tests fail before these intents exist and assert entity-backed parameters, disambiguation, transfer values, and no string-ID-only action paths.
+
+### ⬜ Unit 22b: Open Search Share And Cook Siri Intents - Implementation
+**What**: Implement open/search/share/cook intent resolvers, App Intent types, donations, relevant entities, and route/open URL behavior using entity queries and live cache.
+**Output**: App Intents source updates, core resolver updates, scenario verifier updates, and project generator updates.
+**Acceptance**: Unit 22a tests pass; read/open/share/cook intents do not require destructive confirmations but still honor auth/cache state.
+
+### ⬜ Unit 22c: Open Search Share And Cook Siri Intents - Coverage & Refactor
+**What**: Run focused open/search/share/cook intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22c-open-search-share-cook-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Open/search/share/cook intent contracts are covered by compiled tests or structured SDK blocker artifacts.
+
+### ⬜ Unit 22d: Shopping Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for add shopping item, check shopping item, remove shopping item, clear completed shopping items, and add recipe ingredients to shopping intents.
+**Output**: `Tests/SpoonjoyCoreTests/ShoppingIntentTests.swift`, AppIntents static checks, and `apple/unit-22d-shopping-intents-red.log`.
+**Acceptance**: Tests fail before shopping intents exist and assert confirmation/auth policy for remove/clear/add-from-recipe actions plus offline queue behavior.
+
+### ⬜ Unit 22e: Shopping Siri Intents - Implementation
+**What**: Implement shopping intent resolvers and App Intent types using shopping entities, mutation queue, REST v1 request builders, confirmations, and ownership/auth checks.
 **Output**: App Intents source updates, core resolver updates, cache/sync integration, and scenario verifier updates.
-**Acceptance**: Unit 22a tests pass; Siri writes use the same mutation queue and REST contracts as the app UI.
+**Acceptance**: Unit 22d tests pass; Siri shopping writes use the same mutation queue and REST contracts as app UI.
 
-### ⬜ Unit 22c: Entity-Backed Siri Intents And Confirmations - Coverage & Refactor
-**What**: Run focused intent action tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, and warning scan.
-**Output**: `apple/unit-22c-app-intents-green.log`, scenario report, and build logs.
-**Acceptance**: Intent contracts have no string-ID-only action paths and every destructive path has confirmation/auth evidence.
+### ⬜ Unit 22f: Shopping Siri Intents - Coverage & Refactor
+**What**: Run focused shopping intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22f-shopping-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Shopping intent contracts have confirmation/auth evidence for destructive paths and 100% measured resolver coverage.
+
+### ⬜ Unit 22g: Recipe Spoon And Capture Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for log cook, create capture draft, submit capture import, fork recipe, save recipe to cookbook, and owner recipe delete intent paths.
+**Output**: `Tests/SpoonjoyCoreTests/RecipeSpoonCaptureIntentTests.swift`, AppIntents static checks, and `apple/unit-22g-recipe-spoon-capture-intents-red.log`.
+**Acceptance**: Tests fail before these intents exist and assert confirmation/auth/ownership for fork, save, import submit, log cook, and delete actions.
+
+### ⬜ Unit 22h: Recipe Spoon And Capture Siri Intents - Implementation
+**What**: Implement recipe/spoon/capture intent resolvers and App Intent types using recipe, spoon, cookbook, and capture entities with offline queue and REST v1 contracts.
+**Output**: App Intents source updates, core resolver updates, cache/sync integration, and scenario verifier updates.
+**Acceptance**: Unit 22g tests pass; Siri recipe/spoon/capture writes use the same queue and backend contracts as the app UI.
+
+### ⬜ Unit 22i: Recipe Spoon And Capture Siri Intents - Coverage & Refactor
+**What**: Run focused recipe/spoon/capture intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22i-recipe-spoon-capture-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Recipe/spoon/capture intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+
+### ⬜ Unit 22j: Cookbook Profile Settings And Notification Siri Intents - Tests
+**What**: Write failing Swift tests/static checks for create cookbook, rename cookbook, delete cookbook, add recipe to cookbook, remove recipe from cookbook, profile open, notification preference update, API-token status open, and settings handoff intents.
+**Output**: `Tests/SpoonjoyCoreTests/CookbookProfileSettingsIntentTests.swift`, AppIntents static checks, and `apple/unit-22j-cookbook-profile-settings-intents-red.log`.
+**Acceptance**: Tests fail before these intents exist and assert confirmations/auth for cookbook mutations and notification preference updates.
+
+### ⬜ Unit 22k: Cookbook Profile Settings And Notification Siri Intents - Implementation
+**What**: Implement cookbook/profile/settings/notification intent resolvers and App Intent types using entities, live cache, REST v1 contracts, secure web handoff routes, and confirmation/auth policy.
+**Output**: App Intents source updates, core resolver updates, cache/sync integration, and scenario verifier updates.
+**Acceptance**: Unit 22j tests pass; settings/passkey/password/provider-link actions open exact secure web-auth handoff routes instead of fake native mutations.
+
+### ⬜ Unit 22l: Cookbook Profile Settings And Notification Siri Intents - Coverage & Refactor
+**What**: Run focused cookbook/profile/settings/notification intent tests, AppIntentsTesting/static checks, Swift tests, app builds, scenario verifier, coverage enforcement, and warning scan.
+**Output**: `apple/unit-22l-cookbook-profile-settings-intents-green.log`, scenario report, coverage logs, and build logs.
+**Acceptance**: Cookbook/profile/settings/notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
 **What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots.
@@ -430,7 +676,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 **Acceptance**: Docs/build/typecheck are green with zero warnings.
 
 ### ⬜ Unit 25a: Web Full Validation - Tests
-**What**: Run targeted red/green evidence audit for all web tests created in Units 1-10 and 24, ensuring artifacts exist for red and green phases and no touched endpoint lacks a matching test file.
+**What**: Run targeted red/green evidence audit for all web tests created in Units 1-10f and 24, ensuring artifacts exist for red and green phases and no touched endpoint lacks a matching test file.
 **Output**: `web/unit-25a-validation-audit.log`.
 **Acceptance**: Audit fails until every touched route/lib/doc contract has red and green artifacts in the task artifact directory.
 
@@ -481,3 +727,4 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 ## Progress Log
 
 - 2026-06-16 18:23 Created from planning doc.
+- 2026-06-16 18:33 Addressed granularity review findings by adding recipe import API units, splitting native surface/App Intents units, and adding dependency wave ownership.
