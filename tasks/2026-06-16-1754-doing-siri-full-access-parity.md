@@ -13,7 +13,7 @@
 - Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Unit 1b is orchestrator-only because it changes the shared REST contract registry. Spawn only disjoint backend workers by endpoint family after Unit 1b; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
 - Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, sync, and shell wiring; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, or project files through the orchestrator.
 - Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files.
-- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files. Units 21j-21l are orchestrator-only because they integrate Spotlight/App Shortcuts/transfer metadata across all entity domains.
+- Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files. Execute Wave 4 in this exact order, ignoring lexical/unit-label sort: 21a-21c, 21d-21f, 21m-21o, 21p-21r, 21g-21i, 21j-21l, 22a-22c, 22d-22f, 22g-22i, 22m-22o, 22p-22r, 22j-22l, 22s-22u, 22v-22x. Units 21j-21l are orchestrator-only because they integrate Spotlight/App Shortcuts/transfer metadata across all entity domains and must run after every entity-domain group.
 - Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. Units 23a-23c and 26a-27 are orchestrator-only. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
 - Spawned native workers must not edit orchestrator-owned shared paths directly: `Sources/SpoonjoyCore/AppState/**`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Apps/Spoonjoy/Shared/AppShell/**`, `Apps/Spoonjoy/Shared/Components/**`, `Apps/Spoonjoy/Shared/Design/**`, shared `Apps/Spoonjoy/Shared/Views/**` files used by multiple surface units, `Apps/Spoonjoy/Shared/Native/**`, `scripts/generate-xcode-project.rb`, `Spoonjoy.xcodeproj/**`, and `.github/workflows/**`. Workers produce feature-local files, tests, and patch notes; the orchestrator serializes shared-path integration commits.
 - Spawned-unit Output lines that mention scenario verifier updates, scenario metadata, project generator updates, project membership, route updates, core metadata updates, native capability metadata, shared App Intents files, shared Spotlight files, AppShell, shared Design, or shared Components mean feature-local patch notes only. The worker must write `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes/<unit-slug>.md` with `Needed shared paths`, `Expected tokens/tests`, and `Patch sketch`; the orchestrator applies those shared edits in a serialized integration commit before the unit's coverage/refactor step.
@@ -68,7 +68,7 @@ Bring Spoonjoy Apple to real native parity with the audited Spoonjoy web product
 
 ## Validation Command Matrix
 
-All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity`; commands run from `/Users/arimendelow/Projects/spoonjoy-apple`; `<unit-slug>` is the exact unit artifact stem already named in that unit's Output, such as `unit-17c-recipe-catalog-detail`.
+All native validation shorthand resolves through this matrix. Run `export ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity` before any matrix command; commands run from `/Users/arimendelow/Projects/spoonjoy-apple`; `<unit-slug>` is the exact unit artifact stem already named in that unit's Output, such as `unit-17c-recipe-catalog-detail`.
 
 - `swift-focused`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter <TestSuiteName> | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-test.log"`.
 - `swift-full`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-full.log"`.
@@ -101,10 +101,12 @@ Only these native blocker artifact capabilities are acceptable during execution:
 - AASA production blockers are produced only by `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT"` at `$ARTIFACT_ROOT/aasa-production-blocker.json`; consumers are Unit 20c and Unit 26b.
 - App Intents or Spotlight SDK blockers are produced only by orchestrator-owned App Intents integration units at `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-<domain>.json` with `capability: "AppIntentsSDK"` and `<domain>` equal to the `appintents-contract --domain` value; consumers are `appintents-contract`, `scenario:native-metadata`, Unit 21l/22 coverage units, and Unit 26b.
 - macOS launch blockers are produced only by `smoke-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` or by `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-macos-blocker.json`; consumers are Unit 23c and Unit 26b.
+- Apple Developer Program blockers are produced only by APNs/capability units at `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` with `capability: "AppleDeveloperProgram"`; consumers are Unit 19l, Unit 22x, and Unit 26b.
+- Provider secret blockers are produced only by provider-bound backend units at `$ARTIFACT_ROOT/web/provider-secret-blocker-<domain>.json` with `capability: "ProviderSecret"` and `<domain>` equal to `recipe-covers` or `recipe-import`; consumers are Unit 6c, Unit 10f, Unit 18f, Unit 18i, and Unit 26b.
 
 ## Web Command Matrix
 
-All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity`; commands run from `/Users/arimendelow/Projects/spoonjoy-v2`; `<unit-slug>` is the exact unit artifact stem already named in that unit's Output, such as `unit-4c-recipe-writes`.
+All web validation shorthand resolves through this matrix. Run `export ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity` before any matrix command; commands run from `/Users/arimendelow/Projects/spoonjoy-v2`; `<unit-slug>` is the exact unit artifact stem already named in that unit's Output, such as `unit-4c-recipe-writes`.
 
 - `web-focused`: `pnpm exec vitest run <test-files> --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-vitest.log"`.
 - `web-route-coverage`: `pnpm exec vitest run test/config/api-v1-route-coverage.test.ts --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-route-coverage.log"`.
@@ -205,19 +207,19 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Touched step/dependency code has 100% coverage and no warnings.
 
 ### ⬜ Unit 6a: Recipe Image And Cover Lifecycle API - Tests
-**What**: Write failing tests for `POST /api/v1/recipes/{id}/image`, cover list/create/set/remove/archive/regenerate/from-spoon endpoints, owner checks, source variants, failure states, malformed uploads, and no-production-secret behavior for AI generation.
+**What**: Write failing tests for `POST /api/v1/recipes/{id}/image`, cover list/create/set/remove/archive/regenerate/from-spoon endpoints, owner checks, source variants, failure states, malformed uploads, and no-production-secret behavior for AI generation, including `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json`.
 **Output**: `test/routes/api-v1-recipe-covers.test.ts` and `web/unit-6a-covers-red.log`.
 **Acceptance**: Tests fail before v1 handlers exist and assert exact cover history response shapes, upload constraints, and structured AI/provider blocker responses for missing local secrets.
 
 ### ⬜ Unit 6b: Recipe Image And Cover Lifecycle API - Implementation
 **What**: Implement image/cover handlers using `app/lib/image-storage.server.ts`, `app/lib/recipe-cover.server.ts`, `app/lib/recipe-image-assignment.server.ts`, spoon cover helpers, and background task boundaries.
-**Output**: API handlers, docs/OpenAPI schemas, and tested no-secret behavior.
-**Acceptance**: Unit 6a tests pass; upload, active cover, archive, regenerate, and spoon-cover flows match web behavior.
+**Output**: API handlers, docs/OpenAPI schemas, tested no-secret behavior, and `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` when local provider secrets are unavailable.
+**Acceptance**: Unit 6a tests pass; upload, active cover, archive, regenerate, and spoon-cover flows match web behavior; missing provider secrets emit only the canonical `ProviderSecret` blocker for `recipe-covers`.
 
 ### ⬜ Unit 6c: Recipe Image And Cover Lifecycle API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-covers.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
 **Output**: Web Command Matrix artifacts for `unit-6c-covers`.
-**Acceptance**: Touched cover/image code has 100% coverage and every provider/blocker/error branch is tested.
+**Acceptance**: Touched cover/image code has 100% coverage and every provider/blocker/error branch is tested, including `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 7a: Spoon Cook Log API - Tests
 **What**: Write failing tests for `GET/POST/PATCH/DELETE /api/v1/recipes/{id}/spoons/{spoonId?}` covering list pagination, create, update, delete, photo URL/upload contract, note/nextTime/cookedAt validation, owner checks, origin-cook notification flags, deleted spoons, and cover-from-spoon integration.
@@ -280,19 +282,19 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Touched sync code has 100% coverage, including invalid cursors, empty states, and tombstone-only pages.
 
 ### ⬜ Unit 10d: Recipe Import API - Tests
-**What**: Write failing tests for `POST /api/v1/recipes/import` covering URL import, text import, JSON-LD import, video URL import, local no-provider-secret behavior, duplicate title behavior, validation errors, auth/scope failures, idempotency replay/conflict, and exact capture/import response envelopes.
+**What**: Write failing tests for `POST /api/v1/recipes/import` covering URL import, text import, JSON-LD import, video URL import, local no-provider-secret behavior through `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-import.json`, duplicate title behavior, validation errors, auth/scope failures, idempotency replay/conflict, and exact capture/import response envelopes.
 **Output**: `test/routes/api-v1-recipe-import.test.ts` and `web/unit-10d-recipe-import-red.log`.
 **Acceptance**: Tests fail before the REST v1 import handler exists and assert the outbound/native contract that capture drafts will call.
 
 ### ⬜ Unit 10e: Recipe Import API - Implementation
 **What**: Implement `POST /api/v1/recipes/import` using existing import helpers in `app/lib/recipe-import*.server.ts`, recipe creation helpers, v1 idempotency helpers, request body limits, and structured provider-secret blocker responses.
-**Output**: Import API handler, serializers, docs/OpenAPI schemas, and generated playground examples.
-**Acceptance**: Unit 10d tests pass; missing AI/provider secrets return a tested structured response rather than silently pretending import completed.
+**Output**: Import API handler, serializers, docs/OpenAPI schemas, generated playground examples, and `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-import.json` when local provider secrets are unavailable.
+**Acceptance**: Unit 10d tests pass; missing AI/provider secrets return only the canonical `ProviderSecret` blocker for `recipe-import` rather than silently pretending import completed.
 
 ### ⬜ Unit 10f: Recipe Import API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-import.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
 **Output**: Web Command Matrix artifacts for `unit-10f-recipe-import`.
-**Acceptance**: Touched import API code has 100% coverage, including invalid URL/text, provider failure, replay, conflict, auth, scope, and duplicate-title branches.
+**Acceptance**: Touched import API code has 100% coverage, including invalid URL/text, provider failure, `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-import.json`, replay, conflict, auth, scope, and duplicate-title branches.
 
 ### ⬜ Unit 11a: Native Request Builders For Expanded REST V1 - Tests
 **What**: In `spoonjoy-apple`, write failing Swift tests for request builders covering every new backend endpoint, auth policy, JSON/form/multipart bodies, idempotency keys, query/cursor handling, private/public cache metadata, and error envelope decoding.
@@ -472,7 +474,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 18f: Native Cover Controls - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CoverControlSurfaceTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: Validation Command Matrix artifacts for `unit-18f-cover-controls`.
-**Acceptance**: Cover-control view-model logic has 100% measured coverage and every provider/blocker state is visible.
+**Acceptance**: Cover-control view-model logic has 100% measured coverage and every provider/blocker state is visible, including the canonical `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-covers.json` state when present.
 
 ### ⬜ Unit 18g: Native Capture And Import - Tests
 **What**: Write failing Swift tests/static checks for capture draft URL/text/camera/share-sheet intake, local draft persistence, import submission to `POST /api/v1/recipes/import`, provider-secret blocker handling, imported recipe routing, and offline retry.
@@ -487,7 +489,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 18i: Native Capture And Import - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CaptureImportSurfaceTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: Validation Command Matrix artifacts for `unit-18i-capture-import`.
-**Acceptance**: Capture/import view-model logic has 100% measured coverage and no import path bypasses the backend contract.
+**Acceptance**: Capture/import view-model logic has 100% measured coverage and no import path bypasses the backend contract, including the canonical `$ARTIFACT_ROOT/web/provider-secret-blocker-recipe-import.json` state when present.
 
 ### ⬜ Unit 18j: Native Sharing Payloads - Tests
 **What**: Write failing Swift tests/static checks for recipe, cookbook, shopping-list, spoon, and capture-draft share payloads, public URL generation, `ShareLink` presentation state, transfer values for Shortcuts/Siri, and share-sheet destination neutrality.
@@ -550,19 +552,19 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Settings/token/connection view-model logic has 100% measured coverage and all destructive actions have confirmation evidence.
 
 ### ⬜ Unit 19j: Native Notification Preferences And APNs State - Tests
-**What**: Write failing Swift tests/static checks for notification preference reads/writes, APNs registration status, APNs device register/revoke request flow, missing Developer Program blocker display, permission denial display, and offline cached preferences.
+**What**: Write failing Swift tests/static checks for notification preference reads/writes, APNs registration status, APNs device register/revoke request flow, missing Developer Program blocker display from `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json`, permission denial display, and offline cached preferences.
 **Output**: `Tests/SpoonjoyCoreTests/NotificationAPNsSurfaceTests.swift`, notification surface checks, and `apple/unit-19j-notifications-red.log`.
 **Acceptance**: Tests fail before notification/APNs parity exists and assert production APNs delivery is represented only as a structured account/team blocker.
 
 ### ⬜ Unit 19k: Native Notification Preferences And APNs State - Implementation
 **What**: Implement notification preference UI, APNs registration-state UI, device registration/revocation request plumbing, and blocker artifact display for missing Apple Developer Program/team capability.
-**Output**: Notification settings Swift files/view models and `apple/integration-notes/unit-19k-notifications.md` for orchestrator-applied scenario verifier and project membership updates.
-**Acceptance**: Unit 19j tests pass; preference APIs are native REST-backed and production APNs delivery remains blocked only by Apple account/team capability.
+**Output**: Notification settings Swift files/view models, `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` when Apple account/team capability is unavailable, and `apple/integration-notes/unit-19k-notifications.md` for orchestrator-applied scenario verifier and project membership updates.
+**Acceptance**: Unit 19j tests pass; preference APIs are native REST-backed and production APNs delivery remains blocked only by the canonical `AppleDeveloperProgram` blocker.
 
 ### ⬜ Unit 19l: Native Notification Preferences And APNs State - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NotificationAPNsSurfaceTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
 **Output**: Validation Command Matrix artifacts for `unit-19l-notifications`.
-**Acceptance**: Notification/APNs view-model logic has 100% measured coverage and no test pretends TestFlight/APNs production delivery is available.
+**Acceptance**: Notification/APNs view-model logic has 100% measured coverage, `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` matches the Blocker Artifact Contract when produced, and no test pretends TestFlight/APNs production delivery is available.
 
 ### ⬜ Unit 20a: Universal Links Routes And AASA Contract - Tests
 **What**: Write failing Swift and web tests for every `spoonjoy.app` route and `spoonjoy://` fallback route needed by native parity, including profiles, fellow chefs, kitchen visitors, account sections, notification preferences, API credentials, cookbook actions, spoon logging, covers, shopping clear/add-from-recipe, search, capture, and OAuth redirect.
@@ -782,12 +784,12 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 22w: Notification Preference Siri Intents - Implementation
 **What**: Implement notification preference intent resolvers and App Intent types using REST v1 preference contracts and APNs capability blocker state.
 **Output**: Notification intent source/resolver updates, feature-local cache/sync patch notes, and `apple/integration-notes/unit-22w-notification-intents.md` for orchestrator-applied scenario verifier and shared App Intents registrar updates.
-**Acceptance**: Unit 22v tests pass; notification preference writes use the same backend contracts as settings UI.
+**Acceptance**: Unit 22v tests pass; notification preference writes use the same backend contracts as settings UI and consume the same canonical `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` capability state.
 
 ### ⬜ Unit 22x: Notification Preference Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NotificationIntentTests`, `appintents-contract` with `--domain notification-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: Validation Command Matrix artifacts for `unit-22x-notification-intents`.
-**Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-notification-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage, including `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` handling when APNs account/team capability is unavailable, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-notification-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
 **What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots; checks must use or extend Validation Command Matrix entries `design-contract`, `screenshots`, and `design-review`.
@@ -842,7 +844,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 ### ⬜ Unit 26b: Native Full Validation - Implementation
 **What**: Run Validation Command Matrix entry `native-final-matrix`; if any matrix step fails, fix it with tests-first sub-units. If the only failure is that `validate-native-local.sh` rejects a JSON blocker capability allowed by the Blocker Artifact Contract, first add tests for that blocker-capability acceptance, update `validate-native-local.sh`, then rerun `native-final-matrix`.
 **Output**: Native full validation matrix and command logs under `apple/` and the task artifact root.
-**Acceptance**: All native commands pass or produce JSON matching the Blocker Artifact Contract with capability limited to `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, or `ProviderSecret`.
+**Acceptance**: All native commands pass or produce JSON matching the Blocker Artifact Contract with capability limited to `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, or `ProviderSecret`; `AppleDeveloperProgram` and `ProviderSecret` blockers use only the canonical paths named in the Blocker Artifact Contract.
 
 ### ⬜ Unit 26c: Native Full Validation - Coverage & Refactor
 **What**: Run harsh native design, offline/sync, App Intents, and implementation reviewers against the final native diff and validation artifacts.
@@ -879,3 +881,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 19:08 Addressed ambiguity review findings by adding macOS build/smoke blocker policy, routing AASA web validation through `web-focused`, and adding a `design-review` matrix entry.
 - 2026-06-16 19:13 Addressed ambiguity review findings by adding a Blocker Artifact Contract, defining AASA/AppIntents/macOS blocker producers and consumers, and aligning Unit 23c/26b acceptance with that contract.
 - 2026-06-16 19:20 Addressed ambiguity review findings by canonicalizing App Intents SDK blocker filenames and making matrix artifact names authoritative for validation outputs.
+- 2026-06-16 19:27 Addressed ambiguity review findings by forcing Wave 4 execution order, requiring exported `ARTIFACT_ROOT`, and canonicalizing Apple Developer Program/provider-secret blocker paths across producers and consumers.
