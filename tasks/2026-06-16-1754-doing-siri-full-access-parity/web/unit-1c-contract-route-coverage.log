@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/config/api-v1-route-coverage.test.ts (3 tests) 162ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  23:04:31
+   Duration  1.54s (transform 266ms, setup 385ms, import 60ms, tests 162ms, environment 717ms)
+
