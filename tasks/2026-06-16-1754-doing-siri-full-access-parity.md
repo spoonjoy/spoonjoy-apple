@@ -99,7 +99,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 Only these native blocker artifact capabilities are acceptable during execution: `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, and `ProviderSecret`. Every blocker artifact must be JSON with `blocked: true`, `capability`, `command`, `outputPath`, `reason`, and `ownerAction`; app-build/smoke blockers also include `timeoutSeconds`; SDK blockers also include `sdkSymbol`, `requiredAvailability`, and `fallbackBehavior`.
 
 - AASA production blockers are produced only by `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT"` at `$ARTIFACT_ROOT/aasa-production-blocker.json`; consumers are Unit 20c and Unit 26b.
-- App Intents or Spotlight SDK blockers are produced only by orchestrator-owned App Intents integration units at `$ARTIFACT_ROOT/apple/<unit-slug>-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"`; consumers are `appintents-contract`, `scenario:native-metadata`, Unit 21l/22 coverage units, and Unit 26b.
+- App Intents or Spotlight SDK blockers are produced only by orchestrator-owned App Intents integration units at `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-<domain>.json` with `capability: "AppIntentsSDK"` and `<domain>` equal to the `appintents-contract --domain` value; consumers are `appintents-contract`, `scenario:native-metadata`, Unit 21l/22 coverage units, and Unit 26b.
 - macOS launch blockers are produced only by `smoke-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` or by `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-macos-blocker.json`; consumers are Unit 23c and Unit 26b.
 
 ## Web Command Matrix
@@ -114,6 +114,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 - `web-build`: `pnpm run build | tee "$ARTIFACT_ROOT/web/<unit-slug>-build.log"`.
 - `web-coverage-full`: `pnpm run test:coverage | tee "$ARTIFACT_ROOT/web/<unit-slug>-coverage.log"`.
 - `web-warning-scan`: `bash -lc 'set -o pipefail; shopt -s nullglob; logs=("$ARTIFACT_ROOT/web/<unit-slug>"*.log); [[ ${#logs[@]} -gt 0 ]] || { echo "no logs found for <unit-slug>"; exit 1; }; if rg -n "\\b(warning|WARN)\\b" "${logs[@]}"; then exit 1; fi' | tee "$ARTIFACT_ROOT/web/<unit-slug>-warning-scan.log"`.
+
+Matrix-generated log and JSON names are authoritative for validation artifacts. Unit `Output` lines may also name summary files, changed source files, or human-readable review documents, but artifact audits must verify the matrix-generated paths above when a unit lists a matrix entry in `What`.
 
 ## Work Units
 
@@ -139,7 +141,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 1c: REST V1 Contract Registry - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/config/api-v1-route-coverage.test.ts test/routes/api-v1-openapi.test.ts test/lib/api-v1-openapi.server.test.ts test/scripts/generate-api-playground.test.ts test/docs/developer-platform-docs.test.ts test/docs/developer-platform-guide.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, and `web-warning-scan`.
-**Output**: `web/unit-1c-contract-green.log`, `web/unit-1c-typecheck.log`, and drift summary.
+**Output**: Web Command Matrix artifacts for `unit-1c-contract`.
 **Acceptance**: Contract tests pass, typecheck passes, route coverage fails on any future contract/resource mismatch, and generated docs contain native OAuth/token guidance.
 
 ### ⬜ Unit 2a: Native Bootstrap And Account API - Tests
@@ -154,7 +156,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 2c: Native Bootstrap And Account API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-me.test.ts test/routes/api-v1-tokens.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-2c-account-coverage.log`, `web/unit-2c-typecheck.log`, and coverage summary.
+**Output**: Web Command Matrix artifacts for `unit-2c-account`.
 **Acceptance**: New account/bootstrap/token code has 100% branch/error coverage, zero warnings, and no stale generated playground output.
 
 ### ⬜ Unit 3a: Profile, Chef Graph, And Search API - Tests
@@ -169,7 +171,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 3c: Profile, Chef Graph, And Search API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-users-search.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-3c-users-search-green.log`, `web/unit-3c-typecheck.log`, and `web/unit-3c-users-search-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-3c-users-search`.
 **Acceptance**: Touched profile/search code has 100% coverage, no warnings, and exact docs/OpenAPI examples.
 
 ### ⬜ Unit 4a: Recipe Create Update Delete Fork API - Tests
@@ -184,7 +186,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 4c: Recipe Create Update Delete Fork API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-writes.test.ts test/lib/api-idempotency.server.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-4c-recipe-writes-green.log`, `web/unit-4c-typecheck.log`, and `web/unit-4c-recipe-writes-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-4c-recipe-writes`.
 **Acceptance**: Touched recipe write code has 100% coverage, all idempotency paths are covered, and generated docs match implemented handlers.
 
 ### ⬜ Unit 5a: Recipe Step Ingredient Dependency API - Tests
@@ -199,7 +201,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 5c: Recipe Step Ingredient Dependency API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-steps.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-5c-recipe-steps-green.log`, `web/unit-5c-typecheck.log`, and `web/unit-5c-recipe-steps-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-5c-recipe-steps`.
 **Acceptance**: Touched step/dependency code has 100% coverage and no warnings.
 
 ### ⬜ Unit 6a: Recipe Image And Cover Lifecycle API - Tests
@@ -214,7 +216,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 6c: Recipe Image And Cover Lifecycle API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-covers.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-6c-covers-green.log`, `web/unit-6c-typecheck.log`, and `web/unit-6c-covers-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-6c-covers`.
 **Acceptance**: Touched cover/image code has 100% coverage and every provider/blocker/error branch is tested.
 
 ### ⬜ Unit 7a: Spoon Cook Log API - Tests
@@ -229,7 +231,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 7c: Spoon Cook Log API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-spoons.test.ts test/lib/spoonjoy-api-spoons.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-7c-spoons-green.log`, `web/unit-7c-typecheck.log`, and `web/unit-7c-spoons-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-7c-spoons`.
 **Acceptance**: Touched spoon API code has 100% coverage and deleted/owner/error branches are covered.
 
 ### ⬜ Unit 8a: Cookbook Write API - Tests
@@ -244,7 +246,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 8c: Cookbook Write API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-cookbook-writes.test.ts test/lib/spoonjoy-api-cookbook-notification.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-8c-cookbook-writes-green.log`, `web/unit-8c-typecheck.log`, and `web/unit-8c-cookbook-writes-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-8c-cookbook-writes`.
 **Acceptance**: Touched cookbook API code has 100% coverage and all idempotency branches are tested.
 
 ### ⬜ Unit 9a: Shopping Parity API - Tests
@@ -259,7 +261,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 9c: Shopping Parity API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-shopping-mutations.test.ts test/routes/api-v1-shopping-conflicts.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-9c-shopping-parity-green.log`, `web/unit-9c-typecheck.log`, and `web/unit-9c-shopping-parity-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-9c-shopping-parity`.
 **Acceptance**: Touched shopping API code has 100% coverage and no regressions in existing idempotent item mutations.
 
 ### ⬜ Unit 10a: Private Sync Tombstone Freshness API - Tests
@@ -274,7 +276,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 10c: Private Sync Tombstone Freshness API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-native-sync.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-10c-sync-green.log`, `web/unit-10c-typecheck.log`, and `web/unit-10c-sync-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-10c-sync`.
 **Acceptance**: Touched sync code has 100% coverage, including invalid cursors, empty states, and tombstone-only pages.
 
 ### ⬜ Unit 10d: Recipe Import API - Tests
@@ -289,7 +291,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 10f: Recipe Import API - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-import.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
-**Output**: `web/unit-10f-recipe-import-green.log`, `web/unit-10f-typecheck.log`, and `web/unit-10f-recipe-import-coverage.log`.
+**Output**: Web Command Matrix artifacts for `unit-10f-recipe-import`.
 **Acceptance**: Touched import API code has 100% coverage, including invalid URL/text, provider failure, replay, conflict, auth, scope, and duplicate-title branches.
 
 ### ⬜ Unit 11a: Native Request Builders For Expanded REST V1 - Tests
@@ -319,7 +321,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 12c: Native URLSession Transport And Error Pipeline - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `APITransportTests`, `swift-full`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-12c-transport-green.log`, `apple/unit-12c-coverage.log`, and warning log.
+**Output**: `apple/unit-12c-transport-green.log`, `apple/unit-12c-transport-coverage-test.log`, `apple/unit-12c-transport-coverage-enforce.log`, and `apple/unit-12c-transport-warning-scan.log`.
 **Acceptance**: Transport code has 100% measured coverage and no warnings.
 
 ### ⬜ Unit 13a: Native OAuth, Keychain, And Session Store - Tests
@@ -379,7 +381,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `scenario:surfaces`, `project-contract`, `xcodebuild-macos`, and `warning-scan`.
-**Output**: `apple/unit-16c-live-store-green.log`, scenario report, and build logs.
+**Output**: Validation Command Matrix artifacts for `unit-16c-live-store`.
 **Acceptance**: Store logic has 100% measured coverage and app target static/screenshot checks cover non-SwiftPM shell adapters.
 
 ### ⬜ Unit 17a: Native Recipe Catalog And Detail - Tests
@@ -394,7 +396,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 17c: Native Recipe Catalog And Detail - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `RecipeCatalogDetailTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-17c-recipe-catalog-detail-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-17c-recipe-catalog-detail`.
 **Acceptance**: Catalog/detail view-model code has 100% measured coverage and static/screenshot checks preserve Kitchen Table hierarchy.
 
 ### ⬜ Unit 17d: Native Cook Mode - Tests
@@ -409,7 +411,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 17f: Native Cook Mode - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CookModeParityTests`, `swift-full`, `surface:cook-shopping`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-17f-cook-mode-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-17f-cook-mode`.
 **Acceptance**: Cook-mode logic has 100% measured coverage and no timer/checkoff branch lacks tests.
 
 ### ⬜ Unit 17g: Native Recipe Editor - Tests
@@ -424,7 +426,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 17i: Native Recipe Editor - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `RecipeEditorParityTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-17i-recipe-editor-green.log`, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-17i-recipe-editor`.
 **Acceptance**: Editor view-model code has 100% measured coverage and all validation/conflict/error states are tested.
 
 ### ⬜ Unit 17j: Native Recipe Actions - Tests
@@ -439,7 +441,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 17l: Native Recipe Actions - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `RecipeActionParityTests`, `swift-full`, `surface:recipe`, `surface:cook-shopping`, `scenario:surfaces`, `coverage`, `screenshots`, and `warning-scan`.
-**Output**: `apple/unit-17l-recipe-actions-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-17l-recipe-actions`.
 **Acceptance**: Recipe action logic has 100% measured coverage and does not introduce comments/feed/reactions.
 
 ### ⬜ Unit 18a: Native Spoon Cook Logs - Tests
@@ -454,7 +456,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 18c: Native Spoon Cook Logs - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SpoonCookLogSurfaceTests`, `swift-full`, `surface:recipe`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-18c-spoon-logs-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-18c-spoon-logs`.
 **Acceptance**: Spoon view-model logic has 100% measured coverage and deleted/owner/conflict states are tested.
 
 ### ⬜ Unit 18d: Native Cover Controls - Tests
@@ -469,7 +471,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 18f: Native Cover Controls - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CoverControlSurfaceTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-18f-cover-controls-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-18f-cover-controls`.
 **Acceptance**: Cover-control view-model logic has 100% measured coverage and every provider/blocker state is visible.
 
 ### ⬜ Unit 18g: Native Capture And Import - Tests
@@ -484,7 +486,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 18i: Native Capture And Import - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CaptureImportSurfaceTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-18i-capture-import-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-18i-capture-import`.
 **Acceptance**: Capture/import view-model logic has 100% measured coverage and no import path bypasses the backend contract.
 
 ### ⬜ Unit 18j: Native Sharing Payloads - Tests
@@ -499,7 +501,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 18l: Native Sharing Payloads - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeSharingTests`, `swift-full`, `surface:recipe`, `surface:cook-shopping`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-18l-sharing-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-18l-sharing`.
 **Acceptance**: Sharing logic has 100% measured coverage and all generated public URLs route through `spoonjoy.app`.
 
 ### ⬜ Unit 19a: Native Cookbook Surfaces - Tests
@@ -514,7 +516,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 19c: Native Cookbook Surfaces - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CookbookSurfaceParityTests`, `swift-full`, `surface:recipe`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-19c-cookbooks-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-19c-cookbooks`.
 **Acceptance**: Cookbook view-model logic has 100% measured coverage and UI uses platform-correct native controls.
 
 ### ⬜ Unit 19d: Native Profile And Chef Graph Surfaces - Tests
@@ -529,7 +531,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 19f: Native Profile And Chef Graph Surfaces - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ProfileChefGraphSurfaceTests`, `swift-full`, `surface:recipe`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-19f-profiles-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-19f-profiles`.
 **Acceptance**: Profile view-model logic has 100% measured coverage and deleted/private object states are tested.
 
 ### ⬜ Unit 19g: Native Settings Tokens And Connections - Tests
@@ -544,7 +546,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 19i: Native Settings Tokens And Connections - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SettingsTokenConnectionTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-19i-settings-tokens-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-19i-settings-tokens`.
 **Acceptance**: Settings/token/connection view-model logic has 100% measured coverage and all destructive actions have confirmation evidence.
 
 ### ⬜ Unit 19j: Native Notification Preferences And APNs State - Tests
@@ -559,7 +561,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 19l: Native Notification Preferences And APNs State - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NotificationAPNsSurfaceTests`, `swift-full`, `surface:search-capture-settings`, `scenario:surfaces`, `screenshots`, `coverage`, and `warning-scan`.
-**Output**: `apple/unit-19l-notifications-green.log`, screenshot artifacts, coverage logs, and scenario report.
+**Output**: Validation Command Matrix artifacts for `unit-19l-notifications`.
 **Acceptance**: Notification/APNs view-model logic has 100% measured coverage and no test pretends TestFlight/APNs production delivery is available.
 
 ### ⬜ Unit 20a: Universal Links Routes And AASA Contract - Tests
@@ -589,8 +591,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21c: Recipe And Cookbook App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `RecipeCookbookEntityTests`, `appintents-contract` with `--domain recipe-cookbook`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-21c-recipe-cookbook-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21c-recipe-cookbook-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-21c-recipe-cookbook-entities`.
+**Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-recipe-cookbook.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21d: Shopping App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for shopping list and shopping item entities, queries, display representations, transfer values, and cache-backed lookup.
@@ -604,8 +606,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21f: Shopping App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ShoppingEntityTests`, `appintents-contract` with `--domain shopping`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-21f-shopping-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Shopping entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21f-shopping-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-21f-shopping-entities`.
+**Acceptance**: Shopping entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-shopping.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21m: Spoon Cook Log App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for spoon/cook-log entities, queries, display representations, transfer values, recipe relationship metadata, and cache-backed lookup.
@@ -619,8 +621,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21o: Spoon Cook Log App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SpoonEntityTests`, `appintents-contract` with `--domain spoon`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-21o-spoon-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Spoon entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21o-spoon-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-21o-spoon-entities`.
+**Acceptance**: Spoon entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-spoon.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21p: Capture Draft App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for capture draft entities, queries, display representations, transfer values, import-submission relationship metadata, and local-cache lookup.
@@ -634,8 +636,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21r: Capture Draft App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CaptureDraftEntityTests`, `appintents-contract` with `--domain capture-draft`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-21r-capture-draft-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Capture draft entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21r-capture-draft-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-21r-capture-draft-entities`.
+**Acceptance**: Capture draft entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-capture-draft.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21g: Chef And Profile App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for chef/profile entities, profile lookup by username/id, display representation, disambiguation, transfer values, and profile route opening.
@@ -649,8 +651,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21i: Chef And Profile App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ChefProfileEntityTests`, `appintents-contract` with `--domain chef-profile`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-21i-chef-profile-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Chef/profile entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21i-chef-profile-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-21i-chef-profile-entities`.
+**Acceptance**: Chef/profile entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-chef-profile.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21j: Spotlight App Shortcuts And Transfer Integration - Tests
 **What**: Write failing Swift tests/static checks for Spotlight documents, indexed identifiers, App Shortcuts provider phrases, entity donations, relevant entities, view annotations, and transfer/value representations across every shipped entity domain.
@@ -659,13 +661,13 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21k: Spotlight App Shortcuts And Transfer Integration - Implementation
 **What**: Implement Spotlight indexing from live cached recipes, cookbooks, shopping items, spoons, chefs, profiles, and capture drafts; add App Shortcuts phrases, donations, relevant entities, and transfer/view annotations with SDK guards.
-**Output**: Orchestrator-applied updates to `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, native capability metadata, scenario verifier, and `$ARTIFACT_ROOT/apple/unit-21k-spotlight-shortcuts-appintents-sdk-blocker.json` if SDK symbols are unavailable.
+**Output**: Orchestrator-applied updates to `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, native capability metadata, scenario verifier, and `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-spotlight-shortcuts.json` if SDK symbols are unavailable.
 **Acceptance**: Unit 21j tests pass; Spotlight indexes live cached entities, including spoons/cook logs, not fixture-only data.
 
 ### ⬜ Unit 21l: Spotlight App Shortcuts And Transfer Integration - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SpotlightShortcutTransferTests`, `appintents-contract` with `--domain spotlight-shortcuts`, `scenario:native-metadata`, `scenario:final`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-21l-spotlight-shortcuts-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Spotlight/Shortcut/transfer contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21l-spotlight-shortcuts-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-21l-spotlight-shortcuts`.
+**Acceptance**: Spotlight/Shortcut/transfer contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-spotlight-shortcuts.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22a: Open Search Share And Cook Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for entity-backed open recipe, open cookbook, open profile, search Spoonjoy, share recipe, share cookbook, share shopping list, start cook mode, and continue cook mode intents.
@@ -679,8 +681,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22c: Open Search Share And Cook Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `OpenSearchShareCookIntentTests`, `appintents-contract` with `--domain open-search-share-cook`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22c-open-search-share-cook-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Open/search/share/cook intent contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-22c-open-search-share-cook-intents-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
+**Output**: Validation Command Matrix artifacts for `unit-22c-open-search-share-cook-intents`.
+**Acceptance**: Open/search/share/cook intent contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-open-search-share-cook.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22d: Shopping Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for add shopping item, check shopping item, remove shopping item, clear completed shopping items, and add recipe ingredients to shopping intents.
@@ -694,8 +696,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22f: Shopping Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ShoppingIntentTests`, `appintents-contract` with `--domain shopping-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22f-shopping-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Shopping intent contracts have confirmation/auth evidence for destructive paths and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22f-shopping-intents`.
+**Acceptance**: Shopping intent contracts have confirmation/auth evidence for destructive paths and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-shopping-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22g: Recipe Action Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for fork recipe, save recipe to cookbook, remove recipe from cookbook, add recipe ingredients to shopping from recipe context, and owner recipe delete intent paths.
@@ -709,8 +711,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22i: Recipe Action Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `RecipeActionIntentTests`, `appintents-contract` with `--domain recipe-action`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22i-recipe-action-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Recipe action intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22i-recipe-action-intents`.
+**Acceptance**: Recipe action intent contracts have confirmation/auth evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-recipe-action.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22m: Spoon Cook Log Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for log cook, edit cook log, delete cook log, and create cover from spoon intent paths.
@@ -724,8 +726,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22o: Spoon Cook Log Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SpoonIntentTests`, `appintents-contract` with `--domain spoon-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22o-spoon-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Spoon intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22o-spoon-intents`.
+**Acceptance**: Spoon intent contracts have confirmation/auth evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-spoon-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22p: Capture Import Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for create capture draft, submit capture import, open capture draft, and discard capture draft intent paths.
@@ -739,8 +741,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22r: Capture Import Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CaptureImportIntentTests`, `appintents-contract` with `--domain capture-import-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22r-capture-import-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Capture/import intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22r-capture-import-intents`.
+**Acceptance**: Capture/import intent contracts have confirmation/auth evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-capture-import-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22j: Cookbook Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for create cookbook, rename cookbook, delete cookbook, add recipe to cookbook, and remove recipe from cookbook intent paths.
@@ -754,8 +756,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22l: Cookbook Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CookbookIntentTests`, `appintents-contract` with `--domain cookbook-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22l-cookbook-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Cookbook intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22l-cookbook-intents`.
+**Acceptance**: Cookbook intent contracts have confirmation/auth evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-cookbook-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22s: Profile And Settings Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for profile open, API-token status open, settings open, account connection open, and passkey/password/provider-link secure web handoff intents.
@@ -769,8 +771,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22u: Profile And Settings Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ProfileSettingsIntentTests`, `appintents-contract` with `--domain profile-settings-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22u-profile-settings-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Profile/settings intent contracts have route/handoff evidence and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22u-profile-settings-intents`.
+**Acceptance**: Profile/settings intent contracts have route/handoff evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-profile-settings-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22v: Notification Preference Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for notification preference read/update intents and APNs status open intent.
@@ -784,8 +786,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 22x: Notification Preference Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NotificationIntentTests`, `appintents-contract` with `--domain notification-intents`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
-**Output**: `apple/unit-22x-notification-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage.
+**Output**: Validation Command Matrix artifacts for `unit-22x-notification-intents`.
+**Acceptance**: Notification intent contracts have confirmation/auth evidence and 100% measured resolver coverage, or `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-notification-intents.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 23a: Native Design Accessibility And Visual Validation - Tests
 **What**: Add failing design/accessibility static checks for dynamic type, VoiceOver labels, keyboard navigation, reduce motion, contrast, no text overlap, Spoonjoy Kitchen Table hierarchy, mobile screenshots, and desktop screenshots; checks must use or extend Validation Command Matrix entries `design-contract`, `screenshots`, and `design-review`.
@@ -799,7 +801,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 23c: Native Design Accessibility And Visual Validation - Coverage & Refactor
 **What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `design-review`, `scenario:final`, `project-contract`, `swift-full`, `xcodebuild-ios`, `xcodebuild-macos`, `smoke-ios`, `smoke-macos`, and `warning-scan`.
-**Output**: `apple/unit-23c-design-green.log`, screenshots, and `design-review.json`.
+**Output**: Validation Command Matrix artifacts for `unit-23c-design`.
 **Acceptance**: Design/accessibility validation is green or blocked only by `CoreSimulator`, `XcodePlatform`, or `MacOSLaunch` JSON matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 24a: API Documentation And Native Dogfood Guide - Tests
@@ -814,7 +816,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 24c: API Documentation And Native Dogfood Guide - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-docs-drift`, `web-route-coverage`, `web-playground-generate`, `web-typecheck`, `web-build`, and `web-warning-scan`.
-**Output**: `web/unit-24c-docs-green.log`, build logs, and drift summary.
+**Output**: Web Command Matrix artifacts for `unit-24c-docs`.
 **Acceptance**: Docs/build/typecheck are green with zero warnings.
 
 ### ⬜ Unit 25a: Web Full Validation - Tests
@@ -824,7 +826,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 25b: Web Full Validation - Implementation
 **What**: Run Web Command Matrix entries `web-playground-generate`, `web-focused` with every touched API/docs test file from Units 1-10f and 24, `web-coverage-full`, `web-typecheck`, `web-build`, and `web-warning-scan`; fix any failures with tests-first sub-units.
-**Output**: `web/full-test-coverage.log`, `web/typecheck.log`, `web/build.log`, `web/api-playground-generate.log`, and targeted suite logs.
+**Output**: Web Command Matrix artifacts for `unit-25b-web-full-validation`.
 **Acceptance**: All web commands pass with zero warnings; coverage meets repo policy; no generated drift remains.
 
 ### ⬜ Unit 25c: Web Full Validation - Coverage & Refactor
@@ -876,3 +878,4 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 - 2026-06-16 19:04 Addressed ambiguity review findings by making warning scans log-discovery based, adding native app build/smoke matrix commands, adding a web command matrix, and defining backend shared-file integration notes.
 - 2026-06-16 19:08 Addressed ambiguity review findings by adding macOS build/smoke blocker policy, routing AASA web validation through `web-focused`, and adding a `design-review` matrix entry.
 - 2026-06-16 19:13 Addressed ambiguity review findings by adding a Blocker Artifact Contract, defining AASA/AppIntents/macOS blocker producers and consumers, and aligning Unit 23c/26b acceptance with that contract.
+- 2026-06-16 19:20 Addressed ambiguity review findings by canonicalizing App Intents SDK blocker filenames and making matrix artifact names authoritative for validation outputs.
