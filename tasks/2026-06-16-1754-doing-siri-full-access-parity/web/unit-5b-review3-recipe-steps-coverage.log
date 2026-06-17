@@ -1,0 +1,19 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+      Coverage enabled with istanbul
+
+ ✓ test/routes/api-v1-recipe-steps.test.ts (11 tests) 619ms
+ ✓ test/lib/api-v1-recipe-steps.server.test.ts (10 tests) 228ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  07:16:56
+   Duration  3.18s (transform 731ms, setup 207ms, import 1.36s, tests 847ms, environment 462ms)
+
+ % Coverage report from istanbul
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |                   
+ ...teps.server.ts |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------
