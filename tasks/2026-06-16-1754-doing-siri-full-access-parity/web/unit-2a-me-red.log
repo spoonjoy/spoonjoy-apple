@@ -1,16 +1,17 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-me.test.ts (7 tests | 7 failed) 242ms
-     × returns current account bootstrap data and private cache headers for /me and /me/kitchen 58ms
-     × updates current profile fields and returns validation envelopes for invalid or duplicate input 18ms
+ ❯ test/routes/api-v1-me.test.ts (8 tests | 8 failed) 300ms
+     × returns current account bootstrap data and private cache headers for /me and /me/kitchen 62ms
+     × manages native account personal tokens without leaking OAuth access credentials or token secrets 48ms
+     × updates current profile fields and returns validation envelopes for invalid or duplicate input 20ms
      × reads and updates notification preferences with default values and strict validation 15ms
-     × uploads and removes profile photos using the web profile-image policy and R2 boundary 16ms
-     × registers and revokes APNs devices without writing web push subscriptions 12ms
-     × lists and disconnects OAuth account connections by stable resource-aware IDs 17ms
-     × enforces authentication and kitchen scopes before account payload parsing 12ms
+     × uploads and removes profile photos using the web profile-image policy and R2 boundary 14ms
+     × registers and revokes APNs devices without writing web push subscriptions 13ms
+     × lists and disconnects OAuth account connections by stable resource-aware IDs 18ms
+     × enforces authentication and kitchen scopes before account payload parsing 15ms
 
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > returns current account bootstrap data and private cache headers for /me and /me/kitchen
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -21,15 +22,27 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:189:29
-    187|     const payload = await readJson(response);
-    188| 
-    189|     expect(response.status).toBe(200);
+ ❯ test/routes/api-v1-me.test.ts:223:29
+    221|     const payload = await readJson(response);
+    222| 
+    223|     expect(response.status).toBe(200);
        |                             ^
-    190|     expectPrivateEnvelopeHeaders(response, "req_me_bootstrap");
-    191|     expectSuccessEnvelope(payload, "req_me_bootstrap");
+    224|     expectPrivateEnvelopeHeaders(response, "req_me_bootstrap");
+    225|     expectSuccessEnvelope(payload, "req_me_bootstrap");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > manages native account personal tokens without leaking OAuth access credentials or token secrets
+AssertionError: expected [ 'cmqhp25nn000q6vb2frxm0gks', …(3) ] to not include 'cmqhp25nn000q6vb2frxm0gks'
+ ❯ test/routes/api-v1-me.test.ts:352:27
+    350|     const listedIds = listPayload.data.tokens.map((credential: { id: s…
+    351|     expect(listedIds).toEqual(expect.arrayContaining([personal.credent…
+    352|     expect(listedIds).not.toContain(oauthAccess.credential.id);
+       |                           ^
+    353|     expect(listedIds).not.toContain(otherOwnerToken.credential.id);
+    354|     expect(listPayload.data.tokens.every((credential: { token?: unknow…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > updates current profile fields and returns validation envelopes for invalid or duplicate input
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -40,15 +53,15 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:262:29
-    260|     const payload = await readJson(response);
-    261| 
-    262|     expect(response.status).toBe(200);
+ ❯ test/routes/api-v1-me.test.ts:460:29
+    458|     const payload = await readJson(response);
+    459| 
+    460|     expect(response.status).toBe(200);
        |                             ^
-    263|     expectPrivateEnvelopeHeaders(response, "req_me_patch");
-    264|     expectSuccessEnvelope(payload, "req_me_patch");
+    461|     expectPrivateEnvelopeHeaders(response, "req_me_patch");
+    462|     expectSuccessEnvelope(payload, "req_me_patch");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > reads and updates notification preferences with default values and strict validation
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -59,15 +72,15 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:318:29
-    316|     const defaultsPayload = await readJson(defaults);
-    317| 
-    318|     expect(defaults.status).toBe(200);
+ ❯ test/routes/api-v1-me.test.ts:516:29
+    514|     const defaultsPayload = await readJson(defaults);
+    515| 
+    516|     expect(defaults.status).toBe(200);
        |                             ^
-    319|     expectPrivateEnvelopeHeaders(defaults, "req_me_prefs_defaults");
-    320|     expectSuccessEnvelope(defaultsPayload, "req_me_prefs_defaults");
+    517|     expectPrivateEnvelopeHeaders(defaults, "req_me_prefs_defaults");
+    518|     expectSuccessEnvelope(defaultsPayload, "req_me_prefs_defaults");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > uploads and removes profile photos using the web profile-image policy and R2 boundary
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -78,15 +91,15 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:382:27
-    380|     const uploadPayload = await readJson(upload);
-    381| 
-    382|     expect(upload.status).toBe(200);
+ ❯ test/routes/api-v1-me.test.ts:580:27
+    578|     const uploadPayload = await readJson(upload);
+    579| 
+    580|     expect(upload.status).toBe(200);
        |                           ^
-    383|     expectPrivateEnvelopeHeaders(upload, "req_me_photo_upload");
-    384|     expectSuccessEnvelope(uploadPayload, "req_me_photo_upload");
+    581|     expectPrivateEnvelopeHeaders(upload, "req_me_photo_upload");
+    582|     expectSuccessEnvelope(uploadPayload, "req_me_photo_upload");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > registers and revokes APNs devices without writing web push subscriptions
 AssertionError: expected 405 to be 201 // Object.is equality
@@ -97,15 +110,15 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:475:27
-    473|     const createPayload = await readJson(create);
-    474| 
-    475|     expect(create.status).toBe(201);
+ ❯ test/routes/api-v1-me.test.ts:673:27
+    671|     const createPayload = await readJson(create);
+    672| 
+    673|     expect(create.status).toBe(201);
        |                           ^
-    476|     expectPrivateEnvelopeHeaders(create, "req_me_apns_create");
-    477|     expectSuccessEnvelope(createPayload, "req_me_apns_create");
+    674|     expectPrivateEnvelopeHeaders(create, "req_me_apns_create");
+    675|     expectSuccessEnvelope(createPayload, "req_me_apns_create");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > lists and disconnects OAuth account connections by stable resource-aware IDs
 AssertionError: expected 405 to be 200 // Object.is equality
@@ -116,15 +129,15 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:616:25
-    614|     const listPayload = await readJson(list);
-    615| 
-    616|     expect(list.status).toBe(200);
+ ❯ test/routes/api-v1-me.test.ts:871:25
+    869|     const listPayload = await readJson(list);
+    870| 
+    871|     expect(list.status).toBe(200);
        |                         ^
-    617|     expectPrivateEnvelopeHeaders(list, "req_me_connections");
-    618|     expectSuccessEnvelope(listPayload, "req_me_connections");
+    872|     expectPrivateEnvelopeHeaders(list, "req_me_connections");
+    873|     expectSuccessEnvelope(listPayload, "req_me_connections");
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
 
  FAIL  test/routes/api-v1-me.test.ts > API v1 native account and bootstrap endpoints > enforces authentication and kitchen scopes before account payload parsing
 AssertionError: expected 405 to be 401 // Object.is equality
@@ -135,19 +148,19 @@ AssertionError: expected 405 to be 401 // Object.is equality
 - 401
 + 405
 
- ❯ test/routes/api-v1-me.test.ts:673:32
-    671|     const missingAuthPayload = await readJson(missingAuth);
-    672| 
-    673|     expect(missingAuth.status).toBe(401);
+ ❯ test/routes/api-v1-me.test.ts:928:32
+    926|     const missingAuthPayload = await readJson(missingAuth);
+    927| 
+    928|     expect(missingAuth.status).toBe(401);
        |                                ^
-    674|     expectPrivateEnvelopeHeaders(missingAuth, "req_me_missing_auth");
-    675|     expectErrorEnvelope(missingAuthPayload, "req_me_missing_auth", "au…
+    929|     expectPrivateEnvelopeHeaders(missingAuth, "req_me_missing_auth");
+    930|     expectErrorEnvelope(missingAuthPayload, "req_me_missing_auth", "au…
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
 
 
  Test Files  1 failed (1)
-      Tests  7 failed (7)
-   Start at  23:22:14
-   Duration  1.49s (transform 292ms, setup 155ms, import 697ms, tests 242ms, environment 243ms)
+      Tests  8 failed (8)
+   Start at  23:32:44
+   Duration  2.35s (transform 510ms, setup 311ms, import 1.05s, tests 300ms, environment 505ms)
 
