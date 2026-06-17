@@ -1,0 +1,83 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-users-search.test.ts (4 tests | 2 failed) 259ms
+     × returns a public chef profile by username with recipes, cookbooks, recent spoons, and graph counts 86ms
+     ✓ returns fellow-chef and kitchen-visitor graph pages with stable pagination metadata 19ms
+     × returns search results for public scopes and keeps shopping-list matches private to the authenticated owner 43ms
+     ✓ returns v1 envelopes for missing profile identifiers and invalid search limits 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-users-search.test.ts > API v1 profile, chef graph, and search reads > returns a public chef profile by username with recipes, cookbooks, recent spoons, and graph counts
+AssertionError: expected [ { …(9) }, { …(9) } ] to deeply equal [ ObjectContaining{…} ]
+
+- Expected
++ Received
+
+@@ -3,13 +3,36 @@
+      "chef": {
+        "id": "cmqhu0sxq00006vuojrq9waaa",
+        "photoUrl": "/photos/profiles/profile-chef.jpg",
+        "username": "profilechef_udsfous8",
+      },
++     "cookedAt": "2026-06-06T10:00:00.000Z",
++     "coverImageUrl": null,
++     "coverProvenanceLabel": null,
++     "id": "cmqhu0syh000j6vuofewvxyog",
++     "nextTime": null,
++     "note": "deleted recipe spoon",
++     "photoUrl": null,
++     "recipe": {
++       "chefId": "cmqhu0sxq00006vuojrq9waaa",
++       "id": "cmqhu0sy200046vuoy9m2dnq6",
++       "title": "Api V1 Deleted Profile Ghost miIQ5reu",
++     },
++   },
++   {
++     "chef": {
++       "id": "cmqhu0sxq00006vuojrq9waaa",
++       "photoUrl": "/photos/profiles/profile-chef.jpg",
++       "username": "profilechef_udsfous8",
++     },
+      "cookedAt": "2026-06-04T10:00:00.000Z",
+      "coverImageUrl": null,
++     "coverProvenanceLabel": null,
++     "id": "cmqhu0syg000h6vuopxk19mtv",
++     "nextTime": null,
+      "note": "profile chef spoon",
++     "photoUrl": null,
+      "recipe": {
+        "chefId": "cmqhu0sya000d6vuobaqcvipw",
+        "id": "cmqhu0syf000f6vuolszljjj3",
+        "title": "Api V1 Fellow Soup 0d10Hj88",
+      },
+
+ ❯ test/routes/api-v1-users-search.test.ts:201:39
+    199|       }),
+    200|     ]);
+    201|     expect(payload.data.recentSpoons).toEqual([
+       |                                       ^
+    202|       expect.objectContaining({
+    203|         chef: { id: chef.id, username: chef.username, photoUrl: "/phot…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/routes/api-v1-users-search.test.ts > API v1 profile, chef graph, and search reads > returns search results for public scopes and keeps shopping-list matches private to the authenticated owner
+AssertionError: expected [ 'cmqhu0t0i00196vuopunegzxj', …(3) ] to not include 'cmqhu0t0i00196vuopunegzxj'
+ ❯ test/routes/api-v1-users-search.test.ts:329:94
+    327|     expectSuccessEnvelope(publicOnlyAllPayload, "req_search_public_onl…
+    328|     expect(publicOnlyAllPayload.data.isAuthenticated).toBe(true);
+    329|     expect(publicOnlyAllPayload.data.results.map((result: { id: string…
+       |                                                                                              ^
+    330| 
+    331|     for (const [scope, expectedType] of [
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  01:51:39
+   Duration  2.34s (transform 432ms, setup 178ms, import 1.46s, tests 259ms, environment 286ms)
+
