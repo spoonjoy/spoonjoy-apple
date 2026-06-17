@@ -10,13 +10,14 @@
 
 - **spawn**: Execute dependency waves with sub-agent implementors for disjoint backend, native core, app-surface, documentation, and validation write scopes. The orchestrator owns sequencing, integration, reviewer gates, commits, pushes, PRs, merges, and final validation.
 - Dependency Wave 0 is orchestrator-only: Unit 0 baseline plus any docs/review fixes.
-- Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Spawn only disjoint backend workers by endpoint family; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
+- Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Unit 1b is orchestrator-only because it changes the shared REST contract registry. Spawn only disjoint backend workers by endpoint family after Unit 1b; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
 - Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, sync, and shell wiring; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, or project files through the orchestrator.
 - Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files.
 - Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files. Units 21j-21l are orchestrator-only because they integrate Spotlight/App Shortcuts/transfer metadata across all entity domains.
 - Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. Units 23a-23c and 26a-27 are orchestrator-only. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
 - Spawned native workers must not edit orchestrator-owned shared paths directly: `Sources/SpoonjoyCore/AppState/**`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Apps/Spoonjoy/Shared/AppShell/**`, `Apps/Spoonjoy/Shared/Components/**`, `Apps/Spoonjoy/Shared/Design/**`, shared `Apps/Spoonjoy/Shared/Views/**` files used by multiple surface units, `Apps/Spoonjoy/Shared/Native/**`, `scripts/generate-xcode-project.rb`, `Spoonjoy.xcodeproj/**`, and `.github/workflows/**`. Workers produce feature-local files, tests, and patch notes; the orchestrator serializes shared-path integration commits.
 - Spawned-unit Output lines that mention scenario verifier updates, scenario metadata, project generator updates, project membership, route updates, core metadata updates, native capability metadata, shared App Intents files, shared Spotlight files, AppShell, shared Design, or shared Components mean feature-local patch notes only. The worker must write `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes/<unit-slug>.md` with `Needed shared paths`, `Expected tokens/tests`, and `Patch sketch`; the orchestrator applies those shared edits in a serialized integration commit before the unit's coverage/refactor step.
+- Spawned backend workers must not edit orchestrator-owned shared REST files directly: `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, `app/lib/generated/api-v1-playground.ts`, `docs/api.md`, `scripts/generate-api-playground.ts`, and shared OpenAPI/docs route files. Backend workers may edit endpoint-family tests, migrations, and feature-local helper modules named `app/lib/api-v1-<domain>.server.ts`; any Output line that mentions shared handlers, contracts, OpenAPI schemas, generated playground, or docs means feature-local patch notes only. The worker must write `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/integration-notes/<unit-slug>.md` with `Needed shared paths`, `Route/handler wiring`, `Schemas/docs/playground changes`, and `Patch sketch`; the orchestrator applies those shared edits in a serialized integration commit before the unit's coverage/refactor step.
 
 ## Objective
 
@@ -72,7 +73,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 - `swift-focused`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter <TestSuiteName> | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-test.log"`.
 - `swift-full`: `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$ARTIFACT_ROOT/apple/<unit-slug>-swift-full.log"`.
 - `coverage`: `swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors | tee "$ARTIFACT_ROOT/apple/<unit-slug>-coverage-test.log"`, then `coverage_json="$(swift test --show-codecov-path | tail -n 1)"`, then `ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include "Sources/SpoonjoyCore" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-coverage-enforce.log"`.
-- `warning-scan`: `ruby scripts/fail-on-warning.rb --log "$ARTIFACT_ROOT/apple/<unit-slug>-swift-test.log" --log "$ARTIFACT_ROOT/apple/<unit-slug>-swift-full.log" --log "$ARTIFACT_ROOT/apple/<unit-slug>-coverage-test.log" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-warning-scan.log"`.
+- `warning-scan`: `bash -lc 'set -o pipefail; shopt -s nullglob; args=(); for path in "$ARTIFACT_ROOT/apple/<unit-slug>"*.log; do [[ "$path" == *-warning-scan.log ]] && continue; args+=(--log "$path"); done; [[ ${#args[@]} -gt 0 ]] || { echo "no logs found for <unit-slug>"; exit 1; }; ruby scripts/fail-on-warning.rb "${args[@]}"' | tee "$ARTIFACT_ROOT/apple/<unit-slug>-warning-scan.log"`.
 - `project-contract`: `scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-project-contract.log"`.
 - `project-generator-contract`: `scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-project-generator-contract.log"`.
 - `surface:recipe`: `ruby scripts/check-kitchen-recipe-surfaces.rb | tee "$ARTIFACT_ROOT/apple/<unit-slug>-surface-kitchen-recipe.log"`.
@@ -86,7 +87,24 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 - `scenario:final`: `scripts/verify-native-scenarios.sh --stage final --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.log"`.
 - `screenshots`: `scripts/capture-native-screenshots.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-screenshots.log"`; required artifacts are `$ARTIFACT_ROOT/screenshots/ios-mobile.png`, `$ARTIFACT_ROOT/screenshots/macos-desktop.png`, and `$ARTIFACT_ROOT/design-review.json` or structured blocker JSON produced by the script.
 - `aasa`: `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-aasa.log"`.
+- `xcodebuild-ios`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-ios.log"`; if the command fails only because the required simulator platform/runtime is unavailable, write `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json` with `capability: "XcodePlatform"`, the command, output path, timeout, and reason.
+- `xcodebuild-macos`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-macos.log"`.
+- `smoke-ios`: `scripts/smoke-ios-simulator.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-ios.log"`; if CoreSimulator is unavailable, accept only the script-produced `$ARTIFACT_ROOT/smoke-ios-simulator-blocker.json`.
+- `smoke-macos`: `scripts/smoke-macos.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos.log"`.
 - `native-final-matrix`: `scripts/validate-native-local.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-validate-native-local.log"`; stable matrix artifacts are `matrix-swift-test.log`, `matrix-coverage-test.log`, `matrix-coverage-enforce.log`, `matrix-final-scenario.log`, `matrix-project-contract.log`, `matrix-generator-contract.log`, `matrix-native-design-contract.log`, `matrix-kitchen-surfaces-contract.log`, `matrix-cook-shopping-contract.log`, `matrix-search-capture-contract.log`, `matrix-capture.log`, `matrix-design-review.log`, `matrix-warning-scan.log`, `validation-matrix.jsonl`, and `validation-matrix.json`.
+
+## Web Command Matrix
+
+All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity`; commands run from `/Users/arimendelow/Projects/spoonjoy-v2`; `<unit-slug>` is the exact unit artifact stem already named in that unit's Output, such as `unit-4c-recipe-writes`.
+
+- `web-focused`: `pnpm exec vitest run <test-files> --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-vitest.log"`.
+- `web-route-coverage`: `pnpm exec vitest run test/config/api-v1-route-coverage.test.ts --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-route-coverage.log"`.
+- `web-docs-drift`: `pnpm exec vitest run test/docs/developer-platform-docs.test.ts test/docs/developer-platform-guide.test.ts test/routes/api-v1-openapi.test.ts test/lib/api-v1-openapi.server.test.ts test/scripts/generate-api-playground.test.ts --fileParallelism=false | tee "$ARTIFACT_ROOT/web/<unit-slug>-docs-drift.log"`.
+- `web-playground-generate`: `bash -lc 'set -o pipefail; pnpm run api:playground:generate | tee "$ARTIFACT_ROOT/web/<unit-slug>-api-playground-generate.log"; git diff --exit-code -- app/lib/generated/api-v1-playground.ts | tee "$ARTIFACT_ROOT/web/<unit-slug>-api-playground-drift.log"'`.
+- `web-typecheck`: `pnpm run typecheck | tee "$ARTIFACT_ROOT/web/<unit-slug>-typecheck.log"`.
+- `web-build`: `pnpm run build | tee "$ARTIFACT_ROOT/web/<unit-slug>-build.log"`.
+- `web-coverage-full`: `pnpm run test:coverage | tee "$ARTIFACT_ROOT/web/<unit-slug>-coverage.log"`.
+- `web-warning-scan`: `bash -lc 'set -o pipefail; shopt -s nullglob; logs=("$ARTIFACT_ROOT/web/<unit-slug>"*.log); [[ ${#logs[@]} -gt 0 ]] || { echo "no logs found for <unit-slug>"; exit 1; }; if rg -n "\\b(warning|WARN)\\b" "${logs[@]}"; then exit 1; fi' | tee "$ARTIFACT_ROOT/web/<unit-slug>-warning-scan.log"`.
 
 ## Work Units
 
@@ -111,7 +129,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 1a tests pass; `pnpm run api:playground:generate` produces no uncommitted generated drift; no implementation handler returns success for unimplemented write resources yet.
 
 ### ⬜ Unit 1c: REST V1 Contract Registry - Coverage & Refactor
-**What**: Run focused docs/OpenAPI/route coverage tests, then run `pnpm run typecheck` for the touched contract surface.
+**What**: Run Web Command Matrix entries `web-focused` with `test/config/api-v1-route-coverage.test.ts test/routes/api-v1-openapi.test.ts test/lib/api-v1-openapi.server.test.ts test/scripts/generate-api-playground.test.ts test/docs/developer-platform-docs.test.ts test/docs/developer-platform-guide.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, and `web-warning-scan`.
 **Output**: `web/unit-1c-contract-green.log`, `web/unit-1c-typecheck.log`, and drift summary.
 **Acceptance**: Contract tests pass, typecheck passes, route coverage fails on any future contract/resource mismatch, and generated docs contain native OAuth/token guidance.
 
@@ -126,7 +144,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 2a tests pass; bearer and session auth both work; passkey/password/provider-link actions return exact web handoff URLs rather than fake native mutations; APNs registration stores user id, platform, environment, device identifier, hashed APNs token, token prefix, enabled/revoked timestamps, and last registration timestamp without writing a `PushSubscription` row.
 
 ### ⬜ Unit 2c: Native Bootstrap And Account API - Coverage & Refactor
-**What**: Run focused account/token/APNs tests, docs drift tests, typecheck, and coverage for touched files.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-me.test.ts test/routes/api-v1-tokens.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
 **Output**: `web/unit-2c-account-coverage.log`, `web/unit-2c-typecheck.log`, and coverage summary.
 **Acceptance**: New account/bootstrap/token code has 100% branch/error coverage, zero warnings, and no stale generated playground output.
 
@@ -141,8 +159,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 3a tests pass; deleted recipes/spoons stay hidden; shopping-list search requires auth; profile payload includes recipes, cookbooks, spoons, fellow chefs, and kitchen visitors.
 
 ### ⬜ Unit 3c: Profile, Chef Graph, And Search API - Coverage & Refactor
-**What**: Run focused profile/search tests, typecheck, coverage, and docs/OpenAPI drift tests.
-**Output**: `web/unit-3c-users-search-green.log`, `web/unit-3c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-users-search.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-3c-users-search-green.log`, `web/unit-3c-typecheck.log`, and `web/unit-3c-users-search-coverage.log`.
 **Acceptance**: Touched profile/search code has 100% coverage, no warnings, and exact docs/OpenAPI examples.
 
 ### ⬜ Unit 4a: Recipe Create Update Delete Fork API - Tests
@@ -156,8 +174,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 4a tests pass; writes require ownership where required; soft delete preserves tombstone data for sync; fork copies source graph consistently with web helper behavior.
 
 ### ⬜ Unit 4c: Recipe Create Update Delete Fork API - Coverage & Refactor
-**What**: Run focused recipe-write tests, idempotency conflict/replay tests, typecheck, docs/OpenAPI drift tests, and coverage.
-**Output**: `web/unit-4c-recipe-writes-green.log`, `web/unit-4c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-writes.test.ts test/lib/api-idempotency.server.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-4c-recipe-writes-green.log`, `web/unit-4c-typecheck.log`, and `web/unit-4c-recipe-writes-coverage.log`.
 **Acceptance**: Touched recipe write code has 100% coverage, all idempotency paths are covered, and generated docs match implemented handlers.
 
 ### ⬜ Unit 5a: Recipe Step Ingredient Dependency API - Tests
@@ -171,8 +189,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 5a tests pass; recipe graphs returned through v1 detail reflect changed steps, ingredients, and dependencies.
 
 ### ⬜ Unit 5c: Recipe Step Ingredient Dependency API - Coverage & Refactor
-**What**: Run focused step/ingredient/dependency tests, typecheck, docs/OpenAPI drift tests, and coverage.
-**Output**: `web/unit-5c-recipe-steps-green.log`, `web/unit-5c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-steps.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-5c-recipe-steps-green.log`, `web/unit-5c-typecheck.log`, and `web/unit-5c-recipe-steps-coverage.log`.
 **Acceptance**: Touched step/dependency code has 100% coverage and no warnings.
 
 ### ⬜ Unit 6a: Recipe Image And Cover Lifecycle API - Tests
@@ -186,8 +204,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 6a tests pass; upload, active cover, archive, regenerate, and spoon-cover flows match web behavior.
 
 ### ⬜ Unit 6c: Recipe Image And Cover Lifecycle API - Coverage & Refactor
-**What**: Run focused cover/image tests, typecheck, docs/OpenAPI drift tests, coverage, and warning checks.
-**Output**: `web/unit-6c-covers-green.log`, `web/unit-6c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-covers.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-6c-covers-green.log`, `web/unit-6c-typecheck.log`, and `web/unit-6c-covers-coverage.log`.
 **Acceptance**: Touched cover/image code has 100% coverage and every provider/blocker/error branch is tested.
 
 ### ⬜ Unit 7a: Spoon Cook Log API - Tests
@@ -201,8 +219,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 7a tests pass; spoon list/detail payloads feed native cook log, profile, Spotlight, and cover-from-spoon flows.
 
 ### ⬜ Unit 7c: Spoon Cook Log API - Coverage & Refactor
-**What**: Run focused spoon tests, typecheck, docs/OpenAPI drift tests, coverage, and warning checks.
-**Output**: `web/unit-7c-spoons-green.log`, `web/unit-7c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-spoons.test.ts test/lib/spoonjoy-api-spoons.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-7c-spoons-green.log`, `web/unit-7c-typecheck.log`, and `web/unit-7c-spoons-coverage.log`.
 **Acceptance**: Touched spoon API code has 100% coverage and deleted/owner/error branches are covered.
 
 ### ⬜ Unit 8a: Cookbook Write API - Tests
@@ -216,8 +234,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 8a tests pass; cookbook detail reads reflect mutations and native offline sync receives updated/tombstoned cookbook records.
 
 ### ⬜ Unit 8c: Cookbook Write API - Coverage & Refactor
-**What**: Run focused cookbook write tests, typecheck, docs/OpenAPI drift tests, coverage, and warning checks.
-**Output**: `web/unit-8c-cookbook-writes-green.log`, `web/unit-8c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-cookbook-writes.test.ts test/lib/spoonjoy-api-cookbook-notification.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-8c-cookbook-writes-green.log`, `web/unit-8c-typecheck.log`, and `web/unit-8c-cookbook-writes-coverage.log`.
 **Acceptance**: Touched cookbook API code has 100% coverage and all idempotency branches are tested.
 
 ### ⬜ Unit 9a: Shopping Parity API - Tests
@@ -231,8 +249,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 9a tests pass; existing shopping v1 tests remain green.
 
 ### ⬜ Unit 9c: Shopping Parity API - Coverage & Refactor
-**What**: Run focused shopping tests, typecheck, docs/OpenAPI drift tests, coverage, and warning checks.
-**Output**: `web/unit-9c-shopping-parity-green.log`, `web/unit-9c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-shopping-mutations.test.ts test/routes/api-v1-shopping-conflicts.test.ts`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-9c-shopping-parity-green.log`, `web/unit-9c-typecheck.log`, and `web/unit-9c-shopping-parity-coverage.log`.
 **Acceptance**: Touched shopping API code has 100% coverage and no regressions in existing idempotent item mutations.
 
 ### ⬜ Unit 10a: Private Sync Tombstone Freshness API - Tests
@@ -246,8 +264,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 10a tests pass; sync output is stable across pages and can rebuild native cache from scratch.
 
 ### ⬜ Unit 10c: Private Sync Tombstone Freshness API - Coverage & Refactor
-**What**: Run focused sync tests, route coverage, typecheck, docs/OpenAPI drift tests, coverage, and warning checks.
-**Output**: `web/unit-10c-sync-green.log`, `web/unit-10c-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-native-sync.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-10c-sync-green.log`, `web/unit-10c-typecheck.log`, and `web/unit-10c-sync-coverage.log`.
 **Acceptance**: Touched sync code has 100% coverage, including invalid cursors, empty states, and tombstone-only pages.
 
 ### ⬜ Unit 10d: Recipe Import API - Tests
@@ -261,8 +279,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 10d tests pass; missing AI/provider secrets return a tested structured response rather than silently pretending import completed.
 
 ### ⬜ Unit 10f: Recipe Import API - Coverage & Refactor
-**What**: Run focused import tests, route coverage, docs/OpenAPI drift tests, `pnpm run typecheck`, coverage, and warning checks.
-**Output**: `web/unit-10f-recipe-import-green.log`, `web/unit-10f-typecheck.log`, and coverage artifact.
+**What**: Run Web Command Matrix entries `web-focused` with `test/routes/api-v1-recipe-import.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, `web-coverage-full`, and `web-warning-scan`.
+**Output**: `web/unit-10f-recipe-import-green.log`, `web/unit-10f-typecheck.log`, and `web/unit-10f-recipe-import-coverage.log`.
 **Acceptance**: Touched import API code has 100% coverage, including invalid URL/text, provider failure, replay, conflict, auth, scope, and duplicate-title branches.
 
 ### ⬜ Unit 11a: Native Request Builders For Expanded REST V1 - Tests
@@ -306,8 +324,8 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 13a tests pass; app static checks prove associated-domain OAuth callback and custom-scheme fallback are separate.
 
 ### ⬜ Unit 13c: Native OAuth, Keychain, And Session Store - Coverage & Refactor
-**What**: Run Validation Command Matrix entries `swift-focused` with `NativeAuthSessionTests`, `swift-full`, `project-generator-contract`, `project-contract`, `coverage`, and `warning-scan`; run focused macOS/iOS app build commands or write the structured Xcode/SDK blocker artifact named by the app build command.
-**Output**: `apple/unit-13c-auth-green.log`, coverage artifact, and app build logs.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeAuthSessionTests`, `swift-full`, `project-generator-contract`, `project-contract`, `coverage`, `xcodebuild-ios`, `xcodebuild-macos`, and `warning-scan`.
+**Output**: `apple/unit-13c-auth-green.log`, `apple/unit-13c-auth-coverage-test.log`, `apple/unit-13c-auth-coverage-enforce.log`, `apple/unit-13c-auth-xcodebuild-ios.log`, and `apple/unit-13c-auth-xcodebuild-macos.log`.
 **Acceptance**: SwiftPM auth code has 100% coverage; app adapter compile/static checks cover Keychain and ASWebAuthenticationSession boundaries.
 
 ### ⬜ Unit 14a: Native Cache Schema And Freshness Indicator - Tests
@@ -322,7 +340,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 
 ### ⬜ Unit 14c: Native Cache Schema And Freshness Indicator - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeCacheFreshnessTests`, `swift-full`, `coverage`, `scenario:bootstrap`, and `warning-scan`.
-**Output**: `apple/unit-14c-cache-green.log`, coverage artifact, and scenario report.
+**Output**: `apple/unit-14c-cache-green.log`, `apple/unit-14c-cache-coverage-test.log`, `apple/unit-14c-cache-coverage-enforce.log`, and `apple/unit-14c-cache-scenario-bootstrap.json`.
 **Acceptance**: Cache/freshness code has 100% measured coverage and UI static checks prove indicator labels/icons for every state.
 
 ### ⬜ Unit 15a: Native Sync Engine And Mutation Queue Expansion - Tests
@@ -337,7 +355,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 
 ### ⬜ Unit 15c: Native Sync Engine And Mutation Queue Expansion - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `NativeSyncEngineTests`, `swift-full`, `coverage`, `scenario:native-metadata`, and `warning-scan`.
-**Output**: `apple/unit-15c-sync-engine-green.log`, coverage artifact, and scenario report.
+**Output**: `apple/unit-15c-sync-engine-green.log`, `apple/unit-15c-sync-engine-coverage-test.log`, `apple/unit-15c-sync-engine-coverage-enforce.log`, and `apple/unit-15c-sync-engine-scenario-native-metadata.json`.
 **Acceptance**: Sync engine code has 100% measured coverage and no hidden untested error branches.
 
 ### ⬜ Unit 16a: Native Live Store And Shell Wiring - Tests
@@ -351,7 +369,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 16a tests pass; shell can render signed-out, restoring cache, live synced, offline stale, and sync-failed states.
 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
-**What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `scenario:surfaces`, `project-contract`, and `warning-scan`; run focused macOS typecheck/build and save `apple/unit-16c-live-store-macos-build.log`.
+**What**: Run Validation Command Matrix entries `swift-focused` with `NativeLiveStoreTests`, `swift-full`, `scenario:surfaces`, `project-contract`, `xcodebuild-macos`, and `warning-scan`.
 **Output**: `apple/unit-16c-live-store-green.log`, scenario report, and build logs.
 **Acceptance**: Store logic has 100% measured coverage and app target static/screenshot checks cover non-SwiftPM shell adapters.
 
@@ -771,7 +789,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 23a checks pass; screenshots show native controls with Spoonjoy design language and no incoherent overlap.
 
 ### ⬜ Unit 23c: Native Design Accessibility And Visual Validation - Coverage & Refactor
-**What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `scenario:final`, `project-contract`, `swift-full`, and `warning-scan`, plus `xcodebuild` macOS/iOS smoke commands through `native-final-matrix` if focused app builds are not enough.
+**What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `scenario:final`, `project-contract`, `swift-full`, `xcodebuild-ios`, `xcodebuild-macos`, `smoke-ios`, `smoke-macos`, and `warning-scan`.
 **Output**: `apple/unit-23c-design-green.log`, screenshots, and `design-review.json`.
 **Acceptance**: Design/accessibility validation is green or blocked only by CoreSimulator/Xcode capability artifact.
 
@@ -786,7 +804,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Unit 24a docs tests pass; docs state `spoonjoy.app`, HTTPS OAuth redirect, persisted `client_id`, token storage, refresh, DELETE idempotency options, and REST/MCP resource-token boundaries.
 
 ### ⬜ Unit 24c: API Documentation And Native Dogfood Guide - Coverage & Refactor
-**What**: Run docs tests, route coverage, generated playground drift check, `pnpm run typecheck`, and `pnpm run build`.
+**What**: Run Web Command Matrix entries `web-docs-drift`, `web-route-coverage`, `web-playground-generate`, `web-typecheck`, `web-build`, and `web-warning-scan`.
 **Output**: `web/unit-24c-docs-green.log`, build logs, and drift summary.
 **Acceptance**: Docs/build/typecheck are green with zero warnings.
 
@@ -796,7 +814,7 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 **Acceptance**: Audit fails until every touched route/lib/doc contract has red and green artifacts in the task artifact directory.
 
 ### ⬜ Unit 25b: Web Full Validation - Implementation
-**What**: Run `pnpm run api:playground:generate`, targeted Vitest suites for every touched API surface, `pnpm run test:coverage`, `pnpm run typecheck`, and `pnpm run build`; fix any failures with tests-first sub-units.
+**What**: Run Web Command Matrix entries `web-playground-generate`, `web-focused` with every touched API/docs test file from Units 1-10f and 24, `web-coverage-full`, `web-typecheck`, `web-build`, and `web-warning-scan`; fix any failures with tests-first sub-units.
 **Output**: `web/full-test-coverage.log`, `web/typecheck.log`, `web/build.log`, `web/api-playground-generate.log`, and targeted suite logs.
 **Acceptance**: All web commands pass with zero warnings; coverage meets repo policy; no generated drift remains.
 
@@ -846,3 +864,4 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 - 2026-06-16 18:38 Granularity pass converged after Round 3.
 - 2026-06-16 18:49 Addressed source-validation finding by replacing the bare native coverage script command with the required argument form.
 - 2026-06-16 18:57 Addressed ambiguity review findings by adding a native validation command matrix, making spawned-worker shared-path patch-note ownership explicit, and choosing a dedicated `NativePushDevice` APNs storage migration.
+- 2026-06-16 19:04 Addressed ambiguity review findings by making warning scans log-discovery based, adding native app build/smoke matrix commands, adding a web command matrix, and defining backend shared-file integration notes.
