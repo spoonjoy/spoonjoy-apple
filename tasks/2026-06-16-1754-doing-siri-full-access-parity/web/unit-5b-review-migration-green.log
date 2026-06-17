@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/scripts/migration-0020-api-mutation-tombstones.test.ts (4 tests) 91ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  06:36:39
+   Duration  778ms (transform 75ms, setup 177ms, import 16ms, tests 91ms, environment 321ms)
+
