@@ -87,12 +87,20 @@ All native validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT
 - `scenario:final`: `scripts/verify-native-scenarios.sh --stage final --output "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-scenario-final.log"`.
 - `screenshots`: `scripts/capture-native-screenshots.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-screenshots.log"`; required artifacts are `$ARTIFACT_ROOT/screenshots/ios-mobile.png`, `$ARTIFACT_ROOT/screenshots/macos-desktop.png`, and `$ARTIFACT_ROOT/design-review.json` or structured blocker JSON produced by the script.
 - `design-review`: `ruby scripts/validate-design-review.rb "$ARTIFACT_ROOT/design-review.json" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-design-review.log"`.
-- `aasa`: `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-aasa.log"`.
-- `xcodebuild-ios`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-ios.log"`; if the command fails only because the required simulator platform/runtime is unavailable, write `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json` with `capability: "XcodePlatform"`, the command, output path, timeout, and reason.
-- `xcodebuild-macos`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-macos.log"`; any build/test failure after project parsing is a hard failure to fix. Only a local Xcode installation/SDK fault that prevents project parsing may produce `$ARTIFACT_ROOT/apple/<unit-slug>-macos-app-bundle-blocker.json` with `capability: "XcodePlatform"`, the command, output path, timeout, and reason.
+- `aasa`: `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-aasa.log"`; missing Team ID/App ID is accepted only as `$ARTIFACT_ROOT/aasa-production-blocker.json` with `capability: "AASAProductionValidation"` matching the Blocker Artifact Contract.
+- `xcodebuild-ios`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-ios.log"`; if the command fails only because the required simulator platform/runtime is unavailable, write `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json` with `capability: "XcodePlatform"` matching the Blocker Artifact Contract.
+- `xcodebuild-macos`: `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build | tee "$ARTIFACT_ROOT/apple/<unit-slug>-xcodebuild-macos.log"`; any build/test failure after project parsing is a hard failure to fix. Only a local Xcode installation/SDK fault that prevents project parsing may produce `$ARTIFACT_ROOT/apple/<unit-slug>-macos-app-bundle-blocker.json` with `capability: "XcodePlatform"` matching the Blocker Artifact Contract.
 - `smoke-ios`: `scripts/smoke-ios-simulator.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-ios.log"`; if CoreSimulator is unavailable, accept only the script-produced `$ARTIFACT_ROOT/smoke-ios-simulator-blocker.json`.
-- `smoke-macos`: `scripts/smoke-macos.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos.log"`; app crash, route failure, or screenshot failure is a hard failure to fix. Only local macOS GUI/session capability failure may produce `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` with `capability: "MacOSLaunch"`, the command, output path, timeout, and reason.
-- `native-final-matrix`: `scripts/validate-native-local.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-validate-native-local.log"`; stable matrix artifacts are `matrix-swift-test.log`, `matrix-coverage-test.log`, `matrix-coverage-enforce.log`, `matrix-final-scenario.log`, `matrix-project-contract.log`, `matrix-generator-contract.log`, `matrix-native-design-contract.log`, `matrix-kitchen-surfaces-contract.log`, `matrix-cook-shopping-contract.log`, `matrix-search-capture-contract.log`, `matrix-capture.log`, `matrix-design-review.log`, `matrix-warning-scan.log`, `validation-matrix.jsonl`, and `validation-matrix.json`.
+- `smoke-macos`: `scripts/smoke-macos.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos.log"`; app crash, route failure, or screenshot failure is a hard failure to fix. Only local macOS GUI/session capability failure may produce `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` with `capability: "MacOSLaunch"` matching the Blocker Artifact Contract.
+- `native-final-matrix`: `scripts/validate-native-local.sh --artifact-root "$ARTIFACT_ROOT" | tee "$ARTIFACT_ROOT/apple/<unit-slug>-validate-native-local.log"`; stable matrix artifacts are `matrix-swift-test.log`, `matrix-coverage-test.log`, `matrix-coverage-enforce.log`, `matrix-final-scenario.log`, `matrix-project-contract.log`, `matrix-generator-contract.log`, `matrix-native-design-contract.log`, `matrix-kitchen-surfaces-contract.log`, `matrix-cook-shopping-contract.log`, `matrix-search-capture-contract.log`, `matrix-capture.log`, `matrix-design-review.log`, `matrix-warning-scan.log`, `validation-matrix.jsonl`, and `validation-matrix.json`. If `validate-native-local.sh` rejects a blocker capability allowed by the Blocker Artifact Contract, Unit 26b must update the script and its tests before rerunning the matrix.
+
+## Blocker Artifact Contract
+
+Only these native blocker artifact capabilities are acceptable during execution: `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, and `ProviderSecret`. Every blocker artifact must be JSON with `blocked: true`, `capability`, `command`, `outputPath`, `reason`, and `ownerAction`; app-build/smoke blockers also include `timeoutSeconds`; SDK blockers also include `sdkSymbol`, `requiredAvailability`, and `fallbackBehavior`.
+
+- AASA production blockers are produced only by `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT"` at `$ARTIFACT_ROOT/aasa-production-blocker.json`; consumers are Unit 20c and Unit 26b.
+- App Intents or Spotlight SDK blockers are produced only by orchestrator-owned App Intents integration units at `$ARTIFACT_ROOT/apple/<unit-slug>-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"`; consumers are `appintents-contract`, `scenario:native-metadata`, Unit 21l/22 coverage units, and Unit 26b.
+- macOS launch blockers are produced only by `smoke-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` or by `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-macos-blocker.json`; consumers are Unit 23c and Unit 26b.
 
 ## Web Command Matrix
 
@@ -566,8 +574,8 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 20c: Universal Links Routes And AASA Contract - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `DeepLinkParityTests`, `project-generator-contract`, `project-contract`, `aasa`, `scenario:surfaces`, `swift-full`, and `warning-scan`; run Web Command Matrix entry `web-focused` with `test/routes/aasa-contract.test.ts`.
-**Output**: `apple/unit-20c-links-green.log`, `web/unit-20c-aasa-green.log`, and AASA blocker/validation artifact.
-**Acceptance**: Production AASA validation is green or blocked only by missing Apple Team ID/App ID.
+**Output**: `apple/unit-20c-links-green.log`, `web/unit-20c-aasa-green.log`, and either `$ARTIFACT_ROOT/aasa-validation.json` or `$ARTIFACT_ROOT/aasa-production-blocker.json`.
+**Acceptance**: Production AASA validation is green or blocked only by `$ARTIFACT_ROOT/aasa-production-blocker.json` with `capability: "AASAProductionValidation"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21a: Recipe And Cookbook App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for recipe and cookbook `AppEntity`, `EntityQuery`, `EntityStringQuery`, display representations, identifiers, disambiguation, transfer values, and cache-backed lookup.
@@ -582,7 +590,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 21c: Recipe And Cookbook App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `RecipeCookbookEntityTests`, `appintents-contract` with `--domain recipe-cookbook`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21c-recipe-cookbook-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Recipe/cookbook entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21c-recipe-cookbook-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21d: Shopping App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for shopping list and shopping item entities, queries, display representations, transfer values, and cache-backed lookup.
@@ -597,7 +605,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 21f: Shopping App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ShoppingEntityTests`, `appintents-contract` with `--domain shopping`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21f-shopping-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Shopping entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Shopping entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21f-shopping-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21m: Spoon Cook Log App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for spoon/cook-log entities, queries, display representations, transfer values, recipe relationship metadata, and cache-backed lookup.
@@ -612,7 +620,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 21o: Spoon Cook Log App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SpoonEntityTests`, `appintents-contract` with `--domain spoon`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21o-spoon-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Spoon entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Spoon entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21o-spoon-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21p: Capture Draft App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for capture draft entities, queries, display representations, transfer values, import-submission relationship metadata, and local-cache lookup.
@@ -627,7 +635,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 21r: Capture Draft App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `CaptureDraftEntityTests`, `appintents-contract` with `--domain capture-draft`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21r-capture-draft-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Capture draft entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Capture draft entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21r-capture-draft-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21g: Chef And Profile App Entities - Tests
 **What**: Write failing Swift tests/static AppIntents checks for chef/profile entities, profile lookup by username/id, display representation, disambiguation, transfer values, and profile route opening.
@@ -642,7 +650,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 21i: Chef And Profile App Entities - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `ChefProfileEntityTests`, `appintents-contract` with `--domain chef-profile`, `scenario:native-metadata`, `swift-full`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21i-chef-profile-entities-green.log`, scenario report, and build logs.
-**Acceptance**: Chef/profile entity contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Chef/profile entity contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21i-chef-profile-entities-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 21j: Spotlight App Shortcuts And Transfer Integration - Tests
 **What**: Write failing Swift tests/static checks for Spotlight documents, indexed identifiers, App Shortcuts provider phrases, entity donations, relevant entities, view annotations, and transfer/value representations across every shipped entity domain.
@@ -651,13 +659,13 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 
 ### ⬜ Unit 21k: Spotlight App Shortcuts And Transfer Integration - Implementation
 **What**: Implement Spotlight indexing from live cached recipes, cookbooks, shopping items, spoons, chefs, profiles, and capture drafts; add App Shortcuts phrases, donations, relevant entities, and transfer/view annotations with SDK guards.
-**Output**: Orchestrator-applied updates to `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, native capability metadata, scenario verifier, and structured SDK blocker artifacts for unavailable symbols.
+**Output**: Orchestrator-applied updates to `SpoonjoySpotlightIndexer.swift`, `SpoonjoyAppIntents.swift`, native capability metadata, scenario verifier, and `$ARTIFACT_ROOT/apple/unit-21k-spotlight-shortcuts-appintents-sdk-blocker.json` if SDK symbols are unavailable.
 **Acceptance**: Unit 21j tests pass; Spotlight indexes live cached entities, including spoons/cook logs, not fixture-only data.
 
 ### ⬜ Unit 21l: Spotlight App Shortcuts And Transfer Integration - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `SpotlightShortcutTransferTests`, `appintents-contract` with `--domain spotlight-shortcuts`, `scenario:native-metadata`, `scenario:final`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-21l-spotlight-shortcuts-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Spotlight/Shortcut/transfer contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Spotlight/Shortcut/transfer contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-21l-spotlight-shortcuts-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22a: Open Search Share And Cook Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for entity-backed open recipe, open cookbook, open profile, search Spoonjoy, share recipe, share cookbook, share shopping list, start cook mode, and continue cook mode intents.
@@ -672,7 +680,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 22c: Open Search Share And Cook Siri Intents - Coverage & Refactor
 **What**: Run Validation Command Matrix entries `swift-focused` with `OpenSearchShareCookIntentTests`, `appintents-contract` with `--domain open-search-share-cook`, `scenario:native-metadata`, `swift-full`, `coverage`, `project-contract`, and `warning-scan`.
 **Output**: `apple/unit-22c-open-search-share-cook-intents-green.log`, scenario report, coverage logs, and build logs.
-**Acceptance**: Open/search/share/cook intent contracts are covered by compiled tests or structured SDK blocker artifacts.
+**Acceptance**: Open/search/share/cook intent contracts are covered by compiled tests or `$ARTIFACT_ROOT/apple/unit-22c-open-search-share-cook-intents-appintents-sdk-blocker.json` with `capability: "AppIntentsSDK"` matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 22d: Shopping Siri Intents - Tests
 **What**: Write failing Swift tests/static checks for add shopping item, check shopping item, remove shopping item, clear completed shopping items, and add recipe ingredients to shopping intents.
@@ -792,7 +800,7 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 ### ⬜ Unit 23c: Native Design Accessibility And Visual Validation - Coverage & Refactor
 **What**: Orchestrator-only: run Validation Command Matrix entries `design-contract`, `screenshots`, `design-review`, `scenario:final`, `project-contract`, `swift-full`, `xcodebuild-ios`, `xcodebuild-macos`, `smoke-ios`, `smoke-macos`, and `warning-scan`.
 **Output**: `apple/unit-23c-design-green.log`, screenshots, and `design-review.json`.
-**Acceptance**: Design/accessibility validation is green or blocked only by CoreSimulator/Xcode capability artifact.
+**Acceptance**: Design/accessibility validation is green or blocked only by `CoreSimulator`, `XcodePlatform`, or `MacOSLaunch` JSON matching the Blocker Artifact Contract.
 
 ### ⬜ Unit 24a: API Documentation And Native Dogfood Guide - Tests
 **What**: Write failing docs tests for native quickstart, OAuth universal-link callback, Keychain persistence, token refresh, endpoint examples, DELETE idempotency guidance, scope defaults, REST vs MCP token rules, and SDK/OpenAPI profiles.
@@ -830,9 +838,9 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 **Acceptance**: Audit fails until every native unit has red/green evidence and final validation prerequisites are present.
 
 ### ⬜ Unit 26b: Native Full Validation - Implementation
-**What**: Run Validation Command Matrix entry `native-final-matrix`; if any matrix step fails, fix it with tests-first sub-units or write the structured true blocker artifact that `validate-native-local.sh` recognizes.
+**What**: Run Validation Command Matrix entry `native-final-matrix`; if any matrix step fails, fix it with tests-first sub-units. If the only failure is that `validate-native-local.sh` rejects a JSON blocker capability allowed by the Blocker Artifact Contract, first add tests for that blocker-capability acceptance, update `validate-native-local.sh`, then rerun `native-final-matrix`.
 **Output**: Native full validation matrix and command logs under `apple/` and the task artifact root.
-**Acceptance**: All native commands pass or produce structured true blocker artifacts limited to SDK/Xcode/CoreSimulator/Apple Team ID capability.
+**Acceptance**: All native commands pass or produce JSON matching the Blocker Artifact Contract with capability limited to `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, or `ProviderSecret`.
 
 ### ⬜ Unit 26c: Native Full Validation - Coverage & Refactor
 **What**: Run harsh native design, offline/sync, App Intents, and implementation reviewers against the final native diff and validation artifacts.
@@ -867,3 +875,4 @@ All web validation shorthand resolves through this matrix. Set `ARTIFACT_ROOT=/U
 - 2026-06-16 18:57 Addressed ambiguity review findings by adding a native validation command matrix, making spawned-worker shared-path patch-note ownership explicit, and choosing a dedicated `NativePushDevice` APNs storage migration.
 - 2026-06-16 19:04 Addressed ambiguity review findings by making warning scans log-discovery based, adding native app build/smoke matrix commands, adding a web command matrix, and defining backend shared-file integration notes.
 - 2026-06-16 19:08 Addressed ambiguity review findings by adding macOS build/smoke blocker policy, routing AASA web validation through `web-focused`, and adding a `design-review` matrix entry.
+- 2026-06-16 19:13 Addressed ambiguity review findings by adding a Blocker Artifact Contract, defining AASA/AppIntents/macOS blocker producers and consumers, and aligning Unit 23c/26b acceptance with that contract.
