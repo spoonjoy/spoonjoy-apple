@@ -215,9 +215,9 @@ Spotlight and App Intents privacy policy is fixed for implementation and tests: 
 
 ## Completion Criteria
 
-- [ ] The three audit artifacts listed in Audit Artifacts remain committed and are referenced by planning/doing docs.
-- [ ] The planning doc passes harsh sub-agent review with no BLOCKER/MAJOR findings and is marked approved.
-- [ ] A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
+- [x] The three audit artifacts listed in Audit Artifacts remain committed and are referenced by planning/doing docs.
+- [x] The planning doc passes harsh sub-agent review with no BLOCKER/MAJOR findings and is marked approved.
+- [x] A doing doc exists with concrete units for backend API, native transport/auth/cache/offline, parity surfaces, App Intents/Siri, documentation, validation, review, PR/merge, and cleanup.
 - [ ] `spoonjoy-v2` exposes tested REST v1 endpoints needed by native parity, including `GET/POST /api/v1/tokens` and `DELETE /api/v1/tokens/{credentialId}` in native account/API credential flows, with OpenAPI/docs/playground updates and no drift from implementation.
 - [ ] Native Apple uses live Spoonjoy contracts for every read and write endpoint listed in Scope, with fixtures only as deterministic fallback/test data.
 - [ ] Offline mode works as product behavior under the Offline Product Contract: intelligent cached read access, durable cook progress, capture drafts, shopping mutation queue, safe queued writes, sync/retry/conflict/freshness states, secret-safe cache policy, and a dismissible offline indicator that never hides queued work, sync failures, conflicts, blockers, or destructive confirmations.
@@ -352,7 +352,7 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0: Artifact Root And Cross-Repo Baseline
+### ✅ Unit 0: Artifact Root And Cross-Repo Baseline
 **What**: Create baseline artifact files and required subdirectories under `/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/` for both repos, record `git status`, remotes, current branches, protected-check names, tool versions, branch-protection evidence for `spoonjoy/spoonjoy-v2` and `spoonjoy/spoonjoy-apple`, verify every path in Audit Artifacts is committed and referenced by this doing doc and the planning doc, and run a supporting-artifact consistency scan over planning/audit/matrix docs with explicit sharing rules: recipe/cookbook public URLs are allowed; shopping, spoon/cook-log, and capture/import public URL, `spoonjoy.app` URL, AASA, universal-link, or `publicShareable` requirements are forbidden unless a real web route and tests are added in scope.
 **Output**: `baseline-apple.json`, `baseline-web.json`, `branch-protection-apple.json`, `branch-protection-web.json`, and `toolchain.json` in the artifact directory, plus created `apple/`, `web/`, `screenshots/`, `apple/integration-notes/`, and `web/integration-notes/` directories with `.gitkeep` files if needed.
 **Acceptance**: Both repos are clean except current docs/artifacts, both remotes point at `https://github.com/spoonjoy/...`, required checks are recorded, all Audit Artifacts are committed/referenced, supporting artifacts contain no stale public-link/share requirement for shopping, spoons/cook logs, or capture/import, required artifact subdirectories exist before any `tee` command writes into them, and no implementation starts until this evidence exists.
@@ -1174,3 +1174,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 22:01 Addressed Tinfoil Hat findings by aligning planning and parity-matrix sharing language with the doing-doc privacy boundary, adding Unit 0 stale supporting-artifact scans for shopping public-URL wording, and making native warning scans remove prior warning-scan output with Unit 26 stale-artifact enforcement.
 - 2026-06-16 22:10 Addressed Tinfoil Hat findings by broadening Unit 0 stale-link scans to shopping, spoons/cook logs, and capture/import; splitting parity-matrix AASA routes from custom-scheme-only native actions; and adding explicit Unit 25b/26b implementation-green validation logs.
 - 2026-06-16 22:17 Addressed Tinfoil Hat findings by making `ProductionOperationApproval` a Unit 27-only blocker and requiring Unit 26 native local validation to reject production-operation approval blockers.
+- 2026-06-16 22:17 Unit 0 complete: captured cross-repo baseline artifacts, protected-check evidence, toolchain state, audit artifact references, artifact subdirectories, and stale supporting-artifact scan; cold reviewer Fermat converged.
