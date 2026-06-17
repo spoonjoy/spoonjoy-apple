@@ -32,7 +32,7 @@ Status legend: Complete, Partial, Missing, Native-plus, Blocked.
 | Offline usage | Web has local cook progress and PWA affordances, not full offline sync. | Partial. Native has `NativeAppSnapshot`, offline state, mutation queue, and local fixtures. | Make offline first-class: cache recipes/cookbooks/shopping/profile, dismissible status/freshness indicator, queued safe mutations, retry/reconcile, visible conflict/error state. |
 | Spotlight | Web not applicable. | Native-plus partial. Recipes, cookbooks, shopping items indexed from fixtures/snapshot. | Index live cached recipes, cookbooks, shopping items, spoons/cook logs, chefs, profiles, and capture drafts; route entity IDs safely. |
 | App Intents/Siri | Web not applicable; user wants full Siri access to current product model. | Partial. Four string-parameter intents exist. | Add AppEntity/query/indexed entities, App Shortcuts, entity-backed intents, confirmations/auth policy, donations, transfer/share representations, tests/guards. |
-| Sharing | Web supports native share/clipboard and public URLs. | Partial. Native has ShareLink toolbar for current routes. | Make recipe/cookbook/shopping sharing first-class via ShareLink, App Intents handoff, Messages/Mail/share sheet destinations, without adopting messaging/mail schemas. |
+| Sharing | Web supports native share/clipboard and public URLs for routed public objects; shopping is owner-private. | Partial. Native has ShareLink toolbar for current routes. | Make recipe/cookbook public URL sharing first-class via ShareLink/App Intents/share sheet destinations; make shopping sharing private transfer/export only unless a real public route and tests are added; do not adopt messaging/mail schemas. |
 
 ## Current Native Foundation To Keep
 
