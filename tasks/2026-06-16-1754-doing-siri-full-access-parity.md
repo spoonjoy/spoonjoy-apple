@@ -12,8 +12,8 @@
 - **spawn**: Execute dependency waves with sub-agent implementors for disjoint backend, native core, app-surface, documentation, and validation write scopes. The orchestrator owns sequencing, integration, reviewer gates, commits, pushes, PRs, merges, and final validation.
 - Dependency Wave 0 is orchestrator-only: Unit 0 baseline plus any docs/review fixes.
 - Dependency Wave 1 is backend REST contract and handlers: Units 1-10f. Unit 1b is orchestrator-only because it changes the shared REST contract registry. Spawn only disjoint backend workers by endpoint family after Unit 1b; the orchestrator owns shared `app/lib/api-v1.server.ts`, `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, generated docs/playground integration, and final merge of backend changes.
-- Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, sync, and shell wiring; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, or project files through the orchestrator.
-- Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files.
+- Dependency Wave 2 is native API/auth/offline core: Units 11-16. Spawn only disjoint SwiftPM workers for API builders, transport, auth, cache, and sync; serialize any change touching `NativeAppSnapshot`, `MutationQueue`, `ScenarioVerifier`, `scripts/generate-xcode-project.rb`, `Sources/SpoonjoyCore/AppState/**`, AppShell, or project files through the orchestrator. Execute Wave 2 in this exact DAG: 11a-11c first; 12a-12c only after 11c is green; 13a-13c and 14a-14c may run in parallel only after 12c is green; 15a-15c only after both 13c and 14c are green and any orchestrator-applied AppState/MutationQueue integration notes from Units 13-14 are committed; 16a-16c only after 15c and all Wave 2 integration notes are green. Unit 16b is orchestrator-only.
+- Dependency Wave 3 is native product surfaces: Units 17a-20c. Spawn one surface worker per feature family only after the needed backend and native core units are green; route, scenario verifier, design-token, and project-generator edits are orchestrator-owned integration files. Units 20a-20c are orchestrator-only because they cross native routing, entitlements, web AASA routes, docs, and production-domain validation.
 - Dependency Wave 4 is App Intents and Spotlight: Units 21a-22x. Spawn entity-domain and action-family workers only after cached repositories and routes are green; `Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, and shared App Intents metadata are orchestrator-owned integration files. Execute Wave 4 in this exact order, ignoring lexical/unit-label sort: 21a-21c, 21d-21f, 21m-21o, 21p-21r, 21g-21i, 21j-21l, 22a-22c, 22d-22f, 22g-22i, 22m-22o, 22p-22r, 22j-22l, 22s-22u, 22v-22x. Units 21j-21l are orchestrator-only because they integrate Spotlight/App Shortcuts/transfer metadata across all entity domains and must run after every entity-domain group.
 - Dependency Wave 5 is design/docs/full validation/merge: Units 23-27. Units 23a-23c and 26a-27 are orchestrator-only. No implementation spawn may bypass reviewer convergence, final validation artifacts, PR checks, or merge-readiness review.
 - Spawned native workers must not edit orchestrator-owned shared paths directly: `Sources/SpoonjoyCore/AppState/**`, `Sources/SpoonjoyCore/Native/ScenarioVerifier.swift`, `Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift`, `Apps/Spoonjoy/Shared/AppShell/**`, `Apps/Spoonjoy/Shared/Components/**`, `Apps/Spoonjoy/Shared/Design/**`, all `Apps/Spoonjoy/Shared/Views/**`, `Apps/Spoonjoy/Shared/Native/**`, `scripts/generate-xcode-project.rb`, `Spoonjoy.xcodeproj/**`, and `.github/workflows/**`. Workers produce feature-local files, tests, and patch notes; the orchestrator serializes shared-path integration commits.
@@ -31,8 +31,9 @@ Native workers may edit only the files in the unit's Output plus the worker-owne
 | 13a-13c | `Sources/SpoonjoyCore/Auth/**` | `Tests/SpoonjoyCoreTests/NativeAuthSessionTests.swift` | App auth adapters, URL callback wiring, project membership |
 | 14a-14c | `Sources/SpoonjoyCore/Offline/**`, `Sources/SpoonjoyCore/Cache/**` | `Tests/SpoonjoyCoreTests/NativeCacheFreshnessTests.swift` | `NativeAppSnapshot`, shell indicator integration |
 | 15a-15c | `Sources/SpoonjoyCore/Sync/**`, `Sources/SpoonjoyCore/Offline/**` | `Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift` | `MutationQueue`, global sync shell integration |
-| 16a-16c | `Sources/SpoonjoyCore/Stores/**` | `Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift` | `Sources/SpoonjoyCore/AppState/**`, AppShell wiring |
-| 17a-20c | `Sources/SpoonjoyCore/Features/<feature>/**` | Unit-named `Tests/SpoonjoyCoreTests/*Tests.swift` and feature-local static checks | All `Apps/Spoonjoy/Shared/Views/**`, `Apps/Spoonjoy/Shared/Components/**`, route maps, design manifests, project membership |
+| 16a, 16c | `Sources/SpoonjoyCore/Stores/**` | `Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift` | Unit 16b, `Sources/SpoonjoyCore/AppState/**`, AppShell wiring |
+| 17a-19l | `Sources/SpoonjoyCore/Features/<feature>/**` | Unit-named `Tests/SpoonjoyCoreTests/*Tests.swift` and feature-local static checks | All `Apps/Spoonjoy/Shared/Views/**`, `Apps/Spoonjoy/Shared/Components/**`, route maps, design manifests, project membership |
+| 20a-20c | None | Deep-link/AASA tests and validation artifacts | Orchestrator-only native/web universal-link integration |
 | 21a-22x | `Sources/SpoonjoyCore/AppIntents/<domain>/**` | Unit-named App Intents tests and `scripts/check-app-intents-contract.rb` domain cases | `Apps/Spoonjoy/Shared/Native/**`, `SpoonjoyAppIntents.swift`, `SpoonjoySpotlightIndexer.swift`, native capability metadata |
 | 23a-27 | None unless the unit explicitly says otherwise | Review, validation, docs, and merge artifacts | Orchestrator-owned |
 
@@ -51,7 +52,7 @@ Backend workers may edit only the test files named in the unit Output, migration
 | 9a-9c | shopping | `app/lib/api-v1-shopping.server.ts` |
 | 10a-10c | native-sync | `app/lib/api-v1-native-sync.server.ts` |
 | 10d-10f | recipe-import | `app/lib/api-v1-recipe-import.server.ts` |
-| 20a-20c | aasa-links | `app/lib/api-v1-aasa.server.ts` only if helper extraction is needed |
+| 20a-20c | aasa-links | orchestrator-only; `app/lib/api-v1-aasa.server.ts` only if helper extraction is needed by the orchestrator |
 | 24a-25c | docs-validation | orchestrator-only, no spawned backend helper |
 
 ## Objective
@@ -134,12 +135,31 @@ All native validation shorthand resolves through this matrix. Run `export ARTIFA
 Only these native blocker artifact capabilities are acceptable during execution: `XcodePlatform`, `CoreSimulator`, `MacOSLaunch`, `AASAProductionValidation`, `AppIntentsSDK`, `AppleDeveloperProgram`, and `ProviderSecret`. Every blocker artifact must be JSON with `blocked: true`, `capability`, `command`, `outputPath`, `reason`, and `ownerAction`; app-build/smoke blockers also include `timeoutSeconds`; SDK blockers also include `sdkSymbol`, `requiredAvailability`, and `fallbackBehavior`.
 
 - AASA production blockers are produced only by `ruby scripts/validate-aasa.rb --artifact-root "$ARTIFACT_ROOT"` at `$ARTIFACT_ROOT/aasa-production-blocker.json`; consumers are Unit 20c and Unit 26b.
-- App Intents or Spotlight SDK blockers are produced only by orchestrator-owned App Intents integration units at `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-<domain>.json` with `capability: "AppIntentsSDK"` and `<domain>` equal to the `appintents-contract --domain` value; consumers are `appintents-contract`, `scenario:native-metadata`, Unit 21l/22 coverage units, and Unit 26b.
+- App Intents or Spotlight SDK blockers are produced only by the orchestrator-run `appintents-contract` command in the coverage/refactor unit mapped in the App Intents SDK Blocker Producer Map. The path is `$ARTIFACT_ROOT/apple/appintents-sdk-blocker-<domain>.json` with `capability: "AppIntentsSDK"` and `<domain>` equal to the `appintents-contract --domain` value. Spawned App Intents workers never write these blockers directly; they request unavailable-SDK handling through `apple/integration-notes/<unit-slug>.md`. Consumers are `appintents-contract`, `scenario:native-metadata`, the mapped coverage/refactor unit, downstream integrated App Intents units, and Unit 26b.
 - Xcode platform blockers are produced only by `xcodebuild-ios` at `$ARTIFACT_ROOT/apple/<unit-slug>-ios-app-bundle-blocker.json`, `xcodebuild-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-macos-app-bundle-blocker.json`, or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/xcode-platform-blocker.json` with `capability: "XcodePlatform"`; consumers are Unit 13c, Unit 23c, and Unit 26b.
 - CoreSimulator blockers are produced only by `smoke-ios` or `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-ios-simulator-blocker.json` with `capability: "CoreSimulator"`; consumers are Unit 23c and Unit 26b.
 - macOS launch blockers are produced only by `smoke-macos` at `$ARTIFACT_ROOT/apple/<unit-slug>-smoke-macos-blocker.json` or by `scripts/validate-native-local.sh` at `$ARTIFACT_ROOT/smoke-macos-blocker.json`; consumers are Unit 23c and Unit 26b.
 - Apple Developer Program blockers are produced only by APNs/capability units at `$ARTIFACT_ROOT/apple/apple-developer-program-blocker-apns.json` with `capability: "AppleDeveloperProgram"`; consumers are Unit 19l, Unit 22x, and Unit 26b.
 - Provider secret blockers are produced only by provider-bound backend units at `$ARTIFACT_ROOT/web/provider-secret-blocker-<domain>.json` with `capability: "ProviderSecret"` and `<domain>` equal to `recipe-covers` or `recipe-import`; consumers are Unit 6c, Unit 10f, Unit 18f, Unit 18i, and Unit 26b.
+
+## App Intents SDK Blocker Producer Map
+
+| Domain | Producer unit and command |
+| --- | --- |
+| `recipe-cookbook` | Unit 21c, Validation Command Matrix `appintents-contract --domain recipe-cookbook` |
+| `shopping` | Unit 21f, Validation Command Matrix `appintents-contract --domain shopping` |
+| `spoon` | Unit 21o, Validation Command Matrix `appintents-contract --domain spoon` |
+| `capture-draft` | Unit 21r, Validation Command Matrix `appintents-contract --domain capture-draft` |
+| `chef-profile` | Unit 21i, Validation Command Matrix `appintents-contract --domain chef-profile` |
+| `spotlight-shortcuts` | Unit 21l, Validation Command Matrix `appintents-contract --domain spotlight-shortcuts` |
+| `open-search-share-cook` | Unit 22c, Validation Command Matrix `appintents-contract --domain open-search-share-cook` |
+| `shopping-intents` | Unit 22f, Validation Command Matrix `appintents-contract --domain shopping-intents` |
+| `recipe-action` | Unit 22i, Validation Command Matrix `appintents-contract --domain recipe-action` |
+| `spoon-intents` | Unit 22o, Validation Command Matrix `appintents-contract --domain spoon-intents` |
+| `capture-import-intents` | Unit 22r, Validation Command Matrix `appintents-contract --domain capture-import-intents` |
+| `cookbook-intents` | Unit 22l, Validation Command Matrix `appintents-contract --domain cookbook-intents` |
+| `profile-settings-intents` | Unit 22u, Validation Command Matrix `appintents-contract --domain profile-settings-intents` |
+| `notification-intents` | Unit 22x, Validation Command Matrix `appintents-contract --domain notification-intents` |
 
 ## Web Command Matrix
 
@@ -155,6 +175,14 @@ All web validation shorthand resolves through this matrix. Run `export ARTIFACT_
 - `web-warning-scan`: `bash -lc 'set -o pipefail; shopt -s nullglob; logs=("$ARTIFACT_ROOT/web/<unit-slug>"*.log); [[ ${#logs[@]} -gt 0 ]] || { echo "no logs found for <unit-slug>"; exit 1; }; if rg -n "\\b(warning|WARN)\\b" "${logs[@]}"; then exit 1; fi' | tee "$ARTIFACT_ROOT/web/<unit-slug>-warning-scan.log"`.
 
 Matrix-generated log and JSON names are authoritative for validation artifacts. Unit `Output` lines may also name summary files, changed source files, or human-readable review documents, but artifact audits must verify the matrix-generated paths above when a unit lists a matrix entry in `What`.
+
+## Validation Audit Commands
+
+- Web validation audit producer: create `/Users/arimendelow/Projects/spoonjoy-v2/scripts/audit-web-validation-artifacts.rb` in Unit 25a and run `ruby scripts/audit-web-validation-artifacts.rb --artifact-root "$ARTIFACT_ROOT" --manifest "$ARTIFACT_ROOT/web/validation-audit-manifest.json" | tee "$ARTIFACT_ROOT/web/unit-25a-validation-audit.log"` from `/Users/arimendelow/Projects/spoonjoy-v2`. The manifest must include `requiredRedArtifacts`, `requiredGreenArtifacts`, `requiredMatrixArtifacts`, and `requiredSourceTestMappings`.
+- Web audit required source/test mapping: every route/helper/doc file touched by Units 1-10f or 24 must map to at least one committed test file and at least one red artifact plus one green or matrix artifact in `$ARTIFACT_ROOT/web/`.
+- Web audit required artifact families: red logs for Units 1a, 2a, 3a, 4a, 5a, 6a, 7a, 8a, 9a, 10a, 10d, and 24a; Web Command Matrix artifacts for Units 1c, 2c, 3c, 4c, 5c, 6c, 7c, 8c, 9c, 10c, 10f, 20c, 24c, and 25b; `provider-secret-blocker-recipe-covers.json` and `provider-secret-blocker-recipe-import.json` when those blocker paths are referenced by implementation evidence.
+- Native validation audit producer: create `/Users/arimendelow/Projects/spoonjoy-apple/scripts/audit-native-validation-artifacts.rb` in Unit 26a and run `ruby scripts/audit-native-validation-artifacts.rb --artifact-root "$ARTIFACT_ROOT" --manifest "$ARTIFACT_ROOT/apple/validation-audit-manifest.json" | tee "$ARTIFACT_ROOT/apple/unit-26a-validation-audit.log"` from `/Users/arimendelow/Projects/spoonjoy-apple`. The manifest must include `requiredRedArtifacts`, `requiredGreenArtifacts`, `requiredMatrixArtifacts`, `requiredScenarioArtifacts`, `requiredBlockerArtifacts`, `requiredScreenshotArtifacts`, and `requiredSourceTestMappings`.
+- Native audit required artifact families: red logs for Units 11a through 24a where the Output names an `apple/*-red.log`; Validation Command Matrix artifacts for every native coverage/refactor unit from 11c through 24c plus 23c and 26b; `appintents-contract` evidence or mapped `AppIntentsSDK` blockers for every domain in the App Intents SDK Blocker Producer Map; `scenario:bootstrap`, `scenario:native-metadata`, `scenario:surfaces`, and `scenario:final`; xcodebuild iOS/macOS artifacts or canonical `XcodePlatform` blockers; smoke iOS/macOS artifacts or canonical `CoreSimulator`/`MacOSLaunch` blockers; screenshots/design review artifacts; and AASA validation or `$ARTIFACT_ROOT/aasa-production-blocker.json`.
 
 ## Work Units
 
@@ -399,8 +427,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before sync engine exists and assert outgoing request order plus cache mutation results.
 
 ### ⬜ Unit 15b: Native Sync Engine And Mutation Queue Expansion - Implementation
-**What**: Implement native repositories, sync engine, mutation queue expansion, conflict models, and retry scheduling under `Sources/SpoonjoyCore/Offline` and `Sources/SpoonjoyCore/AppState`.
-**Output**: Sync engine sources, repository protocols, fixtures, and feature-local scenario verifier integration notes for the orchestrator.
+**What**: Implement native repositories, sync engine, mutation queue expansion, conflict models, and retry scheduling under `Sources/SpoonjoyCore/Sync` and `Sources/SpoonjoyCore/Offline`; do not edit `Sources/SpoonjoyCore/AppState/**` or `MutationQueue` directly from a spawned worker.
+**Output**: Sync engine sources, repository protocols, fixtures, and `apple/integration-notes/unit-15b-sync-engine.md` covering orchestrator-applied `Sources/SpoonjoyCore/AppState/**`, `MutationQueue`, and scenario verifier updates.
 **Acceptance**: Unit 15a tests pass; offline writes survive app restart and drain once transport reports network success.
 
 ### ⬜ Unit 15c: Native Sync Engine And Mutation Queue Expansion - Coverage & Refactor
@@ -414,8 +442,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail before live store wiring exists and assert no production path silently uses fixtures after auth/cache bootstrap succeeds.
 
 ### ⬜ Unit 16b: Native Live Store And Shell Wiring - Implementation
-**What**: Wire `SpoonjoyRootView`, `PlatformNavigationView`, settings model, and shared app store to auth/session/transport/cache/sync repositories.
-**Output**: App shell Swift updates plus orchestrator-applied project generator and scenario verifier checks.
+**What**: Orchestrator-only: wire `SpoonjoyRootView`, `PlatformNavigationView`, settings model, `Sources/SpoonjoyCore/AppState/**`, and shared app store to auth/session/transport/cache/sync repositories.
+**Output**: Orchestrator-applied AppShell/AppState Swift updates, `apple/integration-notes/unit-16b-live-store.md` if spawned test workers requested shell wiring, plus project generator and scenario verifier checks.
 **Acceptance**: Unit 16a tests pass; shell can render signed-out, restoring cache, live synced, offline stale, and sync-failed states.
 
 ### ⬜ Unit 16c: Native Live Store And Shell Wiring - Coverage & Refactor
@@ -609,8 +637,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Tests fail until route parser/builders and web AASA docs cover the full route list; OAuth redirect remains HTTPS universal link only.
 
 ### ⬜ Unit 20b: Universal Links Routes And AASA Contract - Implementation
-**What**: Expand `DeepLinkRouter`, `DeepLinkURLBuilder`, app route handling, Info.plist/entitlements metadata, web AASA route contract, and validation artifacts.
-**Output**: Swift routing updates, web `.well-known`/devtools route updates, and AASA validation docs.
+**What**: Orchestrator-only: expand native `DeepLinkRouter`/`DeepLinkURLBuilder`, app route handling, Info.plist/entitlements metadata, web `.well-known` AASA route contract, devtools route, and validation artifacts.
+**Output**: Native routing updates, app entitlement/project updates, web `.well-known`/devtools route updates, AASA validation docs, and cross-repo artifact logs committed in the order defined by Execution.
 **Acceptance**: Unit 20a tests pass; unknown routes go to safe unknown-link state.
 
 ### ⬜ Unit 20c: Universal Links Routes And AASA Contract - Coverage & Refactor
@@ -859,8 +887,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Docs/build/typecheck are green with zero warnings.
 
 ### ⬜ Unit 25a: Web Full Validation - Tests
-**What**: Run targeted red/green evidence audit for all web tests created in Units 1-10f and 24, ensuring artifacts exist for red and green phases and no touched endpoint lacks a matching test file.
-**Output**: `web/unit-25a-validation-audit.log`.
+**What**: Create `scripts/audit-web-validation-artifacts.rb` and run the Web validation audit producer command from Validation Audit Commands, ensuring artifacts exist for red and green phases and no touched endpoint lacks a matching test file.
+**Output**: `/Users/arimendelow/Projects/spoonjoy-v2/scripts/audit-web-validation-artifacts.rb`, `$ARTIFACT_ROOT/web/validation-audit-manifest.json`, and `web/unit-25a-validation-audit.log`.
 **Acceptance**: Audit fails until every touched route/lib/doc contract has red and green artifacts in the task artifact directory.
 
 ### ⬜ Unit 25b: Web Full Validation - Implementation
@@ -874,8 +902,8 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Acceptance**: Reviewers converge with no BLOCKER/MAJOR findings; any MINOR/NIT disposition is recorded in the doing progress log.
 
 ### ⬜ Unit 26a: Native Full Validation - Tests
-**What**: Run native validation audit proving artifacts exist for Swift red/green phases, `coverage`, `appintents-contract`, `scenario:*`, app bundle builds, `screenshots`, design review, AASA validation/blocker, macOS smoke, and iOS simulator smoke.
-**Output**: `apple/unit-26a-validation-audit.log`.
+**What**: Create `scripts/audit-native-validation-artifacts.rb` and run the Native validation audit producer command from Validation Audit Commands, proving artifacts exist for Swift red/green phases, `coverage`, `appintents-contract`, `scenario:*`, app bundle builds, `screenshots`, design review, AASA validation/blocker, macOS smoke, and iOS simulator smoke.
+**Output**: `/Users/arimendelow/Projects/spoonjoy-apple/scripts/audit-native-validation-artifacts.rb`, `$ARTIFACT_ROOT/apple/validation-audit-manifest.json`, and `apple/unit-26a-validation-audit.log`.
 **Acceptance**: Audit fails until every native unit has red/green evidence and final validation prerequisites are present.
 
 ### ⬜ Unit 26b: Native Full Validation - Implementation
@@ -921,3 +949,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 19:20 Addressed ambiguity review findings by canonicalizing App Intents SDK blocker filenames and making matrix artifact names authoritative for validation outputs.
 - 2026-06-16 19:27 Addressed ambiguity review findings by forcing Wave 4 execution order, requiring exported `ARTIFACT_ROOT`, and canonicalizing Apple Developer Program/provider-secret blocker paths across producers and consumers.
 - 2026-06-16 19:34 Addressed ambiguity review findings by marking the doing doc executable with reviewer gates, adding exact worker write-scope contracts, defining matrix slug rules, completing Xcode/CoreSimulator blocker contracts, and fixing cross-repo artifact commit ownership.
+- 2026-06-16 19:41 Addressed ambiguity review findings by adding the Wave 2 dependency DAG, routing Unit 15 AppState/MutationQueue and Unit 16 AppShell edits through orchestrator ownership, marking Unit 20 orchestrator-only, mapping AppIntentsSDK blocker producers, and defining web/native validation audit commands.
