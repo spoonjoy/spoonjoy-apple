@@ -1,16 +1,16 @@
 
  RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
 
- ❯ test/routes/api-v1-recipe-covers.test.ts (9 tests | 9 failed) 372ms
-     × declares the whole cover family as bearer kitchen-write routes and enforces auth before lifecycle access 58ms
-     × lists owner cover history, active state, archived rows, and available spoon photo sources 41ms
-     × rejects foreign writer cover mutations before storage, cover, or active-state side effects 34ms
-     × uploads a recipe image as an active raw cover and rejects malformed uploads without side effects 20ms
+ ❯ test/routes/api-v1-recipe-covers.test.ts (9 tests | 9 failed) 416ms
+     × declares the whole cover family as bearer kitchen-write routes and enforces auth before lifecycle access 65ms
+     × lists owner cover history, active state, archived rows, and available spoon photo sources 40ms
+     × rejects foreign writer cover mutations before storage, cover, or active-state side effects 33ms
+     × uploads a recipe image as an active raw cover and rejects malformed uploads without side effects 23ms
      × creates idempotent uploaded-image cover candidates only from safe owner-owned Spoonjoy photo URLs 21ms
-     × sets active cover variants and archives inactive or active covers through explicit lifecycle choices 26ms
-     × regenerates covers with canonical provider-secret blocker artifacts when local AI secrets are absent 25ms
-     × returns canonical provider-secret blockers for editorial upload, URL, and spoon cover creation 24ms
-     × creates cover candidates from existing spoon photos without inventing comments or social surfaces 43ms
+     × sets active cover variants and archives inactive or active covers through explicit lifecycle choices 32ms
+     × regenerates covers with canonical provider-secret blocker artifacts when local AI secrets are absent 26ms
+     × returns canonical provider-secret blockers for editorial upload, URL, and spoon cover creation 26ms
+     × creates cover candidates from existing spoon photos without inventing comments or social surfaces 25ms
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
 
@@ -99,13 +99,13 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:797:26
-    795|     const replayPayload = await readJson(replay);
-    796|
-    797|     expect(first.status).toBe(201);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:798:26
+    796|     const replayPayload = await readJson(replay);
+    797|
+    798|     expect(first.status).toBe(201);
        |                          ^
-    798|     expectSuccessEnvelope(firstPayload, "req_cover_create_url");
-    799|     expectCoverMutationData(firstPayload.data, clientMutationId, false…
+    799|     expectSuccessEnvelope(firstPayload, "req_cover_create_url");
+    800|     expectCoverMutationData(firstPayload.data, clientMutationId, false…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
 
@@ -118,13 +118,13 @@ AssertionError: expected 405 to be 200 // Object.is equality
 - 200
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:909:29
-    907|     const activateReplayPayload = await readJson(activateReplay);
-    908|
-    909|     expect(activate.status).toBe(200);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:910:29
+    908|     const activateReplayPayload = await readJson(activateReplay);
+    909|
+    910|     expect(activate.status).toBe(200);
        |                             ^
-    910|     expectSuccessEnvelope(activatePayload, "req_cover_activate");
-    911|     expectActiveCoverMutationData(activatePayload.data, activateBody.c…
+    911|     expectSuccessEnvelope(activatePayload, "req_cover_activate");
+    912|     expectActiveCoverMutationData(activatePayload.data, activateBody.c…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
 
@@ -137,13 +137,13 @@ AssertionError: expected 405 to be 202 // Object.is equality
 - 202
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:1110:29
-    1108|     const payload = await readJson(response);
-    1109|
-    1110|     expect(response.status).toBe(202);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:1121:29
+    1119|     const payload = await readJson(response);
+    1120|
+    1121|     expect(response.status).toBe(202);
        |                             ^
-    1111|     expectPrivateEnvelopeHeaders(response, "req_cover_regenerate_no_pr…
-    1112|     expectSuccessEnvelope(payload, "req_cover_regenerate_no_provider");
+    1122|     expectPrivateEnvelopeHeaders(response, "req_cover_regenerate_no_pr…
+    1123|     expectSuccessEnvelope(payload, "req_cover_regenerate_no_provider");
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
 
@@ -156,13 +156,13 @@ AssertionError: expected 405 to be 202 // Object.is equality
 - 202
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:1218:27
-    1216|     ));
-    1217|     const uploadPayload = await readJson(upload);
-    1218|     expect(upload.status).toBe(202);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:1229:27
+    1227|     ));
+    1228|     const uploadPayload = await readJson(upload);
+    1229|     expect(upload.status).toBe(202);
        |                           ^
-    1219|     expectSuccessEnvelope(uploadPayload, "req_cover_image_upload_provi…
-    1220|     expectCoverMutationData(uploadPayload.data, uploadClientMutationId…
+    1230|     expectSuccessEnvelope(uploadPayload, "req_cover_image_upload_provi…
+    1231|     expectCoverMutationData(uploadPayload.data, uploadClientMutationId…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
 
@@ -175,19 +175,19 @@ AssertionError: expected 405 to be 201 // Object.is equality
 - 201
 + 405
 
- ❯ test/routes/api-v1-recipe-covers.test.ts:1357:29
-    1355|     const payload = await readJson(response);
-    1356|
-    1357|     expect(response.status).toBe(201);
+ ❯ test/routes/api-v1-recipe-covers.test.ts:1371:29
+    1369|     const payload = await readJson(response);
+    1370|
+    1371|     expect(response.status).toBe(201);
        |                             ^
-    1358|     expectPrivateEnvelopeHeaders(response, "req_cover_from_spoon");
-    1359|     expectSuccessEnvelope(payload, "req_cover_from_spoon");
+    1372|     expectPrivateEnvelopeHeaders(response, "req_cover_from_spoon");
+    1373|     expectSuccessEnvelope(payload, "req_cover_from_spoon");
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
 
 
  Test Files  1 failed (1)
       Tests  9 failed (9)
-   Start at  08:46:55
-   Duration  2.28s (transform 607ms, setup 184ms, import 1.22s, tests 372ms, environment 330ms)
+   Start at  08:54:33
+   Duration  2.43s (transform 635ms, setup 207ms, import 1.29s, tests 416ms, environment 308ms)
 
