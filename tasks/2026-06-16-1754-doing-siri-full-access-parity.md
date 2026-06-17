@@ -362,10 +362,11 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 **Output**: Red artifacts `web/unit-1a-contract-red.log` and test changes under `test/config/`, `test/lib/`, and `test/docs/`.
 **Acceptance**: Targeted tests fail because `/api/v1/me`, profile photo, profile, search, recipe write, cover, spoon, cookbook write, shopping clear/add-from-recipe, sync, APNs, and token-native-account contract rows are missing or undocumented.
 
-### ⬜ Unit 1b: REST V1 Contract Registry - Implementation
+### ✅ Unit 1b: REST V1 Contract Registry - Implementation
 **What**: Extend `API_V1_RESOURCES`, `API_V1_SCOPE_REQUIREMENTS`, operation telemetry mapping, OpenAPI builders, generated playground metadata, and docs so every `/api/v1` row in Endpoint Scope is declared with auth mode, scopes, schemas, examples, and error envelopes.
 **Output**: Updated `app/lib/api-v1-contract.server.ts`, `app/lib/api-v1-openapi.server.ts`, `docs/api.md`, `scripts/generate-api-playground.ts`, and generated playground output.
 **Acceptance**: Unit 1a tests pass; `pnpm run api:playground:generate` produces no uncommitted generated drift; no implementation handler returns success for unimplemented write resources yet.
+**Evidence**: `spoonjoy-v2` commit `5b18eb31`; `web/unit-1b-contract-green.log`; `web/unit-1b-api-playground-postcommit-generate.log`; `web/unit-1b-api-playground-drift.log`; `web/unit-1b-typecheck.log`; `web/unit-1b-build.log`.
 
 ### ⬜ Unit 1c: REST V1 Contract Registry - Coverage & Refactor
 **What**: Run Web Command Matrix entries `web-focused` with `test/config/api-v1-route-coverage.test.ts test/routes/api-v1-openapi.test.ts test/lib/api-v1-openapi.server.test.ts test/scripts/generate-api-playground.test.ts test/docs/developer-platform-docs.test.ts test/docs/developer-platform-guide.test.ts`, `web-route-coverage`, `web-docs-drift`, `web-playground-generate`, `web-typecheck`, and `web-warning-scan`.
@@ -1176,3 +1177,4 @@ Matrix-generated log and JSON names are authoritative for validation artifacts. 
 - 2026-06-16 22:17 Addressed Tinfoil Hat findings by making `ProductionOperationApproval` a Unit 27-only blocker and requiring Unit 26 native local validation to reject production-operation approval blockers.
 - 2026-06-16 22:17 Unit 0 complete: captured cross-repo baseline artifacts, protected-check evidence, toolchain state, audit artifact references, artifact subdirectories, and stale supporting-artifact scan; cold reviewer Fermat converged.
 - 2026-06-16 22:27 Unit 1a complete: added native REST endpoint-scope red tests for registry, scope requirements, served OpenAPI, OpenAPI builders, generated playground, docs, and `/developers`; `web/unit-1a-contract-red.log` proves the expected 47 missing REST rows plus stale docs copy.
+- 2026-06-16 22:47 Unit 1b complete: `spoonjoy-v2` commit `5b18eb31` declares the native REST contract registry/OpenAPI/playground/docs rows, keeps unimplemented native write paths on non-success handler fallback, and passes the Unit 1a suite, typecheck, build, and post-commit playground drift check.
