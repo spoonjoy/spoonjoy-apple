@@ -1,0 +1,88 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts (11 tests | 3 failed) 788ms
+     ✓ declares write scope rows for item mutation endpoints 19ms
+     ✓ adds, checks, and removes shopping-list items with exact mutation envelopes 97ms
+     ✓ restores matching items, rejects unknown fields, and requires clientMutationId 48ms
+     ✓ covers mutation validation, duplicate text, false checks, and missing item boundaries 97ms
+     ✓ replays exact idempotent responses and rejects key conflicts 93ms
+     ✓ adds owner and public recipe ingredients with scale, merge, restore, and exact mutation envelopes 90ms
+     × coalesces duplicate recipe ingredients into one exact final changed row 60ms
+     ✓ handles recipe-add empty ingredients and clear operations with checked, deleted, and empty-list rows 84ms
+     × enforces auth, scope, and body validation for shopping parity mutations 54ms
+     × recovers committed incomplete bulk mutations and refuses partial recipe-add recovery 40ms
+     ✓ enforces shopping_list:write before mutation body handling 28ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > coalesces duplicate recipe ingredients into one exact final changed row
+AssertionError: expected { recipe: { …(2) }, created: 1, …(3) } to match object { created: 1, updated: +0, …(1) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+@@ -2,7 +2,7 @@
+    "created": 1,
+    "recipe": {
+      "id": "cmqioxgzg004e6vssrtnr7tla",
+      "title": "Shopping Recipe Ueh9xOff",
+    },
+-   "updated": 0,
++   "updated": 1,
+  }
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:886:26
+    884|     expectSuccessEnvelope(payload, "req_bulk_add_duplicate_recipe");
+    885|     expectRecipeShoppingMutationData(payload.data, "bulk-add-duplicate…
+    886|     expect(payload.data).toMatchObject({
+       |                          ^
+    887|       created: 1,
+    888|       updated: 0,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > enforces auth, scope, and body validation for shopping parity mutations
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:1124:5
+    1122|     expectEnvelopeHeaders(missingRecipe, "req_bulk_add_not_found");
+    1123|     expectErrorEnvelope(await readJson(missingRecipe), "req_bulk_add_n…
+    1124|     await expect(db.shoppingList.count({ where: { authorId: userWithou…
+       |     ^
+    1125|     await expect(db.shoppingListItem.count({
+    1126|       where: { shoppingList: { authorId: userWithoutList.id } },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > recovers committed incomplete bulk mutations and refuses partial recipe-add recovery
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:1217:33
+    1215|     ));
+    1216|     const recoveredAddPayload = await readJson(recoveredAdd);
+    1217|     expect(recoveredAdd.status).toBe(200);
+       |                                 ^
+    1218|     expectRecipeShoppingMutationData(recoveredAddPayload.data, "bulk-r…
+    1219|     expect(recoveredAddPayload.data).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 8 passed (11)
+   Start at  16:16:51
+   Duration  2.74s (transform 655ms, setup 195ms, import 1.25s, tests 788ms, environment 351ms)

@@ -1,0 +1,9 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/lib/api-v1-openapi.server.test.ts (12 tests) 221ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  16:25:16
+   Duration  1.09s (transform 247ms, setup 159ms, import 224ms, tests 221ms, environment 313ms)

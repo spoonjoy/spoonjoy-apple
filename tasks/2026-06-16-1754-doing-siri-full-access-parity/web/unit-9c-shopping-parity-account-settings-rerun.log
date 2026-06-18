@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/account-settings.test.tsx (148 tests) 18080ms
+         ✓ should successfully change password with valid current and new password  338ms
+         ✓ should update hashed password in database after successful change  407ms
+
+ Test Files  1 passed (1)
+      Tests  148 passed (148)
+   Start at  16:52:50
+   Duration  20.00s (transform 487ms, setup 143ms, import 1.35s, tests 18.08s, environment 264ms)

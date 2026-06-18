@@ -1,0 +1,9 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-shopping-mutations.test.ts (11 tests) 999ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  16:41:27
+   Duration  3.06s (transform 666ms, setup 266ms, import 1.28s, tests 999ms, environment 340ms)
