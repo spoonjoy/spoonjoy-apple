@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-native-sync.test.ts (10 tests) 895ms
+ ✓ test/scripts/migration-0021-native-sync-tombstones.test.ts (4 tests) 35ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  17:53:40
+   Duration  3.85s (transform 829ms, setup 333ms, import 1.56s, tests 930ms, environment 632ms)
+

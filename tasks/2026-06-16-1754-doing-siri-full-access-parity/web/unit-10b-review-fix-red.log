@@ -1,0 +1,200 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-native-sync.test.ts (10 tests | 7 failed) 565ms
+     ✓ declares the private current-chef sync scope and enforces auth before syncing 74ms
+     × returns freshness metadata and ordered upsert entries for the current product model 51ms
+     × derives freshness environment and public URLs from the route context 55ms
+     × paginates by deterministic updatedAt, kind, and id ordering with opaque cursors 57ms
+     × returns delete tombstones for recipes, cookbooks, spoons, and shopping items without payload leaks 21ms
+     × keeps hard-deleted cookbook sync tombstones after idempotency cleanup 57ms
+     × uses recipe children and cookbook membership changes as incremental sync revisions 38ms
+     ✓ handles default preferences, empty private domains, blank limits, ISO cursors, and helper not-found results 27ms
+     × sorts recipe subgraphs, same-kind resources, optional shopping fields, and malformed cookbook tombstones 28ms
+     ✓ validates cursor and page limits before returning native sync data 71ms
+ ❯ test/scripts/migration-0021-native-sync-tombstones.test.ts (4 tests | 4 skipped) 31ms
+     ↓ creates durable per-account tombstone fields for private native sync
+     ↓ links tombstones to the owning user without depending on idempotency rows
+     ↓ creates account uniqueness and incremental lookup indexes
+     ↓ rejects duplicate tombstones for the same account resource
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/scripts/migration-0021-native-sync-tombstones.test.ts > migration 0021 - native sync tombstones
+Error: ENOENT: no such file or directory, open '/Users/arimendelow/Projects/spoonjoy-v2/migrations/0021_native_sync_tombstones.sql'
+ ❯ test/scripts/migration-0021-native-sync-tombstones.test.ts:72:13
+     70|   beforeAll(() => {
+     71|     db = freshDb();
+     72|     db.exec(readFileSync(MIGRATION_PATH, "utf8"));
+       |             ^
+     73|   });
+     74| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > returns freshness metadata and ordered upsert entries for the current product model
+AssertionError: expected [ 'profile', …(6) ] to deeply equal [ 'profile', …(5) ]
+
+- Expected
++ Received
+
+  [
+    "profile",
+    "notificationPreferences",
+    "recipe",
++   "recipe",
+    "cookbook",
+    "spoon",
+    "shoppingItem",
+  ]
+
+ ❯ test/routes/api-v1-native-sync.test.ts:452:79
+    450|     expect(payload.data.hasMore).toBe(false);
+    451|     expect(payload.data.nextCursor).toMatch(/^v1\./);
+    452|     expect(payload.data.entries.map((entry: { kind: string }) => entry…
+       |                                                                               ^
+    453|       "profile",
+    454|       "notificationPreferences",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > derives freshness environment and public URLs from the route context
+AssertionError: expected { …(6) } to match object { …(2) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "accountId": "cmqis68t4001k6vsru10htgaw",
+-   "environment": "preview",
++   "environment": "local",
+  }
+
+ ❯ test/routes/api-v1-native-sync.test.ts:619:36
+    617|     expect(response.status).toBe(200);
+    618|     expectSuccessEnvelope(payload, "req_native_sync_env");
+    619|     expect(payload.data.freshness).toMatchObject({
+       |                                    ^
+    620|       accountId: fixture.user.id,
+    621|       environment: "preview",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > paginates by deterministic updatedAt, kind, and id ordering with opaque cursors
+AssertionError: expected [ 'recipe', 'cookbook', 'spoon' ] to deeply equal [ 'cookbook', 'spoon', 'shoppingItem' ]
+
+- Expected
++ Received
+
+  [
++   "recipe",
+    "cookbook",
+    "spoon",
+-   "shoppingItem",
+  ]
+
+ ❯ test/routes/api-v1-native-sync.test.ts:662:85
+    660|     expectSuccessEnvelope(secondPayload, "req_native_sync_page_2");
+    661|     expectNativeSyncDataShape(secondPayload.data);
+    662|     expect(secondPayload.data.entries.map((entry: { kind: string }) =>…
+       |                                                                                     ^
+    663|       "cookbook",
+    664|       "spoon",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > returns delete tombstones for recipes, cookbooks, spoons, and shopping items without payload leaks
+TypeError: Cannot read properties of undefined (reading 'create')
+ ❯ createDeletedSyncFixture test/routes/api-v1-native-sync.test.ts:344:58
+    342|   const deletedCookbookId = `cookbook_deleted_${faker.string.alphanume…
+    343|   const cookbookDeletedAt = "2026-06-02T00:05:30.000Z";
+    344|   const cookbookTombstone = await db.nativeSyncTombstone.create({
+       |                                                          ^
+    345|     data: {
+    346|       userId: user.id,
+ ❯ test/routes/api-v1-native-sync.test.ts:684:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > keeps hard-deleted cookbook sync tombstones after idempotency cleanup
+AssertionError: expected undefined to match object { action: 'delete', …(3) }
+
+- Expected: 
+{
+  "action": "delete",
+  "kind": "cookbook",
+  "payload": null,
+  "tombstone": {
+    "deletedAt": "2026-06-18T00:47:42.773Z",
+    "parentResourceId": null,
+    "resourceId": "cmqis68xb004b6vsr7w6k48w7",
+    "resourceType": "cookbook",
+    "title": "Native durable tombstone TfvQde1D",
+    "updatedAt": "2026-06-18T00:47:42.773Z",
+  },
+}
+
++ Received: 
+undefined
+
+ ❯ test/routes/api-v1-native-sync.test.ts:781:26
+    779|     expect(response.status).toBe(200);
+    780|     const deletedEntry = payload.data.entries.find((entry: { resourceI…
+    781|     expect(deletedEntry).toMatchObject({
+       |                          ^
+    782|       action: "delete",
+    783|       kind: "cookbook",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > uses recipe children and cookbook membership changes as incremental sync revisions
+AssertionError: expected undefined to match object { kind: 'recipe', …(2) }
+
+- Expected: 
+{
+  "kind": "recipe",
+  "payload": {
+    "steps": [
+      ObjectContaining {
+        "description": "Changed child step after parent cursor.",
+      },
+    ],
+  },
+  "updatedAt": "2026-06-01T00:12:00.000Z",
+}
+
++ Received: 
+undefined
+
+ ❯ test/routes/api-v1-native-sync.test.ts:817:30
+    815|     expect(afterChild.status).toBe(200);
+    816|     const recipeAfterChild = afterChildPayload.data.entries.find((entr…
+    817|     expect(recipeAfterChild).toMatchObject({
+       |                              ^
+    818|       kind: "recipe",
+    819|       updatedAt: childUpdatedAt.toISOString(),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > sorts recipe subgraphs, same-kind resources, optional shopping fields, and malformed cookbook tombstones
+TypeError: Cannot read properties of undefined (reading 'create')
+ ❯ test/routes/api-v1-native-sync.test.ts:950:30
+    948|     });
+    949|     const tombstones = await Promise.all([
+    950|       db.nativeSyncTombstone.create({
+       |                              ^
+    951|         data: {
+    952|           userId: fixture.user.id,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 3 passed | 4 skipped (14)
+   Start at  17:47:40
+   Duration  3.28s (transform 789ms, setup 321ms, import 1.58s, tests 596ms, environment 499ms)
+
