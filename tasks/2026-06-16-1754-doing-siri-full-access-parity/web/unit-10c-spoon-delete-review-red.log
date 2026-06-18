@@ -1,0 +1,53 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-native-sync.test.ts (13 tests | 1 failed) 875ms
+     ✓ declares the private current-chef sync scope and enforces auth before syncing 89ms
+     ✓ returns freshness metadata and ordered upsert entries for the current product model 58ms
+     ✓ derives freshness environment and public URLs from the route context 46ms
+     ✓ drops malformed public cover URLs and source hosts from native sync payloads 67ms
+     ✓ keeps deleted source recipe attribution private-safe in native sync payloads 42ms
+     ✓ paginates by deterministic updatedAt, kind, and id ordering with opaque cursors 52ms
+     ✓ returns delete tombstones for recipes, cookbooks, spoons, and shopping items without payload leaks 31ms
+     ✓ keeps hard-deleted cookbook sync tombstones after idempotency cleanup 58ms
+     ✓ uses recipe children and cookbook membership changes as incremental sync revisions 55ms
+     × refreshes parent recipe previews when a recent spoon is deleted after the recipe cursor 60ms
+     ✓ handles default preferences, empty private domains, blank limits, ISO cursors, and helper not-found results 51ms
+     ✓ sorts recipe subgraphs, same-kind resources, optional shopping fields, and malformed cookbook tombstones 74ms
+     ✓ validates cursor and page limits before returning native sync data 102ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > refreshes parent recipe previews when a recent spoon is deleted after the recipe cursor
+AssertionError: expected undefined to match object { action: 'upsert', …(4) }
+
+- Expected: 
+{
+  "action": "upsert",
+  "kind": "recipe",
+  "payload": {
+    "recentSpoons": [],
+  },
+  "resourceId": "cmqitkpjg007h6vzrxnjcs2jj",
+  "tombstone": null,
+}
+
++ Received: 
+undefined
+
+ ❯ test/routes/api-v1-native-sync.test.ts:988:25
+    986|       entry.kind === "spoon" && entry.resourceId === fixture.spoon.id
+    987|     ));
+    988|     expect(recipeEntry).toMatchObject({
+       |                         ^
+    989|       action: "upsert",
+    990|       kind: "recipe",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  18:26:54
+   Duration  3.14s (transform 731ms, setup 205ms, import 1.43s, tests 875ms, environment 435ms)
+
