@@ -459,6 +459,7 @@ struct APITransportTests {
     func offlineFailuresAndCancellationsAreClassifiedDistinctly() async throws {
         let offlineSession = RecordingURLSession(responses: [.failure(URLError(.notConnectedToInternet))])
         let cancelledSession = RecordingURLSession(responses: [.failure(URLError(.cancelled))])
+        let taskCancelledSession = RecordingURLSession(responses: [.failure(CancellationError())])
 
         do {
             _ = try await URLSessionAPITransport(session: offlineSession).send(
@@ -484,6 +485,161 @@ struct APITransportTests {
             #expect(error.isCancelled)
             #expect(error.retryDecision == .doNotRetry)
             #expect(error.requestID == nil)
+        }
+
+        do {
+            _ = try await URLSessionAPITransport(session: taskCancelledSession).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected task cancellation to throw")
+        } catch let error as APITransportError {
+            #expect(error.isCancelled)
+            #expect(error.retryDecision == .doNotRetry)
+            #expect(error.requestID == nil)
+        }
+    }
+
+    @Test("transport classifies non HTTP network and retry-after edge responses")
+    func transportClassifiesNonHTTPNetworkAndRetryAfterEdgeResponses() async throws {
+        let invalidURLSession = RecordingURLSession(
+            responses: [.failure(TransportFixtureError.unexpectedRequest)]
+        )
+        do {
+            _ = try await URLSessionAPITransport(session: invalidURLSession).send(
+                Self.privateReadRequest(),
+                configuration: APIClientConfiguration(
+                    baseURL: URL(string: "mailto:spoonjoy")!,
+                    bearerToken: "sj_access"
+                ),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected invalid base URL to throw")
+        } catch let error as APITransportError {
+            #expect(error.kind == .invalidRequestURL)
+            #expect(error.retryDecision == .doNotRetry)
+            #expect(await invalidURLSession.capturedRequests().isEmpty)
+        }
+
+        let nonHTTPSession = RecordingURLSession(
+            responses: [
+                .success((
+                    Data("not http".utf8),
+                    URLResponse(
+                        url: URL(string: "https://spoonjoy.app/api/v1/shopping-list")!,
+                        mimeType: nil,
+                        expectedContentLength: 0,
+                        textEncodingName: nil
+                    )
+                ))
+            ]
+        )
+        do {
+            _ = try await URLSessionAPITransport(session: nonHTTPSession).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected non-HTTP response to throw")
+        } catch let error as APITransportError {
+            #expect(error.kind == .nonHTTPResponse)
+            #expect(error.retryDecision == .doNotRetry)
+        }
+
+        let arbitraryFailureSession = RecordingURLSession(responses: [.failure(TransportFixtureError.boom)])
+        do {
+            _ = try await URLSessionAPITransport(session: arbitraryFailureSession).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected arbitrary network failure to throw")
+        } catch let error as APITransportError {
+            #expect(error.kind == .networkFailure)
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
+        }
+
+        let urlFallbackFailureSession = RecordingURLSession(responses: [.failure(URLError(.badServerResponse))])
+        do {
+            _ = try await URLSessionAPITransport(session: urlFallbackFailureSession).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected non-offline URL failure to throw")
+        } catch let error as APITransportError {
+            #expect(error.kind == .networkFailure)
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
+        }
+
+        let noContentTypeRateLimit = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 429,
+                    headers: ["Retry-After": "5", "X-Request-Id": "req_missing_content_type"],
+                    body: Data("rate limited".utf8)
+                ))
+            ]
+        )
+        do {
+            _ = try await URLSessionAPITransport(session: noContentTypeRateLimit).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected missing content-type 429 to throw")
+        } catch let error as APITransportError {
+            #expect(error.kind == .nonJSONResponse)
+            #expect(error.requestID == "req_missing_content_type")
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: 5))
+        }
+
+        let httpDateRetryAfter = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: [
+                        "Content-Type": "text/plain",
+                        "Retry-After": "Wed, 31 Dec 2099 23:59:59 GMT"
+                    ],
+                    body: Data("try later".utf8)
+                ))
+            ]
+        )
+        do {
+            _ = try await URLSessionAPITransport(session: httpDateRetryAfter).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected HTTP-date retry-after response to throw")
+        } catch let error as APITransportError {
+            if case .retrySameRequest(let afterSeconds) = error.retryDecision {
+                #expect((afterSeconds ?? 0) > 0)
+            } else {
+                Issue.record("Expected retry decision for HTTP-date Retry-After")
+            }
+        }
+
+        let invalidRetryAfter = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "text/plain", "Retry-After": "eventually"],
+                    body: Data("try later".utf8)
+                ))
+            ]
+        )
+        do {
+            _ = try await URLSessionAPITransport(session: invalidRetryAfter).send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected invalid retry-after response to throw")
+        } catch let error as APITransportError {
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
         }
     }
 
@@ -571,6 +727,11 @@ struct APITransportTests {
 
 private struct TransportPayload: Decodable, Equatable, Sendable {
     let name: String
+}
+
+private enum TransportFixtureError: Error {
+    case boom
+    case unexpectedRequest
 }
 
 private actor RecordingURLSession: URLSessionPerforming {

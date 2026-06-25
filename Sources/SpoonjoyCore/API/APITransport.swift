@@ -68,6 +68,16 @@ public struct APITransportError: Error, Equatable, Sendable {
         self.apiError = apiError
         self.retryDecision = retryDecision
     }
+
+    static func invalidRequestURL() -> APITransportError {
+        APITransportError(
+            kind: .invalidRequestURL,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        )
+    }
 }
 
 public struct URLSessionAPITransport: SpoonjoyAPITransport {
@@ -102,7 +112,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport {
         hasRefreshedAuthentication: Bool
     ) async throws -> APIEnvelope<Value> {
         let urlRequest = try buildURLRequest(
-            from: request.urlRequest(configuration: configuration)
+            from: try request.urlRequest(configuration: configuration)
         )
         let response: (data: Data, urlResponse: URLResponse)
 
@@ -140,30 +150,8 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport {
     }
 
     private func buildURLRequest(from request: APIRequest) throws -> URLRequest {
-        guard var components = URLComponents(
-            url: request.url.baseURL,
-            resolvingAgainstBaseURL: false
-        ) else {
-            throw APITransportError(
-                kind: .invalidRequestURL,
-                requestID: nil,
-                statusCode: nil,
-                apiError: nil,
-                retryDecision: .doNotRetry
-            )
-        }
-
-        components.percentEncodedPath = request.url.path
-        components.queryItems = request.queryItems.isEmpty ? nil : request.queryItems
-
-        guard let url = components.url else {
-            throw APITransportError(
-                kind: .invalidRequestURL,
-                requestID: nil,
-                statusCode: nil,
-                apiError: nil,
-                retryDecision: .doNotRetry
-            )
+        guard let url = Self.url(from: request.url, queryItems: request.queryItems) else {
+            throw APITransportError.invalidRequestURL()
         }
 
         var urlRequest = URLRequest(
@@ -176,6 +164,22 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }
         return urlRequest
+    }
+
+    private static func url(from requestURL: APIRequestURL, queryItems: [URLQueryItem]) -> URL? {
+        guard var components = URLComponents(
+            url: requestURL.baseURL,
+            resolvingAgainstBaseURL: false
+        ),
+              let scheme = components.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              components.host?.isEmpty == false else {
+            return nil
+        }
+
+        components.percentEncodedPath = requestURL.path
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components.url
     }
 
     private static func decode<Value: Decodable & Equatable>(
@@ -372,11 +376,9 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
 
-        if let retryDate = formatter.date(from: retryAfter) {
-            return max(0, Int(ceil(retryDate.timeIntervalSince(Date()))))
+        return formatter.date(from: retryAfter).map { retryDate in
+            max(0, Int(ceil(retryDate.timeIntervalSince(Date()))))
         }
-
-        return nil
     }
 
     private static func headerValue(_ name: String, in response: HTTPURLResponse) -> String? {
