@@ -1,0 +1,41 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Compiling SpoonjoyCore APITransport.swift
+[4/7] Emitting module SpoonjoyCore
+[5/12] Emitting module SpoonjoyScenarioVerifier
+[5/12] Write Objects.LinkFileList
+[6/12] Linking SpoonjoyScenarioVerifier
+[7/12] Applying SpoonjoyScenarioVerifier
+[9/12] Emitting module SpoonjoyCoreTests
+[10/12] Compiling SpoonjoyCoreTests APITransportTests.swift
+[10/12] Write Objects.LinkFileList
+[11/12] Linking SpoonjoyApplePackageTests
+Build complete! (2.23s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "URLSession API transport" started.
+◇ Test "bare and malformed 401 responses refresh and replay authenticated requests once" started.
+◇ Test "401 responses refresh configuration and replay authenticated requests once" started.
+◇ Test "URLSession transport builds URLRequests and decodes successful envelopes" started.
+◇ Test "API error envelopes preserve request IDs details and retry decisions" started.
+◇ Test "ordinary server error envelopes preserve full API error fields" started.
+◇ Test "offline failures and cancellations are classified distinctly" started.
+◇ Test "transport preserves already encoded path segments exactly once" started.
+◇ Test "non JSON and malformed JSON failures retain status and request id context" started.
+◇ Test "a second 401 after refresh is surfaced instead of looping" started.
+◇ Test "HTTP failure status wins over successful JSON envelopes" started.
+✔ Test "offline failures and cancellations are classified distinctly" passed after 0.003 seconds.
+✔ Test "non JSON and malformed JSON failures retain status and request id context" passed after 0.003 seconds.
+✔ Test "HTTP failure status wins over successful JSON envelopes" passed after 0.003 seconds.
+✔ Test "URLSession transport builds URLRequests and decodes successful envelopes" passed after 0.003 seconds.
+✔ Test "transport preserves already encoded path segments exactly once" passed after 0.003 seconds.
+✔ Test "a second 401 after refresh is surfaced instead of looping" passed after 0.003 seconds.
+✔ Test "ordinary server error envelopes preserve full API error fields" passed after 0.003 seconds.
+✔ Test "API error envelopes preserve request IDs details and retry decisions" passed after 0.003 seconds.
+✔ Test "401 responses refresh configuration and replay authenticated requests once" passed after 0.003 seconds.
+✔ Test "bare and malformed 401 responses refresh and replay authenticated requests once" passed after 0.004 seconds.
+✔ Suite "URLSession API transport" passed after 0.004 seconds.
+✔ Test run with 10 tests in 1 suite passed after 0.004 seconds.

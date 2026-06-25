@@ -48,6 +48,38 @@ struct APITransportTests {
         #expect(capturedRequest.cachePolicy == .reloadIgnoringLocalCacheData)
     }
 
+    @Test("transport preserves already encoded path segments exactly once")
+    func transportPreservesAlreadyEncodedPathSegmentsExactlyOnce() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_encoded_path", name: "Encoded path")
+                ))
+            ]
+        )
+        let transport = URLSessionAPITransport(session: session)
+        let request = APIRequestBuilder(
+            method: .get,
+            pathComponents: ["api", "v1", "recipes", "recipe/with spaces/été"],
+            queryItems: [URLQueryItem(name: "include", value: "chef profile")],
+            defaultAuthorization: .omit,
+            responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+        )
+
+        _ = try await transport.send(
+            request,
+            configuration: Self.configuration(bearerToken: "sj_access_unused"),
+            decode: TransportPayload.self
+        )
+        let capturedRequest = try #require(await session.capturedRequests().first)
+
+        #expect(capturedRequest.url?.absoluteString == "https://spoonjoy.app/api/v1/recipes/recipe%2Fwith%20spaces%2F%C3%A9t%C3%A9?include=chef%20profile")
+        #expect(capturedRequest.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(capturedRequest.cachePolicy == .useProtocolCachePolicy)
+    }
+
     @Test("API error envelopes preserve request IDs details and retry decisions")
     func apiErrorEnvelopesPreserveRequestIDsDetailsAndRetryDecisions() async throws {
         let session = RecordingURLSession(
@@ -97,7 +129,7 @@ struct APITransportTests {
             responses: [
                 .success(Self.response(
                     statusCode: 503,
-                    headers: ["Content-Type": "application/json"],
+                    headers: ["Content-Type": "application/json", "Retry-After": "7"],
                     body: Self.errorEnvelope(
                         requestID: "req_origin_down",
                         code: "database_unavailable",
@@ -120,16 +152,51 @@ struct APITransportTests {
         } catch let error as APITransportError {
             #expect(error.requestID == "req_origin_down")
             #expect(error.statusCode == 503)
-            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: 7))
             #expect(error.apiError == APIError(
                 requestID: "req_origin_down",
                 code: "database_unavailable",
                 message: "Try again soon",
                 status: 503,
+                retryAfterSeconds: 7,
                 details: [
                     "region": .string("iad"),
                     "retryClass": .string("transient")
                 ]
+            ))
+        }
+    }
+
+    @Test("HTTP failure status wins over successful JSON envelopes")
+    func httpFailureStatusWinsOverSuccessfulJSONEnvelopes() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "application/json", "Retry-After": "4"],
+                    body: Self.successEnvelope(requestID: "req_false_success", name: "Not really ok")
+                ))
+            ]
+        )
+        let transport = URLSessionAPITransport(session: session)
+
+        do {
+            _ = try await transport.send(
+                Self.privateReadRequest(),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected non-2xx success envelope to throw")
+        } catch let error as APITransportError {
+            #expect(error.requestID == "req_false_success")
+            #expect(error.statusCode == 503)
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: 4))
+            #expect(error.apiError == APIError(
+                requestID: "req_false_success",
+                code: "http_status_503",
+                message: "HTTP 503 returned a successful API envelope.",
+                status: 503,
+                retryAfterSeconds: 4
             ))
         }
     }
@@ -245,6 +312,97 @@ struct APITransportTests {
             #expect(await session.capturedRequests().count == 2)
             #expect(await refresher.capturedErrors().count == 1)
         }
+    }
+
+    @Test("bare and malformed 401 responses refresh and replay authenticated requests once")
+    func bareAndMalformedUnauthorizedResponsesRefreshAndReplayOnce() async throws {
+        let nonJSONSession = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 401,
+                    headers: ["Content-Type": "text/plain", "X-Request-Id": "req_bare_auth"],
+                    body: Data("expired".utf8)
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_after_bare_refresh", name: "Bare refreshed")
+                ))
+            ]
+        )
+        let nonJSONRefresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_after_bare")
+        )
+        let nonJSONEnvelope = try await URLSessionAPITransport(
+            session: nonJSONSession,
+            authenticationRefresher: nonJSONRefresher
+        )
+        .send(
+            Self.privateMutationRequest(),
+            configuration: Self.configuration(bearerToken: "sj_access_expired"),
+            decode: TransportPayload.self
+        )
+        let nonJSONRequests = await nonJSONSession.capturedRequests()
+        let nonJSONRefreshErrors = await nonJSONRefresher.capturedErrors()
+
+        #expect(nonJSONEnvelope.requestID == "req_after_bare_refresh")
+        #expect(nonJSONRequests.count == 2)
+        #expect(nonJSONRequests.map { $0.value(forHTTPHeaderField: "Authorization") } == [
+            "Bearer sj_access_expired",
+            "Bearer sj_access_after_bare"
+        ])
+        #expect(nonJSONRefreshErrors == [
+            APIError(
+                requestID: "req_bare_auth",
+                code: "http_status_401",
+                message: "HTTP 401 returned a non-JSON response.",
+                status: 401
+            )
+        ])
+
+        let malformedJSONSession = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 401,
+                    headers: ["Content-Type": "application/json", "X-Request-Id": "req_malformed_auth"],
+                    body: Data(#"{"ok": false,"#.utf8)
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_after_malformed_refresh", name: "Malformed refreshed")
+                ))
+            ]
+        )
+        let malformedJSONRefresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_after_malformed")
+        )
+        let malformedJSONEnvelope = try await URLSessionAPITransport(
+            session: malformedJSONSession,
+            authenticationRefresher: malformedJSONRefresher
+        )
+        .send(
+            Self.privateMutationRequest(),
+            configuration: Self.configuration(bearerToken: "sj_access_expired"),
+            decode: TransportPayload.self
+        )
+        let malformedJSONRequests = await malformedJSONSession.capturedRequests()
+        let malformedJSONRefreshErrors = await malformedJSONRefresher.capturedErrors()
+
+        #expect(malformedJSONEnvelope.requestID == "req_after_malformed_refresh")
+        #expect(malformedJSONRequests.count == 2)
+        #expect(malformedJSONRequests.map { $0.value(forHTTPHeaderField: "Authorization") } == [
+            "Bearer sj_access_expired",
+            "Bearer sj_access_after_malformed"
+        ])
+        #expect(malformedJSONRefreshErrors == [
+            APIError(
+                requestID: "req_malformed_auth",
+                code: "http_status_401",
+                message: "HTTP 401 returned a malformed JSON response.",
+                status: 401
+            )
+        ])
     }
 
     @Test("non JSON and malformed JSON failures retain status and request id context")

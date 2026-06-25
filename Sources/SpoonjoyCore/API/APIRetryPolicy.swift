@@ -1,6 +1,6 @@
 import Foundation
 
-public enum APIRetryDecision: Equatable {
+public enum APIRetryDecision: Equatable, Sendable {
     case retrySameRequest(afterSeconds: Int?)
     case refreshAuthentication
     case doNotRetry
@@ -14,7 +14,7 @@ public enum APIRetryPolicy {
         case 429:
             return .retrySameRequest(afterSeconds: error.retryAfterSeconds)
         case 500...599:
-            return .retrySameRequest(afterSeconds: nil)
+            return .retrySameRequest(afterSeconds: error.retryAfterSeconds)
         default:
             break
         }
