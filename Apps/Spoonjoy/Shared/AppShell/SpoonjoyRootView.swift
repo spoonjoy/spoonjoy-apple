@@ -207,8 +207,12 @@ struct SpoonjoyRootView: View {
             syncStore: syncStore,
             syncEngine: syncEngine,
             syncTriggerCoordinator: syncTriggerCoordinator,
+            appStateStoreProvider: {
+                NativeAppStateStore(fileURL: NativeAppStateLocation.defaultFileURL())
+            },
             configuration: configuration,
-            cacheEnvironment: .production
+            cacheEnvironment: .production,
+            now: Date.init
         )
     }
 

@@ -94,6 +94,21 @@ struct APITransportTests {
                     )
                 )),
                 .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_sync_success", name: "queued")
+                )),
+                .success(Self.response(
+                    statusCode: 401,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_sync_auth",
+                        code: "unauthorized",
+                        message: "Sign in again.",
+                        status: 401
+                    )
+                )),
+                .success(Self.response(
                     statusCode: 409,
                     headers: ["Content-Type": "application/json"],
                     body: Self.errorEnvelope(
@@ -101,6 +116,16 @@ struct APITransportTests {
                         code: "conflict",
                         message: "Shopping item changed elsewhere.",
                         status: 409
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 400,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_sync_bad_request",
+                        code: "bad_request",
+                        message: "Invalid mutation.",
+                        status: 400
                     )
                 )),
                 .success(Self.response(
@@ -122,7 +147,13 @@ struct APITransportTests {
                         message: "Mutation is still in progress.",
                         status: 409
                     )
-                ))
+                )),
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "text/plain"],
+                    body: Data("busy".utf8)
+                )),
+                .failure(TransportFixtureError.boom)
             ]
         )
         let transport = URLSessionNativeSyncTransport(
@@ -141,6 +172,30 @@ struct APITransportTests {
             return
         }
 
+        let success = try await transport.send(
+            .shoppingAddItem(
+                name: "grapefruit",
+                quantity: 1,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_success",
+                createdAt: "2026-06-16T11:59:00.000Z"
+            ),
+            configuration: configuration
+        )
+        let authFailure = try await transport.send(
+            .shoppingAddItem(
+                name: "mint",
+                quantity: 1,
+                unit: "bunch",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_auth",
+                createdAt: "2026-06-16T11:59:30.000Z"
+            ),
+            configuration: configuration
+        )
         let conflict = try await transport.send(
             .shoppingAddItem(
                 name: "lemons",
@@ -153,6 +208,24 @@ struct APITransportTests {
             ),
             configuration: configuration
         )
+        do {
+            _ = try await transport.send(
+                .shoppingAddItem(
+                    name: "bad mutation",
+                    quantity: 1,
+                    unit: "each",
+                    categoryKey: nil,
+                    iconKey: nil,
+                    clientMutationID: "cm_bad_request",
+                    createdAt: "2026-06-16T12:00:30.000Z"
+                ),
+                configuration: configuration
+            )
+            Issue.record("Expected non-retryable sync mutation to throw")
+        } catch let error as APITransportError {
+            #expect(error.statusCode == 400)
+            #expect(error.apiError?.message == "Invalid mutation.")
+        }
         let retry = try await transport.send(
             .shoppingAddItem(
                 name: "limes",
@@ -177,18 +250,46 @@ struct APITransportTests {
             ),
             configuration: configuration
         )
+        let defaultRetry = try await transport.send(
+            .shoppingAddItem(
+                name: "pears",
+                quantity: 2,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_default_retry",
+                createdAt: "2026-06-16T12:03:00.000Z"
+            ),
+            configuration: configuration
+        )
+        let networkRetry = try await transport.send(
+            .shoppingAddItem(
+                name: "shallots",
+                quantity: 3,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_network_retry",
+                createdAt: "2026-06-16T12:04:00.000Z"
+            ),
+            configuration: configuration
+        )
         let capturedRequests = await session.capturedRequests()
 
         #expect(syncData.entries.map(\.resourceID) == ["profile_ari"])
         #expect(syncData.nextCursor?.rawValue == "v1.after")
+        #expect(success == .success(serverRevision: nil))
+        #expect(authFailure == .authFailure(message: "Sign in again."))
         #expect(conflict == .conflict(kind: .validation, serverRevision: nil, message: "Shopping item changed elsewhere."))
         #expect(retry == .retry(afterSeconds: 6, message: "Try again shortly."))
         #expect(idempotencyRetry == .retry(afterSeconds: 5, message: "Mutation is still in progress."))
-        #expect(capturedRequests.map(\.httpMethod) == ["GET", "POST", "POST", "POST"])
+        #expect(defaultRetry == .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: 0), message: "HTTP 503 returned a non-JSON response."))
+        #expect(networkRetry == .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: 0), message: "Native sync request failed."))
+        #expect(capturedRequests.map(\.httpMethod) == ["GET", "POST", "POST", "POST", "POST", "POST", "POST", "POST", "POST"])
         #expect(capturedRequests[0].url?.absoluteString == "https://spoonjoy.app/api/v1/me/sync?limit=20")
         #expect(capturedRequests[1].url?.absoluteString == "https://spoonjoy.app/api/v1/shopping-list/items")
         #expect(capturedRequests[1].value(forHTTPHeaderField: "Authorization") == "Bearer sj_access_native")
-        #expect(capturedRequests[2].value(forHTTPHeaderField: "X-Client-Mutation-Id") == nil)
+        #expect(capturedRequests[5].value(forHTTPHeaderField: "X-Client-Mutation-Id") == nil)
     }
 
     @Test("API error envelopes preserve request IDs details and retry decisions")
@@ -568,9 +669,23 @@ struct APITransportTests {
 
     @Test("offline failures and cancellations are classified distinctly")
     func offlineFailuresAndCancellationsAreClassifiedDistinctly() async throws {
+        let directOfflineSession = RecordingURLSession(responses: [.failure(URLError(.notConnectedToInternet))])
         let offlineSession = RecordingURLSession(responses: [.failure(URLError(.notConnectedToInternet))])
         let cancelledSession = RecordingURLSession(responses: [.failure(URLError(.cancelled))])
         let taskCancelledSession = RecordingURLSession(responses: [.failure(CancellationError())])
+
+        do {
+            _ = try await URLSessionAPITransport(session: directOfflineSession).send(
+                try Self.privateReadRequest().urlRequest(configuration: Self.configuration(bearerToken: "sj_access")),
+                configuration: Self.configuration(bearerToken: "sj_access"),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected direct offline URL error to throw")
+        } catch let error as APITransportError {
+            #expect(error.isOffline)
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
+            #expect(error.requestID == nil)
+        }
 
         do {
             _ = try await URLSessionAPITransport(session: offlineSession).send(

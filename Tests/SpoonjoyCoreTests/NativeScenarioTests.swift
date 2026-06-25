@@ -162,6 +162,7 @@ struct NativeScenarioTests {
         #expect(throws: NativeIntentActionError.self) {
             try resolver.captureRecipe(source: "  ", createdAt: "2026-06-16T14:03:00.000Z")
         }
+        #expect(NativeIntentActionError.authRequired.description == "Sign in to Spoonjoy before queueing this Siri action.")
     }
 
     @Test("spotlight index plan builds route aware searchable documents")
@@ -529,6 +530,7 @@ struct NativeScenarioTests {
             #expect(!missingSourceReport.ok)
             #expect(missingSourceChecks["app intents source"] == .fail)
             #expect(missingSourceChecks["spotlight source"] == .fail)
+            #expect(ScenarioVerifier.fixtureFallbackDisabledCheck(rootURL: directory).status == .fail)
             #expect(!emptyMetadataReport.ok)
             #expect(emptyMetadataChecks["native metadata"] == .fail)
             #expect(emptyMetadataChecks["deep link metadata"] == .fail)

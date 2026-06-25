@@ -321,6 +321,9 @@ struct AppStateTests {
         let colonSearchRoute = AppRoute.search(query: "lemon:quick", scope: .recipes)
         #expect(AppRoute(stateIdentifier: colonSearchRoute.stateIdentifier) == colonSearchRoute)
         #expect(AppRoute(stateIdentifier: "recipe:../secret") == nil)
+        #expect(AppRoute(stateIdentifier: "recipe: padded ") == nil)
+        #expect(AppRoute(stateIdentifier: "search:recipes:   ") == nil)
+        #expect(AppRoute(stateIdentifier: "search:not-a-scope:lemon") == nil)
     }
 
     private func url(_ rawURL: String) throws -> URL {

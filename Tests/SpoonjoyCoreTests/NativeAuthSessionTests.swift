@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import Testing
 @testable import SpoonjoyCore
 
@@ -355,6 +356,63 @@ struct NativeAuthSessionTests {
                 "FileManager.default"
             ]
         )
+    }
+
+    @Test("Keychain token vault persists values and surfaces security statuses")
+    func keychainTokenVaultPersistsValuesAndSurfacesSecurityStatuses() async throws {
+        let keychain = FakeKeychainTokenVaultClient()
+        let vault = KeychainTokenVault(accessGroup: "group.spoonjoy.tests", keychain: keychain)
+        let session = try AuthSession(
+            clientID: "client_keychain",
+            accessToken: "sj_access_keychain",
+            refreshToken: "sj_refresh_keychain",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 1_781_612_800),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_keychain"
+        )
+
+        #expect(try await vault.loadClientID() == nil)
+        try await vault.saveClientID("client_keychain")
+        #expect(try await vault.loadClientID() == "client_keychain")
+        try await vault.saveClientID("client_keychain_rotated")
+        #expect(try await vault.loadClientID() == "client_keychain_rotated")
+        try await vault.saveSession(session)
+        #expect(try await vault.loadSession() == session)
+        try await vault.clearClientID()
+        try await vault.clearSession()
+        try await vault.clearSession()
+        #expect(try await vault.loadClientID() == nil)
+        #expect(try await vault.loadSession() == nil)
+        #expect(keychain.capturedAccessGroups == ["group.spoonjoy.tests"])
+
+        keychain.nextCopyStatus = errSecInteractionNotAllowed
+        await expectKeychainStatus(errSecInteractionNotAllowed) {
+            _ = try await vault.loadClientID()
+        }
+
+        keychain.nextUpdateStatus = errSecAuthFailed
+        await expectKeychainStatus(errSecAuthFailed) {
+            try await vault.saveClientID("blocked-update")
+        }
+
+        keychain.nextAddStatus = errSecDuplicateItem
+        await expectKeychainStatus(errSecDuplicateItem) {
+            try await vault.saveClientID("blocked-add")
+        }
+
+        keychain.nextDeleteStatus = errSecAuthFailed
+        await expectKeychainStatus(errSecAuthFailed) {
+            try await vault.clearClientID()
+        }
+
+        let systemClient = SystemKeychainTokenVaultClient()
+        var result: CFTypeRef?
+        #expect(systemClient.copyMatching([:], &result) != errSecSuccess)
+        #expect(systemClient.update([:], [:]) != errSecSuccess)
+        #expect(systemClient.add([:]) != errSecSuccess)
+        #expect(systemClient.delete([:]) != errSecSuccess)
+        _ = KeychainTokenVault()
     }
 
     @Test("refresh rotation revoke logout and restoration persist through native repository")
@@ -1212,6 +1270,95 @@ case "${FAKE_XCODEBUILD_MODE:-success}" in
 esac
 """#
 
+private final class FakeKeychainTokenVaultClient: KeychainTokenVaultClient, @unchecked Sendable {
+    var nextCopyStatus: OSStatus?
+    var nextUpdateStatus: OSStatus?
+    var nextAddStatus: OSStatus?
+    var nextDeleteStatus: OSStatus?
+
+    private var storage: [String: Data] = [:]
+    private var accessGroups = Set<String>()
+
+    var capturedAccessGroups: [String] {
+        accessGroups.sorted()
+    }
+
+    func copyMatching(_ query: [String: Any], _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
+        recordAccessGroup(from: query)
+        if let status = nextCopyStatus {
+            nextCopyStatus = nil
+            return status
+        }
+        guard let service = service(from: query), let data = storage[service] else {
+            return errSecItemNotFound
+        }
+        result?.pointee = data as CFTypeRef
+        return errSecSuccess
+    }
+
+    func update(_ query: [String: Any], _ attributes: [String: Any]) -> OSStatus {
+        recordAccessGroup(from: query)
+        if let status = nextUpdateStatus {
+            nextUpdateStatus = nil
+            return status
+        }
+        guard let service = service(from: query), storage[service] != nil else {
+            return errSecItemNotFound
+        }
+        storage[service] = attributes[kSecValueData as String] as? Data
+        return errSecSuccess
+    }
+
+    func add(_ query: [String: Any]) -> OSStatus {
+        recordAccessGroup(from: query)
+        if let status = nextAddStatus {
+            nextAddStatus = nil
+            return status
+        }
+        guard let service = service(from: query), let data = query[kSecValueData as String] as? Data else {
+            return errSecParam
+        }
+        storage[service] = data
+        return errSecSuccess
+    }
+
+    func delete(_ query: [String: Any]) -> OSStatus {
+        recordAccessGroup(from: query)
+        if let status = nextDeleteStatus {
+            nextDeleteStatus = nil
+            return status
+        }
+        guard let service = service(from: query), storage.removeValue(forKey: service) != nil else {
+            return errSecItemNotFound
+        }
+        return errSecSuccess
+    }
+
+    private func service(from query: [String: Any]) -> String? {
+        query[kSecAttrService as String] as? String
+    }
+
+    private func recordAccessGroup(from query: [String: Any]) {
+        if let accessGroup = query[kSecAttrAccessGroup as String] as? String {
+            accessGroups.insert(accessGroup)
+        }
+    }
+}
+
+private func expectKeychainStatus(
+    _ status: OSStatus,
+    operation: () async throws -> Void
+) async {
+    do {
+        try await operation()
+        Issue.record("Expected KeychainTokenVaultError.unhandledStatus(\(status))")
+    } catch KeychainTokenVaultError.unhandledStatus(let actualStatus) {
+        #expect(actualStatus == status)
+    } catch {
+        Issue.record("Expected KeychainTokenVaultError.unhandledStatus(\(status)); got \(error)")
+    }
+}
+
 private let webAuthenticationSessionAdapterContractSource = #"""
 import Foundation
 import Testing
@@ -1297,6 +1444,7 @@ private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessi
         cancelCount += 1
     }
 }
+
 """#
 
 private let nativeAuthBehaviorContractSource = ##"""

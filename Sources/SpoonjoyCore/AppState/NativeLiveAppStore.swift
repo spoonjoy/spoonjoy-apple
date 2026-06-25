@@ -19,13 +19,11 @@ public struct NativeLiveAppStoreDependencies {
         syncStore: any NativeSyncStore,
         syncEngine: NativeSyncEngine,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
-        appStateStoreProvider: @escaping @MainActor () -> NativeAppStateStore? = {
-            NativeAppStateStore(fileURL: NativeAppStateLocation.defaultFileURL())
-        },
+        appStateStoreProvider: @escaping @MainActor () -> NativeAppStateStore?,
         configuration: APIClientConfiguration,
         cacheEnvironment: NativeCacheEnvironment,
         fixtureFallbackPolicy: NativeFixtureFallbackPolicy = .disabledInProduction,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
         self.cacheStore = cacheStore
@@ -64,6 +62,29 @@ public enum NativeAppBootstrapState {
             contentState
         case .syncFailed(let contentState, _):
             contentState
+        }
+    }
+
+    public func replacingContent(_ contentState: NativeShellContentState) -> NativeAppBootstrapState {
+        switch self {
+        case .signedOut:
+            .signedOut(contentState)
+        case .restoringCache:
+            .restoringCache(contentState)
+        case .liveSynced:
+            .liveSynced(contentState)
+        case .offlineStale:
+            .offlineStale(contentState)
+        case .queuedWork:
+            .queuedWork(contentState)
+        case .conflict:
+            .conflict(contentState)
+        case .blocker:
+            .blocker(contentState)
+        case .destructiveConfirmation:
+            .destructiveConfirmation(contentState)
+        case .syncFailed(_, let message):
+            .syncFailed(contentState, message: message)
         }
     }
 }
@@ -346,10 +367,7 @@ public struct NativeShellContentState {
     }
 
     private static func decodedPayload<Value: Decodable>(_ type: Value.Type, from payload: JSONValue) -> Value? {
-        guard let data = try? JSONEncoder().encode(payload) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(type, from: data)
+        try? JSONDecoder().decode(type, from: JSONEncoder().encode(payload))
     }
 
     private static func placeholderRecipe(id: String, title: String, date: Date) -> Recipe {
@@ -533,14 +551,14 @@ public final class NativeLiveAppStore: ObservableObject {
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
             let authState = try await authorizedAuthState(from: restoredAuthState)
 
-            guard case .authenticated = authState else {
+            guard case .authenticated(let session) = authState else {
                 let restoringContent = try await restoreFromCache(authSessionState: authState)
                 apply(.signedOut(restoringContent))
                 return
             }
 
             apply(.restoringCache(emptyContent(authSessionState: authState, display: .offline)))
-            try await bootstrapFromLiveAPI(authSessionState: authState, trigger: .launch)
+            try await bootstrapFromLiveAPI(session: session, trigger: .launch)
         } catch let error as APITransportError where error.isOffline {
             let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
@@ -559,13 +577,13 @@ public final class NativeLiveAppStore: ObservableObject {
         apply(.restoringCache(emptyContent(authSessionState: authSessionState, display: .stale(domain: .accountBootstrap))))
 
         do {
-            if case .signedOut = authSessionState {
+            guard case .authenticated(let session) = authSessionState else {
                 let content = try await restoreFromCache(authSessionState: authSessionState)
                 apply(.signedOut(content))
                 return
             }
             try await bootstrapFromLiveAPI(
-                authSessionState: authSessionState,
+                session: session,
                 trigger: NativeSyncTriggerEvent.environmentChanged(environment)
             )
         } catch let error as APITransportError where error.isOffline {
@@ -726,16 +744,13 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func bootstrapFromLiveAPI(
-        authSessionState: NativeAuthSessionState,
+        session: AuthSession,
         trigger: NativeSyncTriggerEvent
     ) async throws {
         let report = try await syncTriggerCoordinator.handle(trigger)
-        let boundAuthState = try await authSessionStateByBindingReport(report, fallback: authSessionState)
-        var content = try await restoreFromCache(authSessionState: boundAuthState)
+        let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
+        let content = try await restoreFromCache(authSessionState: boundAuthState)
             .copy(offlineIndicatorState: OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()))
-        if case .refreshRequired = boundAuthState {
-            content = content.copy(offlineIndicatorState: OfflineIndicatorState(display: .stale(domain: .accountBootstrap), dismissal: nil))
-        }
 
         if let conflict = report.conflicts.first {
             apply(.conflict(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil))))
@@ -759,26 +774,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {
-        switch bootstrapState {
-        case .signedOut:
-            .signedOut(content)
-        case .restoringCache:
-            .restoringCache(content)
-        case .liveSynced:
-            .liveSynced(content)
-        case .offlineStale:
-            .offlineStale(content)
-        case .queuedWork:
-            .queuedWork(content)
-        case .conflict:
-            .conflict(content)
-        case .blocker:
-            .blocker(content)
-        case .destructiveConfirmation:
-            .destructiveConfirmation(content)
-        case .syncFailed(_, let message):
-            .syncFailed(content, message: message)
-        }
+        bootstrapState.replacingContent(content)
     }
 
     private var accountID: String {
@@ -805,26 +801,22 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func authSessionStateByBindingReport(
         _ report: NativeSyncReport,
-        fallback authSessionState: NativeAuthSessionState
+        session: AuthSession
     ) async throws -> NativeAuthSessionState {
         guard let accountID = report.accountID else {
-            return authSessionState
+            return .authenticated(session)
         }
 
-        switch authSessionState {
-        case .signedOut:
-            return .signedOut
-        case .authenticated(let session), .refreshRequired(let session):
-            if session.accountID == accountID {
-                return .authenticated(session)
-            }
-            let boundSession = try await dependencies.authSessionRepository.bindAccountID(accountID)
-            configuration = APIClientConfiguration(
-                baseURL: dependencies.configuration.baseURL,
-                bearerToken: boundSession.accessToken
-            )
-            return .authenticated(boundSession)
+        if session.accountID == accountID {
+            return .authenticated(session)
         }
+
+        let boundSession = try await dependencies.authSessionRepository.bindAccountID(accountID)
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: boundSession.accessToken
+        )
+        return .authenticated(boundSession)
     }
 
     private func authorizedAuthState(from restoredAuthState: NativeAuthSessionState) async throws -> NativeAuthSessionState {

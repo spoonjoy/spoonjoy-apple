@@ -298,6 +298,21 @@ struct KitchenStateTests {
         let restored = try CookModeProgress.restore(from: staleSnapshot)
         #expect(restored.activeStepIndex == 0)
         #expect(restored.completedStepIDs == ["step_1"])
+
+        let restoredCurrentOnly = CookModeProgress(
+            recipeID: "recipe_current_only",
+            completedStepIDs: [],
+            currentStepID: "step_current"
+        )
+        #expect(restoredCurrentOnly.stepIDs == ["step_current"])
+        #expect(restoredCurrentOnly.currentStepID == "step_current")
+        let restoredEmpty = CookModeProgress(
+            recipeID: "recipe_empty_restore",
+            completedStepIDs: [],
+            currentStepID: nil
+        )
+        #expect(restoredEmpty.stepIDs.isEmpty)
+        #expect(restoredEmpty.currentStepID == nil)
     }
 
     @Test("capture drafts stay local until explicitly promoted")

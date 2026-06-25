@@ -8,11 +8,17 @@ public actor KeychainTokenVault: TokenVault {
     }
 
     private let accessGroup: String?
+    private let keychain: KeychainTokenVaultClient
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
     public init(accessGroup: String? = nil) {
+        self.init(accessGroup: accessGroup, keychain: SystemKeychainTokenVaultClient())
+    }
+
+    init(accessGroup: String? = nil, keychain: KeychainTokenVaultClient) {
         self.accessGroup = accessGroup
+        self.keychain = keychain
     }
 
     public func loadClientID() async throws -> String? {
@@ -53,7 +59,7 @@ public actor KeychainTokenVault: TokenVault {
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let status = keychain.copyMatching(query, &result)
         if status == errSecItemNotFound {
             return nil
         }
@@ -67,7 +73,7 @@ public actor KeychainTokenVault: TokenVault {
     private func writeData(_ data: Data, for item: Item) throws {
         var query = baseQuery(for: item)
         let attributes = [kSecValueData as String: data]
-        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        let updateStatus = keychain.update(query, attributes)
         if updateStatus == errSecSuccess {
             return
         }
@@ -76,14 +82,14 @@ public actor KeychainTokenVault: TokenVault {
         }
 
         query[kSecValueData as String] = data
-        let addStatus = SecItemAdd(query as CFDictionary, nil)
+        let addStatus = keychain.add(query)
         guard addStatus == errSecSuccess else {
             throw KeychainTokenVaultError.unhandledStatus(addStatus)
         }
     }
 
     private func deleteData(for item: Item) throws {
-        let status = SecItemDelete(baseQuery(for: item) as CFDictionary)
+        let status = keychain.delete(baseQuery(for: item))
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainTokenVaultError.unhandledStatus(status)
         }
@@ -105,4 +111,29 @@ public actor KeychainTokenVault: TokenVault {
 
 public enum KeychainTokenVaultError: Error, Equatable {
     case unhandledStatus(OSStatus)
+}
+
+protocol KeychainTokenVaultClient {
+    func copyMatching(_ query: [String: Any], _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus
+    func update(_ query: [String: Any], _ attributes: [String: Any]) -> OSStatus
+    func add(_ query: [String: Any]) -> OSStatus
+    func delete(_ query: [String: Any]) -> OSStatus
+}
+
+struct SystemKeychainTokenVaultClient: KeychainTokenVaultClient {
+    func copyMatching(_ query: [String: Any], _ result: UnsafeMutablePointer<CFTypeRef?>?) -> OSStatus {
+        SecItemCopyMatching(query as CFDictionary, result)
+    }
+
+    func update(_ query: [String: Any], _ attributes: [String: Any]) -> OSStatus {
+        SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+    }
+
+    func add(_ query: [String: Any]) -> OSStatus {
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    func delete(_ query: [String: Any]) -> OSStatus {
+        SecItemDelete(query as CFDictionary)
+    }
 }

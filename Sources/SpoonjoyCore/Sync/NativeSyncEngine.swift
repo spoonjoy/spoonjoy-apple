@@ -1954,8 +1954,8 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
 
         let canReplayStoredQueue = Self.canReuseStoredState(previousSnapshot, scope: scope)
-        let queueAccountID = bootstrapAccountID ?? scope.expectedAccountID ?? (canReplayStoredQueue ? previousSnapshot.accountID : nil)
-        let queueEnvironment = bootstrapEnvironment ?? scope.environment ?? (canReplayStoredQueue ? previousSnapshot.environment : nil)
+        let queueAccountID = bootstrapAccountID ?? scope.expectedAccountID
+        let queueEnvironment = bootstrapEnvironment ?? scope.environment
         let originalQueue: NativeMutationQueue
         if canReplayStoredQueue {
             originalQueue = try await store.loadQueue()

@@ -1066,6 +1066,27 @@ struct NativeAPIExpansionTests {
                 ]
             )
         }
+        #expect(throws: APIRequestBuildError.missingRequiredField("steps.0.ingredients.1.unit")) {
+            _ = try RecipeWriteRequests.createRecipe(
+                clientMutationID: "recipe-create-second-bad-unit",
+                title: "Second Bad Unit Soup",
+                description: Optional<String>.none,
+                servings: Optional<String>.none,
+                steps: [
+                    RecipeStepDraft(
+                        stepNum: 1,
+                        stepTitle: "Simmer",
+                        description: "Simmer everything.",
+                        duration: Optional<Int>.none,
+                        ingredients: [
+                            RecipeIngredientDraft(quantity: 1, unit: "cup", name: "broth"),
+                            RecipeIngredientDraft(quantity: 1, unit: Optional<String>.none, name: "salt")
+                        ],
+                        outputStepNums: []
+                    )
+                ]
+            )
+        }
 
         let updateRecipeWithNulls = try RecipeWriteRequests.updateRecipe(
             id: "recipe/pantry",

@@ -173,6 +173,187 @@ struct NativeSyncEngineTests {
         #expect(rawCheckpoint.shoppingCursor?.rawValue == "raw.shopping")
     }
 
+    @Test("sync stores expose simple queue checkpoint and unavailable errors")
+    func syncStoresExposeSimpleQueueCheckpointAndUnavailableErrors() async throws {
+        let queue = try NativeMutationQueue(mutations: [
+            .shoppingAddItem(
+                name: "lemons",
+                quantity: nil,
+                unit: nil,
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_simple_queue",
+                createdAt: Self.createdAt(0)
+            )
+        ])
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+        await store.saveQueue(queue)
+        #expect(try await store.loadQueue() == queue)
+        let minimalSnapshot = try JSONDecoder().decode(
+            NativeSyncSnapshot.self,
+            from: Data(#"{"accountID":"chef_ari","environment":"production"}"#.utf8)
+        )
+        #expect(minimalSnapshot.queue.mutations.isEmpty)
+        #expect(minimalSnapshot.cachedRecords.isEmpty)
+        #expect(minimalSnapshot.tombstones.isEmpty)
+        do {
+            _ = try await store.loadCheckpoint()
+            Issue.record("Expected in-memory store to throw missing checkpoint")
+        } catch NativeSyncStoreError.missingCheckpoint {
+        }
+
+        let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
+        let queueResetStore = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        _ = try await queueResetStore.apply(syncData: syncData, validatedAt: now)
+        #expect((await queueResetStore.loadSnapshot()).queue.mutations.isEmpty)
+        let recordResetStore = InMemoryNativeSyncStore(
+            checkpoint: nil,
+            queue: NativeMutationQueue(),
+            cachedRecords: [NativeSyncCachedRecord(kind: .recipe, resourceID: "recipe_cached", payload: .object(["title": .string("Cached")]), serverRevision: .updatedAt(Self.createdAt(0)))]
+        )
+        _ = try await recordResetStore.apply(syncData: syncData, validatedAt: now)
+        #expect((await recordResetStore.loadSnapshot()).cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+        let tombstoneResetStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+        await tombstoneResetStore.appendTombstone(NativeSyncTombstone(
+            resourceType: .recipe,
+            resourceID: "recipe_deleted_before_scope",
+            parentResourceID: nil,
+            title: "Before scope",
+            deletedAt: Self.createdAt(0),
+            updatedAt: Self.createdAt(0)
+        ))
+        _ = try await tombstoneResetStore.apply(syncData: syncData, validatedAt: now)
+        #expect((await tombstoneResetStore.loadSnapshot()).tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+
+        try await withTemporaryDirectory { directory in
+            let fileQueueResetStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("queue-reset.json"),
+                fallback: NativeSyncSnapshot(checkpoint: nil, queue: queue)
+            )
+            _ = try await fileQueueResetStore.apply(syncData: syncData, validatedAt: now)
+            #expect((await fileQueueResetStore.loadSnapshot()).queue.mutations.isEmpty)
+
+            let fileRecordResetStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("record-reset.json"),
+                fallback: NativeSyncSnapshot(
+                    checkpoint: nil,
+                    queue: NativeMutationQueue(),
+                    cachedRecords: [NativeSyncCachedRecord(kind: .recipe, resourceID: "recipe_cached_file", payload: .object(["title": .string("Cached file")]), serverRevision: .updatedAt(Self.createdAt(0)))]
+                )
+            )
+            _ = try await fileRecordResetStore.apply(syncData: syncData, validatedAt: now)
+            #expect((await fileRecordResetStore.loadSnapshot()).cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+
+            let fileTombstoneResetStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("tombstone-reset.json"),
+                fallback: NativeSyncSnapshot(
+                    checkpoint: nil,
+                    queue: NativeMutationQueue(),
+                    tombstones: [NativeSyncTombstone(
+                        resourceType: .recipe,
+                        resourceID: "recipe_deleted_before_file_scope",
+                        parentResourceID: nil,
+                        title: "Before file scope",
+                        deletedAt: Self.createdAt(0),
+                        updatedAt: Self.createdAt(0)
+                    )]
+                )
+            )
+            _ = try await fileTombstoneResetStore.apply(syncData: syncData, validatedAt: now)
+            #expect((await fileTombstoneResetStore.loadSnapshot()).tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+        }
+
+        let localMutation = NativeQueuedMutation.captureDraftCreate(
+            draftID: "draft_previous_scope",
+            source: .text("https://example.com/previous-scope"),
+            clientMutationID: "cm_previous_scope",
+            createdAt: Self.createdAt(1)
+        )
+        let previousScopedStore = InMemoryNativeSyncStore(
+            accountID: "chef_previous",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [localMutation])
+        )
+        let previousScopedTransport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: []
+        )
+        let previousScopedEngine = NativeSyncEngine(store: previousScopedStore, transport: previousScopedTransport, clock: { now })
+        _ = try await previousScopedEngine.bootstrapAndDrain(
+            configuration: configuration,
+            trigger: .foreground,
+            scope: NativeSyncExecutionScope(expectedAccountID: "chef_previous", environment: .local)
+        )
+        let previousScopedSnapshot = await previousScopedStore.loadSnapshot()
+        #expect(previousScopedSnapshot.accountID == "chef_previous")
+        #expect(previousScopedSnapshot.environment == .local)
+        #expect(previousScopedSnapshot.queue.mutations == [localMutation])
+
+        let unavailable = UnavailableNativeSyncStore(message: "native sync unavailable")
+        do {
+            _ = try await unavailable.loadQueue()
+            Issue.record("Expected unavailable loadQueue to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            try await unavailable.saveQueue(queue)
+            Issue.record("Expected unavailable saveQueue to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            try await unavailable.saveQueue(queue, accountID: "chef_ari", environment: .production)
+            Issue.record("Expected unavailable scoped saveQueue to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            _ = try await unavailable.loadCheckpoint()
+            Issue.record("Expected unavailable loadCheckpoint to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            try await unavailable.saveCheckpoint(try NativeSyncCheckpoint(globalCursor: PaginationCursor(rawValue: "cursor"), shoppingCursor: nil, updatedAt: Self.createdAt(1)))
+            Issue.record("Expected unavailable saveCheckpoint to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            try await unavailable.appendTombstone(NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_missing",
+                parentResourceID: nil,
+                title: "Missing",
+                deletedAt: Self.createdAt(2),
+                updatedAt: Self.createdAt(2)
+            ))
+            Issue.record("Expected unavailable appendTombstone to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            _ = try await unavailable.cachedRecord(kind: .recipe, resourceID: "recipe_missing")
+            Issue.record("Expected unavailable cachedRecord to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            _ = try await unavailable.apply(syncData: try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data, validatedAt: now)
+            Issue.record("Expected unavailable apply to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            _ = try await unavailable.loadSnapshot()
+            Issue.record("Expected unavailable loadSnapshot to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+    }
+
     @Test("native mutation queue persists every offline product domain with durable replay metadata")
     func nativeMutationQueuePersistsEveryOfflineProductDomainWithDurableReplayMetadata() throws {
         let mutations = try Self.representativeMutations()
