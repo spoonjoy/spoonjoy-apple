@@ -13,6 +13,9 @@ REQUIRED_FILES = [
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
   "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
   "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift",
+  "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift",
+  "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift",
+  "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift",
   "Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/Contents.json",
   "Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png",
   "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
@@ -54,22 +57,27 @@ REQUIRED_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/Views/RecipesView.swift" => [
     "RecipesView",
-    "RecipeIndex",
+    "RecipeCatalogViewModel",
+    "state.rows",
     "List",
     "Button",
-    "RecipeSummary",
+    "openRoute",
     "RecipeCoverImage(",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
     "RecipeDetailView",
-    "RecipeDetailViewModel",
+    "RecipeDetailScreenViewModel",
     "ShareLink",
     "RecipeCoverImage(",
     "provenance",
     "cookbookSpread",
     "ingredientReceipt",
     "methodSections",
+    "spoonSummary",
+    "cookbookSave",
+    "ownerTools",
+    "offlineIndicator",
     "ForEach",
     "KitchenTableTheme"
   ],
@@ -81,6 +89,34 @@ REQUIRED_TOKENS = {
     "Button",
     "RecipeCoverImage(",
     "KitchenTableTheme"
+  ],
+  "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift" => [
+    "RecipeCatalogRepository",
+    "RecipeCatalogListRequest",
+    "RecipeCatalogPage",
+    "RecipeCatalogDetailResult",
+    "PublicCatalogRequests.listRecipes",
+    "PublicCatalogRequests.recipeDetail",
+    "NativeCacheDomain.recipeCatalog",
+    "NativeCacheDomain.recipeDetail"
+  ],
+  "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift" => [
+    "RecipeCatalogViewModel",
+    "RecipeCatalogState",
+    "RecipeCatalogRowViewModel",
+    "openRecipeRoute",
+    "resultCountLabel",
+    "OfflineIndicatorState"
+  ],
+  "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift" => [
+    "RecipeDetailScreenViewModel",
+    "RecipeDetailContext",
+    "RecipeCookbookSaveOption",
+    "ingredientReceipt",
+    "spoonSummary",
+    "cookbookSave",
+    "ownerTools",
+    "supportedReadSurfaces"
   ]
 }.freeze
 
@@ -92,7 +128,15 @@ FORBIDDEN_TOKENS = [
   "LazyVGrid",
   "Grid {",
   'Text("Recipe index is next.")',
-  'Text("Cookbook shelf is next.")'
+  'Text("Cookbook shelf is next.")',
+  "RecipesView(recipes: contentState.recipes",
+  "RecipeDetailView(viewModel: RecipeDetailViewModel(recipe: recipe)",
+  "comments",
+  "socialFeed",
+  "mealPlan",
+  "RecipeComments",
+  "SocialFeed",
+  "MealPlan"
 ].freeze
 
 def fail_check(message)
@@ -128,12 +172,19 @@ forbidden_hits = REQUIRED_FILES.select { |relative_path| relative_path.end_with?
 end
 fail_check("forbidden kitchen/recipe surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
 
-root_shell = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read
+root_shell = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read)
+root_shell_forbidden = FORBIDDEN_TOKENS.select { |token| root_shell.include?(token) }
+fail_check("PlatformNavigationView.swift contains forbidden recipe surface tokens: #{root_shell_forbidden.join(", ")}") unless root_shell_forbidden.empty?
+
 [
   "KitchenView(",
   "RecipesView(",
   "RecipeDetailView(",
-  "CookbooksView("
+  "CookbooksView(",
+  "RecipeCatalogViewModel",
+  "RecipeDetailScreenViewModel",
+  "RecipeCatalogRepository",
+  "contentState.recipeCatalog"
 ].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless root_shell.include?(token)
 end
