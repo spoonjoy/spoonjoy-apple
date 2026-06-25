@@ -1,0 +1,69 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Compiling SpoonjoyCore NativeAPIRequests.swift
+[4/7] Emitting module SpoonjoyCore
+[5/9] Compiling SpoonjoyCore APIRequestSupport.swift
+[6/9] Compiling SpoonjoyCore NativeSyncEngine.swift
+[7/30] Compiling SpoonjoyScenarioVerifier main.swift
+[8/30] Emitting module SpoonjoyScenarioVerifier
+[9/30] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[9/30] Write Objects.LinkFileList
+[10/30] Linking SpoonjoyScenarioVerifier
+[11/30] Applying SpoonjoyScenarioVerifier
+[13/30] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[14/30] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[15/30] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[16/30] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[17/31] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[18/31] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[19/31] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[20/31] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[21/31] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[22/31] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[23/31] Compiling SpoonjoyCoreTests AppStateTests.swift
+[24/31] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[25/31] Emitting module SpoonjoyCoreTests
+[26/31] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[27/31] Compiling SpoonjoyCoreTests APITransportTests.swift
+[28/31] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[29/31] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[29/31] Write Objects.LinkFileList
+[30/31] Linking SpoonjoyApplePackageTests
+Build complete! (7.07s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native sync engine and mutation queue" started.
+◇ Test "native sync checkpoints validate global and shopping cursors" started.
+◇ Test "scheduled retry timestamps are honored before replaying a dependency key" started.
+◇ Test "native mutation queue persists every offline product domain with durable replay metadata" started.
+◇ Test "capture draft mutations are durable local cache mutations and never build network requests" started.
+◇ Test "sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations" started.
+◇ Test "retry schedule uses exact Offline Product Contract backoff with capped jitter" started.
+◇ Test "file backed sync store restores queue checkpoint tombstones and staged media for restart" started.
+◇ Test "retry results block the failed dependency key while independent mutations can still drain" started.
+◇ Test "sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events" started.
+◇ Test "offline mutation policy queues allowed writes and refuses online only account security and provider actions" started.
+◇ Test "sync engine keeps local capture draft mutations out of remote drain" started.
+◇ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" started.
+◇ Test "sync engine pauses on auth failure classifies conflicts and retains the blocked queue" started.
+◇ Test "sync tombstones apply to local cache records and checkpoint revisions" started.
+◇ Test "bootstrap request and sync envelope use the private /me/sync contract" started.
+✔ Test "retry schedule uses exact Offline Product Contract backoff with capped jitter" passed after 0.001 seconds.
+✔ Test "sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events" passed after 0.001 seconds.
+✔ Test "native sync checkpoints validate global and shopping cursors" passed after 0.001 seconds.
+✔ Test "capture draft mutations are durable local cache mutations and never build network requests" passed after 0.001 seconds.
+✔ Test "offline mutation policy queues allowed writes and refuses online only account security and provider actions" passed after 0.001 seconds.
+✔ Test "bootstrap request and sync envelope use the private /me/sync contract" passed after 0.001 seconds.
+✔ Test "sync tombstones apply to local cache records and checkpoint revisions" passed after 0.003 seconds.
+✔ Test "file backed sync store restores queue checkpoint tombstones and staged media for restart" passed after 0.003 seconds.
+✔ Test "sync engine keeps local capture draft mutations out of remote drain" passed after 0.004 seconds.
+✔ Test "scheduled retry timestamps are honored before replaying a dependency key" passed after 0.004 seconds.
+✔ Test "sync engine pauses on auth failure classifies conflicts and retains the blocked queue" passed after 0.004 seconds.
+✔ Test "retry results block the failed dependency key while independent mutations can still drain" passed after 0.004 seconds.
+✔ Test "sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations" passed after 0.004 seconds.
+✔ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" passed after 0.006 seconds.
+✔ Test "native mutation queue persists every offline product domain with durable replay metadata" passed after 0.011 seconds.
+✔ Suite "Native sync engine and mutation queue" passed after 0.012 seconds.
+✔ Test run with 15 tests in 1 suite passed after 0.012 seconds.

@@ -63,6 +63,7 @@ public enum APIDiscoveryRequests {
 public enum APIRequestBuildError: Error, Equatable {
     case invalidBaseURL
     case invalidMultipartHeaderValue(String)
+    case missingRequiredField(String)
 }
 
 public enum PrivateAccountRequests {
@@ -300,12 +301,10 @@ public struct RecipeStepDraft: Equatable, Sendable {
 
     var jsonObject: [String: Any] {
         [
-            "stepNum": stepNum,
             "stepTitle": stepTitle ?? NSNull(),
             "description": description,
             "duration": duration ?? NSNull(),
-            "ingredients": ingredients.map(\.jsonObject),
-            "outputStepNums": outputStepNums
+            "ingredients": ingredients.map(\.jsonObject)
         ]
     }
 }
@@ -318,7 +317,8 @@ public enum RecipeWriteRequests {
         servings: String?,
         steps: [RecipeStepDraft]
     ) throws -> APIRequestBuilder {
-        try APIRequestSupport.privateJSON(
+        try validateCreateRecipeSteps(steps)
+        return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "recipes"],
             body: [
@@ -329,6 +329,14 @@ public enum RecipeWriteRequests {
                 "steps": steps.map(\.jsonObject)
             ]
         )
+    }
+
+    private static func validateCreateRecipeSteps(_ steps: [RecipeStepDraft]) throws {
+        for (stepIndex, step) in steps.enumerated() {
+            for (ingredientIndex, ingredient) in step.ingredients.enumerated() where ingredient.unit == nil {
+                throw APIRequestBuildError.missingRequiredField("steps.\(stepIndex).ingredients.\(ingredientIndex).unit")
+            }
+        }
     }
 
     public static func updateRecipe(
@@ -389,7 +397,8 @@ public enum RecipeStepRequests {
         ingredients: [RecipeIngredientDraft],
         outputStepNums: [Int]
     ) throws -> APIRequestBuilder {
-        try APIRequestSupport.privateJSON(
+        try validateIngredients(ingredients, fieldPrefix: "ingredients")
+        return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "recipes", recipeID, "steps"],
             body: [
@@ -464,14 +473,15 @@ public enum RecipeStepRequests {
         unit: String?,
         name: String
     ) throws -> APIRequestBuilder {
+        guard let unit else {
+            throw APIRequestBuildError.missingRequiredField("ingredient.unit")
+        }
         var body: [String: Any] = [
             "clientMutationId": clientMutationID,
             "quantity": quantity,
             "name": name
         ]
-        if let unit {
-            body["unit"] = unit
-        }
+        body["unit"] = unit
 
         return try APIRequestSupport.privateJSON(
             method: .post,
@@ -509,6 +519,12 @@ public enum RecipeStepRequests {
                 "outputStepNums": outputStepNums
             ]
         )
+    }
+}
+
+private func validateIngredients(_ ingredients: [RecipeIngredientDraft], fieldPrefix: String) throws {
+    for (ingredientIndex, ingredient) in ingredients.enumerated() where ingredient.unit == nil {
+        throw APIRequestBuildError.missingRequiredField("\(fieldPrefix).\(ingredientIndex).unit")
     }
 }
 

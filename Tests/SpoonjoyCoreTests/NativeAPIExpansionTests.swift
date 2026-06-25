@@ -446,7 +446,6 @@ struct NativeAPIExpansionTests {
             "description": "Bright pantry pasta",
             "servings": "4",
             "steps": [[
-                "stepNum": 1,
                 "stepTitle": NSNull(),
                 "description": "Boil pasta.",
                 "duration": 10,
@@ -454,8 +453,7 @@ struct NativeAPIExpansionTests {
                     "quantity": 1,
                     "unit": "lb",
                     "name": "pasta"
-                ]],
-                "outputStepNums": []
+                ]]
             ]]
         ])
         assertJSONRequest(updateRecipe, method: .patch, path: "/api/v1/recipes/recipe%2Fone", expected: [
@@ -1028,7 +1026,7 @@ struct NativeAPIExpansionTests {
                     stepTitle: "Simmer",
                     description: "Simmer everything.",
                     duration: Optional<Int>.none,
-                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: Optional<String>.none, name: "broth")],
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: "broth")],
                     outputStepNums: []
                 )
             ]
@@ -1040,17 +1038,34 @@ struct NativeAPIExpansionTests {
             "description": NSNull(),
             "servings": NSNull(),
             "steps": [[
-                "stepNum": 1,
                 "stepTitle": "Simmer",
                 "description": "Simmer everything.",
                 "duration": NSNull(),
                 "ingredients": [[
                     "quantity": 1,
+                    "unit": "cup",
                     "name": "broth"
-                ]],
-                "outputStepNums": []
+                ]]
             ]]
         ])
+        #expect(throws: APIRequestBuildError.missingRequiredField("steps.0.ingredients.0.unit")) {
+            _ = try RecipeWriteRequests.createRecipe(
+                clientMutationID: "recipe-create-bad-unit",
+                title: "Bad Unit Soup",
+                description: Optional<String>.none,
+                servings: Optional<String>.none,
+                steps: [
+                    RecipeStepDraft(
+                        stepNum: 1,
+                        stepTitle: "Simmer",
+                        description: "Simmer everything.",
+                        duration: Optional<Int>.none,
+                        ingredients: [RecipeIngredientDraft(quantity: 1, unit: Optional<String>.none, name: "broth")],
+                        outputStepNums: []
+                    )
+                ]
+            )
+        }
 
         let updateRecipeWithNulls = try RecipeWriteRequests.updateRecipe(
             id: "recipe/pantry",
@@ -1074,7 +1089,7 @@ struct NativeAPIExpansionTests {
             stepTitle: Optional<String>.none,
             description: "Season.",
             duration: Optional<Int>.none,
-            ingredients: [RecipeIngredientDraft(quantity: 2, unit: Optional<String>.none, name: "salt")],
+            ingredients: [RecipeIngredientDraft(quantity: 2, unit: "tsp", name: "salt")],
             outputStepNums: []
         )
         .urlRequest(configuration: Self.privateConfiguration)
@@ -1086,10 +1101,33 @@ struct NativeAPIExpansionTests {
             "duration": NSNull(),
             "ingredients": [[
                 "quantity": 2,
+                "unit": "tsp",
                 "name": "salt"
             ]],
             "outputStepNums": []
         ])
+        #expect(throws: APIRequestBuildError.missingRequiredField("ingredients.0.unit")) {
+            _ = try RecipeStepRequests.createStep(
+                recipeID: "recipe/pantry",
+                clientMutationID: "step-create-bad-unit",
+                stepNum: 2,
+                stepTitle: Optional<String>.none,
+                description: "Season.",
+                duration: Optional<Int>.none,
+                ingredients: [RecipeIngredientDraft(quantity: 2, unit: Optional<String>.none, name: "salt")],
+                outputStepNums: []
+            )
+        }
+        #expect(throws: APIRequestBuildError.missingRequiredField("ingredient.unit")) {
+            _ = try RecipeStepRequests.createIngredient(
+                recipeID: "recipe/pantry",
+                stepID: "step/season",
+                clientMutationID: "ingredient-create-bad-unit",
+                quantity: 2,
+                unit: Optional<String>.none,
+                name: "salt"
+            )
+        }
 
         let archiveHeader = try RecipeCoverRequests.archive(
             recipeID: "recipe/pantry",

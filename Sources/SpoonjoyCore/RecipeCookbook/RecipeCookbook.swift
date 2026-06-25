@@ -20,6 +20,7 @@ public enum RecipeCoverSourceType: String, Codable, Equatable {
 public enum RecipeCoverVariant: String, Codable, Equatable {
     case image
     case illustration
+    case stylized
 }
 
 public struct SourceRecipeAttribution: Codable, Equatable {

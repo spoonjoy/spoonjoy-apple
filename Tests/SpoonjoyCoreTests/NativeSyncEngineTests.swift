@@ -206,17 +206,17 @@ struct NativeSyncEngineTests {
         #expect(persistedKinds["recipe.step.reorder"]?["toStepNum"] as? Int == 1)
         #expect(persistedKinds["cookbook.addRecipe"]?["cookbookId"] as? String == "cookbook_weeknight")
         #expect(persistedKinds["shopping.addItem"]?["name"] as? String == "lemons")
-        #expect(NSDictionary(dictionary: persistedKinds["spoon.createPhoto"]?["photo"] as? [String: Any] ?? [:]).isEqual(to: [
+        #expect(dictionaryEquals(persistedKinds["spoon.createPhoto"]?["photo"] as? [String: Any] ?? [:], [
             "localStageId": "stage_spoon_1",
             "fileName": "spoon.webp",
             "contentType": "image/webp"
         ]))
-        #expect(NSDictionary(dictionary: persistedKinds["cover.upload"]?["image"] as? [String: Any] ?? [:]).isEqual(to: [
+        #expect(dictionaryEquals(persistedKinds["cover.upload"]?["image"] as? [String: Any] ?? [:], [
             "localStageId": "stage_cover_1",
             "fileName": "cover.png",
             "contentType": "image/png"
         ]))
-        #expect(NSDictionary(dictionary: persistedKinds["profile.photo.upload"]?["photo"] as? [String: Any] ?? [:]).isEqual(to: [
+        #expect(dictionaryEquals(persistedKinds["profile.photo.upload"]?["photo"] as? [String: Any] ?? [:], [
             "localStageId": "stage_profile_1",
             "fileName": "profile.jpg",
             "contentType": "image/jpeg"
@@ -229,15 +229,88 @@ struct NativeSyncEngineTests {
         #expect(json.contains("signedURL") == false)
     }
 
+    @Test("file backed sync store restores queue checkpoint tombstones and staged media for restart")
+    func fileBackedSyncStoreRestoresQueueCheckpointTombstonesAndStagedMediaForRestart() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let mediaDirectory = NativeStagedMediaDirectory(directoryURL: directory.appendingPathComponent("media", isDirectory: true))
+            let profilePhoto = Self.stagedMedia("stage_profile_restart", fileName: "profile.jpg", contentType: "image/jpeg")
+            try mediaDirectory.save(profilePhoto)
+
+            let checkpoint = try NativeSyncCheckpoint(
+                globalCursor: PaginationCursor(rawValue: "cursor_before_restart"),
+                shoppingCursor: ShoppingSyncCursor(rawValue: "shopping_before_restart"),
+                updatedAt: "2026-06-16T09:12:00.000Z"
+            )
+            let tombstone = NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_deleted_restart",
+                parentResourceID: nil,
+                title: "Deleted restart recipe",
+                deletedAt: "2026-06-16T09:12:01.000Z",
+                updatedAt: "2026-06-16T09:12:02.000Z"
+            )
+            let queue = try NativeMutationQueue(mutations: [
+                .profilePhotoUpload(photo: profilePhoto, clientMutationID: "cm_profile_restart", createdAt: Self.createdAt(41))
+            ])
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL, mediaResolver: mediaDirectory)
+
+            try await store.saveQueue(queue)
+            try await store.saveCheckpoint(checkpoint)
+            try await store.appendTombstone(tombstone)
+
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL, mediaResolver: mediaDirectory)
+            let restoredQueue = try await restored.loadQueue()
+            let request = try restoredQueue.mutations[0].requestBuilder().urlRequest(configuration: configuration)
+            let snapshot = await restored.loadSnapshot()
+
+            #expect(try await restored.loadCheckpoint() == checkpoint)
+            #expect(restoredQueue.mutations.map(\.clientMutationID) == ["cm_profile_restart"])
+            #expect(snapshot.tombstones.map(\.resourceID) == ["recipe_deleted_restart"])
+            #expect(request.body?.range(of: profilePhoto.data) != nil)
+            #expect(try String(contentsOf: storeURL, encoding: .utf8).contains("stage_profile_restart"))
+            #expect(try String(contentsOf: storeURL, encoding: .utf8).contains("rawMediaPath") == false)
+            #expect(try String(contentsOf: storeURL, encoding: .utf8).contains("signedURL") == false)
+        }
+    }
+
     @Test("queued remote mutations build exact REST requests with idempotency keys and bearer auth")
     func queuedRemoteMutationsBuildExactRESTRequestsWithIdempotencyKeysAndBearerAuth() throws {
+        let recipeCreateSteps = [
+            RecipeStepDraft(
+                stepNum: 1,
+                stepTitle: nil,
+                description: "Boil.",
+                duration: nil,
+                ingredients: [
+                    RecipeIngredientDraft(quantity: 1, unit: "lb", name: "pasta")
+                ],
+                outputStepNums: []
+            )
+        ]
+        let stepCreateIngredients = [
+            RecipeIngredientDraft(quantity: 2, unit: "cloves", name: "garlic")
+        ]
         let cases: [ExpectedRemoteMutationRequest] = [
-            .json(.recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: Self.createdAt(0)), .post, "/api/v1/recipes", [
+            .json(try .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: recipeCreateSteps, createdAt: Self.createdAt(0)), .post, "/api/v1/recipes", [
                 "clientMutationId": "cm_recipe_create",
                 "title": "Lemon Pasta",
                 "description": "Bright",
                 "servings": "4",
-                "steps": []
+                "steps": [
+                    [
+                        "stepTitle": NSNull(),
+                        "description": "Boil.",
+                        "duration": NSNull(),
+                        "ingredients": [
+                            [
+                                "quantity": 1.0,
+                                "unit": "lb",
+                                "name": "pasta"
+                            ]
+                        ]
+                    ]
+                ]
             ]),
             .json(.recipeUpdate(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: Self.createdAt(1)), .patch, "/api/v1/recipes/recipe%2Flemon", [
                 "clientMutationId": "cm_recipe_update",
@@ -250,13 +323,19 @@ struct NativeSyncEngineTests {
                 "clientMutationId": "cm_recipe_fork",
                 "title": "My Lemon Pasta"
             ]),
-            .json(.recipeStepCreate(recipeID: "recipe/lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: Self.createdAt(4)), .post, "/api/v1/recipes/recipe%2Flemon/steps", [
+            .json(try .recipeStepCreate(recipeID: "recipe/lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: stepCreateIngredients, outputStepNums: [1], createdAt: Self.createdAt(4)), .post, "/api/v1/recipes/recipe%2Flemon/steps", [
                 "clientMutationId": "cm_step_create",
                 "stepNum": 2,
                 "stepTitle": "Sauce",
                 "description": "Toss.",
                 "duration": 3,
-                "ingredients": [],
+                "ingredients": [
+                    [
+                        "quantity": 2.0,
+                        "unit": "cloves",
+                        "name": "garlic"
+                    ]
+                ],
                 "outputStepNums": [1]
             ]),
             .json(.recipeStepUpdate(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_step_update", stepTitle: nil, description: "Toss until glossy.", duration: nil, outputStepNums: [1], createdAt: Self.createdAt(5)), .patch, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo", [
@@ -272,7 +351,7 @@ struct NativeSyncEngineTests {
                 "stepId": "step/two",
                 "toStepNum": 1
             ]),
-            .json(.recipeIngredientAdd(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_ingredient_add", quantity: 2, unit: "cloves", name: "garlic", createdAt: Self.createdAt(8)), .post, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo/ingredients", [
+            .json(try .recipeIngredientAdd(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_ingredient_add", quantity: 2, unit: "cloves", name: "garlic", createdAt: Self.createdAt(8)), .post, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo/ingredients", [
                 "clientMutationId": "cm_ingredient_add",
                 "quantity": 2,
                 "unit": "cloves",
@@ -398,6 +477,50 @@ struct NativeSyncEngineTests {
         for expected in cases {
             try assertExpectedRemoteMutationRequest(expected, configuration: configuration)
         }
+
+        #expect(throws: NativeQueuedMutationRequestError.missingField("steps.0.ingredients.0.unit")) {
+            _ = try NativeQueuedMutation.recipeCreate(
+                clientMutationID: "cm_recipe_bad_unit",
+                title: "Bad Unit",
+                description: nil,
+                servings: nil,
+                steps: [
+                    RecipeStepDraft(
+                        stepNum: 1,
+                        stepTitle: nil,
+                        description: "Boil.",
+                        duration: nil,
+                        ingredients: [RecipeIngredientDraft(quantity: 1, unit: nil, name: "pasta")],
+                        outputStepNums: []
+                    )
+                ],
+                createdAt: Self.createdAt(42)
+            )
+        }
+        #expect(throws: NativeQueuedMutationRequestError.missingField("ingredients.0.unit")) {
+            _ = try NativeQueuedMutation.recipeStepCreate(
+                recipeID: "recipe/lemon",
+                clientMutationID: "cm_step_bad_unit",
+                stepNum: 1,
+                stepTitle: nil,
+                description: "Boil.",
+                duration: nil,
+                ingredients: [RecipeIngredientDraft(quantity: 1, unit: nil, name: "pasta")],
+                outputStepNums: [],
+                createdAt: Self.createdAt(43)
+            )
+        }
+        #expect(throws: NativeQueuedMutationRequestError.missingField("ingredient.unit")) {
+            _ = try NativeQueuedMutation.recipeIngredientAdd(
+                recipeID: "recipe/lemon",
+                stepID: "step/one",
+                clientMutationID: "cm_ingredient_bad_unit",
+                quantity: 1,
+                unit: nil,
+                name: "pasta",
+                createdAt: Self.createdAt(44)
+            )
+        }
     }
 
     @Test("capture draft mutations are durable local cache mutations and never build network requests")
@@ -415,6 +538,28 @@ struct NativeSyncEngineTests {
                 _ = try mutation.requestBuilder()
             }
         }
+    }
+
+    @Test("sync engine keeps local capture draft mutations out of remote drain")
+    func syncEngineKeepsLocalCaptureDraftMutationsOutOfRemoteDrain() async throws {
+        let queue = try NativeMutationQueue(
+            mutations: [
+                .captureDraftCreate(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_create", createdAt: Self.createdAt(0)),
+                .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_remote", createdAt: Self.createdAt(1))
+            ]
+        )
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [.success(serverRevision: .updatedAt("2026-06-16T09:07:00.000Z"))]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+
+        #expect(report.drainedClientMutationIDs == ["cm_profile_remote"])
+        #expect(await transport.clientMutationIDs == ["cm_profile_remote"])
+        #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_capture_create"])
     }
 
     @Test("offline mutation policy queues allowed writes and refuses online only account security and provider actions")
@@ -593,17 +738,47 @@ struct NativeSyncEngineTests {
         #expect(remaining.last?.retryCount == 0)
     }
 
+    @Test("scheduled retry timestamps are honored before replaying a dependency key")
+    func scheduledRetryTimestampsAreHonoredBeforeReplayingADependencyKey() async throws {
+        let retrying = NativeQueuedMutation
+            .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0))
+            .recordingRetry(message: "Server busy.", nextRetryAt: "2026-05-28T23:14:20.000Z")
+        let queue = try NativeMutationQueue(
+            mutations: [
+                retrying,
+                .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_same_key", note: "Same recipe waits.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/wait.jpg", useAsRecipeCover: false, createdAt: Self.createdAt(1)),
+                .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
+            ]
+        )
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [.success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+        let remaining = try await store.loadQueue().mutations
+
+        #expect(report.retryAfterSeconds == 60)
+        #expect(report.drainedClientMutationIDs == ["cm_profile_independent"])
+        #expect(await transport.clientMutationIDs == ["cm_profile_independent"])
+        #expect(remaining.map(\.clientMutationID) == ["cm_cover_retry", "cm_spoon_same_key"])
+        #expect(remaining.first?.retryCount == 1)
+        #expect(remaining.first?.nextRetryAt == "2026-05-28T23:14:20.000Z")
+    }
+
     private static func representativeMutations() throws -> [NativeQueuedMutation] {
         let recipe: [NativeQueuedMutation] = [
-            .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
+            try .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
             .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: createdAt(1)),
             .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_delete", createdAt: createdAt(2)),
             .recipeFork(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_fork", titleOverride: "My Lemon Pasta", createdAt: createdAt(3)),
-            .recipeStepCreate(recipeID: "recipe_lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: createdAt(4)),
+            try .recipeStepCreate(recipeID: "recipe_lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: createdAt(4)),
             .recipeStepUpdate(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_step_update", stepTitle: nil, description: "Toss until glossy.", duration: nil, outputStepNums: [1], createdAt: createdAt(5)),
             .recipeStepDelete(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_step_delete", createdAt: createdAt(6)),
             .recipeStepReorder(recipeID: "recipe_lemon", stepID: "step_two", toStepNum: 1, clientMutationID: "cm_step_reorder", createdAt: createdAt(7)),
-            .recipeIngredientAdd(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_ingredient_add", quantity: 2, unit: "cloves", name: "garlic", createdAt: createdAt(8)),
+            try .recipeIngredientAdd(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_ingredient_add", quantity: 2, unit: "cloves", name: "garlic", createdAt: createdAt(8)),
             .recipeIngredientDelete(recipeID: "recipe_lemon", stepID: "step_two", ingredientID: "ingredient_garlic", clientMutationID: "cm_ingredient_delete", createdAt: createdAt(9)),
             .recipeOutputUsesReplace(recipeID: "recipe_lemon", inputStepID: "step_two", outputStepNums: [1, 3], clientMutationID: "cm_output_uses", createdAt: createdAt(10))
         ]
@@ -909,12 +1084,28 @@ private func assertMultipartBody(_ request: APIRequest, expected: ExpectedMultip
     #expect(bodyString.contains("Content-Type: \(expected.contentType)\r\n\r\n"))
 
     let expectedFieldNames = Set(expected.fields.keys).union([expected.fileField])
-    let actualFieldNames = Set(bodyString.matches(of: /name="([^"]+)"/).map { String($0.1) })
+    let actualFieldNames = multipartFieldNames(in: bodyString)
     #expect(actualFieldNames == expectedFieldNames)
     for (name, value) in expected.fields {
         #expect(bodyString.contains(#"name="\#(name)""#))
         #expect(bodyString.contains("\r\n\r\n\(value)\r\n"))
     }
+}
+
+private func multipartFieldNames(in bodyString: String) -> Set<String> {
+    Set(bodyString.split(separator: "\r\n").compactMap { line in
+        let prefix = #"Content-Disposition: form-data; name=""#
+        guard line.hasPrefix(prefix) else {
+            return nil
+        }
+
+        let start = line.index(line.startIndex, offsetBy: prefix.count)
+        guard let end = line[start...].firstIndex(of: "\"") else {
+            return nil
+        }
+
+        return String(line[start..<end])
+    })
 }
 
 private func persistedKindObjects(from data: Data) throws -> [String: [String: Any]] {
@@ -927,6 +1118,17 @@ private func persistedKindObjects(from data: Data) throws -> [String: [String: A
             return (type, kind)
         }
     )
+}
+
+private func dictionaryEquals(_ lhs: [String: Any], _ rhs: [String: Any]) -> Bool {
+    NSDictionary(dictionary: lhs).isEqual(to: rhs)
+}
+
+private func withTemporaryDirectory<T>(_ body: (URL) async throws -> T) async throws -> T {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    return try await body(directory)
 }
 
 private actor RecordingNativeSyncTransport: NativeSyncTransport {

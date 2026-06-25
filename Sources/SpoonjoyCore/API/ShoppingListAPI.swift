@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ShoppingSyncCursor: RawRepresentable, Codable, Equatable {
+public struct ShoppingSyncCursor: RawRepresentable, Codable, Equatable, Sendable {
     public let rawValue: String
 
     public init?(rawValue: String) {
