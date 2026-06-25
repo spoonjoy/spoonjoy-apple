@@ -75,7 +75,22 @@ public struct NativeDurableCacheStore {
 
     private func rejectSecretMaterial(_ snapshot: NativeDurableCacheSnapshot) throws {
         if let secret = snapshot.secretMaterial {
-            try rejectSecretMaterial(secret)
+            switch secret {
+            case .bearerToken:
+                throw NativeCacheSecurityError.bearerToken
+            case .refreshToken:
+                throw NativeCacheSecurityError.refreshToken
+            case .oneTimeTokenValue:
+                throw NativeCacheSecurityError.oneTimeTokenValue
+            case .providerSecret:
+                throw NativeCacheSecurityError.providerSecret
+            case .passkey:
+                throw NativeCacheSecurityError.passkey
+            case .rawMediaPath:
+                throw NativeCacheSecurityError.rawMediaPath
+            case .signedURL:
+                throw NativeCacheSecurityError.signedURL
+            }
         }
 
         let encoder = JSONEncoder()
@@ -84,25 +99,6 @@ public struct NativeDurableCacheStore {
         let object = try JSONSerialization.jsonObject(with: data)
         for string in Self.serializedStringValues(in: object) {
             try rejectSerializedSecretMaterial(string)
-        }
-    }
-
-    private func rejectSecretMaterial(_ secret: NativeCacheSecretMaterial) throws {
-        switch secret {
-        case .bearerToken:
-            throw NativeCacheSecurityError.bearerToken
-        case .refreshToken:
-            throw NativeCacheSecurityError.refreshToken
-        case .oneTimeTokenValue:
-            throw NativeCacheSecurityError.oneTimeTokenValue
-        case .providerSecret:
-            throw NativeCacheSecurityError.providerSecret
-        case .passkey:
-            throw NativeCacheSecurityError.passkey
-        case .rawMediaPath:
-            throw NativeCacheSecurityError.rawMediaPath
-        case .signedURL:
-            throw NativeCacheSecurityError.signedURL
         }
     }
 
@@ -129,7 +125,15 @@ public struct NativeDurableCacheStore {
         if let components = URLComponents(string: value),
            let scheme = components.scheme?.lowercased(),
            scheme == "http" || scheme == "https",
-           components.queryItems?.contains(where: { ["signature", "sig", "token"].contains($0.name.lowercased()) }) == true {
+           components.queryItems?.contains(where: { item in
+               let name = item.name.lowercased()
+               return name == "sig" ||
+                   name.contains("signature") ||
+                   name.contains("token") ||
+                   name.contains("credential") ||
+                   name.hasPrefix("x-amz-") ||
+                   name.hasPrefix("x-goog-")
+           }) == true {
             throw NativeCacheSecurityError.signedURL
         }
     }

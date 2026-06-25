@@ -7,47 +7,47 @@ Building for debugging...
 [5/59] Compiling SpoonjoyCore OAuthResponses.swift
 [6/59] Compiling SpoonjoyCore RefreshCoordinator.swift
 [7/59] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
-[8/59] Compiling SpoonjoyCore ShoppingListRequests.swift
-[9/59] Compiling SpoonjoyCore AppNavigationState.swift
-[10/59] Compiling SpoonjoyCore AppRoute.swift
-[11/59] Compiling SpoonjoyCore DeepLinkRouter.swift
-[12/59] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
-[13/59] Compiling SpoonjoyCore NativeAppSnapshot.swift
-[14/64] Compiling SpoonjoyCore ScreenViewModels.swift
-[15/64] Compiling SpoonjoyCore SearchState.swift
-[16/64] Compiling SpoonjoyCore AuthSessionState.swift
-[17/64] Compiling SpoonjoyCore InMemoryTokenVault.swift
-[18/64] Compiling SpoonjoyCore NativeAuthSession.swift
-[19/64] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
-[20/64] Compiling SpoonjoyCore ScenarioReport.swift
-[21/64] Compiling SpoonjoyCore ScenarioVerifier.swift
-[22/64] Compiling SpoonjoyCore SpotlightIndexPlan.swift
-[23/64] Compiling SpoonjoyCore JSONFileStore.swift
-[24/64] Compiling SpoonjoyCore MutationQueue.swift
-[25/64] Compiling SpoonjoyCore APIClient.swift
-[26/64] Compiling SpoonjoyCore APIEnvelope.swift
-[27/64] Compiling SpoonjoyCore APIError.swift
-[28/64] Compiling SpoonjoyCore APIRequestBuilder.swift
-[29/64] Compiling SpoonjoyCore APIRequestSupport.swift
-[30/64] Compiling SpoonjoyCore APIRetryPolicy.swift
+[8/64] Compiling SpoonjoyCore ShoppingListState.swift
+[9/64] Compiling SpoonjoyCore DeepLinkManifest.swift
+[10/64] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[11/64] Compiling SpoonjoyCore NativeIntentAction.swift
+[12/64] Compiling SpoonjoyCore ScenarioCommand.swift
+[13/64] Compiling SpoonjoyCore APIClient.swift
+[14/64] Compiling SpoonjoyCore APIEnvelope.swift
+[15/64] Compiling SpoonjoyCore APIError.swift
+[16/64] Compiling SpoonjoyCore APIRequestBuilder.swift
+[17/64] Compiling SpoonjoyCore APIRequestSupport.swift
+[18/64] Compiling SpoonjoyCore APIRetryPolicy.swift
+[19/64] Compiling SpoonjoyCore ScenarioReport.swift
+[20/64] Compiling SpoonjoyCore ScenarioVerifier.swift
+[21/64] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[22/64] Compiling SpoonjoyCore JSONFileStore.swift
+[23/64] Compiling SpoonjoyCore MutationQueue.swift
+[24/64] Compiling SpoonjoyCore ScreenViewModels.swift
+[25/64] Compiling SpoonjoyCore SearchState.swift
+[26/64] Compiling SpoonjoyCore AuthSessionState.swift
+[27/64] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[28/64] Compiling SpoonjoyCore NativeAuthSession.swift
+[29/64] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[30/64] Emitting module SpoonjoyCore
 [31/64] Compiling SpoonjoyCore APITransport.swift
 [32/64] Compiling SpoonjoyCore JSONValue.swift
 [33/64] Compiling SpoonjoyCore NativeAPIRequests.swift
 [34/64] Compiling SpoonjoyCore PaginationCursor.swift
 [35/64] Compiling SpoonjoyCore PublicCatalogRequests.swift
 [36/64] Compiling SpoonjoyCore ShoppingListAPI.swift
-[37/64] Emitting module SpoonjoyCore
-[38/64] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
-[39/64] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
-[40/64] Compiling SpoonjoyCore CaptureDraft.swift
-[41/64] Compiling SpoonjoyCore CookModeProgress.swift
-[42/64] Compiling SpoonjoyCore KitchenFixtureState.swift
-[43/64] Compiling SpoonjoyCore SettingsState.swift
-[44/64] Compiling SpoonjoyCore ShoppingListState.swift
-[45/64] Compiling SpoonjoyCore DeepLinkManifest.swift
-[46/64] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
-[47/64] Compiling SpoonjoyCore NativeIntentAction.swift
-[48/64] Compiling SpoonjoyCore ScenarioCommand.swift
+[37/64] Compiling SpoonjoyCore ShoppingListRequests.swift
+[38/64] Compiling SpoonjoyCore AppNavigationState.swift
+[39/64] Compiling SpoonjoyCore AppRoute.swift
+[40/64] Compiling SpoonjoyCore DeepLinkRouter.swift
+[41/64] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[42/64] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[43/64] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[44/64] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[45/64] Compiling SpoonjoyCore CaptureDraft.swift
+[46/64] Compiling SpoonjoyCore CookModeProgress.swift
+[47/64] Compiling SpoonjoyCore KitchenFixtureState.swift
+[48/64] Compiling SpoonjoyCore SettingsState.swift
 [49/64] Compiling SpoonjoyCore TokenVault.swift
 [50/64] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
 [51/64] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
@@ -59,58 +59,58 @@ Building for debugging...
 [57/64] Compiling SpoonjoyCore RecipeCookbook.swift
 [58/64] Compiling SpoonjoyCore SpoonjoyCore.swift
 [59/64] Compiling SpoonjoyCore resource_bundle_accessor.swift
-[60/82] Compiling SpoonjoyScenarioVerifier main.swift
+[60/82] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
 [61/82] Emitting module SpoonjoyScenarioVerifier
-[62/82] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[62/82] Compiling SpoonjoyScenarioVerifier main.swift
 [62/82] Write Objects.LinkFileList
 [63/82] Linking SpoonjoyScenarioVerifier
 [64/82] Applying SpoonjoyScenarioVerifier
 [66/82] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
-[67/82] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
-[68/82] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
-[69/82] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[67/83] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[68/83] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[69/83] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
 [70/83] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
 [71/83] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
 [72/83] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
 [73/83] Compiling SpoonjoyCoreTests AppStateTests.swift
 [74/83] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
-[75/83] Compiling SpoonjoyCoreTests KitchenStateTests.swift
-[76/83] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
-[77/83] Compiling SpoonjoyCoreTests APIReadClientTests.swift
-[78/83] Compiling SpoonjoyCoreTests APITransportTests.swift
-[79/83] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
-[80/83] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
-[81/83] Emitting module SpoonjoyCoreTests
+[75/83] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[76/83] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[77/83] Emitting module SpoonjoyCoreTests
+[78/83] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[79/83] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[80/83] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[81/83] Compiling SpoonjoyCoreTests APITransportTests.swift
 [82/85] Emitting module SpoonjoyApplePackageTests
 [83/85] Compiling SpoonjoyApplePackageTests runner.swift
 [83/85] Write Objects.LinkFileList
 [84/85] Linking SpoonjoyApplePackageTests
-Build complete! (5.86s)
+Build complete! (5.90s)
 ◇ Test run started.
 ↳ Testing Library Version: 1902
 ↳ Target Platform: arm64e-apple-macos14.0
 ◇ Suite "Native cache schema and freshness" started.
-◇ Test "intelligent prefetch policy includes signed-in bootstrap recent surfaces and excludes online-only credential work" started.
 ◇ Test "corrupt cache recovery quarantines bad JSON and restores deterministic fallback without overwriting" started.
-◇ Test "native cache implementation is covered in process" started.
-◇ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" started.
-◇ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" started.
 ◇ Test "freshness policy uses exact Offline Product Contract thresholds without wall clock flake" started.
 ◇ Test "expanded native cache behavior contract is executable" started.
+◇ Test "native cache implementation is covered in process" started.
+◇ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" started.
 ◇ Test "dismissal persistence is scoped by account environment and freshness change" started.
-◇ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" started.
-◇ Test "durable schema version 2 covers every Offline Product Contract domain with record metadata" started.
 ◇ Test "cache store rejects secret material and never serializes tokens provider secrets signed URLs or raw media paths" started.
+◇ Test "intelligent prefetch policy includes signed-in bootstrap recent surfaces and excludes online-only credential work" started.
+◇ Test "durable schema version 2 covers every Offline Product Contract domain with record metadata" started.
+◇ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" started.
+◇ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" started.
 ✔ Test "intelligent prefetch policy includes signed-in bootstrap recent surfaces and excludes online-only credential work" passed after 0.001 seconds.
 ✔ Test "corrupt cache recovery quarantines bad JSON and restores deterministic fallback without overwriting" passed after 0.001 seconds.
+✔ Test "dismissal persistence is scoped by account environment and freshness change" passed after 0.001 seconds.
 ✔ Test "freshness policy uses exact Offline Product Contract thresholds without wall clock flake" passed after 0.001 seconds.
 ✔ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" passed after 0.001 seconds.
-✔ Test "dismissal persistence is scoped by account environment and freshness change" passed after 0.001 seconds.
 ✔ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" passed after 0.002 seconds.
-✔ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" passed after 0.002 seconds.
 ✔ Test "cache store rejects secret material and never serializes tokens provider secrets signed URLs or raw media paths" passed after 0.002 seconds.
+✔ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" passed after 0.003 seconds.
 ✔ Test "durable schema version 2 covers every Offline Product Contract domain with record metadata" passed after 0.004 seconds.
 ✔ Test "native cache implementation is covered in process" passed after 0.013 seconds.
-✔ Test "expanded native cache behavior contract is executable" passed after 8.941 seconds.
-✔ Suite "Native cache schema and freshness" passed after 8.941 seconds.
-✔ Test run with 11 tests in 1 suite passed after 8.942 seconds.
+✔ Test "expanded native cache behavior contract is executable" passed after 9.110 seconds.
+✔ Suite "Native cache schema and freshness" passed after 9.110 seconds.
+✔ Test run with 11 tests in 1 suite passed after 9.110 seconds.

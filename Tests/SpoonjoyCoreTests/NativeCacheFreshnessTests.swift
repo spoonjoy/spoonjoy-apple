@@ -787,7 +787,12 @@ private func serializableSecretRecords(fetchedAt: Date, lastValidatedAt: Date) t
         try directRecord(domain: .connectionStatus, serverRevision: .localRevision("provider-secret-google"), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_1", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try directRecord(domain: .profile(id: "passkey"), payload: .profile(id: "passkey", username: "passkey-private-key"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try directRecord(domain: .captureDraft(id: "raw-path"), payload: .captureDraft(id: "raw-path", source: .imageAsset("/Users/arimendelow/Pictures/private.jpg")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
-        try directRecord(domain: .captureDraft(id: "signed-url"), payload: .captureDraft(id: "signed-url", source: .shareSheetURL("https://signed.example/photo.jpg?signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+        try directRecord(domain: .captureDraft(id: "signed-url"), payload: .captureDraft(id: "signed-url", source: .shareSheetURL("https://signed.example/photo.jpg?signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "signed-url-amz"), payload: .captureDraft(id: "signed-url-amz", source: .shareSheetURL("https://signed.example/photo.jpg?X-Amz-Signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "signed-url-token"), payload: .captureDraft(id: "signed-url-token", source: .shareSheetURL("https://signed.example/photo.jpg?access_token=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "signed-url-credential"), payload: .captureDraft(id: "signed-url-credential", source: .shareSheetURL("https://signed.example/photo.jpg?credential=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "signed-url-amz-expires"), payload: .captureDraft(id: "signed-url-amz-expires", source: .shareSheetURL("https://signed.example/photo.jpg?X-Amz-Expires=60")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "signed-url-goog"), payload: .captureDraft(id: "signed-url-goog", source: .shareSheetURL("https://signed.example/photo.jpg?X-Goog-Expires=60")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
     ]
 }
 
@@ -1127,7 +1132,12 @@ private func serializableSecretRecords(fetchedAt: Date, lastValidatedAt: Date) t
         try record(domain: .connectionStatus, serverRevision: .localRevision("provider-secret-google"), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_1", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try record(domain: .profile(id: "passkey"), payload: .profile(id: "passkey", username: "passkey-private-key"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try record(domain: .captureDraft(id: "raw-path"), payload: .captureDraft(id: "raw-path", source: .imageAsset("/Users/arimendelow/Pictures/private.jpg")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
-        try record(domain: .captureDraft(id: "signed-url"), payload: .captureDraft(id: "signed-url", source: .shareSheetURL("https://signed.example/photo.jpg?signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+        try record(domain: .captureDraft(id: "signed-url"), payload: .captureDraft(id: "signed-url", source: .shareSheetURL("https://signed.example/photo.jpg?signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "signed-url-amz"), payload: .captureDraft(id: "signed-url-amz", source: .shareSheetURL("https://signed.example/photo.jpg?X-Amz-Signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "signed-url-token"), payload: .captureDraft(id: "signed-url-token", source: .shareSheetURL("https://signed.example/photo.jpg?access_token=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "signed-url-credential"), payload: .captureDraft(id: "signed-url-credential", source: .shareSheetURL("https://signed.example/photo.jpg?credential=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "signed-url-amz-expires"), payload: .captureDraft(id: "signed-url-amz-expires", source: .shareSheetURL("https://signed.example/photo.jpg?X-Amz-Expires=60")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "signed-url-goog"), payload: .captureDraft(id: "signed-url-goog", source: .shareSheetURL("https://signed.example/photo.jpg?X-Goog-Expires=60")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
     ]
 }
 
