@@ -615,6 +615,7 @@ struct NativeLiveStoreTests {
             ).value
             #expect(savedRoute.accountID == "signed-out")
             #expect(savedRoute.environment == .production)
+            #expect(savedRoute.hasCompletedFirstRun)
             #expect(savedRoute.lastOpenedRoute == "recipe:recipe_cached")
             liveStore.recordingOpenedRoute(.settings)
             let resavedRoute = try appStateStore.loadOrCreate(
@@ -625,6 +626,7 @@ struct NativeLiveStoreTests {
                     savedAt: Self.isoString(Self.now)
                 )
             ).value
+            #expect(resavedRoute.hasCompletedFirstRun)
             #expect(resavedRoute.lastOpenedRoute == "settings")
 
             liveStore.dismissOfflineIndicator()

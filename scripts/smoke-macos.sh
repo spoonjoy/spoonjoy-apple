@@ -100,7 +100,7 @@ trap restore_state EXIT
 
 assert_route_proof() {
   local expected_route="$1"
-  local attempts=20
+  local attempts=60
   local delay="0.5"
   for _ in $(seq 1 "$attempts"); do
     if ruby -rjson -e '

@@ -661,7 +661,11 @@ public final class NativeLiveAppStore: ObservableObject {
             let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
                 ? record.value
                 : fallback
-            try appStateStore.save(baseSnapshot.recordingOpenedRoute(route, savedAt: savedAt))
+            try appStateStore.save(
+                baseSnapshot
+                    .completingFirstRun(savedAt: savedAt)
+                    .recordingOpenedRoute(route, savedAt: savedAt)
+            )
         } catch {
             return
         }

@@ -135,6 +135,20 @@ capture_macos_window() {
   [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]]
 }
 
+wait_for_kitchen_route() {
+  for _ in $(seq 1 60); do
+    if ruby -rjson -e '
+      path = ARGV.fetch(0)
+      snapshot = JSON.parse(File.read(path))
+      exit(1) unless snapshot.fetch("hasCompletedFirstRun") == true
+      exit(1) unless snapshot.fetch("lastOpenedRoute") == "kitchen"
+    ' "$state_file" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.5
+  done
+}
+
 run_smoke() {
   local label="$1"
   local log_path="$2"
@@ -212,17 +226,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   sleep 3
   pgrep -x Spoonjoy >/dev/null
   osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://kitchen\"" >> "$capture_log" 2>&1
-  for _ in $(seq 1 20); do
-    if ruby -rjson -e '
-      path = ARGV.fetch(0)
-      snapshot = JSON.parse(File.read(path))
-      exit(1) unless snapshot.fetch("hasCompletedFirstRun") == true
-      exit(1) unless snapshot.fetch("lastOpenedRoute") == "kitchen"
-    ' "$state_file" >/dev/null 2>&1; then
-      break
-    fi
-    sleep 0.5
-  done
+  wait_for_kitchen_route || true
   ruby -rjson -e '
     path = ARGV.fetch(0)
     snapshot = JSON.parse(File.read(path))
@@ -239,6 +243,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     sleep 3
     pgrep -x Spoonjoy >/dev/null
     osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://kitchen\"" >> "$capture_log" 2>&1
+    wait_for_kitchen_route || true
     ruby -rjson -e '
       path = ARGV.fetch(0)
       snapshot = JSON.parse(File.read(path))
