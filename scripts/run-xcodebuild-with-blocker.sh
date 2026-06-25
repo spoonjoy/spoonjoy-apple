@@ -63,23 +63,47 @@ write_blocker() {
       command: command,
       timeoutSeconds: Integer(timeout_seconds),
       outputPath: output_path,
-      reason: "Local Xcode platform or pre-parse state blocked app bundle validation."
+      reason: "Local Xcode platform or pre-parse state blocked app bundle validation.",
+      ownerAction: "Install the required Xcode platform/runtime and rerun app bundle validation."
     }
     File.write(path, JSON.pretty_generate(blocker) + "\n")
   ' "$blocker_path" "$command_string" "$timeout_seconds" "$output_path"
 }
 
+run_with_timeout() {
+  python3 - "$timeout_seconds" "$output_path" "$@" <<'PY'
+import subprocess
+import sys
+
+timeout_seconds = int(sys.argv[1])
+output_path = sys.argv[2]
+command = sys.argv[3:]
+with open(output_path, "ab") as output:
+    try:
+        completed = subprocess.run(
+            command,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        output.write(f"\nCommand timed out after {timeout_seconds} seconds\n".encode())
+        sys.exit(124)
+sys.exit(completed.returncode)
+PY
+}
+
 preflight_status=0
 : > "$output_path"
 set +e
-xcodebuild -version >> "$output_path" 2>&1
+run_with_timeout xcodebuild -version
 preflight_status=$?
 if [[ "$preflight_status" -eq 0 ]]; then
-  xcode-select -p >> "$output_path" 2>&1
+  run_with_timeout xcode-select -p
   preflight_status=$?
 fi
 if [[ "$preflight_status" -eq 0 ]]; then
-  xcodebuild -checkFirstLaunchStatus >> "$output_path" 2>&1
+  run_with_timeout xcodebuild -checkFirstLaunchStatus
   preflight_status=$?
 fi
 set -e
@@ -95,7 +119,7 @@ fi
 command=("$@")
 command_status=0
 set +e
-"${command[@]}" >> "$output_path" 2>&1
+run_with_timeout "${command[@]}"
 command_status=$?
 set -e
 

@@ -577,10 +577,30 @@ struct NativeAuthSessionTests {
         #expect(success.wrapperCalls.filter { $0.contains("matrix-xcodebuild-macos.log") }.count == 1)
         #expect(success.directXcodebuildCalls.isEmpty, Comment(rawValue: success.directXcodebuildCalls.joined(separator: "\n")))
 
-        let blocker = try runValidationMatrixHarness(wrapperMode: "xcode-platform-blocker")
+        let blocker = try runValidationMatrixHarness(wrapperMode: "xcode-platform-blocker") { artifacts in
+            let staleBlocker = artifacts
+                .appendingPathComponent("apple", isDirectory: true)
+                .appendingPathComponent("matrix-smoke-ios-simulator-blocker.json")
+            try FileManager.default.createDirectory(
+                at: staleBlocker.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try """
+            {
+              "blocked": true,
+              "capability": "BogusStale",
+              "command": "stale",
+              "timeoutSeconds": 30,
+              "outputPath": "stale.log",
+              "reason": "stale",
+              "ownerAction": "stale"
+            }
+            """.write(to: staleBlocker, atomically: true, encoding: .utf8)
+        }
         #expect(blocker.result.status == 0, Comment(rawValue: blocker.result.output))
         #expect(blocker.matrix.contains("\"capability\": \"XcodePlatform\""))
         #expect(blocker.matrix.contains("\"status\": \"blocked\""))
+        #expect(!blocker.matrix.contains("BogusStale"))
 
         let compileFailure = try runValidationMatrixHarness(wrapperMode: "compile-failure")
         #expect(compileFailure.result.status != 0, Comment(rawValue: compileFailure.result.output))
@@ -599,8 +619,9 @@ struct NativeAuthSessionTests {
                 "scripts/run-xcodebuild-with-blocker.sh",
                 "matrix-xcodebuild-ios.log",
                 "matrix-xcodebuild-macos.log",
-                "ios-app-bundle-blocker.json",
-                "macos-app-bundle-blocker.json",
+                "matrix-xcode-platform-blocker.json",
+                "matrix-smoke-ios-simulator-blocker.json",
+                "matrix-smoke-macos-blocker.json",
                 "XcodePlatform"
             ],
             forbids: [
@@ -853,10 +874,14 @@ private func runWrapperProbe(
     return WrapperProbeResult(status: result.status, output: result.output, blocker: blocker)
 }
 
-private func runValidationMatrixHarness(wrapperMode: String) throws -> ValidationMatrixHarnessResult {
+private func runValidationMatrixHarness(
+    wrapperMode: String,
+    prepareArtifacts: ((URL) throws -> Void)? = nil
+) throws -> ValidationMatrixHarnessResult {
     try withTemporaryDirectory { directory in
         try writeValidationMatrixHarness(at: directory)
         let artifacts = directory.appendingPathComponent("artifacts", isDirectory: true)
+        try prepareArtifacts?(artifacts)
         let wrapperCallsURL = directory.appendingPathComponent("wrapper-calls.log")
         let directXcodebuildCallsURL = directory.appendingPathComponent("direct-xcodebuild-calls.log")
         var environment = ProcessInfo.processInfo.environment
@@ -873,7 +898,9 @@ private func runValidationMatrixHarness(wrapperMode: String) throws -> Validatio
         )
         let wrapperCalls = readLinesIfPresent(wrapperCallsURL)
         let directXcodebuildCalls = readLinesIfPresent(directXcodebuildCallsURL)
-        let matrixURL = artifacts.appendingPathComponent("validation-matrix.json")
+        let matrixURL = artifacts
+            .appendingPathComponent("apple", isDirectory: true)
+            .appendingPathComponent("validation-matrix.json")
         let matrix = (try? String(contentsOf: matrixURL, encoding: .utf8)) ?? ""
 
         return ValidationMatrixHarnessResult(
@@ -927,6 +954,7 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         "check-search-capture-settings-surfaces.rb",
         "check-launch-screenshot-contract.rb",
         "validate-design-review.rb",
+        "validate-design-review-blocker.rb",
         "validate-aasa.rb"
     ]
     for name in rubyStubs {
@@ -1172,7 +1200,8 @@ case "${FAKE_WRAPPER_MODE:-success}" in
   "command": "$*",
   "timeoutSeconds": $timeout_seconds,
   "outputPath": "$output_path",
-  "reason": "fake local platform blocker"
+  "reason": "fake local platform blocker",
+  "ownerAction": "Install the fake local platform."
 }
 JSON
     exit 0
