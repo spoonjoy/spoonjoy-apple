@@ -1,0 +1,1317 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:968:26: error: cannot find type 'APIResponseCachePolicy' in scope
+ 966 |     queryItems: [URLQueryItem] = [],
+ 967 |     expectsBody: Bool = false,
+ 968 |     responseCachePolicy: APIResponseCachePolicy? = nil
+     |                          `- error: cannot find type 'APIResponseCachePolicy' in scope
+ 969 | ) {
+ 970 |     #expect(request.method == method)
+[4/6] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:968:26: error: cannot find type 'APIResponseCachePolicy' in scope
+ 966 |     queryItems: [URLQueryItem] = [],
+ 967 |     expectsBody: Bool = false,
+ 968 |     responseCachePolicy: APIResponseCachePolicy? = nil
+     |                          `- error: cannot find type 'APIResponseCachePolicy' in scope
+ 969 | ) {
+ 970 |     #expect(request.method == method)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:9:24: error: cannot find 'APIDiscoveryRequests' in scope
+   7 |     @Test("discovery and generated contract requests are anonymous exact GETs")
+   8 |     func discoveryAndGeneratedContractRequestsAreAnonymousExactGETs() throws {
+   9 |         let root = try APIDiscoveryRequests.root()
+     |                        `- error: cannot find 'APIDiscoveryRequests' in scope
+  10 |             .urlRequest(configuration: Self.privateConfiguration)
+  11 |         let health = try APIDiscoveryRequests.health()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:11:26: error: cannot find 'APIDiscoveryRequests' in scope
+   9 |         let root = try APIDiscoveryRequests.root()
+  10 |             .urlRequest(configuration: Self.privateConfiguration)
+  11 |         let health = try APIDiscoveryRequests.health()
+     |                          `- error: cannot find 'APIDiscoveryRequests' in scope
+  12 |             .urlRequest(configuration: Self.privateConfiguration)
+  13 |         let openAPI = try APIDiscoveryRequests.openAPI()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:13:27: error: cannot find 'APIDiscoveryRequests' in scope
+  11 |         let health = try APIDiscoveryRequests.health()
+  12 |             .urlRequest(configuration: Self.privateConfiguration)
+  13 |         let openAPI = try APIDiscoveryRequests.openAPI()
+     |                           `- error: cannot find 'APIDiscoveryRequests' in scope
+  14 |             .urlRequest(configuration: Self.privateConfiguration)
+  15 |         let sdkOpenAPI = try APIDiscoveryRequests.sdkOpenAPI()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:15:30: error: cannot find 'APIDiscoveryRequests' in scope
+  13 |         let openAPI = try APIDiscoveryRequests.openAPI()
+  14 |             .urlRequest(configuration: Self.privateConfiguration)
+  15 |         let sdkOpenAPI = try APIDiscoveryRequests.sdkOpenAPI()
+     |                              `- error: cannot find 'APIDiscoveryRequests' in scope
+  16 |             .urlRequest(configuration: Self.privateConfiguration)
+  17 |         let connectorOpenAPI = try APIDiscoveryRequests.connectorOpenAPI()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:17:36: error: cannot find 'APIDiscoveryRequests' in scope
+  15 |         let sdkOpenAPI = try APIDiscoveryRequests.sdkOpenAPI()
+  16 |             .urlRequest(configuration: Self.privateConfiguration)
+  17 |         let connectorOpenAPI = try APIDiscoveryRequests.connectorOpenAPI()
+     |                                    `- error: cannot find 'APIDiscoveryRequests' in scope
+  18 |             .urlRequest(configuration: Self.privateConfiguration)
+  19 |         let docsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(baseURL: Self.privateConfiguration.baseURL)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:19:34: error: cannot find 'APIDiscoveryRequests' in scope
+  17 |         let connectorOpenAPI = try APIDiscoveryRequests.connectorOpenAPI()
+  18 |             .urlRequest(configuration: Self.privateConfiguration)
+  19 |         let docsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(baseURL: Self.privateConfiguration.baseURL)
+     |                                  `- error: cannot find 'APIDiscoveryRequests' in scope
+  20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
+  21 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:20:41: error: cannot find type 'APIDiscoveryResponse' in scope
+  18 |             .urlRequest(configuration: Self.privateConfiguration)
+  19 |         let docsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(baseURL: Self.privateConfiguration.baseURL)
+  20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
+     |                                         `- error: cannot find type 'APIDiscoveryResponse' in scope
+  21 | 
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:22:38: error: cannot infer contextual base in reference to member 'get'
+  20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
+  21 | 
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+     |                                      `- error: cannot infer contextual base in reference to member 'get'
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:22:75: error: 'nil' requires a contextual type
+  20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
+  21 | 
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+     |                                                                           `- error: 'nil' requires a contextual type
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:23:40: error: cannot infer contextual base in reference to member 'get'
+  21 | 
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+     |                                        `- error: cannot infer contextual base in reference to member 'get'
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:23:84: error: 'nil' requires a contextual type
+  21 | 
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+     |                                                                                    `- error: 'nil' requires a contextual type
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:24:41: error: cannot infer contextual base in reference to member 'get'
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+     |                                         `- error: cannot infer contextual base in reference to member 'get'
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+  26 |         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:24:91: error: 'nil' requires a contextual type
+  22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+     |                                                                                           `- error: 'nil' requires a contextual type
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+  26 |         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:25:44: error: cannot infer contextual base in reference to member 'get'
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+     |                                            `- error: cannot infer contextual base in reference to member 'get'
+  26 |         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
+  27 |         #expect(docsHandoffURL.absoluteString == "https://spoonjoy.app/api")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:25:98: error: 'nil' requires a contextual type
+  23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+     |                                                                                                  `- error: 'nil' requires a contextual type
+  26 |         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
+  27 |         #expect(docsHandoffURL.absoluteString == "https://spoonjoy.app/api")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:26:50: error: cannot infer contextual base in reference to member 'get'
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+  26 |         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
+     |                                                  `- error: cannot infer contextual base in reference to member 'get'
+  27 |         #expect(docsHandoffURL.absoluteString == "https://spoonjoy.app/api")
+  28 |         #expect(discovery.data.docsURL.absoluteString == "https://spoonjoy.app/api")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:26:110: error: 'nil' requires a contextual type
+  24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
+  25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
+  26 |         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
+     |                                                                                                              `- error: 'nil' requires a contextual type
+  27 |         #expect(docsHandoffURL.absoluteString == "https://spoonjoy.app/api")
+  28 |         #expect(discovery.data.docsURL.absoluteString == "https://spoonjoy.app/api")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:60:22: error: cannot infer contextual base in reference to member 'get'
+  58 |         assertRequest(
+  59 |             recipeList,
+  60 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+  61 |             path: "/api/v1/recipes",
+  62 |             authorization: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:62:28: error: 'nil' requires a contextual type
+  60 |             method: .get,
+  61 |             path: "/api/v1/recipes",
+  62 |             authorization: nil,
+     |                            `- error: 'nil' requires a contextual type
+  63 |             queryItems: [
+  64 |                 URLQueryItem(name: "query", value: "lemon pasta"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:68:35: error: cannot infer contextual base in reference to member 'publicCache'
+  66 |                 URLQueryItem(name: "cursor", value: "v1.recipe.cursor")
+  67 |             ],
+  68 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+     |                                   `- error: cannot infer contextual base in reference to member 'publicCache'
+  69 |         )
+  70 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:72:22: error: cannot infer contextual base in reference to member 'get'
+  70 |         assertRequest(
+  71 |             recipeDetail,
+  72 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+  73 |             path: "/api/v1/recipes/recipe%2Flemon",
+  74 |             authorization: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:74:28: error: 'nil' requires a contextual type
+  72 |             method: .get,
+  73 |             path: "/api/v1/recipes/recipe%2Flemon",
+  74 |             authorization: nil,
+     |                            `- error: 'nil' requires a contextual type
+  75 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+  76 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:75:35: error: cannot infer contextual base in reference to member 'publicCache'
+  73 |             path: "/api/v1/recipes/recipe%2Flemon",
+  74 |             authorization: nil,
+  75 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+     |                                   `- error: cannot infer contextual base in reference to member 'publicCache'
+  76 |         )
+  77 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:79:22: error: cannot infer contextual base in reference to member 'get'
+  77 |         assertRequest(
+  78 |             cookbookList,
+  79 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+  80 |             path: "/api/v1/cookbooks",
+  81 |             authorization: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:81:28: error: 'nil' requires a contextual type
+  79 |             method: .get,
+  80 |             path: "/api/v1/cookbooks",
+  81 |             authorization: nil,
+     |                            `- error: 'nil' requires a contextual type
+  82 |             queryItems: [
+  83 |                 URLQueryItem(name: "query", value: "weeknight"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:87:35: error: cannot infer contextual base in reference to member 'publicCache'
+  85 |                 URLQueryItem(name: "cursor", value: "v1.cookbook.cursor")
+  86 |             ],
+  87 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+     |                                   `- error: cannot infer contextual base in reference to member 'publicCache'
+  88 |         )
+  89 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:91:22: error: cannot infer contextual base in reference to member 'get'
+  89 |         assertRequest(
+  90 |             cookbookDetail,
+  91 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+  92 |             path: "/api/v1/cookbooks/cookbook%2Fweek",
+  93 |             authorization: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:93:28: error: 'nil' requires a contextual type
+  91 |             method: .get,
+  92 |             path: "/api/v1/cookbooks/cookbook%2Fweek",
+  93 |             authorization: nil,
+     |                            `- error: 'nil' requires a contextual type
+  94 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+  95 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:94:35: error: cannot infer contextual base in reference to member 'publicCache'
+  92 |             path: "/api/v1/cookbooks/cookbook%2Fweek",
+  93 |             authorization: nil,
+  94 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+     |                                   `- error: cannot infer contextual base in reference to member 'publicCache'
+  95 |         )
+  96 |         #expect(recipeList.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:104:34: error: cannot find 'PrivateAccountRequests' in scope
+ 102 |     @Test("private account sync token and APNs requests use bearer auth and exact paths")
+ 103 |     func privateAccountSyncTokenAndAPNSRequestsUseBearerAuthAndExactPaths() throws {
+ 104 |         let currentAccount = try PrivateAccountRequests.currentAccount()
+     |                                  `- error: cannot find 'PrivateAccountRequests' in scope
+ 105 |             .urlRequest(configuration: Self.privateConfiguration)
+ 106 |         let kitchen = try PrivateAccountRequests.kitchen()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:106:27: error: cannot find 'PrivateAccountRequests' in scope
+ 104 |         let currentAccount = try PrivateAccountRequests.currentAccount()
+ 105 |             .urlRequest(configuration: Self.privateConfiguration)
+ 106 |         let kitchen = try PrivateAccountRequests.kitchen()
+     |                           `- error: cannot find 'PrivateAccountRequests' in scope
+ 107 |             .urlRequest(configuration: Self.privateConfiguration)
+ 108 |         let notificationPreferences = try PrivateAccountRequests.notificationPreferences()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:108:43: error: cannot find 'PrivateAccountRequests' in scope
+ 106 |         let kitchen = try PrivateAccountRequests.kitchen()
+ 107 |             .urlRequest(configuration: Self.privateConfiguration)
+ 108 |         let notificationPreferences = try PrivateAccountRequests.notificationPreferences()
+     |                                           `- error: cannot find 'PrivateAccountRequests' in scope
+ 109 |             .urlRequest(configuration: Self.privateConfiguration)
+ 110 |         let connections = try PrivateAccountRequests.connections()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:110:31: error: cannot find 'PrivateAccountRequests' in scope
+ 108 |         let notificationPreferences = try PrivateAccountRequests.notificationPreferences()
+ 109 |             .urlRequest(configuration: Self.privateConfiguration)
+ 110 |         let connections = try PrivateAccountRequests.connections()
+     |                               `- error: cannot find 'PrivateAccountRequests' in scope
+ 111 |             .urlRequest(configuration: Self.privateConfiguration)
+ 112 |         let sync = try PrivateSyncRequests.sync(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:112:24: error: cannot find 'PrivateSyncRequests' in scope
+ 110 |         let connections = try PrivateAccountRequests.connections()
+ 111 |             .urlRequest(configuration: Self.privateConfiguration)
+ 112 |         let sync = try PrivateSyncRequests.sync(
+     |                        `- error: cannot find 'PrivateSyncRequests' in scope
+ 113 |             cursor: PaginationCursor(rawValue: "v1.native.cursor"),
+ 114 |             limit: 75
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:117:30: error: cannot find 'TokenCredentialRequests' in scope
+ 115 |         )
+ 116 |         .urlRequest(configuration: Self.privateConfiguration)
+ 117 |         let listTokens = try TokenCredentialRequests.listTokens()
+     |                              `- error: cannot find 'TokenCredentialRequests' in scope
+ 118 |             .urlRequest(configuration: Self.privateConfiguration)
+ 119 |         let revokeToken = try TokenCredentialRequests.revokeToken(credentialID: "cred/with spaces")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:119:31: error: cannot find 'TokenCredentialRequests' in scope
+ 117 |         let listTokens = try TokenCredentialRequests.listTokens()
+ 118 |             .urlRequest(configuration: Self.privateConfiguration)
+ 119 |         let revokeToken = try TokenCredentialRequests.revokeToken(credentialID: "cred/with spaces")
+     |                               `- error: cannot find 'TokenCredentialRequests' in scope
+ 120 |             .urlRequest(configuration: Self.privateConfiguration)
+ 121 |         let revokeAPNS = try PrivateAccountRequests.revokeAPNSDevice(deviceID: "device/ios 1")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:121:30: error: cannot find 'PrivateAccountRequests' in scope
+ 119 |         let revokeToken = try TokenCredentialRequests.revokeToken(credentialID: "cred/with spaces")
+ 120 |             .urlRequest(configuration: Self.privateConfiguration)
+ 121 |         let revokeAPNS = try PrivateAccountRequests.revokeAPNSDevice(deviceID: "device/ios 1")
+     |                              `- error: cannot find 'PrivateAccountRequests' in scope
+ 122 |             .urlRequest(configuration: Self.privateConfiguration)
+ 123 |         let disconnect = try PrivateAccountRequests.disconnectConnection(connectionID: "oauth/cm client")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:123:30: error: cannot find 'PrivateAccountRequests' in scope
+ 121 |         let revokeAPNS = try PrivateAccountRequests.revokeAPNSDevice(deviceID: "device/ios 1")
+ 122 |             .urlRequest(configuration: Self.privateConfiguration)
+ 123 |         let disconnect = try PrivateAccountRequests.disconnectConnection(connectionID: "oauth/cm client")
+     |                              `- error: cannot find 'PrivateAccountRequests' in scope
+ 124 |             .urlRequest(configuration: Self.privateConfiguration)
+ 125 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:126:48: error: cannot infer contextual base in reference to member 'get'
+ 124 |             .urlRequest(configuration: Self.privateConfiguration)
+ 125 | 
+ 126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                `- error: cannot infer contextual base in reference to member 'get'
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:126:137: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 124 |             .urlRequest(configuration: Self.privateConfiguration)
+ 125 | 
+ 126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                         `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:127:41: error: cannot infer contextual base in reference to member 'get'
+ 125 | 
+ 126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                         `- error: cannot infer contextual base in reference to member 'get'
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:127:138: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 125 | 
+ 126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                          `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:128:57: error: cannot infer contextual base in reference to member 'get'
+ 126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                         `- error: cannot infer contextual base in reference to member 'get'
+ 129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 130 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:128:171: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                                                           `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 130 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:129:45: error: cannot infer contextual base in reference to member 'get'
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                             `- error: cannot infer contextual base in reference to member 'get'
+ 130 |         assertRequest(
+ 131 |             sync,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:129:146: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                                  `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 130 |         assertRequest(
+ 131 |             sync,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:132:22: error: cannot infer contextual base in reference to member 'get'
+ 130 |         assertRequest(
+ 131 |             sync,
+ 132 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 133 |             path: "/api/v1/me/sync",
+ 134 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:139:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 137 |                 URLQueryItem(name: "cursor", value: "v1.native.cursor")
+ 138 |             ],
+ 139 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 140 |         )
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:141:44: error: cannot infer contextual base in reference to member 'get'
+ 139 |             responseCachePolicy: .privateNoStore
+ 140 |         )
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                            `- error: cannot infer contextual base in reference to member 'get'
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:141:137: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 139 |             responseCachePolicy: .privateNoStore
+ 140 |         )
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                         `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:142:45: error: cannot infer contextual base in reference to member 'delete'
+ 140 |         )
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                             `- error: cannot infer contextual base in reference to member 'delete'
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 144 |         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:142:162: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 140 |         )
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                                                  `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 144 |         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:143:44: error: cannot infer contextual base in reference to member 'delete'
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                            `- error: cannot infer contextual base in reference to member 'delete'
+ 144 |         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 145 |         #expect(currentAccount.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:143:166: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 141 |         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                                                      `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 144 |         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 145 |         #expect(currentAccount.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:144:44: error: cannot infer contextual base in reference to member 'delete'
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 144 |         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                            `- error: cannot infer contextual base in reference to member 'delete'
+ 145 |         #expect(currentAccount.body == nil)
+ 146 |         #expect(kitchen.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:144:168: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 142 |         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 143 |         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+ 144 |         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                                                        `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 145 |         #expect(currentAccount.body == nil)
+ 146 |         #expect(kitchen.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:158:33: error: cannot find 'PrivateAccountRequests' in scope
+ 156 |     @Test("profile notification token and APNs mutations encode JSON or multipart bodies")
+ 157 |     func profileNotificationTokenAndAPNSMutationsEncodeExpectedBodies() throws {
+ 158 |         let updateProfile = try PrivateAccountRequests.updateProfile(
+     |                                 `- error: cannot find 'PrivateAccountRequests' in scope
+ 159 |             email: "ari@example.com",
+ 160 |             username: "ari"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:163:31: error: cannot find 'PrivateAccountRequests' in scope
+ 161 |         )
+ 162 |         .urlRequest(configuration: Self.privateConfiguration)
+ 163 |         let uploadPhoto = try PrivateAccountRequests.uploadProfilePhoto(
+     |                               `- error: cannot find 'PrivateAccountRequests' in scope
+ 164 |             photo: UploadFile(
+ 165 |                 fileName: "profile.jpg",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:164:20: error: cannot find 'UploadFile' in scope
+ 162 |         .urlRequest(configuration: Self.privateConfiguration)
+ 163 |         let uploadPhoto = try PrivateAccountRequests.uploadProfilePhoto(
+ 164 |             photo: UploadFile(
+     |                    `- error: cannot find 'UploadFile' in scope
+ 165 |                 fileName: "profile.jpg",
+ 166 |                 contentType: "image/jpeg",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:171:31: error: cannot find 'PrivateAccountRequests' in scope
+ 169 |         )
+ 170 |         .urlRequest(configuration: Self.privateConfiguration)
+ 171 |         let removePhoto = try PrivateAccountRequests.removeProfilePhoto()
+     |                               `- error: cannot find 'PrivateAccountRequests' in scope
+ 172 |             .urlRequest(configuration: Self.privateConfiguration)
+ 173 |         let updateNotifications = try PrivateAccountRequests.updateNotificationPreferences(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:173:39: error: cannot find 'PrivateAccountRequests' in scope
+ 171 |         let removePhoto = try PrivateAccountRequests.removeProfilePhoto()
+ 172 |             .urlRequest(configuration: Self.privateConfiguration)
+ 173 |         let updateNotifications = try PrivateAccountRequests.updateNotificationPreferences(
+     |                                       `- error: cannot find 'PrivateAccountRequests' in scope
+ 174 |             notifySpoonOnMyRecipe: true,
+ 175 |             notifyForkOfMyRecipe: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:180:32: error: cannot find 'PrivateAccountRequests' in scope
+ 178 |         )
+ 179 |         .urlRequest(configuration: Self.privateConfiguration)
+ 180 |         let registerAPNS = try PrivateAccountRequests.registerAPNSDevice(
+     |                                `- error: cannot find 'PrivateAccountRequests' in scope
+ 181 |             deviceID: "ios-device-1",
+ 182 |             platform: NativeAPNSPlatform.ios,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:182:23: error: cannot find 'NativeAPNSPlatform' in scope
+ 180 |         let registerAPNS = try PrivateAccountRequests.registerAPNSDevice(
+ 181 |             deviceID: "ios-device-1",
+ 182 |             platform: NativeAPNSPlatform.ios,
+     |                       `- error: cannot find 'NativeAPNSPlatform' in scope
+ 183 |             environment: APNSEnvironment.development,
+ 184 |             token: "apns-token-value",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:183:26: error: cannot find 'APNSEnvironment' in scope
+ 181 |             deviceID: "ios-device-1",
+ 182 |             platform: NativeAPNSPlatform.ios,
+ 183 |             environment: APNSEnvironment.development,
+     |                          `- error: cannot find 'APNSEnvironment' in scope
+ 184 |             token: "apns-token-value",
+ 185 |             deviceName: "Ari's iPhone",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:189:31: error: cannot find 'TokenCredentialRequests' in scope
+ 187 |         )
+ 188 |         .urlRequest(configuration: Self.privateConfiguration)
+ 189 |         let createToken = try TokenCredentialRequests.createToken(
+     |                               `- error: cannot find 'TokenCredentialRequests' in scope
+ 190 |             name: "Kitchen display",
+ 191 |             scopes: ["shopping_list:read", "shopping_list:write"]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:208:45: error: cannot infer contextual base in reference to member 'delete'
+ 206 |             data: Data([0xFF, 0xD8, 0xFF])
+ 207 |         )
+ 208 |         assertRequest(removePhoto, method: .delete, path: "/api/v1/me/photo", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                             `- error: cannot infer contextual base in reference to member 'delete'
+ 209 |         #expect(removePhoto.body == nil)
+ 210 |         assertJSONRequest(updateNotifications, method: .patch, path: "/api/v1/me/notification-preferences", expected: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:208:143: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 206 |             data: Data([0xFF, 0xD8, 0xFF])
+ 207 |         )
+ 208 |         assertRequest(removePhoto, method: .delete, path: "/api/v1/me/photo", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                               `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 209 |         #expect(removePhoto.body == nil)
+ 210 |         assertJSONRequest(updateNotifications, method: .patch, path: "/api/v1/me/notification-preferences", expected: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:232:36: error: cannot find 'PublicProfileRequests' in scope
+ 230 |     @Test("optional public profile and search requests omit bearer by default but can include it")
+ 231 |     func optionalPublicProfileAndSearchRequestsOmitBearerByDefaultButCanIncludeIt() throws {
+ 232 |         let anonymousProfile = try PublicProfileRequests.profile(identifier: "ari/space")
+     |                                    `- error: cannot find 'PublicProfileRequests' in scope
+ 233 |             .urlRequest(configuration: Self.privateConfiguration)
+ 234 |         let visitors = try PublicProfileRequests.kitchenVisitors(identifier: "ari", page: 2, limit: 30)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:234:28: error: cannot find 'PublicProfileRequests' in scope
+ 232 |         let anonymousProfile = try PublicProfileRequests.profile(identifier: "ari/space")
+ 233 |             .urlRequest(configuration: Self.privateConfiguration)
+ 234 |         let visitors = try PublicProfileRequests.kitchenVisitors(identifier: "ari", page: 2, limit: 30)
+     |                            `- error: cannot find 'PublicProfileRequests' in scope
+ 235 |             .urlRequest(configuration: Self.privateConfiguration)
+ 236 |         let fellowChefs = try PublicProfileRequests.fellowChefs(identifier: "ari", page: 3, limit: 15)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:236:31: error: cannot find 'PublicProfileRequests' in scope
+ 234 |         let visitors = try PublicProfileRequests.kitchenVisitors(identifier: "ari", page: 2, limit: 30)
+ 235 |             .urlRequest(configuration: Self.privateConfiguration)
+ 236 |         let fellowChefs = try PublicProfileRequests.fellowChefs(identifier: "ari", page: 3, limit: 15)
+     |                               `- error: cannot find 'PublicProfileRequests' in scope
+ 237 |             .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
+ 238 |         let search = try SearchRequests.search(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:238:26: error: cannot find 'SearchRequests' in scope
+ 236 |         let fellowChefs = try PublicProfileRequests.fellowChefs(identifier: "ari", page: 3, limit: 15)
+ 237 |             .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
+ 238 |         let search = try SearchRequests.search(
+     |                          `- error: cannot find 'SearchRequests' in scope
+ 239 |             query: "lemon pasta",
+ 240 |             scope: SearchScope.shoppingList,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:245:50: error: cannot infer contextual base in reference to member 'get'
+ 243 |         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
+ 244 | 
+ 245 |         assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
+     |                                                  `- error: cannot infer contextual base in reference to member 'get'
+ 246 |         assertRequest(
+ 247 |             visitors,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:245:105: error: 'nil' requires a contextual type
+ 243 |         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
+ 244 | 
+ 245 |         assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
+     |                                                                                                         `- error: 'nil' requires a contextual type
+ 246 |         assertRequest(
+ 247 |             visitors,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:245:132: error: cannot infer contextual base in reference to member 'publicCache'
+ 243 |         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
+ 244 | 
+ 245 |         assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
+     |                                                                                                                                    `- error: cannot infer contextual base in reference to member 'publicCache'
+ 246 |         assertRequest(
+ 247 |             visitors,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:248:22: error: cannot infer contextual base in reference to member 'get'
+ 246 |         assertRequest(
+ 247 |             visitors,
+ 248 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 249 |             path: "/api/v1/users/ari/kitchen-visitors",
+ 250 |             authorization: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:250:28: error: 'nil' requires a contextual type
+ 248 |             method: .get,
+ 249 |             path: "/api/v1/users/ari/kitchen-visitors",
+ 250 |             authorization: nil,
+     |                            `- error: 'nil' requires a contextual type
+ 251 |             queryItems: [
+ 252 |                 URLQueryItem(name: "page", value: "2"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:255:35: error: cannot infer contextual base in reference to member 'publicCache'
+ 253 |                 URLQueryItem(name: "limit", value: "30")
+ 254 |             ],
+ 255 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+     |                                   `- error: cannot infer contextual base in reference to member 'publicCache'
+ 256 |         )
+ 257 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:259:22: error: cannot infer contextual base in reference to member 'get'
+ 257 |         assertRequest(
+ 258 |             fellowChefs,
+ 259 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 260 |             path: "/api/v1/users/ari/fellow-chefs",
+ 261 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:266:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 264 |                 URLQueryItem(name: "limit", value: "15")
+ 265 |             ],
+ 266 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 267 |         )
+ 268 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:270:22: error: cannot infer contextual base in reference to member 'get'
+ 268 |         assertRequest(
+ 269 |             search,
+ 270 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 271 |             path: "/api/v1/search",
+ 272 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:278:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 276 |                 URLQueryItem(name: "limit", value: "12")
+ 277 |             ],
+ 278 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 279 |         )
+ 280 |         #expect(anonymousProfile.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:288:32: error: cannot find 'RecipeWriteRequests' in scope
+ 286 |     @Test("recipe write and step builders encode idempotent JSON and delete fallback forms")
+ 287 |     func recipeWriteAndStepBuildersEncodeIdempotentJSONAndDeleteFallbackForms() throws {
+ 288 |         let createRecipe = try RecipeWriteRequests.createRecipe(
+     |                                `- error: cannot find 'RecipeWriteRequests' in scope
+ 289 |             clientMutationID: "recipe-create-1",
+ 290 |             title: "Lemon Pasta",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:294:17: error: cannot find 'RecipeStepDraft' in scope
+ 292 |             servings: "4",
+ 293 |             steps: [
+ 294 |                 RecipeStepDraft(
+     |                 `- error: cannot find 'RecipeStepDraft' in scope
+ 295 |                     stepNum: 1,
+ 296 |                     stepTitle: Optional<String>.none,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:300:25: error: cannot find 'RecipeIngredientDraft' in scope
+ 298 |                     duration: 10,
+ 299 |                     ingredients: [
+ 300 |                         RecipeIngredientDraft(quantity: 1, unit: "lb", name: "pasta")
+     |                         `- error: cannot find 'RecipeIngredientDraft' in scope
+ 301 |                     ],
+ 302 |                     outputStepNums: []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:307:32: error: cannot find 'RecipeWriteRequests' in scope
+ 305 |         )
+ 306 |         .urlRequest(configuration: Self.privateConfiguration)
+ 307 |         let updateRecipe = try RecipeWriteRequests.updateRecipe(
+     |                                `- error: cannot find 'RecipeWriteRequests' in scope
+ 308 |             id: "recipe/one",
+ 309 |             clientMutationID: "recipe-update-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:315:32: error: cannot find 'RecipeWriteRequests' in scope
+ 313 |         )
+ 314 |         .urlRequest(configuration: Self.privateConfiguration)
+ 315 |         let deleteRecipe = try RecipeWriteRequests.deleteRecipe(
+     |                                `- error: cannot find 'RecipeWriteRequests' in scope
+ 316 |             id: "recipe/one",
+ 317 |             clientMutationID: "recipe-delete-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:318:26: error: cannot find 'MutationIdempotency' in scope
+ 316 |             id: "recipe/one",
+ 317 |             clientMutationID: "recipe-delete-1",
+ 318 |             idempotency: MutationIdempotency.query
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 319 |         )
+ 320 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:321:30: error: cannot find 'RecipeWriteRequests' in scope
+ 319 |         )
+ 320 |         .urlRequest(configuration: Self.privateConfiguration)
+ 321 |         let forkRecipe = try RecipeWriteRequests.forkRecipe(
+     |                              `- error: cannot find 'RecipeWriteRequests' in scope
+ 322 |             id: "recipe/one",
+ 323 |             clientMutationID: "recipe-fork-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:327:30: error: cannot find 'RecipeStepRequests' in scope
+ 325 |         )
+ 326 |         .urlRequest(configuration: Self.privateConfiguration)
+ 327 |         let createStep = try RecipeStepRequests.createStep(
+     |                              `- error: cannot find 'RecipeStepRequests' in scope
+ 328 |             recipeID: "recipe/one",
+ 329 |             clientMutationID: "step-create-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:338:30: error: cannot find 'RecipeStepRequests' in scope
+ 336 |         )
+ 337 |         .urlRequest(configuration: Self.privateConfiguration)
+ 338 |         let updateStep = try RecipeStepRequests.updateStep(
+     |                              `- error: cannot find 'RecipeStepRequests' in scope
+ 339 |             recipeID: "recipe/one",
+ 340 |             stepID: "step/two",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:348:30: error: cannot find 'RecipeStepRequests' in scope
+ 346 |         )
+ 347 |         .urlRequest(configuration: Self.privateConfiguration)
+ 348 |         let deleteStep = try RecipeStepRequests.deleteStep(
+     |                              `- error: cannot find 'RecipeStepRequests' in scope
+ 349 |             recipeID: "recipe/one",
+ 350 |             stepID: "step/two",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:352:26: error: cannot find 'MutationIdempotency' in scope
+ 350 |             stepID: "step/two",
+ 351 |             clientMutationID: "step-delete-1",
+ 352 |             idempotency: MutationIdempotency.body
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 353 |         )
+ 354 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:355:31: error: cannot find 'RecipeStepRequests' in scope
+ 353 |         )
+ 354 |         .urlRequest(configuration: Self.privateConfiguration)
+ 355 |         let reorderStep = try RecipeStepRequests.reorderStep(
+     |                               `- error: cannot find 'RecipeStepRequests' in scope
+ 356 |             recipeID: "recipe/one",
+ 357 |             clientMutationID: "step-reorder-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:362:36: error: cannot find 'RecipeStepRequests' in scope
+ 360 |         )
+ 361 |         .urlRequest(configuration: Self.privateConfiguration)
+ 362 |         let createIngredient = try RecipeStepRequests.createIngredient(
+     |                                    `- error: cannot find 'RecipeStepRequests' in scope
+ 363 |             recipeID: "recipe/one",
+ 364 |             stepID: "step/two",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:371:36: error: cannot find 'RecipeStepRequests' in scope
+ 369 |         )
+ 370 |         .urlRequest(configuration: Self.privateConfiguration)
+ 371 |         let deleteIngredient = try RecipeStepRequests.deleteIngredient(
+     |                                    `- error: cannot find 'RecipeStepRequests' in scope
+ 372 |             recipeID: "recipe/one",
+ 373 |             stepID: "step/two",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:376:26: error: cannot find 'MutationIdempotency' in scope
+ 374 |             ingredientID: "ingredient/garlic",
+ 375 |             clientMutationID: "ingredient-delete-1",
+ 376 |             idempotency: MutationIdempotency.header
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 377 |         )
+ 378 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:379:37: error: cannot find 'RecipeStepRequests' in scope
+ 377 |         )
+ 378 |         .urlRequest(configuration: Self.privateConfiguration)
+ 379 |         let replaceOutputUses = try RecipeStepRequests.replaceOutputUses(
+     |                                     `- error: cannot find 'RecipeStepRequests' in scope
+ 380 |             recipeID: "recipe/one",
+ 381 |             clientMutationID: "step-output-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:413:22: error: cannot infer contextual base in reference to member 'delete'
+ 411 |         assertRequest(
+ 412 |             deleteRecipe,
+ 413 |             method: .delete,
+     |                      `- error: cannot infer contextual base in reference to member 'delete'
+ 414 |             path: "/api/v1/recipes/recipe%2Fone",
+ 415 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:417:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 415 |             authorization: "Bearer sj_private_token",
+ 416 |             queryItems: [URLQueryItem(name: "clientMutationId", value: "recipe-delete-1")],
+ 417 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 418 |         )
+ 419 |         #expect(deleteRecipe.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:456:22: error: cannot infer contextual base in reference to member 'delete'
+ 454 |         assertRequest(
+ 455 |             deleteIngredient,
+ 456 |             method: .delete,
+     |                      `- error: cannot infer contextual base in reference to member 'delete'
+ 457 |             path: "/api/v1/recipes/recipe%2Fone/steps/step%2Ftwo/ingredients/ingredient%2Fgarlic",
+ 458 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:460:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 458 |             authorization: "Bearer sj_private_token",
+ 459 |             extraHeaders: ["X-Client-Mutation-Id": "ingredient-delete-1"],
+ 460 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 461 |         )
+ 462 |         #expect(deleteIngredient.headers["X-Client-Mutation-Id"] == "ingredient-delete-1")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:464:55: error: type 'APIRequestMethod' has no member 'put'
+ 462 |         #expect(deleteIngredient.headers["X-Client-Mutation-Id"] == "ingredient-delete-1")
+ 463 |         #expect(deleteIngredient.body == nil)
+ 464 |         assertJSONRequest(replaceOutputUses, method: .put, path: "/api/v1/recipes/recipe%2Fone/step-output-uses", expected: [
+     |                                                       `- error: type 'APIRequestMethod' has no member 'put'
+ 465 |             "clientMutationId": "step-output-1",
+ 466 |             "inputStepId": "step/two",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:473:31: error: cannot find 'RecipeCoverRequests' in scope
+ 471 |     @Test("recipe cover and spoon builders cover multipart JSON and optional public list auth")
+ 472 |     func recipeCoverAndSpoonBuildersCoverMultipartJSONAndOptionalPublicListAuth() throws {
+ 473 |         let coverUpload = try RecipeCoverRequests.uploadImage(
+     |                               `- error: cannot find 'RecipeCoverRequests' in scope
+ 474 |             recipeID: "recipe/one",
+ 475 |             image: UploadFile(fileName: "cover.png", contentType: "image/png", data: Data([0x89, 0x50, 0x4E, 0x47])),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:475:20: error: cannot find 'UploadFile' in scope
+ 473 |         let coverUpload = try RecipeCoverRequests.uploadImage(
+ 474 |             recipeID: "recipe/one",
+ 475 |             image: UploadFile(fileName: "cover.png", contentType: "image/png", data: Data([0x89, 0x50, 0x4E, 0x47])),
+     |                    `- error: cannot find 'UploadFile' in scope
+ 476 |             clientMutationID: "cover-upload-1",
+ 477 |             activate: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:481:29: error: cannot find 'RecipeCoverRequests' in scope
+ 479 |         )
+ 480 |         .urlRequest(configuration: Self.privateConfiguration)
+ 481 |         let coverList = try RecipeCoverRequests.listCovers(
+     |                             `- error: cannot find 'RecipeCoverRequests' in scope
+ 482 |             recipeID: "recipe/one",
+ 483 |             includeArchived: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:488:31: error: cannot find 'RecipeCoverRequests' in scope
+ 486 |         )
+ 487 |         .urlRequest(configuration: Self.privateConfiguration)
+ 488 |         let createCover = try RecipeCoverRequests.createFromImageURL(
+     |                               `- error: cannot find 'RecipeCoverRequests' in scope
+ 489 |             recipeID: "recipe/one",
+ 490 |             clientMutationID: "cover-url-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:496:33: error: cannot find 'RecipeCoverRequests' in scope
+ 494 |         )
+ 495 |         .urlRequest(configuration: Self.privateConfiguration)
+ 496 |         let activateCover = try RecipeCoverRequests.activate(
+     |                                 `- error: cannot find 'RecipeCoverRequests' in scope
+ 497 |             recipeID: "recipe/one",
+ 498 |             coverID: "cover/raw",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:500:22: error: cannot find 'RecipeCoverAPIVariant' in scope
+ 498 |             coverID: "cover/raw",
+ 499 |             clientMutationID: "cover-activate-1",
+ 500 |             variant: RecipeCoverAPIVariant.stylized
+     |                      `- error: cannot find 'RecipeCoverAPIVariant' in scope
+ 501 |         )
+ 502 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:503:32: error: cannot find 'RecipeCoverRequests' in scope
+ 501 |         )
+ 502 |         .urlRequest(configuration: Self.privateConfiguration)
+ 503 |         let archiveCover = try RecipeCoverRequests.archive(
+     |                                `- error: cannot find 'RecipeCoverRequests' in scope
+ 504 |             recipeID: "recipe/one",
+ 505 |             coverID: "cover/raw",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:508:33: error: cannot find 'RecipeCoverAPIVariant' in scope
+ 506 |             clientMutationID: "cover-archive-1",
+ 507 |             replacementCoverID: "cover/replacement",
+ 508 |             replacementVariant: RecipeCoverAPIVariant.image,
+     |                                 `- error: cannot find 'RecipeCoverAPIVariant' in scope
+ 509 |             confirmNoCover: false,
+ 510 |             deleteSafeObjects: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:511:26: error: cannot find 'MutationIdempotency' in scope
+ 509 |             confirmNoCover: false,
+ 510 |             deleteSafeObjects: true,
+ 511 |             idempotency: MutationIdempotency.query
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 512 |         )
+ 513 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:514:30: error: cannot find 'RecipeCoverRequests' in scope
+ 512 |         )
+ 513 |         .urlRequest(configuration: Self.privateConfiguration)
+ 514 |         let regenerate = try RecipeCoverRequests.regenerate(
+     |                              `- error: cannot find 'RecipeCoverRequests' in scope
+ 515 |             recipeID: "recipe/one",
+ 516 |             clientMutationID: "cover-regen-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:521:29: error: cannot find 'RecipeCoverRequests' in scope
+ 519 |         )
+ 520 |         .urlRequest(configuration: Self.privateConfiguration)
+ 521 |         let fromSpoon = try RecipeCoverRequests.createFromSpoon(
+     |                             `- error: cannot find 'RecipeCoverRequests' in scope
+ 522 |             recipeID: "recipe/one",
+ 523 |             spoonID: "spoon/cooked",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:529:29: error: cannot find 'RecipeSpoonRequests' in scope
+ 527 |         )
+ 528 |         .urlRequest(configuration: Self.privateConfiguration)
+ 529 |         let spoonList = try RecipeSpoonRequests.listSpoons(
+     |                             `- error: cannot find 'RecipeSpoonRequests' in scope
+ 530 |             recipeID: "recipe/one",
+ 531 |             cursor: PaginationCursor(rawValue: "spoon.cursor"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:535:31: error: cannot find 'RecipeSpoonRequests' in scope
+ 533 |         )
+ 534 |         .urlRequest(configuration: Self.privateConfiguration)
+ 535 |         let spoonCreate = try RecipeSpoonRequests.createSpoon(
+     |                               `- error: cannot find 'RecipeSpoonRequests' in scope
+ 536 |             recipeID: "recipe/one",
+ 537 |             clientMutationID: "spoon-create-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:545:36: error: cannot find 'RecipeSpoonRequests' in scope
+ 543 |         )
+ 544 |         .urlRequest(configuration: Self.privateConfiguration)
+ 545 |         let spoonPhotoCreate = try RecipeSpoonRequests.createSpoon(
+     |                                    `- error: cannot find 'RecipeSpoonRequests' in scope
+ 546 |             recipeID: "recipe/one",
+ 547 |             photo: UploadFile(fileName: "spoon.webp", contentType: "image/webp", data: Data([0x52, 0x49, 0x46, 0x46])),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:547:20: error: cannot find 'UploadFile' in scope
+ 545 |         let spoonPhotoCreate = try RecipeSpoonRequests.createSpoon(
+ 546 |             recipeID: "recipe/one",
+ 547 |             photo: UploadFile(fileName: "spoon.webp", contentType: "image/webp", data: Data([0x52, 0x49, 0x46, 0x46])),
+     |                    `- error: cannot find 'UploadFile' in scope
+ 548 |             clientMutationID: "spoon-photo-1",
+ 549 |             note: "Photo cook.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:555:31: error: cannot find 'RecipeSpoonRequests' in scope
+ 553 |         )
+ 554 |         .urlRequest(configuration: Self.privateConfiguration)
+ 555 |         let spoonUpdate = try RecipeSpoonRequests.updateSpoon(
+     |                               `- error: cannot find 'RecipeSpoonRequests' in scope
+ 556 |             recipeID: "recipe/one",
+ 557 |             spoonID: "spoon/cooked",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:565:31: error: cannot find 'RecipeSpoonRequests' in scope
+ 563 |         )
+ 564 |         .urlRequest(configuration: Self.privateConfiguration)
+ 565 |         let spoonDelete = try RecipeSpoonRequests.deleteSpoon(
+     |                               `- error: cannot find 'RecipeSpoonRequests' in scope
+ 566 |             recipeID: "recipe/one",
+ 567 |             spoonID: "spoon/cooked",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:569:26: error: cannot find 'MutationIdempotency' in scope
+ 567 |             spoonID: "spoon/cooked",
+ 568 |             clientMutationID: "spoon-delete-1",
+ 569 |             idempotency: MutationIdempotency.header
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 570 |         )
+ 571 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:589:22: error: cannot infer contextual base in reference to member 'get'
+ 587 |         assertRequest(
+ 588 |             coverList,
+ 589 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 590 |             path: "/api/v1/recipes/recipe%2Fone/covers",
+ 591 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:597:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 595 |                 URLQueryItem(name: "offset", value: "20")
+ 596 |             ],
+ 597 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 598 |         )
+ 599 |         assertJSONRequest(createCover, method: .post, path: "/api/v1/recipes/recipe%2Fone/covers", expected: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:611:22: error: cannot infer contextual base in reference to member 'delete'
+ 609 |         assertRequest(
+ 610 |             archiveCover,
+ 611 |             method: .delete,
+     |                      `- error: cannot infer contextual base in reference to member 'delete'
+ 612 |             path: "/api/v1/recipes/recipe%2Fone/covers/cover%2Fraw",
+ 613 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:617:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 615 |             queryItems: [URLQueryItem(name: "clientMutationId", value: "cover-archive-1")],
+ 616 |             expectsBody: true,
+ 617 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 618 |         )
+ 619 |         #expect(NSDictionary(dictionary: try jsonBody(from: archiveCover)).isEqual(to: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:637:22: error: cannot infer contextual base in reference to member 'get'
+ 635 |         assertRequest(
+ 636 |             spoonList,
+ 637 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 638 |             path: "/api/v1/recipes/recipe%2Fone/spoons",
+ 639 |             authorization: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:639:28: error: 'nil' requires a contextual type
+ 637 |             method: .get,
+ 638 |             path: "/api/v1/recipes/recipe%2Fone/spoons",
+ 639 |             authorization: nil,
+     |                            `- error: 'nil' requires a contextual type
+ 640 |             queryItems: [
+ 641 |                 URLQueryItem(name: "limit", value: "20"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:644:35: error: cannot infer contextual base in reference to member 'publicCache'
+ 642 |                 URLQueryItem(name: "cursor", value: "spoon.cursor")
+ 643 |             ],
+ 644 |             responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+     |                                   `- error: cannot infer contextual base in reference to member 'publicCache'
+ 645 |         )
+ 646 |         assertJSONRequest(spoonCreate, method: .post, path: "/api/v1/recipes/recipe%2Fone/spoons", expected: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:679:22: error: cannot infer contextual base in reference to member 'delete'
+ 677 |         assertRequest(
+ 678 |             spoonDelete,
+ 679 |             method: .delete,
+     |                      `- error: cannot infer contextual base in reference to member 'delete'
+ 680 |             path: "/api/v1/recipes/recipe%2Fone/spoons/spoon%2Fcooked",
+ 681 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:683:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 681 |             authorization: "Bearer sj_private_token",
+ 682 |             extraHeaders: ["X-Client-Mutation-Id": "spoon-delete-1"],
+ 683 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 684 |         )
+ 685 |         #expect(spoonDelete.headers["X-Client-Mutation-Id"] == "spoon-delete-1")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:719:34: error: cannot find 'CookbookWriteRequests' in scope
+ 717 |         )
+ 718 |         .urlRequest(configuration: Self.privateConfiguration)
+ 719 |         let createCookbook = try CookbookWriteRequests.createCookbook(
+     |                                  `- error: cannot find 'CookbookWriteRequests' in scope
+ 720 |             clientMutationID: "cookbook-create-1",
+ 721 |             title: "Weeknights"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:724:34: error: cannot find 'CookbookWriteRequests' in scope
+ 722 |         )
+ 723 |         .urlRequest(configuration: Self.privateConfiguration)
+ 724 |         let updateCookbook = try CookbookWriteRequests.updateCookbook(
+     |                                  `- error: cannot find 'CookbookWriteRequests' in scope
+ 725 |             id: "cookbook/week",
+ 726 |             clientMutationID: "cookbook-update-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:730:34: error: cannot find 'CookbookWriteRequests' in scope
+ 728 |         )
+ 729 |         .urlRequest(configuration: Self.privateConfiguration)
+ 730 |         let deleteCookbook = try CookbookWriteRequests.deleteCookbook(
+     |                                  `- error: cannot find 'CookbookWriteRequests' in scope
+ 731 |             id: "cookbook/week",
+ 732 |             clientMutationID: "cookbook-delete-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:733:26: error: cannot find 'MutationIdempotency' in scope
+ 731 |             id: "cookbook/week",
+ 732 |             clientMutationID: "cookbook-delete-1",
+ 733 |             idempotency: MutationIdempotency.query
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 734 |         )
+ 735 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:736:29: error: cannot find 'CookbookWriteRequests' in scope
+ 734 |         )
+ 735 |         .urlRequest(configuration: Self.privateConfiguration)
+ 736 |         let addRecipe = try CookbookWriteRequests.addRecipe(
+     |                             `- error: cannot find 'CookbookWriteRequests' in scope
+ 737 |             cookbookID: "cookbook/week",
+ 738 |             recipeID: "recipe/lemon",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:742:32: error: cannot find 'CookbookWriteRequests' in scope
+ 740 |         )
+ 741 |         .urlRequest(configuration: Self.privateConfiguration)
+ 742 |         let removeRecipe = try CookbookWriteRequests.removeRecipe(
+     |                                `- error: cannot find 'CookbookWriteRequests' in scope
+ 743 |             cookbookID: "cookbook/week",
+ 744 |             recipeID: "recipe/lemon",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:746:26: error: cannot find 'MutationIdempotency' in scope
+ 744 |             recipeID: "recipe/lemon",
+ 745 |             clientMutationID: "cookbook-remove-recipe-1",
+ 746 |             idempotency: MutationIdempotency.body
+     |                          `- error: cannot find 'MutationIdempotency' in scope
+ 747 |         )
+ 748 |         .urlRequest(configuration: Self.privateConfiguration)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:749:54: error: type 'ShoppingListRequests' has no member 'addIngredientsFromRecipe'
+ 747 |         )
+ 748 |         .urlRequest(configuration: Self.privateConfiguration)
+ 749 |         let addFromRecipe = try ShoppingListRequests.addIngredientsFromRecipe(
+     |                                                      `- error: type 'ShoppingListRequests' has no member 'addIngredientsFromRecipe'
+ 750 |             recipeID: "recipe/lemon",
+ 751 |             scaleFactor: 1.5,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:755:55: error: type 'ShoppingListRequests' has no member 'clearCompleted'
+ 753 |         )
+ 754 |         .urlRequest(configuration: Self.privateConfiguration)
+ 755 |         let clearCompleted = try ShoppingListRequests.clearCompleted(
+     |                                                       `- error: type 'ShoppingListRequests' has no member 'clearCompleted'
+ 756 |             clientMutationID: "shopping-clear-completed-1"
+ 757 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:759:49: error: type 'ShoppingListRequests' has no member 'clearAll'
+ 757 |         )
+ 758 |         .urlRequest(configuration: Self.privateConfiguration)
+ 759 |         let clearAll = try ShoppingListRequests.clearAll(
+     |                                                 `- error: type 'ShoppingListRequests' has no member 'clearAll'
+ 760 |             clientMutationID: "shopping-clear-all-1"
+ 761 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:764:46: error: cannot infer contextual base in reference to member 'get'
+ 762 |         .urlRequest(configuration: Self.privateConfiguration)
+ 763 | 
+ 764 |         assertRequest(readShopping, method: .get, path: "/api/v1/shopping-list", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                              `- error: cannot infer contextual base in reference to member 'get'
+ 765 |         #expect(readShopping.body == nil)
+ 766 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:764:146: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 762 |         .urlRequest(configuration: Self.privateConfiguration)
+ 763 | 
+ 764 |         assertRequest(readShopping, method: .get, path: "/api/v1/shopping-list", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+     |                                                                                                                                                  `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 765 |         #expect(readShopping.body == nil)
+ 766 |         assertRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:768:22: error: cannot infer contextual base in reference to member 'get'
+ 766 |         assertRequest(
+ 767 |             syncShopping,
+ 768 |             method: .get,
+     |                      `- error: cannot infer contextual base in reference to member 'get'
+ 769 |             path: "/api/v1/shopping-list/sync",
+ 770 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:775:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 773 |                 URLQueryItem(name: "cursor", value: "v1.shopping.cursor")
+ 774 |             ],
+ 775 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 776 |         )
+ 777 |         assertJSONRequest(addShoppingItem, method: .post, path: "/api/v1/shopping-list/items", expected: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:791:22: error: cannot infer contextual base in reference to member 'delete'
+ 789 |         assertRequest(
+ 790 |             deleteShoppingItem,
+ 791 |             method: .delete,
+     |                      `- error: cannot infer contextual base in reference to member 'delete'
+ 792 |             path: "/api/v1/shopping-list/items/item%2Feggs",
+ 793 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:795:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 793 |             authorization: "Bearer sj_private_token",
+ 794 |             extraHeaders: ["X-Client-Mutation-Id": "shopping-delete-item-1"],
+ 795 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 796 |         )
+ 797 |         #expect(deleteShoppingItem.headers["X-Client-Mutation-Id"] == "shopping-delete-item-1")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:809:22: error: cannot infer contextual base in reference to member 'delete'
+ 807 |         assertRequest(
+ 808 |             deleteCookbook,
+ 809 |             method: .delete,
+     |                      `- error: cannot infer contextual base in reference to member 'delete'
+ 810 |             path: "/api/v1/cookbooks/cookbook%2Fweek",
+ 811 |             authorization: "Bearer sj_private_token",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:813:35: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 811 |             authorization: "Bearer sj_private_token",
+ 812 |             queryItems: [URLQueryItem(name: "clientMutationId", value: "cookbook-delete-1")],
+ 813 |             responseCachePolicy: .privateNoStore
+     |                                   `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 814 |         )
+ 815 |         #expect(deleteCookbook.body == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:837:29: error: cannot find 'RecipeImportRequests' in scope
+ 835 |     @Test("recipe import builders preserve source variants in idempotent JSON bodies")
+ 836 |     func recipeImportBuildersPreserveSourceVariantsInIdempotentJSONBodies() throws {
+ 837 |         let importURL = try RecipeImportRequests.importURL(
+     |                             `- error: cannot find 'RecipeImportRequests' in scope
+ 838 |             clientMutationID: "import-url-1",
+ 839 |             url: URL(string: "https://example.com/recipes/lemon-pasta")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:842:30: error: cannot find 'RecipeImportRequests' in scope
+ 840 |         )
+ 841 |         .urlRequest(configuration: Self.privateConfiguration)
+ 842 |         let importText = try RecipeImportRequests.importText(
+     |                              `- error: cannot find 'RecipeImportRequests' in scope
+ 843 |             clientMutationID: "import-text-1",
+ 844 |             text: "Lemon pasta\\nBoil pasta.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:848:32: error: cannot find 'RecipeImportRequests' in scope
+ 846 |         )
+ 847 |         .urlRequest(configuration: Self.privateConfiguration)
+ 848 |         let importJSONLD = try RecipeImportRequests.importJSONLD(
+     |                                `- error: cannot find 'RecipeImportRequests' in scope
+ 849 |             clientMutationID: "import-jsonld-1",
+ 850 |             jsonLD: JSONValue.object([
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:850:21: error: cannot find 'JSONValue' in scope
+ 848 |         let importJSONLD = try RecipeImportRequests.importJSONLD(
+ 849 |             clientMutationID: "import-jsonld-1",
+ 850 |             jsonLD: JSONValue.object([
+     |                     `- error: cannot find 'JSONValue' in scope
+ 851 |                 "@context": JSONValue.string("https://schema.org"),
+ 852 |                 "@type": JSONValue.string("Recipe"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:851:29: error: cannot find 'JSONValue' in scope
+ 849 |             clientMutationID: "import-jsonld-1",
+ 850 |             jsonLD: JSONValue.object([
+ 851 |                 "@context": JSONValue.string("https://schema.org"),
+     |                             `- error: cannot find 'JSONValue' in scope
+ 852 |                 "@type": JSONValue.string("Recipe"),
+ 853 |                 "name": JSONValue.string("Native JSON-LD Soup")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:852:26: error: cannot find 'JSONValue' in scope
+ 850 |             jsonLD: JSONValue.object([
+ 851 |                 "@context": JSONValue.string("https://schema.org"),
+ 852 |                 "@type": JSONValue.string("Recipe"),
+     |                          `- error: cannot find 'JSONValue' in scope
+ 853 |                 "name": JSONValue.string("Native JSON-LD Soup")
+ 854 |             ]),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:853:25: error: cannot find 'JSONValue' in scope
+ 851 |                 "@context": JSONValue.string("https://schema.org"),
+ 852 |                 "@type": JSONValue.string("Recipe"),
+ 853 |                 "name": JSONValue.string("Native JSON-LD Soup")
+     |                         `- error: cannot find 'JSONValue' in scope
+ 854 |             ]),
+ 855 |             sourceURL: Optional<URL>.none
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:858:31: error: cannot find 'RecipeImportRequests' in scope
+ 856 |         )
+ 857 |         .urlRequest(configuration: Self.privateConfiguration)
+ 858 |         let importVideo = try RecipeImportRequests.importVideoURL(
+     |                               `- error: cannot find 'RecipeImportRequests' in scope
+ 859 |             clientMutationID: "import-video-1",
+ 860 |             url: URL(string: "https://www.youtube.com/watch?v=codex")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:902:38: error: cannot find type 'RecipeImportResponse' in scope
+ 900 |     @Test("API error envelopes preserve structured details for native recovery decisions")
+ 901 |     func apiErrorEnvelopesPreserveStructuredDetailsForNativeRecoveryDecisions() throws {
+ 902 |         let result = try APIEnvelope<RecipeImportResponse>.decodeResult(Self.recipeImportErrorEnvelope)
+     |                                      `- error: cannot find type 'RecipeImportResponse' in scope
+ 903 | 
+ 904 |         switch result {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:911:52: error: cannot find 'JSONValue' in scope
+ 909 |             #expect(error.code == "validation_error")
+ 910 |             #expect(error.status == 400)
+ 911 |             #expect(error.details["importCode"] == JSONValue.string("fetch-blocked"))
+     |                                                    `- error: cannot find 'JSONValue' in scope
+ 912 |             #expect(error.details["fieldErrors"] == JSONValue.object(["source.url": JSONValue.string("Cannot fetch private network URLs")]))
+ 913 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:912:53: error: cannot find 'JSONValue' in scope
+ 910 |             #expect(error.status == 400)
+ 911 |             #expect(error.details["importCode"] == JSONValue.string("fetch-blocked"))
+ 912 |             #expect(error.details["fieldErrors"] == JSONValue.object(["source.url": JSONValue.string("Cannot fetch private network URLs")]))
+     |                                                     `- error: cannot find 'JSONValue' in scope
+ 913 |         }
+ 914 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:912:85: error: cannot find 'JSONValue' in scope
+ 910 |             #expect(error.status == 400)
+ 911 |             #expect(error.details["importCode"] == JSONValue.string("fetch-blocked"))
+ 912 |             #expect(error.details["fieldErrors"] == JSONValue.object(["source.url": JSONValue.string("Cannot fetch private network URLs")]))
+     |                                                                                     `- error: cannot find 'JSONValue' in scope
+ 913 |         }
+ 914 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:988:25: error: value of type 'APIRequest' has no member 'responseCachePolicy'
+ 986 |     }
+ 987 |     if let responseCachePolicy {
+ 988 |         #expect(request.responseCachePolicy == responseCachePolicy)
+     |                         `- error: value of type 'APIRequest' has no member 'responseCachePolicy'
+ 989 |     }
+ 990 | }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:1005:31: error: cannot infer contextual base in reference to member 'privateNoStore'
+1003 |         extraHeaders: ["Content-Type": "application/json"],
+1004 |         expectsBody: true,
+1005 |         responseCachePolicy: .privateNoStore
+     |                               `- error: cannot infer contextual base in reference to member 'privateNoStore'
+1006 |     )
+1007 |     #expect(request.queryItems.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:1030:31: error: cannot infer contextual base in reference to member 'privateNoStore'
+1028 |         extraHeaders: ["Content-Type": multipartContentType],
+1029 |         expectsBody: true,
+1030 |         responseCachePolicy: .privateNoStore
+     |                               `- error: cannot infer contextual base in reference to member 'privateNoStore'
+1031 |     )
+1032 |     #expect(request.queryItems.isEmpty)
+error: fatalError
