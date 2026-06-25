@@ -183,10 +183,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "navigation surface source",
-                    detail: "Platform navigation routes fixture kitchen, recipes, recipe detail, cook mode, shopping, and cookbooks.",
+                    detail: "Platform navigation routes kitchen, live/fallback recipe catalog, async recipe detail, async cook mode, shopping, and cookbooks.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailView(", "CookModeView(", "ShoppingListView(", "CookbooksView("]
+                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailRouteView(", "CookModeRouteView(", "LiveRecipeCatalogRepository", "FallbackRecipeCatalogRepository", "ShoppingListView(", "CookbooksView("]
                 ),
                 ScenarioCheck(name: "remaining surfaces", status: .pending, detail: "Search, capture, and settings surfaces land in Unit 16.")
             ],

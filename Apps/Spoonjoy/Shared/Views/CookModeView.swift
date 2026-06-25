@@ -2,6 +2,73 @@ import Foundation
 import SpoonjoyCore
 import SwiftUI
 
+struct CookModeRouteView: View {
+    let recipeID: String
+    let repository: any RecipeCatalogRepository
+    let initialRecipe: Recipe?
+    let progress: (Recipe) -> CookModeProgress
+    let progressDidChange: (CookModeProgress) -> Void
+    let close: () -> Void
+
+    @State private var recipe: Recipe?
+    @State private var errorMessage: String?
+
+    init(
+        recipeID: String,
+        repository: any RecipeCatalogRepository,
+        initialRecipe: Recipe?,
+        progress: @escaping (Recipe) -> CookModeProgress,
+        progressDidChange: @escaping (CookModeProgress) -> Void = { _ in },
+        close: @escaping () -> Void = {}
+    ) {
+        self.recipeID = recipeID
+        self.repository = repository
+        self.initialRecipe = initialRecipe
+        self.progress = progress
+        self.progressDidChange = progressDidChange
+        self.close = close
+        _recipe = State(initialValue: initialRecipe)
+    }
+
+    var body: some View {
+        Group {
+            if let recipe {
+                CookModeView(
+                    viewModel: CookModeViewModel(recipe: recipe, progress: progress(recipe)),
+                    progressDidChange: progressDidChange,
+                    close: close
+                )
+            } else if let errorMessage {
+                Label(errorMessage, systemImage: "fork.knife")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding()
+                    .background(KitchenTableTheme.bone)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(KitchenTableTheme.bone)
+            }
+        }
+        .task(id: recipeID) {
+            await loadRecipe()
+        }
+    }
+
+    @MainActor private func loadRecipe() async {
+        do {
+            let result = try await repository.recipeDetail(id: recipeID)
+            recipe = result.recipe
+            errorMessage = nil
+        } catch {
+            if recipe == nil {
+                errorMessage = "Recipe unavailable for cook mode."
+            }
+        }
+    }
+}
+
 struct CookModeView: View {
     private let recipe: Recipe
     @State private var progress: CookModeProgress

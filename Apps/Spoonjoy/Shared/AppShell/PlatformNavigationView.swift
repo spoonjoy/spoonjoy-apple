@@ -101,25 +101,26 @@ struct PlatformNavigationView: View {
                 openCookbook: openCookbook
             )
         case .recipes:
-            RecipesView(recipes: contentState.recipes, openRecipe: openRecipe)
+            RecipesView(viewModel: recipeCatalogViewModel, openRoute: openRoute)
         case .recipeDetail(let id, .detail):
-            if let recipe = recipe(id: id) {
-                RecipeDetailView(viewModel: RecipeDetailViewModel(recipe: recipe), startCooking: startCooking)
-            } else {
-                ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
-            }
+            RecipeDetailRouteView(
+                recipeID: id,
+                repository: recipeCatalogRepository,
+                initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+                context: recipeDetailContext(for:),
+                openRoute: openRoute
+            )
         case .recipeDetail(let id, .cook):
-            if let recipe = recipe(id: id) {
-                CookModeView(
-                    viewModel: CookModeViewModel(recipe: recipe, progress: cookProgress(for: recipe)),
-                    progressDidChange: { _ in },
-                    close: {
-                        openRecipe(id)
-                    }
-                )
-            } else {
-                ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
-            }
+            CookModeRouteView(
+                recipeID: id,
+                repository: recipeCatalogRepository,
+                initialRecipe: recipe(id: id),
+                progress: cookProgress(for:),
+                progressDidChange: { _ in },
+                close: {
+                    openRecipe(id)
+                }
+            )
         case .cookbooks:
             CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
@@ -283,6 +284,10 @@ struct PlatformNavigationView: View {
         navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
     }
 
+    private func openRoute(_ route: AppRoute) {
+        navigation.navigate(to: route)
+    }
+
     private func startCooking(_ id: String) {
         navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
     }
@@ -293,6 +298,63 @@ struct PlatformNavigationView: View {
 
     private var shoppingViewModel: ShoppingListViewModel? {
         contentState.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
+    }
+
+    private var recipeCatalogRepository: any RecipeCatalogRepository {
+        let catalog = contentState.recipeCatalog
+        let snapshotRepository = SnapshotRecipeCatalogRepository(
+            page: catalog,
+            details: contentState.recipes.map { recipe in
+                RecipeCatalogDetailResult(recipe: recipe, source: catalog.source)
+            }
+        )
+        let liveRepository = LiveRecipeCatalogRepository(configuration: contentState.configuration)
+        return FallbackRecipeCatalogRepository(primary: liveRepository, fallback: snapshotRepository)
+    }
+
+    private var recipeCatalogViewModel: RecipeCatalogViewModel {
+        let viewModel = RecipeCatalogViewModel(repository: recipeCatalogRepository)
+        viewModel.apply(page: contentState.recipeCatalog)
+        return viewModel
+    }
+
+    private func recipeDetailScreenViewModel(for recipe: Recipe) -> RecipeDetailScreenViewModel {
+        RecipeDetailScreenViewModel(
+            result: RecipeCatalogDetailResult(recipe: recipe, source: contentState.recipeCatalog.source),
+            context: recipeDetailContext(for: recipe)
+        )
+    }
+
+    private func recipeDetailContext(for recipe: Recipe) -> RecipeDetailContext {
+        RecipeDetailContext(
+            currentChefID: currentChefID,
+            availableCookbooks: contentState.cookbooks.map { cookbook in
+                RecipeCookbookSaveOption(id: cookbook.id, title: cookbook.title)
+            },
+            savedInCookbookIDs: Set(recipe.cookbooks.map(\.id)),
+            hasIngredientsInShoppingList: hasShoppingListIngredient(for: recipe),
+            now: Date()
+        )
+    }
+
+    private var currentChefID: String? {
+        switch contentState.authSessionState {
+        case .signedOut:
+            nil
+        case .authenticated(let session), .refreshRequired(let session):
+            session.accountID
+        }
+    }
+
+    private func hasShoppingListIngredient(for recipe: Recipe) -> Bool {
+        guard let shoppingList = contentState.shoppingList else {
+            return false
+        }
+
+        let shoppingNames = Set(shoppingList.activeItems.map { $0.name.lowercased() })
+        return recipe.steps
+            .flatMap(\.ingredients)
+            .contains { shoppingNames.contains($0.name.lowercased()) }
     }
 
     private var spotlightIndexIdentity: String {

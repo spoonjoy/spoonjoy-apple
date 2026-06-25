@@ -33,6 +33,7 @@ struct RecipeCatalogDetailTests {
     }
 
     @Test("catalog view model trims query loads live rows and exposes route actions")
+    @MainActor
     func catalogViewModelTrimsQueryLoadsLiveRowsAndExposesRouteActions() async throws {
         let recipe = try Self.recipeDetail()
         let repository = RecordingRecipeCatalogRepository(
@@ -159,6 +160,66 @@ struct RecipeCatalogDetailTests {
         #expect(cached.offlineIndicator(now: Self.now, freshnessPolicy: .offlineProductContract).display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
     }
 
+    @Test("visible repository path uses live first cached q filtering and stale detail fallback")
+    func visibleRepositoryPathUsesLiveFirstCachedQFilteringAndStaleDetailFallback() async throws {
+        let recipe = try Self.recipeDetail()
+        let liveRepository = RecordingRecipeCatalogRepository(
+            page: RecipeCatalogPage(
+                query: "lemon",
+                limit: 20,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [RecipeSummary(recipe: recipe)],
+                source: .live(requestID: "req_live", validatedAt: Self.now)
+            ),
+            detail: RecipeCatalogDetailResult(
+                recipe: recipe,
+                source: .live(requestID: "req_detail", validatedAt: Self.now)
+            )
+        )
+        let cachedRepository = SnapshotRecipeCatalogRepository(
+            page: RecipeCatalogPage(
+                query: nil,
+                limit: 48,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [RecipeSummary(recipe: recipe)],
+                source: .cache(serverRevision: .updatedAt(recipe.updatedAt), lastValidatedAt: Self.staleValidatedAt)
+            ),
+            details: [
+                RecipeCatalogDetailResult(
+                    recipe: recipe,
+                    source: .cache(serverRevision: .updatedAt(recipe.updatedAt), lastValidatedAt: Self.staleValidatedAt)
+                )
+            ]
+        )
+        let liveFirst = FallbackRecipeCatalogRepository(primary: liveRepository, fallback: cachedRepository)
+
+        let livePage = try await liveFirst.listRecipes(request: RecipeCatalogListRequest(query: "  lemon  ", limit: 20, cursor: nil))
+        let liveDetail = try await liveFirst.recipeDetail(id: recipe.id)
+
+        #expect(livePage.source == .live(requestID: "req_live", validatedAt: Self.now))
+        #expect(liveDetail.source == .live(requestID: "req_detail", validatedAt: Self.now))
+        #expect(await liveRepository.listRequests == [
+            RecipeCatalogListRequest(query: "lemon", limit: 20, cursor: nil)
+        ])
+        #expect(await liveRepository.detailRequests == [recipe.id])
+
+        let offlineFallback = FallbackRecipeCatalogRepository(primary: FailingRecipeCatalogRepository(), fallback: cachedRepository)
+        let cachedMatch = try await offlineFallback.listRecipes(request: RecipeCatalogListRequest(query: "garlic", limit: 20, cursor: nil))
+        let cachedMiss = try await offlineFallback.listRecipes(request: RecipeCatalogListRequest(query: "not present", limit: 20, cursor: nil))
+        let cachedDetail = try await offlineFallback.recipeDetail(id: recipe.id)
+        let convenienceDetail = RecipeDetailScreenViewModel(recipe: recipe)
+
+        #expect(cachedMatch.rows.map(\.id) == [recipe.id])
+        #expect(cachedMiss.rows.isEmpty)
+        #expect(cachedDetail.recipe.steps[1].usingSteps.map(\.outputStepNum) == [1])
+        #expect(cachedDetail.offlineIndicator(now: Self.now).display == .stale(domain: .recipeDetail(id: recipe.id)))
+        #expect(convenienceDetail.offlineIndicator.display == .stale(domain: .recipeDetail(id: recipe.id)))
+    }
+
     @Test("recipe surfaces require feature layer wiring rather than raw fixture arrays")
     func recipeSurfacesRequireFeatureLayerWiringRatherThanRawFixtureArrays() throws {
         let requiredFiles = [
@@ -176,6 +237,7 @@ struct RecipeCatalogDetailTests {
         let navigation = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"))
         let recipesView = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipesView.swift"))
         let detailView = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"))
+        let cookModeView = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/CookModeView.swift"))
 
         expectContent(
             navigation,
@@ -184,6 +246,10 @@ struct RecipeCatalogDetailTests {
                 "RecipeCatalogViewModel",
                 "RecipeDetailScreenViewModel",
                 "RecipeCatalogRepository",
+                "LiveRecipeCatalogRepository",
+                "FallbackRecipeCatalogRepository",
+                "RecipeDetailRouteView",
+                "CookModeRouteView",
                 "contentState.recipeCatalog"
             ],
             forbids: [
@@ -198,19 +264,32 @@ struct RecipeCatalogDetailTests {
             ]
         )
         expectContent(
+            cookModeView,
+            in: "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
+            contains: [
+                "CookModeRouteView",
+                "repository.recipeDetail",
+                "initialRecipe",
+                "CookModeViewModel"
+            ]
+        )
+        expectContent(
             recipesView,
             in: "Apps/Spoonjoy/Shared/Views/RecipesView.swift",
             contains: [
                 "RecipeCatalogViewModel",
                 "state.rows",
-                "openRoute"
+                "openRoute",
+                "viewModel.load"
             ]
         )
         expectContent(
             detailView,
             in: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
             contains: [
+                "RecipeDetailRouteView",
                 "RecipeDetailScreenViewModel",
+                "repository.recipeDetail",
                 "spoonSummary",
                 "cookbookSave",
                 "ownerTools",
@@ -359,6 +438,16 @@ private actor RecordingRecipeCatalogRepository: RecipeCatalogRepository {
     func recipeDetail(id: String) async throws -> RecipeCatalogDetailResult {
         detailIDs.append(id)
         return detail
+    }
+}
+
+private struct FailingRecipeCatalogRepository: RecipeCatalogRepository {
+    func listRecipes(request _: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
+        throw RecipeCatalogRepositoryError.recipeNotFound("offline")
+    }
+
+    func recipeDetail(id: String) async throws -> RecipeCatalogDetailResult {
+        throw RecipeCatalogRepositoryError.recipeNotFound(id)
     }
 }
 

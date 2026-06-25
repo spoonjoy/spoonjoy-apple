@@ -11,6 +11,7 @@ REQUIRED_FILES = [
   "Apps/Spoonjoy/Shared/Views/KitchenView.swift",
   "Apps/Spoonjoy/Shared/Views/RecipesView.swift",
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
+  "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
   "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
   "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift",
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift",
@@ -59,6 +60,7 @@ REQUIRED_TOKENS = {
     "RecipesView",
     "RecipeCatalogViewModel",
     "state.rows",
+    "viewModel.load",
     "List",
     "Button",
     "openRoute",
@@ -66,6 +68,8 @@ REQUIRED_TOKENS = {
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
+    "RecipeDetailRouteView",
+    "repository.recipeDetail",
     "RecipeDetailView",
     "RecipeDetailScreenViewModel",
     "ShareLink",
@@ -79,6 +83,14 @@ REQUIRED_TOKENS = {
     "ownerTools",
     "offlineIndicator",
     "ForEach",
+    "KitchenTableTheme"
+  ],
+  "Apps/Spoonjoy/Shared/Views/CookModeView.swift" => [
+    "CookModeRouteView",
+    "repository.recipeDetail",
+    "initialRecipe",
+    "CookModeViewModel",
+    "CookModeView",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/CookbooksView.swift" => [
@@ -95,6 +107,7 @@ REQUIRED_TOKENS = {
     "RecipeCatalogListRequest",
     "RecipeCatalogPage",
     "RecipeCatalogDetailResult",
+    "FallbackRecipeCatalogRepository",
     "PublicCatalogRequests.listRecipes",
     "PublicCatalogRequests.recipeDetail",
     "NativeCacheDomain.recipeCatalog",
@@ -179,11 +192,15 @@ fail_check("PlatformNavigationView.swift contains forbidden recipe surface token
 [
   "KitchenView(",
   "RecipesView(",
-  "RecipeDetailView(",
+  "RecipeDetailRouteView(",
   "CookbooksView(",
   "RecipeCatalogViewModel",
   "RecipeDetailScreenViewModel",
   "RecipeCatalogRepository",
+  "LiveRecipeCatalogRepository",
+  "FallbackRecipeCatalogRepository",
+  "RecipeDetailRouteView",
+  "CookModeRouteView",
   "contentState.recipeCatalog"
 ].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless root_shell.include?(token)

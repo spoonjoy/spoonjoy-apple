@@ -121,6 +121,18 @@ public struct NativeShellContentState {
         )
     }
 
+    public var recipeCatalog: RecipeCatalogPage {
+        RecipeCatalogPage(
+            query: nil,
+            limit: max(48, recipes.count),
+            cursor: nil,
+            nextCursor: nil,
+            hasMore: false,
+            rows: recipes.map(RecipeSummary.init(recipe:)),
+            source: recipeCatalogSource
+        )
+    }
+
     public func cookProgress(for recipeID: String) -> CookModeProgress? {
         cookProgressByRecipeID[recipeID]
     }
@@ -475,6 +487,22 @@ public struct NativeShellContentState {
         case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             .unavailable
         }
+    }
+
+    private var recipeCatalogSource: RecipeCatalogDataSource {
+        switch offlineIndicatorState.display {
+        case .synced:
+            .live(requestID: "native-shell", validatedAt: Date())
+        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            .cache(serverRevision: latestRecipeRevision, lastValidatedAt: .distantPast)
+        }
+    }
+
+    private var latestRecipeRevision: NativeCacheServerRevision? {
+        recipes
+            .map(\.updatedAt)
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
     }
 
     private static func searchResultsByScope(
