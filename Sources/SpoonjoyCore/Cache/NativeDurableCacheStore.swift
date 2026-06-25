@@ -48,8 +48,9 @@ public struct NativeDurableCacheStore {
     }
 
     public func save(_ snapshot: NativeDurableCacheSnapshot) throws {
-        try rejectSecretMaterial(snapshot)
-        try store.save(try snapshot.validatedForRestore())
+        let validated = try snapshot.validatedForRestore()
+        try rejectSecretMaterial(validated)
+        try store.save(validated)
     }
 
     public func loadOrRecover(fallback: NativeDurableCacheSnapshot) throws -> NativeDurableCacheStoreRecord {
@@ -73,10 +74,20 @@ public struct NativeDurableCacheStore {
     }
 
     private func rejectSecretMaterial(_ snapshot: NativeDurableCacheSnapshot) throws {
-        guard let secret = snapshot.secretMaterial else {
-            return
+        if let secret = snapshot.secretMaterial {
+            try rejectSecretMaterial(secret)
         }
 
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(snapshot)
+        let object = try JSONSerialization.jsonObject(with: data)
+        for string in Self.serializedStringValues(in: object) {
+            try rejectSerializedSecretMaterial(string)
+        }
+    }
+
+    private func rejectSecretMaterial(_ secret: NativeCacheSecretMaterial) throws {
         switch secret {
         case .bearerToken:
             throw NativeCacheSecurityError.bearerToken
@@ -95,10 +106,55 @@ public struct NativeDurableCacheStore {
         }
     }
 
+    private func rejectSerializedSecretMaterial(_ value: String) throws {
+        let lowercased = value.lowercased()
+        if lowercased.contains("bearer ") || value.hasPrefix("sj_" + "access") {
+            throw NativeCacheSecurityError.bearerToken
+        }
+        if value.hasPrefix("ort_") || lowercased.contains("refresh-token") {
+            throw NativeCacheSecurityError.refreshToken
+        }
+        if lowercased.contains("one-time-token") {
+            throw NativeCacheSecurityError.oneTimeTokenValue
+        }
+        if lowercased.contains("provider" + "-secret") || lowercased.contains("provider" + "_secret") {
+            throw NativeCacheSecurityError.providerSecret
+        }
+        if lowercased.contains("passkey") {
+            throw NativeCacheSecurityError.passkey
+        }
+        if lowercased.hasPrefix("file://") || value.hasPrefix("/Users/") || value.hasPrefix("/private/") || value.hasPrefix("/var/mobile/") {
+            throw NativeCacheSecurityError.rawMediaPath
+        }
+        if let components = URLComponents(string: value),
+           let scheme = components.scheme?.lowercased(),
+           scheme == "http" || scheme == "https",
+           components.queryItems?.contains(where: { ["signature", "sig", "token"].contains($0.name.lowercased()) }) == true {
+            throw NativeCacheSecurityError.signedURL
+        }
+    }
+
+    private static func serializedStringValues(in object: Any) -> [String] {
+        if let string = object as? String {
+            return [string]
+        }
+
+        if let array = object as? [Any] {
+            return array.flatMap(serializedStringValues(in:))
+        }
+
+        if let dictionary = object as? [String: Any] {
+            return dictionary.values.flatMap(serializedStringValues(in:))
+        }
+
+        return []
+    }
+
     private func corruptCacheQuarantined() throws -> NativeCacheRecovery {
         let quarantineSuffix = Self.quarantineSuffix(for: clock.now)
         let quarantineURL = fileURL.appendingPathExtension("corrupt.\(quarantineSuffix)")
-        if FileManager.default.fileExists(atPath: fileURL.path) {
+        if FileManager.default.fileExists(atPath: fileURL.path),
+           !FileManager.default.fileExists(atPath: quarantineURL.path) {
             try FileManager.default.copyItem(at: fileURL, to: quarantineURL)
         }
 

@@ -182,6 +182,15 @@ struct NativeCacheFreshnessTests {
         let fallbackBin = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_bin", originalFilename: "private", contentType: "application/octet-stream", byteCount: 1, createdAt: fetchedAt)
         #expect([jpeg, png, heic, fallback, fallbackBin].map(\.durableMetadata.originalFilename).allSatisfy { $0 == nil })
         #expect(fallbackBin.privacySafeRelativePath.hasSuffix(".bin"))
+        #expect(throws: NativeMediaStagingError.invalidPathComponent("accountID")) {
+            _ = try NativeMediaStagingMetadata(accountID: "../chef_ari", environment: .production, localStageID: "stage_safe", originalFilename: "private.jpg", contentType: "image/jpeg", byteCount: 1, createdAt: fetchedAt)
+        }
+        #expect(throws: NativeMediaStagingError.invalidPathComponent("localStageID")) {
+            _ = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage/bad", originalFilename: "private.jpg", contentType: "image/jpeg", byteCount: 1, createdAt: fetchedAt)
+        }
+        #expect(throws: NativeMediaStagingError.invalidPathComponent("fileExtension")) {
+            _ = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_safe", originalFilename: "private.ba\u{7F}d", contentType: "application/custom", byteCount: 1, createdAt: fetchedAt)
+        }
 
         try withTemporaryDirectory { directory in
             let fileURL = directory.appendingPathComponent("native-cache.json")
@@ -208,11 +217,19 @@ struct NativeCacheFreshnessTests {
                     try store.save(snapshot.copy(insertingSecret: secret))
                 }
             }
+            for secretRecord in try serializableSecretRecords(fetchedAt: fetchedAt, lastValidatedAt: validatedAt) {
+                #expect(throws: NativeCacheSecurityError.self) {
+                    try store.save(snapshot.copy(records: [secretRecord]))
+                }
+            }
 
             try Data("{ nope".utf8).write(to: fileURL)
             let recovered = try store.loadOrRecover(fallback: snapshot)
             #expect(recovered.source == .fallbackAfterCorruption)
             #expect(recovered.recovery == .corruptCacheQuarantined(originalURL: fileURL, quarantineSuffix: "2026-06-16T121000Z"))
+            let recoveredAgain = try store.loadOrRecover(fallback: snapshot)
+            #expect(recoveredAgain.source == .fallbackAfterCorruption)
+            #expect(recoveredAgain.recovery == .corruptCacheQuarantined(originalURL: fileURL, quarantineSuffix: "2026-06-16T121000Z"))
         }
     }
 
@@ -762,6 +779,18 @@ private func directRecord(
     )
 }
 
+private func serializableSecretRecords(fetchedAt: Date, lastValidatedAt: Date) throws -> [NativeCacheRecord] {
+    [
+        try directRecord(domain: .profile(id: "bearer"), payload: .profile(id: "bearer", username: "Bearer sj_access_live"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .profile(id: "refresh"), payload: .profile(id: "refresh", username: "ort_refresh_live"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .tokenMetadata, payload: .tokenMetadata(credentials: [NativeTokenMetadata(id: "one-time-token-value", name: "One Time", scopes: [])]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .connectionStatus, serverRevision: .localRevision("provider-secret-google"), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_1", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .profile(id: "passkey"), payload: .profile(id: "passkey", username: "passkey-private-key"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "raw-path"), payload: .captureDraft(id: "raw-path", source: .imageAsset("/Users/arimendelow/Pictures/private.jpg")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "signed-url"), payload: .captureDraft(id: "signed-url", source: .shareSheetURL("https://signed.example/photo.jpg?signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+    ]
+}
+
 private func cacheInstant(_ value: String) throws -> Date {
     let fractionalFormatter = ISO8601DateFormatter()
     fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -964,6 +993,28 @@ struct NativeCacheBehaviorContract {
         #expect(metadata.privacySafeRelativePath == "chef_ari/production/v2/stage_photo_1.jpeg")
         #expect(metadata.durableMetadata.originalFilename == nil)
         #expect(metadata.durableMetadata.rawLocalFileURL == nil)
+        #expect(throws: NativeMediaStagingError.invalidPathComponent("accountID")) {
+            _ = try NativeMediaStagingMetadata(
+                accountID: "chef/ari",
+                environment: .production,
+                localStageID: "stage_photo_1",
+                originalFilename: "private.jpg",
+                contentType: "image/jpeg",
+                byteCount: 1,
+                createdAt: try instant("2026-06-16T12:00:00.000Z")
+            )
+        }
+        #expect(throws: NativeMediaStagingError.invalidPathComponent("localStageID")) {
+            _ = try NativeMediaStagingMetadata(
+                accountID: "chef_ari",
+                environment: .production,
+                localStageID: "..",
+                originalFilename: "private.jpg",
+                contentType: "image/jpeg",
+                byteCount: 1,
+                createdAt: try instant("2026-06-16T12:00:00.000Z")
+            )
+        }
         #expect(policy.evaluateNewUserSelectedMedia(byteCount: 25 * oneMiB, existingUnsyncedBytes: 512 * oneMiB - 25 * oneMiB, existingUnsyncedFileCount: 99) == .accepted)
         #expect(policy.evaluateNewUserSelectedMedia(byteCount: 25 * oneMiB + 1, existingUnsyncedBytes: 0, existingUnsyncedFileCount: 0) == .rejected(.individualFileTooLarge(limitBytes: 25 * oneMiB)))
         #expect(policy.evaluateNewUserSelectedMedia(byteCount: 1, existingUnsyncedBytes: 512 * oneMiB, existingUnsyncedFileCount: 1) == .rejected(.accountByteCapReached(limitBytes: 512 * oneMiB, silentEvictionAllowed: false)))
@@ -993,6 +1044,11 @@ struct NativeCacheBehaviorContract {
             #expect(throws: NativeCacheSecurityError.self) { try store.save(safeSnapshot.copy(insertingSecret: .providerSecret("provider-secret"))) }
             #expect(throws: NativeCacheSecurityError.self) { try store.save(safeSnapshot.copy(insertingSecret: .rawMediaPath("/Users/arimendelow/Pictures/private.jpg"))) }
             #expect(throws: NativeCacheSecurityError.self) { try store.save(safeSnapshot.copy(insertingSecret: .signedURL("https://signed.example/photo.jpg?token=sj_access"))) }
+            for secretRecord in try serializableSecretRecords(fetchedAt: fetchedAt, lastValidatedAt: try instant("2026-06-16T12:05:00.000Z")) {
+                #expect(throws: NativeCacheSecurityError.self) {
+                    try store.save(safeSnapshot.copy(records: [secretRecord]))
+                }
+            }
 
             try Data("{ nope".utf8).write(to: fileURL)
             let recovered = try store.loadOrRecover(fallback: safeSnapshot)
@@ -1001,6 +1057,8 @@ struct NativeCacheBehaviorContract {
             #expect(recovered.recovery == .corruptCacheQuarantined(originalURL: fileURL, quarantineSuffix: "2026-06-16T121000Z"))
             #expect(try String(contentsOf: fileURL, encoding: .utf8) == "{ nope")
             #expect(FileManager.default.fileExists(atPath: fileURL.appendingPathExtension("corrupt.2026-06-16T121000Z").path))
+            let recoveredAgain = try store.loadOrRecover(fallback: safeSnapshot)
+            #expect(recoveredAgain.recovery == recovered.recovery)
         }
     }
 }
@@ -1059,6 +1117,18 @@ private func record(
         ),
         payload: payload
     )
+}
+
+private func serializableSecretRecords(fetchedAt: Date, lastValidatedAt: Date) throws -> [NativeCacheRecord] {
+    [
+        try record(domain: .profile(id: "bearer"), payload: .profile(id: "bearer", username: "Bearer sj_access_live"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .profile(id: "refresh"), payload: .profile(id: "refresh", username: "ort_refresh_live"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .tokenMetadata, payload: .tokenMetadata(credentials: [NativeTokenMetadata(id: "one-time-token-value", name: "One Time", scopes: [])]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .connectionStatus, serverRevision: .localRevision("provider-secret-google"), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_1", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .profile(id: "passkey"), payload: .profile(id: "passkey", username: "passkey-private-key"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "raw-path"), payload: .captureDraft(id: "raw-path", source: .imageAsset("/Users/arimendelow/Pictures/private.jpg")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .captureDraft(id: "signed-url"), payload: .captureDraft(id: "signed-url", source: .shareSheetURL("https://signed.example/photo.jpg?signature=abc")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+    ]
 }
 
 private func instant(_ value: String) throws -> Date {

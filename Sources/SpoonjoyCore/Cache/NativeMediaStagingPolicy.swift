@@ -5,6 +5,7 @@ public enum NativeMediaStagingError: Error, Equatable, Sendable {
     case accountByteCapReached(limitBytes: Int, silentEvictionAllowed: Bool)
     case accountFileCapReached(limitFiles: Int, silentEvictionAllowed: Bool)
     case generatedPreviewCapReached(limitBytes: Int)
+    case invalidPathComponent(String)
 }
 
 public enum NativeMediaStagingDecision: Equatable, Sendable {
@@ -49,7 +50,9 @@ public struct NativeMediaStagingMetadata: Equatable, Sendable {
         self.contentType = contentType
         self.byteCount = byteCount
         self.createdAt = createdAt
-        let privacySafeRelativePath = "\(accountID)/\(environment.rawValue)/v2/\(localStageID).\(Self.fileExtension(for: contentType, submittedFilename: originalFilename))"
+        let safeAccountID = try Self.validatedPathComponent(accountID, name: "accountID")
+        let safeLocalStageID = try Self.validatedPathComponent(localStageID, name: "localStageID")
+        let privacySafeRelativePath = "\(safeAccountID)/\(environment.rawValue)/v2/\(safeLocalStageID).\(try Self.fileExtension(for: contentType, submittedFilename: originalFilename))"
         self.privacySafeRelativePath = privacySafeRelativePath
         self.durableMetadata = NativeMediaDurableMetadata(
             accountID: accountID,
@@ -64,8 +67,8 @@ public struct NativeMediaStagingMetadata: Equatable, Sendable {
         )
     }
 
-    private static func fileExtension(for contentType: String, submittedFilename: String) -> String {
-        switch contentType.lowercased() {
+    private static func fileExtension(for contentType: String, submittedFilename: String) throws -> String {
+        let fileExtension = switch contentType.lowercased() {
         case "image/jpeg", "image/jpg":
             "jpeg"
         case "image/png":
@@ -77,6 +80,23 @@ public struct NativeMediaStagingMetadata: Equatable, Sendable {
                 ? "bin"
                 : URL(fileURLWithPath: submittedFilename).pathExtension.lowercased()
         }
+
+        return try validatedPathComponent(fileExtension, name: "fileExtension")
+    }
+
+    private static func validatedPathComponent(_ value: String, name: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed != ".",
+              trimmed != "..",
+              !trimmed.contains(".."),
+              !trimmed.contains("/"),
+              !trimmed.contains("\\"),
+              trimmed.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
+            throw NativeMediaStagingError.invalidPathComponent(name)
+        }
+
+        return trimmed
     }
 }
 
