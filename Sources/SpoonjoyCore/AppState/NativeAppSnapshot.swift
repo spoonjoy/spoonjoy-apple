@@ -87,6 +87,10 @@ public struct NativeAppSnapshot: Codable, Equatable {
         copy(lastOpenedRoute: route.stateIdentifier, savedAt: savedAt)
     }
 
+    public func copyForCacheMigration(pendingMutations: MutationQueue) -> NativeAppSnapshot {
+        copy(pendingMutations: pendingMutations, savedAt: savedAt)
+    }
+
     private func copy(
         hasCompletedFirstRun: Bool? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,

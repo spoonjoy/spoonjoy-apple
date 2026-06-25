@@ -17,6 +17,24 @@ public struct CookModeProgress: Codable, Equatable {
         self.updatedAt = startedAt
     }
 
+    public init(recipeID: String, completedStepIDs: [String], currentStepID: String?) {
+        var stepIDs = completedStepIDs
+        if let currentStepID, !stepIDs.contains(currentStepID) {
+            stepIDs.append(currentStepID)
+        }
+        if stepIDs.isEmpty {
+            stepIDs = currentStepID.map { [$0] } ?? []
+        }
+        let activeStepIndex = currentStepID.flatMap { stepIDs.firstIndex(of: $0) } ?? 0
+
+        self.recipeID = recipeID
+        self.stepIDs = stepIDs
+        self.activeStepIndex = activeStepIndex
+        self.completedStepIDs = completedStepIDs
+        self.startedAt = ""
+        self.updatedAt = ""
+    }
+
     public var currentStepID: String? {
         guard stepIDs.indices.contains(activeStepIndex) else {
             return stepIDs.last

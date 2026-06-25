@@ -1,12 +1,12 @@
 import Foundation
 
-public enum JSONFileStoreSource: String, Codable, Equatable {
+public enum JSONFileStoreSource: String, Codable, Equatable, Sendable {
     case file
     case fallback
     case fallbackAfterCorruption
 }
 
-public enum JSONFileStoreError: Error, Equatable {
+public enum JSONFileStoreError: Error, Equatable, Sendable {
     case corruptJSON(String)
     case unreadableFile(String)
 }

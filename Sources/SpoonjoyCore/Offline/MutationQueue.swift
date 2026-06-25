@@ -1,11 +1,11 @@
 import Foundation
 
-public enum MutationQueueError: Error, Equatable {
+public enum MutationQueueError: Error, Equatable, Sendable {
     case emptyClientMutationID
     case duplicateClientMutationID(String)
 }
 
-public enum QueuedMutationKind: Equatable {
+public enum QueuedMutationKind: Equatable, Sendable {
     case shoppingAdd(
         name: String,
         quantity: Double?,
@@ -17,7 +17,7 @@ public enum QueuedMutationKind: Equatable {
     case shoppingDelete(itemID: String)
 }
 
-public struct QueuedMutation: Codable, Equatable {
+public struct QueuedMutation: Codable, Equatable, Sendable {
     public let id: String
     public let clientMutationID: String
     public let createdAt: String
@@ -31,7 +31,7 @@ public struct QueuedMutation: Codable, Equatable {
     }
 }
 
-public struct MutationQueue: Codable, Equatable {
+public struct MutationQueue: Codable, Equatable, Sendable {
     public let mutations: [QueuedMutation]
 
     public init() {

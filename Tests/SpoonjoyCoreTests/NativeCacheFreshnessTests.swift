@@ -14,6 +14,208 @@ struct NativeCacheFreshnessTests {
         #expect(result.status == 0, Comment(rawValue: result.truncatedOutput))
     }
 
+    @Test("native cache implementation is covered in process")
+    func nativeCacheImplementationIsCoveredInProcess() throws {
+        let fetchedAt = try cacheInstant("2026-06-16T12:00:00.000Z")
+        let validatedAt = try cacheInstant("2026-06-16T12:05:00.000Z")
+        let snapshot = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: "chef_ari",
+            environment: .production,
+            createdAt: fetchedAt,
+            records: directProductContractRecords(fetchedAt: fetchedAt, lastValidatedAt: validatedAt),
+            dismissedIndicators: []
+        )
+
+        #expect(try snapshot.validatedForRestore() == snapshot)
+        #expect(throws: NativeCacheRecoveryError.self) {
+            try snapshot.copy(schemaVersion: 1).validatedForRestore()
+        }
+        #expect(snapshot.record(for: .recipeDetail(id: "recipe_lemon_pantry_pasta"))?.metadata.serverRevision == .etag("\"recipe-detail-v7\""))
+        #expect(NativeDurableCacheSnapshot.recordLookupSignature == "record(for:")
+        #expect(!NativeDurableCacheSnapshot.offlineProductContractEndpoints.isEmpty)
+
+        let allDomains: [NativeCacheDomain] = [
+            .accountBootstrap,
+            .settings,
+            .recipeCatalog,
+            .recipeDetail(id: "recipe_lemon_pantry_pasta"),
+            .cookbookList,
+            .cookbookDetail(id: "cookbook_weeknight"),
+            .shoppingList,
+            .cookProgress(recipeID: "recipe_lemon_pantry_pasta"),
+            .captureDraft(id: "capture_1"),
+            .profile(id: "chef_ari"),
+            .notificationPreferences,
+            .tokenMetadata,
+            .connectionStatus,
+            .apnsStatus,
+            .spoonList(recipeID: "recipe_lemon_pantry_pasta"),
+            .cookModeBackingData(recipeID: "recipe_lemon_pantry_pasta"),
+            .searchResults(query: "lemon"),
+            .stagedMedia(id: "stage_photo_1")
+        ]
+        #expect(Set(allDomains.map(\.stableRecordID)).count == allDomains.count)
+
+        let queue = try MutationQueue().appending(
+            QueuedMutation(
+                id: "queued-add-lemons",
+                clientMutationID: "mutation-add-lemons",
+                createdAt: "2026-06-16T11:57:00.000Z",
+                kind: .shoppingAdd(name: "lemons", quantity: 2, unit: nil, categoryKey: "produce", iconKey: "lemon")
+            )
+        )
+        let v1 = try NativeAppSnapshot.bootstrap(shoppingList: ShoppingListState.decodeFromBundle(), savedAt: "2026-06-16T11:58:00.000Z")
+            .updatingCookProgress(
+                CookModeProgress(recipeID: "recipe_lemon_pantry_pasta", completedStepIDs: ["step_1"], currentStepID: "step_2"),
+                savedAt: "2026-06-16T11:59:00.000Z"
+            )
+            .updatingCookProgress(
+                CookModeProgress(recipeID: "recipe_apple_crisp", completedStepIDs: ["step_a"], currentStepID: "step_b"),
+                savedAt: "2026-06-16T11:59:10.000Z"
+            )
+            .updatingCaptureDraft(
+                CaptureDraft.localText(id: "capture_1", text: "grandma sauce", createdAt: "2026-06-16T11:59:30.000Z"),
+                savedAt: "2026-06-16T12:00:00.000Z"
+            )
+            .copyForCacheMigration(pendingMutations: queue)
+        let migrated = try NativeDurableCacheSnapshot.migratingSchemaVersionOne(
+            v1,
+            accountID: "chef_ari",
+            environment: .production,
+            migratedAt: fetchedAt
+        )
+        #expect(migrated.record(for: .shoppingList) != nil)
+        #expect(migrated.record(for: .cookProgress(recipeID: "recipe_lemon_pantry_pasta")) != nil)
+        #expect(migrated.record(for: .captureDraft(id: "capture_1")) != nil)
+        #expect(migrated.pendingMutationQueue == queue)
+        var legacyObject = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot)) as? [String: Any])
+        legacyObject.removeValue(forKey: "pendingMutationQueue")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+        let legacyDecoded = try JSONDecoder().decode(NativeDurableCacheSnapshot.self, from: legacyData)
+        #expect(legacyDecoded.pendingMutationQueue == MutationQueue())
+
+        let policy = NativeCacheFreshnessPolicy.offlineProductContract
+        for domain in allDomains {
+            _ = policy.threshold(for: domain)
+        }
+        #expect(policy.freshness(for: try directRecord(domain: .accountBootstrap, lastValidatedAt: fetchedAt), now: fetchedAt.addingTimeInterval(15 * 60)) == .fresh)
+        #expect(policy.freshness(for: try directRecord(domain: .accountBootstrap, lastValidatedAt: fetchedAt), now: fetchedAt.addingTimeInterval(15 * 60 + 1)) == .stale(secondsOverThreshold: 1))
+        #expect(policy.freshness(for: try directRecord(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta"), lastValidatedAt: fetchedAt), now: fetchedAt.addingTimeInterval(6 * 60 * 60 + 1)) == .stale(secondsOverThreshold: 1))
+        #expect(policy.freshness(for: try directRecord(domain: .cookProgress(recipeID: "recipe_lemon_pantry_pasta"), lastValidatedAt: fetchedAt), now: fetchedAt.addingTimeInterval(30 * 24 * 60 * 60)) == .locallyAuthoritative)
+        #expect(policy.revalidationTriggers(for: .fresh).isEmpty)
+        #expect(policy.revalidationTriggers(for: .locallyAuthoritative).isEmpty)
+        #expect(policy.revalidationTriggers(for: .stale(secondsOverThreshold: 1)).contains(.networkRecovered))
+
+        let reducer = OfflineIndicatorReducer(accountID: "chef_ari", environment: .production)
+        var indicator = OfflineIndicatorState.synced(lastSyncedAt: fetchedAt)
+        #expect(!indicator.isVisible)
+        #expect(OfflineIndicatorDisplay.dismissed(previous: .offline, reason: .informationalOnly).informationalOnly)
+        #expect(reducer.reduce(indicator, .cacheBecameStale(domain: .recipeCatalog, at: fetchedAt, cacheFingerprint: "recipe-v1")).display == .stale(domain: .recipeCatalog))
+        indicator = reducer.reduce(indicator, .networkUnavailable(at: fetchedAt))
+        #expect(indicator.display == .offline)
+        indicator = reducer.reduce(indicator, .dismissCurrentIndicator(at: fetchedAt, cacheFingerprint: "offline-v1"))
+        #expect(indicator.display == .dismissed(previous: .offline, reason: .informationalOnly))
+        indicator = reducer.reduce(indicator, .cacheBecameStale(domain: .recipeCatalog, at: fetchedAt, cacheFingerprint: "recipe-v1"))
+        #expect(indicator.display == .dismissed(previous: .stale(domain: .recipeCatalog), reason: .informationalOnly))
+        indicator = reducer.reduce(indicator, .queuedWorkChanged(count: 1, oldestClientMutationID: "mutation_1"))
+        #expect(indicator.isVisible)
+        let queued = indicator
+        indicator = reducer.reduce(indicator, .dismissCurrentIndicator(at: fetchedAt, cacheFingerprint: "queued-v1"))
+        #expect(indicator == queued)
+        indicator = reducer.reduce(indicator, .syncFailed(errorID: "timeout", retryAfter: .seconds(30)))
+        #expect(indicator.display == .syncFailure(errorID: "timeout", retryAfter: .seconds(30)))
+        indicator = reducer.reduce(indicator, .conflictDetected(recordID: "recipe_1", mutationID: "mutation_1"))
+        #expect(indicator.display == .conflict(recordID: "recipe_1", mutationID: "mutation_1"))
+        indicator = reducer.reduce(indicator, .blockerDetected(kind: .providerSecret(resourceID: "cover_1")))
+        #expect(indicator.display == .blocker(.providerSecret(resourceID: "cover_1")))
+        indicator = reducer.reduce(indicator, .destructiveConfirmationRequired(actionID: "clear_all"))
+        #expect(indicator.display == .destructiveConfirmation(actionID: "clear_all"))
+        indicator = reducer.reduce(indicator, .severeStateResolved(at: fetchedAt))
+        #expect(indicator.display == .synced)
+
+        var dismissalStore = NativeIndicatorDismissalStore()
+        #expect(!NativeIndicatorDismissalStore.nonPersistableDisplayKinds.isEmpty)
+        let staleDismissal = NativeIndicatorDismissal(
+            accountID: "chef_ari",
+            environment: .production,
+            hiddenDisplay: .stale(domain: .recipeCatalog),
+            dismissedAt: fetchedAt,
+            cacheFingerprint: "recipe-v1"
+        )
+        #expect(staleDismissal.copy() == staleDismissal)
+        try dismissalStore.persist(staleDismissal)
+        try dismissalStore.persist(staleDismissal.copy(hiddenDisplay: .offline))
+        #expect(dismissalStore.isHidden(.offline, accountID: "chef_ari", environment: .production, cacheFingerprint: "recipe-v1"))
+        #expect(!dismissalStore.isHidden(.offline, accountID: "chef_other", environment: .production, cacheFingerprint: "recipe-v1"))
+        #expect(!dismissalStore.isHidden(.offline, accountID: "chef_ari", environment: .local, cacheFingerprint: "recipe-v1"))
+        #expect(!dismissalStore.isHidden(.offline, accountID: "chef_ari", environment: .production, cacheFingerprint: "recipe-v2"))
+        #expect(!dismissalStore.isHidden(.queuedWork(count: 1, oldestClientMutationID: nil), accountID: "chef_ari", environment: .production, cacheFingerprint: "recipe-v1"))
+        #expect(throws: NativeIndicatorDismissalError.self) {
+            try dismissalStore.persist(staleDismissal.copy(hiddenDisplay: .syncFailure(errorID: "timeout", retryAfter: nil)))
+        }
+
+        let prefetch = NativeCachePrefetchPolicy.offlineProductContract
+        #expect(prefetch.onlineOnlyActions.contains(.tokenCreate))
+        let prefetchPlan = prefetch.plan(for: .signedInLaunch(
+            accountID: "chef_ari",
+            environment: .production,
+            recentlyViewedRecipeIDs: ["recipe_lemon_pantry_pasta"],
+            activeCookModeRecipeIDs: ["recipe_lemon_pantry_pasta"],
+            viewedProfileIDs: ["chef_ari"]
+        ))
+        #expect(prefetchPlan.requiredReads.contains(.currentAccount))
+        #expect(prefetchPlan.revalidateOn == [.launch, .foreground, .networkRecovered, .visibleSurfaceOpened])
+        #expect(!prefetchPlan.containsOnlineOnlyActions)
+
+        let media = NativeMediaStagingPolicy.offlineProductContract
+        #expect(media.evaluateNewUserSelectedMedia(byteCount: media.maxIndividualUserSelectedBytes, existingUnsyncedBytes: 0, existingUnsyncedFileCount: 0) == .accepted)
+        #expect(media.evaluateNewUserSelectedMedia(byteCount: media.maxIndividualUserSelectedBytes + 1, existingUnsyncedBytes: 0, existingUnsyncedFileCount: 0) == .rejected(.individualFileTooLarge(limitBytes: media.maxIndividualUserSelectedBytes)))
+        #expect(media.evaluateNewUserSelectedMedia(byteCount: 1, existingUnsyncedBytes: media.maxUnsyncedUserSelectedBytesPerAccount, existingUnsyncedFileCount: 0) == .rejected(.accountByteCapReached(limitBytes: media.maxUnsyncedUserSelectedBytesPerAccount, silentEvictionAllowed: false)))
+        #expect(media.evaluateNewUserSelectedMedia(byteCount: 1, existingUnsyncedBytes: 0, existingUnsyncedFileCount: media.maxUnsyncedUserSelectedFilesPerAccount) == .rejected(.accountFileCapReached(limitFiles: media.maxUnsyncedUserSelectedFilesPerAccount, silentEvictionAllowed: false)))
+        #expect(media.evaluateGeneratedPreview(bytesAfterWrite: media.maxGeneratedPreviewBytesPerAccount) == .accepted)
+        #expect(media.evaluateGeneratedPreview(bytesAfterWrite: media.maxGeneratedPreviewBytesPerAccount + 1) == .rejected(.generatedPreviewCapReached(limitBytes: media.maxGeneratedPreviewBytesPerAccount)))
+        let jpeg = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_jpeg", originalFilename: "private.jpg", contentType: "image/jpeg", byteCount: 1, createdAt: fetchedAt)
+        let png = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_png", originalFilename: "private.png", contentType: "image/png", byteCount: 1, createdAt: fetchedAt)
+        let heic = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_heic", originalFilename: "private.heic", contentType: "image/heic", byteCount: 1, createdAt: fetchedAt)
+        let fallback = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_fallback", originalFilename: "private.gif", contentType: "image/gif", byteCount: 1, createdAt: fetchedAt)
+        let fallbackBin = try NativeMediaStagingMetadata(accountID: "chef_ari", environment: .production, localStageID: "stage_bin", originalFilename: "private", contentType: "application/octet-stream", byteCount: 1, createdAt: fetchedAt)
+        #expect([jpeg, png, heic, fallback, fallbackBin].map(\.durableMetadata.originalFilename).allSatisfy { $0 == nil })
+        #expect(fallbackBin.privacySafeRelativePath.hasSuffix(".bin"))
+
+        try withTemporaryDirectory { directory in
+            let fileURL = directory.appendingPathComponent("native-cache.json")
+            let store = NativeDurableCacheStore(fileURL: fileURL, clock: .fixed(try cacheInstant("2026-06-16T12:10:00.000Z")))
+            try store.save(snapshot)
+            let loaded = try store.loadOrRecover(fallback: snapshot)
+            #expect(loaded.value == snapshot)
+            #expect(loaded.source == .file)
+            #expect(loaded.recovery == nil)
+
+            let missing = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("missing.json"))
+            #expect(try missing.loadOrRecover(fallback: snapshot).source == .fallback)
+
+            for secret in [
+                NativeCacheSecretMaterial.bearerToken("sj_access"),
+                .refreshToken("ort_refresh"),
+                .oneTimeTokenValue("one-time-token-value"),
+                .providerSecret("provider-secret"),
+                .passkey("passkey-private-key"),
+                .rawMediaPath("/Users/arimendelow/Pictures/private.jpg"),
+                .signedURL("https://signed.example/photo.jpg?token=sj_access")
+            ] {
+                #expect(throws: NativeCacheSecurityError.self) {
+                    try store.save(snapshot.copy(insertingSecret: secret))
+                }
+            }
+
+            try Data("{ nope".utf8).write(to: fileURL)
+            let recovered = try store.loadOrRecover(fallback: snapshot)
+            #expect(recovered.source == .fallbackAfterCorruption)
+            #expect(recovered.recovery == .corruptCacheQuarantined(originalURL: fileURL, quarantineSuffix: "2026-06-16T121000Z"))
+        }
+    }
+
     @Test("durable schema version 2 covers every Offline Product Contract domain with record metadata")
     func durableSchemaVersionTwoCoversOfflineProductContractDomainsWithRecordMetadata() throws {
         let content = try readRepoFile("Sources/SpoonjoyCore/Cache/NativeDurableCache.swift")
@@ -519,6 +721,58 @@ private func expectContent(
     }
 }
 
+private func directProductContractRecords(fetchedAt: Date, lastValidatedAt: Date) throws -> [NativeCacheRecord] {
+    [
+        try directRecord(domain: .recipeCatalog, sourceEndpoint: "/api/v1/recipes", serverRevision: .cursor("recipe-catalog-cursor-v1"), payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta"), sourceEndpoint: "/api/v1/recipes/recipe_lemon_pantry_pasta", serverRevision: .etag("\"recipe-detail-v7\""), payload: .recipeDetail(id: "recipe_lemon_pantry_pasta", title: "Lemon Pantry Pasta"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .cookbookList, sourceEndpoint: "/api/v1/cookbooks", serverRevision: .cursor("cookbook-list-cursor-v1"), payload: .cookbookList(cookbookIDs: ["cookbook_weeknight"]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .cookbookDetail(id: "cookbook_weeknight"), sourceEndpoint: "/api/v1/cookbooks/cookbook_weeknight", serverRevision: .updatedAt("2026-06-16T11:58:00.000Z"), payload: .cookbookDetail(id: "cookbook_weeknight", title: "Weeknight"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .shoppingList, sourceEndpoint: "/api/v1/shopping-list", serverRevision: .cursor("shopping-sync-cursor-v3"), payload: .shoppingList(itemIDs: ["item_lemons"], syncCursor: "shopping-sync-cursor-v3"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .cookProgress(recipeID: "recipe_lemon_pantry_pasta"), sourceEndpoint: "local://cook-progress/recipe_lemon_pantry_pasta", serverRevision: .localRevision("cook-progress-local-v1"), payload: .cookProgress(recipeID: "recipe_lemon_pantry_pasta", completedStepIDs: ["step_1"], currentStepID: "step_2"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .captureDraft(id: "capture_share_sheet_1"), sourceEndpoint: "local://capture-drafts/capture_share_sheet_1", serverRevision: .localRevision("capture-draft-local-v1"), payload: .captureDraft(id: "capture_share_sheet_1", source: .shareSheetURL("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .profile(id: "chef_ari"), sourceEndpoint: "/api/v1/users/chef_ari", serverRevision: .updatedAt("2026-06-16T11:55:00.000Z"), payload: .profile(id: "chef_ari", username: "ari"), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .notificationPreferences, sourceEndpoint: "/api/v1/me/notification-preferences", serverRevision: .etag("\"notification-preferences-v1\""), payload: .notificationPreferences(marketingEnabled: false, cookingRemindersEnabled: true), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .tokenMetadata, sourceEndpoint: "/api/v1/tokens", serverRevision: .etag("\"token-metadata-v2\""), payload: .tokenMetadata(credentials: [NativeTokenMetadata(id: "cred_1", name: "Kitchen iPad", scopes: ["recipes:read"])]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .connectionStatus, sourceEndpoint: "/api/v1/me/connections", serverRevision: .etag("\"connections-v1\""), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_google", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .apnsStatus, sourceEndpoint: "/api/v1/me/apns-devices", serverRevision: .etag("\"apns-v1\""), payload: .apnsStatus(deviceID: "device_ios_1", registrationState: .registered), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+    ]
+}
+
+private func directRecord(
+    domain: NativeCacheDomain,
+    sourceEndpoint: String = "/api/v1/test",
+    serverRevision: NativeCacheServerRevision = .etag("\"test\""),
+    payload: NativeCachePayload = .empty,
+    fetchedAt: Date = Date(timeIntervalSince1970: 1_781_612_800),
+    lastValidatedAt: Date
+) throws -> NativeCacheRecord {
+    try NativeCacheRecord(
+        id: domain.stableRecordID,
+        metadata: NativeCacheRecordMetadata(
+            accountID: "chef_ari",
+            environment: .production,
+            schemaVersion: 2,
+            domain: domain,
+            fetchedAt: fetchedAt,
+            lastValidatedAt: lastValidatedAt,
+            sourceEndpoint: sourceEndpoint,
+            serverRevision: serverRevision
+        ),
+        payload: payload
+    )
+}
+
+private func cacheInstant(_ value: String) throws -> Date {
+    let fractionalFormatter = ISO8601DateFormatter()
+    fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = fractionalFormatter.date(from: value) {
+        return date
+    }
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return try #require(formatter.date(from: value))
+}
+
 private let nativeCacheBehaviorContractSource = #"""
 import Foundation
 import Testing
@@ -611,13 +865,13 @@ struct NativeCacheBehaviorContract {
         #expect(policy.threshold(for: .captureDraft(id: "capture_1")) == .locallyAuthoritative)
         #expect(policy.threshold(for: .stagedMedia(id: "stage_photo_1")) == .locallyAuthoritative)
 
-        #expect(policy.freshness(for: record(domain: .accountBootstrap, lastValidatedAt: now.addingTimeInterval(-15 * 60)), now: now) == .fresh)
-        #expect(policy.freshness(for: record(domain: .accountBootstrap, lastValidatedAt: now.addingTimeInterval(-(15 * 60 + 1))), now: now) == .stale(secondsOverThreshold: 1))
-        #expect(policy.freshness(for: record(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta"), lastValidatedAt: now.addingTimeInterval(-6 * 60 * 60)), now: now) == .fresh)
-        #expect(policy.freshness(for: record(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta"), lastValidatedAt: now.addingTimeInterval(-(6 * 60 * 60 + 1))), now: now) == .stale(secondsOverThreshold: 1))
-        #expect(policy.freshness(for: record(domain: .recipeCatalog, lastValidatedAt: now.addingTimeInterval(-24 * 60 * 60)), now: now) == .fresh)
-        #expect(policy.freshness(for: record(domain: .recipeCatalog, lastValidatedAt: now.addingTimeInterval(-(24 * 60 * 60 + 1))), now: now) == .stale(secondsOverThreshold: 1))
-        #expect(policy.freshness(for: record(domain: .cookProgress(recipeID: "recipe_lemon_pantry_pasta"), lastValidatedAt: now.addingTimeInterval(-30 * 24 * 60 * 60)), now: now) == .locallyAuthoritative)
+        #expect(policy.freshness(for: try record(domain: .accountBootstrap, lastValidatedAt: now.addingTimeInterval(-15 * 60)), now: now) == .fresh)
+        #expect(policy.freshness(for: try record(domain: .accountBootstrap, lastValidatedAt: now.addingTimeInterval(-(15 * 60 + 1))), now: now) == .stale(secondsOverThreshold: 1))
+        #expect(policy.freshness(for: try record(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta"), lastValidatedAt: now.addingTimeInterval(-6 * 60 * 60)), now: now) == .fresh)
+        #expect(policy.freshness(for: try record(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta"), lastValidatedAt: now.addingTimeInterval(-(6 * 60 * 60 + 1))), now: now) == .stale(secondsOverThreshold: 1))
+        #expect(policy.freshness(for: try record(domain: .recipeCatalog, lastValidatedAt: now.addingTimeInterval(-24 * 60 * 60)), now: now) == .fresh)
+        #expect(policy.freshness(for: try record(domain: .recipeCatalog, lastValidatedAt: now.addingTimeInterval(-(24 * 60 * 60 + 1))), now: now) == .stale(secondsOverThreshold: 1))
+        #expect(policy.freshness(for: try record(domain: .cookProgress(recipeID: "recipe_lemon_pantry_pasta"), lastValidatedAt: now.addingTimeInterval(-30 * 24 * 60 * 60)), now: now) == .locallyAuthoritative)
         #expect(policy.revalidationTriggers(for: .stale(secondsOverThreshold: 1)) == [.launch, .foreground, .accountChanged, .environmentChanged, .networkRecovered, .visibleSurfaceOpened])
     }
 

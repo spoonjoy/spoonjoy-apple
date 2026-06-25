@@ -54,4 +54,8 @@ public struct CaptureDraft: Codable, Equatable {
             status: .localOnly
         )
     }
+
+    public static func localText(id: String, text: String, createdAt: String) throws -> CaptureDraft {
+        try localText(id: id, rawText: text, createdAt: createdAt)
+    }
 }
