@@ -47,11 +47,7 @@ private enum APIResponseEnvelope<Value: Decodable & Equatable>: Decodable {
         let code: String
         let message: String
         let status: Int
-        let details: ErrorDetails?
-    }
-
-    private struct ErrorDetails: Decodable {
-        let retryAfterSeconds: Int?
+        let details: [String: JSONValue]?
     }
 
     init(from decoder: Decoder) throws {
@@ -74,7 +70,8 @@ private enum APIResponseEnvelope<Value: Decodable & Equatable>: Decodable {
                     code: error.code,
                     message: error.message,
                     status: error.status,
-                    retryAfterSeconds: error.details?.retryAfterSeconds
+                    retryAfterSeconds: error.details?["retryAfterSeconds"]?.intValue,
+                    details: error.details ?? [:]
                 )
             )
         }

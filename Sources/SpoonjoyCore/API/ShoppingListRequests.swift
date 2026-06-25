@@ -1,18 +1,10 @@
 import Foundation
 
-public enum ShoppingDeleteIdempotency: Equatable {
-    case header
-    case body
-    case query
-}
-
 public enum ShoppingListRequests {
     public static func readShoppingList() -> APIRequestBuilder {
-        APIRequestBuilder(
-            method: .get,
+        APIRequestSupport.privateRead(
             pathComponents: ["api", "v1", "shopping-list"],
-            queryItems: [],
-            defaultAuthorization: .includeBearerToken
+            queryItems: []
         )
     }
 
@@ -26,11 +18,9 @@ public enum ShoppingListRequests {
             queryItems.append(URLQueryItem(name: "cursor", value: cursor.rawValue))
         }
 
-        return APIRequestBuilder(
-            method: .get,
+        return APIRequestSupport.privateRead(
             pathComponents: ["api", "v1", "shopping-list", "sync"],
-            queryItems: queryItems,
-            defaultAuthorization: .includeBearerToken
+            queryItems: queryItems
         )
     }
 
@@ -42,17 +32,27 @@ public enum ShoppingListRequests {
         iconKey: String?,
         clientMutationID: String
     ) throws -> APIRequestBuilder {
-        try jsonRequest(
+        var body: [String: Any] = [
+            "clientMutationId": clientMutationID,
+            "name": name
+        ]
+        if let quantity {
+            body["quantity"] = quantity
+        }
+        if let unit {
+            body["unit"] = unit
+        }
+        if let categoryKey {
+            body["categoryKey"] = categoryKey
+        }
+        if let iconKey {
+            body["iconKey"] = iconKey
+        }
+
+        return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "shopping-list", "items"],
-            body: AddShoppingItemBody(
-                clientMutationID: clientMutationID,
-                name: name,
-                quantity: quantity,
-                unit: unit,
-                categoryKey: categoryKey,
-                iconKey: iconKey
-            )
+            body: body
         )
     }
 
@@ -61,13 +61,13 @@ public enum ShoppingListRequests {
         checked: Bool,
         clientMutationID: String
     ) throws -> APIRequestBuilder {
-        try jsonRequest(
+        try APIRequestSupport.privateJSON(
             method: .patch,
             pathComponents: ["api", "v1", "shopping-list", "items", id],
-            body: CheckShoppingItemBody(
-                clientMutationID: clientMutationID,
-                checked: checked
-            )
+            body: [
+                "clientMutationId": clientMutationID,
+                "checked": checked
+            ]
         )
     }
 
@@ -76,84 +76,42 @@ public enum ShoppingListRequests {
         clientMutationID: String,
         idempotency: ShoppingDeleteIdempotency
     ) throws -> APIRequestBuilder {
-        let pathComponents = ["api", "v1", "shopping-list", "items", id]
-
-        switch idempotency {
-        case .header:
-            return APIRequestBuilder(
-                method: .delete,
-                pathComponents: pathComponents,
-                queryItems: [],
-                headers: ["X-Client-Mutation-Id": clientMutationID],
-                defaultAuthorization: .includeBearerToken
-            )
-        case .body:
-            return try jsonRequest(
-                method: .delete,
-                pathComponents: pathComponents,
-                body: DeleteShoppingItemBody(clientMutationID: clientMutationID)
-            )
-        case .query:
-            return APIRequestBuilder(
-                method: .delete,
-                pathComponents: pathComponents,
-                queryItems: [URLQueryItem(name: "clientMutationId", value: clientMutationID)],
-                defaultAuthorization: .includeBearerToken
-            )
-        }
-    }
-
-    private static func jsonRequest<Body: Encodable>(
-        method: APIRequestMethod,
-        pathComponents: [String],
-        body: Body
-    ) throws -> APIRequestBuilder {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-
-        return APIRequestBuilder(
-            method: method,
-            pathComponents: pathComponents,
-            queryItems: [],
-            headers: ["Content-Type": "application/json"],
-            body: try encoder.encode(body),
-            defaultAuthorization: .includeBearerToken
+        try APIRequestSupport.privateJSONDelete(
+            pathComponents: ["api", "v1", "shopping-list", "items", id],
+            clientMutationID: clientMutationID,
+            idempotency: idempotency
         )
     }
-}
 
-private struct AddShoppingItemBody: Encodable {
-    let clientMutationID: String
-    let name: String
-    let quantity: Double?
-    let unit: String?
-    let categoryKey: String?
-    let iconKey: String?
-
-    private enum CodingKeys: String, CodingKey {
-        case clientMutationID = "clientMutationId"
-        case name
-        case quantity
-        case unit
-        case categoryKey
-        case iconKey
+    public static func addIngredientsFromRecipe(
+        recipeID: String,
+        scaleFactor: Double,
+        clientMutationID: String
+    ) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSON(
+            method: .post,
+            pathComponents: ["api", "v1", "shopping-list", "add-from-recipe"],
+            body: [
+                "clientMutationId": clientMutationID,
+                "recipeId": recipeID,
+                "scaleFactor": scaleFactor
+            ]
+        )
     }
-}
 
-private struct CheckShoppingItemBody: Encodable {
-    let clientMutationID: String
-    let checked: Bool
-
-    private enum CodingKeys: String, CodingKey {
-        case clientMutationID = "clientMutationId"
-        case checked
+    public static func clearCompleted(clientMutationID: String) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSON(
+            method: .post,
+            pathComponents: ["api", "v1", "shopping-list", "clear-completed"],
+            body: ["clientMutationId": clientMutationID]
+        )
     }
-}
 
-private struct DeleteShoppingItemBody: Encodable {
-    let clientMutationID: String
-
-    private enum CodingKeys: String, CodingKey {
-        case clientMutationID = "clientMutationId"
+    public static func clearAll(clientMutationID: String) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSON(
+            method: .post,
+            pathComponents: ["api", "v1", "shopping-list", "clear-all"],
+            body: ["clientMutationId": clientMutationID]
+        )
     }
 }

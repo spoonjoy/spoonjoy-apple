@@ -227,6 +227,53 @@ struct NativeAPIExpansionTests {
         ])
     }
 
+    @Test("multipart builders reject unsafe header values and use unique boundaries")
+    func multipartBuildersRejectUnsafeHeaderValuesAndUseUniqueBoundaries() throws {
+        let photo = UploadFile(
+            fileName: "profile.jpg",
+            contentType: "image/jpeg",
+            data: Data([0xFF, 0xD8, 0xFF])
+        )
+        let first = try PrivateAccountRequests.uploadProfilePhoto(photo: photo)
+            .urlRequest(configuration: Self.privateConfiguration)
+        let second = try PrivateAccountRequests.uploadProfilePhoto(photo: photo)
+            .urlRequest(configuration: Self.privateConfiguration)
+
+        let firstContentType = try #require(first.headers["Content-Type"])
+        let secondContentType = try #require(second.headers["Content-Type"])
+        #expect(firstContentType.hasPrefix("multipart/form-data; boundary="))
+        #expect(secondContentType.hasPrefix("multipart/form-data; boundary="))
+        #expect(firstContentType != secondContentType)
+        try assertMultipartRequest(
+            first,
+            method: .post,
+            path: "/api/v1/me/photo",
+            fileField: "photo",
+            fileName: "profile.jpg",
+            contentType: "image/jpeg",
+            data: Data([0xFF, 0xD8, 0xFF])
+        )
+
+        #expect(throws: APIRequestBuildError.self) {
+            _ = try PrivateAccountRequests.uploadProfilePhoto(
+                photo: UploadFile(
+                    fileName: "profile\"\r\nX-Injected: true.jpg",
+                    contentType: "image/jpeg",
+                    data: Data([0xFF])
+                )
+            )
+        }
+        #expect(throws: APIRequestBuildError.self) {
+            _ = try PrivateAccountRequests.uploadProfilePhoto(
+                photo: UploadFile(
+                    fileName: "profile.jpg",
+                    contentType: "image/jpeg\r\nX-Injected: true",
+                    data: Data([0xFF])
+                )
+            )
+        }
+    }
+
     @Test("optional public profile and search requests omit bearer by default but can include it")
     func optionalPublicProfileAndSearchRequestsOmitBearerByDefaultButCanIncludeIt() throws {
         let anonymousProfile = try PublicProfileRequests.profile(identifier: "ari/space")
