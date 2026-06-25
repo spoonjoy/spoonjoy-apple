@@ -3,6 +3,7 @@ import Foundation
 public enum NativeAuthSessionError: Error, Equatable, Sendable {
     case missingClientID
     case missingAuthorizationCode
+    case invalidCallbackURL(String)
     case stateMismatch(expected: String, actual: String?)
 }
 
@@ -48,6 +49,11 @@ public enum NativeAuthSession {
 
     public static func code(from callbackURL: URL, expectedState: OAuthState) throws -> String {
         _ = try OAuthRedirectValidator.validate(callbackURL)
+        guard callbackURL.scheme?.lowercased() == redirectURI.scheme,
+              callbackURL.host?.lowercased() == redirectURI.host,
+              callbackURL.path(percentEncoded: true) == redirectURI.path(percentEncoded: true) else {
+            throw NativeAuthSessionError.invalidCallbackURL(callbackURL.absoluteString)
+        }
         let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
         let returnedState = components?.queryItems?.first { $0.name == "state" }?.value
         guard expectedState.matches(returnedState: returnedState) else {

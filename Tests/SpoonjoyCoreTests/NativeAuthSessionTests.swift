@@ -60,6 +60,17 @@ struct NativeAuthSessionTests {
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
         #expect(await network.registerRequests.count == 1)
+        let randomVerifierA = OAuthPKCE.randomVerifier()
+        let randomVerifierB = OAuthPKCE.randomVerifier()
+        #expect(OAuthPKCE.isValidVerifier(randomVerifierA))
+        #expect(OAuthPKCE.isValidVerifier(randomVerifierB))
+        #expect(randomVerifierA != randomVerifierB)
+        #expect(try !OAuthPKCE.codeChallenge(for: randomVerifierA).isEmpty)
+        #expect(!OAuthPKCE.isValidVerifier(String(repeating: "a", count: 42)))
+        #expect(throws: OAuthPKCEError.invalidVerifier) {
+            _ = try OAuthPKCE.codeChallenge(for: "short")
+        }
+        #expect(OAuthState(rawValue: "   ") == nil)
 
         let session = try await repository.handleOAuthCallback(
             URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!,
@@ -137,6 +148,12 @@ struct NativeAuthSessionTests {
                 expectedState: state
             )
         })
+        #expect(try coverageThrowsNativeAuthSessionError {
+            _ = try NativeAuthSession.code(
+                from: URL(string: "http://localhost/oauth/callback?code=oac_code&state=state_123")!,
+                expectedState: state
+            )
+        })
 
         #expect(try OAuthRedirectValidator.validate(URL(string: "http://localhost/oauth/callback")!))
         #expect(try OAuthRedirectValidator.validate(URL(string: "http://127.0.0.1/oauth/callback")!))
@@ -203,15 +220,18 @@ struct NativeAuthSessionTests {
             signedOutSetup,
             in: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
             contains: [
-                "SpoonjoyWebAuthenticationSession",
-                "NativeAuthSessionRepository",
-                "KeychainTokenVault",
-                "startSignIn",
-                "handleOAuthCallback",
-                "restoreState",
+                "SecureAuthWebHandoff.login.url",
+                ".disabled(true)",
+                "live OAuth transport",
                 "https://spoonjoy.app/oauth/callback"
             ],
             forbids: [
+                "cm_native_spoonjoy",
+                "native-code-verifier-pending",
+                "registerClient:",
+                "exchangeCode:",
+                "KeychainTokenVault()",
+                "SpoonjoyWebAuthenticationSession {",
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
@@ -438,6 +458,26 @@ struct NativeAuthSessionTests {
             )
             #expect(hardFailure.status == 65, Comment(rawValue: hardFailure.output))
             #expect(hardFailure.blocker == nil)
+
+            let hardFailureWithCoreSimulatorMention = try runWrapperProbe(
+                script: script,
+                artifactDirectory: directory.appendingPathComponent("hard-failure-coresimulator", isDirectory: true),
+                fakeBin: fakeBin,
+                mode: "compile-failure-coresimulator-mention"
+            )
+            #expect(hardFailureWithCoreSimulatorMention.status == 65, Comment(rawValue: hardFailureWithCoreSimulatorMention.output))
+            #expect(hardFailureWithCoreSimulatorMention.blocker == nil)
+
+            let preflightBlocker = try runWrapperProbe(
+                script: script,
+                artifactDirectory: directory.appendingPathComponent("preflight-blocker", isDirectory: true),
+                fakeBin: fakeBin,
+                mode: "preflight-dvtplugin"
+            )
+            #expect(preflightBlocker.status == 0, Comment(rawValue: preflightBlocker.output))
+            let preflightBlockerJSON = try #require(preflightBlocker.blocker)
+            #expect(preflightBlockerJSON["capability"] as? String == "XcodePlatform")
+            #expect(preflightBlockerJSON["command"] as? String == "xcodebuild preflight")
 
             let success = try runWrapperProbe(
                 script: script,
@@ -1096,6 +1136,10 @@ case "${*:-}" in
     exit 0
     ;;
   "-checkFirstLaunchStatus")
+    if [[ "${FAKE_XCODEBUILD_MODE:-success}" == "preflight-dvtplugin" ]]; then
+      printf 'DVTPlugInManager failed to load plug-in com.apple.dt.IDEDistribution\n' >&2
+      exit 69
+    fi
     exit 0
     ;;
 esac
@@ -1115,6 +1159,10 @@ case "${*:-}" in
     exit 0
     ;;
   "-checkFirstLaunchStatus")
+    if [[ "${FAKE_XCODEBUILD_MODE:-success}" == "preflight-dvtplugin" ]]; then
+      printf 'DVTPlugInManager failed to load plug-in com.apple.dt.IDEDistribution\n' >&2
+      exit 69
+    fi
     exit 0
     ;;
 esac
@@ -1126,6 +1174,10 @@ case "${FAKE_XCODEBUILD_MODE:-success}" in
     ;;
   compile-failure)
     printf 'SwiftCompile failed while compiling SpoonjoyRootView.swift\n' >&2
+    exit 65
+    ;;
+  compile-failure-coresimulator-mention)
+    printf 'SwiftCompile failed while compiling CoreSimulatorAdapter.swift\n' >&2
     exit 65
     ;;
   success)
@@ -1258,6 +1310,11 @@ struct NativeAuthBehaviorContract {
         #expect(try await repository.restoreState() == .signedOut)
 
         let state = try #require(OAuthState(rawValue: "state_123"))
+        let randomVerifierA = OAuthPKCE.randomVerifier()
+        let randomVerifierB = OAuthPKCE.randomVerifier()
+        #expect(OAuthPKCE.isValidVerifier(randomVerifierA))
+        #expect(OAuthPKCE.isValidVerifier(randomVerifierB))
+        #expect(randomVerifierA != randomVerifierB)
         let start = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(start.clientID == "cm_native_spoonjoy")
         #expect(start.redirectURI == URL(string: "https://spoonjoy.app/oauth/callback")!)
@@ -1359,6 +1416,15 @@ struct NativeAuthBehaviorContract {
             try await throwsOAuthRedirectValidationError {
                 _ = try await repository.handleOAuthCallback(
                 URL(string: "https://spoonjoy.app/not-oauth?code=oac_code&state=state_123")!,
+                expectedState: expected,
+                codeVerifier: "pkce_verifier"
+                )
+            }
+        )
+        #expect(
+            try await throwsNativeAuthSessionError {
+                _ = try await repository.handleOAuthCallback(
+                URL(string: "http://localhost/oauth/callback?code=oac_code&state=state_123")!,
                 expectedState: expected,
                 codeVerifier: "pkce_verifier"
                 )

@@ -39,11 +39,58 @@ fi
 mkdir -p "$(dirname "$output_path")" "$(dirname "$blocker_path")"
 rm -f "$blocker_path"
 
-{
-  xcodebuild -version
-  xcode-select -p
-  xcodebuild -checkFirstLaunchStatus
-} > "$output_path" 2>&1
+classify_blocker() {
+  ruby -e '
+    output = File.read(ARGV.fetch(0))
+    allowed = [
+      /xcodebuild: error: iOS \d+(?:\.\d+)? is not installed/i,
+      /xcodebuild: error: Unable to find a destination matching/i,
+      /CoreSimulatorService connection became invalid/i,
+      /DVTPlugInManager failed to load plug-in/i,
+      /IDEDistribution.*private framework/i
+    ]
+    exit(allowed.any? { |pattern| output.match?(pattern) } ? 0 : 1)
+  ' "$output_path"
+}
+
+write_blocker() {
+  local command_string="$1"
+  ruby -rjson -e '
+    path, command, timeout_seconds, output_path = ARGV
+    blocker = {
+      capability: "XcodePlatform",
+      blocked: true,
+      command: command,
+      timeoutSeconds: Integer(timeout_seconds),
+      outputPath: output_path,
+      reason: "Local Xcode platform or pre-parse state blocked app bundle validation."
+    }
+    File.write(path, JSON.pretty_generate(blocker) + "\n")
+  ' "$blocker_path" "$command_string" "$timeout_seconds" "$output_path"
+}
+
+preflight_status=0
+: > "$output_path"
+set +e
+xcodebuild -version >> "$output_path" 2>&1
+preflight_status=$?
+if [[ "$preflight_status" -eq 0 ]]; then
+  xcode-select -p >> "$output_path" 2>&1
+  preflight_status=$?
+fi
+if [[ "$preflight_status" -eq 0 ]]; then
+  xcodebuild -checkFirstLaunchStatus >> "$output_path" 2>&1
+  preflight_status=$?
+fi
+set -e
+
+if [[ "$preflight_status" -ne 0 ]]; then
+  if classify_blocker; then
+    write_blocker "xcodebuild preflight"
+    exit 0
+  fi
+  exit "$preflight_status"
+fi
 
 command=("$@")
 command_status=0
@@ -56,29 +103,8 @@ if [[ "$command_status" -eq 0 ]]; then
   exit 0
 fi
 
-if ruby -e '
-  output = File.read(ARGV.fetch(0))
-  allowed = [
-    /iOS 26\.5 is not installed/,
-    /Unable to find a destination/,
-    /CoreSimulator/,
-    /DVTPlugIn/,
-    /IDEDistribution/
-  ]
-  exit(allowed.any? { |pattern| output.match?(pattern) } ? 0 : 1)
-' "$output_path"; then
-  ruby -rjson -e '
-    path, command, timeout_seconds, output_path = ARGV
-    blocker = {
-      capability: "XcodePlatform",
-      blocked: true,
-      command: command,
-      timeoutSeconds: Integer(timeout_seconds),
-      outputPath: output_path,
-      reason: "Local Xcode platform or pre-parse state blocked app bundle validation."
-    }
-    File.write(path, JSON.pretty_generate(blocker) + "\n")
-  ' "$blocker_path" "${command[*]}" "$timeout_seconds" "$output_path"
+if classify_blocker; then
+  write_blocker "${command[*]}"
   exit 0
 fi
 

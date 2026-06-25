@@ -10,6 +10,11 @@ public enum OAuthPKCE {
         charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
     )
 
+    public static func randomVerifier() -> String {
+        let bytes = (0..<32).map { _ in UInt8.random(in: UInt8.min...UInt8.max) }
+        return base64URLEncoded(Data(bytes))
+    }
+
     public static func isValidVerifier(_ verifier: String) -> Bool {
         guard (43...128).contains(verifier.count) else {
             return false
