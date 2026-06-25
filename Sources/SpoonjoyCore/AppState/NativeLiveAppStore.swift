@@ -138,6 +138,7 @@ public struct NativeShellContentState {
     }
 
     func copy(
+        cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         queuedMutations: [NativeQueuedMutation]? = nil,
         environment: NativeCacheEnvironment? = nil,
         configuration: APIClientConfiguration? = nil,
@@ -149,7 +150,7 @@ public struct NativeShellContentState {
             kitchen: kitchen,
             shoppingList: shoppingList,
             captureDraft: captureDraft,
-            cookProgressByRecipeID: cookProgressByRecipeID,
+            cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
             queuedMutations: queuedMutations ?? self.queuedMutations,
             authSessionState: authSessionState,
             environment: environment ?? self.environment,
@@ -343,6 +344,9 @@ public struct NativeShellContentState {
     ) -> [String: CookModeProgress] {
         cacheSnapshot.records.reduce(into: appSnapshot?.cookProgressByRecipeID ?? [:]) { result, record in
             guard case .cookProgress(let recipeID, let completedStepIDs, let currentStepID) = record.payload else {
+                return
+            }
+            guard result[recipeID] == nil else {
                 return
             }
             result[recipeID] = CookModeProgress(
@@ -694,6 +698,37 @@ public final class NativeLiveAppStore: ObservableObject {
                     .completingFirstRun(savedAt: savedAt)
                     .recordingOpenedRoute(route, savedAt: savedAt)
             )
+        } catch {
+            return
+        }
+    }
+
+    public func recordCookProgress(_ progress: CookModeProgress) {
+        guard let appStateStore = dependencies.appStateStoreProvider() else {
+            return
+        }
+
+        do {
+            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: currentContentState.shoppingList,
+                accountID: accountID,
+                environment: cacheEnvironment,
+                savedAt: savedAt
+            )
+            let record = try appStateStore.loadOrCreate(fallback: fallback)
+            let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+                ? record.value
+                : fallback
+            try appStateStore.save(
+                baseSnapshot
+                    .completingFirstRun(savedAt: savedAt)
+                    .updatingCookProgress(progress, savedAt: savedAt)
+            )
+
+            var nextProgress = currentContentState.cookProgressByRecipeID
+            nextProgress[progress.recipeID] = progress
+            apply(stateMatchingCurrentSeverity(with: currentContentState.copy(cookProgressByRecipeID: nextProgress)))
         } catch {
             return
         }

@@ -81,6 +81,10 @@ public struct NativeIntentActionResolver {
         )
     }
 
+    public func continueCookMode(recipeID: String) throws -> NativeIntentAction {
+        try startCookMode(recipeID: recipeID)
+    }
+
     public func addShoppingListItem(
         name: String,
         quantity: Double?,

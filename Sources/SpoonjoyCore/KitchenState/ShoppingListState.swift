@@ -4,6 +4,8 @@ public enum KitchenStateError: Error, Equatable, CustomStringConvertible {
     case itemNotFound(String)
     case emptyItemName
     case missingCookModeStep(String)
+    case missingCookModeIngredient(String)
+    case missingCookModeStepOutputUse(String)
 
     public var description: String {
         switch self {
@@ -13,6 +15,10 @@ public enum KitchenStateError: Error, Equatable, CustomStringConvertible {
             "Shopping list item name must be non-empty."
         case .missingCookModeStep(let id):
             "Cook mode step \(id) was not found."
+        case .missingCookModeIngredient(let id):
+            "Cook mode ingredient \(id) was not found."
+        case .missingCookModeStepOutputUse(let id):
+            "Cook mode step output use \(id) was not found."
         }
     }
 }

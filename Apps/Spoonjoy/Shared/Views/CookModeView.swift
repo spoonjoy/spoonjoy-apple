@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SpoonjoyCore
 import SwiftUI
@@ -34,7 +35,7 @@ struct CookModeRouteView: View {
         Group {
             if let recipe {
                 CookModeView(
-                    viewModel: CookModeViewModel(recipe: recipe, progress: progress(recipe)),
+                    viewModel: CookModeViewModel(recipe: recipe, progress: restoredProgress(for: recipe)),
                     progressDidChange: progressDidChange,
                     close: close
                 )
@@ -67,6 +68,14 @@ struct CookModeRouteView: View {
             }
         }
     }
+
+    private func restoredProgress(for recipe: Recipe) -> CookModeProgress {
+        let rawProgress = progress(recipe)
+        guard !recipe.steps.isEmpty else {
+            return rawProgress
+        }
+        return (try? CookModeProgress.restore(from: rawProgress.snapshot(), recipe: recipe)) ?? rawProgress
+    }
 }
 
 struct CookModeView: View {
@@ -87,26 +96,28 @@ struct CookModeView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
 
-            if let currentStep {
-                focusedStep(currentStep)
-                ingredients(for: currentStep)
+                    if let currentStep {
+                        focusedStep(currentStep)
+                        dependencyChecklist
+                        ingredientChecklist
+                    }
+                }
+                .padding()
             }
 
-            Spacer(minLength: 0)
-
-            KitchenSafeControls(
-                canAdvance: canAdvance,
-                markComplete: markCurrentStepComplete,
-                advance: advance,
-                close: close
-            )
+            bottomControls
         }
-        .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
+        .onAppear(perform: normalizeProgressForCurrentRecipe)
+        .onChange(of: recipe.cookModeIdentityKey) { _, _ in
+            normalizeProgressForCurrentRecipe()
+        }
     }
 
     private var viewModel: CookModeViewModel {
@@ -125,23 +136,23 @@ struct CookModeView: View {
         progress.currentStepID != recipe.steps.last?.id
     }
 
-    private var progressText: String {
-        viewModel.completionFraction.formatted(.percent.precision(.fractionLength(0)))
-    }
-
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(recipe.title)
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
 
-            ProgressView(value: viewModel.completionFraction, total: 1)
-                .tint(KitchenTableTheme.herb)
-                .accessibilityLabel("persisted progress \(progressText)")
+            HStack(spacing: 12) {
+                Label(viewModel.stepProgressLabel, systemImage: "list.number")
+                Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
+                Label(viewModel.recipeProgressLabel, systemImage: "fork.knife")
+            }
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.brass)
 
-            Text(progressText)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.brass)
+            ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
+                updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
+            }
         }
     }
 
@@ -150,31 +161,85 @@ struct CookModeView: View {
             Text("\(step.stepNum). \(step.stepTitle ?? "Step")")
                 .font(.title2)
                 .foregroundStyle(KitchenTableTheme.charcoal)
+                .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
             Text(step.description)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(.primary)
+            if let timer = viewModel.timer {
+                CookModeTimer(timer: timer)
+                    .id(timer.stepID)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Current cooking step \(step.stepNum)")
     }
 
-    private func ingredients(for step: RecipeStep) -> some View {
+    private var dependencyChecklist: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(step.ingredients, id: \.id) { ingredient in
-                HStack {
-                    Text(ingredient.name)
-                    Spacer()
-                    Text(quantityText(for: ingredient))
-                        .foregroundStyle(.secondary)
+            ForEach(viewModel.stepOutputChecklistRows, id: \.id) { row in
+                Toggle(isOn: stepOutputBinding(for: row)) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "arrow.triangle.branch")
+                            .foregroundStyle(KitchenTableTheme.brass)
+                            .accessibilityHidden(true)
+                        Text(row.title)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                    }
                 }
-                .padding(.vertical, 4)
+                .tint(KitchenTableTheme.herb)
             }
         }
         .padding(.horizontal, 4)
+    }
+
+    private var ingredientChecklist: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
+                Toggle(isOn: ingredientBinding(for: row)) {
+                    HStack(spacing: 12) {
+                        Text(row.title)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                        Spacer()
+                        Text(row.quantityText)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(KitchenTableTheme.herb)
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var bottomControls: some View {
+        VStack(spacing: 12) {
+            Button(action: previous) {
+                Label("Previous", systemImage: "arrow.backward.circle")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(!canGoBack)
+
+            KitchenSafeControls(
+                canAdvance: canAdvance,
+                markComplete: markCurrentStepComplete,
+                advance: advance,
+                close: close
+            )
+        }
+        .padding()
+        .background(.background.opacity(0.72))
+    }
+
+    private var canGoBack: Bool {
+        guard let currentStep,
+              let index = recipe.steps.firstIndex(where: { $0.id == currentStep.id }) else {
+            return false
+        }
+
+        return index > recipe.steps.startIndex
     }
 
     private func markCurrentStepComplete() {
@@ -188,7 +253,57 @@ struct CookModeView: View {
     }
 
     private func advance() {
-        updateProgress(progress.advancing())
+        updateProgress(viewModel.progressAfterSelectingNext(updatedAt: timestamp()))
+    }
+
+    private func previous() {
+        updateProgress(viewModel.progressAfterSelectingPrevious(updatedAt: timestamp()))
+    }
+
+    private func ingredientBinding(for row: CookModeChecklistRow) -> Binding<Bool> {
+        Binding(
+            get: { currentIngredientCheckedState(for: row) },
+            set: { checked in progressAfterTogglingIngredient(id: row.id, checked: checked) }
+        )
+    }
+
+    private func stepOutputBinding(for row: CookModeChecklistRow) -> Binding<Bool> {
+        Binding(
+            get: { currentStepOutputCheckedState(for: row) },
+            set: { checked in progressAfterTogglingStepOutputUse(id: row.id, checked: checked) }
+        )
+    }
+
+    private func currentIngredientCheckedState(for row: CookModeChecklistRow) -> Bool {
+        viewModel.ingredientChecklistRows.first { $0.id == row.id }?.isChecked ?? row.isChecked
+    }
+
+    private func currentStepOutputCheckedState(for row: CookModeChecklistRow) -> Bool {
+        viewModel.stepOutputChecklistRows.first { $0.id == row.id }?.isChecked ?? row.isChecked
+    }
+
+    private func progressAfterTogglingIngredient(id: String, checked: Bool) {
+        guard let nextProgress = try? viewModel.progressAfterTogglingIngredient(
+            id: id,
+            checked: checked,
+            updatedAt: timestamp()
+        ) else {
+            return
+        }
+
+        updateProgress(nextProgress)
+    }
+
+    private func progressAfterTogglingStepOutputUse(id: String, checked: Bool) {
+        guard let nextProgress = try? viewModel.progressAfterTogglingStepOutputUse(
+            id: id,
+            checked: checked,
+            updatedAt: timestamp()
+        ) else {
+            return
+        }
+
+        updateProgress(nextProgress)
     }
 
     private func updateProgress(_ nextProgress: CookModeProgress) {
@@ -196,12 +311,120 @@ struct CookModeView: View {
         progressDidChange(nextProgress)
     }
 
-    private func quantityText(for ingredient: RecipeIngredient) -> String {
-        let quantity = ingredient.quantity.formatted(.number.precision(.fractionLength(0...2)))
-        return [quantity, ingredient.unit].compactMap { $0 }.joined(separator: " ")
+    private func normalizeProgressForCurrentRecipe() {
+        guard !recipe.steps.isEmpty,
+              let normalizedProgress = try? CookModeProgress.restore(from: progress.snapshot(), recipe: recipe),
+              normalizedProgress != progress else {
+            return
+        }
+
+        updateProgress(normalizedProgress)
     }
 
     private func timestamp() -> String {
         ISO8601DateFormatter().string(from: Date())
+    }
+}
+
+private struct ScaleSelector: View {
+    let scaleFactor: Double
+    let setScaleFactor: (Double) -> Void
+
+    var body: some View {
+        Stepper(value: scaleBinding, in: 0.25...50, step: 0.25) {
+            Label("Scale \(scaleFactor.formatted(.number.precision(.fractionLength(0...2))))×", systemImage: "person.2")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+        }
+        .tint(KitchenTableTheme.herb)
+    }
+
+    private var scaleBinding: Binding<Double> {
+        Binding(
+            get: { scaleFactor },
+            set: { scaleFactor in
+                setScaleFactor(scaleFactor)
+            }
+        )
+    }
+}
+
+private extension Recipe {
+    var cookModeIdentityKey: String {
+        (
+            [id] +
+            steps.map(\.id) +
+            steps.flatMap { $0.ingredients.map(\.id) } +
+            steps.flatMap { $0.usingSteps.map(\.id) }
+        ).joined(separator: "|")
+    }
+}
+
+private struct CookModeTimer: View {
+    let timer: CookModeTimerViewModel
+
+    @State private var remainingSeconds: Int
+    @State private var isRunning: Bool
+    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    init(timer: CookModeTimerViewModel) {
+        self.timer = timer
+        _remainingSeconds = State(initialValue: timer.remainingSeconds)
+        _isRunning = State(initialValue: timer.isRunning)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(formattedRemainingTime, systemImage: "timer")
+                .font(.headline)
+                .monospacedDigit()
+                .foregroundStyle(KitchenTableTheme.charcoal)
+
+            Spacer()
+
+            Button(primaryButtonTitle) {
+                if isRunning {
+                    isRunning = false
+                } else {
+                    if remainingSeconds == 0 {
+                        remainingSeconds = timer.durationSeconds
+                    }
+                    isRunning = true
+                }
+            }
+            .buttonStyle(.bordered)
+
+            Button(timer.resetButtonTitle) {
+                remainingSeconds = timer.durationSeconds
+                isRunning = false
+            }
+            .buttonStyle(.bordered)
+        }
+        .onReceive(ticker) { _ in
+            guard isRunning else {
+                return
+            }
+            remainingSeconds = max(remainingSeconds - 1, 0)
+            if remainingSeconds == 0 {
+                isRunning = false
+            }
+        }
+        .onChange(of: timer.stepID) { _, _ in
+            remainingSeconds = timer.remainingSeconds
+            isRunning = timer.isRunning
+        }
+    }
+
+    private var formattedRemainingTime: String {
+        let minutes = remainingSeconds / 60
+        let seconds = remainingSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private var primaryButtonTitle: String {
+        if isRunning {
+            return timer.pauseButtonTitle
+        }
+        return remainingSeconds == 0 ? timer.restartButtonTitle : timer.startButtonTitle
     }
 }

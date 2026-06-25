@@ -629,6 +629,27 @@ struct NativeLiveStoreTests {
             #expect(resavedRoute.hasCompletedFirstRun)
             #expect(resavedRoute.lastOpenedRoute == "settings")
 
+            let richCookProgress = CookModeProgress(
+                recipeID: "recipe_cached",
+                stepIDs: ["step_1", "step_2"],
+                startedAt: Self.isoString(Self.now)
+            )
+            .settingScaleFactor(2, updatedAt: Self.isoString(Self.now))
+            liveStore.recordCookProgress(richCookProgress)
+            let savedCookProgress = try appStateStore.loadOrCreate(
+                fallback: NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "signed-out",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+            ).value
+            #expect(savedCookProgress.hasCompletedFirstRun)
+            #expect(savedCookProgress.lastOpenedRoute == "settings")
+            #expect(savedCookProgress.cookProgress(for: "recipe_cached") == richCookProgress)
+            #expect(liveStore.bootstrapState.contentState.cookProgress(for: "recipe_cached") == richCookProgress)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+
             liveStore.dismissOfflineIndicator()
             guard case .signedOut(let dismissedContent) = liveStore.bootstrapState else {
                 Issue.record("Expected signed-out state after dismiss; got \(liveStore.bootstrapState)")

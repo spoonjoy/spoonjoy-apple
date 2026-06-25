@@ -1,0 +1,38 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[2/6] Write swift-version--58304C5D6DBC2206.txt
+[4/8] Emitting module SpoonjoyCore
+[5/8] Compiling SpoonjoyCore ScreenViewModels.swift
+[5/10] Write Objects.LinkFileList
+[6/12] Linking SpoonjoyScenarioVerifier
+[7/12] Applying SpoonjoyScenarioVerifier
+[9/12] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[10/12] Emitting module SpoonjoyCoreTests
+[10/12] Write Objects.LinkFileList
+[11/12] Linking SpoonjoyApplePackageTests
+Build complete! (3.55s)
+Test Suite 'Selected tests' started at 2026-06-25 12:16:24.932.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-06-25 12:16:24.933.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-06-25 12:16:24.933.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-06-25 12:16:24.933.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native cook mode parity" started.
+◇ Test "scale ingredient checkoff and step output checkoff match web cook mode" started.
+◇ Test "duration timers exist only for duration bearing steps" started.
+◇ Test "legacy cook progress rehydrates against a full recipe after placeholder restore" started.
+◇ Test "start and continue cook mode preserve active step route state" started.
+◇ Test "offline app snapshot restores exact cook mode progress" started.
+◇ Test "Siri and deep links open or continue cook mode in the correct place" started.
+✔ Test "Siri and deep links open or continue cook mode in the correct place" passed after 0.001 seconds.
+✔ Test "start and continue cook mode preserve active step route state" passed after 0.004 seconds.
+✔ Test "duration timers exist only for duration bearing steps" passed after 0.004 seconds.
+✔ Test "legacy cook progress rehydrates against a full recipe after placeholder restore" passed after 0.004 seconds.
+✔ Test "scale ingredient checkoff and step output checkoff match web cook mode" passed after 0.004 seconds.
+✔ Test "offline app snapshot restores exact cook mode progress" passed after 0.005 seconds.
+✔ Suite "Native cook mode parity" passed after 0.005 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.006 seconds.

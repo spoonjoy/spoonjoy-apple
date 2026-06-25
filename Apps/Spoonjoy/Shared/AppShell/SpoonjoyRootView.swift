@@ -115,6 +115,7 @@ struct SpoonjoyRootView: View {
                     await liveStore.queueMutation(mutation)
                 }
             },
+            recordCookProgress: liveStore.recordCookProgress,
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator
         )
     }

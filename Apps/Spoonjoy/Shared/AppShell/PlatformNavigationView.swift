@@ -9,6 +9,7 @@ struct PlatformNavigationView: View {
     private let offlineIndicatorState: OfflineIndicatorState
     private let dismissOfflineIndicator: () -> Void
     private let queueMutation: (NativeQueuedMutation) -> Void
+    private let recordCookProgress: (CookModeProgress) -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
@@ -18,6 +19,7 @@ struct PlatformNavigationView: View {
         offlineIndicatorState: OfflineIndicatorState,
         dismissOfflineIndicator: @escaping () -> Void,
         queueMutation: @escaping (NativeQueuedMutation) -> Void,
+        recordCookProgress: @escaping (CookModeProgress) -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
@@ -26,6 +28,7 @@ struct PlatformNavigationView: View {
         self.offlineIndicatorState = offlineIndicatorState
         self.dismissOfflineIndicator = dismissOfflineIndicator
         self.queueMutation = queueMutation
+        self.recordCookProgress = recordCookProgress
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
 
@@ -116,7 +119,7 @@ struct PlatformNavigationView: View {
                 repository: recipeCatalogRepository,
                 initialRecipe: recipe(id: id),
                 progress: cookProgress(for:),
-                progressDidChange: { _ in },
+                progressDidChange: recordCookProgress,
                 close: {
                     openRecipe(id)
                 }
@@ -273,11 +276,7 @@ struct PlatformNavigationView: View {
     }
 
     private func cookProgress(for recipe: Recipe) -> CookModeProgress {
-        contentState.cookProgress(for: recipe.id) ?? CookModeProgress(
-            recipeID: recipe.id,
-            stepIDs: recipe.steps.map(\.id),
-            startedAt: timestamp()
-        )
+        contentState.cookProgress(for: recipe.id) ?? CookModeProgress.starting(recipe: recipe, startedAt: timestamp())
     }
 
     private func openRecipe(_ id: String) {

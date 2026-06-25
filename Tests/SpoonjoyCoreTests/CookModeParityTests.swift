@@ -93,6 +93,7 @@ struct CookModeParityTests {
         #expect(timer.startButtonTitle == "Start timer")
         #expect(timer.pauseButtonTitle == "Pause timer")
         #expect(timer.resetButtonTitle == "Reset timer")
+        #expect(timer.restartButtonTitle == "Restart timer")
 
         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
@@ -165,6 +166,37 @@ struct CookModeParityTests {
             )
             #expect(wrongShapeScaleRestored.scaleFactor == 1)
         }
+    }
+
+    @Test("legacy cook progress rehydrates against a full recipe after placeholder restore")
+    func legacyCookProgressRehydratesAgainstFullRecipeAfterPlaceholderRestore() throws {
+        let recipe = try cookModeParityRecipe()
+        let legacyProgress = CookModeProgress(
+            recipeID: recipe.id,
+            completedStepIDs: ["step_lemon_pasta_1"],
+            currentStepID: "step_lemon_pasta_2"
+        )
+
+        let rehydrated = try CookModeProgress.restore(from: legacyProgress.snapshot(), recipe: recipe)
+        let toggled = try rehydrated
+            .togglingIngredient(
+                id: "ingredient_lemon_pasta_garlic",
+                checked: true,
+                updatedAt: "2026-06-25T12:10:00.000Z"
+            )
+            .togglingStepOutputUse(
+                id: "use_step_lemon_pasta_1",
+                checked: true,
+                updatedAt: "2026-06-25T12:11:00.000Z"
+            )
+
+        #expect(rehydrated.currentStepID == "step_lemon_pasta_2")
+        #expect(rehydrated.completedStepIDs == ["step_lemon_pasta_1"])
+        #expect(rehydrated.ingredientIDs.contains("ingredient_lemon_pasta_garlic"))
+        #expect(rehydrated.stepOutputUseIDs == ["use_step_lemon_pasta_1"])
+        #expect(toggled.checkedIngredientIDs == ["ingredient_lemon_pasta_garlic"])
+        #expect(toggled.checkedStepOutputUseIDs == ["use_step_lemon_pasta_1"])
+        #expect(CookModeViewModel(recipe: recipe, progress: toggled).currentPageProgressLabel == "2 of 4 checked")
     }
 
     @Test("Siri and deep links open or continue cook mode in the correct place")
