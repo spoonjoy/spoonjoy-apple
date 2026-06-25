@@ -1,1 +1,1 @@
-FAIL: Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift missing required cook mode parity tokens: scaleFactor, checkedIngredientIDs, checkedStepOutputUseIDs, starting(recipe:, selectingStep, settingScaleFactor, togglingIngredient, togglingStepOutputUse
+FAIL: Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift missing required cook mode parity tokens: scaleFactor, checkedIngredientIDs, checkedStepOutputUseIDs, starting(recipe:, selectingStep, settingScaleFactor, togglingIngredient, togglingStepOutputUse, recipe: Recipe

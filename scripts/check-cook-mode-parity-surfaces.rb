@@ -14,7 +14,8 @@ REQUIRED_TOKENS = {
     "selectingStep",
     "settingScaleFactor",
     "togglingIngredient",
-    "togglingStepOutputUse"
+    "togglingStepOutputUse",
+    "recipe: Recipe"
   ],
   "Sources/SpoonjoyCore/AppState/ScreenViewModels.swift" => [
     "CookModeChecklistRow",

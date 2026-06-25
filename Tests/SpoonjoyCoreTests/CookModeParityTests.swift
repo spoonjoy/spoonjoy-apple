@@ -54,6 +54,23 @@ struct CookModeParityTests {
         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
         #expect(viewModel.stepOutputChecklistRows.first?.isChecked == true)
 
+        let unchecked = try progress
+            .togglingIngredient(id: "ingredient_lemon_pasta_garlic", checked: false, updatedAt: "2026-06-25T12:05:00.000Z")
+            .togglingStepOutputUse(id: "use_step_lemon_pasta_1", checked: false, updatedAt: "2026-06-25T12:06:00.000Z")
+        let uncheckedViewModel = CookModeViewModel(recipe: recipe, progress: unchecked)
+
+        #expect(unchecked.checkedIngredientIDs.isEmpty)
+        #expect(unchecked.checkedStepOutputUseIDs.isEmpty)
+        #expect(uncheckedViewModel.recipeProgressLabel == "0 of 7 checked")
+        #expect(uncheckedViewModel.currentPageProgressLabel == "0 of 4 checked")
+        #expect(uncheckedViewModel.ingredientChecklistRows.map(\.id) == [
+            "ingredient_lemon_pasta_garlic",
+            "ingredient_lemon_pasta_lemon",
+            "ingredient_lemon_pasta_oil"
+        ])
+        #expect(uncheckedViewModel.stepOutputChecklistRows.first?.isChecked == false)
+        #expect(try CookModeProgress.restore(from: unchecked.snapshot(), recipe: recipe) == unchecked)
+
         #expect(try cookModeErrorDescription {
             _ = try progress.togglingIngredient(id: "ingredient_not_in_recipe", checked: true, updatedAt: "2026-06-25T12:05:00.000Z")
         } == "Cook mode ingredient ingredient_not_in_recipe was not found.")
@@ -118,6 +135,35 @@ struct CookModeParityTests {
             #expect(restoredProgress == progress)
             #expect(restored.lastOpenedRoute == "recipe-cook:recipe_lemon_pantry_pasta")
             #expect(try CookModeProgress.restore(from: progress.snapshot()) == progress)
+            #expect(try CookModeProgress.restore(from: progress.snapshot(), recipe: recipe) == progress)
+
+            let staleRestored = try CookModeProgress.restore(
+                from: staleCookModeProgressSnapshot(scaleFactor: 51.236, activeStepIndex: 99),
+                recipe: recipe
+            )
+            #expect(staleRestored.currentStepID == "step_lemon_pasta_3")
+            #expect(staleRestored.scaleFactor == 50)
+            #expect(staleRestored.checkedIngredientIDs == ["ingredient_lemon_pasta_lemon"])
+            #expect(staleRestored.checkedStepOutputUseIDs == ["use_step_lemon_pasta_1"])
+
+            let lowScaleRestored = try CookModeProgress.restore(
+                from: staleCookModeProgressSnapshot(scaleFactor: 0.01, activeStepIndex: -4),
+                recipe: recipe
+            )
+            #expect(lowScaleRestored.currentStepID == "step_lemon_pasta_1")
+            #expect(lowScaleRestored.scaleFactor == 0.25)
+
+            let roundedScaleRestored = try CookModeProgress.restore(
+                from: staleCookModeProgressSnapshot(scaleFactor: 1.236, activeStepIndex: 1),
+                recipe: recipe
+            )
+            #expect(roundedScaleRestored.scaleFactor == 1.24)
+
+            let wrongShapeScaleRestored = try CookModeProgress.restore(
+                from: wrongShapeScaleCookModeProgressSnapshot(),
+                recipe: recipe
+            )
+            #expect(wrongShapeScaleRestored.scaleFactor == 1)
         }
     }
 
@@ -186,6 +232,42 @@ struct CookModeParityTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         try body(directory)
+    }
+
+    private func staleCookModeProgressSnapshot(scaleFactor: Double, activeStepIndex: Int) -> Data {
+        Data(
+            """
+            {
+              "recipeID": "recipe_lemon_pantry_pasta",
+              "stepIDs": ["step_lemon_pasta_1", "step_lemon_pasta_2", "step_lemon_pasta_3"],
+              "activeStepIndex": \(activeStepIndex),
+              "completedStepIDs": ["step_lemon_pasta_1", "stale_step"],
+              "scaleFactor": \(scaleFactor),
+              "checkedIngredientIDs": ["ingredient_lemon_pasta_lemon", "ingredient_stale"],
+              "checkedStepOutputUseIDs": ["use_step_lemon_pasta_1", "use_stale"],
+              "startedAt": "2026-06-25T12:00:00.000Z",
+              "updatedAt": "2026-06-25T12:05:00.000Z"
+            }
+            """.utf8
+        )
+    }
+
+    private func wrongShapeScaleCookModeProgressSnapshot() -> Data {
+        Data(
+            """
+            {
+              "recipeID": "recipe_lemon_pantry_pasta",
+              "stepIDs": ["step_lemon_pasta_1", "step_lemon_pasta_2", "step_lemon_pasta_3"],
+              "activeStepIndex": 1,
+              "completedStepIDs": [],
+              "scaleFactor": "not-a-number",
+              "checkedIngredientIDs": [],
+              "checkedStepOutputUseIDs": [],
+              "startedAt": "2026-06-25T12:00:00.000Z",
+              "updatedAt": "2026-06-25T12:05:00.000Z"
+            }
+            """.utf8
+        )
     }
 }
 
