@@ -45,6 +45,53 @@ struct NativeAuthSessionTests {
         #expect(!associatedDomains.contains("applinks:oauth/callback"))
     }
 
+    @Test("auth files are wired into generated app targets and signed out flow")
+    func authFilesAreWiredIntoGeneratedAppTargetsAndSignedOutFlow() throws {
+        try withTemporaryDirectory { directory in
+            let generator = repoRoot().appendingPathComponent("scripts/bundle-exec.sh")
+            let result = try runProcess(
+                executable: generator.path,
+                arguments: [
+                    "ruby",
+                    "scripts/generate-xcode-project.rb",
+                    "--output-dir",
+                    directory.path
+                ]
+            )
+            #expect(result.status == 0, Comment(rawValue: result.output))
+
+            let project = try String(
+                contentsOf: directory
+                    .appendingPathComponent("Spoonjoy.xcodeproj", isDirectory: true)
+                    .appendingPathComponent("project.pbxproj"),
+                encoding: .utf8
+            )
+            for appAuthSource in ["SpoonjoyWebAuthenticationSession.swift", "KeychainTokenVault.swift"] {
+                let sourceEntries = project.components(separatedBy: "\(appAuthSource) in Sources").count - 1
+                #expect(sourceEntries == 2, "\(appAuthSource) must be in both iOS and macOS Sources phases")
+            }
+        }
+
+        let signedOutSetup = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift")
+        expectContent(
+            signedOutSetup,
+            in: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
+            contains: [
+                "SpoonjoyWebAuthenticationSession",
+                "NativeAuthSessionRepository",
+                "KeychainTokenVault",
+                "startSignIn",
+                "handleOAuthCallback",
+                "restoreState",
+                "https://spoonjoy.app/oauth/callback"
+            ],
+            forbids: [
+                "spoonjoy://oauth/callback",
+                "spoonjoy://oauth"
+            ]
+        )
+    }
+
     @Test("native auth session source defines launch callback and restoration contract")
     func nativeAuthSessionSourceDefinesLaunchCallbackAndRestorationContract() throws {
         let content = try readRepoFile("Sources/SpoonjoyCore/Auth/NativeAuthSession.swift")
@@ -100,6 +147,16 @@ struct NativeAuthSessionTests {
                 "spoonjoy://oauth"
             ]
         )
+    }
+
+    @Test("web authentication adapter is executable with injected session factory")
+    func webAuthenticationAdapterIsExecutableWithInjectedSessionFactory() throws {
+        let result = try runAppAuthAdapterContractPackage(
+            name: "SpoonjoyWebAuthenticationSessionProbe",
+            testSource: webAuthenticationSessionAdapterContractSource
+        )
+
+        #expect(result.status == 0, Comment(rawValue: result.truncatedOutput))
     }
 
     @Test("Keychain token vault stores auth material outside general cache")
@@ -267,6 +324,25 @@ struct NativeAuthSessionTests {
         }
     }
 
+    @Test("local validation matrix executes xcodebuild wrapper for app bundle rows")
+    func localValidationMatrixExecutesXcodebuildWrapperForAppBundleRows() throws {
+        let success = try runValidationMatrixHarness(wrapperMode: "success")
+        #expect(success.result.status == 0, Comment(rawValue: success.result.output))
+        #expect(success.wrapperCalls.filter { $0.contains("matrix-xcodebuild-ios.log") }.count == 1)
+        #expect(success.wrapperCalls.filter { $0.contains("matrix-xcodebuild-macos.log") }.count == 1)
+        #expect(success.directXcodebuildCalls.isEmpty, Comment(rawValue: success.directXcodebuildCalls.joined(separator: "\n")))
+
+        let blocker = try runValidationMatrixHarness(wrapperMode: "xcode-platform-blocker")
+        #expect(blocker.result.status == 0, Comment(rawValue: blocker.result.output))
+        #expect(blocker.matrix.contains("\"capability\": \"XcodePlatform\""))
+        #expect(blocker.matrix.contains("\"status\": \"blocked\""))
+
+        let compileFailure = try runValidationMatrixHarness(wrapperMode: "compile-failure")
+        #expect(compileFailure.result.status != 0, Comment(rawValue: compileFailure.result.output))
+        #expect(compileFailure.matrix.contains("\"status\": \"fail\""))
+        #expect(!compileFailure.matrix.contains("\"capability\": \"XcodePlatform\""))
+    }
+
     @Test("local validation matrix delegates xcodebuild classification to wrapper")
     func localValidationMatrixDelegatesXcodebuildClassificationToWrapper() throws {
         let content = try readRepoFile("scripts/validate-native-local.sh")
@@ -324,6 +400,13 @@ private struct WrapperProbeResult: Equatable {
     let blocker: [String: AnyHashable]?
 }
 
+private struct ValidationMatrixHarnessResult: Equatable {
+    let result: ProcessResult
+    let wrapperCalls: [String]
+    let directXcodebuildCalls: [String]
+    let matrix: String
+}
+
 private func readRepoFile(_ relativePath: String) throws -> String {
     let url = repoRoot().appendingPathComponent(relativePath)
     guard FileManager.default.fileExists(atPath: url.path) else {
@@ -356,6 +439,48 @@ private func runSwiftContractPackage(name: String, testSource: String) throws ->
         try FileManager.default.createDirectory(at: testsDirectory, withIntermediateDirectories: true)
         try packageManifest(name: name).write(
             to: directory.appendingPathComponent("Package.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try testSource.write(
+            to: testsDirectory.appendingPathComponent("\(name)Tests.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+    return try runProcess(
+        executable: "/usr/bin/env",
+        arguments: [
+            "swift",
+            "test",
+                "--package-path",
+                directory.path,
+                "--disable-xctest",
+                "--parallel",
+                "-Xswiftc",
+                "-warnings-as-errors"
+            ]
+        )
+    }
+}
+
+private func runAppAuthAdapterContractPackage(name: String, testSource: String) throws -> ProcessResult {
+    try withTemporaryDirectory { directory in
+        let sourceDirectory = directory
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("SpoonjoyAppAuth", isDirectory: true)
+        let testsDirectory = directory
+            .appendingPathComponent("Tests", isDirectory: true)
+            .appendingPathComponent("\(name)Tests", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: testsDirectory, withIntermediateDirectories: true)
+        try appAuthAdapterPackageManifest(name: name).write(
+            to: directory.appendingPathComponent("Package.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try readRepoFile("Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift").write(
+            to: sourceDirectory.appendingPathComponent("SpoonjoyWebAuthenticationSession.swift"),
             atomically: true,
             encoding: .utf8
         )
@@ -407,6 +532,39 @@ private func packageManifest(name: String) -> String {
     """
 }
 
+private func appAuthAdapterPackageManifest(name: String) -> String {
+    """
+    // swift-tools-version: 6.2
+    import PackageDescription
+
+    let package = Package(
+        name: "\(name)",
+        platforms: [
+            .iOS(.v26),
+            .macOS(.v26)
+        ],
+        dependencies: [
+            .package(path: "\(repoRoot().path)")
+        ],
+        targets: [
+            .target(
+                name: "SpoonjoyAppAuth",
+                dependencies: [
+                    .product(name: "SpoonjoyCore", package: "spoonjoy-apple")
+                ]
+            ),
+            .testTarget(
+                name: "\(name)Tests",
+                dependencies: [
+                    "SpoonjoyAppAuth",
+                    .product(name: "SpoonjoyCore", package: "spoonjoy-apple")
+                ]
+            )
+        ]
+    )
+    """
+}
+
 private func runWrapperProbe(
     script: URL,
     artifactDirectory: URL,
@@ -448,6 +606,112 @@ private func runWrapperProbe(
     }
 
     return WrapperProbeResult(status: result.status, output: result.output, blocker: blocker)
+}
+
+private func runValidationMatrixHarness(wrapperMode: String) throws -> ValidationMatrixHarnessResult {
+    try withTemporaryDirectory { directory in
+        try writeValidationMatrixHarness(at: directory)
+        let artifacts = directory.appendingPathComponent("artifacts", isDirectory: true)
+        let wrapperCallsURL = directory.appendingPathComponent("wrapper-calls.log")
+        let directXcodebuildCallsURL = directory.appendingPathComponent("direct-xcodebuild-calls.log")
+        var environment = ProcessInfo.processInfo.environment
+        environment["PATH"] = "\(directory.appendingPathComponent("bin", isDirectory: true).path):\(environment["PATH"] ?? "")"
+        environment["FAKE_WRAPPER_MODE"] = wrapperMode
+        environment["WRAPPER_CALLS"] = wrapperCallsURL.path
+        environment["DIRECT_XCODEBUILD_CALLS"] = directXcodebuildCallsURL.path
+
+        let result = try runProcess(
+            executable: directory.appendingPathComponent("scripts/validate-native-local.sh").path,
+            arguments: ["--artifact-root", artifacts.path],
+            environment: environment
+        )
+        let wrapperCalls = readLinesIfPresent(wrapperCallsURL)
+        let directXcodebuildCalls = readLinesIfPresent(directXcodebuildCallsURL)
+        let matrixURL = artifacts.appendingPathComponent("validation-matrix.json")
+        let matrix = (try? String(contentsOf: matrixURL, encoding: .utf8)) ?? ""
+
+        return ValidationMatrixHarnessResult(
+            result: result,
+            wrapperCalls: wrapperCalls,
+            directXcodebuildCalls: directXcodebuildCalls,
+            matrix: matrix
+        )
+    }
+}
+
+private func writeValidationMatrixHarness(at directory: URL) throws {
+    let scripts = directory.appendingPathComponent("scripts", isDirectory: true)
+    let bin = directory.appendingPathComponent("bin", isDirectory: true)
+    let docs = directory
+        .appendingPathComponent("docs", isDirectory: true)
+        .appendingPathComponent("source", isDirectory: true)
+    try FileManager.default.createDirectory(at: scripts, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
+    try "source design language\n".write(to: docs.appendingPathComponent("spoonjoy-v2-design-language.md"), atomically: true, encoding: .utf8)
+    try "source \"https://rubygems.org\"\n".write(to: directory.appendingPathComponent("Gemfile"), atomically: true, encoding: .utf8)
+    try "BUNDLED WITH\n   2.4.22\n".write(to: directory.appendingPathComponent("Gemfile.lock"), atomically: true, encoding: .utf8)
+
+    let validate = scripts.appendingPathComponent("validate-native-local.sh")
+    try readRepoFile("scripts/validate-native-local.sh").write(to: validate, atomically: true, encoding: .utf8)
+    try makeExecutable(validate)
+
+    let shellStubs = [
+        "bundle-check.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+        "bundle-exec.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexec \"$@\"\n",
+        "verify-native-scenarios.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+        "smoke-macos.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+        "smoke-ios-simulator.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+        "capture-native-screenshots.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n"
+    ]
+    for (name, source) in shellStubs {
+        let url = scripts.appendingPathComponent(name)
+        try source.write(to: url, atomically: true, encoding: .utf8)
+        try makeExecutable(url)
+    }
+
+    let rubyStubs = [
+        "fail-on-warning.rb",
+        "enforce-swift-coverage.rb",
+        "check-xcode-project-contract.rb",
+        "check-xcode-generator-contract.rb",
+        "check-native-design-language.rb",
+        "check-kitchen-recipe-surfaces.rb",
+        "check-cook-shopping-surfaces.rb",
+        "check-search-capture-settings-surfaces.rb",
+        "check-launch-screenshot-contract.rb",
+        "validate-design-review.rb",
+        "validate-aasa.rb"
+    ]
+    for name in rubyStubs {
+        let url = scripts.appendingPathComponent(name)
+        try "#!/usr/bin/env ruby\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
+        try makeExecutable(url)
+    }
+
+    let wrapper = scripts.appendingPathComponent("run-xcodebuild-with-blocker.sh")
+    try validationHarnessWrapperSource.write(to: wrapper, atomically: true, encoding: .utf8)
+    try makeExecutable(wrapper)
+
+    let fakeSwift = bin.appendingPathComponent("swift")
+    try validationHarnessSwiftSource.write(to: fakeSwift, atomically: true, encoding: .utf8)
+    try makeExecutable(fakeSwift)
+
+    let fakeXcodebuild = bin.appendingPathComponent("xcodebuild")
+    try validationHarnessXcodebuildSource.write(to: fakeXcodebuild, atomically: true, encoding: .utf8)
+    try makeExecutable(fakeXcodebuild)
+}
+
+private func readLinesIfPresent(_ url: URL) -> [String] {
+    guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+        return []
+    }
+
+    return content.split(separator: "\n").map(String.init)
+}
+
+private func makeExecutable(_ url: URL) throws {
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
 }
 
 private func runProcess(
@@ -512,6 +776,109 @@ private func expectContent(
     }
 }
 
+private let validationHarnessWrapperSource = #"""
+#!/usr/bin/env bash
+set -euo pipefail
+
+output_path=""
+blocker_path=""
+timeout_seconds=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output)
+      output_path="$2"
+      shift 2
+      ;;
+    --blocker)
+      blocker_path="$2"
+      shift 2
+      ;;
+    --timeout-seconds)
+      timeout_seconds="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      printf 'unknown wrapper argument %s\n' "$1" >&2
+      exit 64
+      ;;
+  esac
+done
+
+mkdir -p "$(dirname "$output_path")" "$(dirname "$blocker_path")"
+printf '%s|output=%s|blocker=%s|timeout=%s|command=%s\n' \
+  "${FAKE_WRAPPER_MODE:-success}" "$output_path" "$blocker_path" "$timeout_seconds" "$*" >> "${WRAPPER_CALLS:?}"
+rm -f "$blocker_path"
+
+case "${FAKE_WRAPPER_MODE:-success}" in
+  success)
+    printf 'Build Succeeded\n' > "$output_path"
+    exit 0
+    ;;
+  xcode-platform-blocker)
+    printf 'xcodebuild: error: iOS 26.5 is not installed\n' > "$output_path"
+    cat > "$blocker_path" <<JSON
+{
+  "capability": "XcodePlatform",
+  "blocked": true,
+  "command": "$*",
+  "timeoutSeconds": $timeout_seconds,
+  "outputPath": "$output_path",
+  "reason": "fake local platform blocker"
+}
+JSON
+    exit 0
+    ;;
+  compile-failure)
+    printf 'SwiftCompile failed while compiling SpoonjoyRootView.swift\n' > "$output_path"
+    exit 65
+    ;;
+  *)
+    printf 'unknown fake wrapper mode %s\n' "${FAKE_WRAPPER_MODE:-}" >&2
+    exit 64
+    ;;
+esac
+"""#
+
+private let validationHarnessSwiftSource = #"""
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$*" == *"--show-codecov-path"* ]]; then
+  printf '%s\n' "$PWD/fake-coverage.json"
+  exit 0
+fi
+
+if [[ "${1:-}" == "test" ]]; then
+  exit 0
+fi
+
+printf 'unexpected swift invocation: %s\n' "$*" >&2
+exit 64
+"""#
+
+private let validationHarnessXcodebuildSource = #"""
+#!/usr/bin/env bash
+set -euo pipefail
+
+case "${*:-}" in
+  "-version")
+    printf 'Xcode 26.5\nBuild version 17F76\n'
+    exit 0
+    ;;
+  "-checkFirstLaunchStatus")
+    exit 0
+    ;;
+esac
+
+printf '%s\n' "$*" >> "${DIRECT_XCODEBUILD_CALLS:?}"
+printf 'direct xcodebuild invocation should be delegated through wrapper: %s\n' "$*" >&2
+exit 64
+"""#
+
 private let fakeXcodebuildSource = #"""
 #!/usr/bin/env bash
 set -euo pipefail
@@ -544,6 +911,93 @@ case "${FAKE_XCODEBUILD_MODE:-success}" in
     exit 64
     ;;
 esac
+"""#
+
+private let webAuthenticationSessionAdapterContractSource = #"""
+import Foundation
+import Testing
+@testable import SpoonjoyCore
+@testable import SpoonjoyAppAuth
+
+@MainActor
+@Suite("Web authentication session adapter contract")
+struct WebAuthenticationSessionAdapterContract {
+    @Test("adapter configures exact HTTPS callback forwards callback and cancels")
+    func adapterConfiguresExactHTTPSCallbackForwardsCallbackAndCancels() throws {
+        let factory = FakeSessionFactory()
+        var forwardedCallbacks: [URL] = []
+        let adapter = SpoonjoyWebAuthenticationSession(
+            sessionFactory: factory.makeSession,
+            callbackHandler: { callbackURL in
+                forwardedCallbacks.append(callbackURL)
+            }
+        )
+        let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
+        let state = try #require(OAuthState(rawValue: "state_123"))
+
+        #expect(try adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        #expect(factory.requests == [
+            FakeSessionRequest(
+                authorizationURL: authorizationURL,
+                callback: .https(host: "spoonjoy.app", path: "/oauth/callback")
+            )
+        ])
+        let session = try #require(factory.sessions.first)
+        #expect(session.prefersEphemeralWebBrowserSession)
+        #expect(session.startCount == 1)
+
+        let callbackURL = URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!
+        factory.complete(with: callbackURL)
+        #expect(forwardedCallbacks == [callbackURL])
+
+        adapter.cancel()
+        #expect(session.cancelCount == 1)
+    }
+}
+
+private struct FakeSessionRequest: Equatable {
+    let authorizationURL: URL
+    let callback: SpoonjoyWebAuthenticationCallback
+}
+
+@MainActor
+private final class FakeSessionFactory {
+    private(set) var requests: [FakeSessionRequest] = []
+    private(set) var sessions: [FakeWebAuthenticationSession] = []
+    private var completionHandler: (@MainActor (URL?, Error?) -> Void)?
+
+    func makeSession(
+        authorizationURL: URL,
+        callback: SpoonjoyWebAuthenticationCallback,
+        completionHandler: @escaping @MainActor (URL?, Error?) -> Void
+    ) -> any SpoonjoyWebAuthenticationSessionProtocol {
+        requests.append(FakeSessionRequest(authorizationURL: authorizationURL, callback: callback))
+        self.completionHandler = completionHandler
+        let session = FakeWebAuthenticationSession()
+        sessions.append(session)
+        return session
+    }
+
+    func complete(with url: URL) {
+        completionHandler?(url, nil)
+    }
+}
+
+@MainActor
+private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
+    var prefersEphemeralWebBrowserSession = false
+    private(set) var startCount = 0
+    private(set) var cancelCount = 0
+
+    func start() -> Bool {
+        startCount += 1
+        return true
+    }
+
+    func cancel() {
+        cancelCount += 1
+    }
+}
 """#
 
 private let nativeAuthBehaviorContractSource = ##"""
