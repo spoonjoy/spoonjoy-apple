@@ -1,0 +1,41 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native auth session contract" started.
+◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
+◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
+◇ Test "native auth session source defines launch callback and restoration contract" started.
+◇ Test "Keychain token vault stores auth material outside general cache" started.
+◇ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" started.
+◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
+◇ Test "refresh rotation revoke logout and restoration persist through native repository" started.
+◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
+◇ Test "local validation matrix delegates xcodebuild classification to wrapper" started.
+✘ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" recorded an issue at NativeAuthSessionTests.swift:61:6: Caught error: Missing required native auth contract file: Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift
+✘ Test "refresh rotation revoke logout and restoration persist through native repository" recorded an issue at NativeAuthSessionTests.swift:118:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift
+✘ Test "secure web handoff URLs are exact and separate from native OAuth redirects" recorded an issue at NativeAuthSessionTests.swift:147:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift
+✘ Test "native auth session source defines launch callback and restoration contract" recorded an issue at NativeAuthSessionTests.swift:32:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/NativeAuthSession.swift
+✘ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" failed after 0.001 seconds with 1 issue.
+✘ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" recorded an issue at NativeAuthSessionTests.swift:174:6: Caught error: Missing required native auth contract file: scripts/run-xcodebuild-with-blocker.sh
+✘ Test "Keychain token vault stores auth material outside general cache" recorded an issue at NativeAuthSessionTests.swift:86:6: Caught error: Missing required native auth contract file: Apps/Spoonjoy/Shared/Auth/KeychainTokenVault.swift
+✘ Test "refresh rotation revoke logout and restoration persist through native repository" failed after 0.001 seconds with 1 issue.
+✘ Test "secure web handoff URLs are exact and separate from native OAuth redirects" failed after 0.001 seconds with 1 issue.
+✘ Test "Keychain token vault stores auth material outside general cache" failed after 0.001 seconds with 1 issue.
+✘ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" failed after 0.001 seconds with 1 issue.
+✘ Test "native auth session source defines launch callback and restoration contract" failed after 0.001 seconds with 1 issue.
+✔ Test "OAuth callback contract uses universal links and rejects custom schemes" passed after 0.001 seconds.
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:286:9: Expectation failed: hasToken
+↳ scripts/validate-native-local.sh missing required token scripts/run-xcodebuild-with-blocker.sh
+✔ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" passed after 0.001 seconds.
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:286:9: Expectation failed: hasToken
+↳ scripts/validate-native-local.sh missing required token macos-app-bundle-blocker.json
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:291:9: Expectation failed: doesNotHaveForbiddenToken
+↳ scripts/validate-native-local.sh must not contain forbidden token run_blockable
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:291:9: Expectation failed: doesNotHaveForbiddenToken
+↳ scripts/validate-native-local.sh must not contain forbidden token allowed_blocker_pattern
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" failed after 0.001 seconds with 4 issues.
+✘ Suite "Native auth session contract" failed after 0.002 seconds with 10 issues.
+✘ Test run with 9 tests in 1 suite failed after 0.002 seconds with 10 issues.
