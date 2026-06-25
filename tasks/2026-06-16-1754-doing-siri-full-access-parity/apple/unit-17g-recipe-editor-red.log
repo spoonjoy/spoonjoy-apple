@@ -1,0 +1,842 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/7] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:415:37: error: cannot find type 'RecipeEditorDraft' in scope
+413 | }
+414 | 
+415 | private func recipeCreateDraft() -> RecipeEditorDraft {
+    |                                     `- error: cannot find type 'RecipeEditorDraft' in scope
+416 |     var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
+417 |     draft.title = "Garlic Toast"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:492:39: error: cannot find type 'RecipeEditorMutationPlan' in scope
+490 | }
+491 | 
+492 | private func remoteRequest(from plan: RecipeEditorMutationPlan) throws -> APIRequest {
+    |                                       `- error: cannot find type 'RecipeEditorMutationPlan' in scope
+493 |     guard let builder = plan.remoteRequestBuilder else {
+494 |         throw RecipeEditorParityTestFailure("Expected an online editor mutation to provide a remote request builder.")
+[4/7] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[5/7] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:415:37: error: cannot find type 'RecipeEditorDraft' in scope
+413 | }
+414 | 
+415 | private func recipeCreateDraft() -> RecipeEditorDraft {
+    |                                     `- error: cannot find type 'RecipeEditorDraft' in scope
+416 |     var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
+417 |     draft.title = "Garlic Toast"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:492:39: error: cannot find type 'RecipeEditorMutationPlan' in scope
+490 | }
+491 | 
+492 | private func remoteRequest(from plan: RecipeEditorMutationPlan) throws -> APIRequest {
+    |                                       `- error: cannot find type 'RecipeEditorMutationPlan' in scope
+493 |     guard let builder = plan.remoteRequestBuilder else {
+494 |         throw RecipeEditorParityTestFailure("Expected an online editor mutation to provide a remote request builder.")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:15:22: error: cannot find 'RecipeEditorViewModel' in scope
+ 13 |     func draftHydratesFromRecipeAndExposesOwnerOnlyEditingAffordances() throws {
+ 14 |         let recipe = recipeEditorRecipe()
+ 15 |         let editor = RecipeEditorViewModel(
+    |                      `- error: cannot find 'RecipeEditorViewModel' in scope
+ 16 |             mode: .edit(recipe: recipe, currentChefID: "chef_ari"),
+ 17 |             connectivity: .online,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:16:20: error: cannot infer contextual base in reference to member 'edit'
+ 14 |         let recipe = recipeEditorRecipe()
+ 15 |         let editor = RecipeEditorViewModel(
+ 16 |             mode: .edit(recipe: recipe, currentChefID: "chef_ari"),
+    |                    `- error: cannot infer contextual base in reference to member 'edit'
+ 17 |             connectivity: .online,
+ 18 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:17:28: error: cannot infer contextual base in reference to member 'online'
+ 15 |         let editor = RecipeEditorViewModel(
+ 16 |             mode: .edit(recipe: recipe, currentChefID: "chef_ari"),
+ 17 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 18 |             now: Self.now
+ 19 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:21:34: error: cannot infer contextual base in reference to member 'recipeEditor'
+ 19 |         )
+ 20 | 
+ 21 |         #expect(editor.route == .recipeEditor(id: "recipe_lemon_pantry_pasta"))
+    |                                  `- error: cannot infer contextual base in reference to member 'recipeEditor'
+ 22 |         #expect(editor.isOwner)
+ 23 |         #expect(editor.draft.recipeID == "recipe_lemon_pantry_pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:27:40: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 25 |         #expect(editor.draft.description == "Bright pantry pasta with lemon, garlic, and parmesan.")
+ 26 |         #expect(editor.draft.servings == "4")
+ 27 |         #expect(editor.draft.steps.map(\.id) == ["step_boil", "step_finish"])
+    |                                        `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 28 |         #expect(editor.draft.steps[0].ingredients.map(\.id) == ["ingredient_spaghetti"])
+ 29 |         #expect(editor.draft.steps[1].outputStepNums == [1])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:28:55: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 26 |         #expect(editor.draft.servings == "4")
+ 27 |         #expect(editor.draft.steps.map(\.id) == ["step_boil", "step_finish"])
+ 28 |         #expect(editor.draft.steps[0].ingredients.map(\.id) == ["ingredient_spaghetti"])
+    |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 29 |         #expect(editor.draft.steps[1].outputStepNums == [1])
+ 30 |         #expect(editor.ownerTools.map(\.id) == ["save", "delete"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:30:39: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 28 |         #expect(editor.draft.steps[0].ingredients.map(\.id) == ["ingredient_spaghetti"])
+ 29 |         #expect(editor.draft.steps[1].outputStepNums == [1])
+ 30 |         #expect(editor.ownerTools.map(\.id) == ["save", "delete"])
+    |                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 31 |         #expect(editor.deleteConfirmationTitle == "Delete Lemon Pantry Pasta?")
+ 32 |         #expect(editor.offlineIndicator.display == .synced)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:32:53: error: cannot infer contextual base in reference to member 'synced'
+ 30 |         #expect(editor.ownerTools.map(\.id) == ["save", "delete"])
+ 31 |         #expect(editor.deleteConfirmationTitle == "Delete Lemon Pantry Pasta?")
+ 32 |         #expect(editor.offlineIndicator.display == .synced)
+    |                                                     `- error: cannot infer contextual base in reference to member 'synced'
+ 33 | 
+ 34 |         let nonOwner = RecipeEditorViewModel(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:34:24: error: cannot find 'RecipeEditorViewModel' in scope
+ 32 |         #expect(editor.offlineIndicator.display == .synced)
+ 33 | 
+ 34 |         let nonOwner = RecipeEditorViewModel(
+    |                        `- error: cannot find 'RecipeEditorViewModel' in scope
+ 35 |             mode: .edit(recipe: recipe, currentChefID: "chef_jules"),
+ 36 |             connectivity: .online,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:35:20: error: cannot infer contextual base in reference to member 'edit'
+ 33 | 
+ 34 |         let nonOwner = RecipeEditorViewModel(
+ 35 |             mode: .edit(recipe: recipe, currentChefID: "chef_jules"),
+    |                    `- error: cannot infer contextual base in reference to member 'edit'
+ 36 |             connectivity: .online,
+ 37 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:36:28: error: cannot infer contextual base in reference to member 'online'
+ 34 |         let nonOwner = RecipeEditorViewModel(
+ 35 |             mode: .edit(recipe: recipe, currentChefID: "chef_jules"),
+ 36 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 37 |             now: Self.now
+ 38 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:43:30: error: cannot find type 'RecipeEditorAction' in scope
+ 41 |         #expect(nonOwner.blockingMessage == "Only ari can edit this recipe.")
+ 42 | 
+ 43 |         let blockedActions: [RecipeEditorAction] = [
+    |                              `- error: cannot find type 'RecipeEditorAction' in scope
+ 44 |             .save(clientMutationID: "cm_non_owner"),
+ 45 |             .deleteRecipe(clientMutationID: "cm_non_owner_delete", confirmation: .confirmed),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:48:23: error: cannot find 'RecipeEditorStepDraft' in scope
+ 46 |             .createStep(
+ 47 |                 clientMutationID: "cm_non_owner_step_create",
+ 48 |                 step: RecipeEditorStepDraft(
+    |                       `- error: cannot find 'RecipeEditorStepDraft' in scope
+ 49 |                     id: "local_step_non_owner",
+ 50 |                     stepNum: 3,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:71:29: error: cannot find 'RecipeEditorIngredientDraft' in scope
+ 69 |                 stepID: "step_finish",
+ 70 |                 clientMutationID: "cm_non_owner_ingredient_add",
+ 71 |                 ingredient: RecipeEditorIngredientDraft(id: "local_non_owner_ingredient", name: "parmesan", quantity: 0.5, unit: "cup")
+    |                             `- error: cannot find 'RecipeEditorIngredientDraft' in scope
+ 72 |             ),
+ 73 |             .deleteIngredient(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:45:83: error: cannot infer contextual base in reference to member 'confirmed'
+ 43 |         let blockedActions: [RecipeEditorAction] = [
+ 44 |             .save(clientMutationID: "cm_non_owner"),
+ 45 |             .deleteRecipe(clientMutationID: "cm_non_owner_delete", confirmation: .confirmed),
+    |                                                                                   `- error: cannot infer contextual base in reference to member 'confirmed'
+ 46 |             .createStep(
+ 47 |                 clientMutationID: "cm_non_owner_step_create",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:53:31: error: 'nil' requires a contextual type
+ 51 |                     title: "Serve",
+ 52 |                     description: "Serve hot.",
+ 53 |                     duration: nil,
+    |                               `- error: 'nil' requires a contextual type
+ 54 |                     ingredients: [],
+ 55 |                     outputStepNums: [2]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:66:107: error: cannot infer contextual base in reference to member 'confirmed'
+ 64 |                 outputStepNums: [1]
+ 65 |             ),
+ 66 |             .deleteStep(stepID: "step_boil", clientMutationID: "cm_non_owner_step_delete", confirmation: .confirmed),
+    |                                                                                                           `- error: cannot infer contextual base in reference to member 'confirmed'
+ 67 |             .reorderStep(stepID: "step_finish", toStepNum: 1, clientMutationID: "cm_non_owner_step_reorder"),
+ 68 |             .addIngredient(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:77:32: error: cannot infer contextual base in reference to member 'confirmed'
+ 75 |                 ingredientID: "ingredient_lemon",
+ 76 |                 clientMutationID: "cm_non_owner_ingredient_delete",
+ 77 |                 confirmation: .confirmed
+    |                                `- error: cannot infer contextual base in reference to member 'confirmed'
+ 78 |             ),
+ 79 |             .replaceOutputUses(inputStepID: "step_finish", outputStepNums: [1], clientMutationID: "cm_non_owner_dependencies")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:91:22: error: cannot find 'RecipeEditorViewModel' in scope
+ 89 |     @Test("create draft plans exact online create request")
+ 90 |     func createDraftPlansExactOnlineCreateRequest() throws {
+ 91 |         let editor = RecipeEditorViewModel(
+    |                      `- error: cannot find 'RecipeEditorViewModel' in scope
+ 92 |             mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+ 93 |             connectivity: .online,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:92:20: error: cannot infer contextual base in reference to member 'create'
+ 90 |     func createDraftPlansExactOnlineCreateRequest() throws {
+ 91 |         let editor = RecipeEditorViewModel(
+ 92 |             mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+    |                    `- error: cannot infer contextual base in reference to member 'create'
+ 93 |             connectivity: .online,
+ 94 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:93:28: error: cannot infer contextual base in reference to member 'online'
+ 91 |         let editor = RecipeEditorViewModel(
+ 92 |             mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+ 93 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 94 |             now: Self.now
+ 95 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:97:34: error: cannot infer contextual base in reference to member 'recipeEditor'
+ 95 |         )
+ 96 | 
+ 97 |         #expect(editor.route == .recipeEditor(id: nil))
+    |                                  `- error: cannot infer contextual base in reference to member 'recipeEditor'
+ 98 |         #expect(editor.isOwner)
+ 99 |         #expect(editor.ownerTools.map(\.id) == ["save"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:97:51: error: 'nil' requires a contextual type
+ 95 |         )
+ 96 | 
+ 97 |         #expect(editor.route == .recipeEditor(id: nil))
+    |                                                   `- error: 'nil' requires a contextual type
+ 98 |         #expect(editor.isOwner)
+ 99 |         #expect(editor.ownerTools.map(\.id) == ["save"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:99:39: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 97 |         #expect(editor.route == .recipeEditor(id: nil))
+ 98 |         #expect(editor.isOwner)
+ 99 |         #expect(editor.ownerTools.map(\.id) == ["save"])
+    |                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
+100 | 
+101 |         let create = try editor.plan(.save(clientMutationID: "cm_create"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:101:39: error: cannot infer contextual base in reference to member 'save'
+ 99 |         #expect(editor.ownerTools.map(\.id) == ["save"])
+100 | 
+101 |         let create = try editor.plan(.save(clientMutationID: "cm_create"))
+    |                                       `- error: cannot infer contextual base in reference to member 'save'
+102 |         let request = try remoteRequest(from: create)
+103 |         try assertJSONRequest(request, method: .post, path: "/api/v1/recipes", expected: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:124:21: error: cannot find 'RecipeEditorDraft' in scope
+122 |     @Test("draft validation blocks empty titles missing steps missing units and unsafe dependencies")
+123 |     func draftValidationBlocksEmptyTitlesMissingStepsMissingUnitsAndUnsafeDependencies() throws {
+124 |         var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
+    |                     `- error: cannot find 'RecipeEditorDraft' in scope
+125 |         draft.title = " \n "
+126 |         draft.steps = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:127:17: error: cannot find 'RecipeEditorValidator' in scope
+125 |         draft.title = " \n "
+126 |         draft.steps = []
+127 |         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
+    |                 `- error: cannot find 'RecipeEditorValidator' in scope
+128 |             "Add a recipe title.",
+129 |             "Add at least one step."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:127:59: error: cannot infer key path type from context; consider explicitly specifying a root type
+125 |         draft.title = " \n "
+126 |         draft.steps = []
+127 |         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
+    |                                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+128 |             "Add a recipe title.",
+129 |             "Add at least one step."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:134:13: error: cannot find 'RecipeEditorStepDraft' in scope
+132 |         draft.title = "Pantry Pasta"
+133 |         draft.steps = [
+134 |             RecipeEditorStepDraft(
+    |             `- error: cannot find 'RecipeEditorStepDraft' in scope
+135 |                 id: "step_finish",
+136 |                 stepNum: 1,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:141:21: error: cannot find 'RecipeEditorIngredientDraft' in scope
+139 |                 duration: nil,
+140 |                 ingredients: [
+141 |                     RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: nil)
+    |                     `- error: cannot find 'RecipeEditorIngredientDraft' in scope
+142 |                 ],
+143 |                 outputStepNums: [2]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:139:27: error: 'nil' requires a contextual type
+137 |                 title: "Finish",
+138 |                 description: "Toss everything together.",
+139 |                 duration: nil,
+    |                           `- error: 'nil' requires a contextual type
+140 |                 ingredients: [
+141 |                     RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:141:107: error: 'nil' requires a contextual type
+139 |                 duration: nil,
+140 |                 ingredients: [
+141 |                     RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: nil)
+    |                                                                                                           `- error: 'nil' requires a contextual type
+142 |                 ],
+143 |                 outputStepNums: [2]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:147:17: error: cannot find 'RecipeEditorValidator' in scope
+145 |         ]
+146 | 
+147 |         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
+    |                 `- error: cannot find 'RecipeEditorValidator' in scope
+148 |             "Choose a unit for lemon.",
+149 |             "Step 1 cannot use output from future step 2."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:147:59: error: cannot infer key path type from context; consider explicitly specifying a root type
+145 |         ]
+146 | 
+147 |         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
+    |                                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+148 |             "Choose a unit for lemon.",
+149 |             "Step 1 cannot use output from future step 2."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:155:22: error: cannot find 'RecipeEditorViewModel' in scope
+153 |     @Test("online editor plans exact REST requests for recipe step ingredient and dependency edits")
+154 |     func onlineEditorPlansExactRESTRequestsForRecipeStepIngredientAndDependencyEdits() throws {
+155 |         let editor = RecipeEditorViewModel(
+    |                      `- error: cannot find 'RecipeEditorViewModel' in scope
+156 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+157 |             connectivity: .online,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:156:20: error: cannot infer contextual base in reference to member 'edit'
+154 |     func onlineEditorPlansExactRESTRequestsForRecipeStepIngredientAndDependencyEdits() throws {
+155 |         let editor = RecipeEditorViewModel(
+156 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+    |                    `- error: cannot infer contextual base in reference to member 'edit'
+157 |             connectivity: .online,
+158 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:157:28: error: cannot infer contextual base in reference to member 'online'
+155 |         let editor = RecipeEditorViewModel(
+156 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+157 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+158 |             now: Self.now
+159 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:161:37: error: cannot infer contextual base in reference to member 'save'
+159 |         )
+160 | 
+161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
+    |                                     `- error: cannot infer contextual base in reference to member 'save'
+162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
+163 |         let createStep = try editor.plan(.createStep(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:162:45: error: cannot infer contextual base in reference to member 'deleteRecipe'
+160 | 
+161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
+162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
+    |                                             `- error: cannot infer contextual base in reference to member 'deleteRecipe'
+163 |         let createStep = try editor.plan(.createStep(
+164 |             clientMutationID: "cm_step_create",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:162:104: error: cannot infer contextual base in reference to member 'confirmed'
+160 | 
+161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
+162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
+    |                                                                                                        `- error: cannot infer contextual base in reference to member 'confirmed'
+163 |         let createStep = try editor.plan(.createStep(
+164 |             clientMutationID: "cm_step_create",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:165:19: error: cannot find 'RecipeEditorStepDraft' in scope
+163 |         let createStep = try editor.plan(.createStep(
+164 |             clientMutationID: "cm_step_create",
+165 |             step: RecipeEditorStepDraft(
+    |                   `- error: cannot find 'RecipeEditorStepDraft' in scope
+166 |                 id: "local_step_3",
+167 |                 stepNum: 3,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:163:43: error: cannot infer contextual base in reference to member 'createStep'
+161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
+162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
+163 |         let createStep = try editor.plan(.createStep(
+    |                                           `- error: cannot infer contextual base in reference to member 'createStep'
+164 |             clientMutationID: "cm_step_create",
+165 |             step: RecipeEditorStepDraft(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:170:27: error: 'nil' requires a contextual type
+168 |                 title: "Serve",
+169 |                 description: "Serve hot.",
+170 |                 duration: nil,
+    |                           `- error: 'nil' requires a contextual type
+171 |                 ingredients: [],
+172 |                 outputStepNums: [2]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:175:43: error: cannot infer contextual base in reference to member 'updateStep'
+173 |             )
+174 |         ))
+175 |         let updateStep = try editor.plan(.updateStep(
+    |                                           `- error: cannot infer contextual base in reference to member 'updateStep'
+176 |             stepID: "step_finish",
+177 |             clientMutationID: "cm_step_update",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:183:43: error: cannot infer contextual base in reference to member 'deleteStep'
+181 |             outputStepNums: [1]
+182 |         ))
+183 |         let deleteStep = try editor.plan(.deleteStep(
+    |                                           `- error: cannot infer contextual base in reference to member 'deleteStep'
+184 |             stepID: "step_boil",
+185 |             clientMutationID: "cm_step_delete",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:186:28: error: cannot infer contextual base in reference to member 'confirmed'
+184 |             stepID: "step_boil",
+185 |             clientMutationID: "cm_step_delete",
+186 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+187 |         ))
+188 |         let reorderStep = try editor.plan(.reorderStep(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:188:44: error: cannot infer contextual base in reference to member 'reorderStep'
+186 |             confirmation: .confirmed
+187 |         ))
+188 |         let reorderStep = try editor.plan(.reorderStep(
+    |                                            `- error: cannot infer contextual base in reference to member 'reorderStep'
+189 |             stepID: "step_finish",
+190 |             toStepNum: 1,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:196:25: error: cannot find 'RecipeEditorIngredientDraft' in scope
+194 |             stepID: "step_finish",
+195 |             clientMutationID: "cm_ingredient_add",
+196 |             ingredient: RecipeEditorIngredientDraft(id: "local_ingredient", name: "parmesan", quantity: 0.5, unit: "cup")
+    |                         `- error: cannot find 'RecipeEditorIngredientDraft' in scope
+197 |         ))
+198 |         let deleteIngredient = try editor.plan(.deleteIngredient(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:193:46: error: cannot infer contextual base in reference to member 'addIngredient'
+191 |             clientMutationID: "cm_step_reorder"
+192 |         ))
+193 |         let addIngredient = try editor.plan(.addIngredient(
+    |                                              `- error: cannot infer contextual base in reference to member 'addIngredient'
+194 |             stepID: "step_finish",
+195 |             clientMutationID: "cm_ingredient_add",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:198:49: error: cannot infer contextual base in reference to member 'deleteIngredient'
+196 |             ingredient: RecipeEditorIngredientDraft(id: "local_ingredient", name: "parmesan", quantity: 0.5, unit: "cup")
+197 |         ))
+198 |         let deleteIngredient = try editor.plan(.deleteIngredient(
+    |                                                 `- error: cannot infer contextual base in reference to member 'deleteIngredient'
+199 |             stepID: "step_finish",
+200 |             ingredientID: "ingredient_lemon",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:202:28: error: cannot infer contextual base in reference to member 'confirmed'
+200 |             ingredientID: "ingredient_lemon",
+201 |             clientMutationID: "cm_ingredient_delete",
+202 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+203 |         ))
+204 |         let replaceDependencies = try editor.plan(.replaceOutputUses(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:204:52: error: cannot infer contextual base in reference to member 'replaceOutputUses'
+202 |             confirmation: .confirmed
+203 |         ))
+204 |         let replaceDependencies = try editor.plan(.replaceOutputUses(
+    |                                                    `- error: cannot infer contextual base in reference to member 'replaceOutputUses'
+205 |             inputStepID: "step_finish",
+206 |             outputStepNums: [1],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:269:48: error: cannot infer contextual base in reference to member 'recipeDetail'
+267 |         #expect(deleteRecipe.queuedMutation == nil)
+268 |         #expect(createStep.queuedMutation == nil)
+269 |         #expect(addIngredient.successRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                                `- error: cannot infer contextual base in reference to member 'recipeDetail'
+270 |     }
+271 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:269:109: error: cannot infer contextual base in reference to member 'detail'
+267 |         #expect(deleteRecipe.queuedMutation == nil)
+268 |         #expect(createStep.queuedMutation == nil)
+269 |         #expect(addIngredient.successRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                                                                                             `- error: cannot infer contextual base in reference to member 'detail'
+270 |     }
+271 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:274:28: error: cannot find 'RecipeEditorViewModel' in scope
+272 |     @Test("offline editor queues every allowed recipe mutation with stable dependency keys")
+273 |     func offlineEditorQueuesEveryAllowedRecipeMutationWithStableDependencyKeys() throws {
+274 |         let createEditor = RecipeEditorViewModel(
+    |                            `- error: cannot find 'RecipeEditorViewModel' in scope
+275 |             mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+276 |             connectivity: .offline,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:275:20: error: cannot infer contextual base in reference to member 'create'
+273 |     func offlineEditorQueuesEveryAllowedRecipeMutationWithStableDependencyKeys() throws {
+274 |         let createEditor = RecipeEditorViewModel(
+275 |             mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+    |                    `- error: cannot infer contextual base in reference to member 'create'
+276 |             connectivity: .offline,
+277 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:276:28: error: cannot infer contextual base in reference to member 'offline'
+274 |         let createEditor = RecipeEditorViewModel(
+275 |             mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+276 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+277 |             now: Self.now
+278 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:279:22: error: cannot find 'RecipeEditorViewModel' in scope
+277 |             now: Self.now
+278 |         )
+279 |         let editor = RecipeEditorViewModel(
+    |                      `- error: cannot find 'RecipeEditorViewModel' in scope
+280 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+281 |             connectivity: .offline,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:280:20: error: cannot infer contextual base in reference to member 'edit'
+278 |         )
+279 |         let editor = RecipeEditorViewModel(
+280 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+    |                    `- error: cannot infer contextual base in reference to member 'edit'
+281 |             connectivity: .offline,
+282 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:281:28: error: cannot infer contextual base in reference to member 'offline'
+279 |         let editor = RecipeEditorViewModel(
+280 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+281 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+282 |             now: Self.now
+283 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:285:51: error: cannot infer contextual base in reference to member 'save'
+283 |         )
+284 | 
+285 |         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
+    |                                                   `- error: cannot infer contextual base in reference to member 'save'
+286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
+287 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:286:37: error: cannot infer contextual base in reference to member 'save'
+284 | 
+285 |         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
+286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
+    |                                     `- error: cannot infer contextual base in reference to member 'save'
+287 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
+288 |         let createStep = try editor.plan(.createStep(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:287:45: error: cannot infer contextual base in reference to member 'deleteRecipe'
+285 |         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
+286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
+287 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
+    |                                             `- error: cannot infer contextual base in reference to member 'deleteRecipe'
+288 |         let createStep = try editor.plan(.createStep(
+289 |             clientMutationID: "cm_step_create_offline",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:287:112: error: cannot infer contextual base in reference to member 'confirmed'
+285 |         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
+286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
+287 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
+    |                                                                                                                `- error: cannot infer contextual base in reference to member 'confirmed'
+288 |         let createStep = try editor.plan(.createStep(
+289 |             clientMutationID: "cm_step_create_offline",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:290:19: error: cannot find 'RecipeEditorStepDraft' in scope
+288 |         let createStep = try editor.plan(.createStep(
+289 |             clientMutationID: "cm_step_create_offline",
+290 |             step: RecipeEditorStepDraft(
+    |                   `- error: cannot find 'RecipeEditorStepDraft' in scope
+291 |                 id: "local_step_3",
+292 |                 stepNum: 3,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:288:43: error: cannot infer contextual base in reference to member 'createStep'
+286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
+287 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
+288 |         let createStep = try editor.plan(.createStep(
+    |                                           `- error: cannot infer contextual base in reference to member 'createStep'
+289 |             clientMutationID: "cm_step_create_offline",
+290 |             step: RecipeEditorStepDraft(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:295:27: error: 'nil' requires a contextual type
+293 |                 title: "Serve",
+294 |                 description: "Serve hot.",
+295 |                 duration: nil,
+    |                           `- error: 'nil' requires a contextual type
+296 |                 ingredients: [],
+297 |                 outputStepNums: [2]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:300:43: error: cannot infer contextual base in reference to member 'updateStep'
+298 |             )
+299 |         ))
+300 |         let updateStep = try editor.plan(.updateStep(
+    |                                           `- error: cannot infer contextual base in reference to member 'updateStep'
+301 |             stepID: "step_finish",
+302 |             clientMutationID: "cm_step_update_offline",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:308:43: error: cannot infer contextual base in reference to member 'deleteStep'
+306 |             outputStepNums: [1]
+307 |         ))
+308 |         let deleteStep = try editor.plan(.deleteStep(stepID: "step_boil", clientMutationID: "cm_step_delete_offline", confirmation: .confirmed))
+    |                                           `- error: cannot infer contextual base in reference to member 'deleteStep'
+309 |         let reorderStep = try editor.plan(.reorderStep(stepID: "step_finish", toStepNum: 1, clientMutationID: "cm_step_reorder_offline"))
+310 |         let addIngredient = try editor.plan(.addIngredient(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:308:134: error: cannot infer contextual base in reference to member 'confirmed'
+306 |             outputStepNums: [1]
+307 |         ))
+308 |         let deleteStep = try editor.plan(.deleteStep(stepID: "step_boil", clientMutationID: "cm_step_delete_offline", confirmation: .confirmed))
+    |                                                                                                                                      `- error: cannot infer contextual base in reference to member 'confirmed'
+309 |         let reorderStep = try editor.plan(.reorderStep(stepID: "step_finish", toStepNum: 1, clientMutationID: "cm_step_reorder_offline"))
+310 |         let addIngredient = try editor.plan(.addIngredient(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:309:44: error: cannot infer contextual base in reference to member 'reorderStep'
+307 |         ))
+308 |         let deleteStep = try editor.plan(.deleteStep(stepID: "step_boil", clientMutationID: "cm_step_delete_offline", confirmation: .confirmed))
+309 |         let reorderStep = try editor.plan(.reorderStep(stepID: "step_finish", toStepNum: 1, clientMutationID: "cm_step_reorder_offline"))
+    |                                            `- error: cannot infer contextual base in reference to member 'reorderStep'
+310 |         let addIngredient = try editor.plan(.addIngredient(
+311 |             stepID: "step_finish",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:313:25: error: cannot find 'RecipeEditorIngredientDraft' in scope
+311 |             stepID: "step_finish",
+312 |             clientMutationID: "cm_ingredient_add_offline",
+313 |             ingredient: RecipeEditorIngredientDraft(id: "local_ingredient", name: "parmesan", quantity: 0.5, unit: "cup")
+    |                         `- error: cannot find 'RecipeEditorIngredientDraft' in scope
+314 |         ))
+315 |         let deleteIngredient = try editor.plan(.deleteIngredient(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:310:46: error: cannot infer contextual base in reference to member 'addIngredient'
+308 |         let deleteStep = try editor.plan(.deleteStep(stepID: "step_boil", clientMutationID: "cm_step_delete_offline", confirmation: .confirmed))
+309 |         let reorderStep = try editor.plan(.reorderStep(stepID: "step_finish", toStepNum: 1, clientMutationID: "cm_step_reorder_offline"))
+310 |         let addIngredient = try editor.plan(.addIngredient(
+    |                                              `- error: cannot infer contextual base in reference to member 'addIngredient'
+311 |             stepID: "step_finish",
+312 |             clientMutationID: "cm_ingredient_add_offline",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:315:49: error: cannot infer contextual base in reference to member 'deleteIngredient'
+313 |             ingredient: RecipeEditorIngredientDraft(id: "local_ingredient", name: "parmesan", quantity: 0.5, unit: "cup")
+314 |         ))
+315 |         let deleteIngredient = try editor.plan(.deleteIngredient(
+    |                                                 `- error: cannot infer contextual base in reference to member 'deleteIngredient'
+316 |             stepID: "step_finish",
+317 |             ingredientID: "ingredient_lemon",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:319:28: error: cannot infer contextual base in reference to member 'confirmed'
+317 |             ingredientID: "ingredient_lemon",
+318 |             clientMutationID: "cm_ingredient_delete_offline",
+319 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+320 |         ))
+321 |         let dependencies = try editor.plan(.replaceOutputUses(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:321:45: error: cannot infer contextual base in reference to member 'replaceOutputUses'
+319 |             confirmation: .confirmed
+320 |         ))
+321 |         let dependencies = try editor.plan(.replaceOutputUses(
+    |                                             `- error: cannot infer contextual base in reference to member 'replaceOutputUses'
+322 |             inputStepID: "step_finish",
+323 |             outputStepNums: [1],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:340:40: error: cannot infer key path type from context; consider explicitly specifying a root type
+338 |         ]
+339 |         #expect(queuedPlans.allSatisfy { $0.remoteRequestBuilder == nil })
+340 |         #expect(queuedPlans.compactMap(\.queuedMutation?.queueableKind) == [
+    |                                        `- error: cannot infer key path type from context; consider explicitly specifying a root type
+341 |             .recipeCreate,
+342 |             .recipeUpdate,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:341:14: error: reference to member 'recipeCreate' cannot be resolved without a contextual type
+339 |         #expect(queuedPlans.allSatisfy { $0.remoteRequestBuilder == nil })
+340 |         #expect(queuedPlans.compactMap(\.queuedMutation?.queueableKind) == [
+341 |             .recipeCreate,
+    |              `- error: reference to member 'recipeCreate' cannot be resolved without a contextual type
+342 |             .recipeUpdate,
+343 |             .recipeDelete,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:342:14: error: reference to member 'recipeUpdate' cannot be resolved without a contextual type
+340 |         #expect(queuedPlans.compactMap(\.queuedMutation?.queueableKind) == [
+341 |             .recipeCreate,
+342 |             .recipeUpdate,
+    |              `- error: reference to member 'recipeUpdate' cannot be resolved without a contextual type
+343 |             .recipeDelete,
+344 |             .recipeStepCreate,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:343:14: error: reference to member 'recipeDelete' cannot be resolved without a contextual type
+341 |             .recipeCreate,
+342 |             .recipeUpdate,
+343 |             .recipeDelete,
+    |              `- error: reference to member 'recipeDelete' cannot be resolved without a contextual type
+344 |             .recipeStepCreate,
+345 |             .recipeStepUpdate,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:344:14: error: reference to member 'recipeStepCreate' cannot be resolved without a contextual type
+342 |             .recipeUpdate,
+343 |             .recipeDelete,
+344 |             .recipeStepCreate,
+    |              `- error: reference to member 'recipeStepCreate' cannot be resolved without a contextual type
+345 |             .recipeStepUpdate,
+346 |             .recipeStepDelete,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:345:14: error: reference to member 'recipeStepUpdate' cannot be resolved without a contextual type
+343 |             .recipeDelete,
+344 |             .recipeStepCreate,
+345 |             .recipeStepUpdate,
+    |              `- error: reference to member 'recipeStepUpdate' cannot be resolved without a contextual type
+346 |             .recipeStepDelete,
+347 |             .recipeStepReorder,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:346:14: error: reference to member 'recipeStepDelete' cannot be resolved without a contextual type
+344 |             .recipeStepCreate,
+345 |             .recipeStepUpdate,
+346 |             .recipeStepDelete,
+    |              `- error: reference to member 'recipeStepDelete' cannot be resolved without a contextual type
+347 |             .recipeStepReorder,
+348 |             .recipeIngredientAdd,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:347:14: error: reference to member 'recipeStepReorder' cannot be resolved without a contextual type
+345 |             .recipeStepUpdate,
+346 |             .recipeStepDelete,
+347 |             .recipeStepReorder,
+    |              `- error: reference to member 'recipeStepReorder' cannot be resolved without a contextual type
+348 |             .recipeIngredientAdd,
+349 |             .recipeIngredientDelete,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:348:14: error: reference to member 'recipeIngredientAdd' cannot be resolved without a contextual type
+346 |             .recipeStepDelete,
+347 |             .recipeStepReorder,
+348 |             .recipeIngredientAdd,
+    |              `- error: reference to member 'recipeIngredientAdd' cannot be resolved without a contextual type
+349 |             .recipeIngredientDelete,
+350 |             .recipeOutputUsesReplace
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:349:14: error: reference to member 'recipeIngredientDelete' cannot be resolved without a contextual type
+347 |             .recipeStepReorder,
+348 |             .recipeIngredientAdd,
+349 |             .recipeIngredientDelete,
+    |              `- error: reference to member 'recipeIngredientDelete' cannot be resolved without a contextual type
+350 |             .recipeOutputUsesReplace
+351 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:350:14: error: reference to member 'recipeOutputUsesReplace' cannot be resolved without a contextual type
+348 |             .recipeIngredientAdd,
+349 |             .recipeIngredientDelete,
+350 |             .recipeOutputUsesReplace
+    |              `- error: reference to member 'recipeOutputUsesReplace' cannot be resolved without a contextual type
+351 |         ])
+352 |         #expect(createRecipe.queuedMutation?.dependencyKey == "recipe:new:cm_create_offline")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:363:22: error: value of type 'Any' has no member 'queuedMutation'
+361 |             deleteIngredient,
+362 |             dependencies
+363 |         ].compactMap(\.queuedMutation?.dependencyKey) == Array(repeating: "recipe:recipe_lemon_pantry_pasta", count: 9))
+    |                      |- error: value of type 'Any' has no member 'queuedMutation'
+    |                      `- note: cast 'Any' to 'AnyObject' or use 'as!' to force downcast to a more specific type to access members
+364 | 
+365 |         let editQueuedMutations = [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:375:22: error: value of type 'Any' has no member 'queuedMutation'
+373 |             deleteIngredient,
+374 |             dependencies
+375 |         ].compactMap(\.queuedMutation)
+    |                      |- error: value of type 'Any' has no member 'queuedMutation'
+    |                      `- note: cast 'Any' to 'AnyObject' or use 'as!' to force downcast to a more specific type to access members
+376 |         #expect(editQueuedMutations.count == 9)
+377 |         #expect(OfflineIndicatorDisplay.queuedWork(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:382:50: error: cannot infer contextual base in reference to member 'deleteRecipe'
+380 |         ) == .queuedWork(count: 9, oldestClientMutationID: "cm_update_offline"))
+381 | 
+382 |         let unconfirmedDelete = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_blocked", confirmation: .notConfirmed))
+    |                                                  `- error: cannot infer contextual base in reference to member 'deleteRecipe'
+383 |         #expect(unconfirmedDelete.blockedReason == "Confirm before deleting this recipe.")
+384 |         #expect(unconfirmedDelete.queuedMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:382:117: error: cannot infer contextual base in reference to member 'notConfirmed'
+380 |         ) == .queuedWork(count: 9, oldestClientMutationID: "cm_update_offline"))
+381 | 
+382 |         let unconfirmedDelete = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_blocked", confirmation: .notConfirmed))
+    |                                                                                                                     `- error: cannot infer contextual base in reference to member 'notConfirmed'
+383 |         #expect(unconfirmedDelete.blockedReason == "Confirm before deleting this recipe.")
+384 |         #expect(unconfirmedDelete.queuedMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:389:24: error: cannot find 'RecipeEditorConflict' in scope
+387 |     @Test("conflict display pauses submit and exposes review choices")
+388 |     func conflictDisplayPausesSubmitAndExposesReviewChoices() throws {
+389 |         let conflict = RecipeEditorConflict(
+    |                        `- error: cannot find 'RecipeEditorConflict' in scope
+390 |             resourceID: "recipe_lemon_pantry_pasta",
+391 |             serverRevision: .updatedAt("2026-06-25T12:40:00.000Z"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:391:30: error: cannot infer contextual base in reference to member 'updatedAt'
+389 |         let conflict = RecipeEditorConflict(
+390 |             resourceID: "recipe_lemon_pantry_pasta",
+391 |             serverRevision: .updatedAt("2026-06-25T12:40:00.000Z"),
+    |                              `- error: cannot infer contextual base in reference to member 'updatedAt'
+392 |             localClientMutationID: "cm_update_offline",
+393 |             message: "This recipe changed on another device."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:395:22: error: cannot find 'RecipeEditorViewModel' in scope
+393 |             message: "This recipe changed on another device."
+394 |         )
+395 |         let editor = RecipeEditorViewModel(
+    |                      `- error: cannot find 'RecipeEditorViewModel' in scope
+396 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+397 |             connectivity: .online,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:396:20: error: cannot infer contextual base in reference to member 'edit'
+394 |         )
+395 |         let editor = RecipeEditorViewModel(
+396 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+    |                    `- error: cannot infer contextual base in reference to member 'edit'
+397 |             connectivity: .online,
+398 |             conflict: conflict,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:397:28: error: cannot infer contextual base in reference to member 'online'
+395 |         let editor = RecipeEditorViewModel(
+396 |             mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+397 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+398 |             conflict: conflict,
+399 |             now: Self.now
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:407:34: error: cannot infer contextual base in reference to member 'save'
+405 |         #expect(editor.conflictBanner?.primaryAction == .reviewServerVersion)
+406 |         #expect(editor.conflictBanner?.secondaryAction == .keepLocalDraft)
+407 |         #expect(try editor.plan(.save(clientMutationID: "cm_blocked_conflict")).blockedReason == "Resolve the recipe conflict before saving.")
+    |                                  `- error: cannot infer contextual base in reference to member 'save'
+408 |     }
+409 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:416:17: error: cannot find 'RecipeEditorDraft' in scope
+414 | 
+415 | private func recipeCreateDraft() -> RecipeEditorDraft {
+416 |     var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
+    |                 `- error: cannot find 'RecipeEditorDraft' in scope
+417 |     draft.title = "Garlic Toast"
+418 |     draft.description = "Crispy, buttery toast."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:421:9: error: cannot find 'RecipeEditorStepDraft' in scope
+419 |     draft.servings = "2"
+420 |     draft.steps = [
+421 |         RecipeEditorStepDraft(
+    |         `- error: cannot find 'RecipeEditorStepDraft' in scope
+422 |             id: "local_step_1",
+423 |             stepNum: 1,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:428:17: error: cannot find 'RecipeEditorIngredientDraft' in scope
+426 |             duration: 300,
+427 |             ingredients: [
+428 |                 RecipeEditorIngredientDraft(id: "local_bread", name: "bread", quantity: 2, unit: "slice")
+    |                 `- error: cannot find 'RecipeEditorIngredientDraft' in scope
+429 |             ],
+430 |             outputStepNums: []
+[6/8] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+error: fatalError
+expected red: RecipeEditorParityTests failed before recipe editor parity exists (status 1)

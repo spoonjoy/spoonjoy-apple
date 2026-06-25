@@ -1,0 +1,2 @@
+FAIL: missing recipe editor surface files: Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift, Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift, Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift
+expected red: recipe editor surface checker failed before editor surfaces exist (status 1)
