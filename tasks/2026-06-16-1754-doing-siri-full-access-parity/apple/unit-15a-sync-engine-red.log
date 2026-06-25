@@ -1,0 +1,1494 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:350:62: error: cannot find type 'NativeQueuedMutation' in scope
+348 |     }
+349 | 
+350 |     private static func representativeMutations() throws -> [NativeQueuedMutation] {
+    |                                                              `- error: cannot find type 'NativeQueuedMutation' in scope
+351 |         let recipe: [NativeQueuedMutation] = [
+352 |             .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:422:93: error: cannot find type 'NativeStagedMediaUpload' in scope
+420 |     }
+421 | 
+422 |     private static func stagedMedia(_ id: String, fileName: String, contentType: String) -> NativeStagedMediaUpload {
+    |                                                                                             `- error: cannot find type 'NativeStagedMediaUpload' in scope
+423 |         NativeStagedMediaUpload(
+424 |             localStageID: id,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:550:45: error: cannot find type 'NativeSyncTransport' in scope
+548 | }
+549 | 
+550 | private actor RecordingNativeSyncTransport: NativeSyncTransport {
+    |                                             `- error: cannot find type 'NativeSyncTransport' in scope
+551 |     private let bootstrapResult: NativeSyncBootstrapResult
+552 |     private var mutationResults: [NativeSyncMutationResult]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:551:34: error: cannot find type 'NativeSyncBootstrapResult' in scope
+549 | 
+550 | private actor RecordingNativeSyncTransport: NativeSyncTransport {
+551 |     private let bootstrapResult: NativeSyncBootstrapResult
+    |                                  `- error: cannot find type 'NativeSyncBootstrapResult' in scope
+552 |     private var mutationResults: [NativeSyncMutationResult]
+553 |     private(set) var requestPaths: [String] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:552:35: error: cannot find type 'NativeSyncMutationResult' in scope
+550 | private actor RecordingNativeSyncTransport: NativeSyncTransport {
+551 |     private let bootstrapResult: NativeSyncBootstrapResult
+552 |     private var mutationResults: [NativeSyncMutationResult]
+    |                                   `- error: cannot find type 'NativeSyncMutationResult' in scope
+553 |     private(set) var requestPaths: [String] = []
+554 |     private(set) var bootstrapQueryItems: [URLQueryItem] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:557:21: error: cannot find type 'NativeSyncBootstrapResult' in scope
+555 |     private(set) var clientMutationIDs: [String] = []
+556 | 
+557 |     init(bootstrap: NativeSyncBootstrapResult, mutationResults: [NativeSyncMutationResult]) {
+    |                     `- error: cannot find type 'NativeSyncBootstrapResult' in scope
+558 |         self.bootstrapResult = bootstrap
+559 |         self.mutationResults = mutationResults
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:557:66: error: cannot find type 'NativeSyncMutationResult' in scope
+555 |     private(set) var clientMutationIDs: [String] = []
+556 | 
+557 |     init(bootstrap: NativeSyncBootstrapResult, mutationResults: [NativeSyncMutationResult]) {
+    |                                                                  `- error: cannot find type 'NativeSyncMutationResult' in scope
+558 |         self.bootstrapResult = bootstrap
+559 |         self.mutationResults = mutationResults
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:562:96: error: cannot find type 'NativeSyncBootstrapResult' in scope
+560 |     }
+561 | 
+562 |     func bootstrap(request: APIRequest, configuration: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+    |                                                                                                `- error: cannot find type 'NativeSyncBootstrapResult' in scope
+563 |         requestPaths.append(request.url.path)
+564 |         bootstrapQueryItems = request.queryItems
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:568:104: error: cannot find type 'NativeSyncMutationResult' in scope
+566 |     }
+567 | 
+568 |     func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+    |                                                                                                        `- error: cannot find type 'NativeSyncMutationResult' in scope
+569 |         let request = try mutation.requestBuilder().urlRequest(configuration: configuration)
+570 |         requestPaths.append(request.url.path)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:568:27: error: cannot find type 'NativeQueuedMutation' in scope
+566 |     }
+567 | 
+568 |     func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+    |                           `- error: cannot find type 'NativeQueuedMutation' in scope
+569 |         let request = try mutation.requestBuilder().urlRequest(configuration: configuration)
+570 |         requestPaths.append(request.url.path)
+[4/6] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:350:62: error: cannot find type 'NativeQueuedMutation' in scope
+348 |     }
+349 | 
+350 |     private static func representativeMutations() throws -> [NativeQueuedMutation] {
+    |                                                              `- error: cannot find type 'NativeQueuedMutation' in scope
+351 |         let recipe: [NativeQueuedMutation] = [
+352 |             .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:422:93: error: cannot find type 'NativeStagedMediaUpload' in scope
+420 |     }
+421 | 
+422 |     private static func stagedMedia(_ id: String, fileName: String, contentType: String) -> NativeStagedMediaUpload {
+    |                                                                                             `- error: cannot find type 'NativeStagedMediaUpload' in scope
+423 |         NativeStagedMediaUpload(
+424 |             localStageID: id,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:550:45: error: cannot find type 'NativeSyncTransport' in scope
+548 | }
+549 | 
+550 | private actor RecordingNativeSyncTransport: NativeSyncTransport {
+    |                                             `- error: cannot find type 'NativeSyncTransport' in scope
+551 |     private let bootstrapResult: NativeSyncBootstrapResult
+552 |     private var mutationResults: [NativeSyncMutationResult]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:551:34: error: cannot find type 'NativeSyncBootstrapResult' in scope
+549 | 
+550 | private actor RecordingNativeSyncTransport: NativeSyncTransport {
+551 |     private let bootstrapResult: NativeSyncBootstrapResult
+    |                                  `- error: cannot find type 'NativeSyncBootstrapResult' in scope
+552 |     private var mutationResults: [NativeSyncMutationResult]
+553 |     private(set) var requestPaths: [String] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:552:35: error: cannot find type 'NativeSyncMutationResult' in scope
+550 | private actor RecordingNativeSyncTransport: NativeSyncTransport {
+551 |     private let bootstrapResult: NativeSyncBootstrapResult
+552 |     private var mutationResults: [NativeSyncMutationResult]
+    |                                   `- error: cannot find type 'NativeSyncMutationResult' in scope
+553 |     private(set) var requestPaths: [String] = []
+554 |     private(set) var bootstrapQueryItems: [URLQueryItem] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:557:21: error: cannot find type 'NativeSyncBootstrapResult' in scope
+555 |     private(set) var clientMutationIDs: [String] = []
+556 | 
+557 |     init(bootstrap: NativeSyncBootstrapResult, mutationResults: [NativeSyncMutationResult]) {
+    |                     `- error: cannot find type 'NativeSyncBootstrapResult' in scope
+558 |         self.bootstrapResult = bootstrap
+559 |         self.mutationResults = mutationResults
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:557:66: error: cannot find type 'NativeSyncMutationResult' in scope
+555 |     private(set) var clientMutationIDs: [String] = []
+556 | 
+557 |     init(bootstrap: NativeSyncBootstrapResult, mutationResults: [NativeSyncMutationResult]) {
+    |                                                                  `- error: cannot find type 'NativeSyncMutationResult' in scope
+558 |         self.bootstrapResult = bootstrap
+559 |         self.mutationResults = mutationResults
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:562:96: error: cannot find type 'NativeSyncBootstrapResult' in scope
+560 |     }
+561 | 
+562 |     func bootstrap(request: APIRequest, configuration: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+    |                                                                                                `- error: cannot find type 'NativeSyncBootstrapResult' in scope
+563 |         requestPaths.append(request.url.path)
+564 |         bootstrapQueryItems = request.queryItems
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:568:104: error: cannot find type 'NativeSyncMutationResult' in scope
+566 |     }
+567 | 
+568 |     func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+    |                                                                                                        `- error: cannot find type 'NativeSyncMutationResult' in scope
+569 |         let request = try mutation.requestBuilder().urlRequest(configuration: configuration)
+570 |         requestPaths.append(request.url.path)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:568:27: error: cannot find type 'NativeQueuedMutation' in scope
+566 |     }
+567 | 
+568 |     func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+    |                           `- error: cannot find type 'NativeQueuedMutation' in scope
+569 |         let request = try mutation.requestBuilder().urlRequest(configuration: configuration)
+570 |         requestPaths.append(request.url.path)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:15:34: error: cannot find 'NativeSyncBootstrapRequest' in scope
+ 13 |     @Test("bootstrap request and sync envelope use the private /me/sync contract")
+ 14 |     func bootstrapRequestAndSyncEnvelopeUsePrivateSyncContract() throws {
+ 15 |         let defaultRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: nil)
+    |                                  `- error: cannot find 'NativeSyncBootstrapRequest' in scope
+ 16 |             .urlRequest(configuration: configuration)
+ 17 |         let cursorRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: PaginationCursor(rawValue: "v1.cursor.before"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:15:84: error: 'nil' requires a contextual type
+ 13 |     @Test("bootstrap request and sync envelope use the private /me/sync contract")
+ 14 |     func bootstrapRequestAndSyncEnvelopeUsePrivateSyncContract() throws {
+ 15 |         let defaultRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: nil)
+    |                                                                                    `- error: 'nil' requires a contextual type
+ 16 |             .urlRequest(configuration: configuration)
+ 17 |         let cursorRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: PaginationCursor(rawValue: "v1.cursor.before"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:17:33: error: cannot find 'NativeSyncBootstrapRequest' in scope
+ 15 |         let defaultRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: nil)
+ 16 |             .urlRequest(configuration: configuration)
+ 17 |         let cursorRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: PaginationCursor(rawValue: "v1.cursor.before"))
+    |                                 `- error: cannot find 'NativeSyncBootstrapRequest' in scope
+ 18 |             .urlRequest(configuration: configuration)
+ 19 |         let envelope = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:19:40: error: cannot find type 'NativeSyncData' in scope
+ 17 |         let cursorRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: PaginationCursor(rawValue: "v1.cursor.before"))
+ 18 |             .urlRequest(configuration: configuration)
+ 19 |         let envelope = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope)
+    |                                        `- error: cannot find type 'NativeSyncData' in scope
+ 20 | 
+ 21 |         assertRequest(defaultRequest, method: .get, path: "/api/v1/me/sync", queryItems: [URLQueryItem(name: "limit", value: "20")])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:33:56: error: cannot infer contextual base in reference to member 'privateNoStore'
+ 31 |         #expect(defaultRequest.body == nil)
+ 32 |         #expect(cursorRequest.body == nil)
+ 33 |         #expect(defaultRequest.responseCachePolicy == .privateNoStore)
+    |                                                        `- error: cannot infer contextual base in reference to member 'privateNoStore'
+ 34 |         #expect(envelope.requestID == "req_native_sync")
+ 35 |         #expect(envelope.data.freshness.accountID == "chef_ari")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:36:57: error: cannot infer contextual base in reference to member 'local'
+ 34 |         #expect(envelope.requestID == "req_native_sync")
+ 35 |         #expect(envelope.data.freshness.accountID == "chef_ari")
+ 36 |         #expect(envelope.data.freshness.environment == .local)
+    |                                                         `- error: cannot infer contextual base in reference to member 'local'
+ 37 |         #expect(envelope.data.freshness.schemaVersion == 1)
+ 38 |         #expect(envelope.data.freshness.sourceEndpoint == "/api/v1/me/sync")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:41:43: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 39 |         #expect(envelope.data.nextCursor?.rawValue == "v1.cursor.after")
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+    |                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:41:56: error: reference to member 'profile' cannot be resolved without a contextual type
+ 39 |         #expect(envelope.data.nextCursor?.rawValue == "v1.cursor.after")
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+    |                                                        `- error: reference to member 'profile' cannot be resolved without a contextual type
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:41:66: error: reference to member 'recipe' cannot be resolved without a contextual type
+ 39 |         #expect(envelope.data.nextCursor?.rawValue == "v1.cursor.after")
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+    |                                                                  `- error: reference to member 'recipe' cannot be resolved without a contextual type
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:41:75: error: reference to member 'cookbook' cannot be resolved without a contextual type
+ 39 |         #expect(envelope.data.nextCursor?.rawValue == "v1.cursor.after")
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+    |                                                                           `- error: reference to member 'cookbook' cannot be resolved without a contextual type
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:41:86: error: reference to member 'spoon' cannot be resolved without a contextual type
+ 39 |         #expect(envelope.data.nextCursor?.rawValue == "v1.cursor.after")
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+    |                                                                                      `- error: reference to member 'spoon' cannot be resolved without a contextual type
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:41:94: error: reference to member 'shoppingItem' cannot be resolved without a contextual type
+ 39 |         #expect(envelope.data.nextCursor?.rawValue == "v1.cursor.after")
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+    |                                                                                              `- error: reference to member 'shoppingItem' cannot be resolved without a contextual type
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:42:43: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+    |                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:42:58: error: reference to member 'upsert' cannot be resolved without a contextual type
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+    |                                                          `- error: reference to member 'upsert' cannot be resolved without a contextual type
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:42:67: error: reference to member 'delete' cannot be resolved without a contextual type
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+    |                                                                   `- error: reference to member 'delete' cannot be resolved without a contextual type
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:42:76: error: reference to member 'delete' cannot be resolved without a contextual type
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+    |                                                                            `- error: reference to member 'delete' cannot be resolved without a contextual type
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:42:85: error: reference to member 'delete' cannot be resolved without a contextual type
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+    |                                                                                     `- error: reference to member 'delete' cannot be resolved without a contextual type
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:42:94: error: reference to member 'delete' cannot be resolved without a contextual type
+ 40 |         #expect(envelope.data.hasMore == false)
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+    |                                                                                              `- error: reference to member 'delete' cannot be resolved without a contextual type
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:43:54: error: cannot infer contextual base in reference to member 'object'
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+    |                                                      `- error: cannot infer contextual base in reference to member 'object'
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+ 45 |         #expect(envelope.data.entries[1].tombstone == NativeSyncTombstone(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:43:75: error: type 'Any' has no member 'string'
+ 41 |         #expect(envelope.data.entries.map(\.kind) == [.profile, .recipe, .cookbook, .spoon, .shoppingItem])
+ 42 |         #expect(envelope.data.entries.map(\.action) == [.upsert, .delete, .delete, .delete, .delete])
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+    |                                                                           `- error: type 'Any' has no member 'string'
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+ 45 |         #expect(envelope.data.entries[1].tombstone == NativeSyncTombstone(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:45:55: error: cannot find 'NativeSyncTombstone' in scope
+ 43 |         #expect(envelope.data.entries[0].payload == .object(["username": .string("ari")]))
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+ 45 |         #expect(envelope.data.entries[1].tombstone == NativeSyncTombstone(
+    |                                                       `- error: cannot find 'NativeSyncTombstone' in scope
+ 46 |             resourceType: .recipe,
+ 47 |             resourceID: "recipe_deleted",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:46:28: error: cannot infer contextual base in reference to member 'recipe'
+ 44 |         #expect(envelope.data.entries[1].payload == nil)
+ 45 |         #expect(envelope.data.entries[1].tombstone == NativeSyncTombstone(
+ 46 |             resourceType: .recipe,
+    |                            `- error: cannot infer contextual base in reference to member 'recipe'
+ 47 |             resourceID: "recipe_deleted",
+ 48 |             parentResourceID: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:48:31: error: 'nil' requires a contextual type
+ 46 |             resourceType: .recipe,
+ 47 |             resourceID: "recipe_deleted",
+ 48 |             parentResourceID: nil,
+    |                               `- error: 'nil' requires a contextual type
+ 49 |             title: "Deleted Lemon Pasta",
+ 50 |             deletedAt: "2026-06-16T09:09:00.000Z",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:60:30: error: cannot find 'NativeSyncCheckpoint' in scope
+ 58 |     @Test("native sync checkpoints validate global and shopping cursors")
+ 59 |     func nativeSyncCheckpointsValidateGlobalAndShoppingCursors() throws {
+ 60 |         let checkpoint = try NativeSyncCheckpoint(
+    |                              `- error: cannot find 'NativeSyncCheckpoint' in scope
+ 61 |             globalCursor: PaginationCursor(rawValue: " v1.global "),
+ 62 |             shoppingCursor: ShoppingSyncCursor(rawValue: " v1.shopping "),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:77:25: error: cannot find 'NativeSyncCheckpointError' in scope
+ 75 |         #expect(updated.shoppingCursor?.rawValue == "v1.shopping.next")
+ 76 |         #expect(updated.updatedAt == "2026-06-16T09:01:00.000Z")
+ 77 |         #expect(throws: NativeSyncCheckpointError.emptyGlobalCursor) {
+    |                         `- error: cannot find 'NativeSyncCheckpointError' in scope
+ 78 |             _ = try NativeSyncCheckpoint(globalCursorRaw: "  ", shoppingCursorRaw: nil, updatedAt: "2026-06-16T09:00:00.000Z")
+ 79 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:78:21: error: cannot find 'NativeSyncCheckpoint' in scope
+ 76 |         #expect(updated.updatedAt == "2026-06-16T09:01:00.000Z")
+ 77 |         #expect(throws: NativeSyncCheckpointError.emptyGlobalCursor) {
+ 78 |             _ = try NativeSyncCheckpoint(globalCursorRaw: "  ", shoppingCursorRaw: nil, updatedAt: "2026-06-16T09:00:00.000Z")
+    |                     `- error: cannot find 'NativeSyncCheckpoint' in scope
+ 79 |         }
+ 80 |         #expect(throws: NativeSyncCheckpointError.emptyShoppingCursor) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:78:84: error: 'nil' requires a contextual type
+ 76 |         #expect(updated.updatedAt == "2026-06-16T09:01:00.000Z")
+ 77 |         #expect(throws: NativeSyncCheckpointError.emptyGlobalCursor) {
+ 78 |             _ = try NativeSyncCheckpoint(globalCursorRaw: "  ", shoppingCursorRaw: nil, updatedAt: "2026-06-16T09:00:00.000Z")
+    |                                                                                    `- error: 'nil' requires a contextual type
+ 79 |         }
+ 80 |         #expect(throws: NativeSyncCheckpointError.emptyShoppingCursor) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:80:25: error: cannot find 'NativeSyncCheckpointError' in scope
+ 78 |             _ = try NativeSyncCheckpoint(globalCursorRaw: "  ", shoppingCursorRaw: nil, updatedAt: "2026-06-16T09:00:00.000Z")
+ 79 |         }
+ 80 |         #expect(throws: NativeSyncCheckpointError.emptyShoppingCursor) {
+    |                         `- error: cannot find 'NativeSyncCheckpointError' in scope
+ 81 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: "  ", updatedAt: "2026-06-16T09:00:00.000Z")
+ 82 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:81:21: error: cannot find 'NativeSyncCheckpoint' in scope
+ 79 |         }
+ 80 |         #expect(throws: NativeSyncCheckpointError.emptyShoppingCursor) {
+ 81 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: "  ", updatedAt: "2026-06-16T09:00:00.000Z")
+    |                     `- error: cannot find 'NativeSyncCheckpoint' in scope
+ 82 |         }
+ 83 |         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:81:59: error: 'nil' requires a contextual type
+ 79 |         }
+ 80 |         #expect(throws: NativeSyncCheckpointError.emptyShoppingCursor) {
+ 81 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: "  ", updatedAt: "2026-06-16T09:00:00.000Z")
+    |                                                           `- error: 'nil' requires a contextual type
+ 82 |         }
+ 83 |         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:83:25: error: cannot find 'NativeSyncCheckpointError' in scope
+ 81 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: "  ", updatedAt: "2026-06-16T09:00:00.000Z")
+ 82 |         }
+ 83 |         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
+    |                         `- error: cannot find 'NativeSyncCheckpointError' in scope
+ 84 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: nil, updatedAt: "  ")
+ 85 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:84:21: error: cannot find 'NativeSyncCheckpoint' in scope
+ 82 |         }
+ 83 |         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
+ 84 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: nil, updatedAt: "  ")
+    |                     `- error: cannot find 'NativeSyncCheckpoint' in scope
+ 85 |         }
+ 86 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:84:59: error: 'nil' requires a contextual type
+ 82 |         }
+ 83 |         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
+ 84 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: nil, updatedAt: "  ")
+    |                                                           `- error: 'nil' requires a contextual type
+ 85 |         }
+ 86 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:84:83: error: 'nil' requires a contextual type
+ 82 |         }
+ 83 |         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
+ 84 |             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: nil, updatedAt: "  ")
+    |                                                                                   `- error: 'nil' requires a contextual type
+ 85 |         }
+ 86 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:91:25: error: cannot find 'NativeMutationQueue' in scope
+ 89 |     func nativeMutationQueuePersistsEveryOfflineProductDomainWithDurableReplayMetadata() throws {
+ 90 |         let mutations = try Self.representativeMutations()
+ 91 |         let queue = try NativeMutationQueue(mutations: mutations)
+    |                         `- error: cannot find 'NativeMutationQueue' in scope
+ 92 |         let encoded = try JSONEncoder().encode(queue)
+ 93 |         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:93:48: error: cannot find 'NativeMutationQueue' in scope
+ 91 |         let queue = try NativeMutationQueue(mutations: mutations)
+ 92 |         let encoded = try JSONEncoder().encode(queue)
+ 93 |         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
+    |                                                `- error: cannot find 'NativeMutationQueue' in scope
+ 94 |         let json = try #require(String(data: encoded, encoding: .utf8))
+ 95 |         let dependencies = Dictionary(uniqueKeysWithValues: queue.mutations.map { ($0.clientMutationID, $0.dependencyKey) })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:93:41: error: failed to produce diagnostic for expression; please submit a bug report (https://swift.org/contributing/#reporting-bugs)
+ 91 |         let queue = try NativeMutationQueue(mutations: mutations)
+ 92 |         let encoded = try JSONEncoder().encode(queue)
+ 93 |         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
+    |                                         `- error: failed to produce diagnostic for expression; please submit a bug report (https://swift.org/contributing/#reporting-bugs)
+ 94 |         let json = try #require(String(data: encoded, encoding: .utf8))
+ 95 |         let dependencies = Dictionary(uniqueKeysWithValues: queue.mutations.map { ($0.clientMutationID, $0.dependencyKey) })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:95:28: error: generic parameter 'Key' could not be inferred
+ 93 |         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
+ 94 |         let json = try #require(String(data: encoded, encoding: .utf8))
+ 95 |         let dependencies = Dictionary(uniqueKeysWithValues: queue.mutations.map { ($0.clientMutationID, $0.dependencyKey) })
+    |                            `- error: generic parameter 'Key' could not be inferred
+ 96 | 
+ 97 |         #expect(decoded == queue)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:95:28: error: generic parameter 'Value' could not be inferred
+ 93 |         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
+ 94 |         let json = try #require(String(data: encoded, encoding: .utf8))
+ 95 |         let dependencies = Dictionary(uniqueKeysWithValues: queue.mutations.map { ($0.clientMutationID, $0.dependencyKey) })
+    |                            |- error: generic parameter 'Value' could not be inferred
+    |                            `- note: explicitly specify the generic arguments to fix this issue
+ 96 | 
+ 97 |         #expect(decoded == queue)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:98:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 96 | 
+ 97 |         #expect(decoded == queue)
+ 98 |         #expect(queue.mutations.map(\.clientMutationID).count == Set(queue.mutations.map(\.clientMutationID)).count)
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 99 |         #expect(queue.mutations.map(\.payloadSchemaVersion).allSatisfy { $0 == 1 })
+100 |         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:98:90: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 96 | 
+ 97 |         #expect(decoded == queue)
+ 98 |         #expect(queue.mutations.map(\.clientMutationID).count == Set(queue.mutations.map(\.clientMutationID)).count)
+    |                                                                                          `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 99 |         #expect(queue.mutations.map(\.payloadSchemaVersion).allSatisfy { $0 == 1 })
+100 |         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:99:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 97 |         #expect(decoded == queue)
+ 98 |         #expect(queue.mutations.map(\.clientMutationID).count == Set(queue.mutations.map(\.clientMutationID)).count)
+ 99 |         #expect(queue.mutations.map(\.payloadSchemaVersion).allSatisfy { $0 == 1 })
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+100 |         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
+101 |         #expect(queue.mutations.map(\.nextRetryAt).allSatisfy { $0 == nil })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:100:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 98 |         #expect(queue.mutations.map(\.clientMutationID).count == Set(queue.mutations.map(\.clientMutationID)).count)
+ 99 |         #expect(queue.mutations.map(\.payloadSchemaVersion).allSatisfy { $0 == 1 })
+100 |         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+101 |         #expect(queue.mutations.map(\.nextRetryAt).allSatisfy { $0 == nil })
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:101:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 99 |         #expect(queue.mutations.map(\.payloadSchemaVersion).allSatisfy { $0 == 1 })
+100 |         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
+101 |         #expect(queue.mutations.map(\.nextRetryAt).allSatisfy { $0 == nil })
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+103 |         #expect(queue.mutations.map(\.idempotencyKey) == queue.mutations.map(\.clientMutationID))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:102:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+100 |         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
+101 |         #expect(queue.mutations.map(\.nextRetryAt).allSatisfy { $0 == nil })
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+103 |         #expect(queue.mutations.map(\.idempotencyKey) == queue.mutations.map(\.clientMutationID))
+104 |         #expect(queue.mutations.map(\.queueableKind) == NativeQueuedMutationKind.allOfflineProductKinds)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:103:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+101 |         #expect(queue.mutations.map(\.nextRetryAt).allSatisfy { $0 == nil })
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+103 |         #expect(queue.mutations.map(\.idempotencyKey) == queue.mutations.map(\.clientMutationID))
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+104 |         #expect(queue.mutations.map(\.queueableKind) == NativeQueuedMutationKind.allOfflineProductKinds)
+105 |         #expect(dependencies["cm_recipe_create"] == "recipe:new:cm_recipe_create")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:103:78: error: cannot infer key path type from context; consider explicitly specifying a root type
+101 |         #expect(queue.mutations.map(\.nextRetryAt).allSatisfy { $0 == nil })
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+103 |         #expect(queue.mutations.map(\.idempotencyKey) == queue.mutations.map(\.clientMutationID))
+    |                                                                              `- error: cannot infer key path type from context; consider explicitly specifying a root type
+104 |         #expect(queue.mutations.map(\.queueableKind) == NativeQueuedMutationKind.allOfflineProductKinds)
+105 |         #expect(dependencies["cm_recipe_create"] == "recipe:new:cm_recipe_create")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:104:57: error: cannot find 'NativeQueuedMutationKind' in scope
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+103 |         #expect(queue.mutations.map(\.idempotencyKey) == queue.mutations.map(\.clientMutationID))
+104 |         #expect(queue.mutations.map(\.queueableKind) == NativeQueuedMutationKind.allOfflineProductKinds)
+    |                                                         `- error: cannot find 'NativeQueuedMutationKind' in scope
+105 |         #expect(dependencies["cm_recipe_create"] == "recipe:new:cm_recipe_create")
+106 |         #expect(dependencies["cm_recipe_update"] == "recipe:recipe_lemon")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:104:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+102 |         #expect(queue.mutations.map(\.lastError).allSatisfy { $0 == nil })
+103 |         #expect(queue.mutations.map(\.idempotencyKey) == queue.mutations.map(\.clientMutationID))
+104 |         #expect(queue.mutations.map(\.queueableKind) == NativeQueuedMutationKind.allOfflineProductKinds)
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+105 |         #expect(dependencies["cm_recipe_create"] == "recipe:new:cm_recipe_create")
+106 |         #expect(dependencies["cm_recipe_update"] == "recipe:recipe_lemon")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:118:21: error: cannot find 'NativeQueuedMutationKind' in scope
+116 |         #expect(dependencies["cm_capture_create"] == "capture:capture_draft_1")
+117 |         #expect(dependencies["cm_import_submit"] == "import:cm_import_submit")
+118 |         for type in NativeQueuedMutationKind.allOfflineProductKinds.map(\.type) {
+    |                     `- error: cannot find 'NativeQueuedMutationKind' in scope
+119 |             #expect(json.contains(#""type":"\#(type)""#))
+120 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:118:73: error: cannot infer key path type from context; consider explicitly specifying a root type
+116 |         #expect(dependencies["cm_capture_create"] == "capture:capture_draft_1")
+117 |         #expect(dependencies["cm_import_submit"] == "import:cm_import_submit")
+118 |         for type in NativeQueuedMutationKind.allOfflineProductKinds.map(\.type) {
+    |                                                                         `- error: cannot infer key path type from context; consider explicitly specifying a root type
+119 |             #expect(json.contains(#""type":"\#(type)""#))
+120 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:94:20: error: no calls to throwing functions occur within 'try' expression
+ 92 |         let encoded = try JSONEncoder().encode(queue)
+ 93 |         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
+ 94 |         let json = try #require(String(data: encoded, encoding: .utf8))
+    |                    `- error: no calls to throwing functions occur within 'try' expression
+ 95 |         let dependencies = Dictionary(uniqueKeysWithValues: queue.mutations.map { ($0.clientMutationID, $0.dependencyKey) })
+ 96 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:130:22: error: cannot find type 'NativeQueuedMutation' in scope
+128 |     @Test("queued remote mutations build exact REST requests with idempotency keys and bearer auth")
+129 |     func queuedRemoteMutationsBuildExactRESTRequestsWithIdempotencyKeysAndBearerAuth() throws {
+130 |         let cases: [(NativeQueuedMutation, APIRequestMethod, String)] = [
+    |                      `- error: cannot find type 'NativeQueuedMutation' in scope
+131 |             (.recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: Self.createdAt(0)), .post, "/api/v1/recipes"),
+132 |             (.recipeUpdate(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: Self.createdAt(1)), .patch, "/api/v1/recipes/recipe%2Flemon"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:130:73: error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+128 |     @Test("queued remote mutations build exact REST requests with idempotency keys and bearer auth")
+129 |     func queuedRemoteMutationsBuildExactRESTRequestsWithIdempotencyKeysAndBearerAuth() throws {
+130 |         let cases: [(NativeQueuedMutation, APIRequestMethod, String)] = [
+    |                                                                         `- error: the compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+131 |             (.recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: Self.createdAt(0)), .post, "/api/v1/recipes"),
+132 |             (.recipeUpdate(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: Self.createdAt(1)), .patch, "/api/v1/recipes/recipe%2Flemon"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:182:32: error: cannot find type 'NativeQueuedMutation' in scope
+180 |     @Test("capture draft mutations are durable local cache mutations and never build network requests")
+181 |     func captureDraftMutationsAreDurableLocalCacheMutationsAndNeverBuildNetworkRequests() throws {
+182 |         let captureMutations: [NativeQueuedMutation] = [
+    |                                `- error: cannot find type 'NativeQueuedMutation' in scope
+183 |             .captureDraftCreate(draftID: "capture_draft_1", source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_capture_create", createdAt: Self.createdAt(0)),
+184 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: Self.createdAt(1)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:183:70: error: cannot infer contextual base in reference to member 'url'
+181 |     func captureDraftMutationsAreDurableLocalCacheMutationsAndNeverBuildNetworkRequests() throws {
+182 |         let captureMutations: [NativeQueuedMutation] = [
+183 |             .captureDraftCreate(draftID: "capture_draft_1", source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_capture_create", createdAt: Self.createdAt(0)),
+    |                                                                      `- error: cannot infer contextual base in reference to member 'url'
+184 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: Self.createdAt(1)),
+185 |             .captureDraftDiscard(draftID: "capture_draft_1", clientMutationID: "cm_capture_discard", createdAt: Self.createdAt(2))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:184:68: error: cannot infer contextual base in reference to member 'text'
+182 |         let captureMutations: [NativeQueuedMutation] = [
+183 |             .captureDraftCreate(draftID: "capture_draft_1", source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_capture_create", createdAt: Self.createdAt(0)),
+184 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: Self.createdAt(1)),
+    |                                                                    `- error: cannot infer contextual base in reference to member 'text'
+185 |             .captureDraftDiscard(draftID: "capture_draft_1", clientMutationID: "cm_capture_discard", createdAt: Self.createdAt(2))
+186 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:188:38: error: cannot infer key path type from context; consider explicitly specifying a root type
+186 |         ]
+187 | 
+188 |         #expect(captureMutations.map(\.replayTarget) == [.localCache, .localCache, .localCache])
+    |                                      `- error: cannot infer key path type from context; consider explicitly specifying a root type
+189 |         #expect(captureMutations.map(\.dependencyKey) == Array(repeating: "capture:capture_draft_1", count: 3))
+190 |         for mutation in captureMutations {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:188:59: error: reference to member 'localCache' cannot be resolved without a contextual type
+186 |         ]
+187 | 
+188 |         #expect(captureMutations.map(\.replayTarget) == [.localCache, .localCache, .localCache])
+    |                                                           `- error: reference to member 'localCache' cannot be resolved without a contextual type
+189 |         #expect(captureMutations.map(\.dependencyKey) == Array(repeating: "capture:capture_draft_1", count: 3))
+190 |         for mutation in captureMutations {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:188:72: error: reference to member 'localCache' cannot be resolved without a contextual type
+186 |         ]
+187 | 
+188 |         #expect(captureMutations.map(\.replayTarget) == [.localCache, .localCache, .localCache])
+    |                                                                        `- error: reference to member 'localCache' cannot be resolved without a contextual type
+189 |         #expect(captureMutations.map(\.dependencyKey) == Array(repeating: "capture:capture_draft_1", count: 3))
+190 |         for mutation in captureMutations {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:188:85: error: reference to member 'localCache' cannot be resolved without a contextual type
+186 |         ]
+187 | 
+188 |         #expect(captureMutations.map(\.replayTarget) == [.localCache, .localCache, .localCache])
+    |                                                                                     `- error: reference to member 'localCache' cannot be resolved without a contextual type
+189 |         #expect(captureMutations.map(\.dependencyKey) == Array(repeating: "capture:capture_draft_1", count: 3))
+190 |         for mutation in captureMutations {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:189:38: error: cannot infer key path type from context; consider explicitly specifying a root type
+187 | 
+188 |         #expect(captureMutations.map(\.replayTarget) == [.localCache, .localCache, .localCache])
+189 |         #expect(captureMutations.map(\.dependencyKey) == Array(repeating: "capture:capture_draft_1", count: 3))
+    |                                      `- error: cannot infer key path type from context; consider explicitly specifying a root type
+190 |         for mutation in captureMutations {
+191 |             #expect(throws: NativeQueuedMutationRequestError.localOnlyMutation) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:191:29: error: cannot find 'NativeQueuedMutationRequestError' in scope
+189 |         #expect(captureMutations.map(\.dependencyKey) == Array(repeating: "capture:capture_draft_1", count: 3))
+190 |         for mutation in captureMutations {
+191 |             #expect(throws: NativeQueuedMutationRequestError.localOnlyMutation) {
+    |                             `- error: cannot find 'NativeQueuedMutationRequestError' in scope
+192 |                 _ = try mutation.requestBuilder()
+193 |             }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:200:25: error: cannot find 'NativeOfflineMutationPolicy' in scope
+198 |     func offlineMutationPolicyQueuesAllowedWritesAndRefusesOnlineOnlyAccountSecurityAndProviderActions() throws {
+199 |         for mutation in try Self.representativeMutations() {
+200 |             #expect(try NativeOfflineMutationPolicy.decision(for: .queuedMutation(mutation)).queueableKind == mutation.queueableKind)
+    |                         `- error: cannot find 'NativeOfflineMutationPolicy' in scope
+201 |         }
+202 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:200:68: error: cannot infer contextual base in reference to member 'queuedMutation'
+198 |     func offlineMutationPolicyQueuesAllowedWritesAndRefusesOnlineOnlyAccountSecurityAndProviderActions() throws {
+199 |         for mutation in try Self.representativeMutations() {
+200 |             #expect(try NativeOfflineMutationPolicy.decision(for: .queuedMutation(mutation)).queueableKind == mutation.queueableKind)
+    |                                                                    `- error: cannot infer contextual base in reference to member 'queuedMutation'
+201 |         }
+202 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:203:32: error: cannot find type 'NativeOfflineAction' in scope
+201 |         }
+202 | 
+203 |         let onlineOnlyCases: [(NativeOfflineAction, String)] = [
+    |                                `- error: cannot find type 'NativeOfflineAction' in scope
+204 |             (.oauthSignIn, "OAuth sign-in is online-only and was not queued."),
+205 |             (.oauthCallback, "OAuth callback exchange is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:204:15: error: cannot infer contextual base in reference to member 'oauthSignIn'
+202 | 
+203 |         let onlineOnlyCases: [(NativeOfflineAction, String)] = [
+204 |             (.oauthSignIn, "OAuth sign-in is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'oauthSignIn'
+205 |             (.oauthCallback, "OAuth callback exchange is online-only and was not queued."),
+206 |             (.apiTokenCreate, "API token creation is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:205:15: error: cannot infer contextual base in reference to member 'oauthCallback'
+203 |         let onlineOnlyCases: [(NativeOfflineAction, String)] = [
+204 |             (.oauthSignIn, "OAuth sign-in is online-only and was not queued."),
+205 |             (.oauthCallback, "OAuth callback exchange is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'oauthCallback'
+206 |             (.apiTokenCreate, "API token creation is online-only and was not queued."),
+207 |             (.apiTokenRevoke, "API token revocation is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:206:15: error: cannot infer contextual base in reference to member 'apiTokenCreate'
+204 |             (.oauthSignIn, "OAuth sign-in is online-only and was not queued."),
+205 |             (.oauthCallback, "OAuth callback exchange is online-only and was not queued."),
+206 |             (.apiTokenCreate, "API token creation is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'apiTokenCreate'
+207 |             (.apiTokenRevoke, "API token revocation is online-only and was not queued."),
+208 |             (.providerConnectionDisconnect, "Provider disconnect is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:207:15: error: cannot infer contextual base in reference to member 'apiTokenRevoke'
+205 |             (.oauthCallback, "OAuth callback exchange is online-only and was not queued."),
+206 |             (.apiTokenCreate, "API token creation is online-only and was not queued."),
+207 |             (.apiTokenRevoke, "API token revocation is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'apiTokenRevoke'
+208 |             (.providerConnectionDisconnect, "Provider disconnect is online-only and was not queued."),
+209 |             (.logout, "Logout is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:208:15: error: cannot infer contextual base in reference to member 'providerConnectionDisconnect'
+206 |             (.apiTokenCreate, "API token creation is online-only and was not queued."),
+207 |             (.apiTokenRevoke, "API token revocation is online-only and was not queued."),
+208 |             (.providerConnectionDisconnect, "Provider disconnect is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'providerConnectionDisconnect'
+209 |             (.logout, "Logout is online-only and was not queued."),
+210 |             (.sessionRevoke, "Session revocation is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:209:15: error: cannot infer contextual base in reference to member 'logout'
+207 |             (.apiTokenRevoke, "API token revocation is online-only and was not queued."),
+208 |             (.providerConnectionDisconnect, "Provider disconnect is online-only and was not queued."),
+209 |             (.logout, "Logout is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'logout'
+210 |             (.sessionRevoke, "Session revocation is online-only and was not queued."),
+211 |             (.passkeyOrPasswordChange, "Credential changes are online-only and were not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:210:15: error: cannot infer contextual base in reference to member 'sessionRevoke'
+208 |             (.providerConnectionDisconnect, "Provider disconnect is online-only and was not queued."),
+209 |             (.logout, "Logout is online-only and was not queued."),
+210 |             (.sessionRevoke, "Session revocation is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'sessionRevoke'
+211 |             (.passkeyOrPasswordChange, "Credential changes are online-only and were not queued."),
+212 |             (.providerLink, "Provider linking is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:211:15: error: cannot infer contextual base in reference to member 'passkeyOrPasswordChange'
+209 |             (.logout, "Logout is online-only and was not queued."),
+210 |             (.sessionRevoke, "Session revocation is online-only and was not queued."),
+211 |             (.passkeyOrPasswordChange, "Credential changes are online-only and were not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'passkeyOrPasswordChange'
+212 |             (.providerLink, "Provider linking is online-only and was not queued."),
+213 |             (.apnsPermissionPrompt, "Notification permission prompts are online-only and were not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:212:15: error: cannot infer contextual base in reference to member 'providerLink'
+210 |             (.sessionRevoke, "Session revocation is online-only and was not queued."),
+211 |             (.passkeyOrPasswordChange, "Credential changes are online-only and were not queued."),
+212 |             (.providerLink, "Provider linking is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'providerLink'
+213 |             (.apnsPermissionPrompt, "Notification permission prompts are online-only and were not queued."),
+214 |             (.apnsDeviceTokenAcquisition, "Device token acquisition is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:213:15: error: cannot infer contextual base in reference to member 'apnsPermissionPrompt'
+211 |             (.passkeyOrPasswordChange, "Credential changes are online-only and were not queued."),
+212 |             (.providerLink, "Provider linking is online-only and was not queued."),
+213 |             (.apnsPermissionPrompt, "Notification permission prompts are online-only and were not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'apnsPermissionPrompt'
+214 |             (.apnsDeviceTokenAcquisition, "Device token acquisition is online-only and was not queued."),
+215 |             (.providerSecretBlockedCoverRegeneration, "Provider-secret-blocked cover regeneration is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:214:15: error: cannot infer contextual base in reference to member 'apnsDeviceTokenAcquisition'
+212 |             (.providerLink, "Provider linking is online-only and was not queued."),
+213 |             (.apnsPermissionPrompt, "Notification permission prompts are online-only and were not queued."),
+214 |             (.apnsDeviceTokenAcquisition, "Device token acquisition is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'apnsDeviceTokenAcquisition'
+215 |             (.providerSecretBlockedCoverRegeneration, "Provider-secret-blocked cover regeneration is online-only and was not queued."),
+216 |             (.providerSecretBlockedImport, "Provider-secret-blocked import is online-only and was not queued."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:215:15: error: cannot infer contextual base in reference to member 'providerSecretBlockedCoverRegeneration'
+213 |             (.apnsPermissionPrompt, "Notification permission prompts are online-only and were not queued."),
+214 |             (.apnsDeviceTokenAcquisition, "Device token acquisition is online-only and was not queued."),
+215 |             (.providerSecretBlockedCoverRegeneration, "Provider-secret-blocked cover regeneration is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'providerSecretBlockedCoverRegeneration'
+216 |             (.providerSecretBlockedImport, "Provider-secret-blocked import is online-only and was not queued."),
+217 |             (.destructiveProductionApproval, "Destructive production approvals are online-only and were not queued.")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:216:15: error: cannot infer contextual base in reference to member 'providerSecretBlockedImport'
+214 |             (.apnsDeviceTokenAcquisition, "Device token acquisition is online-only and was not queued."),
+215 |             (.providerSecretBlockedCoverRegeneration, "Provider-secret-blocked cover regeneration is online-only and was not queued."),
+216 |             (.providerSecretBlockedImport, "Provider-secret-blocked import is online-only and was not queued."),
+    |               `- error: cannot infer contextual base in reference to member 'providerSecretBlockedImport'
+217 |             (.destructiveProductionApproval, "Destructive production approvals are online-only and were not queued.")
+218 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:217:15: error: cannot infer contextual base in reference to member 'destructiveProductionApproval'
+215 |             (.providerSecretBlockedCoverRegeneration, "Provider-secret-blocked cover regeneration is online-only and was not queued."),
+216 |             (.providerSecretBlockedImport, "Provider-secret-blocked import is online-only and was not queued."),
+217 |             (.destructiveProductionApproval, "Destructive production approvals are online-only and were not queued.")
+    |               `- error: cannot infer contextual base in reference to member 'destructiveProductionApproval'
+218 |         ]
+219 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:221:25: error: cannot find 'NativeOfflineMutationPolicy' in scope
+219 | 
+220 |         for (action, reason) in onlineOnlyCases {
+221 |             #expect(try NativeOfflineMutationPolicy.decision(for: action).onlineOnlyReason == reason)
+    |                         `- error: cannot find 'NativeOfflineMutationPolicy' in scope
+222 |         }
+223 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:227:24: error: cannot find 'NativeSyncRetrySchedule' in scope
+225 |     @Test("retry schedule uses exact Offline Product Contract backoff with capped jitter")
+226 |     func retryScheduleUsesExactOfflineProductContractBackoffWithCappedJitter() {
+227 |         let schedule = NativeSyncRetrySchedule()
+    |                        `- error: cannot find 'NativeSyncRetrySchedule' in scope
+228 | 
+229 |         #expect(schedule.baseDelaySeconds(forRetryCount: 0) == 5)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:242:25: error: cannot find 'NativeMutationQueue' in scope
+240 |     @Test("sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations")
+241 |     func syncEngineBootstrapsReadsDrainsFIFOPerDependencyKeyAndRemovesReplayedMutations() async throws {
+242 |         let queue = try NativeMutationQueue(
+    |                         `- error: cannot find 'NativeMutationQueue' in scope
+243 |             mutations: [
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:244:18: error: type 'Any' has no member 'recipeUpdate'
+242 |         let queue = try NativeMutationQueue(
+243 |             mutations: [
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+    |                  `- error: type 'Any' has no member 'recipeUpdate'
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:244:121: error: 'nil' requires a contextual type
+242 |         let queue = try NativeMutationQueue(
+243 |             mutations: [
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+    |                                                                                                                         `- error: 'nil' requires a contextual type
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:244:136: error: 'nil' requires a contextual type
+242 |         let queue = try NativeMutationQueue(
+243 |             mutations: [
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+    |                                                                                                                                        `- error: 'nil' requires a contextual type
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:245:18: error: type 'Any' has no member 'recipeDelete'
+243 |             mutations: [
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+    |                  `- error: type 'Any' has no member 'recipeDelete'
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+247 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:246:18: error: type 'Any' has no member 'shoppingAddItem'
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+    |                  `- error: type 'Any' has no member 'shoppingAddItem'
+247 |             ]
+248 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:246:90: error: 'nil' requires a contextual type
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+    |                                                                                          `- error: 'nil' requires a contextual type
+247 |             ]
+248 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:246:104: error: 'nil' requires a contextual type
+244 |                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_first", title: "One", description: nil, servings: nil, createdAt: Self.createdAt(0)),
+245 |                 .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_second", createdAt: Self.createdAt(1)),
+246 |                 .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_parallel", createdAt: Self.createdAt(2))
+    |                                                                                                        `- error: 'nil' requires a contextual type
+247 |             ]
+248 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:249:21: error: cannot find 'InMemoryNativeSyncStore' in scope
+247 |             ]
+248 |         )
+249 |         let store = InMemoryNativeSyncStore(
+    |                     `- error: cannot find 'InMemoryNativeSyncStore' in scope
+250 |             checkpoint: try NativeSyncCheckpoint(globalCursor: PaginationCursor(rawValue: "cursor_before"), shoppingCursor: nil, updatedAt: "2026-06-16T09:02:00.000Z"),
+251 |             queue: queue
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:250:29: error: cannot find 'NativeSyncCheckpoint' in scope
+248 |         )
+249 |         let store = InMemoryNativeSyncStore(
+250 |             checkpoint: try NativeSyncCheckpoint(globalCursor: PaginationCursor(rawValue: "cursor_before"), shoppingCursor: nil, updatedAt: "2026-06-16T09:02:00.000Z"),
+    |                             `- error: cannot find 'NativeSyncCheckpoint' in scope
+251 |             queue: queue
+252 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:250:125: error: 'nil' requires a contextual type
+248 |         )
+249 |         let store = InMemoryNativeSyncStore(
+250 |             checkpoint: try NativeSyncCheckpoint(globalCursor: PaginationCursor(rawValue: "cursor_before"), shoppingCursor: nil, updatedAt: "2026-06-16T09:02:00.000Z"),
+    |                                                                                                                             `- error: 'nil' requires a contextual type
+251 |             queue: queue
+252 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:254:25: error: cannot infer contextual base in reference to member 'success'
+252 |         )
+253 |         let transport = RecordingNativeSyncTransport(
+254 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+    |                         `- error: cannot infer contextual base in reference to member 'success'
+255 |             mutationResults: [
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:256:18: error: type 'Any' has no member 'success'
+254 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+255 |             mutationResults: [
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+    |                  `- error: type 'Any' has no member 'success'
+257 |                 .success(serverRevision: .tombstone("recipe_lemon_deleted")),
+258 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:02.000Z"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:256:43: error: cannot infer contextual base in reference to member 'updatedAt'
+254 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+255 |             mutationResults: [
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+    |                                           `- error: cannot infer contextual base in reference to member 'updatedAt'
+257 |                 .success(serverRevision: .tombstone("recipe_lemon_deleted")),
+258 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:02.000Z"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:257:18: error: type 'Any' has no member 'success'
+255 |             mutationResults: [
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+257 |                 .success(serverRevision: .tombstone("recipe_lemon_deleted")),
+    |                  `- error: type 'Any' has no member 'success'
+258 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:02.000Z"))
+259 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:257:43: error: cannot infer contextual base in reference to member 'tombstone'
+255 |             mutationResults: [
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+257 |                 .success(serverRevision: .tombstone("recipe_lemon_deleted")),
+    |                                           `- error: cannot infer contextual base in reference to member 'tombstone'
+258 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:02.000Z"))
+259 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:258:18: error: type 'Any' has no member 'success'
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+257 |                 .success(serverRevision: .tombstone("recipe_lemon_deleted")),
+258 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:02.000Z"))
+    |                  `- error: type 'Any' has no member 'success'
+259 |             ]
+260 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:258:43: error: cannot infer contextual base in reference to member 'updatedAt'
+256 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+257 |                 .success(serverRevision: .tombstone("recipe_lemon_deleted")),
+258 |                 .success(serverRevision: .updatedAt("2026-06-16T09:03:02.000Z"))
+    |                                           `- error: cannot infer contextual base in reference to member 'updatedAt'
+259 |             ]
+260 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:261:22: error: cannot find 'NativeSyncEngine' in scope
+259 |             ]
+260 |         )
+261 |         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+    |                      `- error: cannot find 'NativeSyncEngine' in scope
+262 | 
+263 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:263:97: error: cannot infer contextual base in reference to member 'foreground'
+261 |         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+262 | 
+263 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+    |                                                                                                 `- error: cannot infer contextual base in reference to member 'foreground'
+264 | 
+265 |         #expect(report.trigger == .foreground)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:265:36: error: cannot infer contextual base in reference to member 'foreground'
+263 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+264 | 
+265 |         #expect(report.trigger == .foreground)
+    |                                    `- error: cannot infer contextual base in reference to member 'foreground'
+266 |         #expect(report.bootstrapCursor?.rawValue == "cursor_after_bootstrap")
+267 |         #expect(report.drainedClientMutationIDs == ["cm_recipe_first", "cm_recipe_second", "cm_shopping_parallel"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:281:48: error: cannot infer key path type from context; consider explicitly specifying a root type
+279 |         #expect(try await store.loadQueue().mutations.isEmpty)
+280 |         #expect(try await store.loadCheckpoint().globalCursor?.rawValue == "cursor_after_bootstrap")
+281 |         #expect(try await store.tombstones.map(\.token) == ["recipe_lemon_deleted"])
+    |                                                `- error: cannot infer key path type from context; consider explicitly specifying a root type
+282 |     }
+283 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:286:25: error: cannot find 'NativeMutationQueue' in scope
+284 |     @Test("sync engine pauses on auth failure classifies conflicts and retains the blocked queue")
+285 |     func syncEnginePausesOnAuthFailureClassifiesConflictsAndRetainsTheBlockedQueue() async throws {
+286 |         let queue = try NativeMutationQueue(
+    |                         `- error: cannot find 'NativeMutationQueue' in scope
+287 |             mutations: [
+288 |                 .cookbookUpdate(cookbookID: "cookbook_weeknight", title: "Weeknights", clientMutationID: "cm_cookbook_conflict", createdAt: Self.createdAt(0)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:288:18: error: type 'Any' has no member 'cookbookUpdate'
+286 |         let queue = try NativeMutationQueue(
+287 |             mutations: [
+288 |                 .cookbookUpdate(cookbookID: "cookbook_weeknight", title: "Weeknights", clientMutationID: "cm_cookbook_conflict", createdAt: Self.createdAt(0)),
+    |                  `- error: type 'Any' has no member 'cookbookUpdate'
+289 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_auth", createdAt: Self.createdAt(1))
+290 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:289:18: error: type 'Any' has no member 'profileDisplayUpdate'
+287 |             mutations: [
+288 |                 .cookbookUpdate(cookbookID: "cookbook_weeknight", title: "Weeknights", clientMutationID: "cm_cookbook_conflict", createdAt: Self.createdAt(0)),
+289 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_auth", createdAt: Self.createdAt(1))
+    |                  `- error: type 'Any' has no member 'profileDisplayUpdate'
+290 |             ]
+291 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:292:21: error: cannot find 'InMemoryNativeSyncStore' in scope
+290 |             ]
+291 |         )
+292 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+    |                     `- error: cannot find 'InMemoryNativeSyncStore' in scope
+293 |         let transport = RecordingNativeSyncTransport(
+294 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:292:57: error: 'nil' requires a contextual type
+290 |             ]
+291 |         )
+292 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+    |                                                         `- error: 'nil' requires a contextual type
+293 |         let transport = RecordingNativeSyncTransport(
+294 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:294:25: error: cannot infer contextual base in reference to member 'success'
+292 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+293 |         let transport = RecordingNativeSyncTransport(
+294 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+    |                         `- error: cannot infer contextual base in reference to member 'success'
+295 |             mutationResults: [
+296 |                 .conflict(kind: .validation, serverRevision: .etag("\"cookbook-v8\""), message: "Cookbook was changed elsewhere."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:296:18: error: type 'Any' has no member 'conflict'
+294 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+295 |             mutationResults: [
+296 |                 .conflict(kind: .validation, serverRevision: .etag("\"cookbook-v8\""), message: "Cookbook was changed elsewhere."),
+    |                  `- error: type 'Any' has no member 'conflict'
+297 |                 .authFailure(message: "Session expired.")
+298 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:296:34: error: cannot infer contextual base in reference to member 'validation'
+294 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+295 |             mutationResults: [
+296 |                 .conflict(kind: .validation, serverRevision: .etag("\"cookbook-v8\""), message: "Cookbook was changed elsewhere."),
+    |                                  `- error: cannot infer contextual base in reference to member 'validation'
+297 |                 .authFailure(message: "Session expired.")
+298 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:296:63: error: cannot infer contextual base in reference to member 'etag'
+294 |             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
+295 |             mutationResults: [
+296 |                 .conflict(kind: .validation, serverRevision: .etag("\"cookbook-v8\""), message: "Cookbook was changed elsewhere."),
+    |                                                               `- error: cannot infer contextual base in reference to member 'etag'
+297 |                 .authFailure(message: "Session expired.")
+298 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:297:18: error: type 'Any' has no member 'authFailure'
+295 |             mutationResults: [
+296 |                 .conflict(kind: .validation, serverRevision: .etag("\"cookbook-v8\""), message: "Cookbook was changed elsewhere."),
+297 |                 .authFailure(message: "Session expired.")
+    |                  `- error: type 'Any' has no member 'authFailure'
+298 |             ]
+299 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:300:22: error: cannot find 'NativeSyncEngine' in scope
+298 |             ]
+299 |         )
+300 |         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+    |                      `- error: cannot find 'NativeSyncEngine' in scope
+301 | 
+302 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:302:97: error: cannot infer contextual base in reference to member 'networkRecovered'
+300 |         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+301 | 
+302 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+    |                                                                                                 `- error: cannot infer contextual base in reference to member 'networkRecovered'
+303 | 
+304 |         #expect(report.trigger == .networkRecovered)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:304:36: error: cannot infer contextual base in reference to member 'networkRecovered'
+302 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+303 | 
+304 |         #expect(report.trigger == .networkRecovered)
+    |                                    `- error: cannot infer contextual base in reference to member 'networkRecovered'
+305 |         #expect(report.conflicts == [
+306 |             NativeSyncConflict(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:306:13: error: cannot find 'NativeSyncConflict' in scope
+304 |         #expect(report.trigger == .networkRecovered)
+305 |         #expect(report.conflicts == [
+306 |             NativeSyncConflict(
+    |             `- error: cannot find 'NativeSyncConflict' in scope
+307 |                 clientMutationID: "cm_cookbook_conflict",
+308 |                 kind: .validation,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:308:24: error: cannot infer contextual base in reference to member 'validation'
+306 |             NativeSyncConflict(
+307 |                 clientMutationID: "cm_cookbook_conflict",
+308 |                 kind: .validation,
+    |                        `- error: cannot infer contextual base in reference to member 'validation'
+309 |                 serverRevision: .etag("\"cookbook-v8\""),
+310 |                 message: "Cookbook was changed elsewhere."
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:309:34: error: cannot infer contextual base in reference to member 'etag'
+307 |                 clientMutationID: "cm_cookbook_conflict",
+308 |                 kind: .validation,
+309 |                 serverRevision: .etag("\"cookbook-v8\""),
+    |                                  `- error: cannot infer contextual base in reference to member 'etag'
+310 |                 message: "Cookbook was changed elsewhere."
+311 |             )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:313:41: error: cannot infer contextual base in reference to member 'authRequired'
+311 |             )
+312 |         ])
+313 |         #expect(report.pausedReason == .authRequired("Session expired."))
+    |                                         `- error: cannot infer contextual base in reference to member 'authRequired'
+314 |         #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_cookbook_conflict", "cm_profile_auth"])
+315 |         #expect(try await store.loadQueue().mutations.first?.lastError == "Cookbook was changed elsewhere.")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:314:59: error: cannot infer key path type from context; consider explicitly specifying a root type
+312 |         ])
+313 |         #expect(report.pausedReason == .authRequired("Session expired."))
+314 |         #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_cookbook_conflict", "cm_profile_auth"])
+    |                                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+315 |         #expect(try await store.loadQueue().mutations.first?.lastError == "Cookbook was changed elsewhere.")
+316 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:320:25: error: cannot find 'NativeMutationQueue' in scope
+318 |     @Test("retry results block the failed dependency key while independent mutations can still drain")
+319 |     func retryResultsBlockTheFailedDependencyKeyWhileIndependentMutationsCanStillDrain() async throws {
+320 |         let queue = try NativeMutationQueue(
+    |                         `- error: cannot find 'NativeMutationQueue' in scope
+321 |             mutations: [
+322 |                 .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:322:18: error: type 'Any' has no member 'coverRegenerate'
+320 |         let queue = try NativeMutationQueue(
+321 |             mutations: [
+322 |                 .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0)),
+    |                  `- error: type 'Any' has no member 'coverRegenerate'
+323 |                 .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_same_key", note: "Same recipe waits.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/wait.jpg", useAsRecipeCover: false, createdAt: Self.createdAt(1)),
+324 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:323:18: error: type 'Any' has no member 'spoonCreate'
+321 |             mutations: [
+322 |                 .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0)),
+323 |                 .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_same_key", note: "Same recipe waits.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/wait.jpg", useAsRecipeCover: false, createdAt: Self.createdAt(1)),
+    |                  `- error: type 'Any' has no member 'spoonCreate'
+324 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
+325 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:323:133: error: 'nil' requires a contextual type
+321 |             mutations: [
+322 |                 .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0)),
+323 |                 .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_same_key", note: "Same recipe waits.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/wait.jpg", useAsRecipeCover: false, createdAt: Self.createdAt(1)),
+    |                                                                                                                                     `- error: 'nil' requires a contextual type
+324 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
+325 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:323:148: error: 'nil' requires a contextual type
+321 |             mutations: [
+322 |                 .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0)),
+323 |                 .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_same_key", note: "Same recipe waits.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/wait.jpg", useAsRecipeCover: false, createdAt: Self.createdAt(1)),
+    |                                                                                                                                                    `- error: 'nil' requires a contextual type
+324 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
+325 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:324:18: error: type 'Any' has no member 'profileDisplayUpdate'
+322 |                 .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(0)),
+323 |                 .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_same_key", note: "Same recipe waits.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/wait.jpg", useAsRecipeCover: false, createdAt: Self.createdAt(1)),
+324 |                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
+    |                  `- error: type 'Any' has no member 'profileDisplayUpdate'
+325 |             ]
+326 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:327:21: error: cannot find 'InMemoryNativeSyncStore' in scope
+325 |             ]
+326 |         )
+327 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+    |                     `- error: cannot find 'InMemoryNativeSyncStore' in scope
+328 |         let transport = RecordingNativeSyncTransport(
+329 |             bootstrap: .success(cursor: nil, tombstones: []),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:327:57: error: 'nil' requires a contextual type
+325 |             ]
+326 |         )
+327 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+    |                                                         `- error: 'nil' requires a contextual type
+328 |         let transport = RecordingNativeSyncTransport(
+329 |             bootstrap: .success(cursor: nil, tombstones: []),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:329:25: error: cannot infer contextual base in reference to member 'success'
+327 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+328 |         let transport = RecordingNativeSyncTransport(
+329 |             bootstrap: .success(cursor: nil, tombstones: []),
+    |                         `- error: cannot infer contextual base in reference to member 'success'
+330 |             mutationResults: [
+331 |                 .retry(afterSeconds: 30, message: "Server busy."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:329:41: error: 'nil' requires a contextual type
+327 |         let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+328 |         let transport = RecordingNativeSyncTransport(
+329 |             bootstrap: .success(cursor: nil, tombstones: []),
+    |                                         `- error: 'nil' requires a contextual type
+330 |             mutationResults: [
+331 |                 .retry(afterSeconds: 30, message: "Server busy."),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:331:18: error: type 'Any' has no member 'retry'
+329 |             bootstrap: .success(cursor: nil, tombstones: []),
+330 |             mutationResults: [
+331 |                 .retry(afterSeconds: 30, message: "Server busy."),
+    |                  `- error: type 'Any' has no member 'retry'
+332 |                 .success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))
+333 |             ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:332:18: error: type 'Any' has no member 'success'
+330 |             mutationResults: [
+331 |                 .retry(afterSeconds: 30, message: "Server busy."),
+332 |                 .success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))
+    |                  `- error: type 'Any' has no member 'success'
+333 |             ]
+334 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:332:43: error: cannot infer contextual base in reference to member 'updatedAt'
+330 |             mutationResults: [
+331 |                 .retry(afterSeconds: 30, message: "Server busy."),
+332 |                 .success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))
+    |                                           `- error: cannot infer contextual base in reference to member 'updatedAt'
+333 |             ]
+334 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:335:22: error: cannot find 'NativeSyncEngine' in scope
+333 |             ]
+334 |         )
+335 |         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+    |                      `- error: cannot find 'NativeSyncEngine' in scope
+336 | 
+337 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:337:97: error: cannot infer contextual base in reference to member 'launch'
+335 |         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+336 | 
+337 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch)
+    |                                                                                                 `- error: cannot infer contextual base in reference to member 'launch'
+338 |         let remaining = try await store.loadQueue().mutations
+339 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:343:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+341 |         #expect(report.drainedClientMutationIDs == ["cm_profile_independent"])
+342 |         #expect(await transport.clientMutationIDs == ["cm_cover_retry", "cm_profile_independent"])
+343 |         #expect(remaining.map(\.clientMutationID) == ["cm_cover_retry", "cm_spoon_same_key"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+344 |         #expect(remaining.first?.retryCount == 1)
+345 |         #expect(remaining.first?.nextRetryAt == "2026-05-28T23:13:50.000Z")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:338:29: error: no 'async' operations occur within 'await' expression
+336 | 
+337 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch)
+338 |         let remaining = try await store.loadQueue().mutations
+    |                             `- error: no 'async' operations occur within 'await' expression
+339 | 
+340 |         #expect(report.retryAfterSeconds == 30)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:338:25: error: no calls to throwing functions occur within 'try' expression
+336 | 
+337 |         let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch)
+338 |         let remaining = try await store.loadQueue().mutations
+    |                         `- error: no calls to throwing functions occur within 'try' expression
+339 | 
+340 |         #expect(report.retryAfterSeconds == 30)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:351:22: error: cannot find type 'NativeQueuedMutation' in scope
+349 | 
+350 |     private static func representativeMutations() throws -> [NativeQueuedMutation] {
+351 |         let recipe: [NativeQueuedMutation] = [
+    |                      `- error: cannot find type 'NativeQueuedMutation' in scope
+352 |             .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
+353 |             .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: createdAt(1)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:353:126: error: 'nil' requires a contextual type
+351 |         let recipe: [NativeQueuedMutation] = [
+352 |             .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
+353 |             .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: createdAt(1)),
+    |                                                                                                                              `- error: 'nil' requires a contextual type
+354 |             .recipeDelete(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_delete", createdAt: createdAt(2)),
+355 |             .recipeFork(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_fork", titleOverride: "My Lemon Pasta", createdAt: createdAt(3)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:357:124: error: 'nil' requires a contextual type
+355 |             .recipeFork(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_fork", titleOverride: "My Lemon Pasta", createdAt: createdAt(3)),
+356 |             .recipeStepCreate(recipeID: "recipe_lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: createdAt(4)),
+357 |             .recipeStepUpdate(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_step_update", stepTitle: nil, description: "Toss until glossy.", duration: nil, outputStepNums: [1], createdAt: createdAt(5)),
+    |                                                                                                                            `- error: 'nil' requires a contextual type
+358 |             .recipeStepDelete(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_step_delete", createdAt: createdAt(6)),
+359 |             .recipeStepReorder(recipeID: "recipe_lemon", stepID: "step_two", toStepNum: 1, clientMutationID: "cm_step_reorder", createdAt: createdAt(7)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:357:174: error: 'nil' requires a contextual type
+355 |             .recipeFork(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_fork", titleOverride: "My Lemon Pasta", createdAt: createdAt(3)),
+356 |             .recipeStepCreate(recipeID: "recipe_lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: createdAt(4)),
+357 |             .recipeStepUpdate(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_step_update", stepTitle: nil, description: "Toss until glossy.", duration: nil, outputStepNums: [1], createdAt: createdAt(5)),
+    |                                                                                                                                                                              `- error: 'nil' requires a contextual type
+358 |             .recipeStepDelete(recipeID: "recipe_lemon", stepID: "step_two", clientMutationID: "cm_step_delete", createdAt: createdAt(6)),
+359 |             .recipeStepReorder(recipeID: "recipe_lemon", stepID: "step_two", toStepNum: 1, clientMutationID: "cm_step_reorder", createdAt: createdAt(7)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:364:24: error: cannot find type 'NativeQueuedMutation' in scope
+362 |             .recipeOutputUsesReplace(recipeID: "recipe_lemon", inputStepID: "step_two", outputStepNums: [1, 3], clientMutationID: "cm_output_uses", createdAt: createdAt(10))
+363 |         ]
+364 |         let cookbook: [NativeQueuedMutation] = [
+    |                        `- error: cannot find type 'NativeQueuedMutation' in scope
+365 |             .cookbookCreate(clientMutationID: "cm_cookbook_create", title: "Weeknights", createdAt: createdAt(11)),
+366 |             .cookbookUpdate(cookbookID: "cookbook_weeknight", title: "Dinner Parties", clientMutationID: "cm_cookbook_update", createdAt: createdAt(12)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:371:24: error: cannot find type 'NativeQueuedMutation' in scope
+369 |             .cookbookRemoveRecipe(cookbookID: "cookbook_weeknight", recipeID: "recipe_lemon", clientMutationID: "cm_cookbook_remove", createdAt: createdAt(15))
+370 |         ]
+371 |         let shopping: [NativeQueuedMutation] = [
+    |                        `- error: cannot find type 'NativeQueuedMutation' in scope
+372 |             .shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_shopping_add", createdAt: createdAt(16)),
+373 |             .shoppingCheckItem(itemID: "item_lemons", checked: true, clientMutationID: "cm_shopping_check", createdAt: createdAt(17)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:379:21: error: cannot find type 'NativeQueuedMutation' in scope
+377 |             .shoppingClearAll(clientMutationID: "cm_shopping_clear_all", createdAt: createdAt(21))
+378 |         ]
+379 |         let spoon: [NativeQueuedMutation] = [
+    |                     `- error: cannot find type 'NativeQueuedMutation' in scope
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:380:118: error: 'nil' requires a contextual type
+378 |         ]
+379 |         let spoon: [NativeQueuedMutation] = [
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+    |                                                                                                                      `- error: 'nil' requires a contextual type
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+382 |             .spoonUpdate(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: nil, photoURL: "/photos/spoons/updated.jpg", createdAt: createdAt(24)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:380:133: error: 'nil' requires a contextual type
+378 |         ]
+379 |         let spoon: [NativeQueuedMutation] = [
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+    |                                                                                                                                     `- error: 'nil' requires a contextual type
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+382 |             .spoonUpdate(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: nil, photoURL: "/photos/spoons/updated.jpg", createdAt: createdAt(24)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:381:212: error: 'nil' requires a contextual type
+379 |         let spoon: [NativeQueuedMutation] = [
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+    |                                                                                                                                                                                                                    `- error: 'nil' requires a contextual type
+382 |             .spoonUpdate(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: nil, photoURL: "/photos/spoons/updated.jpg", createdAt: createdAt(24)),
+383 |             .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete", createdAt: createdAt(25))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:381:227: error: 'nil' requires a contextual type
+379 |         let spoon: [NativeQueuedMutation] = [
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+    |                                                                                                                                                                                                                                   `- error: 'nil' requires a contextual type
+382 |             .spoonUpdate(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: nil, photoURL: "/photos/spoons/updated.jpg", createdAt: createdAt(24)),
+383 |             .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete", createdAt: createdAt(25))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:382:120: error: 'nil' requires a contextual type
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+382 |             .spoonUpdate(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: nil, photoURL: "/photos/spoons/updated.jpg", createdAt: createdAt(24)),
+    |                                                                                                                        `- error: 'nil' requires a contextual type
+383 |             .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete", createdAt: createdAt(25))
+384 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:382:159: error: 'nil' requires a contextual type
+380 |             .spoonCreate(recipeID: "recipe_lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: nil, photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: createdAt(22)),
+381 |             .spoonCreatePhoto(recipeID: "recipe_lemon", photo: stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: nil, cookedAt: nil, useAsRecipeCover: false, createdAt: createdAt(23)),
+382 |             .spoonUpdate(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: nil, photoURL: "/photos/spoons/updated.jpg", createdAt: createdAt(24)),
+    |                                                                                                                                                               `- error: 'nil' requires a contextual type
+383 |             .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete", createdAt: createdAt(25))
+384 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:385:21: error: cannot find type 'NativeQueuedMutation' in scope
+383 |             .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete", createdAt: createdAt(25))
+384 |         ]
+385 |         let cover: [NativeQueuedMutation] = [
+    |                     `- error: cannot find type 'NativeQueuedMutation' in scope
+386 |             .coverUpload(recipeID: "recipe_lemon", image: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: createdAt(26)),
+387 |             .coverSetActive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: createdAt(27)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:387:124: error: cannot infer contextual base in reference to member 'stylized'
+385 |         let cover: [NativeQueuedMutation] = [
+386 |             .coverUpload(recipeID: "recipe_lemon", image: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: createdAt(26)),
+387 |             .coverSetActive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: createdAt(27)),
+    |                                                                                                                            `- error: cannot infer contextual base in reference to member 'stylized'
+388 |             .coverArchive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover_replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: createdAt(28)),
+389 |             .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_editorial", activateWhenReady: true, clientMutationID: "cm_cover_regen", createdAt: createdAt(29)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:388:175: error: cannot infer contextual base in reference to member 'image'
+386 |             .coverUpload(recipeID: "recipe_lemon", image: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: createdAt(26)),
+387 |             .coverSetActive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: createdAt(27)),
+388 |             .coverArchive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover_replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: createdAt(28)),
+    |                                                                                                                                                                               `- error: cannot infer contextual base in reference to member 'image'
+389 |             .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_editorial", activateWhenReady: true, clientMutationID: "cm_cover_regen", createdAt: createdAt(29)),
+390 |             .coverFromSpoon(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: createdAt(30))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:392:23: error: cannot find type 'NativeQueuedMutation' in scope
+390 |             .coverFromSpoon(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: createdAt(30))
+391 |         ]
+392 |         let account: [NativeQueuedMutation] = [
+    |                       `- error: cannot find type 'NativeQueuedMutation' in scope
+393 |             .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_update", createdAt: createdAt(31)),
+394 |             .profilePhotoUpload(photo: stagedMedia("stage_profile_1", fileName: "profile.jpg", contentType: "image/jpeg"), clientMutationID: "cm_profile_photo", createdAt: createdAt(32)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:397:68: error: cannot infer contextual base in reference to member 'ios'
+395 |             .profilePhotoRemove(clientMutationID: "cm_profile_photo_remove", createdAt: createdAt(33)),
+396 |             .notificationPreferenceUpdate(notifySpoonOnMyRecipe: true, notifyForkOfMyRecipe: false, notifyCookbookSaveOfMine: true, notifyFellowChefOriginCook: false, clientMutationID: "cm_notifications_update", createdAt: createdAt(34)),
+397 |             .apnsDeviceRegister(deviceID: "device_ios", platform: .ios, environment: .development, token: "apns-token", deviceName: "Ari's iPhone", appVersion: "1.0.0", clientMutationID: "cm_apns_register", createdAt: createdAt(35)),
+    |                                                                    `- error: cannot infer contextual base in reference to member 'ios'
+398 |             .apnsDeviceRevoke(deviceID: "device_ios", clientMutationID: "cm_apns_revoke", createdAt: createdAt(36))
+399 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:397:87: error: cannot infer contextual base in reference to member 'development'
+395 |             .profilePhotoRemove(clientMutationID: "cm_profile_photo_remove", createdAt: createdAt(33)),
+396 |             .notificationPreferenceUpdate(notifySpoonOnMyRecipe: true, notifyForkOfMyRecipe: false, notifyCookbookSaveOfMine: true, notifyFellowChefOriginCook: false, clientMutationID: "cm_notifications_update", createdAt: createdAt(34)),
+397 |             .apnsDeviceRegister(deviceID: "device_ios", platform: .ios, environment: .development, token: "apns-token", deviceName: "Ari's iPhone", appVersion: "1.0.0", clientMutationID: "cm_apns_register", createdAt: createdAt(35)),
+    |                                                                                       `- error: cannot infer contextual base in reference to member 'development'
+398 |             .apnsDeviceRevoke(deviceID: "device_ios", clientMutationID: "cm_apns_revoke", createdAt: createdAt(36))
+399 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:400:32: error: cannot find type 'NativeQueuedMutation' in scope
+398 |             .apnsDeviceRevoke(deviceID: "device_ios", clientMutationID: "cm_apns_revoke", createdAt: createdAt(36))
+399 |         ]
+400 |         let captureAndImport: [NativeQueuedMutation] = [
+    |                                `- error: cannot find type 'NativeQueuedMutation' in scope
+401 |             .captureDraftCreate(draftID: "capture_draft_1", source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_capture_create", createdAt: createdAt(37)),
+402 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: createdAt(38)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:401:70: error: cannot infer contextual base in reference to member 'url'
+399 |         ]
+400 |         let captureAndImport: [NativeQueuedMutation] = [
+401 |             .captureDraftCreate(draftID: "capture_draft_1", source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_capture_create", createdAt: createdAt(37)),
+    |                                                                      `- error: cannot infer contextual base in reference to member 'url'
+402 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: createdAt(38)),
+403 |             .captureDraftDiscard(draftID: "capture_draft_1", clientMutationID: "cm_capture_discard", createdAt: createdAt(39)),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:402:68: error: cannot infer contextual base in reference to member 'text'
+400 |         let captureAndImport: [NativeQueuedMutation] = [
+401 |             .captureDraftCreate(draftID: "capture_draft_1", source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_capture_create", createdAt: createdAt(37)),
+402 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: createdAt(38)),
+    |                                                                    `- error: cannot infer contextual base in reference to member 'text'
+403 |             .captureDraftDiscard(draftID: "capture_draft_1", clientMutationID: "cm_capture_discard", createdAt: createdAt(39)),
+404 |             .recipeImportSubmit(source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_import_submit", createdAt: createdAt(40))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:404:42: error: cannot infer contextual base in reference to member 'url'
+402 |             .captureDraftEdit(draftID: "capture_draft_1", source: .text("Grandma notes"), clientMutationID: "cm_capture_edit", createdAt: createdAt(38)),
+403 |             .captureDraftDiscard(draftID: "capture_draft_1", clientMutationID: "cm_capture_discard", createdAt: createdAt(39)),
+404 |             .recipeImportSubmit(source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_import_submit", createdAt: createdAt(40))
+    |                                          `- error: cannot infer contextual base in reference to member 'url'
+405 |         ]
+406 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:407:19: error: cannot find type 'NativeQueuedMutation' in scope
+405 |         ]
+406 | 
+407 |         var all: [NativeQueuedMutation] = []
+    |                   `- error: cannot find type 'NativeQueuedMutation' in scope
+408 |         all.append(contentsOf: recipe)
+409 |         all.append(contentsOf: cookbook)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:423:9: error: cannot find 'NativeStagedMediaUpload' in scope
+421 | 
+422 |     private static func stagedMedia(_ id: String, fileName: String, contentType: String) -> NativeStagedMediaUpload {
+423 |         NativeStagedMediaUpload(
+    |         `- error: cannot find 'NativeStagedMediaUpload' in scope
+424 |             localStageID: id,
+425 |             fileName: fileName,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift:572:67: error: 'nil' requires a contextual type
+570 |         requestPaths.append(request.url.path)
+571 |         clientMutationIDs.append(mutation.clientMutationID)
+572 |         return mutationResults.isEmpty ? .success(serverRevision: nil) : mutationResults.removeFirst()
+    |                                                                   `- error: 'nil' requires a contextual type
+573 |     }
+574 | }
+error: fatalError
