@@ -19,91 +19,91 @@ Building for debugging...
  35 |             .selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:01:00.000Z")
  36 |             .settingScaleFactor(2.5, updatedAt: "2026-06-25T12:02:00.000Z")
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:46:55: error: cannot infer key path type from context; consider explicitly specifying a root type
- 44 |         #expect(progress.checkedStepOutputUseIDs == ["use_step_lemon_pasta_1"])
- 45 |         #expect(viewModel.recipeProgressLabel == "2 of 4 checked")
- 46 |         #expect(viewModel.ingredientChecklistRows.map(\.id) == [
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:47:55: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 45 |         #expect(viewModel.recipeProgressLabel == "2 of 7 checked")
+ 46 |         #expect(viewModel.currentPageProgressLabel == "2 of 4 checked")
+ 47 |         #expect(viewModel.ingredientChecklistRows.map(\.id) == [
     |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
- 47 |             "ingredient_lemon_pasta_lemon",
- 48 |             "ingredient_lemon_pasta_oil",
+ 48 |             "ingredient_lemon_pasta_lemon",
+ 49 |             "ingredient_lemon_pasta_oil",
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:51:55: error: cannot infer key path type from context; consider explicitly specifying a root type
- 49 |             "ingredient_lemon_pasta_garlic"
- 50 |         ])
- 51 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:52:55: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 50 |             "ingredient_lemon_pasta_garlic"
+ 51 |         ])
+ 52 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
     |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
- 52 |         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
- 53 |         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
+ 53 |         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
+ 54 |         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:53:55: error: cannot infer key path type from context; consider explicitly specifying a root type
- 51 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
- 52 |         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
- 53 |         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:54:55: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 52 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
+ 53 |         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
+ 54 |         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
     |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
- 54 |         #expect(viewModel.stepOutputChecklistRows.first?.isChecked == true)
- 55 | 
+ 55 |         #expect(viewModel.stepOutputChecklistRows.first?.isChecked == true)
+ 56 | 
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:67:40: error: type 'CookModeProgress' has no member 'starting'
- 65 |     func durationTimersExistOnlyForDurationBearingSteps() throws {
- 66 |         let recipe = try cookModeParityRecipe()
- 67 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:68:40: error: type 'CookModeProgress' has no member 'starting'
+ 66 |     func durationTimersExistOnlyForDurationBearingSteps() throws {
+ 67 |         let recipe = try cookModeParityRecipe()
+ 68 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
     |                                        `- error: type 'CookModeProgress' has no member 'starting'
- 68 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
- 69 | 
+ 69 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
+ 70 | 
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:68:87: error: value of type 'CookModeViewModel' has no member 'timer'
- 66 |         let recipe = try cookModeParityRecipe()
- 67 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
- 68 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:69:87: error: value of type 'CookModeViewModel' has no member 'timer'
+ 67 |         let recipe = try cookModeParityRecipe()
+ 68 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+ 69 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
     |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'timer'
- 69 | 
- 70 |         #expect(timer.stepID == "step_lemon_pasta_1")
+ 70 | 
+ 71 |         #expect(timer.stepID == "step_lemon_pasta_1")
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:80:108: error: value of type 'CookModeViewModel' has no member 'timer'
- 78 | 
- 79 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
- 80 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:81:108: error: value of type 'CookModeViewModel' has no member 'timer'
+ 79 | 
+ 80 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+ 81 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
     |                                                                                                            `- error: value of type 'CookModeViewModel' has no member 'timer'
- 81 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
- 82 |         #expect(secondStepTimer.durationSeconds == 300)
+ 82 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+ 83 |         #expect(secondStepTimer.durationSeconds == 300)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:87:83: error: value of type 'CookModeViewModel' has no member 'timer'
- 85 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
- 86 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
- 87 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).timer == nil)
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:88:83: error: value of type 'CookModeViewModel' has no member 'timer'
+ 86 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
+ 87 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
+ 88 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).timer == nil)
     |                                                                                   `- error: value of type 'CookModeViewModel' has no member 'timer'
- 88 |     }
- 89 | 
+ 89 |     }
+ 90 | 
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:68:21: warning: no calls to throwing functions occur within 'try' expression
- 66 |         let recipe = try cookModeParityRecipe()
- 67 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
- 68 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:69:21: warning: no calls to throwing functions occur within 'try' expression
+ 67 |         let recipe = try cookModeParityRecipe()
+ 68 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+ 69 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
     |                     `- warning: no calls to throwing functions occur within 'try' expression
- 69 | 
- 70 |         #expect(timer.stepID == "step_lemon_pasta_1")
+ 70 | 
+ 71 |         #expect(timer.stepID == "step_lemon_pasta_1")
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:80:31: warning: no calls to throwing functions occur within 'try' expression
- 78 | 
- 79 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
- 80 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:81:31: warning: no calls to throwing functions occur within 'try' expression
+ 79 | 
+ 80 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+ 81 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
     |                               `- warning: no calls to throwing functions occur within 'try' expression
- 81 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
- 82 |         #expect(secondStepTimer.durationSeconds == 300)
+ 82 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+ 83 |         #expect(secondStepTimer.durationSeconds == 300)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:103:18: error: type 'CookModeProgress' has no member 'starting'
-101 |             )
-102 |             let progress = try CookModeProgress
-103 |                 .starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:104:18: error: type 'CookModeProgress' has no member 'starting'
+102 |             )
+103 |             let progress = try CookModeProgress
+104 |                 .starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
     |                  `- error: type 'CookModeProgress' has no member 'starting'
-104 |                 .selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:01:00.000Z")
-105 |                 .settingScaleFactor(0.25, updatedAt: "2026-06-25T12:02:00.000Z")
+105 |                 .selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:01:00.000Z")
+106 |                 .settingScaleFactor(0.25, updatedAt: "2026-06-25T12:02:00.000Z")
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:127:44: error: value of type 'NativeIntentActionResolver' has no member 'continueCookMode'
-125 |         let resolver = NativeIntentActionResolver()
-126 |         let start = try resolver.startCookMode(recipeID: "recipe_lemon_pantry_pasta")
-127 |         let continueCooking = try resolver.continueCookMode(recipeID: " recipe_lemon_pantry_pasta ")
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:128:44: error: value of type 'NativeIntentActionResolver' has no member 'continueCookMode'
+126 |         let resolver = NativeIntentActionResolver()
+127 |         let start = try resolver.startCookMode(recipeID: "recipe_lemon_pantry_pasta")
+128 |         let continueCooking = try resolver.continueCookMode(recipeID: " recipe_lemon_pantry_pasta ")
     |                                            `- error: value of type 'NativeIntentActionResolver' has no member 'continueCookMode'
-128 |         let expectedRoute = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)
-129 | 
+129 |         let expectedRoute = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)
+130 | 
 error: fatalError

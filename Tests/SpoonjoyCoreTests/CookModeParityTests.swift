@@ -42,7 +42,8 @@ struct CookModeParityTests {
         #expect(progress.scaleFactor == 2.5)
         #expect(progress.checkedIngredientIDs == ["ingredient_lemon_pasta_garlic"])
         #expect(progress.checkedStepOutputUseIDs == ["use_step_lemon_pasta_1"])
-        #expect(viewModel.recipeProgressLabel == "2 of 4 checked")
+        #expect(viewModel.recipeProgressLabel == "2 of 7 checked")
+        #expect(viewModel.currentPageProgressLabel == "2 of 4 checked")
         #expect(viewModel.ingredientChecklistRows.map(\.id) == [
             "ingredient_lemon_pasta_lemon",
             "ingredient_lemon_pasta_oil",

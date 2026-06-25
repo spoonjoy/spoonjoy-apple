@@ -22,6 +22,7 @@ REQUIRED_TOKENS = {
     "activeStep",
     "stepProgressLabel",
     "recipeProgressLabel",
+    "currentPageProgressLabel",
     "ingredientChecklistRows",
     "stepOutputChecklistRows",
     "formattedRemainingTime",
