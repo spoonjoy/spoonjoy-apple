@@ -166,10 +166,69 @@ public struct NativeCacheRecord: Codable, Equatable, Hashable, Sendable {
     public let metadata: NativeCacheRecordMetadata
     public let payload: NativeCachePayload
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case metadata
+        case payload
+    }
+
     public init(id: String, metadata: NativeCacheRecordMetadata, payload: NativeCachePayload) throws {
+        if let payloadDomain = payload.cacheDomain, payloadDomain != metadata.domain {
+            throw NativeCacheRecordValidationError.payloadDomainMismatch(
+                metadataDomain: metadata.domain,
+                payloadDomain: payloadDomain
+            )
+        }
+
         self.id = id
         self.metadata = metadata
         self.payload = payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            id: container.decode(String.self, forKey: .id),
+            metadata: container.decode(NativeCacheRecordMetadata.self, forKey: .metadata),
+            payload: container.decode(NativeCachePayload.self, forKey: .payload)
+        )
+    }
+}
+
+public enum NativeCacheRecordValidationError: Error, Equatable, Sendable {
+    case payloadDomainMismatch(metadataDomain: NativeCacheDomain, payloadDomain: NativeCacheDomain)
+}
+
+private extension NativeCachePayload {
+    var cacheDomain: NativeCacheDomain? {
+        switch self {
+        case .empty:
+            nil
+        case .recipeCatalog:
+            .recipeCatalog
+        case .recipeDetail(let id, _):
+            .recipeDetail(id: id)
+        case .cookbookList:
+            .cookbookList
+        case .cookbookDetail(let id, _):
+            .cookbookDetail(id: id)
+        case .shoppingList:
+            .shoppingList
+        case .cookProgress(let recipeID, _, _):
+            .cookProgress(recipeID: recipeID)
+        case .captureDraft(let id, _):
+            .captureDraft(id: id)
+        case .profile(let id, _):
+            .profile(id: id)
+        case .notificationPreferences:
+            .notificationPreferences
+        case .tokenMetadata:
+            .tokenMetadata
+        case .connectionStatus:
+            .connectionStatus
+        case .apnsStatus:
+            .apnsStatus
+        }
     }
 }
 

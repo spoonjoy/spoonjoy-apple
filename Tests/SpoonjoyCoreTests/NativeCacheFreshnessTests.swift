@@ -31,6 +31,38 @@ struct NativeCacheFreshnessTests {
         #expect(throws: NativeCacheRecoveryError.self) {
             try snapshot.copy(schemaVersion: 1).validatedForRestore()
         }
+        #expect(throws: NativeCacheRecordValidationError.payloadDomainMismatch(
+            metadataDomain: .settings,
+            payloadDomain: .recipeCatalog
+        )) {
+            try directRecord(
+                domain: .settings,
+                payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"]),
+                fetchedAt: fetchedAt,
+                lastValidatedAt: validatedAt
+            )
+        }
+        let mismatchedRecordData = try JSONEncoder().encode(NativeCacheRecordWire(
+            id: NativeCacheDomain.settings.stableRecordID,
+            metadata: directMetadata(domain: .settings, fetchedAt: fetchedAt, lastValidatedAt: validatedAt),
+            payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"])
+        ))
+        #expect(throws: NativeCacheRecordValidationError.payloadDomainMismatch(
+            metadataDomain: .settings,
+            payloadDomain: .recipeCatalog
+        )) {
+            _ = try JSONDecoder().decode(NativeCacheRecord.self, from: mismatchedRecordData)
+        }
+        let emptyRecord = try JSONDecoder().decode(
+            NativeCacheRecord.self,
+            from: try JSONEncoder().encode(NativeCacheRecordWire(
+                id: NativeCacheDomain.settings.stableRecordID,
+                metadata: directMetadata(domain: .settings, fetchedAt: fetchedAt, lastValidatedAt: validatedAt),
+                payload: .empty
+            ))
+        )
+        #expect(emptyRecord.metadata.domain == .settings)
+        #expect(emptyRecord.payload == .empty)
         #expect(snapshot.record(for: .recipeDetail(id: "recipe_lemon_pantry_pasta"))?.metadata.serverRevision == .etag("\"recipe-detail-v7\""))
         #expect(NativeDurableCacheSnapshot.recordLookupSignature == "record(for:")
         #expect(!NativeDurableCacheSnapshot.offlineProductContractEndpoints.isEmpty)
@@ -755,6 +787,31 @@ private func directProductContractRecords(fetchedAt: Date, lastValidatedAt: Date
     ]
 }
 
+private struct NativeCacheRecordWire: Encodable {
+    let id: String
+    let metadata: NativeCacheRecordMetadata
+    let payload: NativeCachePayload
+}
+
+private func directMetadata(
+    domain: NativeCacheDomain,
+    sourceEndpoint: String = "/api/v1/test",
+    serverRevision: NativeCacheServerRevision = .etag("\"test\""),
+    fetchedAt: Date = Date(timeIntervalSince1970: 1_781_612_800),
+    lastValidatedAt: Date
+) -> NativeCacheRecordMetadata {
+    NativeCacheRecordMetadata(
+        accountID: "chef_ari",
+        environment: .production,
+        schemaVersion: 2,
+        domain: domain,
+        fetchedAt: fetchedAt,
+        lastValidatedAt: lastValidatedAt,
+        sourceEndpoint: sourceEndpoint,
+        serverRevision: serverRevision
+    )
+}
+
 private func directRecord(
     domain: NativeCacheDomain,
     sourceEndpoint: String = "/api/v1/test",
@@ -765,15 +822,12 @@ private func directRecord(
 ) throws -> NativeCacheRecord {
     try NativeCacheRecord(
         id: domain.stableRecordID,
-        metadata: NativeCacheRecordMetadata(
-            accountID: "chef_ari",
-            environment: .production,
-            schemaVersion: 2,
+        metadata: directMetadata(
             domain: domain,
-            fetchedAt: fetchedAt,
-            lastValidatedAt: lastValidatedAt,
             sourceEndpoint: sourceEndpoint,
-            serverRevision: serverRevision
+            serverRevision: serverRevision,
+            fetchedAt: fetchedAt,
+            lastValidatedAt: lastValidatedAt
         ),
         payload: payload
     )
@@ -847,6 +901,38 @@ struct NativeCacheBehaviorContract {
         #expect(throws: NativeCacheRecoveryError.self) {
             try snapshot.copy(schemaVersion: 1).validatedForRestore()
         }
+        #expect(throws: NativeCacheRecordValidationError.payloadDomainMismatch(
+            metadataDomain: .settings,
+            payloadDomain: .recipeCatalog
+        )) {
+            try record(
+                domain: .settings,
+                payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"]),
+                fetchedAt: fetchedAt,
+                lastValidatedAt: lastValidatedAt
+            )
+        }
+        let mismatchedRecordData = try JSONEncoder().encode(NativeCacheRecordWire(
+            id: NativeCacheDomain.settings.stableRecordID,
+            metadata: metadata(domain: .settings, fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+            payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"])
+        ))
+        #expect(throws: NativeCacheRecordValidationError.payloadDomainMismatch(
+            metadataDomain: .settings,
+            payloadDomain: .recipeCatalog
+        )) {
+            _ = try JSONDecoder().decode(NativeCacheRecord.self, from: mismatchedRecordData)
+        }
+        let emptyRecord = try JSONDecoder().decode(
+            NativeCacheRecord.self,
+            from: try JSONEncoder().encode(NativeCacheRecordWire(
+                id: NativeCacheDomain.settings.stableRecordID,
+                metadata: metadata(domain: .settings, fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+                payload: .empty
+            ))
+        )
+        #expect(emptyRecord.metadata.domain == .settings)
+        #expect(emptyRecord.payload == .empty)
 
         let shoppingList = try ShoppingListState.decodeFromBundle()
         let queue = try MutationQueue().appending(
@@ -1100,6 +1186,31 @@ private func productContractRecords(fetchedAt: Date, lastValidatedAt: Date) thro
     ]
 }
 
+private struct NativeCacheRecordWire: Encodable {
+    let id: String
+    let metadata: NativeCacheRecordMetadata
+    let payload: NativeCachePayload
+}
+
+private func metadata(
+    domain: NativeCacheDomain,
+    sourceEndpoint: String = "/api/v1/test",
+    serverRevision: NativeCacheServerRevision = .etag("\"test\""),
+    fetchedAt: Date = Date(timeIntervalSince1970: 1_781_612_800),
+    lastValidatedAt: Date
+) -> NativeCacheRecordMetadata {
+    NativeCacheRecordMetadata(
+        accountID: "chef_ari",
+        environment: .production,
+        schemaVersion: 2,
+        domain: domain,
+        fetchedAt: fetchedAt,
+        lastValidatedAt: lastValidatedAt,
+        sourceEndpoint: sourceEndpoint,
+        serverRevision: serverRevision
+    )
+}
+
 private func record(
     domain: NativeCacheDomain,
     sourceEndpoint: String = "/api/v1/test",
@@ -1110,15 +1221,12 @@ private func record(
 ) throws -> NativeCacheRecord {
     try NativeCacheRecord(
         id: domain.stableRecordID,
-        metadata: NativeCacheRecordMetadata(
-            accountID: "chef_ari",
-            environment: .production,
-            schemaVersion: 2,
+        metadata: metadata(
             domain: domain,
-            fetchedAt: fetchedAt,
-            lastValidatedAt: lastValidatedAt,
             sourceEndpoint: sourceEndpoint,
-            serverRevision: serverRevision
+            serverRevision: serverRevision,
+            fetchedAt: fetchedAt,
+            lastValidatedAt: lastValidatedAt
         ),
         payload: payload
     )

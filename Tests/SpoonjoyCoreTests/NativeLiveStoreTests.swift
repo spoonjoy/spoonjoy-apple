@@ -1009,6 +1009,61 @@ struct NativeLiveStoreTests {
         }
     }
 
+    @Test("shell content exposes recipe catalog source for live and offline states")
+    func shellContentExposesRecipeCatalogSourceForLiveAndOfflineStates() throws {
+        let recipe = Self.sampleRecipe(id: "recipe_catalog_source", title: "Catalog Source")
+        let cacheSnapshot = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: "chef_ari",
+            environment: .production,
+            createdAt: Self.now,
+            records: [],
+            dismissedIndicators: []
+        )
+        let syncSnapshot = NativeSyncSnapshot(
+            accountID: "chef_ari",
+            environment: .production,
+            checkpoint: nil,
+            queue: NativeMutationQueue(),
+            cachedRecords: [
+                NativeSyncCachedRecord(
+                    kind: .recipe,
+                    resourceID: recipe.id,
+                    payload: try Self.jsonValue(recipe),
+                    serverRevision: .updatedAt(recipe.updatedAt)
+                )
+            ],
+            tombstones: []
+        )
+        let syncedContent = NativeShellContentState.restored(
+            cacheSnapshot: cacheSnapshot,
+            syncSnapshot: syncSnapshot,
+            appSnapshot: nil,
+            authSessionState: .signedOut,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: .synced(lastSyncedAt: Self.now)
+        )
+
+        let liveCatalog = syncedContent.recipeCatalog
+        #expect(liveCatalog.rows.map(\.id) == ["recipe_catalog_source"])
+        #expect(liveCatalog.limit == 48)
+        if case .live(let requestID, _) = liveCatalog.source {
+            #expect(requestID == "native-shell")
+        } else {
+            Issue.record("Expected synced content to expose a live recipe catalog source; got \(liveCatalog.source)")
+        }
+
+        let offlineCatalog = syncedContent
+            .copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))
+            .recipeCatalog
+        if case .cache(let serverRevision, let lastValidatedAt) = offlineCatalog.source {
+            #expect(serverRevision == .updatedAt(recipe.updatedAt))
+            #expect(lastValidatedAt == .distantPast)
+        } else {
+            Issue.record("Expected offline content to expose a cache recipe catalog source; got \(offlineCatalog.source)")
+        }
+    }
+
     @MainActor
     private func assertSyncOutcome(
         sendResult: NativeSyncMutationResult,
