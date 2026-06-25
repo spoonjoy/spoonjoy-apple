@@ -45,8 +45,9 @@ REQUIRED_TOKENS = {
     "KitchenSafeControls",
     "currentStep",
     "ProgressView",
-    "persisted progress",
+    "Persisted progress",
     "accessibilityLabel",
+    "accessibilityValue",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift" => [
@@ -98,9 +99,10 @@ end
 fail_check("forbidden cook/shopping surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
 
 platform_navigation = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read
-["CookModeView(", "ShoppingListView("].each do |token|
-  fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
+unless platform_navigation.include?("CookModeView(") || platform_navigation.include?("CookModeRouteView(")
+  fail_check("PlatformNavigationView.swift missing cook mode route/view")
 end
+fail_check("PlatformNavigationView.swift missing ShoppingListView(") unless platform_navigation.include?("ShoppingListView(")
 
 scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift").read
 [

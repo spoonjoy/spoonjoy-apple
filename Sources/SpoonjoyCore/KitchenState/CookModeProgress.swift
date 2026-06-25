@@ -325,9 +325,6 @@ private extension KeyedDecodingContainer where Key == CookModeProgress.CodingKey
         if let value = try? decodeIfPresent(Double.self, forKey: key) {
             return value
         }
-        if let value = try? decodeIfPresent(Int.self, forKey: key) {
-            return Double(value)
-        }
         if let value = try? decodeIfPresent(String.self, forKey: key) {
             return Double(value)
         }

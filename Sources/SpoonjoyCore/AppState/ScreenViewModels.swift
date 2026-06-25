@@ -104,6 +104,13 @@ public struct CookModeViewModel: Equatable {
         checkedLabel(checked: recipeCheckedCount, total: recipeCheckableCount)
     }
 
+    public var recipeCheckoffFraction: Double {
+        guard recipeCheckableCount > 0 else {
+            return 0
+        }
+        return Double(recipeCheckedCount) / Double(recipeCheckableCount)
+    }
+
     public var currentPageProgressLabel: String {
         guard let activeStep else {
             return checkedLabel(checked: 0, total: 0)
@@ -293,9 +300,6 @@ private enum CookModeQuantityFormatter {
     private static func trimmedDecimal(_ value: Double) -> String {
         var text = String(format: "%.2f", value)
         while text.last == "0" {
-            text.removeLast()
-        }
-        if text.last == "." {
             text.removeLast()
         }
         return text

@@ -27,6 +27,82 @@ struct CookModeParityTests {
         #expect(viewModel.progressAfterSelectingPrevious(updatedAt: "2026-06-25T12:04:00.000Z").currentStepID == "step_lemon_pasta_1")
     }
 
+    @Test("view model covers empty progress navigation bounds and quantity format edges")
+    func viewModelCoversEmptyProgressNavigationBoundsAndQuantityFormatEdges() throws {
+        let recipe = try cookModeParityRecipe()
+        let noCurrentProgress = CookModeProgress(recipeID: recipe.id, stepIDs: [], startedAt: "2026-06-25T12:00:00.000Z")
+        let noCurrentViewModel = CookModeViewModel(recipe: recipe, progress: noCurrentProgress)
+
+        #expect(noCurrentViewModel.activeStep?.id == "step_lemon_pasta_1")
+
+        let staleCurrentProgress = CookModeProgress(
+            recipeID: recipe.id,
+            completedStepIDs: [],
+            currentStepID: "legacy_step"
+        )
+        #expect(CookModeViewModel(recipe: recipe, progress: staleCurrentProgress).activeStep?.id == "step_lemon_pasta_1")
+
+        let emptyRecipe = recipe.replacingSteps([])
+        let emptyViewModel = CookModeViewModel(recipe: emptyRecipe, progress: noCurrentProgress)
+        #expect(emptyViewModel.activeStep == nil)
+        #expect(emptyViewModel.stepProgressLabel == "No steps")
+        #expect(emptyViewModel.currentPageProgressLabel == "0 of 0 checked")
+        #expect(emptyViewModel.recipeCheckoffFraction == 0)
+        #expect(emptyViewModel.ingredientChecklistRows.isEmpty)
+        #expect(emptyViewModel.stepOutputChecklistRows.isEmpty)
+
+        let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+        #expect(CookModeViewModel(recipe: recipe, progress: started).progressAfterSelectingPrevious(updatedAt: "2026-06-25T12:01:00.000Z") == started)
+        #expect(try cookModeErrorDescription {
+            _ = try started.selectingStep(id: "step_missing", updatedAt: "2026-06-25T12:01:00.000Z")
+        } == "Cook mode step step_missing was not found.")
+        #expect(started.settingScaleFactor(.infinity, updatedAt: "2026-06-25T12:02:00.000Z").scaleFactor == 1)
+
+        let lastStepID = try #require(recipe.steps.last?.id)
+        let lastProgress = try started.selectingStep(id: lastStepID, updatedAt: "2026-06-25T12:03:00.000Z")
+        #expect(CookModeViewModel(recipe: recipe, progress: lastProgress).progressAfterSelectingNext(updatedAt: "2026-06-25T12:04:00.000Z") == lastProgress)
+        let staleNextProgress = CookModeProgress(
+            recipeID: recipe.id,
+            completedStepIDs: [],
+            currentStepID: "step_lemon_pasta_1"
+        )
+        #expect(CookModeViewModel(recipe: recipe, progress: staleNextProgress).progressAfterSelectingNext(updatedAt: "2026-06-25T12:04:30.000Z") == staleNextProgress)
+        let stalePreviousProgress = CookModeProgress(
+            recipeID: recipe.id,
+            completedStepIDs: [],
+            currentStepID: "step_lemon_pasta_2"
+        )
+        #expect(CookModeViewModel(recipe: recipe, progress: stalePreviousProgress).progressAfterSelectingPrevious(updatedAt: "2026-06-25T12:04:45.000Z") == stalePreviousProgress)
+
+        let edgeRecipe = recipe.replacingSteps([
+            RecipeStep(
+                id: "step_quantity_edges",
+                stepNum: 1,
+                stepTitle: "Format quantities",
+                description: "Cover native cook mode quantity labels.",
+                duration: nil,
+                ingredients: [
+                    RecipeIngredient(id: "ingredient_half", name: "salt", quantity: 0.5, unit: nil),
+                    RecipeIngredient(id: "ingredient_decimal", name: "rice", quantity: 1.2, unit: "cup"),
+                    RecipeIngredient(id: "ingredient_infinite", name: "stock", quantity: .infinity, unit: "cup"),
+                    RecipeIngredient(id: "ingredient_negative", name: "adjustment", quantity: -0.25, unit: "tsp")
+                ],
+                usingSteps: [
+                    RecipeStepOutputUse(
+                        id: "use_untitled_output",
+                        inputStepNum: 1,
+                        outputStepNum: 99,
+                        outputOfStep: RecipeStepOutputReference(stepNum: 99, stepTitle: nil)
+                    )
+                ]
+            )
+        ])
+        let edgeProgress = CookModeProgress.starting(recipe: edgeRecipe, startedAt: "2026-06-25T12:05:00.000Z")
+        let edgeViewModel = CookModeViewModel(recipe: edgeRecipe, progress: edgeProgress)
+        #expect(edgeViewModel.ingredientChecklistRows.map(\.quantityText) == ["½", "1.2 cup", "1 cup", "-¼ tsp"])
+        #expect(edgeViewModel.stepOutputChecklistRows.map(\.title) == ["Step 99"])
+    }
+
     @Test("scale ingredient checkoff and step output checkoff match web cook mode")
     func scaleIngredientCheckoffAndStepOutputCheckoffMatchWebCookMode() throws {
         let recipe = try cookModeParityRecipe()
@@ -43,6 +119,8 @@ struct CookModeParityTests {
         #expect(progress.checkedIngredientIDs == ["ingredient_lemon_pasta_garlic"])
         #expect(progress.checkedStepOutputUseIDs == ["use_step_lemon_pasta_1"])
         #expect(viewModel.recipeProgressLabel == "2 of 7 checked")
+        #expect(viewModel.recipeCheckoffFraction == 2.0 / 7.0)
+        #expect(viewModel.completionFraction == 0)
         #expect(viewModel.currentPageProgressLabel == "2 of 4 checked")
         #expect(viewModel.ingredientChecklistRows.map(\.id) == [
             "ingredient_lemon_pasta_lemon",
@@ -62,6 +140,7 @@ struct CookModeParityTests {
         #expect(unchecked.checkedIngredientIDs.isEmpty)
         #expect(unchecked.checkedStepOutputUseIDs.isEmpty)
         #expect(uncheckedViewModel.recipeProgressLabel == "0 of 7 checked")
+        #expect(uncheckedViewModel.recipeCheckoffFraction == 0)
         #expect(uncheckedViewModel.currentPageProgressLabel == "0 of 4 checked")
         #expect(uncheckedViewModel.ingredientChecklistRows.map(\.id) == [
             "ingredient_lemon_pasta_garlic",
@@ -70,6 +149,16 @@ struct CookModeParityTests {
         ])
         #expect(uncheckedViewModel.stepOutputChecklistRows.first?.isChecked == false)
         #expect(try CookModeProgress.restore(from: unchecked.snapshot(), recipe: recipe) == unchecked)
+        #expect(try viewModel.progressAfterTogglingIngredient(
+            id: "ingredient_lemon_pasta_lemon",
+            checked: true,
+            updatedAt: "2026-06-25T12:07:00.000Z"
+        ).checkedIngredientIDs == ["ingredient_lemon_pasta_garlic", "ingredient_lemon_pasta_lemon"])
+        #expect(try viewModel.progressAfterTogglingStepOutputUse(
+            id: "use_step_lemon_pasta_1",
+            checked: false,
+            updatedAt: "2026-06-25T12:08:00.000Z"
+        ).checkedStepOutputUseIDs.isEmpty)
 
         #expect(try cookModeErrorDescription {
             _ = try progress.togglingIngredient(id: "ingredient_not_in_recipe", checked: true, updatedAt: "2026-06-25T12:05:00.000Z")
@@ -165,6 +254,19 @@ struct CookModeParityTests {
                 recipe: recipe
             )
             #expect(wrongShapeScaleRestored.scaleFactor == 1)
+
+            let minimalLegacy = try CookModeProgress.restore(from: minimalLegacyCookModeProgressSnapshot())
+            #expect(minimalLegacy.stepIDs.isEmpty)
+            #expect(minimalLegacy.activeStepIndex == 0)
+            #expect(minimalLegacy.completedStepIDs.isEmpty)
+            #expect(minimalLegacy.startedAt == "")
+            #expect(minimalLegacy.updatedAt == "")
+
+            let missingCurrentStep = try CookModeProgress.restore(
+                from: missingCurrentStepCookModeProgressSnapshot(),
+                recipe: recipe
+            )
+            #expect(missingCurrentStep.currentStepID == "step_lemon_pasta_1")
         }
     }
 
@@ -301,6 +403,34 @@ struct CookModeParityTests {
             """.utf8
         )
     }
+
+    private func minimalLegacyCookModeProgressSnapshot() -> Data {
+        Data(
+            """
+            {
+              "recipeID": "recipe_legacy_minimal"
+            }
+            """.utf8
+        )
+    }
+
+    private func missingCurrentStepCookModeProgressSnapshot() -> Data {
+        Data(
+            """
+            {
+              "recipeID": "recipe_lemon_pantry_pasta",
+              "stepIDs": ["legacy_step"],
+              "activeStepIndex": 0,
+              "completedStepIDs": [],
+              "scaleFactor": "1.5",
+              "checkedIngredientIDs": [],
+              "checkedStepOutputUseIDs": [],
+              "startedAt": "2026-06-25T12:00:00.000Z",
+              "updatedAt": "2026-06-25T12:05:00.000Z"
+            }
+            """.utf8
+        )
+    }
 }
 
 private func cookModeErrorDescription(_ operation: () throws -> Void) throws -> String? {
@@ -313,6 +443,28 @@ private func cookModeErrorDescription(_ operation: () throws -> Void) throws -> 
 }
 
 private extension Recipe {
+    func replacingSteps(_ replacementSteps: [RecipeStep]) -> Recipe {
+        Recipe(
+            id: id,
+            title: title,
+            description: description,
+            servings: servings,
+            chef: chef,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: attribution,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            steps: replacementSteps,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons
+        )
+    }
+
     func replacingStepDuration(stepID: String, duration: Int?) -> Recipe {
         Recipe(
             id: id,

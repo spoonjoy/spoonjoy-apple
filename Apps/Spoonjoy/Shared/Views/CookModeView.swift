@@ -150,6 +150,11 @@ struct CookModeView: View {
             .font(KitchenTableTheme.uiLabel)
             .foregroundStyle(KitchenTableTheme.brass)
 
+            ProgressView(value: viewModel.recipeCheckoffFraction, total: 1)
+                .tint(KitchenTableTheme.herb)
+                .accessibilityLabel("Persisted progress")
+                .accessibilityValue(viewModel.recipeProgressLabel)
+
             ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
                 updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
             }

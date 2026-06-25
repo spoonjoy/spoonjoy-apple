@@ -563,13 +563,28 @@ struct NativeLiveStoreTests {
                     try Self.cacheRecord(domain: .shoppingList, payload: .shoppingList(itemIDs: ["fallback_item_b", "fallback_item_a"], syncCursor: "cached.shopping.cursor")),
                     try Self.cacheRecord(domain: .captureDraft(id: "draft_image"), payload: .captureDraft(id: "draft_image", source: .imageAsset("local-image"))),
                     try Self.cacheRecord(domain: .captureDraft(id: "draft_text"), payload: .captureDraft(id: "draft_text", source: .shareSheetURL("https://example.com/cache-draft"))),
-                    try Self.cacheRecord(domain: .cookProgress(recipeID: "recipe_cached"), payload: .cookProgress(recipeID: "recipe_cached", completedStepIDs: ["step_1"], currentStepID: "step_2"))
+                    try Self.cacheRecord(domain: .cookProgress(recipeID: "recipe_cached"), payload: .cookProgress(recipeID: "recipe_cached", completedStepIDs: ["step_1"], currentStepID: "step_2")),
+                    try Self.cacheRecord(domain: .cookProgress(recipeID: "recipe_cache_only"), payload: .cookProgress(recipeID: "recipe_cache_only", completedStepIDs: ["step_a"], currentStepID: "step_b"))
                 ],
                 dismissedIndicators: []
             ))
             let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
             try appStateStore.save(
-                NativeAppSnapshot.bootstrap(shoppingList: nil, savedAt: Self.isoString(Self.now))
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "signed-out",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+                    .updatingCookProgress(
+                        CookModeProgress(
+                            recipeID: "recipe_cached",
+                            completedStepIDs: ["step_1"],
+                            currentStepID: "step_2"
+                        )
+                        .settingScaleFactor(3, updatedAt: Self.isoString(Self.now)),
+                        savedAt: Self.isoString(Self.now)
+                    )
                     .recordingOpenedRoute(.settings, savedAt: Self.isoString(Self.now))
             )
             let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
@@ -599,6 +614,8 @@ struct NativeLiveStoreTests {
             #expect(content.shoppingList?.nextCursor == "cached.shopping.cursor")
             #expect(content.captureDraft?.previewLines == ["https://example.com/cache-draft"])
             #expect(content.cookProgress(for: "recipe_cached")?.currentStepID == "step_2")
+            #expect(content.cookProgress(for: "recipe_cached")?.scaleFactor == 3)
+            #expect(content.cookProgress(for: "recipe_cache_only")?.currentStepID == "step_b")
             #expect(content.settingsViewModel.settings.auth == .signedOut)
             #expect(content.settingsViewModel.settings.offline == .unavailable)
             #expect(liveStore.offlineIndicatorState.display == .stale(domain: .accountBootstrap))
@@ -649,6 +666,21 @@ struct NativeLiveStoreTests {
             #expect(savedCookProgress.cookProgress(for: "recipe_cached") == richCookProgress)
             #expect(liveStore.bootstrapState.contentState.cookProgress(for: "recipe_cached") == richCookProgress)
             #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+
+            let nilStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { nil }
+            )
+            let nilStoreProgressBefore = nilStore.bootstrapState.contentState.cookProgressByRecipeID
+            nilStore.recordCookProgress(CookModeProgress(
+                recipeID: "recipe_nil_store",
+                stepIDs: ["step_1"],
+                startedAt: Self.isoString(Self.now)
+            ))
+            #expect(nilStore.bootstrapState.contentState.cookProgressByRecipeID == nilStoreProgressBefore)
 
             liveStore.dismissOfflineIndicator()
             guard case .signedOut(let dismissedContent) = liveStore.bootstrapState else {
@@ -769,6 +801,11 @@ struct NativeLiveStoreTests {
                 appStateStoreProvider: { NativeAppStateStore(fileURL: brokenDirectoryURL) }
             )
             brokenRouteStore.recordingOpenedRoute(.settings)
+            brokenRouteStore.recordCookProgress(CookModeProgress(
+                recipeID: "recipe_broken_store",
+                stepIDs: ["step_1"],
+                startedAt: Self.isoString(Self.now)
+            ))
         }
     }
 
