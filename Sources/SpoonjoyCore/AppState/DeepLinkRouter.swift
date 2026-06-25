@@ -53,6 +53,14 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .capture
         }
 
+        if segments.count == 3, segments[0] == "recipes", segments[2] == "edit" {
+            let id = segments[1]
+            guard safeID(id), id != "new" else {
+                return .unknownLink
+            }
+            return .recipeEditor(id: id)
+        }
+
         if segments.count == 2, segments[0] == "recipes" {
             let id = segments[1]
             guard safeID(id) else {
@@ -120,6 +128,17 @@ public struct DeepLinkRouter: Equatable, Sendable {
                 return .unknownLink
             }
             return .recipeDetail(id: id, presentation: .cook)
+        }
+
+        if segments.count == 3, segments[0] == "recipes", segments[2] == "edit" {
+            let id = segments[1]
+            if id == "new" {
+                return .recipeEditor(id: nil)
+            }
+            guard safeID(id) else {
+                return .unknownLink
+            }
+            return .recipeEditor(id: id)
         }
 
         if segments == ["cookbooks"] {

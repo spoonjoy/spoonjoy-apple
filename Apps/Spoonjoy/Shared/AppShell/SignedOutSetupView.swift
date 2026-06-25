@@ -177,6 +177,10 @@ struct SignedOutSetupView: View {
             "Opening Recipe after sign-in"
         case .recipeDetail(_, .cook):
             "Opening Cook Mode after sign-in"
+        case .recipeEditor(.some):
+            "Opening Recipe after sign-in"
+        case .recipeEditor(nil):
+            "Opening Capture after sign-in"
         case .cookbooks:
             "Opening Cookbooks after sign-in"
         case .cookbookDetail:

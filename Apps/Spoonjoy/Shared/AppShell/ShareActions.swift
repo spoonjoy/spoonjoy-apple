@@ -25,6 +25,10 @@ struct ShareActions: View {
         case .recipeDetail(let id, .cook):
             components.path = "/recipes/\(id)"
             components.queryItems = [URLQueryItem(name: "mode", value: "cook")]
+        case .recipeEditor(.some(let id)):
+            components.path = "/recipes/\(id)"
+        case .recipeEditor(nil):
+            components.path = "/recipes"
         case .cookbooks:
             components.path = "/cookbooks"
         case .cookbookDetail(let id):

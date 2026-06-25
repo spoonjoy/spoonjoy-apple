@@ -263,12 +263,12 @@ struct RecipeDetailView: View {
                     .font(.title2)
                     .foregroundStyle(KitchenTableTheme.charcoal)
 
-                if let editURL = URL(string: "https://spoonjoy.app\(viewModel.ownerTools.editPath)") {
-                    Link(destination: editURL) {
-                        Label("Edit Recipe", systemImage: "pencil")
-                    }
-                    .font(KitchenTableTheme.bodyNote)
+                Button {
+                    openRoute(.recipeEditor(id: viewModel.id))
+                } label: {
+                    Label("Edit Recipe", systemImage: "pencil")
                 }
+                .font(KitchenTableTheme.bodyNote)
             }
         }
     }

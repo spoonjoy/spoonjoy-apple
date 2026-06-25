@@ -27,6 +27,7 @@ public enum AppRoute: Hashable, Sendable {
     case kitchen
     case recipes
     case recipeDetail(id: String, presentation: RecipePresentation)
+    case recipeEditor(id: String?)
     case cookbooks
     case cookbookDetail(id: String)
     case shoppingList
@@ -39,7 +40,7 @@ public enum AppRoute: Hashable, Sendable {
         switch self {
         case .kitchen:
             .kitchen
-        case .recipes, .recipeDetail:
+        case .recipes, .recipeDetail, .recipeEditor:
             .recipes
         case .cookbooks, .cookbookDetail:
             .cookbooks
@@ -58,7 +59,7 @@ public enum AppRoute: Hashable, Sendable {
 
     public var selectedRecipeID: String? {
         switch self {
-        case .recipeDetail(let id, _):
+        case .recipeDetail(let id, _), .recipeEditor(.some(let id)):
             id
         default:
             nil
@@ -84,6 +85,10 @@ public enum AppRoute: Hashable, Sendable {
             "recipe:\(id)"
         case .recipeDetail(let id, .cook):
             "recipe-cook:\(id)"
+        case .recipeEditor(.some(let id)):
+            "recipe-editor:\(id)"
+        case .recipeEditor(nil):
+            "recipe-editor:new"
         case .cookbooks:
             "cookbooks"
         case .cookbookDetail(let id):
@@ -111,6 +116,10 @@ public enum AppRoute: Hashable, Sendable {
             self = .recipeDetail(id: parts[1], presentation: .detail)
         } else if parts.count == 2, parts[0] == "recipe-cook", Self.isSafeID(parts[1]) {
             self = .recipeDetail(id: parts[1], presentation: .cook)
+        } else if parts.count == 2, parts[0] == "recipe-editor", parts[1] == "new" {
+            self = .recipeEditor(id: nil)
+        } else if parts.count == 2, parts[0] == "recipe-editor", Self.isSafeID(parts[1]) {
+            self = .recipeEditor(id: parts[1])
         } else if parts == ["cookbooks"] {
             self = .cookbooks
         } else if parts.count == 2, parts[0] == "cookbook", Self.isSafeID(parts[1]) {

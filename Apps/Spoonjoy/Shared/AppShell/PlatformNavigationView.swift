@@ -124,6 +124,16 @@ struct PlatformNavigationView: View {
                     openRecipe(id)
                 }
             )
+        case .recipeEditor(let id):
+            if let editorViewModel = recipeEditorViewModel(id: id) {
+                RecipeEditorView(
+                    viewModel: editorViewModel,
+                    mutationDidPlan: handleRecipeEditorPlan,
+                    close: openRoute
+                )
+            } else {
+                ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "Recipe unavailable.")
+            }
         case .cookbooks:
             CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
@@ -235,7 +245,7 @@ struct PlatformNavigationView: View {
         switch route {
         case .kitchen:
             "Kitchen"
-        case .recipes, .recipeDetail:
+        case .recipes, .recipeDetail, .recipeEditor:
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
@@ -342,6 +352,43 @@ struct PlatformNavigationView: View {
             nil
         case .authenticated(let session), .refreshRequired(let session):
             session.accountID
+        }
+    }
+
+    private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
+        let chefID = currentChefID ?? "signed-out"
+        switch id {
+        case .some(let recipeID):
+            guard let recipe = recipe(id: recipeID) else {
+                return nil
+            }
+            return RecipeEditorViewModel(
+                mode: .edit(recipe: recipe, currentChefID: chefID),
+                connectivity: recipeEditorConnectivity,
+                queuedRecipeMutations: contentState.queuedMutations,
+                now: timestamp
+            )
+        case nil:
+            return RecipeEditorViewModel(
+                mode: .create(currentChefID: chefID, draft: .blank(currentChefID: chefID)),
+                connectivity: recipeEditorConnectivity,
+                queuedRecipeMutations: contentState.queuedMutations,
+                now: timestamp
+            )
+        }
+    }
+
+    private var recipeEditorConnectivity: RecipeEditorConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) {
+        if let queuedMutation = plan.queuedMutation {
+            queueMutation(queuedMutation)
         }
     }
 
