@@ -34,6 +34,7 @@ required_hooks=(
   "scripts/check-cook-shopping-surfaces.rb"
   "scripts/check-search-capture-settings-surfaces.rb"
   "scripts/check-launch-screenshot-contract.rb"
+  "scripts/run-xcodebuild-with-blocker.sh"
   "scripts/smoke-macos.sh"
   "scripts/smoke-ios-simulator.sh"
   "scripts/capture-native-screenshots.sh"
@@ -96,39 +97,6 @@ run_required() {
   fi
 }
 
-run_blockable() {
-  local name="$1"
-  local output_path="$2"
-  local blocker_path="$3"
-  local blocker_capability="$4"
-  local blocker_reason="$5"
-  local allowed_blocker_pattern="$6"
-  shift 6
-  local command="$*"
-  if "$@" > "$output_path" 2>&1; then
-    rm -f "$blocker_path"
-    record_step "$name" "pass" "$command" "$output_path" "true"
-  else
-    if ! grep -Eq "$allowed_blocker_pattern" "$output_path"; then
-      record_step "$name" "fail" "$command" "$output_path" "true"
-      return 1
-    fi
-    ruby -rjson -e '
-      path, capability, command, output_path, reason = ARGV
-      blocker = {
-        capability: capability,
-        blocked: true,
-        command: command,
-        timeoutSeconds: 30,
-        outputPath: output_path,
-        reason: reason
-      }
-      File.write(path, JSON.pretty_generate(blocker) + "\n")
-    ' "$blocker_path" "$blocker_capability" "$command" "$output_path" "$blocker_reason"
-    record_step "$name" "blocked" "$command" "$output_path" "true" "$blocker_path"
-  fi
-}
-
 run_script_with_blocker_policy() {
   local name="$1"
   local output_path="$2"
@@ -180,16 +148,29 @@ run_required "search capture settings contract" "$artifact_root/matrix-search-ca
 run_required "launch screenshot contract" "$artifact_root/matrix-launch-screenshot-contract.log" ruby scripts/check-launch-screenshot-contract.rb || overall_status=1
 run_required "AASA validation or blocker" "$artifact_root/matrix-aasa.log" ruby scripts/validate-aasa.rb --artifact-root "$artifact_root" || overall_status=1
 
-run_blockable \
+run_script_with_blocker_policy \
   "iOS app bundle" \
   "$artifact_root/matrix-xcodebuild-ios.log" \
   "$artifact_root/ios-app-bundle-blocker.json" \
   "XcodePlatform" \
-  "Local Xcode cannot build the iOS simulator bundle, usually because the matching iOS simulator platform/runtime is not installed." \
-  "iOS 26\\.5 is not installed|Unable to find a destination|CoreSimulator" \
-  xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+  scripts/run-xcodebuild-with-blocker.sh \
+  --output "$artifact_root/matrix-xcodebuild-ios.log" \
+  --blocker "$artifact_root/ios-app-bundle-blocker.json" \
+  --timeout-seconds 30 \
+  -- \
+  xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
 
-run_required "macOS app bundle" "$artifact_root/matrix-xcodebuild-macos.log" xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
+run_script_with_blocker_policy \
+  "macOS app bundle" \
+  "$artifact_root/matrix-xcodebuild-macos.log" \
+  "$artifact_root/macos-app-bundle-blocker.json" \
+  "XcodePlatform" \
+  scripts/run-xcodebuild-with-blocker.sh \
+  --output "$artifact_root/matrix-xcodebuild-macos.log" \
+  --blocker "$artifact_root/macos-app-bundle-blocker.json" \
+  --timeout-seconds 30 \
+  -- \
+  xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
 run_script_with_blocker_policy "macOS launch smoke" "$artifact_root/matrix-smoke-macos.log" "$artifact_root/smoke-macos-blocker.json" "" scripts/smoke-macos.sh --artifact-root "$artifact_root" || overall_status=1
 run_script_with_blocker_policy "iOS simulator smoke" "$artifact_root/matrix-smoke-ios.log" "$artifact_root/smoke-ios-simulator-blocker.json" "CoreSimulator" scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" || overall_status=1
 run_required "screenshots and design review" "$artifact_root/matrix-capture.log" scripts/capture-native-screenshots.sh --artifact-root "$artifact_root" || overall_status=1

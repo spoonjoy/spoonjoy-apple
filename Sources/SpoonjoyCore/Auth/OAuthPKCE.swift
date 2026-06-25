@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-public enum OAuthPKCEError: Error, Equatable {
+public enum OAuthPKCEError: Error, Equatable, Sendable {
     case invalidVerifier
 }
 
@@ -36,7 +36,7 @@ public enum OAuthPKCE {
     }
 }
 
-public struct OAuthState: RawRepresentable, Equatable {
+public struct OAuthState: RawRepresentable, Equatable, Sendable {
     public let rawValue: String
 
     public init?(rawValue: String) {

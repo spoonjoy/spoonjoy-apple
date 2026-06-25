@@ -5,6 +5,7 @@ public enum OAuthRedirectValidationError: Error, Equatable {
     case unsupportedScheme(String?)
     case remoteHTTPHost(String)
     case remoteHTTPSHost(String)
+    case invalidHTTPSCallbackPath(String)
     case credentialsNotAllowed
     case fragmentNotAllowed
 }
@@ -30,6 +31,10 @@ public enum OAuthRedirectValidator {
         case "https":
             guard host == "spoonjoy.app" else {
                 throw OAuthRedirectValidationError.remoteHTTPSHost(host)
+            }
+            let percentEncodedPath = url.path(percentEncoded: true)
+            guard percentEncodedPath == "/oauth/callback" else {
+                throw OAuthRedirectValidationError.invalidHTTPSCallbackPath(percentEncodedPath)
             }
 
             return true

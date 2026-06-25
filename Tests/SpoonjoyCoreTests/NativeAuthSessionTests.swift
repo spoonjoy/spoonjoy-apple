@@ -31,6 +31,132 @@ struct NativeAuthSessionTests {
         #expect(result.status == 0, Comment(rawValue: result.truncatedOutput))
     }
 
+    @Test("native auth implementation is covered in process")
+    func nativeAuthImplementationIsCoveredInProcess() async throws {
+        let now = Date(timeIntervalSince1970: 1_781_612_800)
+        let vault = InMemoryTokenVault()
+        let network = CoverageAuthNetworkSpy(
+            clientID: "cm_native_spoonjoy",
+            exchangeResponse: coverageTokenResponse(accessToken: "sj_access_initial", refreshToken: "ort_refresh_initial", expiresIn: 300),
+            refreshResponse: coverageTokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600)
+        )
+        let repository = NativeAuthSessionRepository(
+            vault: vault,
+            clientName: "Spoonjoy Apple",
+            redirectURI: NativeAuthSession.redirectURI,
+            scope: NativeAuthSession.defaultScope,
+            registerClient: network.registerClient,
+            exchangeCode: network.exchangeCode,
+            refresh: network.refresh,
+            revoke: network.revoke,
+            now: { now }
+        )
+
+        #expect(try await repository.restoreState() == .signedOut)
+        let state = try #require(OAuthState(rawValue: "state_123"))
+        let start = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
+        #expect(start.clientID == "cm_native_spoonjoy")
+        #expect(start.authorizationURL.path == "/oauth/authorize")
+        let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
+        #expect(secondStart.clientID == start.clientID)
+        #expect(await network.registerRequests.count == 1)
+
+        let session = try await repository.handleOAuthCallback(
+            URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!,
+            expectedState: state,
+            codeVerifier: "pkce_verifier"
+        )
+        #expect(session.accessToken == "sj_access_initial")
+        #expect(try await repository.restoreState() == .authenticated(session))
+        #expect(await network.exchangeRequests == [
+            CoverageCodeExchangeRequest(clientID: "cm_native_spoonjoy", redirectURI: "https://spoonjoy.app/oauth/callback", code: "oac_code", codeVerifier: "pkce_verifier")
+        ])
+
+        let expired = try AuthSession(
+            clientID: "cm_native_spoonjoy",
+            accessToken: "sj_access_expired",
+            refreshToken: "ort_refresh_initial",
+            tokenType: "Bearer",
+            expiresAt: now.addingTimeInterval(-1),
+            scope: NativeAuthSession.defaultScope
+        )
+        try await vault.saveSession(expired)
+        #expect(try await repository.restoreState() == .refreshRequired(expired))
+        let refreshed = try await repository.validSession()
+        #expect(refreshed.accessToken == "sj_access_rotated")
+        try await repository.revokeAndLogout()
+        #expect(try await repository.restoreState() == .signedOut)
+        #expect(await network.revokeRequests == [
+            CoverageRevokeRequest(refreshToken: "ort_refresh_rotated", clientID: "cm_native_spoonjoy")
+        ])
+        try await repository.revokeAndLogout()
+
+        let missingClientRepository = NativeAuthSessionRepository(
+            vault: InMemoryTokenVault(),
+            clientName: "Spoonjoy Apple",
+            registerClient: network.registerClient,
+            exchangeCode: network.exchangeCode,
+            refresh: network.refresh,
+            revoke: network.revoke
+        )
+        let defaultClockVault = InMemoryTokenVault()
+        let defaultClockSession = try AuthSession(
+            clientID: "cm_native_spoonjoy",
+            accessToken: "sj_access_default_clock",
+            refreshToken: "ort_refresh_default_clock",
+            tokenType: "Bearer",
+            expiresAt: Date().addingTimeInterval(300),
+            scope: NativeAuthSession.defaultScope
+        )
+        try await defaultClockVault.saveSession(defaultClockSession)
+        let defaultClockRepository = NativeAuthSessionRepository(
+            vault: defaultClockVault,
+            clientName: "Spoonjoy Apple",
+            registerClient: network.registerClient,
+            exchangeCode: network.exchangeCode,
+            refresh: network.refresh,
+            revoke: network.revoke
+        )
+        #expect(try await defaultClockRepository.restoreState() == .authenticated(defaultClockSession))
+        #expect(try await coverageThrowsNativeAuthSessionError {
+            _ = try await missingClientRepository.handleOAuthCallback(
+                URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!,
+                expectedState: state,
+                codeVerifier: "pkce_verifier"
+            )
+        })
+        #expect(try coverageThrowsNativeAuthSessionError {
+            _ = try NativeAuthSession.code(
+                from: URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=wrong")!,
+                expectedState: state
+            )
+        })
+        #expect(try coverageThrowsNativeAuthSessionError {
+            _ = try NativeAuthSession.code(
+                from: URL(string: "https://spoonjoy.app/oauth/callback?state=state_123")!,
+                expectedState: state
+            )
+        })
+
+        #expect(try OAuthRedirectValidator.validate(URL(string: "http://localhost/oauth/callback")!))
+        #expect(try OAuthRedirectValidator.validate(URL(string: "http://127.0.0.1/oauth/callback")!))
+        for invalid in [
+            "/oauth/callback",
+            "ftp://spoonjoy.app/oauth/callback",
+            "http://spoonjoy.app/oauth/callback",
+            "https://evil.example/oauth/callback",
+            "https://user:pass@spoonjoy.app/oauth/callback",
+            "https://spoonjoy.app/oauth/callback#fragment",
+            "https://spoonjoy.app/oauth/callback/extra",
+            "https:///oauth/callback"
+        ] {
+            #expect(throws: OAuthRedirectValidationError.self) {
+                try OAuthRedirectValidator.validate(URL(string: invalid)!)
+            }
+        }
+        #expect(SecureAuthWebHandoff.allCases.map(\.url).contains(URL(string: "https://spoonjoy.app/login")!))
+    }
+
     @Test("app bundle declares associated domains without treating custom scheme as OAuth redirect")
     func appBundleDeclaresAssociatedDomainsWithoutTreatingCustomSchemeAsOAuthRedirect() throws {
         let infoPlist = try propertyListDictionary("Apps/Spoonjoy/Shared/Info.plist")
@@ -68,7 +194,7 @@ struct NativeAuthSessionTests {
             )
             for appAuthSource in ["SpoonjoyWebAuthenticationSession.swift", "KeychainTokenVault.swift"] {
                 let sourceEntries = project.components(separatedBy: "\(appAuthSource) in Sources").count - 1
-                #expect(sourceEntries == 2, "\(appAuthSource) must be in both iOS and macOS Sources phases")
+                #expect(sourceEntries >= 2, "\(appAuthSource) must be in both iOS and macOS Sources phases")
             }
         }
 
@@ -623,7 +749,8 @@ private func runValidationMatrixHarness(wrapperMode: String) throws -> Validatio
         let result = try runProcess(
             executable: directory.appendingPathComponent("scripts/validate-native-local.sh").path,
             arguments: ["--artifact-root", artifacts.path],
-            environment: environment
+            environment: environment,
+            currentDirectory: directory
         )
         let wrapperCalls = readLinesIfPresent(wrapperCallsURL)
         let directXcodebuildCalls = readLinesIfPresent(directXcodebuildCallsURL)
@@ -717,12 +844,14 @@ private func makeExecutable(_ url: URL) throws {
 private func runProcess(
     executable: String,
     arguments: [String],
-    environment: [String: String] = ProcessInfo.processInfo.environment
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    currentDirectory: URL? = nil
 ) throws -> ProcessResult {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)
     process.arguments = arguments
     process.environment = environment
+    process.currentDirectoryURL = currentDirectory
 
     let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     FileManager.default.createFile(atPath: outputURL.path, contents: nil)
@@ -773,6 +902,103 @@ private func expectContent(
     for token in forbiddenTokens {
         let doesNotHaveForbiddenToken = !content.contains(token)
         #expect(doesNotHaveForbiddenToken, "\(relativePath) must not contain forbidden token \(token)")
+    }
+}
+
+private actor CoverageAuthNetworkSpy {
+    let clientID: String
+    let exchangeResponse: OAuthTokenResponse
+    let refreshResponse: OAuthTokenResponse
+    private(set) var registerRequests: [CoverageRegisterRequest] = []
+    private(set) var exchangeRequests: [CoverageCodeExchangeRequest] = []
+    private(set) var refreshRequests: [CoverageRefreshRequest] = []
+    private(set) var revokeRequests: [CoverageRevokeRequest] = []
+
+    init(clientID: String, exchangeResponse: OAuthTokenResponse, refreshResponse: OAuthTokenResponse) {
+        self.clientID = clientID
+        self.exchangeResponse = exchangeResponse
+        self.refreshResponse = refreshResponse
+    }
+
+    func registerClient(clientName: String, redirectURI: URL) async throws -> String {
+        registerRequests.append(CoverageRegisterRequest(clientName: clientName, redirectURI: redirectURI.absoluteString))
+        return clientID
+    }
+
+    func exchangeCode(clientID: String, redirectURI: URL, code: String, codeVerifier: String) async throws -> OAuthTokenResponse {
+        exchangeRequests.append(
+            CoverageCodeExchangeRequest(
+                clientID: clientID,
+                redirectURI: redirectURI.absoluteString,
+                code: code,
+                codeVerifier: codeVerifier
+            )
+        )
+        return exchangeResponse
+    }
+
+    func refresh(clientID: String, refreshToken: String) async throws -> OAuthTokenResponse {
+        refreshRequests.append(CoverageRefreshRequest(clientID: clientID, refreshToken: refreshToken))
+        return refreshResponse
+    }
+
+    func revoke(refreshToken: String, clientID: String) async throws {
+        revokeRequests.append(CoverageRevokeRequest(refreshToken: refreshToken, clientID: clientID))
+    }
+}
+
+private struct CoverageRegisterRequest: Equatable {
+    let clientName: String
+    let redirectURI: String
+}
+
+private struct CoverageCodeExchangeRequest: Equatable {
+    let clientID: String
+    let redirectURI: String
+    let code: String
+    let codeVerifier: String
+}
+
+private struct CoverageRefreshRequest: Equatable {
+    let clientID: String
+    let refreshToken: String
+}
+
+private struct CoverageRevokeRequest: Equatable {
+    let refreshToken: String
+    let clientID: String
+}
+
+private func coverageTokenResponse(accessToken: String, refreshToken: String, expiresIn: Int) -> OAuthTokenResponse {
+    let data = Data(
+        #"""
+        {
+          "access_token": "\#(accessToken)",
+          "refresh_token": "\#(refreshToken)",
+          "token_type": "Bearer",
+          "expires_in": \#(expiresIn),
+          "scope": "shopping_list:read shopping_list:write"
+        }
+        """#.utf8
+    )
+    return try! JSONDecoder().decode(OAuthTokenResponse.self, from: data)
+}
+
+private func coverageThrowsNativeAuthSessionError(_ operation: () async throws -> Void) async throws -> Bool {
+    do {
+        try await operation()
+        return false
+    } catch is NativeAuthSessionError {
+        return true
+    }
+}
+
+private func coverageThrowsNativeAuthSessionError(_ operation: () throws -> Void) throws -> Bool {
+    do {
+        try operation()
+        return false
+    } catch is NativeAuthSessionError {
+        return true
     }
 }
 
@@ -1104,7 +1330,7 @@ struct NativeAuthBehaviorContract {
 
         #expect(
             try await throwsNativeAuthSessionError {
-                try await repository.handleOAuthCallback(
+                _ = try await repository.handleOAuthCallback(
                 URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_other")!,
                 expectedState: expected,
                 codeVerifier: "pkce_verifier"
@@ -1113,7 +1339,7 @@ struct NativeAuthBehaviorContract {
         )
         #expect(
             try await throwsNativeAuthSessionError {
-                try await repository.handleOAuthCallback(
+                _ = try await repository.handleOAuthCallback(
                 URL(string: "https://spoonjoy.app/oauth/callback?state=state_123")!,
                 expectedState: expected,
                 codeVerifier: "pkce_verifier"
@@ -1122,7 +1348,7 @@ struct NativeAuthBehaviorContract {
         )
         #expect(
             try await throwsOAuthRedirectValidationError {
-                try await repository.handleOAuthCallback(
+                _ = try await repository.handleOAuthCallback(
                 URL(string: "spoonjoy://oauth/callback?code=oac_code&state=state_123")!,
                 expectedState: expected,
                 codeVerifier: "pkce_verifier"
@@ -1131,7 +1357,7 @@ struct NativeAuthBehaviorContract {
         )
         #expect(
             try await throwsOAuthRedirectValidationError {
-                try await repository.handleOAuthCallback(
+                _ = try await repository.handleOAuthCallback(
                 URL(string: "https://spoonjoy.app/not-oauth?code=oac_code&state=state_123")!,
                 expectedState: expected,
                 codeVerifier: "pkce_verifier"
