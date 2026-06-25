@@ -118,6 +118,13 @@ struct NativeSyncEngineTests {
         #expect(throws: NativeSyncCheckpointError.emptyUpdatedAt) {
             _ = try NativeSyncCheckpoint(globalCursorRaw: nil, shoppingCursorRaw: nil, updatedAt: "  ")
         }
+        let rawCheckpoint = try NativeSyncCheckpoint(
+            globalCursorRaw: " raw.global ",
+            shoppingCursorRaw: " raw.shopping ",
+            updatedAt: "2026-06-16T09:02:00.000Z"
+        )
+        #expect(rawCheckpoint.globalCursor?.rawValue == "raw.global")
+        #expect(rawCheckpoint.shoppingCursor?.rawValue == "raw.shopping")
     }
 
     @Test("native mutation queue persists every offline product domain with durable replay metadata")
@@ -274,6 +281,163 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("file backed sync store applies records checkpoints and missing staged media errors")
+    func fileBackedSyncStoreAppliesRecordsCheckpointsAndMissingStagedMediaErrors() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL)
+            do {
+                _ = try await store.loadCheckpoint()
+                Issue.record("Expected missing checkpoint before file-backed sync apply")
+            } catch NativeSyncStoreError.missingCheckpoint {
+            }
+
+            let staleRecord = NativeSyncCachedRecord(
+                kind: .recipe,
+                resourceID: "recipe_deleted_file",
+                payload: .object(["title": .string("Stale")]),
+                serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
+            )
+            let fallback = NativeSyncSnapshot(
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [staleRecord],
+                tombstones: []
+            )
+            let fallbackStore = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
+            let tombstone = NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_deleted_file",
+                parentResourceID: nil,
+                title: "Deleted file recipe",
+                deletedAt: "2026-06-16T09:10:00.000Z",
+                updatedAt: "2026-06-16T09:10:01.000Z"
+            )
+            let result = try await fallbackStore.apply(
+                syncData: NativeSyncData(
+                    freshness: NativeSyncFreshness(
+                        accountID: "chef_ari",
+                        environment: .local,
+                        schemaVersion: 1,
+                        sourceEndpoint: "/api/v1/me/sync",
+                        generatedAt: "2026-06-16T09:11:00.000Z",
+                        lastValidatedAt: "2026-06-16T09:11:00.000Z"
+                    ),
+                    entries: [
+                        NativeSyncEntry(action: .upsert, kind: .profile, resourceID: "chef_ari", updatedAt: "2026-06-16T09:11:01.000Z", payload: .object(["username": .string("ari")]), tombstone: nil),
+                        NativeSyncEntry(action: .upsert, kind: .cookbook, resourceID: "cookbook_file", updatedAt: "2026-06-16T09:11:01.500Z", payload: .object(["title": .string("Weeknights")]), tombstone: nil),
+                        NativeSyncEntry(action: .delete, kind: .recipe, resourceID: "recipe_deleted_file", updatedAt: "2026-06-16T09:11:02.000Z", payload: nil, tombstone: tombstone)
+                    ],
+                    nextCursor: PaginationCursor(rawValue: "file.cursor.after"),
+                    hasMore: false
+                ),
+                validatedAt: now
+            )
+
+            #expect(result.upsertedCacheKeys == ["profile:chef_ari", "cookbook:cookbook_file"])
+            #expect(result.removedCacheKeys == ["recipe:recipe_deleted_file"])
+            #expect(result.tombstones == [tombstone])
+            #expect(try await fallbackStore.cachedRecord(kind: .profile, resourceID: "chef_ari")?.payload == .object(["username": .string("ari")]))
+            #expect(try await fallbackStore.cachedRecord(kind: .cookbook, resourceID: "cookbook_file")?.payload == .object(["title": .string("Weeknights")]))
+            #expect(try await fallbackStore.cachedRecord(kind: .recipe, resourceID: "recipe_deleted_file") == nil)
+            #expect(try await fallbackStore.loadCheckpoint().globalCursor?.rawValue == "file.cursor.after")
+
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
+            #expect(try await restored.cachedRecord(kind: .profile, resourceID: "chef_ari")?.serverRevision == .updatedAt("2026-06-16T09:11:01.000Z"))
+            #expect(await restored.loadSnapshot().cachedRecords.map(\.cacheKey) == ["cookbook:cookbook_file", "profile:chef_ari"])
+            #expect(await restored.loadSnapshot().tombstones == [tombstone])
+            let plainQueue = try NativeMutationQueue(mutations: [
+                .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_file_plain_queue", createdAt: Self.createdAt(42))
+            ])
+            try await restored.saveQueue(plainQueue)
+            #expect(try await restored.loadQueue() == plainQueue)
+
+            let mediaDirectoryURL = directory.appendingPathComponent("media", isDirectory: true)
+            let mediaDirectory = NativeStagedMediaDirectory(directoryURL: mediaDirectoryURL)
+            #expect(throws: NativeStagedMediaDirectoryError.missingStage("missing_stage")) {
+                _ = try mediaDirectory.data(for: Self.stagedMedia("missing_stage", fileName: "missing.jpg", contentType: "image/jpeg"))
+            }
+            let unreadableStageID = "unreadable_stage"
+            let unreadableFileName = unreadableStageID.utf8.map { String(format: "%02x", $0) }.joined()
+            try FileManager.default.createDirectory(at: mediaDirectoryURL.appendingPathComponent(unreadableFileName), withIntermediateDirectories: true)
+            #expect(throws: NativeStagedMediaDirectoryError.unreadableStage(unreadableStageID)) {
+                _ = try mediaDirectory.data(for: Self.stagedMedia(unreadableStageID, fileName: "unreadable.jpg", contentType: "image/jpeg"))
+            }
+        }
+    }
+
+    @Test("mutation queue and durable decode edge cases fail closed")
+    func mutationQueueAndDurableDecodeEdgeCasesFailClosed() throws {
+        let mutation = NativeQueuedMutation.profileDisplayUpdate(
+            email: "ari@example.com",
+            username: "ari",
+            clientMutationID: "cm_append",
+            createdAt: Self.createdAt(0)
+        )
+        let appended = try NativeMutationQueue().appending(mutation)
+        let removed = try appended.removing(clientMutationIDs: ["cm_append"])
+        #expect(appended.mutations.map(\.clientMutationID) == ["cm_append"])
+        #expect(removed.mutations.isEmpty)
+        #expect(throws: NativeMutationQueueError.emptyClientMutationID) {
+            _ = try NativeMutationQueue(mutations: [
+                .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "   ", createdAt: Self.createdAt(1))
+            ])
+        }
+        #expect(throws: NativeMutationQueueError.duplicateClientMutationID("cm_append")) {
+            _ = try NativeMutationQueue(mutations: [mutation, mutation])
+        }
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 99, type: "profile.display.update", fields: ["email": "ari@example.com", "username": "ari"]))
+        }
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "recipe.unknown", fields: [:]))
+        }
+
+        let decodedWithoutRetryCount = try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "schemaVersion": 1,
+                "id": "native:cm_without_retry_count",
+                "clientMutationId": "cm_without_retry_count",
+                "createdAt": Self.createdAt(0),
+                "kind": [
+                    "type": "profile.display.update",
+                    "email": "ari@example.com",
+                    "username": "ari"
+                ]
+            ])
+        )
+        #expect(decodedWithoutRetryCount.retryCount == 0)
+
+        let missingRouteMutation = try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: Self.queuedMutationJSON(schemaVersion: 1, type: "recipe.update", fields: ["recipeId": 42, "title": "Bad route"])
+        )
+        #expect(missingRouteMutation.dependencyKey == "recipe:")
+        #expect(throws: NativeQueuedMutationRequestError.missingField("recipeId")) {
+            _ = try missingRouteMutation.requestBuilder()
+        }
+
+        let missingMediaMutation = try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: Self.queuedMutationJSON(schemaVersion: 1, type: "cover.upload", fields: ["recipeId": "recipe_lemon"])
+        )
+        #expect(throws: NativeQueuedMutationRequestError.missingMedia("image")) {
+            _ = try missingMediaMutation.requestBuilder()
+        }
+
+        let fallbackDependencies = try [
+            JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "cookbook.update", fields: ["title": "Missing cookbook"])).dependencyKey,
+            JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "apns.device.register", fields: ["token": "apns-token"])).dependencyKey,
+            JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "apns.device.revoke", fields: [:])).dependencyKey,
+            JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "capture.draft.discard", fields: [:])).dependencyKey
+        ]
+        #expect(fallbackDependencies == ["cookbook:", "apns:apns-token", "apns:cm_decode", "capture:cm_decode"])
+        let intKey = try #require(DynamicCodingKey(intValue: 7))
+        #expect(intKey.stringValue == "7")
+        #expect(intKey.intValue == 7)
+    }
+
     @Test("queued remote mutations build exact REST requests with idempotency keys and bearer auth")
     func queuedRemoteMutationsBuildExactRESTRequestsWithIdempotencyKeysAndBearerAuth() throws {
         let recipeCreateSteps = [
@@ -382,6 +546,14 @@ struct NativeSyncEngineTests {
                 "categoryKey": "produce",
                 "iconKey": "lemon"
             ]),
+            .json(.shoppingAddItem(name: "salt", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_shopping_add_plain", createdAt: Self.createdAt(16)), .post, "/api/v1/shopping-list/items", [
+                "clientMutationId": "cm_shopping_add_plain",
+                "name": "salt",
+                "quantity": NSNull(),
+                "unit": NSNull(),
+                "categoryKey": NSNull(),
+                "iconKey": NSNull()
+            ]),
             .json(.shoppingCheckItem(itemID: "item/lemons", checked: true, clientMutationID: "cm_shopping_check", createdAt: Self.createdAt(17)), .patch, "/api/v1/shopping-list/items/item%2Flemons", [
                 "clientMutationId": "cm_shopping_check",
                 "checked": true
@@ -431,6 +603,12 @@ struct NativeSyncEngineTests {
                 "confirmNoCover": false,
                 "deleteSafeObjects": true
             ], queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_cover_archive")]),
+            .json(.coverArchive(recipeID: "recipe/lemon", coverID: "cover/raw-empty", clientMutationID: "cm_cover_archive_empty", replacementCoverID: nil, replacementVariant: nil, confirmNoCover: true, deleteSafeObjects: false, createdAt: Self.createdAt(28)), .delete, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw-empty", [
+                "replacementCoverId": NSNull(),
+                "replacementVariant": NSNull(),
+                "confirmNoCover": true,
+                "deleteSafeObjects": false
+            ], queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_cover_archive_empty")]),
             .json(.coverRegenerate(recipeID: "recipe/lemon", coverID: "cover/editorial", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(29)), .post, "/api/v1/recipes/recipe%2Flemon/covers/regenerate", [
                 "clientMutationId": "cm_cover_retry",
                 "coverId": "cover/editorial",
@@ -768,6 +946,105 @@ struct NativeSyncEngineTests {
         #expect(remaining.first?.nextRetryAt == "2026-05-28T23:14:20.000Z")
     }
 
+    @Test("scheduled retry report keeps the shortest independent retry delay")
+    func scheduledRetryReportKeepsTheShortestIndependentRetryDelay() async throws {
+        let queue = try NativeMutationQueue(
+            mutations: [
+                NativeQueuedMutation
+                    .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_cover_retry_later", createdAt: Self.createdAt(0))
+                    .recordingRetry(message: "Server busy.", nextRetryAt: "2026-05-28T23:14:20.000Z"),
+                NativeQueuedMutation
+                    .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_retry_sooner", createdAt: Self.createdAt(1))
+                    .recordingRetry(message: "Server busy.", nextRetryAt: "2026-05-28T23:13:40Z")
+            ]
+        )
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: []
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+
+        #expect(report.retryAfterSeconds == 20)
+        #expect(report.drainedClientMutationIDs.isEmpty)
+        #expect(await transport.clientMutationIDs.isEmpty)
+        #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_cover_retry_later", "cm_profile_retry_sooner"])
+    }
+
+    @Test("expired retry schedules drain and tombstone revisions preserve resource families")
+    func expiredRetrySchedulesDrainAndTombstoneRevisionsPreserveResourceFamilies() async throws {
+        let retrying = NativeQueuedMutation
+            .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_old", activateWhenReady: true, clientMutationID: "cm_retry_expired", createdAt: Self.createdAt(0))
+            .recordingRetry(message: "Previous retry.", nextRetryAt: "2026-05-28T23:12:20.000Z")
+        let queue = try NativeMutationQueue(
+            mutations: [
+                retrying,
+                .cookbookDelete(cookbookID: "cookbook_weeknight", clientMutationID: "cm_cookbook_delete_tombstone", createdAt: Self.createdAt(1)),
+                .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete_tombstone", createdAt: Self.createdAt(2)),
+                .shoppingDeleteItem(itemID: "item_lemons", clientMutationID: "cm_shopping_delete_tombstone", createdAt: Self.createdAt(3)),
+                .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_update_tombstone", title: "Lemon Pasta", description: nil, servings: nil, createdAt: Self.createdAt(4))
+            ]
+        )
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: .updatedAt("2026-06-16T09:30:00.000Z")),
+                .success(serverRevision: .tombstone("cookbook_weeknight_deleted")),
+                .success(serverRevision: .tombstone("spoon_cooked_deleted")),
+                .success(serverRevision: .tombstone("item_lemons_deleted")),
+                .success(serverRevision: .tombstone("recipe_lemon_default_deleted"))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+
+        #expect(report.drainedClientMutationIDs == [
+            "cm_retry_expired",
+            "cm_cookbook_delete_tombstone",
+            "cm_spoon_delete_tombstone",
+            "cm_shopping_delete_tombstone",
+            "cm_recipe_update_tombstone"
+        ])
+        #expect(report.retryAfterSeconds == nil)
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(try await store.tombstones.map(\.resourceType) == [.cookbook, .spoon, .shoppingItem, .recipe])
+        #expect(try await store.tombstones.map(\.parentResourceID) == [
+            "cookbook_weeknight",
+            "recipe_lemon",
+            nil,
+            "recipe_lemon"
+        ])
+    }
+
+    @Test("bootstrap tombstones are recorded with checkpoint cursors")
+    func bootstrapTombstonesAreRecordedWithCheckpointCursors() async throws {
+        let tombstone = NativeSyncTombstone(
+            resourceType: .cookbook,
+            resourceID: "cookbook_removed_bootstrap",
+            parentResourceID: nil,
+            title: "Removed cookbook",
+            deletedAt: "2026-06-16T09:30:00.000Z",
+            updatedAt: "2026-06-16T09:31:00.000Z"
+        )
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_with_tombstone"), tombstones: [tombstone]),
+            mutationResults: []
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport)
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch)
+
+        #expect(report.bootstrapCursor?.rawValue == "cursor_with_tombstone")
+        #expect(report.drainedClientMutationIDs.isEmpty)
+        #expect(try await store.loadCheckpoint().globalCursor?.rawValue == "cursor_with_tombstone")
+        #expect(await store.tombstones.entries == [tombstone])
+    }
+
     private static func representativeMutations() throws -> [NativeQueuedMutation] {
         let recipe: [NativeQueuedMutation] = [
             try .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
@@ -847,6 +1124,19 @@ struct NativeSyncEngineTests {
             contentType: contentType,
             data: Data([0x73, 0x6A, 0x6D])
         )
+    }
+
+    private static func queuedMutationJSON(schemaVersion: Int, type: String, fields: [String: Any]) throws -> Data {
+        var kind = fields
+        kind["type"] = type
+        return try JSONSerialization.data(withJSONObject: [
+            "schemaVersion": schemaVersion,
+            "id": "native:cm_decode",
+            "clientMutationId": "cm_decode",
+            "createdAt": createdAt(0),
+            "retryCount": 0,
+            "kind": kind
+        ])
     }
 
     private static let nativeSyncEnvelope = Data(

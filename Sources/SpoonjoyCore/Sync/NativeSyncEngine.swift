@@ -778,47 +778,43 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
     }
 
     public func requestBuilder() throws -> APIRequestBuilder {
-        guard replayTarget == .remote else {
-            throw NativeQueuedMutationRequestError.localOnlyMutation
-        }
-
         switch queueableKind {
         case .recipeCreate:
             return try json(.post, ["api", "v1", "recipes"])
         case .recipeUpdate:
-            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId")])
+            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId")], excluding: ["recipeId"])
         case .recipeDelete:
             return try queryDeleteNoBody(["api", "v1", "recipes", requiredString("recipeId")])
         case .recipeFork:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "fork"])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "fork"], excluding: ["recipeId", "titleOverride"])
         case .recipeStepCreate:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "steps"])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "steps"], excluding: ["recipeId"])
         case .recipeStepUpdate:
-            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId")])
+            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId")], excluding: ["recipeId", "stepId"])
         case .recipeStepDelete:
-            return try bodyDelete(["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId")])
+            return try bodyDelete(["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId")], excluding: ["recipeId", "stepId"])
         case .recipeStepReorder:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "steps", "reorder"])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "steps", "reorder"], excluding: ["recipeId"])
         case .recipeIngredientAdd:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId"), "ingredients"])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId"), "ingredients"], excluding: ["recipeId", "stepId"])
         case .recipeIngredientDelete:
             return try headerDelete(["api", "v1", "recipes", requiredString("recipeId"), "steps", requiredString("stepId"), "ingredients", requiredString("ingredientId")])
         case .recipeOutputUsesReplace:
-            return try json(.put, ["api", "v1", "recipes", requiredString("recipeId"), "step-output-uses"])
+            return try json(.put, ["api", "v1", "recipes", requiredString("recipeId"), "step-output-uses"], excluding: ["recipeId"])
         case .cookbookCreate:
             return try json(.post, ["api", "v1", "cookbooks"])
         case .cookbookUpdate:
-            return try json(.patch, ["api", "v1", "cookbooks", requiredString("cookbookId")])
+            return try json(.patch, ["api", "v1", "cookbooks", requiredString("cookbookId")], excluding: ["cookbookId"])
         case .cookbookDelete:
             return try queryDeleteNoBody(["api", "v1", "cookbooks", requiredString("cookbookId")])
         case .cookbookAddRecipe:
-            return try json(.post, ["api", "v1", "cookbooks", requiredString("cookbookId"), "recipes", requiredString("recipeId")])
+            return try json(.post, ["api", "v1", "cookbooks", requiredString("cookbookId"), "recipes", requiredString("recipeId")], excluding: ["cookbookId", "recipeId"])
         case .cookbookRemoveRecipe:
-            return try bodyDelete(["api", "v1", "cookbooks", requiredString("cookbookId"), "recipes", requiredString("recipeId")])
+            return try bodyDelete(["api", "v1", "cookbooks", requiredString("cookbookId"), "recipes", requiredString("recipeId")], excluding: ["cookbookId", "recipeId"])
         case .shoppingAddItem:
             return try json(.post, ["api", "v1", "shopping-list", "items"])
         case .shoppingCheckItem:
-            return try json(.patch, ["api", "v1", "shopping-list", "items", requiredString("itemId")])
+            return try json(.patch, ["api", "v1", "shopping-list", "items", requiredString("itemId")], excluding: ["itemId"])
         case .shoppingDeleteItem:
             return try headerDelete(["api", "v1", "shopping-list", "items", requiredString("itemId")])
         case .shoppingAddFromRecipe:
@@ -828,23 +824,23 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         case .shoppingClearAll:
             return try json(.post, ["api", "v1", "shopping-list", "clear-all"])
         case .spoonCreate:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "spoons"])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "spoons"], excluding: ["recipeId"])
         case .spoonCreatePhoto:
             return try multipart(.post, ["api", "v1", "recipes", requiredString("recipeId"), "spoons"], fileField: "photo", mediaKey: "photo")
         case .spoonUpdate:
-            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "spoons", requiredString("spoonId")])
+            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "spoons", requiredString("spoonId")], excluding: ["recipeId", "spoonId"])
         case .spoonDelete:
             return try headerDelete(["api", "v1", "recipes", requiredString("recipeId"), "spoons", requiredString("spoonId")])
         case .coverUpload:
             return try multipart(.post, ["api", "v1", "recipes", requiredString("recipeId"), "image"], fileField: "image", mediaKey: "image")
         case .coverSetActive:
-            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")])
+            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")], excluding: ["recipeId", "coverId"])
         case .coverArchive:
-            return try queryDeleteWithBody(["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")])
+            return try queryDeleteWithBody(["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")], excluding: ["recipeId", "coverId"])
         case .coverRegenerate:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "covers", "regenerate"])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "covers", "regenerate"], excluding: ["recipeId"])
         case .coverFromSpoon:
-            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "covers", "from-spoon", requiredString("spoonId")])
+            return try json(.post, ["api", "v1", "recipes", requiredString("recipeId"), "covers", "from-spoon", requiredString("spoonId")], excluding: ["recipeId", "spoonId"])
         case .profileDisplayUpdate:
             return try json(.patch, ["api", "v1", "me"])
         case .profilePhotoUpload:
@@ -864,8 +860,8 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         }
     }
 
-    private func json(_ method: APIRequestMethod, _ pathComponents: [String]) throws -> APIRequestBuilder {
-        try APIRequestSupport.privateJSON(method: method, pathComponents: pathComponents, body: requestBody(includeClientMutation: true))
+    private func json(_ method: APIRequestMethod, _ pathComponents: [String], excluding excludedKeys: Set<String> = []) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSON(method: method, pathComponents: pathComponents, body: requestBody(includeClientMutation: true, excluding: excludedKeys))
     }
 
     private func queryDeleteNoBody(_ pathComponents: [String]) throws -> APIRequestBuilder {
@@ -876,21 +872,21 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         )
     }
 
-    private func queryDeleteWithBody(_ pathComponents: [String]) throws -> APIRequestBuilder {
+    private func queryDeleteWithBody(_ pathComponents: [String], excluding excludedKeys: Set<String>) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSONDelete(
             pathComponents: pathComponents,
             clientMutationID: clientMutationID,
             idempotency: .query,
-            body: requestBody(includeClientMutation: false)
+            body: requestBody(includeClientMutation: false, excluding: excludedKeys)
         )
     }
 
-    private func bodyDelete(_ pathComponents: [String]) throws -> APIRequestBuilder {
+    private func bodyDelete(_ pathComponents: [String], excluding excludedKeys: Set<String>) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSONDelete(
             pathComponents: pathComponents,
             clientMutationID: clientMutationID,
             idempotency: .body,
-            body: requestBody(includeClientMutation: false)
+            body: requestBody(includeClientMutation: false, excluding: excludedKeys)
         )
     }
 
@@ -919,9 +915,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
                 fields[key] = string
             case .bool(let bool):
                 fields[key] = String(bool)
-            case .number(let number):
-                fields[key] = String(number)
-            case .null, .array, .object:
+            case .null, .number, .array, .object:
                 break
             }
         }
@@ -934,12 +928,12 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         )
     }
 
-    private func requestBody(includeClientMutation: Bool) -> [String: Any] {
+    private func requestBody(includeClientMutation: Bool, excluding excludedKeys: Set<String>) -> [String: Any] {
         var body: [String: Any] = [:]
         if includeClientMutation {
             body["clientMutationId"] = clientMutationID
         }
-        for (key, value) in values where !bodyExcludedKeys.contains(key) {
+        for (key, value) in values where !excludedKeys.contains(key) {
             body[key] = APIRequestSupport.jsonObject(from: value)
         }
         return body
@@ -966,62 +960,6 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         return value
     }
 
-    private var bodyExcludedKeys: Set<String> {
-        switch queueableKind {
-        case .recipeCreate, .cookbookCreate, .shoppingAddItem, .shoppingAddFromRecipe, .shoppingClearCompleted, .shoppingClearAll, .profileDisplayUpdate, .notificationPreferenceUpdate, .apnsDeviceRegister, .recipeImportSubmit:
-            []
-        case .recipeUpdate:
-            ["recipeId"]
-        case .recipeDelete:
-            ["recipeId"]
-        case .recipeFork:
-            ["recipeId", "titleOverride"]
-        case .recipeStepCreate:
-            ["recipeId"]
-        case .recipeStepUpdate:
-            ["recipeId", "stepId"]
-        case .recipeStepDelete:
-            ["recipeId", "stepId"]
-        case .recipeStepReorder:
-            ["recipeId"]
-        case .recipeIngredientAdd:
-            ["recipeId", "stepId"]
-        case .recipeIngredientDelete:
-            ["recipeId", "stepId", "ingredientId"]
-        case .recipeOutputUsesReplace:
-            ["recipeId"]
-        case .cookbookUpdate, .cookbookDelete:
-            ["cookbookId"]
-        case .cookbookAddRecipe, .cookbookRemoveRecipe:
-            ["cookbookId", "recipeId"]
-        case .shoppingCheckItem, .shoppingDeleteItem:
-            ["itemId"]
-        case .spoonCreate, .spoonCreatePhoto:
-            ["recipeId", "photo"]
-        case .spoonUpdate:
-            ["recipeId", "spoonId"]
-        case .spoonDelete:
-            ["recipeId", "spoonId"]
-        case .coverUpload:
-            ["recipeId", "image"]
-        case .coverSetActive:
-            ["recipeId", "coverId"]
-        case .coverArchive:
-            ["recipeId", "coverId"]
-        case .coverRegenerate:
-            ["recipeId"]
-        case .coverFromSpoon:
-            ["recipeId", "spoonId"]
-        case .profilePhotoUpload:
-            ["photo"]
-        case .profilePhotoRemove:
-            []
-        case .apnsDeviceRevoke:
-            ["deviceId"]
-        case .captureDraftCreate, .captureDraftEdit, .captureDraftDiscard:
-            []
-        }
-    }
 }
 
 public extension NativeQueuedMutation {
@@ -1172,11 +1110,18 @@ public extension NativeQueuedMutation {
     }
 
     static func coverArchive(recipeID: String, coverID: String, clientMutationID: String, replacementCoverID: String?, replacementVariant: RecipeCoverVariant?, confirmNoCover: Bool, deleteSafeObjects: Bool, createdAt: String) -> NativeQueuedMutation {
-        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverArchive, values: [
+        let replacementVariantValue: JSONValue
+        if let replacementVariant {
+            replacementVariantValue = .string(replacementVariant.rawValue)
+        } else {
+            replacementVariantValue = .null
+        }
+
+        return NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverArchive, values: [
             "recipeId": .string(recipeID),
             "coverId": .string(coverID),
             "replacementCoverId": stringOrNull(replacementCoverID),
-            "replacementVariant": replacementVariant.map { .string($0.rawValue) } ?? .null,
+            "replacementVariant": replacementVariantValue,
             "confirmNoCover": .bool(confirmNoCover),
             "deleteSafeObjects": .bool(deleteSafeObjects)
         ])
@@ -1258,7 +1203,11 @@ public extension NativeQueuedMutation {
     }
 
     private static func doubleOrNull(_ value: Double?) -> JSONValue {
-        value.map(JSONValue.number) ?? .null
+        if let value {
+            return .number(value)
+        }
+
+        return .null
     }
 
     private static func stepDrafts(_ steps: [RecipeStepDraft]) -> JSONValue {
@@ -1287,15 +1236,19 @@ public extension NativeQueuedMutation {
 
     private static func validateCreateRecipeSteps(_ steps: [RecipeStepDraft]) throws {
         for (stepIndex, step) in steps.enumerated() {
-            for (ingredientIndex, ingredient) in step.ingredients.enumerated() where ingredient.unit == nil {
-                throw NativeQueuedMutationRequestError.missingField("steps.\(stepIndex).ingredients.\(ingredientIndex).unit")
+            for (ingredientIndex, ingredient) in step.ingredients.enumerated() {
+                if ingredient.unit == nil {
+                    throw NativeQueuedMutationRequestError.missingField("steps.\(stepIndex).ingredients.\(ingredientIndex).unit")
+                }
             }
         }
     }
 
     private static func validateIngredients(_ ingredients: [RecipeIngredientDraft], fieldPrefix: String) throws {
-        for (ingredientIndex, ingredient) in ingredients.enumerated() where ingredient.unit == nil {
-            throw NativeQueuedMutationRequestError.missingField("\(fieldPrefix).\(ingredientIndex).unit")
+        for (ingredientIndex, ingredient) in ingredients.enumerated() {
+            if ingredient.unit == nil {
+                throw NativeQueuedMutationRequestError.missingField("\(fieldPrefix).\(ingredientIndex).unit")
+            }
         }
     }
 }
@@ -1338,7 +1291,8 @@ extension NativeQueuedMutation {
 
         var values: [String: JSONValue] = [:]
         var media: [String: NativeStagedMediaUpload] = [:]
-        for key in kindContainer.allKeys where key.stringValue != "type" {
+        for key in kindContainer.allKeys {
+            guard key.stringValue != "type" else { continue }
             if queueableKind.mediaFieldNames.contains(key.stringValue) {
                 media[key.stringValue] = try kindContainer.decode(NativeStagedMediaUpload.self, forKey: key)
             } else {
@@ -1414,7 +1368,7 @@ private extension NativeQueuedMutationKind {
     }
 }
 
-private struct DynamicCodingKey: CodingKey, Hashable {
+struct DynamicCodingKey: CodingKey, Hashable {
     let stringValue: String
     let intValue: Int?
 
@@ -1748,7 +1702,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             if let delay = mutation.retryDelayRemaining(at: clock()), delay > 0 {
                 remaining.append(mutation)
                 blockedDependencyKeys.insert(mutation.dependencyKey)
-                retryAfterSeconds = retryAfterSeconds.map { min($0, delay) } ?? delay
+                retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, delay)
                 index += 1
                 continue
             }
@@ -1776,7 +1730,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 index = originalQueue.mutations.count
                 continue
             case .retry(let afterSeconds, let message):
-                retryAfterSeconds = retryAfterSeconds.map { min($0, afterSeconds) } ?? afterSeconds
+                retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, afterSeconds)
                 remaining.append(mutation.recordingRetry(
                     message: message,
                     nextRetryAt: NativeSyncClockFormatting.isoString(clock().addingTimeInterval(TimeInterval(afterSeconds)))
@@ -1797,6 +1751,14 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             pausedReason: pausedReason,
             retryAfterSeconds: retryAfterSeconds
         )
+    }
+
+    private static func shortestRetryDelay(_ current: Int?, _ candidate: Int) -> Int {
+        guard let current else {
+            return candidate
+        }
+
+        return min(current, candidate)
     }
 }
 
@@ -1853,11 +1815,12 @@ private enum NativeSyncClockFormatting {
     static func date(from string: String) -> Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: string) {
-            return date
+        let fractionalDate = formatter.date(from: string)
+        if fractionalDate == nil {
+            formatter.formatOptions = [.withInternetDateTime]
+            return formatter.date(from: string)
         }
 
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: string)
+        return fractionalDate
     }
 }
