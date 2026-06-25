@@ -1,0 +1,80 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Emitting module SpoonjoyCoreTests
+[4/6] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[5/8] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[6/8] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[6/8] Write Objects.LinkFileList
+[7/8] Linking SpoonjoyApplePackageTests
+Build complete! (3.50s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native cache schema and freshness" started.
+◇ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" started.
+◇ Test "corrupt cache recovery quarantines bad JSON and restores deterministic fallback without overwriting" started.
+◇ Test "durable schema version 2 covers every Offline Product Contract domain with record metadata" started.
+◇ Test "dismissal persistence is scoped by account environment and freshness change" started.
+◇ Test "cache store rejects secret material and never serializes tokens provider secrets signed URLs or raw media paths" started.
+◇ Test "freshness policy uses exact Offline Product Contract thresholds without wall clock flake" started.
+◇ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" started.
+◇ Test "intelligent prefetch policy includes signed-in bootstrap recent surfaces and excludes online-only credential work" started.
+◇ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" started.
+✘ Test "corrupt cache recovery quarantines bad JSON and restores deterministic fallback without overwriting" recorded an issue at NativeCacheFreshnessTests.swift:289:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift
+✘ Test "cache store rejects secret material and never serializes tokens provider secrets signed URLs or raw media paths" recorded an issue at NativeCacheFreshnessTests.swift:257:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift
+✘ Test "dismissal persistence is scoped by account environment and freshness change" recorded an issue at NativeCacheFreshnessTests.swift:141:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift
+✘ Test "freshness policy uses exact Offline Product Contract thresholds without wall clock flake" recorded an issue at NativeCacheFreshnessTests.swift:60:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token OfflineIndicatorDisplay
+✘ Test "intelligent prefetch policy includes signed-in bootstrap recent surfaces and excludes online-only credential work" recorded an issue at NativeCacheFreshnessTests.swift:176:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift
+✘ Test "durable schema version 2 covers every Offline Product Contract domain with record metadata" recorded an issue at NativeCacheFreshnessTests.swift:7:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeDurableCache.swift
+✘ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" recorded an issue at NativeCacheFreshnessTests.swift:102:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift
+✘ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" recorded an issue at NativeCacheFreshnessTests.swift:219:6: Caught error: Missing required native cache contract file: Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift
+✘ Test "corrupt cache recovery quarantines bad JSON and restores deterministic fallback without overwriting" failed after 0.001 seconds with 1 issue.
+✘ Test "dismissal persistence is scoped by account environment and freshness change" failed after 0.001 seconds with 1 issue.
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token synced
+✘ Test "intelligent prefetch policy includes signed-in bootstrap recent surfaces and excludes online-only credential work" failed after 0.001 seconds with 1 issue.
+✘ Test "durable schema version 2 covers every Offline Product Contract domain with record metadata" failed after 0.001 seconds with 1 issue.
+✘ Test "media staging metadata is privacy safe and enforces exact size and count thresholds" failed after 0.001 seconds with 1 issue.
+✘ Test "cache store rejects secret material and never serializes tokens provider secrets signed URLs or raw media paths" failed after 0.001 seconds with 1 issue.
+✘ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" failed after 0.001 seconds with 1 issue.
+✘ Test "freshness policy uses exact Offline Product Contract thresholds without wall clock flake" failed after 0.001 seconds with 1 issue.
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token offline
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token stale
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token queuedWork
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token syncFailure
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token conflict
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token blocker
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token destructiveConfirmation
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token dismissed
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token Button
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token xmark.circle
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token exclamationmark.arrow.trianglehead.2.clockwise.rotate.90
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token wifi.slash
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token clock.badge.exclamationmark
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token tray.and.arrow.up.fill
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token exclamationmark.triangle.fill
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token lock.shield.fill
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" recorded an issue at NativeCacheFreshnessTests.swift:397:9: Expectation failed: hasToken
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift missing required token trash.slash.fill
+✘ Test "app indicator source exposes labels icons dismissal and non-dismissable severity" failed after 0.001 seconds with 19 issues.
+✘ Suite "Native cache schema and freshness" failed after 0.001 seconds with 27 issues.
+✘ Test run with 9 tests in 1 suite failed after 0.001 seconds with 27 issues.
