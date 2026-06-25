@@ -80,6 +80,117 @@ struct APITransportTests {
         #expect(capturedRequest.cachePolicy == .useProtocolCachePolicy)
     }
 
+    @Test("URLSession native sync transport applies bootstrap data and classifies mutation HTTP failures")
+    func urlSessionNativeSyncTransportAppliesBootstrapDataAndClassifiesMutationHTTPFailures() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.nativeSyncEnvelope(
+                        requestID: "req_sync_bootstrap",
+                        resourceID: "profile_ari",
+                        nextCursor: "v1.after"
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 409,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_sync_conflict",
+                        code: "conflict",
+                        message: "Shopping item changed elsewhere.",
+                        status: 409
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "application/json", "Retry-After": "6"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_sync_retry",
+                        code: "origin_busy",
+                        message: "Try again shortly.",
+                        status: 503
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 409,
+                    headers: ["Content-Type": "application/json", "Retry-After": "5"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_sync_idempotency",
+                        code: "idempotency_in_progress",
+                        message: "Mutation is still in progress.",
+                        status: 409
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(
+            apiTransport: URLSessionAPITransport(session: session)
+        )
+        let configuration = Self.configuration(bearerToken: "sj_access_native")
+        let bootstrapRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: nil)
+            .urlRequest(configuration: configuration)
+
+        let bootstrap = try await transport.bootstrap(
+            request: bootstrapRequest,
+            configuration: configuration
+        )
+        guard case .syncData(let syncData) = bootstrap else {
+            Issue.record("Expected native sync bootstrap to return decoded sync data")
+            return
+        }
+
+        let conflict = try await transport.send(
+            .shoppingAddItem(
+                name: "lemons",
+                quantity: 3,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_conflict",
+                createdAt: "2026-06-16T12:00:00.000Z"
+            ),
+            configuration: configuration
+        )
+        let retry = try await transport.send(
+            .shoppingAddItem(
+                name: "limes",
+                quantity: 2,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_retry",
+                createdAt: "2026-06-16T12:01:00.000Z"
+            ),
+            configuration: configuration
+        )
+        let idempotencyRetry = try await transport.send(
+            .shoppingAddItem(
+                name: "oranges",
+                quantity: 4,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_idempotency_retry",
+                createdAt: "2026-06-16T12:02:00.000Z"
+            ),
+            configuration: configuration
+        )
+        let capturedRequests = await session.capturedRequests()
+
+        #expect(syncData.entries.map(\.resourceID) == ["profile_ari"])
+        #expect(syncData.nextCursor?.rawValue == "v1.after")
+        #expect(conflict == .conflict(kind: .validation, serverRevision: nil, message: "Shopping item changed elsewhere."))
+        #expect(retry == .retry(afterSeconds: 6, message: "Try again shortly."))
+        #expect(idempotencyRetry == .retry(afterSeconds: 5, message: "Mutation is still in progress."))
+        #expect(capturedRequests.map(\.httpMethod) == ["GET", "POST", "POST", "POST"])
+        #expect(capturedRequests[0].url?.absoluteString == "https://spoonjoy.app/api/v1/me/sync?limit=20")
+        #expect(capturedRequests[1].url?.absoluteString == "https://spoonjoy.app/api/v1/shopping-list/items")
+        #expect(capturedRequests[1].value(forHTTPHeaderField: "Authorization") == "Bearer sj_access_native")
+        #expect(capturedRequests[2].value(forHTTPHeaderField: "X-Client-Mutation-Id") == nil)
+    }
+
     @Test("API error envelopes preserve request IDs details and retry decisions")
     func apiErrorEnvelopesPreserveRequestIDsDetailsAndRetryDecisions() async throws {
         let session = RecordingURLSession(
@@ -696,6 +807,39 @@ struct APITransportTests {
               "ok": true,
               "requestId": "\(requestID)",
               "data": { "name": "\(name)" }
+            }
+            """.utf8
+        )
+    }
+
+    private static func nativeSyncEnvelope(requestID: String, resourceID: String, nextCursor: String) -> Data {
+        Data(
+            """
+            {
+              "ok": true,
+              "requestId": "\(requestID)",
+              "data": {
+                "freshness": {
+                  "accountId": "chef_ari",
+                  "environment": "production",
+                  "schemaVersion": 1,
+                  "sourceEndpoint": "/api/v1/me/sync",
+                  "generatedAt": "2026-06-16T12:00:00.000Z",
+                  "lastValidatedAt": "2026-06-16T12:00:00.000Z"
+                },
+                "entries": [
+                  {
+                    "action": "upsert",
+                    "kind": "profile",
+                    "resourceId": "\(resourceID)",
+                    "updatedAt": "2026-06-16T12:00:00.000Z",
+                    "payload": { "username": "ari" },
+                    "tombstone": null
+                  }
+                ],
+                "nextCursor": "\(nextCursor)",
+                "hasMore": false
+              }
             }
             """.utf8
         )

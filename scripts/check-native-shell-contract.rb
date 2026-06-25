@@ -76,6 +76,7 @@ REQUIRED_SOURCE_TOKENS = {
     "contentState:",
     "offlineIndicatorState:",
     "dismissOfflineIndicator",
+    "recordingOpenedRoute(route",
     ".onOpenURL",
     "onContinueUserActivity(NSUserActivityTypeBrowsingWeb)",
     "NSUserActivity",
@@ -115,6 +116,7 @@ REQUIRED_SOURCE_TOKENS = {
     "startSignIn",
     "restoreState",
     "revokeAndLogout",
+    "isSigningIn",
     "authRequired",
     "spoonjoy.app",
     "Button",
@@ -185,8 +187,7 @@ FORBIDDEN_SOURCE_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift" => [
     "Open Kitchen",
-    "keep offline fixtures nearby",
-    ".disabled(true)"
+    "keep offline fixtures nearby"
   ],
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
     "OfflineStatusView(state:",

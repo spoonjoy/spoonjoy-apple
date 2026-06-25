@@ -122,6 +122,13 @@ public actor NativeAuthSessionRepository {
         try await refreshCoordinator.validSession(at: now())
     }
 
+    public func bindAccountID(_ accountID: String) async throws -> AuthSession {
+        let session = try await validSession()
+        let boundSession = try session.bindingAccountID(accountID)
+        try await vault.saveSession(boundSession)
+        return boundSession
+    }
+
     public func revokeAndLogout() async throws {
         if let session = try await vault.loadSession() {
             _ = try OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID)

@@ -4,6 +4,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case invalidRecipeID(String)
     case emptyShoppingItem
     case emptyCaptureSource
+    case authRequired
 
     public var description: String {
         switch self {
@@ -13,6 +14,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Shopping item name must be non-empty."
         case .emptyCaptureSource:
             "Capture source must include text or a URL."
+        case .authRequired:
+            "Sign in to Spoonjoy before queueing this Siri action."
         }
     }
 }

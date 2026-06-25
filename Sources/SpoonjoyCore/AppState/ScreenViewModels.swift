@@ -97,11 +97,38 @@ public struct CaptureDraftViewModel: Equatable {
     }
 }
 
+public struct OfflineIndicatorDismissCommand: Equatable {
+    public let id: String
+    public let title: String
+
+    public init(id: String, title: String) {
+        self.id = id
+        self.title = title
+    }
+}
+
 public struct SettingsViewModel: Equatable {
     public let settings: SettingsState
+    public let offlineIndicatorDisplay: OfflineIndicatorDisplay
+    public let authSessionState: NativeAuthSessionState
+    public let environmentSwitcher: NativeCacheEnvironment
+    public let dismissOfflineIndicator: OfflineIndicatorDismissCommand
 
-    public init(settings: SettingsState) {
+    public init(
+        settings: SettingsState,
+        offlineIndicatorDisplay: OfflineIndicatorDisplay = .synced,
+        authSessionState: NativeAuthSessionState = .signedOut,
+        environmentSwitcher: NativeCacheEnvironment = .production,
+        dismissOfflineIndicator: OfflineIndicatorDismissCommand = OfflineIndicatorDismissCommand(
+            id: "dismiss-offline-indicator",
+            title: "Hide offline status"
+        )
+    ) {
         self.settings = settings
+        self.offlineIndicatorDisplay = offlineIndicatorDisplay
+        self.authSessionState = authSessionState
+        self.environmentSwitcher = environmentSwitcher
+        self.dismissOfflineIndicator = dismissOfflineIndicator
     }
 
     public var rows: [SettingsStatusRow] {

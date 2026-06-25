@@ -314,8 +314,13 @@ struct AppStateTests {
 
         for (route, identifier, rawURL) in cases {
             #expect(route.stateIdentifier == identifier)
+            #expect(AppRoute(stateIdentifier: identifier) == route)
             #expect(DeepLinkURLBuilder.url(for: route) == URL(string: rawURL), "\(route)")
         }
+
+        let colonSearchRoute = AppRoute.search(query: "lemon:quick", scope: .recipes)
+        #expect(AppRoute(stateIdentifier: colonSearchRoute.stateIdentifier) == colonSearchRoute)
+        #expect(AppRoute(stateIdentifier: "recipe:../secret") == nil)
     }
 
     private func url(_ rawURL: String) throws -> URL {

@@ -1,8 +1,7 @@
 import Foundation
 import Security
-import SpoonjoyCore
 
-actor KeychainTokenVault: TokenVault {
+public actor KeychainTokenVault: TokenVault {
     private enum Item: String {
         case clientID = "spoonjoy.auth.client-id"
         case session = "spoonjoy.auth.session"
@@ -12,11 +11,11 @@ actor KeychainTokenVault: TokenVault {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init(accessGroup: String? = nil) {
+    public init(accessGroup: String? = nil) {
         self.accessGroup = accessGroup
     }
 
-    func loadClientID() async throws -> String? {
+    public func loadClientID() async throws -> String? {
         guard let data = try readData(for: .clientID) else {
             return nil
         }
@@ -24,15 +23,15 @@ actor KeychainTokenVault: TokenVault {
         return String(data: data, encoding: .utf8)
     }
 
-    func saveClientID(_ clientID: String) async throws {
+    public func saveClientID(_ clientID: String) async throws {
         try writeData(Data(clientID.utf8), for: .clientID)
     }
 
-    func clearClientID() async throws {
+    public func clearClientID() async throws {
         try deleteData(for: .clientID)
     }
 
-    func loadSession() async throws -> AuthSession? {
+    public func loadSession() async throws -> AuthSession? {
         guard let data = try readData(for: .session) else {
             return nil
         }
@@ -40,11 +39,11 @@ actor KeychainTokenVault: TokenVault {
         return try decoder.decode(AuthSession.self, from: data)
     }
 
-    func saveSession(_ session: AuthSession) async throws {
+    public func saveSession(_ session: AuthSession) async throws {
         try writeData(try encoder.encode(session), for: .session)
     }
 
-    func clearSession() async throws {
+    public func clearSession() async throws {
         try deleteData(for: .session)
     }
 
@@ -104,6 +103,6 @@ actor KeychainTokenVault: TokenVault {
     }
 }
 
-enum KeychainTokenVaultError: Error, Equatable {
+public enum KeychainTokenVaultError: Error, Equatable {
     case unhandledStatus(OSStatus)
 }

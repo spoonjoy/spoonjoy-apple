@@ -3,23 +3,10 @@ import SwiftUI
 
 struct OfflineStatusView: View {
     let display: OfflineIndicatorDisplay
-    let legacyStatusLabel: String?
     var onDismiss: (() -> Void)?
-
-    init(state: OfflineState) {
-        self.legacyStatusLabel = state.statusLabel
-        switch state {
-        case .available:
-            self.display = .synced
-        case .unavailable:
-            self.display = .offline
-        }
-        self.onDismiss = nil
-    }
 
     init(display: OfflineIndicatorDisplay, onDismiss: (() -> Void)? = nil) {
         self.display = display
-        self.legacyStatusLabel = nil
         self.onDismiss = onDismiss
     }
 
@@ -46,11 +33,7 @@ struct OfflineStatusView: View {
     }
 
     private var label: String {
-        if let legacyStatusLabel, display == .synced {
-            return legacyStatusLabel
-        }
-
-        return switch display {
+        switch display {
         case .synced:
             "Offline cache ready"
         case .offline:

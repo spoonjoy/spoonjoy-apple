@@ -4,6 +4,546 @@ import Testing
 
 @Suite("Native live store and shell wiring")
 struct NativeLiveStoreTests {
+    private static let now = Date(timeIntervalSince1970: 1_780_010_000)
+
+    @MainActor
+    @Test("live store refreshes auth before sync and hydrates applied sync cache")
+    func liveStoreRefreshesAuthBeforeSyncAndHydratesAppliedSyncCache() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_expired",
+                refreshToken: "sj_refresh_original",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(-60),
+                scope: NativeAuthSession.defaultScope
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_live", title: "Live Lemon Pasta")
+            let shoppingItem = Self.sampleShoppingItem(id: "item_lemons", name: "lemons")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: shoppingItem)
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live store to finish in liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(await transport.capturedBearerTokens() == ["sj_access_refreshed"])
+            #expect(content.configuration.bearerToken == "sj_access_refreshed")
+            #expect(content.recipes.map(\.title) == ["Live Lemon Pasta"])
+            #expect(content.shoppingList?.activeItems.map(\.name) == ["lemons"])
+            #expect(content.searchResultsByScope[.all] == ["recipe_live", "item_lemons"])
+            #expect(await syncStore.loadSnapshot().cachedRecords.map(\.cacheKey) == ["recipe:recipe_live", "shoppingItem:item_lemons"])
+        }
+    }
+
+    @MainActor
+    @Test("live store queueMutation persists mutations through native sync store")
+    func liveStoreQueueMutationPersistsMutationsThroughNativeSyncStore() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+            let mutation = NativeQueuedMutation.shoppingAddItem(
+                name: "lemons",
+                quantity: 2,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_live_queue",
+                createdAt: "2026-06-16T12:00:00.000Z"
+            )
+
+            await liveStore.queueMutation(mutation)
+            let persisted = try await syncStore.loadQueue()
+
+            guard case .queuedWork(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected queueMutation to show queuedWork; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(persisted.mutations == [mutation])
+            #expect(content.queuedMutations == [mutation])
+            #expect(content.offlineIndicatorState.display == .queuedWork(count: 1, oldestClientMutationID: "cm_live_queue"))
+        }
+    }
+
+    @MainActor
+    @Test("live store queueMutation discards previous owner media queue before appending current work")
+    func liveStoreQueueMutationDiscardsPreviousOwnerMediaQueueBeforeAppendingCurrentWork() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_current",
+                refreshToken: "sj_refresh_current",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_current"
+            ))
+            let previousPhoto = NativeStagedMediaUpload(
+                localStageID: "missing_previous_owner_stage",
+                fileName: "previous.jpg",
+                contentType: "image/jpeg",
+                data: Data()
+            )
+            let previousMutation = NativeQueuedMutation.profilePhotoUpload(
+                photo: previousPhoto,
+                clientMutationID: "cm_previous_owner_photo",
+                createdAt: Self.isoString(Self.now)
+            )
+            let previousRecord = NativeSyncCachedRecord(
+                kind: .recipe,
+                resourceID: "recipe_previous_owner",
+                payload: .object(["title": .string("Previous Owner Cache")]),
+                serverRevision: .updatedAt("2026-06-16T09:12:01.000Z")
+            )
+            let previousTombstone = NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_previous_deleted",
+                parentResourceID: nil,
+                title: "Previous deleted recipe",
+                deletedAt: "2026-06-16T09:12:02.000Z",
+                updatedAt: "2026-06-16T09:12:03.000Z"
+            )
+            let mediaDirectory = NativeStagedMediaDirectory(directoryURL: directory.appendingPathComponent("media", isDirectory: true))
+            let syncStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("sync.json"),
+                mediaResolver: mediaDirectory,
+                fallback: NativeSyncSnapshot(
+                    accountID: "chef_previous",
+                    environment: .production,
+                    checkpoint: try NativeSyncCheckpoint(
+                        globalCursor: PaginationCursor(rawValue: "previous.owner.cursor"),
+                        shoppingCursor: ShoppingSyncCursor(rawValue: "previous.shopping.cursor"),
+                        updatedAt: "2026-06-16T09:12:00.000Z"
+                    ),
+                    queue: try NativeMutationQueue(mutations: [previousMutation]),
+                    cachedRecords: [previousRecord],
+                    tombstones: [previousTombstone]
+                )
+            )
+            let transport = ThrowingLiveStoreSyncTransport(error: APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            ))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+            let currentMutation = NativeQueuedMutation.shoppingAddItem(
+                name: "current lemons",
+                quantity: nil,
+                unit: nil,
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_current_owner",
+                createdAt: Self.isoString(Self.now)
+            )
+
+            await liveStore.bootstrap()
+            await liveStore.queueMutation(currentMutation)
+            let snapshot = await syncStore.loadSnapshot()
+
+            #expect(snapshot.accountID == "chef_current")
+            #expect(snapshot.environment == .production)
+            #expect(snapshot.checkpoint == nil)
+            #expect(snapshot.cachedRecords.isEmpty)
+            #expect(snapshot.tombstones.isEmpty)
+            #expect(snapshot.queue.mutations.map(\.clientMutationID) == ["cm_current_owner"])
+            #expect(snapshot.queue.mutations.first == currentMutation)
+        }
+    }
+
+    @MainActor
+    @Test("live store restores only bound account cache route and Siri capture draft")
+    func liveStoreRestoresOnlyBoundAccountCacheRouteAndSiriCaptureDraft() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_bound",
+                refreshToken: "sj_refresh_bound",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_ari"
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_bound", title: "Bound Cache Pasta")
+            let draft = try CaptureDraft.localText(
+                id: "draft_siri_bound",
+                rawText: "https://example.com/siri-capture",
+                createdAt: Self.isoString(Self.now)
+            )
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "chef_ari",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+                    .updatingCaptureDraft(draft, savedAt: Self.isoString(Self.now))
+                    .recordingOpenedRoute(.capture, savedAt: Self.isoString(Self.now))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [
+                    NativeSyncCachedRecord(
+                        kind: .recipe,
+                        resourceID: recipe.id,
+                        payload: try Self.jsonValue(recipe),
+                        serverRevision: .updatedAt(recipe.updatedAt)
+                    )
+                ]
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { appStateStore },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected bound account cache to restore; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            let savedSession = try #require(try await vault.loadSession())
+            #expect(content.recipes.map(\.id) == ["recipe_bound"])
+            #expect(content.captureDraft == draft)
+            #expect(content.authSessionState == .authenticated(savedSession))
+            #expect(liveStore.restoredRoute == .capture)
+        }
+    }
+
+    @MainActor
+    @Test("live store ignores app snapshot state from another account")
+    func liveStoreIgnoresAppSnapshotStateFromAnotherAccount() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_current",
+                refreshToken: "sj_refresh_current",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_current"
+            ))
+            let previousDraft = try CaptureDraft.localText(
+                id: "draft_previous_owner",
+                rawText: "https://example.com/previous-owner",
+                createdAt: Self.isoString(Self.now)
+            )
+            let previousShoppingList = try ShoppingListState.decodeFromBundle()
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: previousShoppingList,
+                    accountID: "chef_previous",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+                    .updatingCaptureDraft(previousDraft, savedAt: Self.isoString(Self.now))
+                    .recordingOpenedRoute(.capture, savedAt: Self.isoString(Self.now))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_current",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { appStateStore },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected current account to sync without previous app state; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.shoppingList == nil)
+            #expect(content.captureDraft == nil)
+            #expect(liveStore.restoredRoute == nil)
+        }
+    }
+
+    @MainActor
+    @Test("live store ignores legacy unscoped app snapshot state")
+    func liveStoreIgnoresLegacyUnscopedAppSnapshotState() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_current",
+                refreshToken: "sj_refresh_current",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_current"
+            ))
+            let legacyDraft = try CaptureDraft.localText(
+                id: "draft_legacy",
+                rawText: "https://example.com/legacy",
+                createdAt: Self.isoString(Self.now)
+            )
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(
+                NativeAppSnapshot.bootstrap(shoppingList: try ShoppingListState.decodeFromBundle(), savedAt: Self.isoString(Self.now))
+                    .updatingCaptureDraft(legacyDraft, savedAt: Self.isoString(Self.now))
+                    .recordingOpenedRoute(.capture, savedAt: Self.isoString(Self.now))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_current",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { appStateStore },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected current account to ignore legacy app state; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.shoppingList == nil)
+            #expect(content.captureDraft == nil)
+            #expect(liveStore.restoredRoute == nil)
+        }
+    }
+
+    @MainActor
+    @Test("environment switch clears previous environment content and applies scoped sync")
+    func environmentSwitchClearsPreviousEnvironmentContentAndAppliesScopedSync() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_current",
+                refreshToken: "sj_refresh_current",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_ari"
+            ))
+            let productionRecipe = Self.sampleRecipe(id: "recipe_production", title: "Production Pasta")
+            let localRecipe = Self.sampleRecipe(id: "recipe_local", title: "Local Soup")
+            let productionItem = Self.sampleShoppingItem(id: "item_production", name: "production lemons")
+            let localItem = Self.sampleShoppingItem(id: "item_local", name: "local carrots")
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let transport = CapturingLiveStoreSyncTransport(bootstraps: [
+                .syncData(try Self.sampleSyncData(
+                    recipe: productionRecipe,
+                    shoppingItem: productionItem,
+                    accountID: "chef_ari",
+                    environment: .production
+                )),
+                .syncData(try Self.sampleSyncData(
+                    recipe: localRecipe,
+                    shoppingItem: localItem,
+                    accountID: "chef_ari",
+                    environment: .local
+                ))
+            ])
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+            guard case .liveSynced(let productionContent) = liveStore.bootstrapState else {
+                Issue.record("Expected production bootstrap to sync; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            await liveStore.switchEnvironment(.local)
+
+            guard case .liveSynced(let localContent) = liveStore.bootstrapState else {
+                Issue.record("Expected local environment switch to apply scoped sync; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(productionContent.environment == .production)
+            #expect(productionContent.recipes.map(\.id) == ["recipe_production"])
+            #expect(localContent.environment == .local)
+            #expect(localContent.recipes.map(\.id) == ["recipe_local"])
+            #expect(localContent.shoppingList?.activeItems.map(\.id) == ["item_local"])
+        }
+    }
+
+    @MainActor
+    @Test("unbound authenticated offline restore fails closed for private sync cache")
+    func unboundAuthenticatedOfflineRestoreFailsClosedForPrivateSyncCache() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_unbound",
+                refreshToken: "sj_refresh_unbound",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_previous_owner", title: "Previous Owner")
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_previous",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [
+                    .shoppingAddItem(
+                        name: "previous lemons",
+                        quantity: nil,
+                        unit: nil,
+                        categoryKey: nil,
+                        iconKey: nil,
+                        clientMutationID: "cm_previous_owner",
+                        createdAt: Self.isoString(Self.now)
+                    )
+                ]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(
+                        kind: .recipe,
+                        resourceID: recipe.id,
+                        payload: try Self.jsonValue(recipe),
+                        serverRevision: .updatedAt(recipe.updatedAt)
+                    )
+                ]
+            )
+            let transport = ThrowingLiveStoreSyncTransport(error: APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            ))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .offlineStale(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected offline stale fail-closed state; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.recipes.isEmpty)
+            #expect(content.queuedMutations.isEmpty)
+            #expect(content.offlineIndicatorState.display == .offline)
+        }
+    }
+
     @Test("core declares live app bootstrap state and repository dependencies")
     func coreDeclaresLiveAppBootstrapStateAndRepositoryDependencies() throws {
         let relativePath = "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift"
@@ -18,7 +558,7 @@ struct NativeLiveStoreTests {
                 "NativeLiveAppStore",
                 "public struct NativeLiveAppStoreDependencies",
                 "public enum NativeAppBootstrapState",
-                "public enum NativeShellContentState",
+                "public struct NativeShellContentState",
                 "case signedOut",
                 "case restoringCache",
                 "case liveSynced",
@@ -30,13 +570,22 @@ struct NativeLiveStoreTests {
                 "case syncFailed",
                 "NativeAuthSessionRepository",
                 "NativeDurableCacheStore",
+                "NativeSyncStore",
                 "NativeSyncEngine",
                 "NativeSyncTriggerCoordinator",
+                "NativeSyncExecutionScope",
+                "appStateStoreProvider",
+                "restoredRoute",
+                "trustedAccountID",
+                "bindAccountID",
                 "APIClientConfiguration",
                 "loadOrCreate",
                 "restoreFromCache",
+                "loadSnapshot",
                 "bootstrapFromLiveAPI",
+                "validSession()",
                 "switchEnvironment",
+                "recordingOpenedRoute",
                 "offlineIndicatorState",
                 "settingsViewModel"
             ],
@@ -61,6 +610,10 @@ struct NativeLiveStoreTests {
                 "liveStore",
                 "NativeLiveAppStore",
                 "NativeLiveAppStoreDependencies",
+                "FileBackedNativeSyncStore",
+                "URLSessionNativeSyncTransport",
+                "NativeStagedMediaDirectory",
+                "UnavailableNativeSyncStore",
                 "bootstrap()",
                 "bootstrapState",
                 "case .signedOut",
@@ -78,7 +631,8 @@ struct NativeLiveStoreTests {
                 "dismissOfflineIndicator"
             ],
             forbids: [
-                "NativeAppStateStore",
+                "NativeDeferredSyncTransport",
+                "try? FileBackedNativeSyncStore",
                 "NativeAppSnapshot.bootstrap",
                 "ShoppingListState.decodeFromBundle()",
                 "hasCompletedFirstRun",
@@ -202,13 +756,13 @@ struct NativeLiveStoreTests {
                 "startSignIn",
                 "restoreState",
                 "revokeAndLogout",
+                "isSigningIn",
                 "SecureAuthWebHandoff.login",
                 "authRequired"
             ],
             forbids: [
                 "Open Kitchen",
-                "keep offline fixtures nearby",
-                ".disabled(true)"
+                "keep offline fixtures nearby"
             ]
         )
         expectContent(
@@ -338,6 +892,47 @@ struct NativeLiveStoreTests {
     }
 }
 
+private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
+    private var bootstrapResults: [NativeSyncBootstrapResult]
+    private var bearerTokens: [String?] = []
+
+    init(bootstrap: NativeSyncBootstrapResult) {
+        self.bootstrapResults = [bootstrap]
+    }
+
+    init(bootstraps: [NativeSyncBootstrapResult]) {
+        self.bootstrapResults = bootstraps
+    }
+
+    func bootstrap(request _: APIRequest, configuration: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        bearerTokens.append(configuration.bearerToken)
+        guard bootstrapResults.count > 1 else {
+            return bootstrapResults.first ?? .success(cursor: nil, tombstones: [])
+        }
+        return bootstrapResults.removeFirst()
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+
+    func capturedBearerTokens() -> [String?] {
+        bearerTokens
+    }
+}
+
+private struct ThrowingLiveStoreSyncTransport: NativeSyncTransport {
+    let error: APITransportError
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        throw error
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+}
+
 private enum NativeLiveStoreTestError: Error, CustomStringConvertible {
     case missingFile(String)
     case processFailed(String)
@@ -349,6 +944,147 @@ private enum NativeLiveStoreTestError: Error, CustomStringConvertible {
         case .processFailed(let output):
             output
         }
+    }
+}
+
+@MainActor
+private func withTemporaryLiveStoreDirectory<T>(_ body: @MainActor (URL) async throws -> T) async throws -> T {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("spoonjoy-live-store-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    return try await body(directory)
+}
+
+private extension NativeLiveStoreTests {
+    static func authRepository(vault: InMemoryTokenVault) -> NativeAuthSessionRepository {
+        NativeAuthSessionRepository(
+            vault: vault,
+            clientName: "Spoonjoy Apple Tests",
+            registerClient: { _, _ in "client_live" },
+            exchangeCode: { _, _, _, _ in
+                OAuthTokenResponse(
+                    accessToken: "sj_access_exchanged",
+                    refreshToken: "sj_refresh_exchanged",
+                    tokenType: "Bearer",
+                    expiresIn: 3_600,
+                    scope: NativeAuthSession.defaultScope
+                )
+            },
+            refresh: { _, _ in
+                OAuthTokenResponse(
+                    accessToken: "sj_access_refreshed",
+                    refreshToken: "sj_refresh_refreshed",
+                    tokenType: "Bearer",
+                    expiresIn: 3_600,
+                    scope: NativeAuthSession.defaultScope
+                )
+            },
+            revoke: { _, _ in },
+            now: { Self.now }
+        )
+    }
+
+    static func sampleSyncData(
+        recipe: Recipe,
+        shoppingItem: ShoppingListItem,
+        accountID: String = "client_live",
+        environment: NativeCacheEnvironment = .production
+    ) throws -> NativeSyncData {
+        NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: accountID,
+                environment: environment,
+                schemaVersion: 1,
+                sourceEndpoint: "/api/v1/me/sync",
+                generatedAt: isoString(now),
+                lastValidatedAt: isoString(now)
+            ),
+            entries: [
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .recipe,
+                    resourceID: recipe.id,
+                    updatedAt: recipe.updatedAt,
+                    payload: try jsonValue(recipe),
+                    tombstone: nil
+                ),
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .shoppingItem,
+                    resourceID: shoppingItem.id,
+                    updatedAt: shoppingItem.updatedAt,
+                    payload: try jsonValue(shoppingItem),
+                    tombstone: nil
+                )
+            ],
+            nextCursor: PaginationCursor(rawValue: "v1.live.after"),
+            hasMore: false
+        )
+    }
+
+    static func sampleRecipe(id: String, title: String) -> Recipe {
+        let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
+        let chef = ChefSummary(id: "chef_ari", username: "ari")
+        return Recipe(
+            id: id,
+            title: title,
+            description: "Bright and quick.",
+            servings: "2",
+            chef: chef,
+            coverImageURL: nil,
+            coverProvenanceLabel: nil,
+            coverSourceType: nil,
+            coverVariant: nil,
+            href: "/recipes/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: RecipeAttribution(
+                creditText: "By ari",
+                canonicalURL: canonicalURL,
+                sourceURLRaw: nil,
+                sourceHost: nil,
+                sourceRecipe: nil
+            ),
+            createdAt: isoString(now),
+            updatedAt: isoString(now),
+            steps: [
+                RecipeStep(
+                    id: "step_\(id)",
+                    stepNum: 1,
+                    stepTitle: "Cook",
+                    description: "Toss with lemon.",
+                    duration: 5,
+                    ingredients: []
+                )
+            ],
+            cookbooks: []
+        )
+    }
+
+    static func sampleShoppingItem(id: String, name: String) -> ShoppingListItem {
+        ShoppingListItem(
+            id: id,
+            name: name,
+            quantity: 3,
+            unit: "each",
+            checked: false,
+            checkedAt: nil,
+            deletedAt: nil,
+            categoryKey: "produce",
+            iconKey: "lemon",
+            sortIndex: 0,
+            updatedAt: isoString(now)
+        )
+    }
+
+    static func jsonValue<T: Encodable>(_ value: T) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
+    }
+
+    static func isoString(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 }
 

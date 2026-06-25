@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol SpoonjoyAPITransport {
+public protocol SpoonjoyAPITransport: Sendable {
     func send<Value: Decodable & Equatable>(
         _ request: APIRequestBuilder,
         configuration: APIClientConfiguration,
@@ -8,13 +8,13 @@ public protocol SpoonjoyAPITransport {
     ) async throws -> APIEnvelope<Value>
 }
 
-public protocol URLSessionPerforming {
+public protocol URLSessionPerforming: Sendable {
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
 extension URLSession: URLSessionPerforming {}
 
-public protocol APIAuthenticationRefresher {
+public protocol APIAuthenticationRefresher: Sendable {
     func refreshedConfiguration(
         after error: APIError,
         configuration: APIClientConfiguration
@@ -80,7 +80,7 @@ public struct APITransportError: Error, Equatable, Sendable {
     }
 }
 
-public struct URLSessionAPITransport: SpoonjoyAPITransport {
+public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
     private let session: any URLSessionPerforming
     private let authenticationRefresher: (any APIAuthenticationRefresher)?
 
@@ -102,6 +102,27 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport {
             configuration: configuration,
             decode: valueType,
             hasRefreshedAuthentication: false
+        )
+    }
+
+    public func send<Value: Decodable & Equatable>(
+        _ request: APIRequest,
+        configuration _: APIClientConfiguration,
+        decode valueType: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let urlRequest = try buildURLRequest(from: request)
+        let response: (data: Data, urlResponse: URLResponse)
+
+        do {
+            response = try await session.data(for: urlRequest)
+        } catch {
+            throw Self.transportError(from: error)
+        }
+
+        return try Self.decode(
+            response.data,
+            response: response.urlResponse,
+            as: valueType
         )
     }
 

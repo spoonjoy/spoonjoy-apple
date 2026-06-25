@@ -57,6 +57,12 @@ struct NativeAuthSessionTests {
         let start = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(start.clientID == "cm_native_spoonjoy")
         #expect(start.authorizationURL.path == "/oauth/authorize")
+        #expect(Set(NativeAuthSession.defaultScope.split(separator: " ").map(String.init)).isSuperset(of: [
+            "kitchen:read",
+            "kitchen:write",
+            "shopping_list:read",
+            "shopping_list:write"
+        ]))
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
         #expect(await network.registerRequests.count == 1)
@@ -95,6 +101,9 @@ struct NativeAuthSessionTests {
         #expect(try await repository.restoreState() == .refreshRequired(expired))
         let refreshed = try await repository.validSession()
         #expect(refreshed.accessToken == "sj_access_rotated")
+        let bound = try await repository.bindAccountID("chef_ari")
+        #expect(bound.accountID == "chef_ari")
+        #expect(try await vault.loadSession()?.accountID == "chef_ari")
         try await repository.revokeAndLogout()
         #expect(try await repository.restoreState() == .signedOut)
         #expect(await network.revokeRequests == [
@@ -219,10 +228,12 @@ struct NativeAuthSessionTests {
                     .appendingPathComponent("project.pbxproj"),
                 encoding: .utf8
             )
-            for appAuthSource in ["SpoonjoyWebAuthenticationSession.swift", "KeychainTokenVault.swift"] {
+            for appAuthSource in ["SpoonjoyWebAuthenticationSession.swift"] {
                 let sourceEntries = project.components(separatedBy: "\(appAuthSource) in Sources").count - 1
                 #expect(sourceEntries >= 2, "\(appAuthSource) must be in both iOS and macOS Sources phases")
             }
+            #expect(project.contains("SpoonjoyCore"))
+            #expect(!project.contains("KeychainTokenVault.swift in Sources"))
         }
 
         let signedOutSetup = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift")
@@ -317,11 +328,11 @@ struct NativeAuthSessionTests {
 
     @Test("Keychain token vault stores auth material outside general cache")
     func keychainTokenVaultStoresAuthMaterialOutsideGeneralCache() throws {
-        let content = try readRepoFile("Apps/Spoonjoy/Shared/Auth/KeychainTokenVault.swift")
+        let content = try readRepoFile("Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift")
 
         expectContent(
             content,
-            in: "Apps/Spoonjoy/Shared/Auth/KeychainTokenVault.swift",
+            in: "Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift",
             contains: [
                 "Security",
                 "KeychainTokenVault",
@@ -1027,7 +1038,7 @@ private func coverageTokenResponse(accessToken: String, refreshToken: String, ex
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "shopping_list:read shopping_list:write"
+          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write"
         }
         """#.utf8
     )
@@ -1309,7 +1320,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "shopping_list:read shopping_list:write",
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write",
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1351,7 +1362,7 @@ struct NativeAuthBehaviorContract {
             refreshToken: "ort_refresh_initial",
             tokenType: "Bearer",
             expiresAt: now.addingTimeInterval(-1),
-            scope: "shopping_list:read shopping_list:write"
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write"
         )
         try await vault.saveSession(expired)
         #expect(try await repository.restoreState() == .refreshRequired(expired))
@@ -1386,7 +1397,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "shopping_list:read shopping_list:write",
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write",
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1520,7 +1531,7 @@ private func tokenResponse(accessToken: String, refreshToken: String, expiresIn:
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "shopping_list:read shopping_list:write"
+          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write"
         }
         """#.utf8
     )

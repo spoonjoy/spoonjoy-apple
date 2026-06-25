@@ -200,6 +200,22 @@ public enum ScenarioVerifier {
             checks: [
                 ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
                 firstRunSessionSetupCheck(rootURL: rootURL),
+                liveStoreSourceCheck(rootURL: rootURL),
+                liveStoreShellCheck(
+                    name: "signed-out live bootstrap",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
+                    tokens: ["NativeAuthSessionRepository", "SpoonjoyWebAuthenticationSession", "startSignIn", "restoreState", "revokeAndLogout", "authRequired"]
+                ),
+                liveStoreShellCheck(name: "restoring cache", rootURL: rootURL, tokens: ["case .restoringCache", "restoringCacheView", "OfflineStatusView(display:"]),
+                liveStoreShellCheck(name: "live synced shell", rootURL: rootURL, tokens: ["case .liveSynced", "PlatformNavigationView("]),
+                liveStoreShellCheck(name: "offline stale shell", rootURL: rootURL, tokens: ["case .offlineStale", "offlineIndicatorState:"]),
+                liveStoreShellCheck(name: "queued work shell", rootURL: rootURL, tokens: ["case .queuedWork", "queueMutation:"]),
+                liveStoreShellCheck(name: "conflict shell", rootURL: rootURL, tokens: ["case .conflict", "OfflineStatusView(display:"]),
+                liveStoreShellCheck(name: "blocker shell", rootURL: rootURL, tokens: ["case .blocker", "OfflineStatusView(display:"]),
+                liveStoreShellCheck(name: "destructive confirmation shell", rootURL: rootURL, tokens: ["case .destructiveConfirmation", "destructiveConfirmation"]),
+                liveStoreShellCheck(name: "sync failed shell", rootURL: rootURL, tokens: ["case .syncFailed", "PlatformNavigationView("]),
+                fixtureFallbackDisabledCheck(rootURL: rootURL),
                 ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
                 cookProgressPersistenceCheck(),
                 durableNativeStateCheck(),
@@ -211,17 +227,17 @@ public enum ScenarioVerifier {
                 safeUnknownLinkCheck(),
                 sourceCheck(
                     name: "first-run setup source",
-                    detail: "Root view gates first launch through SignedOutSetupView and completes a persisted session before opening app routes.",
+                    detail: "Root view gates launch through the live store before opening app routes.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
-                    tokens: ["SignedOutSetupView(", "hasCompletedFirstRun", "completeFirstRun", "NativeAppStateStore", "loadOrCreate", "persistSnapshot"]
+                    tokens: ["NativeLiveAppStore", "NativeLiveAppStoreDependencies", "bootstrap()", "case .signedOut", "SignedOutSetupView("]
                 ),
                 sourceCheck(
                     name: "native persistence source",
-                    detail: "Platform navigation persists cook progress, shopping checkoffs, capture drafts, and queued mutations through NativeAppSnapshot.",
+                    detail: "Platform navigation routes live content state and queues native mutations through the live store.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["Binding<NativeAppSnapshot>", "persistSnapshot", "updatingCookProgress", "updatingShoppingList", "updatingCaptureDraft", "QueuedMutation"]
+                    tokens: ["NativeShellContentState", "contentState.recipes", "contentState.shoppingList", "NativeQueuedMutation", "queueMutation", "syncTriggerCoordinator"]
                 ),
                 sourceCheck(
                     name: "search surface source",
@@ -243,14 +259,14 @@ public enum ScenarioVerifier {
                     detail: "Settings surface presents auth, environment, shopping permissions, and offline state.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
-                    tokens: ["SettingsView", "SettingsViewModel", "SettingsState", "Form", "Section", "OfflineStatusView"]
+                    tokens: ["SettingsView", "SettingsViewModel", "Form", "Section", "OfflineStatusView(display:", "viewModel.authSessionState", "viewModel.environmentSwitcher"]
                 ),
                 sourceCheck(
                     name: "offline status source",
-                    detail: "Offline status component presents OfflineState status labels.",
+                    detail: "Offline status component presents live OfflineIndicatorDisplay states.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift",
-                    tokens: ["OfflineStatusView", "OfflineState", "statusLabel", "Label"]
+                    tokens: ["OfflineStatusView", "OfflineIndicatorDisplay", "informationalOnly", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation", "Label", "Button"]
                 ),
                 sourceCheck(
                     name: "navigation final surface source",
@@ -266,10 +282,9 @@ public enum ScenarioVerifier {
                         "navigation.navigate(to: search.route)",
                         "CaptureDraftView(",
                         "SettingsView(",
-                        "SettingsView(viewModel: settingsViewModel)",
-                        "var settingsViewModel: SettingsViewModel",
-                        "SettingsState(",
-                        "offline: appSnapshot.offlineState"
+                        "contentState.settingsViewModel",
+                        "OfflineStatusView(display:",
+                        "offlineIndicatorState"
                     ],
                     forbiddenTokens: [
                         ".constant(routeSearch)",
@@ -279,7 +294,7 @@ public enum ScenarioVerifier {
                     ]
                 )
             ],
-            nativeCapabilities: metadata.scenarioCapabilities
+            nativeCapabilities: capabilitiesWithLiveStoreFlows(metadata.scenarioCapabilities)
         )
     }
 
@@ -328,23 +343,105 @@ public enum ScenarioVerifier {
     static func firstRunSessionSetupCheck(rootURL: URL) -> ScenarioCheck {
         let rootSource = sourceCheck(
             name: "first-run session setup",
-            detail: "First run setup is reachable before the main platform navigation shell.",
+            detail: "Signed-out auth setup is reachable before the main platform navigation shell.",
             rootURL: rootURL,
             relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
-            tokens: ["SignedOutSetupView(", "hasCompletedFirstRun", "completeFirstRun(opening:", "PlatformNavigationView("]
+            tokens: ["NativeLiveAppStore", "liveStore.bootstrap()", "case .signedOut", "SignedOutSetupView(", "PlatformNavigationView("]
         )
         guard rootSource.status == .pass else {
             return rootSource
         }
 
-        let fallback = NativeAppSnapshot.bootstrap(shoppingList: nil, savedAt: "2026-06-16T13:35:00.000Z")
-        let completed = fallback.completingFirstRun(savedAt: "2026-06-16T13:36:00.000Z")
-        let status: ScenarioCheckStatus = !fallback.hasCompletedFirstRun && completed.hasCompletedFirstRun ? .pass : .fail
+        let signedOutContent = NativeShellContentState.empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+        )
+        let status: ScenarioCheckStatus = signedOutContent.settingsViewModel.authSessionState == .signedOut ? .pass : .fail
 
         return ScenarioCheck(
             name: "first-run session setup",
             status: status,
-            detail: "First-run state transitions from setup to the native shell before route navigation."
+            detail: "Live bootstrap can represent signed-out setup before route navigation."
+        )
+    }
+
+    static func liveStoreSourceCheck(rootURL: URL) -> ScenarioCheck {
+        sourceCheck(
+            name: "live store source",
+            detail: "Native live store owns auth restore, cache restore, sync bootstrap, environment switching, and shell state.",
+            rootURL: rootURL,
+            relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+            tokens: [
+                "NativeLiveAppStore",
+                "NativeLiveAppStoreDependencies",
+                "NativeAppBootstrapState",
+                "NativeShellContentState",
+                "restoreFromCache",
+                "bootstrapFromLiveAPI",
+                "switchEnvironment",
+                "NativeSyncTriggerEvent.environmentChanged",
+                "searchResultsByScope"
+            ],
+            forbiddenTokens: [
+                "RecipeFixtureCatalog.decodeFromBundle()",
+                "CookbookFixtureCatalog.decodeFromBundle()",
+                "KitchenFixtureState.decodeFromBundle()",
+                "ShoppingListState.decodeFromBundle()"
+            ]
+        )
+    }
+
+    static func liveStoreShellCheck(
+        name: String,
+        rootURL: URL,
+        relativePath: String = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+        tokens: [String]
+    ) -> ScenarioCheck {
+        sourceCheck(
+            name: name,
+            detail: "Live shell state \(name) is represented in app source.",
+            rootURL: rootURL,
+            relativePath: relativePath,
+            tokens: tokens
+        )
+    }
+
+    static func fixtureFallbackDisabledCheck(rootURL: URL) -> ScenarioCheck {
+        let source = sourceCheck(
+            name: "fixture fallback disabled",
+            detail: "Fixture fallback is denied outside explicit test/demo policy.",
+            rootURL: rootURL,
+            relativePath: "Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift",
+            tokens: [
+                "NativeFixtureFallbackPolicy",
+                "disabledInProduction",
+                "testsAndDemoOnly",
+                "allowsProductionFallback",
+                "SPOONJOY_ALLOW_FIXTURE_FALLBACK",
+                "isTestOrDemoBuild"
+            ],
+            forbiddenTokens: [
+                "RecipeFixtureCatalog.decodeFromBundle()"
+            ]
+        )
+        guard source.status == .pass else {
+            return source
+        }
+
+        let status: ScenarioCheckStatus = !NativeFixtureFallbackPolicy.disabledInProduction.allowsProductionFallback(
+            isTestOrDemoBuild: false,
+            environment: [:]
+        ) && !NativeFixtureFallbackPolicy.testsAndDemoOnly.allowsProductionFallback(
+            isTestOrDemoBuild: false,
+            environment: [:]
+        ) ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "fixture fallback disabled",
+            status: status,
+            detail: "Production fixture fallback is disabled unless a test/demo policy explicitly opts in."
         )
     }
 
@@ -553,6 +650,32 @@ public enum ScenarioVerifier {
         components.path = path
         components.queryItems = queryItems.isEmpty ? nil : queryItems
         return components
+    }
+
+    private static func capabilitiesWithLiveStoreFlows(_ capabilities: ScenarioNativeCapabilities) -> ScenarioNativeCapabilities {
+        let liveStoreFlows = [
+            "live-store-source",
+            "signed-out-state",
+            "restoring-cache",
+            "live-synced",
+            "offline-stale",
+            "queued-work",
+            "conflict",
+            "blocker",
+            "destructive-confirmation",
+            "sync-failed",
+            "fixture-fallback-disabled"
+        ]
+        return ScenarioNativeCapabilities(
+            appIntents: capabilities.appIntents,
+            spotlightIndexedTypes: capabilities.spotlightIndexedTypes,
+            searchableScopes: capabilities.searchableScopes,
+            shareActions: capabilities.shareActions,
+            offlineFlows: Array(Set(capabilities.offlineFlows + liveStoreFlows)).sorted(),
+            associatedDomains: capabilities.associatedDomains,
+            urlSchemes: capabilities.urlSchemes,
+            deepLinkRoutes: capabilities.deepLinkRoutes
+        )
     }
 
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {

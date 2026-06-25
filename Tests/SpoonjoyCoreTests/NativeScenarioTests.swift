@@ -563,7 +563,17 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains(".result(opensIntent:"))
         #expect(appIntentsSource.contains("dialog:"))
         #expect(appIntentsSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(appIntentsSource.contains("FileBackedNativeSyncStore"))
+        #expect(appIntentsSource.contains("NativeQueuedMutation.intentMutation(from:"))
+        #expect(appIntentsSource.contains("saveQueue"))
+        #expect(appIntentsSource.contains("KeychainTokenVault()"))
+        #expect(appIntentsSource.contains("trustedIntentScope"))
+        #expect(appIntentsSource.contains("NativeIntentActionError.authRequired"))
+        #expect(appIntentsSource.contains("accountID: scope.accountID"))
+        #expect(appIntentsSource.contains("environment: scope.environment"))
+        #expect(appIntentsSource.contains("try await SpoonjoyIntentStateWriter().apply"))
         #expect(!appIntentsSource.contains("native-app-snapshot.json"))
+        #expect(!appIntentsSource.contains("ShoppingListState.decodeFromBundle()"))
         #expect(!appIntentsSource.contains("func perform() async throws -> some IntentResult {\n        .result()\n    }"))
 
         for declaration in [

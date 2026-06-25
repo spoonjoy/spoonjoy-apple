@@ -82,9 +82,9 @@ struct AddShoppingListItemIntent: AppIntent {
             unit: unit,
             createdAt: createdAt
         )
-        try SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
 
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Added \(name) to Spoonjoy")
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued \(name) in Spoonjoy")
     }
 }
 
@@ -110,7 +110,7 @@ struct CaptureRecipeIntent: AppIntent {
             source: source,
             createdAt: createdAt
         )
-        try SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Saved a Spoonjoy capture draft")
     }
@@ -126,17 +126,42 @@ private enum SpoonjoyIntentClock {
 
 private struct SpoonjoyIntentStateWriter {
     private let store: NativeAppStateStore
+    private let syncStore: any NativeSyncStore
+    private let authVault: (any TokenVault)?
 
-    init(fileURL: URL = NativeAppStateLocation.defaultFileURL()) {
+    init(
+        fileURL: URL = NativeAppStateLocation.defaultFileURL(),
+        syncStore: (any NativeSyncStore)? = nil,
+        authVault: (any TokenVault)? = KeychainTokenVault()
+    ) throws {
         store = NativeAppStateStore(fileURL: fileURL)
+        self.authVault = authVault
+        if let syncStore {
+            self.syncStore = syncStore
+        } else {
+            let appDirectory = fileURL.deletingLastPathComponent()
+            self.syncStore = try FileBackedNativeSyncStore(
+                fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
+                mediaResolver: NativeStagedMediaDirectory(
+                    directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
+                )
+            )
+        }
     }
 
-    func apply(_ action: NativeIntentAction, savedAt: String) throws {
+    func apply(_ action: NativeIntentAction, savedAt: String) async throws {
         switch action {
         case .addShoppingListItem(let mutation, _, _):
-            try applyShoppingMutation(mutation, savedAt: savedAt)
+            try await appendNativeMutation(try NativeQueuedMutation.intentMutation(from: mutation))
+            try await applyShoppingMutation(mutation, savedAt: savedAt)
         case .captureDraft(let draft, _, _):
-            var snapshot = try loadSnapshot(savedAt: savedAt)
+            try await appendNativeMutation(.captureDraftCreate(
+                draftID: draft.id,
+                source: .text(draft.rawText),
+                clientMutationID: "intent-\(draft.id)",
+                createdAt: savedAt
+            ))
+            var snapshot = try await loadSnapshot(savedAt: savedAt)
             snapshot = snapshot.updatingCaptureDraft(draft, savedAt: savedAt)
             try store.save(snapshot)
         case .openRoute:
@@ -144,13 +169,15 @@ private struct SpoonjoyIntentStateWriter {
         }
     }
 
-    private func applyShoppingMutation(_ mutation: QueuedMutation, savedAt: String) throws {
+    private func applyShoppingMutation(_ mutation: QueuedMutation, savedAt: String) async throws {
         guard case .shoppingAdd(let name, let quantity, let unit, let categoryKey, let iconKey) = mutation.kind else {
             return
         }
 
-        var snapshot = try loadSnapshot(savedAt: savedAt)
-        let shoppingList = try snapshot.shoppingList ?? ShoppingListState.decodeFromBundle()
+        var snapshot = try await loadSnapshot(savedAt: savedAt)
+        guard let shoppingList = snapshot.shoppingList else {
+            return
+        }
         let result = try shoppingList.addingOrRestoringItem(
             name: name,
             quantity: quantity,
@@ -167,11 +194,47 @@ private struct SpoonjoyIntentStateWriter {
         try store.save(snapshot)
     }
 
-    private func loadSnapshot(savedAt: String) throws -> NativeAppSnapshot {
+    private func appendNativeMutation(_ mutation: NativeQueuedMutation) async throws {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let queue: NativeMutationQueue
+        if syncSnapshot.accountID == scope.accountID,
+           syncSnapshot.environment == scope.environment {
+            queue = try await syncStore.loadQueue()
+        } else {
+            queue = NativeMutationQueue()
+        }
+        try await syncStore.saveQueue(
+            try queue.appending(mutation),
+            accountID: scope.accountID,
+            environment: scope.environment
+        )
+    }
+
+    private func loadSnapshot(savedAt: String) async throws -> NativeAppSnapshot {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
         let fallback = NativeAppSnapshot
-            .bootstrap(shoppingList: try? ShoppingListState.decodeFromBundle(), savedAt: savedAt)
+            .bootstrap(
+                shoppingList: nil,
+                accountID: scope.accountID,
+                environment: scope.environment,
+                savedAt: savedAt
+            )
             .completingFirstRun(savedAt: savedAt)
-        return try store.loadOrCreate(fallback: fallback).value
+        let snapshot = try store.loadOrCreate(fallback: fallback).value
+        return snapshot.isScoped(accountID: scope.accountID, environment: scope.environment) ? snapshot : fallback
+    }
+
+    private func trustedIntentScope(from syncSnapshot: NativeSyncSnapshot) async throws -> (accountID: String, environment: NativeCacheEnvironment) {
+        guard let session = try await authVault?.loadSession(),
+              let accountID = session.accountID else {
+            throw NativeIntentActionError.authRequired
+        }
+        let environment = syncSnapshot.accountID == accountID
+            ? (syncSnapshot.environment ?? .production)
+            : .production
+        return (accountID, environment)
     }
 
 }

@@ -100,4 +100,51 @@ public enum AppRoute: Hashable, Sendable {
             "unknown-link"
         }
     }
+
+    public init?(stateIdentifier: String) {
+        let parts = stateIdentifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+        if parts == ["kitchen"] {
+            self = .kitchen
+        } else if parts == ["recipes"] {
+            self = .recipes
+        } else if parts.count == 2, parts[0] == "recipe", Self.isSafeID(parts[1]) {
+            self = .recipeDetail(id: parts[1], presentation: .detail)
+        } else if parts.count == 2, parts[0] == "recipe-cook", Self.isSafeID(parts[1]) {
+            self = .recipeDetail(id: parts[1], presentation: .cook)
+        } else if parts == ["cookbooks"] {
+            self = .cookbooks
+        } else if parts.count == 2, parts[0] == "cookbook", Self.isSafeID(parts[1]) {
+            self = .cookbookDetail(id: parts[1])
+        } else if parts == ["shopping-list"] {
+            self = .shoppingList
+        } else if parts.count >= 3, parts[0] == "search" {
+            let rawScope = parts[1]
+            let query = parts.dropFirst(2).joined(separator: ":")
+            guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return nil
+            }
+            guard let scope = SearchScope(rawValue: rawScope) else {
+                return nil
+            }
+            self = .search(query: query, scope: scope)
+        } else if parts == ["capture"] {
+            self = .capture
+        } else if parts == ["settings"] {
+            self = .settings
+        } else if parts == ["unknown-link"] {
+            self = .unknownLink
+        } else {
+            return nil
+        }
+    }
+
+    private static func isSafeID(_ id: String) -> Bool {
+        guard id.trimmingCharacters(in: .whitespacesAndNewlines) == id, !id.isEmpty else {
+            return false
+        }
+        guard !id.contains("/"), !id.contains("\\"), !id.contains(".."), id != ".", id != ".." else {
+            return false
+        }
+        return id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
+    }
 }

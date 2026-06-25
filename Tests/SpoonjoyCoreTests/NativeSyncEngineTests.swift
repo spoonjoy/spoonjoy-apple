@@ -9,6 +9,9 @@ struct NativeSyncEngineTests {
         baseURL: URL(string: "https://spoonjoy.app")!,
         bearerToken: "sj_access"
     )
+    private var boundScope: NativeSyncExecutionScope {
+        NativeSyncExecutionScope(expectedAccountID: "chef_ari", environment: .local)
+    }
 
     @Test("bootstrap request and sync envelope use the private /me/sync contract")
     func bootstrapRequestAndSyncEnvelopeUsePrivateSyncContract() throws {
@@ -88,6 +91,49 @@ struct NativeSyncEngineTests {
         #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_deleted") == nil)
         #expect(try await store.loadCheckpoint().globalCursor?.rawValue == "v1.cursor.after")
         #expect(try await store.tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+    }
+
+    @Test("sync engine applies bootstrap sync data before draining queued mutations")
+    func syncEngineAppliesBootstrapSyncDataBeforeDrainingQueuedMutations() async throws {
+        let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [
+                .shoppingAddItem(
+                    name: "lemons",
+                    quantity: 4,
+                    unit: "each",
+                    categoryKey: nil,
+                    iconKey: nil,
+                    clientMutationID: "cm_after_bootstrap",
+                    createdAt: Self.createdAt(0)
+                )
+            ]),
+            cachedRecords: [
+                NativeSyncCachedRecord(
+                    kind: .recipe,
+                    resourceID: "recipe_deleted",
+                    payload: .object(["title": .string("Old recipe")]),
+                    serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
+                )
+            ]
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .syncData(syncData),
+            mutationResults: [.success(serverRevision: nil)]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch, scope: boundScope)
+        let snapshot = await store.loadSnapshot()
+
+        #expect(report.bootstrapCursor?.rawValue == "v1.cursor.after")
+        #expect(report.drainedClientMutationIDs == ["cm_after_bootstrap"])
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+        #expect(snapshot.tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+        #expect(snapshot.queue.mutations.isEmpty)
     }
 
     @Test("native sync checkpoints validate global and shopping cursors")
@@ -281,6 +327,373 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("scoped queue save clears previous owner checkpoint records and tombstones")
+    func scopedQueueSaveClearsPreviousOwnerCheckpointRecordsAndTombstones() async throws {
+        let checkpoint = try NativeSyncCheckpoint(
+            globalCursor: PaginationCursor(rawValue: "previous.owner.cursor"),
+            shoppingCursor: ShoppingSyncCursor(rawValue: "previous.shopping.cursor"),
+            updatedAt: "2026-06-16T09:12:00.000Z"
+        )
+        let previousRecord = NativeSyncCachedRecord(
+            kind: .recipe,
+            resourceID: "recipe_previous_owner",
+            payload: .object(["title": .string("Previous Owner Pasta")]),
+            serverRevision: .updatedAt("2026-06-16T09:12:01.000Z")
+        )
+        let tombstone = NativeSyncTombstone(
+            resourceType: .recipe,
+            resourceID: "recipe_previous_deleted",
+            parentResourceID: nil,
+            title: "Previous deleted recipe",
+            deletedAt: "2026-06-16T09:12:02.000Z",
+            updatedAt: "2026-06-16T09:12:03.000Z"
+        )
+        let currentQueue = try NativeMutationQueue(mutations: [
+            .shoppingAddItem(
+                name: "current limes",
+                quantity: nil,
+                unit: nil,
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_current_limes",
+                createdAt: Self.createdAt(42)
+            )
+        ])
+        let memoryStore = InMemoryNativeSyncStore(
+            accountID: "chef_previous",
+            environment: .production,
+            checkpoint: checkpoint,
+            queue: NativeMutationQueue(),
+            cachedRecords: [previousRecord]
+        )
+        await memoryStore.appendTombstone(tombstone)
+
+        await memoryStore.saveQueue(currentQueue, accountID: "chef_current", environment: .production)
+        let memorySnapshot = await memoryStore.loadSnapshot()
+
+        #expect(memorySnapshot.accountID == "chef_current")
+        #expect(memorySnapshot.environment == .production)
+        #expect(memorySnapshot.checkpoint == nil)
+        #expect(memorySnapshot.cachedRecords.isEmpty)
+        #expect(memorySnapshot.tombstones.isEmpty)
+        #expect(memorySnapshot.queue.mutations.map(\.clientMutationID) == ["cm_current_limes"])
+
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let fileStore = try FileBackedNativeSyncStore(
+                fileURL: storeURL,
+                fallback: NativeSyncSnapshot(
+                    accountID: "chef_previous",
+                    environment: .production,
+                    checkpoint: checkpoint,
+                    queue: NativeMutationQueue(),
+                    cachedRecords: [previousRecord],
+                    tombstones: [tombstone]
+                )
+            )
+
+            try await fileStore.saveQueue(currentQueue, accountID: "chef_current", environment: .production)
+            let snapshot = await fileStore.loadSnapshot()
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
+            let restoredSnapshot = await restored.loadSnapshot()
+
+            #expect(snapshot.accountID == "chef_current")
+            #expect(snapshot.environment == .production)
+            #expect(snapshot.checkpoint == nil)
+            #expect(snapshot.cachedRecords.isEmpty)
+            #expect(snapshot.tombstones.isEmpty)
+            #expect(snapshot.queue.mutations.map(\.clientMutationID) == ["cm_current_limes"])
+            #expect(restoredSnapshot == snapshot)
+        }
+    }
+
+    @Test("sync apply rebinds account and clears previous owner queue before replay")
+    func syncApplyRebindsAccountAndClearsPreviousOwnerQueueBeforeReplay() async throws {
+        let previousRecipe = NativeSyncCachedRecord(
+            kind: .recipe,
+            resourceID: "recipe_previous_owner",
+            payload: .object(["title": .string("Previous")]),
+            serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
+        )
+        let previousMutation = NativeQueuedMutation.shoppingAddItem(
+            name: "previous lemons",
+            quantity: nil,
+            unit: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_previous_owner",
+            createdAt: Self.createdAt(0)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_previous",
+            environment: .production,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [previousMutation]),
+            cachedRecords: [previousRecipe]
+        )
+        let syncData = NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: "chef_current",
+                environment: .production,
+                schemaVersion: 1,
+                sourceEndpoint: "/api/v1/me/sync",
+                generatedAt: "2026-06-16T09:11:00.000Z",
+                lastValidatedAt: "2026-06-16T09:11:00.000Z"
+            ),
+            entries: [
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .profile,
+                    resourceID: "chef_current",
+                    updatedAt: "2026-06-16T09:11:01.000Z",
+                    payload: .object(["username": .string("ari")]),
+                    tombstone: nil
+                )
+            ],
+            nextCursor: PaginationCursor(rawValue: "current.after"),
+            hasMore: false
+        )
+
+        _ = try await store.apply(syncData: syncData, validatedAt: now)
+        let snapshot = await store.loadSnapshot()
+
+        #expect(snapshot.accountID == "chef_current")
+        #expect(snapshot.environment == .production)
+        #expect(snapshot.queue.mutations.isEmpty)
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_current"])
+        #expect(try await store.cachedRecord(kind: .recipe, resourceID: "recipe_previous_owner") == nil)
+    }
+
+    @Test("sync engine ignores previous owner checkpoint and queue on first scoped bootstrap")
+    func syncEngineIgnoresPreviousOwnerCheckpointAndQueueOnFirstScopedBootstrap() async throws {
+        let previousRecipe = NativeSyncCachedRecord(
+            kind: .recipe,
+            resourceID: "recipe_previous_owner",
+            payload: .object(["title": .string("Previous")]),
+            serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
+        )
+        let previousMutation = NativeQueuedMutation.shoppingAddItem(
+            name: "previous lemons",
+            quantity: nil,
+            unit: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_previous_owner",
+            createdAt: Self.createdAt(0)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_previous",
+            environment: .production,
+            checkpoint: try NativeSyncCheckpoint(
+                globalCursor: PaginationCursor(rawValue: "previous.cursor"),
+                shoppingCursor: nil,
+                updatedAt: "2026-06-16T09:00:00.000Z"
+            ),
+            queue: try NativeMutationQueue(mutations: [previousMutation]),
+            cachedRecords: [previousRecipe]
+        )
+        let currentSyncData = NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: "chef_current",
+                environment: .production,
+                schemaVersion: 1,
+                sourceEndpoint: "/api/v1/me/sync",
+                generatedAt: "2026-06-16T09:11:00.000Z",
+                lastValidatedAt: "2026-06-16T09:11:00.000Z"
+            ),
+            entries: [
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .profile,
+                    resourceID: "chef_current",
+                    updatedAt: "2026-06-16T09:11:01.000Z",
+                    payload: .object(["username": .string("ari")]),
+                    tombstone: nil
+                )
+            ],
+            nextCursor: PaginationCursor(rawValue: "current.after"),
+            hasMore: false
+        )
+        let transport = RecordingNativeSyncTransport(bootstrap: .syncData(currentSyncData), mutationResults: [])
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+        let currentScope = NativeSyncExecutionScope(expectedAccountID: "chef_current", environment: .production)
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch, scope: currentScope)
+        let snapshot = await store.loadSnapshot()
+
+        #expect(await transport.bootstrapQueryItems == [URLQueryItem(name: "limit", value: "20")])
+        #expect(await transport.requestPaths == ["/api/v1/me/sync"])
+        #expect(await transport.clientMutationIDs.isEmpty)
+        #expect(report.accountID == "chef_current")
+        #expect(report.environment == .production)
+        #expect(report.drainedClientMutationIDs.isEmpty)
+        #expect(snapshot.accountID == "chef_current")
+        #expect(snapshot.environment == .production)
+        #expect(snapshot.queue.mutations.isEmpty)
+        #expect(snapshot.checkpoint?.globalCursor?.rawValue == "current.after")
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_current"])
+        #expect(try await store.cachedRecord(kind: .recipe, resourceID: "recipe_previous_owner") == nil)
+    }
+
+    @Test("file backed sync store lets scoped bootstrap discard previous owner staged media")
+    func fileBackedSyncStoreLetsScopedBootstrapDiscardPreviousOwnerStagedMedia() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let mediaDirectory = NativeStagedMediaDirectory(directoryURL: directory.appendingPathComponent("media", isDirectory: true))
+            let previousPhoto = Self.stagedMedia("missing_previous_owner_stage", fileName: "previous.jpg", contentType: "image/jpeg")
+            let previousMutation = NativeQueuedMutation.profilePhotoUpload(
+                photo: previousPhoto,
+                clientMutationID: "cm_previous_owner_photo",
+                createdAt: Self.createdAt(0)
+            )
+            let fallback = NativeSyncSnapshot(
+                accountID: "chef_previous",
+                environment: .production,
+                checkpoint: try NativeSyncCheckpoint(
+                    globalCursor: PaginationCursor(rawValue: "previous.cursor"),
+                    shoppingCursor: nil,
+                    updatedAt: "2026-06-16T09:00:00.000Z"
+                ),
+                queue: try NativeMutationQueue(mutations: [previousMutation]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(
+                        kind: .profile,
+                        resourceID: "chef_previous",
+                        payload: .object(["username": .string("previous")]),
+                        serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
+                    )
+                ]
+            )
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL, mediaResolver: mediaDirectory, fallback: fallback)
+            let currentSyncData = NativeSyncData(
+                freshness: NativeSyncFreshness(
+                    accountID: "chef_current",
+                    environment: .production,
+                    schemaVersion: 1,
+                    sourceEndpoint: "/api/v1/me/sync",
+                    generatedAt: "2026-06-16T09:11:00.000Z",
+                    lastValidatedAt: "2026-06-16T09:11:00.000Z"
+                ),
+                entries: [
+                    NativeSyncEntry(
+                        action: .upsert,
+                        kind: .profile,
+                        resourceID: "chef_current",
+                        updatedAt: "2026-06-16T09:11:01.000Z",
+                        payload: .object(["username": .string("ari")]),
+                        tombstone: nil
+                    )
+                ],
+                nextCursor: PaginationCursor(rawValue: "current.after"),
+                hasMore: false
+            )
+            let transport = RecordingNativeSyncTransport(bootstrap: .syncData(currentSyncData), mutationResults: [])
+            let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+            let report = try await engine.bootstrapAndDrain(
+                configuration: configuration,
+                trigger: .launch,
+                scope: NativeSyncExecutionScope(expectedAccountID: "chef_current", environment: .production)
+            )
+            let snapshot = await store.loadSnapshot()
+
+            #expect(await transport.bootstrapQueryItems == [URLQueryItem(name: "limit", value: "20")])
+            #expect(await transport.clientMutationIDs.isEmpty)
+            #expect(report.accountID == "chef_current")
+            #expect(snapshot.accountID == "chef_current")
+            #expect(snapshot.queue.mutations.isEmpty)
+            #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_current"])
+        }
+    }
+
+    @Test("sync apply clears legacy unscoped snapshots before binding current account")
+    func syncApplyClearsLegacyUnscopedSnapshotsBeforeBindingCurrentAccount() async throws {
+        let previousRecipe = NativeSyncCachedRecord(
+            kind: .recipe,
+            resourceID: "recipe_legacy_owner",
+            payload: .object(["title": .string("Legacy")]),
+            serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
+        )
+        let previousMutation = NativeQueuedMutation.profileDisplayUpdate(
+            email: "legacy@example.com",
+            username: "legacy",
+            clientMutationID: "cm_legacy_owner",
+            createdAt: Self.createdAt(0)
+        )
+        let previousCheckpoint = try NativeSyncCheckpoint(
+            globalCursor: PaginationCursor(rawValue: "legacy.cursor"),
+            shoppingCursor: nil,
+            updatedAt: "2026-06-16T09:00:00.000Z"
+        )
+        let previousTombstone = NativeSyncTombstone(
+            resourceType: .recipe,
+            resourceID: "recipe_legacy_deleted",
+            parentResourceID: nil,
+            title: "Legacy deleted",
+            deletedAt: "2026-06-16T09:00:01.000Z",
+            updatedAt: "2026-06-16T09:00:02.000Z"
+        )
+        let currentSyncData = NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: "chef_current",
+                environment: .production,
+                schemaVersion: 1,
+                sourceEndpoint: "/api/v1/me/sync",
+                generatedAt: "2026-06-16T09:11:00.000Z",
+                lastValidatedAt: "2026-06-16T09:11:00.000Z"
+            ),
+            entries: [
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .profile,
+                    resourceID: "chef_current",
+                    updatedAt: "2026-06-16T09:11:01.000Z",
+                    payload: .object(["username": .string("ari")]),
+                    tombstone: nil
+                )
+            ],
+            nextCursor: PaginationCursor(rawValue: "current.after"),
+            hasMore: false
+        )
+        let memoryStore = InMemoryNativeSyncStore(
+            checkpoint: previousCheckpoint,
+            queue: try NativeMutationQueue(mutations: [previousMutation]),
+            cachedRecords: [previousRecipe]
+        )
+        await memoryStore.appendTombstone(previousTombstone)
+
+        _ = try await memoryStore.apply(syncData: currentSyncData, validatedAt: now)
+        let memorySnapshot = await memoryStore.loadSnapshot()
+
+        #expect(memorySnapshot.accountID == "chef_current")
+        #expect(memorySnapshot.environment == .production)
+        #expect(memorySnapshot.queue.mutations.isEmpty)
+        #expect(memorySnapshot.tombstones.isEmpty)
+        #expect(memorySnapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_current"])
+        #expect(try await memoryStore.cachedRecord(kind: .recipe, resourceID: "recipe_legacy_owner") == nil)
+
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let fallback = NativeSyncSnapshot(
+                checkpoint: previousCheckpoint,
+                queue: try NativeMutationQueue(mutations: [previousMutation]),
+                cachedRecords: [previousRecipe],
+                tombstones: [previousTombstone]
+            )
+            let fileStore = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
+
+            _ = try await fileStore.apply(syncData: currentSyncData, validatedAt: now)
+            let fileSnapshot = await fileStore.loadSnapshot()
+
+            #expect(fileSnapshot.accountID == "chef_current")
+            #expect(fileSnapshot.environment == .production)
+            #expect(fileSnapshot.queue.mutations.isEmpty)
+            #expect(fileSnapshot.tombstones.isEmpty)
+            #expect(fileSnapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_current"])
+            #expect(try await fileStore.cachedRecord(kind: .recipe, resourceID: "recipe_legacy_owner") == nil)
+        }
+    }
+
     @Test("file backed sync store applies records checkpoints and missing staged media errors")
     func fileBackedSyncStoreAppliesRecordsCheckpointsAndMissingStagedMediaErrors() async throws {
         try await withTemporaryDirectory { directory in
@@ -299,6 +712,8 @@ struct NativeSyncEngineTests {
                 serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")
             )
             let fallback = NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .local,
                 checkpoint: nil,
                 queue: NativeMutationQueue(),
                 cachedRecords: [staleRecord],
@@ -718,6 +1133,49 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("legacy intent shopping mutations convert into native durable queued mutations")
+    func legacyIntentShoppingMutationsConvertIntoNativeDurableQueuedMutations() throws {
+        let legacyAdd = QueuedMutation(
+            id: "intent-add",
+            clientMutationID: "intent-add",
+            createdAt: Self.createdAt(0),
+            kind: .shoppingAdd(name: " Lemons ", quantity: 3, unit: " each ", categoryKey: "produce", iconKey: "lemon")
+        )
+        let legacyCheck = QueuedMutation(
+            id: "intent-check",
+            clientMutationID: "intent-check",
+            createdAt: Self.createdAt(1),
+            kind: .shoppingCheck(itemID: "item_lemons", checked: true)
+        )
+        let legacyDelete = QueuedMutation(
+            id: "intent-delete",
+            clientMutationID: "intent-delete",
+            createdAt: Self.createdAt(2),
+            kind: .shoppingDelete(itemID: "item_limes")
+        )
+
+        let nativeAdd = try NativeQueuedMutation.intentMutation(from: legacyAdd)
+        let nativeCheck = try NativeQueuedMutation.intentMutation(from: legacyCheck)
+        let nativeDelete = try NativeQueuedMutation.intentMutation(from: legacyDelete)
+        let addRequest = try nativeAdd.requestBuilder().urlRequest(configuration: configuration)
+        let checkRequest = try nativeCheck.requestBuilder().urlRequest(configuration: configuration)
+        let deleteRequest = try nativeDelete.requestBuilder().urlRequest(configuration: configuration)
+        let addBody = try decodedJSONBody(from: addRequest)
+        let checkBody = try decodedJSONBody(from: checkRequest)
+
+        #expect(nativeAdd.queueableKind == .shoppingAddItem)
+        #expect(nativeCheck.queueableKind == .shoppingCheckItem)
+        #expect(nativeDelete.queueableKind == .shoppingDeleteItem)
+        #expect(addRequest.url.path == "/api/v1/shopping-list/items")
+        #expect(addBody["clientMutationId"] as? String == "intent-add")
+        #expect(addBody["name"] as? String == " Lemons ")
+        #expect(addBody["unit"] as? String == " each ")
+        #expect(checkRequest.url.path == "/api/v1/shopping-list/items/item_lemons")
+        #expect(checkBody["checked"] as? Bool == true)
+        #expect(deleteRequest.url.path == "/api/v1/shopping-list/items/item_limes")
+        #expect(deleteRequest.headers["X-Client-Mutation-Id"] == "intent-delete")
+    }
+
     @Test("sync engine keeps local capture draft mutations out of remote drain")
     func syncEngineKeepsLocalCaptureDraftMutationsOutOfRemoteDrain() async throws {
         let queue = try NativeMutationQueue(
@@ -726,14 +1184,14 @@ struct NativeSyncEngineTests {
                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_remote", createdAt: Self.createdAt(1))
             ]
         )
-        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
         let transport = RecordingNativeSyncTransport(
             bootstrap: .success(cursor: nil, tombstones: []),
             mutationResults: [.success(serverRevision: .updatedAt("2026-06-16T09:07:00.000Z"))]
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
 
         #expect(report.drainedClientMutationIDs == ["cm_profile_remote"])
         #expect(await transport.clientMutationIDs == ["cm_profile_remote"])
@@ -786,7 +1244,8 @@ struct NativeSyncEngineTests {
     @Test("sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events")
     func syncTriggerCoordinatorStartsBootstrapAndDrainForLifecycleNetworkAccountEnvironmentAndStaleSurfaceEvents() async throws {
         let runner = RecordingNativeSyncTriggerRunner()
-        let coordinator = NativeSyncTriggerCoordinator(runner: runner, configuration: configuration)
+        let scope = NativeSyncExecutionScope(expectedAccountID: "chef_ari", environment: .production)
+        let coordinator = NativeSyncTriggerCoordinator(runner: runner, configuration: configuration, scope: scope)
 
         try await coordinator.handle(.launch)
         try await coordinator.handle(.foreground)
@@ -804,6 +1263,7 @@ struct NativeSyncEngineTests {
             .visibleSurfaceOpened
         ])
         #expect(await runner.configurationBaseURLs == Array(repeating: configuration.baseURL, count: 6))
+        #expect(await runner.scopes == Array(repeating: scope, count: 6))
     }
 
     @Test("sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations")
@@ -816,6 +1276,8 @@ struct NativeSyncEngineTests {
             ]
         )
         let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
             checkpoint: try NativeSyncCheckpoint(globalCursor: PaginationCursor(rawValue: "cursor_before"), shoppingCursor: nil, updatedAt: "2026-06-16T09:02:00.000Z"),
             queue: queue
         )
@@ -829,7 +1291,7 @@ struct NativeSyncEngineTests {
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
 
         #expect(report.trigger == .foreground)
         #expect(report.bootstrapCursor?.rawValue == "cursor_after_bootstrap")
@@ -858,7 +1320,7 @@ struct NativeSyncEngineTests {
                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_auth", createdAt: Self.createdAt(1))
             ]
         )
-        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
         let transport = RecordingNativeSyncTransport(
             bootstrap: .success(cursor: PaginationCursor(rawValue: "cursor_after_bootstrap"), tombstones: []),
             mutationResults: [
@@ -868,7 +1330,7 @@ struct NativeSyncEngineTests {
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
 
         #expect(report.trigger == .networkRecovered)
         #expect(report.conflicts == [
@@ -893,7 +1355,7 @@ struct NativeSyncEngineTests {
                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
             ]
         )
-        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
         let transport = RecordingNativeSyncTransport(
             bootstrap: .success(cursor: nil, tombstones: []),
             mutationResults: [
@@ -903,7 +1365,7 @@ struct NativeSyncEngineTests {
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch, scope: boundScope)
         let remaining = try await store.loadQueue().mutations
 
         #expect(report.retryAfterSeconds == 30)
@@ -928,14 +1390,14 @@ struct NativeSyncEngineTests {
                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_independent", createdAt: Self.createdAt(2))
             ]
         )
-        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
         let transport = RecordingNativeSyncTransport(
             bootstrap: .success(cursor: nil, tombstones: []),
             mutationResults: [.success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))]
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
         let remaining = try await store.loadQueue().mutations
 
         #expect(report.retryAfterSeconds == 60)
@@ -958,14 +1420,14 @@ struct NativeSyncEngineTests {
                     .recordingRetry(message: "Server busy.", nextRetryAt: "2026-05-28T23:13:40Z")
             ]
         )
-        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
         let transport = RecordingNativeSyncTransport(
             bootstrap: .success(cursor: nil, tombstones: []),
             mutationResults: []
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
 
         #expect(report.retryAfterSeconds == 20)
         #expect(report.drainedClientMutationIDs.isEmpty)
@@ -987,7 +1449,7 @@ struct NativeSyncEngineTests {
                 .recipeUpdate(recipeID: "recipe_lemon", clientMutationID: "cm_recipe_update_tombstone", title: "Lemon Pasta", description: nil, servings: nil, createdAt: Self.createdAt(4))
             ]
         )
-        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: queue)
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
         let transport = RecordingNativeSyncTransport(
             bootstrap: .success(cursor: nil, tombstones: []),
             mutationResults: [
@@ -1000,7 +1462,7 @@ struct NativeSyncEngineTests {
         )
         let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
 
-        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground)
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
 
         #expect(report.drainedClientMutationIDs == [
             "cm_retry_expired",
@@ -1450,16 +1912,21 @@ private actor RecordingNativeSyncTransport: NativeSyncTransport {
 private actor RecordingNativeSyncTriggerRunner: NativeSyncTriggerRunning {
     private(set) var triggers: [NativeCacheRevalidationTrigger] = []
     private(set) var configurationBaseURLs: [URL] = []
+    private(set) var scopes: [NativeSyncExecutionScope] = []
 
     func bootstrapAndDrain(
         configuration: APIClientConfiguration,
-        trigger: NativeCacheRevalidationTrigger
+        trigger: NativeCacheRevalidationTrigger,
+        scope: NativeSyncExecutionScope
     ) async throws -> NativeSyncReport {
         triggers.append(trigger)
         configurationBaseURLs.append(configuration.baseURL)
+        scopes.append(scope)
         return NativeSyncReport(
             trigger: trigger,
             bootstrapCursor: nil,
+            accountID: nil,
+            environment: nil,
             drainedClientMutationIDs: [],
             conflicts: [],
             pausedReason: nil,

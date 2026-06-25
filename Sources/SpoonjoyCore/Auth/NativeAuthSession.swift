@@ -21,7 +21,13 @@ public struct NativeAuthSignInStart: Equatable, Sendable {
 
 public enum NativeAuthSession {
     public static let redirectURI = URL(string: "https://spoonjoy.app/oauth/callback")!
-    public static let defaultScope = "shopping_list:read shopping_list:write"
+    public static let defaultScopes = [
+        "kitchen:read",
+        "kitchen:write",
+        "shopping_list:read",
+        "shopping_list:write"
+    ]
+    public static let defaultScope = defaultScopes.joined(separator: " ")
     public static let lifecycleOperations = ["startSignIn", "handleOAuthCallback", "restoreState", "revokeAndLogout"]
     public static let collaborators = ["OAuthRequests.exchangeCode", "OAuthRequests.revoke", "RefreshCoordinator"]
 

@@ -4,25 +4,29 @@ import SwiftUI
 struct PlatformNavigationView: View {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
-    @Binding var appSnapshot: NativeAppSnapshot
-    private let recipes: [Recipe]
-    private let cookbooks: [Cookbook]
-    private let kitchen: KitchenFixtureState
-    private let persistSnapshot: (NativeAppSnapshot) -> Void
+
+    private let contentState: NativeShellContentState
+    private let offlineIndicatorState: OfflineIndicatorState
+    private let dismissOfflineIndicator: () -> Void
+    private let queueMutation: (NativeQueuedMutation) -> Void
+    private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
         navigation: Binding<AppNavigationState>,
         search: Binding<SearchState>,
-        appSnapshot: Binding<NativeAppSnapshot>,
-        persistSnapshot: @escaping (NativeAppSnapshot) -> Void
+        contentState: NativeShellContentState,
+        offlineIndicatorState: OfflineIndicatorState,
+        dismissOfflineIndicator: @escaping () -> Void,
+        queueMutation: @escaping (NativeQueuedMutation) -> Void,
+        syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
         _search = search
-        _appSnapshot = appSnapshot
-        recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
-        cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
-        kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
-        self.persistSnapshot = persistSnapshot
+        self.contentState = contentState
+        self.offlineIndicatorState = offlineIndicatorState
+        self.dismissOfflineIndicator = dismissOfflineIndicator
+        self.queueMutation = queueMutation
+        self.syncTriggerCoordinator = syncTriggerCoordinator
     }
 
     var body: some View {
@@ -51,8 +55,17 @@ struct PlatformNavigationView: View {
                 navigation.navigate(to: search.route)
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
+            .safeAreaInset(edge: .bottom) {
+                OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .background(KitchenTableTheme.bone.opacity(0.94))
+            }
             .task(id: spotlightIndexIdentity) {
                 await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
+            }
+            .task(id: contentState.environment.rawValue) {
+                _ = try? await syncTriggerCoordinator.handle(.foreground)
             }
         }
 #if os(macOS)
@@ -80,15 +93,15 @@ struct PlatformNavigationView: View {
         switch route {
         case .kitchen:
             KitchenView(
-                kitchen: kitchen,
-                recipes: recipes,
-                cookbooks: cookbooks,
+                kitchen: contentState.kitchen,
+                recipes: contentState.recipes,
+                cookbooks: contentState.cookbooks,
                 openRecipe: openRecipe,
                 startCooking: startCooking,
                 openCookbook: openCookbook
             )
         case .recipes:
-            RecipesView(recipes: recipes, openRecipe: openRecipe)
+            RecipesView(recipes: contentState.recipes, openRecipe: openRecipe)
         case .recipeDetail(let id, .detail):
             if let recipe = recipe(id: id) {
                 RecipeDetailView(viewModel: RecipeDetailViewModel(recipe: recipe), startCooking: startCooking)
@@ -99,9 +112,7 @@ struct PlatformNavigationView: View {
             if let recipe = recipe(id: id) {
                 CookModeView(
                     viewModel: CookModeViewModel(recipe: recipe, progress: cookProgress(for: recipe)),
-                    progressDidChange: { progress in
-                        persistAppSnapshot(appSnapshot.updatingCookProgress(progress, savedAt: timestamp()))
-                    },
+                    progressDidChange: { _ in },
                     close: {
                         openRecipe(id)
                     }
@@ -110,7 +121,7 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
             }
         case .cookbooks:
-            CookbooksView(cookbooks: cookbooks, openCookbook: openCookbook)
+            CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
             if let cookbook = cookbook(id: id) {
                 CookbookDetailPlaceholder(cookbook: cookbook)
@@ -122,7 +133,7 @@ struct PlatformNavigationView: View {
                 ShoppingListView(
                     viewModel: shoppingViewModel,
                     viewModelDidChange: { nextViewModel, item, checked, changedAt in
-                        persistShoppingList(nextViewModel.shoppingList, item: item, checked: checked, changedAt: changedAt)
+                        queueShoppingListMutation(nextViewModel.shoppingList, item: item, checked: checked, changedAt: changedAt)
                     }
                 )
             } else {
@@ -131,9 +142,9 @@ struct PlatformNavigationView: View {
         case .search(let query, let scope):
             SearchView(
                 search: $search,
-                recipes: recipes,
-                cookbooks: cookbooks,
-                shoppingList: shoppingViewModel?.shoppingList,
+                recipes: contentState.recipes,
+                cookbooks: contentState.cookbooks,
+                shoppingList: contentState.shoppingList,
                 openRecipe: openRecipe,
                 openCookbook: openCookbook,
                 openShoppingItem: { _ in
@@ -148,14 +159,16 @@ struct PlatformNavigationView: View {
                 search.apply(route: .search(query: query, scope: scope))
             }
         case .capture:
-            CaptureDraftView(
-                viewModel: captureViewModel,
-                draftDidChange: { nextViewModel in
-                    persistAppSnapshot(appSnapshot.updatingCaptureDraft(nextViewModel.draft, savedAt: timestamp()))
-                }
-            )
+            if let captureViewModel {
+                CaptureDraftView(viewModel: captureViewModel, draftDidChange: { _ in })
+            } else {
+                ShellPlaceholderView(title: "Capture", systemImage: "camera", detail: "Capture drafts will appear here after sign-in or offline restore.")
+            }
         case .settings:
-            SettingsView(viewModel: settingsViewModel)
+            SettingsView(
+                viewModel: contentState.settingsViewModel,
+                onDismissOfflineIndicator: dismissOfflineIndicator
+            )
         case .unknownLink:
             ShellPlaceholderView(title: "Link Not Found", systemImage: "link.badge.plus", detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.")
         }
@@ -251,18 +264,18 @@ struct PlatformNavigationView: View {
     }
 
     private func recipe(id: String) -> Recipe? {
-        recipes.first { $0.id == id }
+        contentState.recipes.first { $0.id == id }
     }
 
     private func cookbook(id: String) -> Cookbook? {
-        cookbooks.first { $0.id == id }
+        contentState.cookbooks.first { $0.id == id }
     }
 
     private func cookProgress(for recipe: Recipe) -> CookModeProgress {
-        appSnapshot.cookProgress(for: recipe.id) ?? CookModeProgress(
+        contentState.cookProgress(for: recipe.id) ?? CookModeProgress(
             recipeID: recipe.id,
             stepIDs: recipe.steps.map(\.id),
-            startedAt: "2026-06-16T11:45:00.000Z"
+            startedAt: timestamp()
         )
     }
 
@@ -279,59 +292,46 @@ struct PlatformNavigationView: View {
     }
 
     private var shoppingViewModel: ShoppingListViewModel? {
-        appSnapshot.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
+        contentState.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
     }
 
     private var spotlightIndexIdentity: String {
         [
-            recipes.map(\.id).joined(separator: ","),
-            cookbooks.map(\.id).joined(separator: ","),
-            appSnapshot.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
+            contentState.recipes.map(\.id).joined(separator: ","),
+            contentState.cookbooks.map(\.id).joined(separator: ","),
+            contentState.searchResultsByScope[search.scope]?.joined(separator: ",") ?? "search-unavailable",
+            contentState.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
         ].joined(separator: "|")
     }
 
     private var spotlightIndexDocuments: [SpotlightIndexDocument] {
-        guard let shoppingList = appSnapshot.shoppingList else {
+        guard let shoppingList = contentState.shoppingList else {
             return []
         }
 
         return SpotlightIndexPlan.documents(
-            recipes: recipes,
-            cookbooks: cookbooks,
+            recipes: contentState.recipes,
+            cookbooks: contentState.cookbooks,
             shoppingList: shoppingList
         )
     }
 
     private var captureViewModel: CaptureDraftViewModel? {
-        appSnapshot.captureDraft.map(CaptureDraftViewModel.init(draft:))
+        contentState.captureDraft.map(CaptureDraftViewModel.init(draft:))
     }
 
-    private func persistShoppingList(
-        _ shoppingList: ShoppingListState,
+    private func queueShoppingListMutation(
+        _: ShoppingListState,
         item: ShoppingListItem,
         checked: Bool,
         changedAt: String
     ) {
-        let mutation = QueuedMutation(
-            id: "queued-\(item.id)-\(Self.safeIdentifier(changedAt))",
+        queueMutation(NativeQueuedMutation.shoppingCheckItem(
+            itemID: item.id,
+            checked: checked,
             clientMutationID: "native-check-\(item.id)-\(Self.safeIdentifier(changedAt))",
-            createdAt: changedAt,
-            kind: .shoppingCheck(itemID: item.id, checked: checked)
-        )
-        guard let nextSnapshot = try? appSnapshot.updatingShoppingList(
-            shoppingList,
-            queuedMutation: mutation,
-            savedAt: changedAt
-        ) else {
-            return
-        }
-
-        persistAppSnapshot(nextSnapshot)
-    }
-
-    private func persistAppSnapshot(_ snapshot: NativeAppSnapshot) {
-        appSnapshot = snapshot
-        persistSnapshot(snapshot)
+            createdAt: changedAt
+        ))
     }
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {
@@ -350,26 +350,6 @@ struct PlatformNavigationView: View {
         value.map { character in
             character.isLetter || character.isNumber ? String(character) : "-"
         }.joined()
-    }
-}
-
-private extension PlatformNavigationView {
-    var settingsViewModel: SettingsViewModel {
-        SettingsViewModel(
-            settings: SettingsState(
-                auth: .signedOut,
-                environment: .production(baseURL: Self.productionBaseURL),
-                offline: appSnapshot.offlineState,
-                preferredCookModeTextSize: .large
-            )
-        )
-    }
-
-    static var productionBaseURL: URL {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "spoonjoy.app"
-        return components.url ?? URL(fileURLWithPath: "/")
     }
 }
 
@@ -406,17 +386,5 @@ private struct CookbookDetailPlaceholder: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
-    }
-}
-
-private extension KitchenFixtureState {
-    static var bootstrapFallback: KitchenFixtureState {
-        KitchenFixtureState(
-            status: .bootstrap,
-            leadObject: .recipe(id: "recipe_lemon_pantry_pasta", title: "Lemon Pantry Pasta"),
-            primaryAction: .startCookMode(recipeID: "recipe_lemon_pantry_pasta"),
-            counts: KitchenCounts(recipes: 0, cookbooks: 0, shoppingItems: 0),
-            offlineRestore: OfflineRestoreMetadata(snapshotID: "bootstrap", includesShoppingList: false)
-        )
     }
 }

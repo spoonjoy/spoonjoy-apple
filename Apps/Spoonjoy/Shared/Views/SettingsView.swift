@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     let viewModel: SettingsViewModel
+    var onDismissOfflineIndicator: () -> Void = {}
 
     var body: some View {
         Form {
@@ -10,6 +11,11 @@ struct SettingsView: View {
                 ForEach(viewModel.rows, id: \.id) { row in
                     LabeledContent(row.title, value: row.value)
                 }
+            }
+
+            Section("Session") {
+                LabeledContent("Auth", value: authSummary)
+                LabeledContent("Environment", value: viewModel.environmentSwitcher.rawValue)
             }
 
             Section("Shopping") {
@@ -24,7 +30,10 @@ struct SettingsView: View {
             }
 
             Section("Offline") {
-                OfflineStatusView(state: settings.offline)
+                OfflineStatusView(display: viewModel.offlineIndicatorDisplay) {
+                    _ = viewModel.dismissOfflineIndicator
+                    onDismissOfflineIndicator()
+                }
             }
         }
         .formStyle(.grouped)
@@ -33,7 +42,14 @@ struct SettingsView: View {
         .tint(KitchenTableTheme.herb)
     }
 
-    private var settings: SettingsState {
-        viewModel.settings
+    private var authSummary: String {
+        switch viewModel.authSessionState {
+        case .signedOut:
+            "Signed out"
+        case .authenticated:
+            "Signed in"
+        case .refreshRequired:
+            "Refresh required"
+        }
     }
 }

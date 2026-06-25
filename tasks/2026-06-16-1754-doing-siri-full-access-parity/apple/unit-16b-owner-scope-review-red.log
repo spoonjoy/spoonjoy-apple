@@ -1,0 +1,55 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/6] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[4/6] Emitting module SpoonjoyCoreTests
+[5/6] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift:125:44: error: extra arguments at positions #2, #3 in call
+ 123 |             let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+ 124 |             try appStateStore.save(
+ 125 |                 NativeAppSnapshot.bootstrap(
+     |                                            `- error: extra arguments at positions #2, #3 in call
+ 126 |                     shoppingList: nil,
+ 127 |                     accountID: "chef_ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift:17:24: note: 'bootstrap(shoppingList:savedAt:)' declared here
+ 15 |     public let savedAt: String
+ 16 |
+ 17 |     public static func bootstrap(shoppingList: ShoppingListState?, savedAt: String) -> NativeAppSnapshot {
+    |                        `- note: 'bootstrap(shoppingList:savedAt:)' declared here
+ 18 |         NativeAppSnapshot(
+ 19 |             schemaVersion: 1,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift:128:35: error: cannot infer contextual base in reference to member 'production'
+ 126 |                     shoppingList: nil,
+ 127 |                     accountID: "chef_ari",
+ 128 |                     environment: .production,
+     |                                   `- error: cannot infer contextual base in reference to member 'production'
+ 129 |                     savedAt: Self.isoString(Self.now)
+ 130 |                 )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift:201:44: error: extra arguments at positions #2, #3 in call
+ 199 |             let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+ 200 |             try appStateStore.save(
+ 201 |                 NativeAppSnapshot.bootstrap(
+     |                                            `- error: extra arguments at positions #2, #3 in call
+ 202 |                     shoppingList: previousShoppingList,
+ 203 |                     accountID: "chef_previous",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift:17:24: note: 'bootstrap(shoppingList:savedAt:)' declared here
+ 15 |     public let savedAt: String
+ 16 |
+ 17 |     public static func bootstrap(shoppingList: ShoppingListState?, savedAt: String) -> NativeAppSnapshot {
+    |                        `- note: 'bootstrap(shoppingList:savedAt:)' declared here
+ 18 |         NativeAppSnapshot(
+ 19 |             schemaVersion: 1,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift:204:35: error: cannot infer contextual base in reference to member 'production'
+ 202 |                     shoppingList: previousShoppingList,
+ 203 |                     accountID: "chef_previous",
+ 204 |                     environment: .production,
+     |                                   `- error: cannot infer contextual base in reference to member 'production'
+ 205 |                     savedAt: Self.isoString(Self.now)
+ 206 |                 )
+error: fatalError

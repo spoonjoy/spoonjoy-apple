@@ -166,6 +166,7 @@ public struct NativeSyncCheckpoint: Codable, Equatable, Sendable {
 
 public enum NativeSyncStoreError: Error, Equatable, Sendable {
     case missingCheckpoint
+    case unavailable(String)
 }
 
 public struct NativeSyncCachedRecord: Codable, Equatable, Sendable {
@@ -193,12 +194,16 @@ public struct NativeSyncApplyResult: Equatable, Sendable {
 }
 
 public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
     public let checkpoint: NativeSyncCheckpoint?
     public let queue: NativeMutationQueue
     public let cachedRecords: [NativeSyncCachedRecord]
     public let tombstones: [NativeSyncTombstone]
 
     public static let empty = NativeSyncSnapshot(
+        accountID: nil,
+        environment: nil,
         checkpoint: nil,
         queue: NativeMutationQueue(),
         cachedRecords: [],
@@ -206,15 +211,40 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
     )
 
     public init(
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil,
         checkpoint: NativeSyncCheckpoint?,
         queue: NativeMutationQueue,
         cachedRecords: [NativeSyncCachedRecord] = [],
         tombstones: [NativeSyncTombstone] = []
     ) {
+        self.accountID = accountID
+        self.environment = environment
         self.checkpoint = checkpoint
         self.queue = queue
         self.cachedRecords = cachedRecords
         self.tombstones = tombstones
+    }
+}
+
+extension NativeSyncSnapshot {
+    private enum CodingKeys: String, CodingKey {
+        case accountID
+        case environment
+        case checkpoint
+        case queue
+        case cachedRecords
+        case tombstones
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        accountID = try container.decodeIfPresent(String.self, forKey: .accountID)
+        environment = try container.decodeIfPresent(NativeCacheEnvironment.self, forKey: .environment)
+        checkpoint = try container.decodeIfPresent(NativeSyncCheckpoint.self, forKey: .checkpoint)
+        queue = try container.decodeIfPresent(NativeMutationQueue.self, forKey: .queue) ?? NativeMutationQueue()
+        cachedRecords = try container.decodeIfPresent([NativeSyncCachedRecord].self, forKey: .cachedRecords) ?? []
+        tombstones = try container.decodeIfPresent([NativeSyncTombstone].self, forKey: .tombstones) ?? []
     }
 }
 
@@ -237,24 +267,32 @@ public struct NativeSyncTombstoneLog: Equatable, Sendable {
 public protocol NativeSyncStore: Actor {
     func loadQueue() throws -> NativeMutationQueue
     func saveQueue(_ queue: NativeMutationQueue) throws
+    func saveQueue(_ queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) throws
     func loadCheckpoint() throws -> NativeSyncCheckpoint
     func saveCheckpoint(_ checkpoint: NativeSyncCheckpoint) throws
     func appendTombstone(_ tombstone: NativeSyncTombstone) throws
     func cachedRecord(kind: NativeSyncEntryKind, resourceID: String) throws -> NativeSyncCachedRecord?
     func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult
+    func loadSnapshot() throws -> NativeSyncSnapshot
 }
 
 public actor InMemoryNativeSyncStore: NativeSyncStore {
+    private var accountID: String?
+    private var environment: NativeCacheEnvironment?
     private var checkpoint: NativeSyncCheckpoint?
     private var queue: NativeMutationQueue
     private var records: [String: NativeSyncCachedRecord]
     public private(set) var tombstones: NativeSyncTombstoneLog
 
     public init(
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil,
         checkpoint: NativeSyncCheckpoint?,
         queue: NativeMutationQueue,
         cachedRecords: [NativeSyncCachedRecord] = []
     ) {
+        self.accountID = accountID
+        self.environment = environment
         self.checkpoint = checkpoint
         self.queue = queue
         self.records = Dictionary(uniqueKeysWithValues: cachedRecords.map { ($0.cacheKey, $0) })
@@ -266,6 +304,18 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     }
 
     public func saveQueue(_ queue: NativeMutationQueue) {
+        self.queue = queue
+    }
+
+    public func saveQueue(_ queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) {
+        let scopeChanged = self.accountID != accountID || self.environment != environment
+        self.accountID = accountID
+        self.environment = environment
+        if scopeChanged {
+            checkpoint = nil
+            records = [:]
+            tombstones = NativeSyncTombstoneLog()
+        }
         self.queue = queue
     }
 
@@ -289,6 +339,15 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     }
 
     public func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult {
+        if shouldResetForIncomingSyncData(syncData) {
+            checkpoint = nil
+            queue = NativeMutationQueue()
+            records = [:]
+            tombstones = NativeSyncTombstoneLog()
+        }
+        accountID = syncData.freshness.accountID
+        environment = syncData.freshness.environment
+
         var upserted: [String] = []
         var removed: [String] = []
         var appliedTombstones: [NativeSyncTombstone] = []
@@ -331,16 +390,36 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
         )
     }
 
+    public func loadSnapshot() -> NativeSyncSnapshot {
+        NativeSyncSnapshot(
+            accountID: accountID,
+            environment: environment,
+            checkpoint: checkpoint,
+            queue: queue,
+            cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
+            tombstones: tombstones.entries
+        )
+    }
+
     private static func isoString(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: date)
+    }
+
+    private func shouldResetForIncomingSyncData(_ syncData: NativeSyncData) -> Bool {
+        guard let accountID, let environment else {
+            return checkpoint != nil || !queue.mutations.isEmpty || !records.isEmpty || !tombstones.entries.isEmpty
+        }
+        return accountID != syncData.freshness.accountID || environment != syncData.freshness.environment
     }
 }
 
 public actor FileBackedNativeSyncStore: NativeSyncStore {
     private let store: JSONFileStore<NativeSyncSnapshot>
     private let mediaResolver: (any NativeStagedMediaResolving)?
+    private var accountID: String?
+    private var environment: NativeCacheEnvironment?
     private var checkpoint: NativeSyncCheckpoint?
     private var queue: NativeMutationQueue
     private var records: [String: NativeSyncCachedRecord]
@@ -355,21 +434,19 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         self.mediaResolver = mediaResolver
 
         let snapshot = try store.load()?.value ?? fallback
-        let resolvedQueue: NativeMutationQueue
-        if let mediaResolver {
-            resolvedQueue = try snapshot.queue.resolvingStagedMedia(using: mediaResolver)
-        } else {
-            resolvedQueue = snapshot.queue
-        }
-
+        self.accountID = snapshot.accountID
+        self.environment = snapshot.environment
         self.checkpoint = snapshot.checkpoint
-        self.queue = resolvedQueue
+        self.queue = snapshot.queue
         self.records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
         self.tombstones = snapshot.tombstones
     }
 
     public func loadQueue() throws -> NativeMutationQueue {
-        queue
+        if let mediaResolver {
+            return try queue.resolvingStagedMedia(using: mediaResolver)
+        }
+        return queue
     }
 
     public func saveQueue(_ queue: NativeMutationQueue) throws {
@@ -379,6 +456,18 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
             self.queue = queue
         }
         try persist()
+    }
+
+    public func saveQueue(_ queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) throws {
+        let scopeChanged = self.accountID != accountID || self.environment != environment
+        self.accountID = accountID
+        self.environment = environment
+        if scopeChanged {
+            checkpoint = nil
+            records = [:]
+            tombstones = []
+        }
+        try saveQueue(queue)
     }
 
     public func loadCheckpoint() throws -> NativeSyncCheckpoint {
@@ -403,6 +492,15 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
     }
 
     public func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult {
+        if shouldResetForIncomingSyncData(syncData) {
+            checkpoint = nil
+            queue = NativeMutationQueue()
+            records = [:]
+            tombstones = []
+        }
+        accountID = syncData.freshness.accountID
+        environment = syncData.freshness.environment
+
         var upserted: [String] = []
         var removed: [String] = []
         var appliedTombstones: [NativeSyncTombstone] = []
@@ -456,11 +554,64 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
 
     private func snapshot() -> NativeSyncSnapshot {
         NativeSyncSnapshot(
+            accountID: accountID,
+            environment: environment,
             checkpoint: checkpoint,
             queue: queue,
             cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
             tombstones: tombstones
         )
+    }
+
+    private func shouldResetForIncomingSyncData(_ syncData: NativeSyncData) -> Bool {
+        guard let accountID, let environment else {
+            return checkpoint != nil || !queue.mutations.isEmpty || !records.isEmpty || !tombstones.isEmpty
+        }
+        return accountID != syncData.freshness.accountID || environment != syncData.freshness.environment
+    }
+}
+
+public actor UnavailableNativeSyncStore: NativeSyncStore {
+    private let message: String
+
+    public init(message: String) {
+        self.message = message
+    }
+
+    public func loadQueue() throws -> NativeMutationQueue {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func saveQueue(_: NativeMutationQueue) throws {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func saveQueue(_: NativeMutationQueue, accountID _: String?, environment _: NativeCacheEnvironment?) throws {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func loadCheckpoint() throws -> NativeSyncCheckpoint {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func saveCheckpoint(_: NativeSyncCheckpoint) throws {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func appendTombstone(_: NativeSyncTombstone) throws {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func cachedRecord(kind _: NativeSyncEntryKind, resourceID _: String) throws -> NativeSyncCachedRecord? {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func apply(syncData _: NativeSyncData, validatedAt _: Date) throws -> NativeSyncApplyResult {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func loadSnapshot() throws -> NativeSyncSnapshot {
+        throw NativeSyncStoreError.unavailable(message)
     }
 }
 
@@ -1085,6 +1236,34 @@ public extension NativeQueuedMutation {
         NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .shoppingClearAll)
     }
 
+    static func intentMutation(from mutation: QueuedMutation) throws -> NativeQueuedMutation {
+        switch mutation.kind {
+        case .shoppingAdd(let name, let quantity, let unit, let categoryKey, let iconKey):
+            NativeQueuedMutation.shoppingAddItem(
+                name: name,
+                quantity: quantity,
+                unit: unit,
+                categoryKey: categoryKey,
+                iconKey: iconKey,
+                clientMutationID: mutation.clientMutationID,
+                createdAt: mutation.createdAt
+            )
+        case .shoppingCheck(let itemID, let checked):
+            NativeQueuedMutation.shoppingCheckItem(
+                itemID: itemID,
+                checked: checked,
+                clientMutationID: mutation.clientMutationID,
+                createdAt: mutation.createdAt
+            )
+        case .shoppingDelete(let itemID):
+            NativeQueuedMutation.shoppingDeleteItem(
+                itemID: itemID,
+                clientMutationID: mutation.clientMutationID,
+                createdAt: mutation.createdAt
+            )
+        }
+    }
+
     static func spoonCreate(recipeID: String, clientMutationID: String, note: String?, nextTime: String?, cookedAt: String?, photoURL: String, useAsRecipeCover: Bool, createdAt: String) -> NativeQueuedMutation {
         NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .spoonCreate, values: ["recipeId": .string(recipeID), "note": stringOrNull(note), "nextTime": stringOrNull(nextTime), "cookedAt": stringOrNull(cookedAt), "photoUrl": .string(photoURL), "useAsRecipeCover": .bool(useAsRecipeCover)])
     }
@@ -1532,22 +1711,41 @@ public enum NativeSyncTriggerEvent: Equatable, Sendable {
 public protocol NativeSyncTriggerRunning: Sendable {
     func bootstrapAndDrain(
         configuration: APIClientConfiguration,
-        trigger: NativeCacheRevalidationTrigger
+        trigger: NativeCacheRevalidationTrigger,
+        scope: NativeSyncExecutionScope
     ) async throws -> NativeSyncReport
+}
+
+public struct NativeSyncExecutionScope: Equatable, Sendable {
+    public let expectedAccountID: String?
+    public let environment: NativeCacheEnvironment?
+
+    public static let unbound = NativeSyncExecutionScope(expectedAccountID: nil, environment: nil)
+
+    public init(expectedAccountID: String?, environment: NativeCacheEnvironment?) {
+        self.expectedAccountID = expectedAccountID
+        self.environment = environment
+    }
 }
 
 public struct NativeSyncTriggerCoordinator: Sendable {
     private let runner: any NativeSyncTriggerRunning
     private let configuration: APIClientConfiguration
+    private let scope: NativeSyncExecutionScope
 
-    public init(runner: any NativeSyncTriggerRunning, configuration: APIClientConfiguration) {
+    public init(
+        runner: any NativeSyncTriggerRunning,
+        configuration: APIClientConfiguration,
+        scope: NativeSyncExecutionScope = .unbound
+    ) {
         self.runner = runner
         self.configuration = configuration
+        self.scope = scope
     }
 
     @discardableResult
     public func handle(_ event: NativeSyncTriggerEvent) async throws -> NativeSyncReport {
-        try await runner.bootstrapAndDrain(configuration: configuration, trigger: event.cacheTrigger)
+        try await runner.bootstrapAndDrain(configuration: configuration, trigger: event.cacheTrigger, scope: scope)
     }
 }
 
@@ -1601,6 +1799,8 @@ public enum NativeSyncPauseReason: Equatable, Sendable {
 public struct NativeSyncReport: Equatable, Sendable {
     public let trigger: NativeCacheRevalidationTrigger
     public let bootstrapCursor: PaginationCursor?
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
     public let drainedClientMutationIDs: [String]
     public let conflicts: [NativeSyncConflict]
     public let pausedReason: NativeSyncPauseReason?
@@ -1609,6 +1809,8 @@ public struct NativeSyncReport: Equatable, Sendable {
     public init(
         trigger: NativeCacheRevalidationTrigger,
         bootstrapCursor: PaginationCursor?,
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil,
         drainedClientMutationIDs: [String],
         conflicts: [NativeSyncConflict],
         pausedReason: NativeSyncPauseReason?,
@@ -1616,6 +1818,8 @@ public struct NativeSyncReport: Equatable, Sendable {
     ) {
         self.trigger = trigger
         self.bootstrapCursor = bootstrapCursor
+        self.accountID = accountID
+        self.environment = environment
         self.drainedClientMutationIDs = drainedClientMutationIDs
         self.conflicts = conflicts
         self.pausedReason = pausedReason
@@ -1625,6 +1829,7 @@ public struct NativeSyncReport: Equatable, Sendable {
 
 public enum NativeSyncBootstrapResult: Equatable, Sendable {
     case success(cursor: PaginationCursor?, tombstones: [NativeSyncTombstone])
+    case syncData(NativeSyncData)
 }
 
 public enum NativeSyncMutationResult: Equatable, Sendable {
@@ -1637,6 +1842,60 @@ public enum NativeSyncMutationResult: Equatable, Sendable {
 public protocol NativeSyncTransport: Sendable {
     func bootstrap(request: APIRequest, configuration: APIClientConfiguration) async throws -> NativeSyncBootstrapResult
     func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult
+}
+
+public struct URLSessionNativeSyncTransport: NativeSyncTransport {
+    private let apiTransport: URLSessionAPITransport
+
+    public init(apiTransport: URLSessionAPITransport = URLSessionAPITransport()) {
+        self.apiTransport = apiTransport
+    }
+
+    public func bootstrap(request: APIRequest, configuration: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        let envelope = try await apiTransport.send(
+            request,
+            configuration: configuration,
+            decode: NativeSyncData.self
+        )
+        return .syncData(envelope.data)
+    }
+
+    public func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        do {
+            _ = try await apiTransport.send(
+                try mutation.requestBuilder(),
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            return .success(serverRevision: nil)
+        } catch let error as APITransportError {
+            return try Self.mutationResult(for: error, mutation: mutation)
+        }
+    }
+
+    private static func mutationResult(
+        for error: APITransportError,
+        mutation: NativeQueuedMutation
+    ) throws -> NativeSyncMutationResult {
+        let message = error.apiError?.message ?? "Native sync request failed."
+
+        if error.statusCode == 401 {
+            return .authFailure(message: message)
+        }
+
+        if case .retrySameRequest(let afterSeconds) = error.retryDecision {
+            return .retry(
+                afterSeconds: afterSeconds ?? NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: mutation.retryCount),
+                message: message
+            )
+        }
+
+        if error.statusCode == 409 {
+            return .conflict(kind: .validation, serverRevision: nil, message: message)
+        }
+
+        throw error
+    }
 }
 
 public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendable {
@@ -1654,15 +1913,28 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         configuration: APIClientConfiguration,
         trigger: NativeCacheRevalidationTrigger
     ) async throws -> NativeSyncReport {
-        let previousCheckpoint = try? await store.loadCheckpoint()
+        try await bootstrapAndDrain(configuration: configuration, trigger: trigger, scope: .unbound)
+    }
+
+    public func bootstrapAndDrain(
+        configuration: APIClientConfiguration,
+        trigger: NativeCacheRevalidationTrigger,
+        scope: NativeSyncExecutionScope
+    ) async throws -> NativeSyncReport {
+        let previousSnapshot = try await store.loadSnapshot()
+        let previousCheckpoint = Self.reusableCheckpoint(from: previousSnapshot, scope: scope)
         let bootstrapRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: previousCheckpoint?.globalCursor)
             .urlRequest(configuration: configuration)
         let bootstrapResult = try await transport.bootstrap(request: bootstrapRequest, configuration: configuration)
 
         let bootstrapCursor: PaginationCursor?
+        let bootstrapAccountID: String?
+        let bootstrapEnvironment: NativeCacheEnvironment?
         switch bootstrapResult {
         case .success(let cursor, let tombstones):
             bootstrapCursor = cursor
+            bootstrapAccountID = nil
+            bootstrapEnvironment = nil
             for tombstone in tombstones {
                 try await store.appendTombstone(tombstone)
             }
@@ -1674,9 +1946,29 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 )
                 try await store.saveCheckpoint(checkpoint)
             }
+        case .syncData(let syncData):
+            _ = try await store.apply(syncData: syncData, validatedAt: clock())
+            bootstrapCursor = syncData.nextCursor
+            bootstrapAccountID = syncData.freshness.accountID
+            bootstrapEnvironment = syncData.freshness.environment
         }
 
-        let originalQueue = try await store.loadQueue()
+        let canReplayStoredQueue = Self.canReuseStoredState(previousSnapshot, scope: scope)
+        let queueAccountID = bootstrapAccountID ?? scope.expectedAccountID ?? (canReplayStoredQueue ? previousSnapshot.accountID : nil)
+        let queueEnvironment = bootstrapEnvironment ?? scope.environment ?? (canReplayStoredQueue ? previousSnapshot.environment : nil)
+        let originalQueue: NativeMutationQueue
+        if canReplayStoredQueue {
+            originalQueue = try await store.loadQueue()
+        } else {
+            originalQueue = NativeMutationQueue()
+            if !previousSnapshot.queue.mutations.isEmpty {
+                try await store.saveQueue(
+                    NativeMutationQueue(),
+                    accountID: queueAccountID,
+                    environment: queueEnvironment
+                )
+            }
+        }
         var remaining: [NativeQueuedMutation] = []
         var drainedClientMutationIDs: [String] = []
         var conflicts: [NativeSyncConflict] = []
@@ -1741,11 +2033,17 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             index += 1
         }
 
-        try await store.saveQueue(NativeMutationQueue(mutations: remaining))
+        try await store.saveQueue(
+            NativeMutationQueue(mutations: remaining),
+            accountID: queueAccountID,
+            environment: queueEnvironment
+        )
 
         return NativeSyncReport(
             trigger: trigger,
             bootstrapCursor: bootstrapCursor,
+            accountID: bootstrapAccountID,
+            environment: bootstrapEnvironment,
             drainedClientMutationIDs: drainedClientMutationIDs,
             conflicts: conflicts,
             pausedReason: pausedReason,
@@ -1759,6 +2057,27 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
 
         return min(current, candidate)
+    }
+
+    private static func reusableCheckpoint(
+        from snapshot: NativeSyncSnapshot,
+        scope: NativeSyncExecutionScope
+    ) -> NativeSyncCheckpoint? {
+        guard canReuseStoredState(snapshot, scope: scope) else {
+            return nil
+        }
+        return snapshot.checkpoint
+    }
+
+    private static func canReuseStoredState(
+        _ snapshot: NativeSyncSnapshot,
+        scope: NativeSyncExecutionScope
+    ) -> Bool {
+        guard let expectedAccountID = scope.expectedAccountID,
+              let expectedEnvironment = scope.environment else {
+            return false
+        }
+        return snapshot.accountID == expectedAccountID && snapshot.environment == expectedEnvironment
     }
 }
 

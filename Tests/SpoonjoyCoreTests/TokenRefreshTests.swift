@@ -33,7 +33,7 @@ struct TokenRefreshTests {
         #expect(rotated.accessToken == "sj_access_new")
         #expect(rotated.refreshToken == "ort_refresh_new")
         #expect(rotated.expiresAt == now.addingTimeInterval(600))
-        #expect(rotated.scope == "shopping_list:read shopping_list:write")
+        #expect(rotated.scope == NativeAuthSession.defaultScope)
 
         #expect(throws: AuthSessionError.self) {
             try authSession(clientID: " \n ", accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now)
@@ -242,7 +242,7 @@ struct TokenRefreshTests {
         refreshToken: String,
         tokenType: String = "Bearer",
         expiresAt: Date,
-        scope: String = "shopping_list:read shopping_list:write"
+        scope: String = NativeAuthSession.defaultScope
     ) throws -> AuthSession {
         try AuthSession(
             clientID: clientID,
@@ -259,7 +259,7 @@ struct TokenRefreshTests {
         refreshToken: String,
         tokenType: String = "Bearer",
         expiresIn: Int,
-        scope: String = "shopping_list:read shopping_list:write"
+        scope: String = NativeAuthSession.defaultScope
     ) -> OAuthTokenResponse {
         OAuthTokenResponse(
             accessToken: accessToken,
