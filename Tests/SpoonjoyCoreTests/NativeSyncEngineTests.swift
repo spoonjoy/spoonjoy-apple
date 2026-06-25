@@ -30,7 +30,7 @@ struct NativeSyncEngineTests {
         )
         #expect(defaultRequest.body == nil)
         #expect(cursorRequest.body == nil)
-        #expect(defaultRequest.responseCachePolicy == .privateNoStore)
+        #expect(defaultRequest.responseCachePolicy == APIResponseCachePolicy.privateNoStore)
         #expect(envelope.requestID == "req_native_sync")
         #expect(envelope.data.freshness.accountID == "chef_ari")
         #expect(envelope.data.freshness.environment == .local)
@@ -53,6 +53,41 @@ struct NativeSyncEngineTests {
         #expect(envelope.data.entries[2].tombstone?.resourceType == .cookbook)
         #expect(envelope.data.entries[3].tombstone?.parentResourceID == "recipe_deleted")
         #expect(envelope.data.entries[4].tombstone?.parentResourceID == "shopping_list_1")
+    }
+
+    @Test("sync tombstones apply to local cache records and checkpoint revisions")
+    func syncTombstonesApplyToLocalCacheRecordsAndCheckpointRevisions() async throws {
+        let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
+        let store = InMemoryNativeSyncStore(
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: [
+                NativeSyncCachedRecord(kind: .profile, resourceID: "chef_ari", payload: .object(["username": .string("old")]), serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")),
+                NativeSyncCachedRecord(kind: .recipe, resourceID: "recipe_deleted", payload: .object(["title": .string("Old recipe")]), serverRevision: .updatedAt("2026-06-16T09:00:00.000Z")),
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: "cookbook_deleted", payload: .object(["title": .string("Old cookbook")]), serverRevision: .updatedAt("2026-06-16T09:00:01.000Z")),
+                NativeSyncCachedRecord(kind: .spoon, resourceID: "spoon_deleted", payload: .object(["note": .string("Old spoon")]), serverRevision: .updatedAt("2026-06-16T09:00:02.000Z")),
+                NativeSyncCachedRecord(kind: .shoppingItem, resourceID: "item_deleted", payload: .object(["name": .string("Old item")]), serverRevision: .updatedAt("2026-06-16T09:00:03.000Z"))
+            ]
+        )
+
+        let application = try await store.apply(syncData: syncData, validatedAt: now)
+
+        #expect(application.upsertedCacheKeys == ["profile:chef_ari"])
+        #expect(application.removedCacheKeys == [
+            "recipe:recipe_deleted",
+            "cookbook:cookbook_deleted",
+            "spoon:spoon_deleted",
+            "shoppingItem:item_deleted"
+        ])
+        #expect(application.tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+        #expect(try await store.cachedRecord(kind: .profile, resourceID: "chef_ari")?.payload == .object(["username": .string("ari")]))
+        #expect(try await store.cachedRecord(kind: .profile, resourceID: "chef_ari")?.serverRevision == .updatedAt("2026-06-16T09:08:00.000Z"))
+        #expect(try await store.cachedRecord(kind: .recipe, resourceID: "recipe_deleted") == nil)
+        #expect(try await store.cachedRecord(kind: .cookbook, resourceID: "cookbook_deleted") == nil)
+        #expect(try await store.cachedRecord(kind: .spoon, resourceID: "spoon_deleted") == nil)
+        #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_deleted") == nil)
+        #expect(try await store.loadCheckpoint().globalCursor?.rawValue == "v1.cursor.after")
+        #expect(try await store.tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
     }
 
     @Test("native sync checkpoints validate global and shopping cursors")
@@ -118,6 +153,75 @@ struct NativeSyncEngineTests {
         for type in NativeQueuedMutationKind.allOfflineProductKinds.map(\.type) {
             #expect(json.contains(#""type":"\#(type)""#))
         }
+        let persistedKinds = try persistedKindObjects(from: encoded)
+        let requiredPersistedFieldsByType: [String: Set<String>] = [
+            "recipe.create": ["title", "description", "servings", "steps"],
+            "recipe.update": ["recipeId", "title", "description", "servings"],
+            "recipe.delete": ["recipeId"],
+            "recipe.fork": ["recipeId", "titleOverride"],
+            "recipe.step.create": ["recipeId", "stepNum", "stepTitle", "description", "duration", "ingredients", "outputStepNums"],
+            "recipe.step.update": ["recipeId", "stepId", "stepTitle", "description", "duration", "outputStepNums"],
+            "recipe.step.delete": ["recipeId", "stepId"],
+            "recipe.step.reorder": ["recipeId", "stepId", "toStepNum"],
+            "recipe.ingredient.add": ["recipeId", "stepId", "quantity", "unit", "name"],
+            "recipe.ingredient.delete": ["recipeId", "stepId", "ingredientId"],
+            "recipe.outputUses.replace": ["recipeId", "inputStepId", "outputStepNums"],
+            "cookbook.create": ["title"],
+            "cookbook.update": ["cookbookId", "title"],
+            "cookbook.delete": ["cookbookId"],
+            "cookbook.addRecipe": ["cookbookId", "recipeId"],
+            "cookbook.removeRecipe": ["cookbookId", "recipeId"],
+            "shopping.addItem": ["name", "quantity", "unit", "categoryKey", "iconKey"],
+            "shopping.checkItem": ["itemId", "checked"],
+            "shopping.deleteItem": ["itemId"],
+            "shopping.addFromRecipe": ["recipeId", "scaleFactor"],
+            "shopping.clearCompleted": [],
+            "shopping.clearAll": [],
+            "spoon.create": ["recipeId", "note", "nextTime", "cookedAt", "photoUrl", "useAsRecipeCover"],
+            "spoon.createPhoto": ["recipeId", "photo", "note", "nextTime", "cookedAt", "useAsRecipeCover"],
+            "spoon.update": ["recipeId", "spoonId", "note", "nextTime", "cookedAt", "photoUrl"],
+            "spoon.delete": ["recipeId", "spoonId"],
+            "cover.upload": ["recipeId", "image", "activate", "generateEditorial"],
+            "cover.setActive": ["recipeId", "coverId", "variant"],
+            "cover.archive": ["recipeId", "coverId", "replacementCoverId", "replacementVariant", "confirmNoCover", "deleteSafeObjects"],
+            "cover.regenerate": ["recipeId", "coverId", "activateWhenReady"],
+            "cover.fromSpoon": ["recipeId", "spoonId", "activate", "generateEditorial"],
+            "profile.display.update": ["email", "username"],
+            "profile.photo.upload": ["photo"],
+            "profile.photo.remove": [],
+            "notification.preference.update": ["notifySpoonOnMyRecipe", "notifyForkOfMyRecipe", "notifyCookbookSaveOfMine", "notifyFellowChefOriginCook"],
+            "apns.device.register": ["deviceId", "platform", "environment", "token", "deviceName", "appVersion"],
+            "apns.device.revoke": ["deviceId"],
+            "capture.draft.create": ["draftId", "source"],
+            "capture.draft.edit": ["draftId", "source"],
+            "capture.draft.discard": ["draftId"],
+            "recipe.import.submit": ["source"]
+        ]
+        #expect(Set(persistedKinds.keys) == Set(requiredPersistedFieldsByType.keys))
+        for (type, fields) in requiredPersistedFieldsByType {
+            let kind = try #require(persistedKinds[type])
+            #expect(Set(fields).isSubset(of: Set(kind.keys)))
+        }
+        #expect(persistedKinds["recipe.update"]?["recipeId"] as? String == "recipe_lemon")
+        #expect(persistedKinds["recipe.step.reorder"]?["toStepNum"] as? Int == 1)
+        #expect(persistedKinds["cookbook.addRecipe"]?["cookbookId"] as? String == "cookbook_weeknight")
+        #expect(persistedKinds["shopping.addItem"]?["name"] as? String == "lemons")
+        #expect(NSDictionary(dictionary: persistedKinds["spoon.createPhoto"]?["photo"] as? [String: Any] ?? [:]).isEqual(to: [
+            "localStageId": "stage_spoon_1",
+            "fileName": "spoon.webp",
+            "contentType": "image/webp"
+        ]))
+        #expect(NSDictionary(dictionary: persistedKinds["cover.upload"]?["image"] as? [String: Any] ?? [:]).isEqual(to: [
+            "localStageId": "stage_cover_1",
+            "fileName": "cover.png",
+            "contentType": "image/png"
+        ]))
+        #expect(NSDictionary(dictionary: persistedKinds["profile.photo.upload"]?["photo"] as? [String: Any] ?? [:]).isEqual(to: [
+            "localStageId": "stage_profile_1",
+            "fileName": "profile.jpg",
+            "contentType": "image/jpeg"
+        ]))
+        #expect((persistedKinds["recipe.import.submit"]?["source"] as? [String: Any])?["url"] as? String == "https://example.com/recipe")
         #expect(json.contains("stage_cover_1"))
         #expect(json.contains("stage_spoon_1"))
         #expect(json.contains("stage_profile_1"))
@@ -127,53 +231,172 @@ struct NativeSyncEngineTests {
 
     @Test("queued remote mutations build exact REST requests with idempotency keys and bearer auth")
     func queuedRemoteMutationsBuildExactRESTRequestsWithIdempotencyKeysAndBearerAuth() throws {
-        let cases: [(NativeQueuedMutation, APIRequestMethod, String)] = [
-            (.recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: Self.createdAt(0)), .post, "/api/v1/recipes"),
-            (.recipeUpdate(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: Self.createdAt(1)), .patch, "/api/v1/recipes/recipe%2Flemon"),
-            (.recipeDelete(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_delete", createdAt: Self.createdAt(2)), .delete, "/api/v1/recipes/recipe%2Flemon"),
-            (.recipeFork(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_fork", titleOverride: "My Lemon Pasta", createdAt: Self.createdAt(3)), .post, "/api/v1/recipes/recipe%2Flemon/fork"),
-            (.recipeStepCreate(recipeID: "recipe/lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: Self.createdAt(4)), .post, "/api/v1/recipes/recipe%2Flemon/steps"),
-            (.recipeStepUpdate(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_step_update", stepTitle: nil, description: "Toss until glossy.", duration: nil, outputStepNums: [1], createdAt: Self.createdAt(5)), .patch, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo"),
-            (.recipeStepDelete(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_step_delete", createdAt: Self.createdAt(6)), .delete, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo"),
-            (.recipeStepReorder(recipeID: "recipe/lemon", stepID: "step/two", toStepNum: 1, clientMutationID: "cm_step_reorder", createdAt: Self.createdAt(7)), .post, "/api/v1/recipes/recipe%2Flemon/steps/reorder"),
-            (.recipeIngredientAdd(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_ingredient_add", quantity: 2, unit: "cloves", name: "garlic", createdAt: Self.createdAt(8)), .post, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo/ingredients"),
-            (.recipeIngredientDelete(recipeID: "recipe/lemon", stepID: "step/two", ingredientID: "ingredient/garlic", clientMutationID: "cm_ingredient_delete", createdAt: Self.createdAt(9)), .delete, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo/ingredients/ingredient%2Fgarlic"),
-            (.recipeOutputUsesReplace(recipeID: "recipe/lemon", inputStepID: "step/two", outputStepNums: [1, 3], clientMutationID: "cm_output_uses", createdAt: Self.createdAt(10)), .put, "/api/v1/recipes/recipe%2Flemon/step-output-uses"),
-            (.cookbookCreate(clientMutationID: "cm_cookbook_create", title: "Weeknights", createdAt: Self.createdAt(11)), .post, "/api/v1/cookbooks"),
-            (.cookbookUpdate(cookbookID: "cookbook/week", title: "Dinner Parties", clientMutationID: "cm_cookbook_update", createdAt: Self.createdAt(12)), .patch, "/api/v1/cookbooks/cookbook%2Fweek"),
-            (.cookbookDelete(cookbookID: "cookbook/week", clientMutationID: "cm_cookbook_delete", createdAt: Self.createdAt(13)), .delete, "/api/v1/cookbooks/cookbook%2Fweek"),
-            (.cookbookAddRecipe(cookbookID: "cookbook/week", recipeID: "recipe/lemon", clientMutationID: "cm_cookbook_add", createdAt: Self.createdAt(14)), .post, "/api/v1/cookbooks/cookbook%2Fweek/recipes/recipe%2Flemon"),
-            (.cookbookRemoveRecipe(cookbookID: "cookbook/week", recipeID: "recipe/lemon", clientMutationID: "cm_cookbook_remove", createdAt: Self.createdAt(15)), .delete, "/api/v1/cookbooks/cookbook%2Fweek/recipes/recipe%2Flemon"),
-            (.shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_shopping_add", createdAt: Self.createdAt(16)), .post, "/api/v1/shopping-list/items"),
-            (.shoppingCheckItem(itemID: "item/lemons", checked: true, clientMutationID: "cm_shopping_check", createdAt: Self.createdAt(17)), .patch, "/api/v1/shopping-list/items/item%2Flemons"),
-            (.shoppingDeleteItem(itemID: "item/lemons", clientMutationID: "cm_shopping_delete", createdAt: Self.createdAt(18)), .delete, "/api/v1/shopping-list/items/item%2Flemons"),
-            (.shoppingAddFromRecipe(recipeID: "recipe/lemon", scaleFactor: 1.5, clientMutationID: "cm_shopping_recipe", createdAt: Self.createdAt(19)), .post, "/api/v1/shopping-list/add-from-recipe"),
-            (.shoppingClearCompleted(clientMutationID: "cm_clear_completed", createdAt: Self.createdAt(20)), .post, "/api/v1/shopping-list/clear-completed"),
-            (.shoppingClearAll(clientMutationID: "cm_clear_all", createdAt: Self.createdAt(21)), .post, "/api/v1/shopping-list/clear-all"),
-            (.spoonCreate(recipeID: "recipe/lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: "2026-06-16T09:20:00.000Z", photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: Self.createdAt(22)), .post, "/api/v1/recipes/recipe%2Flemon/spoons"),
-            (.spoonCreatePhoto(recipeID: "recipe/lemon", photo: Self.stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: "More lemon", cookedAt: nil, useAsRecipeCover: false, createdAt: Self.createdAt(23)), .post, "/api/v1/recipes/recipe%2Flemon/spoons"),
-            (.spoonUpdate(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: "2026-06-16T10:00:00.000Z", photoURL: "/photos/spoons/updated.jpg", createdAt: Self.createdAt(24)), .patch, "/api/v1/recipes/recipe%2Flemon/spoons/spoon%2Fcooked"),
-            (.spoonDelete(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_spoon_delete", createdAt: Self.createdAt(25)), .delete, "/api/v1/recipes/recipe%2Flemon/spoons/spoon%2Fcooked"),
-            (.coverUpload(recipeID: "recipe/lemon", image: Self.stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: Self.createdAt(26)), .post, "/api/v1/recipes/recipe%2Flemon/image"),
-            (.coverSetActive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: Self.createdAt(27)), .patch, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw"),
-            (.coverArchive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover/replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: Self.createdAt(28)), .delete, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw"),
-            (.coverRegenerate(recipeID: "recipe/lemon", coverID: "cover/editorial", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(29)), .post, "/api/v1/recipes/recipe%2Flemon/covers/regenerate"),
-            (.coverFromSpoon(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: Self.createdAt(30)), .post, "/api/v1/recipes/recipe%2Flemon/covers/from-spoon/spoon%2Fcooked"),
-            (.profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_update", createdAt: Self.createdAt(31)), .patch, "/api/v1/me"),
-            (.profilePhotoUpload(photo: Self.stagedMedia("stage_profile_1", fileName: "profile.jpg", contentType: "image/jpeg"), clientMutationID: "cm_profile_photo", createdAt: Self.createdAt(32)), .post, "/api/v1/me/photo"),
-            (.profilePhotoRemove(clientMutationID: "cm_profile_photo_remove", createdAt: Self.createdAt(33)), .delete, "/api/v1/me/photo"),
-            (.notificationPreferenceUpdate(notifySpoonOnMyRecipe: true, notifyForkOfMyRecipe: false, notifyCookbookSaveOfMine: true, notifyFellowChefOriginCook: false, clientMutationID: "cm_notifications_update", createdAt: Self.createdAt(34)), .patch, "/api/v1/me/notification-preferences"),
-            (.apnsDeviceRegister(deviceID: "device/ios", platform: .ios, environment: .development, token: "apns-token", deviceName: "Ari's iPhone", appVersion: "1.0.0", clientMutationID: "cm_apns_register", createdAt: Self.createdAt(35)), .post, "/api/v1/me/apns-devices"),
-            (.apnsDeviceRevoke(deviceID: "device/ios", clientMutationID: "cm_apns_revoke", createdAt: Self.createdAt(36)), .delete, "/api/v1/me/apns-devices/device%2Fios"),
-            (.recipeImportSubmit(source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_import_submit", createdAt: Self.createdAt(37)), .post, "/api/v1/recipes/import")
+        let cases: [ExpectedRemoteMutationRequest] = [
+            .json(.recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: Self.createdAt(0)), .post, "/api/v1/recipes", [
+                "clientMutationId": "cm_recipe_create",
+                "title": "Lemon Pasta",
+                "description": "Bright",
+                "servings": "4",
+                "steps": []
+            ]),
+            .json(.recipeUpdate(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: Self.createdAt(1)), .patch, "/api/v1/recipes/recipe%2Flemon", [
+                "clientMutationId": "cm_recipe_update",
+                "title": "Lemon Pasta",
+                "description": NSNull(),
+                "servings": "4"
+            ]),
+            .noBody(.recipeDelete(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_delete", createdAt: Self.createdAt(2)), .delete, "/api/v1/recipes/recipe%2Flemon", queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_recipe_delete")]),
+            .json(.recipeFork(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_fork", titleOverride: "My Lemon Pasta", createdAt: Self.createdAt(3)), .post, "/api/v1/recipes/recipe%2Flemon/fork", [
+                "clientMutationId": "cm_recipe_fork",
+                "title": "My Lemon Pasta"
+            ]),
+            .json(.recipeStepCreate(recipeID: "recipe/lemon", clientMutationID: "cm_step_create", stepNum: 2, stepTitle: "Sauce", description: "Toss.", duration: 3, ingredients: [], outputStepNums: [1], createdAt: Self.createdAt(4)), .post, "/api/v1/recipes/recipe%2Flemon/steps", [
+                "clientMutationId": "cm_step_create",
+                "stepNum": 2,
+                "stepTitle": "Sauce",
+                "description": "Toss.",
+                "duration": 3,
+                "ingredients": [],
+                "outputStepNums": [1]
+            ]),
+            .json(.recipeStepUpdate(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_step_update", stepTitle: nil, description: "Toss until glossy.", duration: nil, outputStepNums: [1], createdAt: Self.createdAt(5)), .patch, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo", [
+                "clientMutationId": "cm_step_update",
+                "stepTitle": NSNull(),
+                "description": "Toss until glossy.",
+                "duration": NSNull(),
+                "outputStepNums": [1]
+            ]),
+            .json(.recipeStepDelete(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_step_delete", createdAt: Self.createdAt(6)), .delete, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo", ["clientMutationId": "cm_step_delete"]),
+            .json(.recipeStepReorder(recipeID: "recipe/lemon", stepID: "step/two", toStepNum: 1, clientMutationID: "cm_step_reorder", createdAt: Self.createdAt(7)), .post, "/api/v1/recipes/recipe%2Flemon/steps/reorder", [
+                "clientMutationId": "cm_step_reorder",
+                "stepId": "step/two",
+                "toStepNum": 1
+            ]),
+            .json(.recipeIngredientAdd(recipeID: "recipe/lemon", stepID: "step/two", clientMutationID: "cm_ingredient_add", quantity: 2, unit: "cloves", name: "garlic", createdAt: Self.createdAt(8)), .post, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo/ingredients", [
+                "clientMutationId": "cm_ingredient_add",
+                "quantity": 2,
+                "unit": "cloves",
+                "name": "garlic"
+            ]),
+            .noBody(.recipeIngredientDelete(recipeID: "recipe/lemon", stepID: "step/two", ingredientID: "ingredient/garlic", clientMutationID: "cm_ingredient_delete", createdAt: Self.createdAt(9)), .delete, "/api/v1/recipes/recipe%2Flemon/steps/step%2Ftwo/ingredients/ingredient%2Fgarlic", extraHeaders: ["X-Client-Mutation-Id": "cm_ingredient_delete"]),
+            .json(.recipeOutputUsesReplace(recipeID: "recipe/lemon", inputStepID: "step/two", outputStepNums: [1, 3], clientMutationID: "cm_output_uses", createdAt: Self.createdAt(10)), .put, "/api/v1/recipes/recipe%2Flemon/step-output-uses", [
+                "clientMutationId": "cm_output_uses",
+                "inputStepId": "step/two",
+                "outputStepNums": [1, 3]
+            ]),
+            .json(.cookbookCreate(clientMutationID: "cm_cookbook_create", title: "Weeknights", createdAt: Self.createdAt(11)), .post, "/api/v1/cookbooks", [
+                "clientMutationId": "cm_cookbook_create",
+                "title": "Weeknights"
+            ]),
+            .json(.cookbookUpdate(cookbookID: "cookbook/week", title: "Dinner Parties", clientMutationID: "cm_cookbook_update", createdAt: Self.createdAt(12)), .patch, "/api/v1/cookbooks/cookbook%2Fweek", [
+                "clientMutationId": "cm_cookbook_update",
+                "title": "Dinner Parties"
+            ]),
+            .noBody(.cookbookDelete(cookbookID: "cookbook/week", clientMutationID: "cm_cookbook_delete", createdAt: Self.createdAt(13)), .delete, "/api/v1/cookbooks/cookbook%2Fweek", queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_cookbook_delete")]),
+            .json(.cookbookAddRecipe(cookbookID: "cookbook/week", recipeID: "recipe/lemon", clientMutationID: "cm_cookbook_add", createdAt: Self.createdAt(14)), .post, "/api/v1/cookbooks/cookbook%2Fweek/recipes/recipe%2Flemon", ["clientMutationId": "cm_cookbook_add"]),
+            .json(.cookbookRemoveRecipe(cookbookID: "cookbook/week", recipeID: "recipe/lemon", clientMutationID: "cm_cookbook_remove", createdAt: Self.createdAt(15)), .delete, "/api/v1/cookbooks/cookbook%2Fweek/recipes/recipe%2Flemon", ["clientMutationId": "cm_cookbook_remove"]),
+            .json(.shoppingAddItem(name: "lemons", quantity: 4, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_shopping_add", createdAt: Self.createdAt(16)), .post, "/api/v1/shopping-list/items", [
+                "clientMutationId": "cm_shopping_add",
+                "name": "lemons",
+                "quantity": 4,
+                "unit": "each",
+                "categoryKey": "produce",
+                "iconKey": "lemon"
+            ]),
+            .json(.shoppingCheckItem(itemID: "item/lemons", checked: true, clientMutationID: "cm_shopping_check", createdAt: Self.createdAt(17)), .patch, "/api/v1/shopping-list/items/item%2Flemons", [
+                "clientMutationId": "cm_shopping_check",
+                "checked": true
+            ]),
+            .noBody(.shoppingDeleteItem(itemID: "item/lemons", clientMutationID: "cm_shopping_delete", createdAt: Self.createdAt(18)), .delete, "/api/v1/shopping-list/items/item%2Flemons", extraHeaders: ["X-Client-Mutation-Id": "cm_shopping_delete"]),
+            .json(.shoppingAddFromRecipe(recipeID: "recipe/lemon", scaleFactor: 1.5, clientMutationID: "cm_shopping_recipe", createdAt: Self.createdAt(19)), .post, "/api/v1/shopping-list/add-from-recipe", [
+                "clientMutationId": "cm_shopping_recipe",
+                "recipeId": "recipe/lemon",
+                "scaleFactor": 1.5
+            ]),
+            .json(.shoppingClearCompleted(clientMutationID: "cm_clear_completed", createdAt: Self.createdAt(20)), .post, "/api/v1/shopping-list/clear-completed", ["clientMutationId": "cm_clear_completed"]),
+            .json(.shoppingClearAll(clientMutationID: "cm_clear_all", createdAt: Self.createdAt(21)), .post, "/api/v1/shopping-list/clear-all", ["clientMutationId": "cm_clear_all"]),
+            .json(.spoonCreate(recipeID: "recipe/lemon", clientMutationID: "cm_spoon_create", note: "Loved it.", nextTime: nil, cookedAt: "2026-06-16T09:20:00.000Z", photoURL: "/photos/spoons/lemon.jpg", useAsRecipeCover: true, createdAt: Self.createdAt(22)), .post, "/api/v1/recipes/recipe%2Flemon/spoons", [
+                "clientMutationId": "cm_spoon_create",
+                "note": "Loved it.",
+                "nextTime": NSNull(),
+                "cookedAt": "2026-06-16T09:20:00.000Z",
+                "photoUrl": "/photos/spoons/lemon.jpg",
+                "useAsRecipeCover": true
+            ]),
+            .multipart(.spoonCreatePhoto(recipeID: "recipe/lemon", photo: Self.stagedMedia("stage_spoon_1", fileName: "spoon.webp", contentType: "image/webp"), clientMutationID: "cm_spoon_photo", note: "Photo cook.", nextTime: "More lemon", cookedAt: nil, useAsRecipeCover: false, createdAt: Self.createdAt(23)), .post, "/api/v1/recipes/recipe%2Flemon/spoons", "photo", "spoon.webp", "image/webp", [
+                "clientMutationId": "cm_spoon_photo",
+                "note": "Photo cook.",
+                "nextTime": "More lemon",
+                "useAsRecipeCover": "false"
+            ]),
+            .json(.spoonUpdate(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_spoon_update", note: nil, nextTime: "More lemon", cookedAt: "2026-06-16T10:00:00.000Z", photoURL: "/photos/spoons/updated.jpg", createdAt: Self.createdAt(24)), .patch, "/api/v1/recipes/recipe%2Flemon/spoons/spoon%2Fcooked", [
+                "clientMutationId": "cm_spoon_update",
+                "note": NSNull(),
+                "nextTime": "More lemon",
+                "cookedAt": "2026-06-16T10:00:00.000Z",
+                "photoUrl": "/photos/spoons/updated.jpg"
+            ]),
+            .noBody(.spoonDelete(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_spoon_delete", createdAt: Self.createdAt(25)), .delete, "/api/v1/recipes/recipe%2Flemon/spoons/spoon%2Fcooked", extraHeaders: ["X-Client-Mutation-Id": "cm_spoon_delete"]),
+            .multipart(.coverUpload(recipeID: "recipe/lemon", image: Self.stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: Self.createdAt(26)), .post, "/api/v1/recipes/recipe%2Flemon/image", "image", "cover.png", "image/png", [
+                "clientMutationId": "cm_cover_upload",
+                "activate": "true",
+                "generateEditorial": "false"
+            ]),
+            .json(.coverSetActive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: Self.createdAt(27)), .patch, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw", [
+                "clientMutationId": "cm_cover_active",
+                "variant": "stylized"
+            ]),
+            .json(.coverArchive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover/replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: Self.createdAt(28)), .delete, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw", [
+                "replacementCoverId": "cover/replacement",
+                "replacementVariant": "image",
+                "confirmNoCover": false,
+                "deleteSafeObjects": true
+            ], queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_cover_archive")]),
+            .json(.coverRegenerate(recipeID: "recipe/lemon", coverID: "cover/editorial", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(29)), .post, "/api/v1/recipes/recipe%2Flemon/covers/regenerate", [
+                "clientMutationId": "cm_cover_retry",
+                "coverId": "cover/editorial",
+                "activateWhenReady": true
+            ]),
+            .json(.coverFromSpoon(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: Self.createdAt(30)), .post, "/api/v1/recipes/recipe%2Flemon/covers/from-spoon/spoon%2Fcooked", [
+                "clientMutationId": "cm_cover_spoon",
+                "activate": true,
+                "generateEditorial": true
+            ]),
+            .json(.profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_profile_update", createdAt: Self.createdAt(31)), .patch, "/api/v1/me", [
+                "clientMutationId": "cm_profile_update",
+                "email": "ari@example.com",
+                "username": "ari"
+            ]),
+            .multipart(.profilePhotoUpload(photo: Self.stagedMedia("stage_profile_1", fileName: "profile.jpg", contentType: "image/jpeg"), clientMutationID: "cm_profile_photo", createdAt: Self.createdAt(32)), .post, "/api/v1/me/photo", "photo", "profile.jpg", "image/jpeg", ["clientMutationId": "cm_profile_photo"]),
+            .noBody(.profilePhotoRemove(clientMutationID: "cm_profile_photo_remove", createdAt: Self.createdAt(33)), .delete, "/api/v1/me/photo", extraHeaders: ["X-Client-Mutation-Id": "cm_profile_photo_remove"]),
+            .json(.notificationPreferenceUpdate(notifySpoonOnMyRecipe: true, notifyForkOfMyRecipe: false, notifyCookbookSaveOfMine: true, notifyFellowChefOriginCook: false, clientMutationID: "cm_notifications_update", createdAt: Self.createdAt(34)), .patch, "/api/v1/me/notification-preferences", [
+                "clientMutationId": "cm_notifications_update",
+                "notifySpoonOnMyRecipe": true,
+                "notifyForkOfMyRecipe": false,
+                "notifyCookbookSaveOfMine": true,
+                "notifyFellowChefOriginCook": false
+            ]),
+            .json(.apnsDeviceRegister(deviceID: "device/ios", platform: .ios, environment: .development, token: "apns-token", deviceName: "Ari's iPhone", appVersion: "1.0.0", clientMutationID: "cm_apns_register", createdAt: Self.createdAt(35)), .post, "/api/v1/me/apns-devices", [
+                "clientMutationId": "cm_apns_register",
+                "deviceId": "device/ios",
+                "platform": "ios",
+                "environment": "development",
+                "token": "apns-token",
+                "deviceName": "Ari's iPhone",
+                "appVersion": "1.0.0"
+            ]),
+            .noBody(.apnsDeviceRevoke(deviceID: "device/ios", clientMutationID: "cm_apns_revoke", createdAt: Self.createdAt(36)), .delete, "/api/v1/me/apns-devices/device%2Fios", extraHeaders: ["X-Client-Mutation-Id": "cm_apns_revoke"]),
+            .json(.recipeImportSubmit(source: .url(URL(string: "https://example.com/recipe")!), clientMutationID: "cm_import_submit", createdAt: Self.createdAt(37)), .post, "/api/v1/recipes/import", [
+                "clientMutationId": "cm_import_submit",
+                "source": [
+                    "type": "url",
+                    "url": "https://example.com/recipe"
+                ]
+            ])
         ]
 
-        for (mutation, method, path) in cases {
-            let request = try mutation.requestBuilder().urlRequest(configuration: configuration)
-            #expect(request.method == method)
-            #expect(request.url.path == path)
-            #expect(request.headers["Authorization"] == "Bearer sj_access")
-            assertCarriesClientMutationID(request, clientMutationID: mutation.clientMutationID)
+        for expected in cases {
+            try assertExpectedRemoteMutationRequest(expected, configuration: configuration)
         }
     }
 
@@ -235,6 +458,29 @@ struct NativeSyncEngineTests {
         #expect(schedule.jitteredDelaySeconds(forRetryCount: 1, randomUnit: 0.5) == 30)
         #expect(schedule.jitteredDelaySeconds(forRetryCount: 1, randomUnit: 1.0) == 36)
         #expect(schedule.jitteredDelaySeconds(forRetryCount: 3, randomUnit: 1.0) == 2_160)
+    }
+
+    @Test("sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events")
+    func syncTriggerCoordinatorStartsBootstrapAndDrainForLifecycleNetworkAccountEnvironmentAndStaleSurfaceEvents() async throws {
+        let runner = RecordingNativeSyncTriggerRunner()
+        let coordinator = NativeSyncTriggerCoordinator(runner: runner, configuration: configuration)
+
+        try await coordinator.handle(.launch)
+        try await coordinator.handle(.foreground)
+        try await coordinator.handle(.accountChanged(accountID: "chef_new"))
+        try await coordinator.handle(.environmentChanged(.production))
+        try await coordinator.handle(.networkRecovered)
+        try await coordinator.handle(.visibleStaleSurface(.recipeDetail(id: "recipe_lemon")))
+
+        #expect(await runner.triggers == [
+            .launch,
+            .foreground,
+            .accountChanged,
+            .environmentChanged,
+            .networkRecovered,
+            .visibleSurfaceOpened
+        ])
+        #expect(await runner.configurationBaseURLs == Array(repeating: configuration.baseURL, count: 6))
     }
 
     @Test("sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations")
@@ -532,19 +778,155 @@ private func assertRequest(
     #expect(request.headers["Authorization"] == "Bearer sj_access")
 }
 
-private func assertCarriesClientMutationID(_ request: APIRequest, clientMutationID: String) {
-    if request.headers["X-Client-Mutation-Id"] == clientMutationID {
+private struct ExpectedRemoteMutationRequest {
+    let mutation: NativeQueuedMutation
+    let method: APIRequestMethod
+    let path: String
+    let queryItems: [URLQueryItem]
+    let extraHeaders: [String: String]
+    let jsonBody: [String: Any]?
+    let multipart: ExpectedMultipartRequest?
+
+    static func json(
+        _ mutation: NativeQueuedMutation,
+        _ method: APIRequestMethod,
+        _ path: String,
+        _ body: [String: Any],
+        queryItems: [URLQueryItem] = [],
+        extraHeaders: [String: String] = [:]
+    ) -> ExpectedRemoteMutationRequest {
+        ExpectedRemoteMutationRequest(
+            mutation: mutation,
+            method: method,
+            path: path,
+            queryItems: queryItems,
+            extraHeaders: extraHeaders,
+            jsonBody: body,
+            multipart: nil as ExpectedMultipartRequest?
+        )
+    }
+
+    static func noBody(
+        _ mutation: NativeQueuedMutation,
+        _ method: APIRequestMethod,
+        _ path: String,
+        queryItems: [URLQueryItem] = [],
+        extraHeaders: [String: String] = [:]
+    ) -> ExpectedRemoteMutationRequest {
+        ExpectedRemoteMutationRequest(
+            mutation: mutation,
+            method: method,
+            path: path,
+            queryItems: queryItems,
+            extraHeaders: extraHeaders,
+            jsonBody: nil as [String: Any]?,
+            multipart: nil as ExpectedMultipartRequest?
+        )
+    }
+
+    static func multipart(
+        _ mutation: NativeQueuedMutation,
+        _ method: APIRequestMethod,
+        _ path: String,
+        _ fileField: String,
+        _ fileName: String,
+        _ contentType: String,
+        _ fields: [String: String]
+    ) -> ExpectedRemoteMutationRequest {
+        ExpectedRemoteMutationRequest(
+            mutation: mutation,
+            method: method,
+            path: path,
+            queryItems: [],
+            extraHeaders: [:],
+            jsonBody: nil as [String: Any]?,
+            multipart: ExpectedMultipartRequest(
+                fileField: fileField,
+                fileName: fileName,
+                contentType: contentType,
+                fields: fields
+            )
+        )
+    }
+}
+
+private struct ExpectedMultipartRequest {
+    let fileField: String
+    let fileName: String
+    let contentType: String
+    let fields: [String: String]
+}
+
+private func assertExpectedRemoteMutationRequest(
+    _ expected: ExpectedRemoteMutationRequest,
+    configuration: APIClientConfiguration
+) throws {
+    let request = try expected.mutation.requestBuilder().urlRequest(configuration: configuration)
+    #expect(request.method == expected.method)
+    #expect(request.url.path == expected.path)
+    #expect(request.queryItems == expected.queryItems)
+    #expect(request.responseCachePolicy == APIResponseCachePolicy.privateNoStore)
+
+    var expectedHeaders = [
+        "Accept": "application/json",
+        "Authorization": "Bearer sj_access"
+    ]
+    for (name, value) in expected.extraHeaders {
+        expectedHeaders[name] = value
+    }
+
+    if let jsonBody = expected.jsonBody {
+        expectedHeaders["Content-Type"] = "application/json"
+        #expect(request.headers == expectedHeaders)
+        #expect(NSDictionary(dictionary: try decodedJSONBody(from: request)).isEqual(to: jsonBody))
         return
     }
-    if request.queryItems.contains(URLQueryItem(name: "clientMutationId", value: clientMutationID)) {
+
+    if let multipart = expected.multipart {
+        #expect(request.headers["Accept"] == expectedHeaders["Accept"])
+        #expect(request.headers["Authorization"] == expectedHeaders["Authorization"])
+        let contentType = request.headers["Content-Type"] ?? ""
+        #expect(contentType.isEmpty == false)
+        #expect(contentType.hasPrefix("multipart/form-data; boundary=SpoonjoyBoundary-"))
+        try assertMultipartBody(request, expected: multipart)
+        #expect(Set(request.headers.keys) == ["Accept", "Authorization", "Content-Type"])
         return
     }
-    if let body = request.body,
-       let bodyString = String(data: body, encoding: .utf8),
-       bodyString.contains(clientMutationID) {
-        return
+
+    #expect(request.headers == expectedHeaders)
+    #expect(request.body == nil)
+}
+
+private func decodedJSONBody(from request: APIRequest) throws -> [String: Any] {
+    let body = try #require(request.body)
+    return try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+}
+
+private func assertMultipartBody(_ request: APIRequest, expected: ExpectedMultipartRequest) throws {
+    let body = try #require(request.body)
+    let bodyString = try #require(String(data: body, encoding: .isoLatin1))
+    #expect(bodyString.contains(#"name="\#(expected.fileField)"; filename="\#(expected.fileName)""#))
+    #expect(bodyString.contains("Content-Type: \(expected.contentType)\r\n\r\n"))
+
+    let expectedFieldNames = Set(expected.fields.keys).union([expected.fileField])
+    let actualFieldNames = Set(bodyString.matches(of: /name="([^"]+)"/).map { String($0.1) })
+    #expect(actualFieldNames == expectedFieldNames)
+    for (name, value) in expected.fields {
+        #expect(bodyString.contains(#"name="\#(name)""#))
+        #expect(bodyString.contains("\r\n\r\n\(value)\r\n"))
     }
-    Issue.record("Request for \(request.url.path) did not carry client mutation ID \(clientMutationID).")
+}
+
+private func persistedKindObjects(from data: Data) throws -> [String: [String: Any]] {
+    let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let mutations = try #require(root["mutations"] as? [[String: Any]])
+    return Dictionary(
+        uniqueKeysWithValues: try mutations.map { mutation in
+            let kind = try #require(mutation["kind"] as? [String: Any])
+            let type = try #require(kind["type"] as? String)
+            return (type, kind)
+        }
+    )
 }
 
 private actor RecordingNativeSyncTransport: NativeSyncTransport {
@@ -570,5 +952,26 @@ private actor RecordingNativeSyncTransport: NativeSyncTransport {
         requestPaths.append(request.url.path)
         clientMutationIDs.append(mutation.clientMutationID)
         return mutationResults.isEmpty ? .success(serverRevision: nil) : mutationResults.removeFirst()
+    }
+}
+
+private actor RecordingNativeSyncTriggerRunner: NativeSyncTriggerRunning {
+    private(set) var triggers: [NativeCacheRevalidationTrigger] = []
+    private(set) var configurationBaseURLs: [URL] = []
+
+    func bootstrapAndDrain(
+        configuration: APIClientConfiguration,
+        trigger: NativeCacheRevalidationTrigger
+    ) async throws -> NativeSyncReport {
+        triggers.append(trigger)
+        configurationBaseURLs.append(configuration.baseURL)
+        return NativeSyncReport(
+            trigger: trigger,
+            bootstrapCursor: nil,
+            drainedClientMutationIDs: [],
+            conflicts: [],
+            pausedReason: nil,
+            retryAfterSeconds: nil
+        )
     }
 }
