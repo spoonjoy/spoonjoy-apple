@@ -1,41 +1,134 @@
 Building for debugging...
-[0/4] Write swift-version--58304C5D6DBC2206.txt
-Build complete! (0.11s)
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (1.46s)
 ◇ Test run started.
 ↳ Testing Library Version: 1902
 ↳ Target Platform: arm64e-apple-macos14.0
 ◇ Suite "Native auth session contract" started.
-◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
-◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
+◇ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" started.
 ◇ Test "native auth session source defines launch callback and restoration contract" started.
-◇ Test "Keychain token vault stores auth material outside general cache" started.
 ◇ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" started.
-◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
 ◇ Test "refresh rotation revoke logout and restoration persist through native repository" started.
-◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
 ◇ Test "local validation matrix delegates xcodebuild classification to wrapper" started.
-✘ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" recorded an issue at NativeAuthSessionTests.swift:61:6: Caught error: Missing required native auth contract file: Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift
-✘ Test "refresh rotation revoke logout and restoration persist through native repository" recorded an issue at NativeAuthSessionTests.swift:118:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift
-✘ Test "secure web handoff URLs are exact and separate from native OAuth redirects" recorded an issue at NativeAuthSessionTests.swift:147:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift
-✘ Test "native auth session source defines launch callback and restoration contract" recorded an issue at NativeAuthSessionTests.swift:32:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/NativeAuthSession.swift
-✘ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" failed after 0.001 seconds with 1 issue.
-✘ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" recorded an issue at NativeAuthSessionTests.swift:174:6: Caught error: Missing required native auth contract file: scripts/run-xcodebuild-with-blocker.sh
-✘ Test "Keychain token vault stores auth material outside general cache" recorded an issue at NativeAuthSessionTests.swift:86:6: Caught error: Missing required native auth contract file: Apps/Spoonjoy/Shared/Auth/KeychainTokenVault.swift
-✘ Test "refresh rotation revoke logout and restoration persist through native repository" failed after 0.001 seconds with 1 issue.
-✘ Test "secure web handoff URLs are exact and separate from native OAuth redirects" failed after 0.001 seconds with 1 issue.
-✘ Test "Keychain token vault stores auth material outside general cache" failed after 0.001 seconds with 1 issue.
-✘ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" failed after 0.001 seconds with 1 issue.
-✘ Test "native auth session source defines launch callback and restoration contract" failed after 0.001 seconds with 1 issue.
-✔ Test "OAuth callback contract uses universal links and rejects custom schemes" passed after 0.001 seconds.
-✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:286:9: Expectation failed: hasToken
+◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
+◇ Test "Keychain token vault stores auth material outside general cache" started.
+◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
+◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
+◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
+◇ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" started.
+✘ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" recorded an issue at NativeAuthSessionTests.swift:222:6: Caught error: Missing required native auth contract file: scripts/run-xcodebuild-with-blocker.sh
+✘ Test "secure web handoff URLs are exact and separate from native OAuth redirects" recorded an issue at NativeAuthSessionTests.swift:164:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift
+✘ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" recorded an issue at NativeAuthSessionTests.swift:191:6: Caught error: Missing required native auth contract file: scripts/run-xcodebuild-with-blocker.sh
+✘ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" recorded an issue at NativeAuthSessionTests.swift:77:6: Caught error: Missing required native auth contract file: Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift
+✘ Test "Keychain token vault stores auth material outside general cache" recorded an issue at NativeAuthSessionTests.swift:105:6: Caught error: Missing required native auth contract file: Apps/Spoonjoy/Shared/Auth/KeychainTokenVault.swift
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:506:9: Expectation failed: hasToken
 ↳ scripts/validate-native-local.sh missing required token scripts/run-xcodebuild-with-blocker.sh
+✘ Test "refresh rotation revoke logout and restoration persist through native repository" recorded an issue at NativeAuthSessionTests.swift:136:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift
+✘ Test "OAuth callback contract uses universal links and rejects custom schemes" recorded an issue at NativeAuthSessionTests.swift:13:9: Expectation failed: an error was expected but none was thrown and "true" was returned
+✘ Test "native auth session source defines launch callback and restoration contract" recorded an issue at NativeAuthSessionTests.swift:48:6: Caught error: Missing required native auth contract file: Sources/SpoonjoyCore/Auth/NativeAuthSession.swift
+✘ Test "secure web handoff URLs are exact and separate from native OAuth redirects" failed after 0.001 seconds with 1 issue.
+✘ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" failed after 0.001 seconds with 1 issue.
+✘ Test "Keychain token vault stores auth material outside general cache" failed after 0.001 seconds with 1 issue.
+✘ Test "OAuth callback contract uses universal links and rejects custom schemes" recorded an issue at NativeAuthSessionTests.swift:16:9: Expectation failed: an error was expected but none was thrown and "true" was returned
+✘ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" failed after 0.001 seconds with 1 issue.
+✘ Test "native auth session source defines launch callback and restoration contract" failed after 0.001 seconds with 1 issue.
 ✔ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" passed after 0.001 seconds.
-✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:286:9: Expectation failed: hasToken
+✘ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" failed after 0.001 seconds with 1 issue.
+✘ Test "refresh rotation revoke logout and restoration persist through native repository" failed after 0.001 seconds with 1 issue.
+✘ Test "OAuth callback contract uses universal links and rejects custom schemes" failed after 0.001 seconds with 2 issues.
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:506:9: Expectation failed: hasToken
 ↳ scripts/validate-native-local.sh missing required token macos-app-bundle-blocker.json
-✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:291:9: Expectation failed: doesNotHaveForbiddenToken
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:511:9: Expectation failed: doesNotHaveForbiddenToken
 ↳ scripts/validate-native-local.sh must not contain forbidden token run_blockable
-✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:291:9: Expectation failed: doesNotHaveForbiddenToken
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" recorded an issue at NativeAuthSessionTests.swift:511:9: Expectation failed: doesNotHaveForbiddenToken
 ↳ scripts/validate-native-local.sh must not contain forbidden token allowed_blocker_pattern
-✘ Test "local validation matrix delegates xcodebuild classification to wrapper" failed after 0.001 seconds with 4 issues.
-✘ Suite "Native auth session contract" failed after 0.002 seconds with 10 issues.
-✘ Test run with 9 tests in 1 suite failed after 0.002 seconds with 10 issues.
+✘ Test "local validation matrix delegates xcodebuild classification to wrapper" failed after 0.002 seconds with 4 issues.
+✘ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" recorded an issue at NativeAuthSessionTests.swift:31:9: Expectation failed: (result.status → 1) == 0
+↳ Building for debugging...
+  [0/8] /private/var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/6F43B155-B736-45A9-AB0D-FE026C2C532C/.build/arm64-apple-macosx/debug/NativeAuthBehaviorProbePackageTests.derived/runner.swift
+  [1/8] Write sources
+  [4/8] Copying Fixtures
+  [5/8] Write swift-version--58304C5D6DBC2206.txt
+  [7/52] Compiling SpoonjoyCore DeepLinkRouter.swift
+  [8/52] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+  [9/52] Compiling SpoonjoyCore NativeAppSnapshot.swift
+  [10/52] Compiling SpoonjoyCore ScreenViewModels.swift
+  [11/52] Compiling SpoonjoyCore SearchState.swift
+  [12/56] Compiling SpoonjoyCore KitchenFixtureState.swift
+  [13/56] Compiling SpoonjoyCore SettingsState.swift
+  [14/56] Compiling SpoonjoyCore ShoppingListState.swift
+  [15/56] Compiling SpoonjoyCore DeepLinkManifest.swift
+  [16/56] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+  [17/56] Compiling SpoonjoyCore OAuthResponses.swift
+  [18/56] Compiling SpoonjoyCore RefreshCoordinator.swift
+  [19/56] Compiling SpoonjoyCore TokenVault.swift
+  [20/56] Compiling SpoonjoyCore CaptureDraft.swift
+  [21/56] Compiling SpoonjoyCore CookModeProgress.swift
+  [22/56] Compiling SpoonjoyCore APIRetryPolicy.swift
+  [23/56] Compiling SpoonjoyCore APITransport.swift
+  [24/56] Compiling SpoonjoyCore JSONValue.swift
+  [25/56] Compiling SpoonjoyCore NativeAPIRequests.swift
+  [26/56] Compiling SpoonjoyCore PaginationCursor.swift
+  [27/56] Compiling SpoonjoyCore NativeIntentAction.swift
+  [28/56] Compiling SpoonjoyCore ScenarioCommand.swift
+  [29/56] Compiling SpoonjoyCore ScenarioReport.swift
+  [30/56] Compiling SpoonjoyCore ScenarioVerifier.swift
+  [31/56] Compiling SpoonjoyCore APIClient.swift
+  [32/56] Compiling SpoonjoyCore APIEnvelope.swift
+  [33/56] Compiling SpoonjoyCore APIError.swift
+  [34/56] Compiling SpoonjoyCore APIRequestBuilder.swift
+  [35/56] Compiling SpoonjoyCore APIRequestSupport.swift
+  [36/56] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+  [37/56] Compiling SpoonjoyCore JSONFileStore.swift
+  [38/56] Compiling SpoonjoyCore MutationQueue.swift
+  [39/56] Compiling SpoonjoyCore OfflineSnapshot.swift
+  [40/56] Compiling SpoonjoyCore PublicCatalogRequests.swift
+  [41/56] Compiling SpoonjoyCore ShoppingListAPI.swift
+  [42/56] Compiling SpoonjoyCore ShoppingListRequests.swift
+  [43/56] Compiling SpoonjoyCore AppNavigationState.swift
+  [44/56] Compiling SpoonjoyCore AppRoute.swift
+  [45/56] Emitting module SpoonjoyCore
+  [46/56] Compiling SpoonjoyCore AuthSessionState.swift
+  [47/56] Compiling SpoonjoyCore InMemoryTokenVault.swift
+  [48/56] Compiling SpoonjoyCore OAuthPKCE.swift
+  [49/56] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+  [50/56] Compiling SpoonjoyCore OAuthRequests.swift
+  [51/56] Compiling SpoonjoyCore SyncCheckpoint.swift
+  [52/56] Compiling SpoonjoyCore RecipeCookbook.swift
+  [53/56] Compiling SpoonjoyCore SpoonjoyCore.swift
+  [54/56] Compiling SpoonjoyCore resource_bundle_accessor.swift
+  [55/58] Emitting module NativeAuthBehaviorProbeTests
+  [56/58] Compiling NativeAuthBehaviorProbeTests NativeAuthBehaviorProbeTests.swift
+  /private/var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/6F43B155-B736-45A9-AB0D-FE026C2C532C/Tests/NativeAuthBehaviorProbeTests/NativeAuthBehaviorProbeTests.swift:17:26: error: cannot find 'NativeAuthSessionRepository' in scope
+   15 |             refreshResponse: tokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600)
+   16 |         )
+   17 |         let repository = NativeAuthSessionRepository(
+      |                          `- error: cannot find 'NativeAuthSessionRepository' in scope
+   18 |             vault: vault,
+   19 |             clientName: "Spoonjoy Apple",
+
+  /private/var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/6F43B155-B736-45A9-AB0D-FE026C2C532C/Tests/NativeAuthBehaviorProbeTests/NativeAuthBehaviorProbeTests.swift:89:26: error: cannot find 'NativeAuthSessionRepository' in scope
+   87 |             refreshResponse: tokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600)
+   88 |         )
+   89 |         let repository = NativeAuthSessionRepository(
+      |                          `- error: cannot find 'NativeAuthSessionRepository' in scope
+   90 |             vault: vault,
+   91 |             clientName: "Spoonjoy Apple",
+
+  /private/var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/6F43B155-B736-45A9-AB0D-FE026C2C532C/Tests/NativeAuthBehaviorProbeTests/NativeAuthBehaviorProbeTests.swift:220:16: error: cannot find type 'NativeAuthSessionError' in scope
+  218 |         try await operation()
+  219 |         return false
+  220 |     } catch is NativeAuthSessionError {
+      |                `- error: cannot find type 'NativeAuthSessionError' in scope
+  221 |         return true
+  222 |     }
+  error: fatalError
+
+✘ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" failed after 6.855 seconds with 1 issue.
+✘ Suite "Native auth session contract" failed after 6.856 seconds with 14 issues.
+✘ Test run with 11 tests in 1 suite failed after 6.856 seconds with 14 issues.
