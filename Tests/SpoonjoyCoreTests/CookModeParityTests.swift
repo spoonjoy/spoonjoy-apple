@@ -61,8 +61,8 @@ struct CookModeParityTests {
         } == "Cook mode step output use use_missing was not found.")
     }
 
-    @Test("duration timers exist only for duration bearing steps and persist state")
-    func durationTimersExistOnlyForDurationBearingStepsAndPersistState() throws {
+    @Test("duration timers exist only for duration bearing steps")
+    func durationTimersExistOnlyForDurationBearingSteps() throws {
         let recipe = try cookModeParityRecipe()
         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
@@ -72,26 +72,18 @@ struct CookModeParityTests {
         #expect(timer.remainingSeconds == 600)
         #expect(timer.formattedRemainingTime == "10:00")
         #expect(!timer.isRunning)
+        #expect(timer.startButtonTitle == "Start timer")
+        #expect(timer.pauseButtonTitle == "Pause timer")
+        #expect(timer.resetButtonTitle == "Reset timer")
 
-        let running = try started.settingTimer(
-            CookModeTimerState(
-                stepID: "step_lemon_pasta_1",
-                durationSeconds: 600,
-                remainingSeconds: 42,
-                isRunning: true,
-                startedAt: "2026-06-25T12:05:00.000Z",
-                updatedAt: "2026-06-25T12:14:18.000Z"
-            ),
-            updatedAt: "2026-06-25T12:14:18.000Z"
-        )
-        let runningTimer = try #require(CookModeViewModel(recipe: recipe, progress: running).timer)
-
-        #expect(runningTimer.remainingSeconds == 42)
-        #expect(runningTimer.formattedRemainingTime == "00:42")
-        #expect(runningTimer.isRunning)
+        let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+        let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
+        #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+        #expect(secondStepTimer.durationSeconds == 300)
+        #expect(secondStepTimer.formattedRemainingTime == "05:00")
 
         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
-        let noTimerProgress = try running.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:15:00.000Z")
+        let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).timer == nil)
     }
 

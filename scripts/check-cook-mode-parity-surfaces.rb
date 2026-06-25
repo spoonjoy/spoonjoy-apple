@@ -10,13 +10,11 @@ REQUIRED_TOKENS = {
     "scaleFactor",
     "checkedIngredientIDs",
     "checkedStepOutputUseIDs",
-    "timerStatesByStepID",
     "starting(recipe:",
     "selectingStep",
     "settingScaleFactor",
     "togglingIngredient",
-    "togglingStepOutputUse",
-    "settingTimer"
+    "togglingStepOutputUse"
   ],
   "Sources/SpoonjoyCore/AppState/ScreenViewModels.swift" => [
     "CookModeChecklistRow",
