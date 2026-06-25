@@ -1,8 +1,8 @@
-[0/1] Planning build
 Building for debugging...
 [0/6] Write sources
 [1/6] Write swift-version--58304C5D6DBC2206.txt
-[3/6] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[3/6] Emitting module SpoonjoyCoreTests
+[4/6] Compiling SpoonjoyCoreTests CookModeParityTests.swift
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:10:40: error: type 'CookModeProgress' has no member 'starting'
   8 |     func startAndContinueCookModePreserveActiveStepRouteState() throws {
   9 |         let recipe = try cookModeParityRecipe()
@@ -30,13 +30,13 @@ Building for debugging...
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:51:55: error: cannot infer key path type from context; consider explicitly specifying a root type
  49 |             "ingredient_lemon_pasta_garlic"
  50 |         ])
- 51 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2.5 each", "5 tbsp", "5 clove"])
+ 51 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
     |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
  52 |         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
  53 |         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:53:55: error: cannot infer key path type from context; consider explicitly specifying a root type
- 51 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2.5 each", "5 tbsp", "5 clove"])
+ 51 |         #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
  52 |         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
  53 |         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
     |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
@@ -106,5 +106,4 @@ Building for debugging...
     |                                            `- error: value of type 'NativeIntentActionResolver' has no member 'continueCookMode'
 128 |         let expectedRoute = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)
 129 | 
-[4/6] Emitting module SpoonjoyCoreTests
 error: fatalError

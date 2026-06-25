@@ -48,7 +48,7 @@ struct CookModeParityTests {
             "ingredient_lemon_pasta_oil",
             "ingredient_lemon_pasta_garlic"
         ])
-        #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2.5 each", "5 tbsp", "5 clove"])
+        #expect(viewModel.ingredientChecklistRows.map(\.quantityText) == ["2 ½ each", "5 tbsp", "5 clove"])
         #expect(viewModel.ingredientChecklistRows.last?.isChecked == true)
         #expect(viewModel.stepOutputChecklistRows.map(\.title) == ["Step 1: Boil Pasta"])
         #expect(viewModel.stepOutputChecklistRows.first?.isChecked == true)
