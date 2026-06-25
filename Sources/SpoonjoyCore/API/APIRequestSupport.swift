@@ -181,10 +181,7 @@ enum APIRequestSupport {
         body.append("\r\n")
 
         for name in fields.keys.sorted() {
-            guard let value = fields[name] else {
-                continue
-            }
-
+            let value = fields[name]!
             appendPartPreamble(boundary: boundary, to: &body)
             body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
             body.append(value)
@@ -211,9 +208,12 @@ enum APIRequestSupport {
         }
     }
 
-    private static func multipartBoundary(file: UploadFile, fields: [String: String]) -> String {
-        for _ in 0..<10 {
-            let boundary = "SpoonjoyBoundary-\(UUID().uuidString)"
+    static func multipartBoundary<S: Sequence>(
+        file: UploadFile,
+        fields: [String: String],
+        candidates: S
+    ) -> String where S.Element == String {
+        for boundary in candidates {
             let boundaryData = Data(boundary.utf8)
             guard file.data.range(of: boundaryData) == nil else {
                 continue
@@ -225,6 +225,14 @@ enum APIRequestSupport {
         }
 
         return "SpoonjoyBoundary-\(UUID().uuidString)"
+    }
+
+    private static func multipartBoundary(file: UploadFile, fields: [String: String]) -> String {
+        multipartBoundary(
+            file: file,
+            fields: fields,
+            candidates: (0..<10).map { _ in "SpoonjoyBoundary-\(UUID().uuidString)" }
+        )
     }
 }
 

@@ -42,12 +42,13 @@ public enum APIDiscoveryRequests {
     }
 
     public static func docsHandoffURL(baseURL: URL) throws -> URL {
-        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
-        components?.path = "/api"
-        guard let url = components?.url else {
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
             throw APIRequestBuildError.invalidBaseURL
         }
-        return url
+        components.path = "/api"
+        components.query = nil
+        components.fragment = nil
+        return components.url!
     }
 
     private static func anonymousGET(_ pathComponents: [String]) -> APIRequestBuilder {

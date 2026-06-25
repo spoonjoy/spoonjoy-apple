@@ -17,6 +17,9 @@ struct NativeAPIExpansionTests {
         let connectorOpenAPI = try APIDiscoveryRequests.connectorOpenAPI()
             .urlRequest(configuration: Self.privateConfiguration)
         let docsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(baseURL: Self.privateConfiguration.baseURL)
+        let loopbackDocsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(
+            baseURL: URL(string: "http://[::1]:8080/from/oauth?code=abc#callback")!
+        )
         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
 
         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
@@ -25,6 +28,12 @@ struct NativeAPIExpansionTests {
         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
         assertRequest(connectorOpenAPI, method: .get, path: "/api/v1/openapi.connector.json", authorization: nil)
         #expect(docsHandoffURL.absoluteString == "https://spoonjoy.app/api")
+        #expect(loopbackDocsHandoffURL.absoluteString == "http://[::1]:8080/api")
+        #expect(throws: APIRequestBuildError.self) {
+            _ = try APIDiscoveryRequests.docsHandoffURL(
+                baseURL: URL(dataRepresentation: Data("http://[::1".utf8), relativeTo: nil)!
+            )
+        }
         #expect(discovery.data.docsURL.absoluteString == "https://spoonjoy.app/api")
         #expect(discovery.data.openAPIPath == "/api/v1/openapi.json")
         #expect(discovery.data.sdkOpenAPIPath == "/api/v1/openapi.sdk.json")
@@ -957,6 +966,316 @@ struct NativeAPIExpansionTests {
             #expect(error.status == 400)
             #expect(error.details["importCode"] == JSONValue.string("fetch-blocked"))
             #expect(error.details["fieldErrors"] == JSONValue.object(["source.url": JSONValue.string("Cannot fetch private network URLs")]))
+        }
+    }
+
+    @Test("coverage edges preserve nullable JSON idempotency multipart and import contracts")
+    func coverageEdgesPreserveNullableJSONIdempotencyMultipartAndImportContracts() throws {
+        let jsonValues: [JSONValue] = [
+            .object([
+                "array": .array([.number(1), .bool(true), .null, .string("native")]),
+                "object": .object(["count": .number(2)])
+            ]),
+            .array([.string("recipe"), .number(4.5), .bool(false), .null]),
+            .string("spoonjoy"),
+            .number(42),
+            .bool(true),
+            .null
+        ]
+        for value in jsonValues {
+            let encoded = try JSONEncoder().encode(value)
+            #expect(try JSONDecoder().decode(JSONValue.self, from: encoded) == value)
+        }
+        #expect(JSONValue.number(42).intValue == 42)
+        #expect(JSONValue.number(42.5).intValue == nil)
+        #expect(JSONValue.string("42").intValue == nil)
+
+        let decodedJSONValue = try JSONDecoder().decode(
+            JSONValue.self,
+            from: Data(
+                """
+                {
+                  "array": [1, true, null, "native"],
+                  "bool": false,
+                  "number": 3.5,
+                  "object": { "name": "Soup" }
+                }
+                """.utf8
+            )
+        )
+        #expect(decodedJSONValue == .object([
+            "array": .array([.number(1), .bool(true), .null, .string("native")]),
+            "bool": .bool(false),
+            "number": .number(3.5),
+            "object": .object(["name": .string("Soup")])
+        ]))
+        let convertedJSON = APIRequestSupport.jsonObject(from: decodedJSONValue)
+        #expect(NSDictionary(dictionary: convertedJSON as? [String: Any] ?? [:]).isEqual(to: [
+            "array": [1.0, true, NSNull(), "native"],
+            "bool": false,
+            "number": 3.5,
+            "object": ["name": "Soup"]
+        ]))
+
+        let createRecipeWithNulls = try RecipeWriteRequests.createRecipe(
+            clientMutationID: "recipe-create-nulls",
+            title: "Pantry Soup",
+            description: Optional<String>.none,
+            servings: Optional<String>.none,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Simmer",
+                    description: "Simmer everything.",
+                    duration: Optional<Int>.none,
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: Optional<String>.none, name: "broth")],
+                    outputStepNums: []
+                )
+            ]
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(createRecipeWithNulls, method: .post, path: "/api/v1/recipes", expected: [
+            "clientMutationId": "recipe-create-nulls",
+            "title": "Pantry Soup",
+            "description": NSNull(),
+            "servings": NSNull(),
+            "steps": [[
+                "stepNum": 1,
+                "stepTitle": "Simmer",
+                "description": "Simmer everything.",
+                "duration": NSNull(),
+                "ingredients": [[
+                    "quantity": 1,
+                    "name": "broth"
+                ]],
+                "outputStepNums": []
+            ]]
+        ])
+
+        let updateRecipeWithNulls = try RecipeWriteRequests.updateRecipe(
+            id: "recipe/pantry",
+            clientMutationID: "recipe-update-nulls",
+            title: "Pantry Soup Plus",
+            description: "Still simple.",
+            servings: Optional<String>.none
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(updateRecipeWithNulls, method: .patch, path: "/api/v1/recipes/recipe%2Fpantry", expected: [
+            "clientMutationId": "recipe-update-nulls",
+            "title": "Pantry Soup Plus",
+            "description": "Still simple.",
+            "servings": NSNull()
+        ])
+
+        let createStepWithNulls = try RecipeStepRequests.createStep(
+            recipeID: "recipe/pantry",
+            clientMutationID: "step-create-nulls",
+            stepNum: 2,
+            stepTitle: Optional<String>.none,
+            description: "Season.",
+            duration: Optional<Int>.none,
+            ingredients: [RecipeIngredientDraft(quantity: 2, unit: Optional<String>.none, name: "salt")],
+            outputStepNums: []
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(createStepWithNulls, method: .post, path: "/api/v1/recipes/recipe%2Fpantry/steps", expected: [
+            "clientMutationId": "step-create-nulls",
+            "stepNum": 2,
+            "stepTitle": NSNull(),
+            "description": "Season.",
+            "duration": NSNull(),
+            "ingredients": [[
+                "quantity": 2,
+                "name": "salt"
+            ]],
+            "outputStepNums": []
+        ])
+
+        let archiveHeader = try RecipeCoverRequests.archive(
+            recipeID: "recipe/pantry",
+            coverID: "cover/old",
+            clientMutationID: "cover-archive-header",
+            replacementCoverID: "cover/new",
+            replacementVariant: .stylized,
+            confirmNoCover: true,
+            deleteSafeObjects: false,
+            idempotency: .header
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertRequest(
+            archiveHeader,
+            method: .delete,
+            path: "/api/v1/recipes/recipe%2Fpantry/covers/cover%2Fold",
+            authorization: "Bearer sj_private_token",
+            extraHeaders: [
+                "Content-Type": "application/json",
+                "X-Client-Mutation-Id": "cover-archive-header"
+            ],
+            expectsBody: true,
+            responseCachePolicy: .privateNoStore
+        )
+        #expect(NSDictionary(dictionary: try jsonBody(from: archiveHeader)).isEqual(to: [
+            "replacementCoverId": "cover/new",
+            "replacementVariant": "stylized",
+            "confirmNoCover": true,
+            "deleteSafeObjects": false
+        ]))
+
+        let archiveBody = try RecipeCoverRequests.archive(
+            recipeID: "recipe/pantry",
+            coverID: "cover/old",
+            clientMutationID: "cover-archive-body",
+            replacementCoverID: "cover/new",
+            replacementVariant: .image,
+            confirmNoCover: false,
+            deleteSafeObjects: true,
+            idempotency: .body
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(archiveBody, method: .delete, path: "/api/v1/recipes/recipe%2Fpantry/covers/cover%2Fold", expected: [
+            "clientMutationId": "cover-archive-body",
+            "replacementCoverId": "cover/new",
+            "replacementVariant": "image",
+            "confirmNoCover": false,
+            "deleteSafeObjects": true
+        ])
+
+        let spoonCreateWithNulls = try RecipeSpoonRequests.createSpoon(
+            recipeID: "recipe/pantry",
+            clientMutationID: "spoon-create-nulls",
+            note: Optional<String>.none,
+            nextTime: "more acid",
+            cookedAt: Optional<String>.none,
+            photoURL: "/photos/spoons/pantry.jpg",
+            useAsRecipeCover: false
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(spoonCreateWithNulls, method: .post, path: "/api/v1/recipes/recipe%2Fpantry/spoons", expected: [
+            "clientMutationId": "spoon-create-nulls",
+            "note": NSNull(),
+            "nextTime": "more acid",
+            "cookedAt": NSNull(),
+            "photoUrl": "/photos/spoons/pantry.jpg",
+            "useAsRecipeCover": false
+        ])
+
+        let spoonPhotoWithCookedAt = try RecipeSpoonRequests.createSpoon(
+            recipeID: "recipe/pantry",
+            photo: UploadFile(fileName: "pantry.jpg", contentType: "image/jpeg", data: Data([0xFF, 0xD8])),
+            clientMutationID: "spoon-photo-cooked-at",
+            note: Optional<String>.none,
+            nextTime: Optional<String>.none,
+            cookedAt: "2026-06-25T03:00:00.000Z",
+            useAsRecipeCover: true
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        try assertMultipartRequest(
+            spoonPhotoWithCookedAt,
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Fpantry/spoons",
+            fileField: "photo",
+            fileName: "pantry.jpg",
+            contentType: "image/jpeg",
+            data: Data([0xFF, 0xD8]),
+            fields: [
+                "clientMutationId": "spoon-photo-cooked-at",
+                "cookedAt": "2026-06-25T03:00:00.000Z",
+                "useAsRecipeCover": "true"
+            ]
+        )
+
+        let spoonUpdateWithNulls = try RecipeSpoonRequests.updateSpoon(
+            recipeID: "recipe/pantry",
+            spoonID: "spoon/one",
+            clientMutationID: "spoon-update-nulls",
+            note: "Still good.",
+            nextTime: Optional<String>.none,
+            cookedAt: Optional<String>.none,
+            photoURL: "/photos/spoons/pantry-updated.jpg"
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(spoonUpdateWithNulls, method: .patch, path: "/api/v1/recipes/recipe%2Fpantry/spoons/spoon%2Fone", expected: [
+            "clientMutationId": "spoon-update-nulls",
+            "note": "Still good.",
+            "nextTime": NSNull(),
+            "cookedAt": NSNull(),
+            "photoUrl": "/photos/spoons/pantry-updated.jpg"
+        ])
+
+        let importTextWithoutURL = try RecipeImportRequests.importText(
+            clientMutationID: "import-text-no-url",
+            text: "Soup\\nSeason to taste.",
+            sourceURL: Optional<URL>.none
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        assertJSONRequest(importTextWithoutURL, method: .post, path: "/api/v1/recipes/import", expected: [
+            "clientMutationId": "import-text-no-url",
+            "source": [
+                "type": "text",
+                "text": "Soup\\nSeason to taste."
+            ]
+        ])
+
+        let importResponse = try JSONDecoder().decode(RecipeImportResponse.self, from: Data(
+            """
+            {
+              "importCode": "provider-secret",
+              "blockers": [
+                {
+                  "capability": "ProviderSecret",
+                  "missing": null,
+                  "retryAfterSeconds": 30,
+                  "ownerAction": true
+                }
+              ]
+            }
+            """.utf8
+        ))
+        #expect(importResponse.recipe == nil)
+        #expect(importResponse.importCode == "provider-secret")
+        #expect(importResponse.blockers == [
+            .object([
+                "capability": .string("ProviderSecret"),
+                "missing": .null,
+                "retryAfterSeconds": .number(30),
+                "ownerAction": .bool(true)
+            ])
+        ])
+
+        let collidingFile = UploadFile(
+            fileName: "valid.bin",
+            contentType: "application/octet-stream",
+            data: Data("file-collision".utf8)
+        )
+        #expect(APIRequestSupport.multipartBoundary(
+            file: collidingFile,
+            fields: ["note": "field-collision"],
+            candidates: ["file-collision", "field-collision", "safe-boundary"]
+        ) == "safe-boundary")
+        let fallbackBoundary = APIRequestSupport.multipartBoundary(
+            file: collidingFile,
+            fields: ["note": "field-collision"],
+            candidates: ["file-collision", "field-collision"]
+        )
+        #expect(fallbackBoundary.hasPrefix("SpoonjoyBoundary-"))
+        #expect(fallbackBoundary != "file-collision")
+        #expect(fallbackBoundary != "field-collision")
+        #expect(throws: APIRequestBuildError.self) {
+            _ = try APIRequestSupport.privateMultipart(
+                method: .post,
+                pathComponents: ["api", "v1", "unsafe"],
+                fileField: "",
+                file: collidingFile
+            )
+        }
+        #expect(throws: APIRequestBuildError.self) {
+            _ = try APIRequestSupport.privateMultipart(
+                method: .post,
+                pathComponents: ["api", "v1", "unsafe"],
+                fileField: "file",
+                file: collidingFile,
+                fields: ["bad\u{7F}": "value"]
+            )
         }
     }
 
