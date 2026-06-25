@@ -154,6 +154,16 @@ struct NativeAuthSessionTests {
                 expectedState: state
             )
         })
+        #expect(try NativeAuthSession.code(
+            from: URL(string: "https://spoonjoy.app:443/oauth/callback?code=oac_code&state=state_123")!,
+            expectedState: state
+        ) == "oac_code")
+        #expect(try coverageThrowsNativeAuthSessionError {
+            _ = try NativeAuthSession.code(
+                from: URL(string: "https://spoonjoy.app:444/oauth/callback?code=oac_code&state=state_123")!,
+                expectedState: state
+            )
+        })
 
         #expect(try OAuthRedirectValidator.validate(URL(string: "http://localhost/oauth/callback")!))
         #expect(try OAuthRedirectValidator.validate(URL(string: "http://127.0.0.1/oauth/callback")!))
@@ -1425,6 +1435,15 @@ struct NativeAuthBehaviorContract {
             try await throwsNativeAuthSessionError {
                 _ = try await repository.handleOAuthCallback(
                 URL(string: "http://localhost/oauth/callback?code=oac_code&state=state_123")!,
+                expectedState: expected,
+                codeVerifier: "pkce_verifier"
+                )
+            }
+        )
+        #expect(
+            try await throwsNativeAuthSessionError {
+                _ = try await repository.handleOAuthCallback(
+                URL(string: "https://spoonjoy.app:444/oauth/callback?code=oac_code&state=state_123")!,
                 expectedState: expected,
                 codeVerifier: "pkce_verifier"
                 )

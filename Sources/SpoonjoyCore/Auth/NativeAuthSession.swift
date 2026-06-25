@@ -51,6 +51,7 @@ public enum NativeAuthSession {
         _ = try OAuthRedirectValidator.validate(callbackURL)
         guard callbackURL.scheme?.lowercased() == redirectURI.scheme,
               callbackURL.host?.lowercased() == redirectURI.host,
+              normalizedHTTPSPort(for: callbackURL) == normalizedHTTPSPort(for: redirectURI),
               callbackURL.path(percentEncoded: true) == redirectURI.path(percentEncoded: true) else {
             throw NativeAuthSessionError.invalidCallbackURL(callbackURL.absoluteString)
         }
@@ -65,5 +66,9 @@ public enum NativeAuthSession {
         }
 
         return code
+    }
+
+    private static func normalizedHTTPSPort(for url: URL) -> Int {
+        url.port ?? 443
     }
 }

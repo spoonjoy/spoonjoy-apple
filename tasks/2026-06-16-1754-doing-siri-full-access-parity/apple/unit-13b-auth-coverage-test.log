@@ -1,124 +1,124 @@
 [0/1] Planning build
 Building for debugging...
 [0/6] Write swift-version--58304C5D6DBC2206.txt
-[2/59] Compiling SpoonjoyCore ShoppingListRequests.swift
-[3/59] Compiling SpoonjoyCore AppNavigationState.swift
-[4/59] Compiling SpoonjoyCore AppRoute.swift
-[5/59] Compiling SpoonjoyCore DeepLinkRouter.swift
-[6/59] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
-[7/59] Compiling SpoonjoyCore NativeAppSnapshot.swift
-[8/59] Compiling SpoonjoyCore ScreenViewModels.swift
-[9/59] Compiling SpoonjoyCore SearchState.swift
-[10/59] Compiling SpoonjoyCore AuthSessionState.swift
-[11/59] Compiling SpoonjoyCore InMemoryTokenVault.swift
-[12/59] Compiling SpoonjoyCore NativeAuthSession.swift
-[13/59] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
-[14/64] Compiling SpoonjoyCore ShoppingListState.swift
-[15/64] Compiling SpoonjoyCore DeepLinkManifest.swift
-[16/64] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
-[17/64] Compiling SpoonjoyCore NativeIntentAction.swift
-[18/64] Compiling SpoonjoyCore ScenarioCommand.swift
-[19/64] Compiling SpoonjoyCore ScenarioReport.swift
-[20/64] Compiling SpoonjoyCore ScenarioVerifier.swift
-[21/64] Compiling SpoonjoyCore SpotlightIndexPlan.swift
-[22/64] Compiling SpoonjoyCore JSONFileStore.swift
-[23/64] Compiling SpoonjoyCore MutationQueue.swift
-[24/64] Compiling SpoonjoyCore APIClient.swift
-[25/64] Compiling SpoonjoyCore APIEnvelope.swift
-[26/64] Compiling SpoonjoyCore APIError.swift
-[27/64] Compiling SpoonjoyCore APIRequestBuilder.swift
-[28/64] Compiling SpoonjoyCore APIRequestSupport.swift
-[29/64] Compiling SpoonjoyCore APIRetryPolicy.swift
-[30/64] Compiling SpoonjoyCore APITransport.swift
-[31/64] Compiling SpoonjoyCore JSONValue.swift
-[32/64] Compiling SpoonjoyCore NativeAPIRequests.swift
-[33/64] Compiling SpoonjoyCore PaginationCursor.swift
-[34/64] Compiling SpoonjoyCore PublicCatalogRequests.swift
-[35/64] Compiling SpoonjoyCore ShoppingListAPI.swift
-[36/64] Emitting module SpoonjoyCore
-[37/64] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
-[38/64] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
-[39/64] Compiling SpoonjoyCore CaptureDraft.swift
-[40/64] Compiling SpoonjoyCore CookModeProgress.swift
-[41/64] Compiling SpoonjoyCore KitchenFixtureState.swift
-[42/64] Compiling SpoonjoyCore SettingsState.swift
-[43/64] Compiling SpoonjoyCore TokenVault.swift
-[44/64] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
-[45/64] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
-[46/64] Compiling SpoonjoyCore NativeDurableCache.swift
-[47/64] Compiling SpoonjoyCore NativeDurableCacheStore.swift
-[48/64] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
-[49/64] Compiling SpoonjoyCore OAuthPKCE.swift
-[50/64] Compiling SpoonjoyCore OAuthRedirectValidator.swift
-[51/64] Compiling SpoonjoyCore OAuthRequests.swift
-[52/64] Compiling SpoonjoyCore OAuthResponses.swift
-[53/64] Compiling SpoonjoyCore RefreshCoordinator.swift
-[54/64] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[2/59] Compiling SpoonjoyCore ScreenViewModels.swift
+[3/59] Compiling SpoonjoyCore SearchState.swift
+[4/59] Compiling SpoonjoyCore AuthSessionState.swift
+[5/59] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[6/59] Compiling SpoonjoyCore NativeAuthSession.swift
+[7/59] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[8/64] Compiling SpoonjoyCore ShoppingListState.swift
+[9/64] Compiling SpoonjoyCore DeepLinkManifest.swift
+[10/64] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[11/64] Compiling SpoonjoyCore NativeIntentAction.swift
+[12/64] Compiling SpoonjoyCore ScenarioCommand.swift
+[13/64] Compiling SpoonjoyCore ScenarioReport.swift
+[14/64] Compiling SpoonjoyCore ScenarioVerifier.swift
+[15/64] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[16/64] Compiling SpoonjoyCore JSONFileStore.swift
+[17/64] Compiling SpoonjoyCore MutationQueue.swift
+[18/64] Emitting module SpoonjoyCore
+[19/64] Compiling SpoonjoyCore APIClient.swift
+[20/64] Compiling SpoonjoyCore APIEnvelope.swift
+[21/64] Compiling SpoonjoyCore APIError.swift
+[22/64] Compiling SpoonjoyCore APIRequestBuilder.swift
+[23/64] Compiling SpoonjoyCore APIRequestSupport.swift
+[24/64] Compiling SpoonjoyCore APIRetryPolicy.swift
+[25/64] Compiling SpoonjoyCore APITransport.swift
+[26/64] Compiling SpoonjoyCore JSONValue.swift
+[27/64] Compiling SpoonjoyCore NativeAPIRequests.swift
+[28/64] Compiling SpoonjoyCore PaginationCursor.swift
+[29/64] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[30/64] Compiling SpoonjoyCore ShoppingListAPI.swift
+[31/64] Compiling SpoonjoyCore ShoppingListRequests.swift
+[32/64] Compiling SpoonjoyCore AppNavigationState.swift
+[33/64] Compiling SpoonjoyCore AppRoute.swift
+[34/64] Compiling SpoonjoyCore DeepLinkRouter.swift
+[35/64] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[36/64] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[37/64] Compiling SpoonjoyCore OAuthPKCE.swift
+[38/64] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[39/64] Compiling SpoonjoyCore OAuthRequests.swift
+[40/64] Compiling SpoonjoyCore OAuthResponses.swift
+[41/64] Compiling SpoonjoyCore RefreshCoordinator.swift
+[42/64] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[43/64] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[44/64] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[45/64] Compiling SpoonjoyCore CaptureDraft.swift
+[46/64] Compiling SpoonjoyCore CookModeProgress.swift
+[47/64] Compiling SpoonjoyCore KitchenFixtureState.swift
+[48/64] Compiling SpoonjoyCore SettingsState.swift
+[49/64] Compiling SpoonjoyCore TokenVault.swift
+[50/64] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[51/64] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[52/64] Compiling SpoonjoyCore NativeDurableCache.swift
+[53/64] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[54/64] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
 [55/64] Compiling SpoonjoyCore OfflineSnapshot.swift
 [56/64] Compiling SpoonjoyCore SyncCheckpoint.swift
 [57/64] Compiling SpoonjoyCore RecipeCookbook.swift
 [58/64] Compiling SpoonjoyCore SpoonjoyCore.swift
 [59/64] Compiling SpoonjoyCore resource_bundle_accessor.swift
-[60/82] Emitting module SpoonjoyScenarioVerifier
+[60/82] Compiling SpoonjoyScenarioVerifier main.swift
 [61/82] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
-[62/82] Compiling SpoonjoyScenarioVerifier main.swift
+[62/82] Emitting module SpoonjoyScenarioVerifier
 [62/82] Write Objects.LinkFileList
 [63/82] Linking SpoonjoyScenarioVerifier
 [64/82] Applying SpoonjoyScenarioVerifier
-[66/82] Compiling SpoonjoyCoreTests AppStateTests.swift
-[67/82] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
-[68/82] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
-[69/82] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
-[70/82] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
-[71/83] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
-[72/83] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
-[73/83] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
-[74/83] Compiling SpoonjoyCoreTests APIReadClientTests.swift
-[75/83] Compiling SpoonjoyCoreTests APITransportTests.swift
-[76/83] Compiling SpoonjoyCoreTests KitchenStateTests.swift
-[77/83] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
-[78/83] Emitting module SpoonjoyCoreTests
+[66/82] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[67/82] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[68/82] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[69/83] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[70/83] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[71/83] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[72/83] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[73/83] Compiling SpoonjoyCoreTests AppStateTests.swift
+[74/83] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[75/83] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[76/83] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[77/83] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[78/83] Compiling SpoonjoyCoreTests APITransportTests.swift
 [79/83] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
 [80/83] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
-[81/83] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
-[82/85] Compiling SpoonjoyApplePackageTests runner.swift
-[83/85] Emitting module SpoonjoyApplePackageTests
+[81/83] Emitting module SpoonjoyCoreTests
+[82/85] Emitting module SpoonjoyApplePackageTests
+[83/85] Compiling SpoonjoyApplePackageTests runner.swift
 [83/85] Write Objects.LinkFileList
 [84/85] Linking SpoonjoyApplePackageTests
-Build complete! (6.59s)
+Build complete! (6.06s)
 ◇ Test run started.
 ↳ Testing Library Version: 1902
 ↳ Target Platform: arm64e-apple-macos14.0
 ◇ Suite "Native auth session contract" started.
-◇ Test "refresh rotation revoke logout and restoration persist through native repository" started.
-◇ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" started.
-◇ Test "auth files are wired into generated app targets and signed out flow" started.
-◇ Test "web authentication adapter is executable with injected session factory" started.
-◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
-◇ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" started.
-◇ Test "native auth session source defines launch callback and restoration contract" started.
-◇ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" started.
-◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
-◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
-◇ Test "local validation matrix delegates xcodebuild classification to wrapper" started.
-◇ Test "Keychain token vault stores auth material outside general cache" started.
-◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
 ◇ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" started.
+◇ Test "web authentication adapter is executable with injected session factory" started.
+◇ Test "auth files are wired into generated app targets and signed out flow" started.
+◇ Test "native auth session source defines launch callback and restoration contract" started.
+◇ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" started.
+◇ Test "refresh rotation revoke logout and restoration persist through native repository" started.
+◇ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" started.
+◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
+◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
+◇ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" started.
+◇ Test "local validation matrix delegates xcodebuild classification to wrapper" started.
+◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
 ◇ Test "native auth implementation is covered in process" started.
-✔ Test "OAuth callback contract uses universal links and rejects custom schemes" passed after 0.001 seconds.
-✔ Test "native auth session source defines launch callback and restoration contract" passed after 0.001 seconds.
-✔ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" passed after 0.001 seconds.
-✔ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" passed after 0.001 seconds.
-✔ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" passed after 0.001 seconds.
+◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
+◇ Test "Keychain token vault stores auth material outside general cache" started.
 ✔ Test "secure web handoff URLs are exact and separate from native OAuth redirects" passed after 0.001 seconds.
+✔ Test "native auth session source defines launch callback and restoration contract" passed after 0.001 seconds.
+✔ Test "OAuth callback contract uses universal links and rejects custom schemes" passed after 0.001 seconds.
+✔ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" passed after 0.001 seconds.
 ✔ Test "refresh rotation revoke logout and restoration persist through native repository" passed after 0.001 seconds.
-✔ Test "Keychain token vault stores auth material outside general cache" passed after 0.001 seconds.
+✔ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" passed after 0.001 seconds.
+✔ Test "local validation matrix delegates xcodebuild classification to wrapper" passed after 0.001 seconds.
+✔ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" passed after 0.002 seconds.
 ✔ Test "native auth implementation is covered in process" passed after 0.002 seconds.
-✔ Test "local validation matrix delegates xcodebuild classification to wrapper" passed after 0.002 seconds.
-✔ Test "auth files are wired into generated app targets and signed out flow" passed after 0.376 seconds.
-✔ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" passed after 0.709 seconds.
-✔ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" passed after 8.203 seconds.
-✔ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" passed after 10.449 seconds.
-✔ Test "web authentication adapter is executable with injected session factory" passed after 13.229 seconds.
-✔ Suite "Native auth session contract" passed after 13.230 seconds.
-✔ Test run with 15 tests in 1 suite passed after 13.230 seconds.
+✔ Test "Keychain token vault stores auth material outside general cache" passed after 0.002 seconds.
+✔ Test "auth files are wired into generated app targets and signed out flow" passed after 0.436 seconds.
+✔ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" passed after 0.776 seconds.
+✔ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" passed after 8.328 seconds.
+✔ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" passed after 10.440 seconds.
+✔ Test "web authentication adapter is executable with injected session factory" passed after 13.355 seconds.
+✔ Suite "Native auth session contract" passed after 13.355 seconds.
+✔ Test run with 15 tests in 1 suite passed after 13.355 seconds.

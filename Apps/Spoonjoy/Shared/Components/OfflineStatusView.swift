@@ -50,7 +50,7 @@ struct OfflineStatusView: View {
             return legacyStatusLabel
         }
 
-        switch display {
+        return switch display {
         case .synced:
             "Offline cache ready"
         case .offline:
