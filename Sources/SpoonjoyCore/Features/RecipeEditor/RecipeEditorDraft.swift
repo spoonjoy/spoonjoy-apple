@@ -135,6 +135,31 @@ public struct RecipeEditorDraft: Equatable, Sendable {
     var apiStepDrafts: [RecipeStepDraft] {
         steps.map(\.apiDraft)
     }
+
+    public mutating func renumberStepsPreservingOutputIdentities() {
+        var stepIDByOldStepNum: [Int: String] = [:]
+        for step in steps {
+            stepIDByOldStepNum[step.stepNum] = step.id
+        }
+        var newStepNumByID: [String: Int] = [:]
+        for (index, step) in steps.enumerated() {
+            newStepNumByID[step.id] = index + 1
+        }
+
+        for index in steps.indices {
+            let newStepNum = index + 1
+
+            steps[index].stepNum = newStepNum
+            steps[index].outputStepNums = steps[index].outputStepNums.compactMap { outputStepNum in
+                guard let outputStepID = stepIDByOldStepNum[outputStepNum] else {
+                    return nil
+                }
+                return newStepNumByID[outputStepID]
+            }
+            .filter { $0 < newStepNum }
+            .uniqued()
+        }
+    }
 }
 
 public struct RecipeEditorValidationIssue: Equatable, Sendable {
@@ -146,6 +171,9 @@ public struct RecipeEditorValidationIssue: Equatable, Sendable {
 }
 
 public enum RecipeEditorValidator {
+    private static let quantityMinimum = 0.001
+    private static let quantityMaximum = 99_999.0
+
     public static func validate(_ draft: RecipeEditorDraft) -> [RecipeEditorValidationIssue] {
         var issues: [RecipeEditorValidationIssue] = []
 
@@ -158,9 +186,26 @@ public enum RecipeEditorValidator {
         }
 
         for step in draft.steps {
+            if step.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append(RecipeEditorValidationIssue(message: "Describe every step."))
+            }
+
             for ingredient in step.ingredients where trimmedOptional(ingredient.unit) == nil {
                 let name = ingredient.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 issues.append(RecipeEditorValidationIssue(message: "Choose a unit for \(name.isEmpty ? "ingredient" : name)."))
+            }
+
+            for ingredient in step.ingredients where ingredient.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append(RecipeEditorValidationIssue(message: "Name every ingredient."))
+            }
+
+            for ingredient in step.ingredients {
+                let name = ingredient.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !ingredient.quantity.isFinite {
+                    issues.append(RecipeEditorValidationIssue(message: "Use a valid quantity for \(name.isEmpty ? "ingredient" : name)."))
+                } else if ingredient.quantity < quantityMinimum || ingredient.quantity > quantityMaximum {
+                    issues.append(RecipeEditorValidationIssue(message: "Use a quantity between 0.001 and 99,999 for \(name.isEmpty ? "ingredient" : name)."))
+                }
             }
 
             for outputStepNum in step.outputStepNums where outputStepNum >= step.stepNum {
@@ -179,4 +224,11 @@ func trimmedOptional(_ value: String?) -> String? {
 
     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
     return trimmed.isEmpty ? nil : trimmed
+}
+
+private extension Array where Element == Int {
+    func uniqued() -> [Int] {
+        var seen = Set<Int>()
+        return sorted().filter { seen.insert($0).inserted }
+    }
 }

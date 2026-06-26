@@ -111,9 +111,16 @@ struct SpoonjoyRootView: View {
             offlineIndicatorState: liveStore.offlineIndicatorState,
             dismissOfflineIndicator: liveStore.dismissOfflineIndicator,
             queueMutation: { mutation in
-                Task {
-                    await liveStore.queueMutation(mutation)
-                }
+                try await liveStore.queueMutation(mutation)
+            },
+            queueMutations: { mutations, drainImmediately in
+                try await liveStore.queueMutations(mutations, drainImmediately: drainImmediately)
+            },
+            discardQueuedMutation: { clientMutationID in
+                try await liveStore.discardQueuedMutation(clientMutationID: clientMutationID)
+            },
+            executeRecipeEditorRequest: { request in
+                try await liveStore.executeRecipeEditorRequest(request)
             },
             recordCookProgress: liveStore.recordCookProgress,
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator

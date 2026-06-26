@@ -310,6 +310,18 @@ struct NativeSyncEngineTests {
             #expect(message == "native sync unavailable")
         }
         do {
+            try await unavailable.saveQueue(
+                queue,
+                accountID: "chef_ari",
+                environment: .production,
+                upsertingCachedRecords: [],
+                deletingCachedRecordKeys: []
+            )
+            Issue.record("Expected unavailable combined saveQueue/cache update to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
             _ = try await unavailable.loadCheckpoint()
             Issue.record("Expected unavailable loadCheckpoint to throw")
         } catch NativeSyncStoreError.unavailable(let message) {
@@ -548,6 +560,15 @@ struct NativeSyncEngineTests {
             cachedRecords: [previousRecord]
         )
         await memoryStore.appendTombstone(tombstone)
+
+        await memoryStore.saveQueue(
+            NativeMutationQueue(),
+            accountID: "chef_previous",
+            environment: .production,
+            upsertingCachedRecords: [],
+            deletingCachedRecordKeys: [previousRecord.cacheKey]
+        )
+        #expect(try await memoryStore.cachedRecord(kind: .recipe, resourceID: "recipe_previous_owner") == nil)
 
         await memoryStore.saveQueue(currentQueue, accountID: "chef_current", environment: .production)
         let memorySnapshot = await memoryStore.loadSnapshot()
@@ -1046,6 +1067,14 @@ struct NativeSyncEngineTests {
                     RecipeIngredientDraft(quantity: 1, unit: "lb", name: "pasta")
                 ],
                 outputStepNums: []
+            ),
+            RecipeStepDraft(
+                stepNum: 2,
+                stepTitle: "Sauce",
+                description: "Use the pasta water.",
+                duration: 5,
+                ingredients: [],
+                outputStepNums: [1]
             )
         ]
         let stepCreateIngredients = [
@@ -1068,7 +1097,15 @@ struct NativeSyncEngineTests {
                                 "unit": "lb",
                                 "name": "pasta"
                             ]
-                        ]
+                        ],
+                        "outputStepNums": []
+                    ],
+                    [
+                        "stepTitle": "Sauce",
+                        "description": "Use the pasta water.",
+                        "duration": 5.0,
+                        "ingredients": [],
+                        "outputStepNums": [1.0]
                     ]
                 ]
             ]),
@@ -1493,6 +1530,487 @@ struct NativeSyncEngineTests {
         #expect(try await store.tombstones.map(\.token) == ["recipe_lemon_deleted"])
     }
 
+    @Test("sync engine rewrites local optimistic recipe and step ids after create responses")
+    func syncEngineRewritesLocalOptimisticRecipeAndStepIDsAfterCreateResponses() async throws {
+        let create = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_create_local",
+            title: "Offline Toast",
+            description: nil,
+            servings: "2",
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Toast",
+                    description: "Toast bread.",
+                    duration: 120,
+                    ingredients: [
+                        RecipeIngredientDraft(quantity: 2, unit: "cup", name: "zucchini"),
+                        RecipeIngredientDraft(quantity: 1, unit: "whole", name: "apple")
+                    ],
+                    outputStepNums: []
+                )
+            ],
+            createdAt: Self.createdAt(0)
+        )
+        let updateRecipe = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_local_cm_recipe_create_local",
+            clientMutationID: "cm_recipe_update_local",
+            title: "Offline Toast Edited",
+            description: nil,
+            servings: "4",
+            createdAt: Self.createdAt(1)
+        )
+        let updateStep = NativeQueuedMutation.recipeStepUpdate(
+            recipeID: "recipe_local_cm_recipe_create_local",
+            stepID: "step_local_cm_recipe_create_local_1",
+            clientMutationID: "cm_step_update_local",
+            stepTitle: "Toast bread",
+            description: "Toast bread until deeply golden.",
+            duration: 180,
+            outputStepNums: [],
+            createdAt: Self.createdAt(2)
+        )
+        let deleteIngredient = NativeQueuedMutation.recipeIngredientDelete(
+            recipeID: "recipe_local_cm_recipe_create_local",
+            stepID: "step_local_cm_recipe_create_local_1",
+            ingredientID: "ingredient_local_cm_recipe_create_local_1_1",
+            clientMutationID: "cm_ingredient_delete_local",
+            createdAt: Self.createdAt(3)
+        )
+        let queue = try NativeMutationQueue(mutations: [create, updateRecipe, updateStep, deleteIngredient])
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: queue)
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: nil, idRemaps: [
+                    NativeSyncIDRemap(localID: "recipe_local_cm_recipe_create_local", serverID: "recipe_server_created"),
+                    NativeSyncIDRemap(localID: "step_local_cm_recipe_create_local_1", serverID: "step_server_created"),
+                    NativeSyncIDRemap(localID: "ingredient_local_cm_recipe_create_local_1_1", serverID: "ingredient_server_zucchini"),
+                    NativeSyncIDRemap(localID: "ingredient_local_cm_recipe_create_local_1_2", serverID: "ingredient_server_apple")
+                ]),
+                .success(serverRevision: .updatedAt("2026-06-16T09:03:00.000Z")),
+                .success(serverRevision: .updatedAt("2026-06-16T09:04:00.000Z")),
+                .success(serverRevision: .tombstone("ingredient_server_zucchini_deleted"))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let drainedCreate = try #require(report.drainedMutations.first)
+        let optimisticCreated = drainedCreate.applyingOptimisticRecipeMutation(
+            to: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(3)
+        )
+        let persistedRecord = try #require(await store.cachedRecord(kind: .recipe, resourceID: "recipe_server_created"))
+        let persistedRecipe = try Self.recipe(from: persistedRecord.payload)
+
+        #expect(report.drainedClientMutationIDs == [
+            "cm_recipe_create_local",
+            "cm_recipe_update_local",
+            "cm_step_update_local",
+            "cm_ingredient_delete_local"
+        ])
+        #expect(await transport.requestPaths == [
+            "/api/v1/me/sync",
+            "/api/v1/recipes",
+            "/api/v1/recipes/recipe_server_created",
+            "/api/v1/recipes/recipe_server_created/steps/step_server_created",
+            "/api/v1/recipes/recipe_server_created/steps/step_server_created/ingredients/ingredient_server_zucchini"
+        ])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(optimisticCreated.map(\.id) == ["recipe_server_created"])
+        #expect(optimisticCreated.first?.steps.map(\.id) == ["step_server_created"])
+        #expect(optimisticCreated.first?.steps.first?.ingredients.map(\.id) == ["ingredient_server_zucchini", "ingredient_server_apple"])
+        #expect(persistedRecipe.id == "recipe_server_created")
+        #expect(persistedRecipe.title == "Offline Toast Edited")
+        #expect(persistedRecipe.servings == "4")
+        #expect(persistedRecipe.steps.map(\.id) == ["step_server_created"])
+        #expect(persistedRecipe.steps.first?.description == "Toast bread until deeply golden.")
+        #expect(persistedRecipe.steps.first?.ingredients.map(\.id) == ["ingredient_server_apple"])
+    }
+
+    @Test("drained recipe mutations persist to file backed cache for restart")
+    func drainedRecipeMutationsPersistToFileBackedCacheForRestart() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let lemonRecipe = Self.optimisticRecipe()
+            let archivedRecipe = Self.optimisticRecipe(id: "recipe_archived", title: "Archived Recipe")
+            let update = NativeQueuedMutation.recipeUpdate(
+                recipeID: lemonRecipe.id,
+                clientMutationID: "cm_recipe_restart_update",
+                title: "Restart Lemon Pasta",
+                description: "Still bright after restart.",
+                servings: "6",
+                createdAt: Self.createdAt(2)
+            )
+            let delete = NativeQueuedMutation.recipeDelete(
+                recipeID: archivedRecipe.id,
+                clientMutationID: "cm_recipe_restart_delete",
+                createdAt: Self.createdAt(3)
+            )
+            let fallback = NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .local,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [update, delete]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: lemonRecipe.id, payload: try Self.jsonValue(lemonRecipe), serverRevision: .updatedAt(lemonRecipe.updatedAt)),
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: archivedRecipe.id, payload: try Self.jsonValue(archivedRecipe), serverRevision: .updatedAt(archivedRecipe.updatedAt))
+                ],
+                tombstones: []
+            )
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
+            let transport = RecordingNativeSyncTransport(
+                bootstrap: .success(cursor: nil, tombstones: []),
+                mutationResults: [
+                    .success(serverRevision: .updatedAt(Self.createdAt(4))),
+                    .success(serverRevision: .tombstone("recipe_archived_deleted"))
+                ]
+            )
+            let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+            let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
+            let restoredLemonRecord = try #require(try await restored.cachedRecord(kind: .recipe, resourceID: lemonRecipe.id))
+            let restoredLemon = try Self.recipe(from: restoredLemonRecord.payload)
+
+            #expect(report.drainedClientMutationIDs == ["cm_recipe_restart_update", "cm_recipe_restart_delete"])
+            #expect(try await restored.loadQueue().mutations.isEmpty)
+            #expect(restoredLemon.title == "Restart Lemon Pasta")
+            #expect(restoredLemon.description == "Still bright after restart.")
+            #expect(restoredLemon.servings == "6")
+            #expect(try await restored.cachedRecord(kind: .recipe, resourceID: archivedRecipe.id) == nil)
+            #expect(await transport.requestPaths == [
+                "/api/v1/me/sync",
+                "/api/v1/recipes/recipe_lemon",
+                "/api/v1/recipes/recipe_archived"
+            ])
+        }
+    }
+
+    @Test("sync engine records step and ingredient create id remaps for drained optimistic mutations")
+    func syncEngineRecordsStepAndIngredientCreateIDRemapsForDrainedOptimisticMutations() async throws {
+        let createStep = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_step_create_remote",
+            stepNum: 2,
+            stepTitle: "Plate",
+            description: "Plate with herbs.",
+            duration: nil,
+            ingredients: [RecipeIngredientDraft(quantity: 3, unit: "leaf", name: "basil")],
+            outputStepNums: [1],
+            createdAt: Self.createdAt(0)
+        )
+        let addIngredient = try NativeQueuedMutation.recipeIngredientAdd(
+            recipeID: "recipe_lemon",
+            stepID: "step_one",
+            clientMutationID: "cm_ingredient_add_remote",
+            quantity: 2,
+            unit: "tbsp",
+            name: "olive oil",
+            createdAt: Self.createdAt(1)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [createStep, addIngredient])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: nil, idRemaps: [
+                    NativeSyncIDRemap(localID: "step_local_cm_step_create_remote", serverID: "step_server_created_remote"),
+                    NativeSyncIDRemap(localID: "ingredient_local_cm_step_create_remote_1", serverID: "ingredient_server_stale_remote"),
+                    NativeSyncIDRemap(localID: "ingredient_local_cm_step_create_remote_1", serverID: "ingredient_server_created_remote")
+                ]),
+                .success(serverRevision: nil, idRemaps: [
+                    NativeSyncIDRemap(localID: "ingredient_local_cm_ingredient_add_remote", serverID: "ingredient_server_created_remote")
+                ])
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let stepOverlay = report.drainedMutations[0].applyingOptimisticRecipeMutation(
+            to: [Self.optimisticRecipe()],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(2)
+        )
+        let ingredientOverlay = report.drainedMutations[1].applyingOptimisticRecipeMutation(
+            to: [Self.optimisticRecipe()],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(3)
+        )
+
+        #expect(report.drainedClientMutationIDs == ["cm_step_create_remote", "cm_ingredient_add_remote"])
+        #expect(await transport.requestPaths == [
+            "/api/v1/me/sync",
+            "/api/v1/recipes/recipe_lemon/steps",
+            "/api/v1/recipes/recipe_lemon/steps/step_one/ingredients"
+        ])
+        #expect(stepOverlay.first?.steps.map(\.id).contains("step_server_created_remote") == true)
+        #expect(stepOverlay.first?.steps.first(where: { $0.id == "step_server_created_remote" })?.ingredients.map(\.id) == ["ingredient_server_created_remote"])
+        #expect(ingredientOverlay.first?.steps.first?.ingredients.map(\.id).contains("ingredient_server_created_remote") == true)
+
+        let recordedStepWithoutIngredientRemap = createStep.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "step_local_cm_step_create_remote", serverID: "step_server_without_ingredient_remap")
+        ])
+        let stepWithoutIngredientRemap = recordedStepWithoutIngredientRemap.applyingOptimisticRecipeMutation(
+            to: [Self.optimisticRecipe()],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(4)
+        )
+        #expect(stepWithoutIngredientRemap.first?.steps.first(where: { $0.id == "step_server_without_ingredient_remap" })?.ingredients.map(\.id) == ["ingredient_local_cm_step_create_remote_1"])
+
+        let malformedRecipeCreate = try Self.decodedMutation(
+            type: .recipeCreate,
+            fields: [
+                "steps": [
+                    "not-a-step-object",
+                    [
+                        "ingredients": [
+                            ["name": "salt", "quantity": 1, "unit": "pinch"],
+                            ["name": "oil", "quantity": 2, "unit": "tbsp"]
+                        ]
+                    ]
+                ]
+            ]
+        )
+        let recordedMalformedRecipeCreate = malformedRecipeCreate.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "recipe_local_cm_decode", serverID: "recipe_server_decode"),
+            NativeSyncIDRemap(localID: "step_local_cm_decode_2", serverID: "step_server_decode")
+        ])
+        let malformedRecipeOverlay = recordedMalformedRecipeCreate.applyingOptimisticRecipeMutation(
+            to: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(5)
+        )
+        #expect(malformedRecipeOverlay.first?.id == "recipe_server_decode")
+        #expect(malformedRecipeOverlay.first?.steps.map(\.id) == ["step_local_cm_decode_1", "step_server_decode"])
+        #expect(malformedRecipeOverlay.first?.steps[1].ingredients.map(\.id) == [
+            "ingredient_local_cm_decode_2_1",
+            "ingredient_local_cm_decode_2_2"
+        ])
+    }
+
+    @Test("queued mutation resource id replacement targets identifier fields only")
+    func queuedMutationResourceIDReplacementTargetsIdentifierFieldsOnly() throws {
+        let stepUpdate = NativeQueuedMutation.recipeStepUpdate(
+            recipeID: "recipe_local_target",
+            stepID: "step_local_target",
+            clientMutationID: "cm_targeted_step",
+            stepTitle: nil,
+            description: "recipe_local_target remains ordinary text here",
+            duration: nil,
+            outputStepNums: [1],
+            createdAt: Self.createdAt(0)
+        )
+        let replacedStepUpdate = stepUpdate.replacingResourceIDs([
+            "recipe_local_target": "recipe_server_target",
+            "step_local_target": "step_server_target"
+        ])
+        let stepUpdateRequest = try replacedStepUpdate.requestBuilder().urlRequest(configuration: configuration)
+        let stepUpdateBody = try decodedJSONBody(from: stepUpdateRequest)
+
+        #expect(stepUpdateRequest.url.path == "/api/v1/recipes/recipe_server_target/steps/step_server_target")
+        #expect(stepUpdateBody["description"] as? String == "recipe_local_target remains ordinary text here")
+        #expect(stepUpdateBody["stepId"] == nil)
+
+        let outputUses = NativeQueuedMutation.recipeOutputUsesReplace(
+            recipeID: "recipe_local_target",
+            inputStepID: "step_local_target",
+            outputStepNums: [1, 3],
+            clientMutationID: "cm_targeted_output",
+            createdAt: Self.createdAt(1)
+        )
+        let replacedOutputUses = outputUses.replacingResourceIDs([
+            "recipe_local_target": "recipe_server_target",
+            "step_local_target": "step_server_target"
+        ])
+        let outputRequest = try replacedOutputUses.requestBuilder().urlRequest(configuration: configuration)
+        let outputBody = try decodedJSONBody(from: outputRequest)
+
+        #expect(outputRequest.url.path == "/api/v1/recipes/recipe_server_target/step-output-uses")
+        #expect(outputBody["inputStepId"] as? String == "step_server_target")
+
+        let ingredientDelete = NativeQueuedMutation.recipeIngredientDelete(
+            recipeID: "recipe_local_target",
+            stepID: "step_local_target",
+            ingredientID: "ingredient_local_target",
+            clientMutationID: "cm_targeted_ingredient",
+            createdAt: Self.createdAt(2)
+        )
+        let replacedIngredientDelete = ingredientDelete.replacingResourceIDs([
+            "recipe_local_target": "recipe_server_target",
+            "step_local_target": "step_server_target",
+            "ingredient_local_target": "ingredient_server_target"
+        ])
+        let ingredientDeleteRequest = try replacedIngredientDelete.requestBuilder().urlRequest(configuration: configuration)
+
+        #expect(ingredientDeleteRequest.url.path == "/api/v1/recipes/recipe_server_target/steps/step_server_target/ingredients/ingredient_server_target")
+
+        let captureMutation = NativeQueuedMutation.captureDraftCreate(
+            draftID: "draft_nested_source",
+            source: .text("recipe_local_target"),
+            clientMutationID: "cm_nested_source",
+            createdAt: Self.createdAt(3)
+        )
+        let replacedCapture = captureMutation.replacingResourceIDs([
+            "recipe_local_target": "recipe_server_target"
+        ])
+        let captureJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [replacedCapture])), encoding: .utf8))
+
+        #expect(captureJSON.contains("recipe_local_target"))
+        #expect(captureJSON.contains("recipe_server_target") == false)
+
+        let recipeCreate = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_nested_array",
+            title: "Nested Array",
+            description: nil,
+            servings: nil,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Prep",
+                    description: "step_local_target",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: []
+                )
+            ],
+            createdAt: Self.createdAt(4)
+        )
+        let arrayReplaced = recipeCreate.replacingResourceIDs([
+            "step_local_target": "step_server_target"
+        ])
+        let arrayJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [arrayReplaced])), encoding: .utf8))
+        let partialRecorded = recipeCreate.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "recipe_local_cm_nested_array", serverID: "recipe_server_partial")
+        ])
+        let partialOptimistic = partialRecorded.applyingOptimisticRecipeMutation(
+            to: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(5)
+        )
+        let shopping = NativeQueuedMutation.shoppingAddItem(
+            name: "recipe_local_target",
+            quantity: 2,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_default_remap",
+            createdAt: Self.createdAt(6)
+        )
+        let shoppingReplaced = shopping.replacingResourceIDs([
+            "recipe_local_target": "recipe_server_target"
+        ])
+        let shoppingJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [shoppingReplaced])), encoding: .utf8))
+
+        #expect(arrayJSON.contains("step_local_target"))
+        #expect(arrayJSON.contains("step_server_target") == false)
+        #expect(partialOptimistic.first?.id == "recipe_server_partial")
+        #expect(partialOptimistic.first?.steps.map(\.id) == ["step_local_cm_nested_array_1"])
+        #expect(shoppingJSON.contains("recipe_local_target"))
+        #expect(shoppingJSON.contains("recipe_server_target") == false)
+        #expect(shopping.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "item_local_cm_default_remap", serverID: "item_server_default")
+        ]) == shopping)
+    }
+
+    @Test("sync engine blocks local recipe dependent replay when create has not drained")
+    func syncEngineBlocksLocalRecipeDependentReplayWhenCreateHasNotDrained() async throws {
+        let create = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_create_blocked",
+            title: "Offline Pie",
+            description: nil,
+            servings: nil,
+            steps: [],
+            createdAt: Self.createdAt(0)
+        )
+        let update = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_local_cm_recipe_create_blocked",
+            clientMutationID: "cm_recipe_update_blocked",
+            title: "Offline Pie Edited",
+            description: nil,
+            servings: nil,
+            createdAt: Self.createdAt(1)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [create, update])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [.retry(afterSeconds: 5, message: "Recipe create still in progress.")]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let remainingQueue = try await store.loadQueue()
+
+        #expect(report.drainedClientMutationIDs.isEmpty)
+        #expect(report.retryAfterSeconds == 5)
+        #expect(await transport.clientMutationIDs == ["cm_recipe_create_blocked"])
+        #expect(remainingQueue.mutations.map(\.clientMutationID) == ["cm_recipe_create_blocked", "cm_recipe_update_blocked"])
+        #expect(remainingQueue.mutations[0].lastError == "Recipe create still in progress.")
+    }
+
+    @Test("sync engine rewrites remaining local ids when auth failure pauses after create success")
+    func syncEngineRewritesRemainingLocalIDsWhenAuthFailurePausesAfterCreateSuccess() async throws {
+        let create = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_create_before_auth",
+            title: "Offline Tart",
+            description: nil,
+            servings: nil,
+            steps: [],
+            createdAt: Self.createdAt(0)
+        )
+        let authFailure = NativeQueuedMutation.profileDisplayUpdate(
+            email: "ari@example.com",
+            username: "ari",
+            clientMutationID: "cm_profile_auth_after_create",
+            createdAt: Self.createdAt(1)
+        )
+        let tailUpdate = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_local_cm_recipe_create_before_auth",
+            clientMutationID: "cm_recipe_tail_after_auth",
+            title: "Offline Tart Edited",
+            description: nil,
+            servings: nil,
+            createdAt: Self.createdAt(2)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [create, authFailure, tailUpdate])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: nil, idRemaps: [
+                    NativeSyncIDRemap(localID: "recipe_local_cm_recipe_create_before_auth", serverID: "recipe_server_before_auth")
+                ]),
+                .authFailure(message: "Session expired.")
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let remainingQueue = try await store.loadQueue()
+        let tailRequest = try remainingQueue.mutations[1].requestBuilder().urlRequest(configuration: configuration)
+
+        #expect(report.drainedClientMutationIDs == ["cm_recipe_create_before_auth"])
+        #expect(report.pausedReason == .authRequired("Session expired."))
+        #expect(await transport.clientMutationIDs == ["cm_recipe_create_before_auth", "cm_profile_auth_after_create"])
+        #expect(remainingQueue.mutations.map(\.clientMutationID) == ["cm_profile_auth_after_create", "cm_recipe_tail_after_auth"])
+        #expect(tailRequest.url.path == "/api/v1/recipes/recipe_server_before_auth")
+    }
+
     @Test("sync engine pauses on auth failure classifies conflicts and retains the blocked queue")
     func syncEnginePausesOnAuthFailureClassifiesConflictsAndRetainsTheBlockedQueue() async throws {
         let queue = try NativeMutationQueue(
@@ -1688,6 +2206,388 @@ struct NativeSyncEngineTests {
         #expect(await store.tombstones.entries == [tombstone])
     }
 
+    @Test("optimistic recipe mutations cover every recipe branch and malformed payload fallback")
+    func optimisticRecipeMutationsCoverEveryRecipeBranchAndMalformedPayloadFallback() throws {
+        let chef = ChefSummary(id: "chef_ari", username: "ari")
+        let recipe = Self.optimisticRecipe()
+        let otherRecipe = Self.optimisticRecipe(id: "recipe_other", title: "Other Recipe")
+        let now = "2026-06-16T10:30:00.000Z"
+
+        let update = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_update_optimistic",
+            title: "Updated Lemon Pasta",
+            description: nil,
+            servings: "6",
+            createdAt: Self.createdAt(1)
+        )
+        let updated = update.applyingOptimisticRecipeMutation(to: [otherRecipe, recipe], fallbackChef: chef, now: now)
+        #expect(updated.map(\.id) == ["recipe_other", "recipe_lemon"])
+        #expect(updated[0] == otherRecipe)
+        #expect(updated[1].title == "Updated Lemon Pasta")
+        #expect(updated[1].description == nil)
+        #expect(updated[1].servings == "6")
+        #expect(updated[1].updatedAt == now)
+
+        let deleted = NativeQueuedMutation.recipeDelete(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_delete_optimistic",
+            createdAt: Self.createdAt(2)
+        )
+        .applyingOptimisticRecipeMutation(to: updated, fallbackChef: chef, now: now)
+        #expect(deleted.map(\.id) == ["recipe_other"])
+
+        let created = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_create_optimistic",
+            title: "Queued Toast",
+            description: "Buttery.",
+            servings: "2",
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Toast",
+                    description: "Toast bread.",
+                    duration: 120,
+                    ingredients: [RecipeIngredientDraft(quantity: 2, unit: "slice", name: "bread")],
+                    outputStepNums: []
+                )
+            ],
+            createdAt: Self.createdAt(3)
+        )
+        let createdRecipes = created.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)
+        #expect(created.recipeID == nil)
+        #expect(created.optimisticRecipeID == "recipe_local_cm_create_optimistic")
+        #expect(createdRecipes.map(\.title) == ["Lemon Pasta", "Queued Toast"])
+        #expect(createdRecipes[1].steps[0].ingredients.map(\.id) == ["ingredient_local_cm_create_optimistic_1_1"])
+        #expect(created.applyingOptimisticRecipeMutation(to: createdRecipes, fallbackChef: chef, now: now).count == 2)
+
+        let stepCreated = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_step_create_optimistic",
+            stepNum: 3,
+            stepTitle: "Serve",
+            description: "Serve with basil.",
+            duration: nil,
+            ingredients: [RecipeIngredientDraft(quantity: 3, unit: "leaf", name: "basil")],
+            outputStepNums: [1],
+            createdAt: Self.createdAt(4)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)
+        #expect(stepCreated[0].steps.map(\.id).contains("step_local_cm_step_create_optimistic"))
+        #expect(stepCreated[0].steps[2].usingSteps.map(\.outputStepNum) == [1])
+
+        let middleStepCreated = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_step_create_middle_optimistic",
+            stepNum: 2,
+            stepTitle: "Bloom",
+            description: "Bloom garlic.",
+            duration: nil,
+            ingredients: [],
+            outputStepNums: [1],
+            createdAt: Self.createdAt(4)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(middleStepCreated.steps.map(\.id) == ["step_one", "step_local_cm_step_create_middle_optimistic", "step_two"])
+        #expect(middleStepCreated.steps.map(\.stepNum) == [1, 2, 3])
+        #expect(middleStepCreated.steps[1].usingSteps.map(\.outputStepNum) == [1])
+        #expect(middleStepCreated.steps[2].usingSteps.map(\.outputStepNum) == [1])
+
+        let stepUpdated = NativeQueuedMutation.recipeStepUpdate(
+            recipeID: "recipe_lemon",
+            stepID: "step_two",
+            clientMutationID: "cm_step_update_optimistic",
+            stepTitle: nil,
+            description: "Toss until glossy.",
+            duration: nil,
+            outputStepNums: [1],
+            createdAt: Self.createdAt(5)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(stepUpdated.steps.map(\.description) == ["Boil pasta.", "Toss until glossy."])
+        #expect(stepUpdated.steps[1].stepTitle == nil)
+        #expect(stepUpdated.steps[1].duration == nil)
+        #expect(stepUpdated.steps[1].usingSteps.map(\.outputOfStep.stepTitle) == ["Boil"])
+
+        let stepDeleted = NativeQueuedMutation.recipeStepDelete(
+            recipeID: "recipe_lemon",
+            stepID: "step_one",
+            clientMutationID: "cm_step_delete_optimistic",
+            createdAt: Self.createdAt(6)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(stepDeleted.steps.map(\.id) == ["step_two"])
+        #expect(stepDeleted.steps.map(\.stepNum) == [1])
+        #expect(stepDeleted.steps[0].usingSteps.isEmpty)
+
+        let reordered = NativeQueuedMutation.recipeStepReorder(
+            recipeID: "recipe_lemon",
+            stepID: "step_two",
+            toStepNum: 1,
+            clientMutationID: "cm_step_reorder_optimistic",
+            createdAt: Self.createdAt(7)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(reordered.steps.map(\.id) == ["step_two", "step_one"])
+        #expect(reordered.steps.map(\.stepNum) == [1, 2])
+        #expect(reordered.steps[0].usingSteps.isEmpty)
+
+        let unknownReorder = NativeQueuedMutation.recipeStepReorder(
+            recipeID: "recipe_lemon",
+            stepID: "step_missing",
+            toStepNum: 1,
+            clientMutationID: "cm_step_reorder_missing",
+            createdAt: Self.createdAt(7)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(unknownReorder.steps == recipe.steps)
+
+        let duplicateStepNumRecipe = Self.optimisticRecipe(steps: [
+            RecipeStep(id: "step_b", stepNum: 1, stepTitle: "B", description: "B.", duration: nil, ingredients: []),
+            RecipeStep(id: "step_a", stepNum: 1, stepTitle: "A", description: "A.", duration: nil, ingredients: []),
+            RecipeStep(
+                id: "step_c",
+                stepNum: 2,
+                stepTitle: "C",
+                description: "C.",
+                duration: nil,
+                ingredients: [],
+                usingSteps: [
+                    RecipeStepOutputUse(
+                        id: "use_duplicate",
+                        inputStepNum: 2,
+                        outputStepNum: 1,
+                        outputOfStep: RecipeStepOutputReference(stepNum: 1, stepTitle: "B")
+                    )
+                ]
+            )
+        ])
+        let duplicateSorted = NativeQueuedMutation.recipeStepReorder(
+            recipeID: "recipe_lemon",
+            stepID: "step_c",
+            toStepNum: 2,
+            clientMutationID: "cm_duplicate_sort",
+            createdAt: Self.createdAt(7)
+        )
+        .applyingOptimisticRecipeMutation(to: [duplicateStepNumRecipe], fallbackChef: chef, now: now)[0]
+        #expect(duplicateSorted.steps.map(\.id) == ["step_a", "step_c", "step_b"])
+
+        let futureOutputFiltered = NativeQueuedMutation.recipeStepUpdate(
+            recipeID: "recipe_lemon",
+            stepID: "step_two",
+            clientMutationID: "cm_future_output",
+            stepTitle: "Finish",
+            description: "Finish.",
+            duration: nil,
+            outputStepNums: [1, 1, 2, 3],
+            createdAt: Self.createdAt(7)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(futureOutputFiltered.steps[1].usingSteps.map(\.outputStepNum) == [1])
+
+        let ingredientAdded = try NativeQueuedMutation.recipeIngredientAdd(
+            recipeID: "recipe_lemon",
+            stepID: "step_two",
+            clientMutationID: "cm_ingredient_add_optimistic",
+            quantity: 2,
+            unit: "tbsp",
+            name: "parmesan",
+            createdAt: Self.createdAt(8)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(ingredientAdded.steps[0].ingredients.map(\.name) == ["water"])
+        #expect(ingredientAdded.steps[1].ingredients.map(\.name) == ["lemon", "parmesan"])
+
+        let ingredientDeleted = NativeQueuedMutation.recipeIngredientDelete(
+            recipeID: "recipe_lemon",
+            stepID: "step_two",
+            ingredientID: "ingredient_lemon",
+            clientMutationID: "cm_ingredient_delete_optimistic",
+            createdAt: Self.createdAt(9)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(ingredientDeleted.steps[1].ingredients.isEmpty)
+
+        let outputReplaced = NativeQueuedMutation.recipeOutputUsesReplace(
+            recipeID: "recipe_lemon",
+            inputStepID: "step_two",
+            outputStepNums: [1],
+            clientMutationID: "cm_output_optimistic",
+            createdAt: Self.createdAt(10)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(outputReplaced.steps[1].usingSteps.map(\.outputOfStep.stepTitle) == ["Boil"])
+
+        let stepUpdateMinimal = try Self.decodedMutation(
+            type: .recipeStepUpdate,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "stepId": "step_two"
+            ]
+        )
+        .applyingOptimisticRecipeMutation(to: [otherRecipe, recipe], fallbackChef: chef, now: now)
+        #expect(stepUpdateMinimal.map(\.id) == ["recipe_other", "recipe_lemon"])
+        #expect(stepUpdateMinimal[0] == otherRecipe)
+        #expect(stepUpdateMinimal[1].steps[1].description == "Toss with lemon.")
+
+        let stepCreateMinimal = try Self.decodedMutation(
+            type: .recipeStepCreate,
+            fields: ["recipeId": "recipe_lemon"]
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        let fallbackStep = try #require(stepCreateMinimal.steps.first { $0.id == "step_local_cm_decode" })
+        #expect(fallbackStep.stepNum == 1)
+        #expect(fallbackStep.description == "")
+        #expect(fallbackStep.ingredients.isEmpty)
+
+        let malformedStepCreate = try Self.decodedMutation(
+            type: .recipeStepCreate,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "ingredients": [
+                    "bad-ingredient",
+                    [
+                        "name": 10,
+                        "quantity": "many",
+                        "unit": NSNull()
+                    ]
+                ]
+            ]
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        let malformedStep = try #require(malformedStepCreate.steps.first { $0.id == "step_local_cm_decode" })
+        #expect(malformedStep.ingredients.map(\.id) == ["ingredient_local_cm_decode_1", "ingredient_local_cm_decode_2"])
+        #expect(malformedStep.ingredients.map(\.name) == ["", ""])
+        #expect(malformedStep.ingredients.map(\.quantity) == [1, 1])
+
+        let ingredientAddMinimal = try Self.decodedMutation(
+            type: .recipeIngredientAdd,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "stepId": "step_two"
+            ]
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(ingredientAddMinimal.steps[1].ingredients.last?.name == "")
+        #expect(ingredientAddMinimal.steps[1].ingredients.last?.quantity == 1)
+
+        let missingRecipeID = try Self.decodedMutation(
+            type: .recipeStepCreate,
+            fields: ["stepNum": 2]
+        )
+        #expect(missingRecipeID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
+
+        let missingDeleteID = try Self.decodedMutation(
+            type: .recipeDelete,
+            fields: [:]
+        )
+        #expect(missingDeleteID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
+
+        let missingStepDeleteID = try Self.decodedMutation(
+            type: .recipeStepDelete,
+            fields: ["recipeId": "recipe_lemon"]
+        )
+        #expect(missingStepDeleteID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0].steps == recipe.steps)
+
+        let missingReorderTarget = try Self.decodedMutation(
+            type: .recipeStepReorder,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "stepId": "step_two"
+            ]
+        )
+        #expect(missingReorderTarget.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0].steps == recipe.steps)
+
+        let missingIngredientStep = try Self.decodedMutation(
+            type: .recipeIngredientAdd,
+            fields: ["recipeId": "recipe_lemon"]
+        )
+        #expect(missingIngredientStep.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0].steps == recipe.steps)
+
+        let missingIngredientID = try Self.decodedMutation(
+            type: .recipeIngredientDelete,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "stepId": "step_two"
+            ]
+        )
+        #expect(missingIngredientID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0].steps == recipe.steps)
+
+        let missingOutputInput = try Self.decodedMutation(
+            type: .recipeOutputUsesReplace,
+            fields: ["recipeId": "recipe_lemon"]
+        )
+        #expect(missingOutputInput.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0].steps == recipe.steps)
+
+        let malformedUpdate = try Self.decodedMutation(
+            type: .recipeUpdate,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "title": 42,
+                "description": 42,
+                "servings": 42
+            ]
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        #expect(malformedUpdate.title == "Lemon Pasta")
+
+        let createWithoutSteps = try Self.decodedMutation(
+            type: .recipeCreate,
+            fields: [:]
+        )
+        .applyingOptimisticRecipeMutation(to: [], fallbackChef: chef, now: now)[0]
+        #expect(createWithoutSteps.title == "Untitled Recipe")
+        #expect(createWithoutSteps.steps.isEmpty)
+
+        let malformedCreate = try Self.decodedMutation(
+            type: .recipeCreate,
+            fields: [
+                "description": NSNull(),
+                "servings": NSNull(),
+                "steps": [
+                    "bad-step",
+                    [
+                        "stepNum": 2.5,
+                        "stepTitle": NSNull(),
+                        "description": 42,
+                        "duration": 1.5,
+                        "ingredients": [
+                            "bad-ingredient",
+                            [
+                                "name": 10,
+                                "quantity": "a lot",
+                                "unit": NSNull()
+                            ]
+                        ],
+                        "outputStepNums": [1, 1.5, "bad"]
+                    ]
+                ]
+            ]
+        )
+        let malformedRecipe = try #require(malformedCreate.applyingOptimisticRecipeMutation(to: [], fallbackChef: chef, now: now).first)
+        #expect(malformedRecipe.title == "Untitled Recipe")
+        #expect(malformedRecipe.description == nil)
+        #expect(malformedRecipe.servings == nil)
+        #expect(malformedRecipe.steps.map(\.stepNum) == [1, 2])
+        #expect(malformedRecipe.steps.map(\.description) == ["", ""])
+        #expect(malformedRecipe.steps[0].ingredients.isEmpty)
+        #expect(malformedRecipe.steps[1].ingredients.map(\.name) == ["", ""])
+        #expect(malformedRecipe.steps[1].ingredients.map(\.quantity) == [1, 1])
+        #expect(malformedRecipe.steps[1].ingredients.map(\.unit) == [nil, nil])
+        #expect(malformedRecipe.steps[1].usingSteps.map(\.outputStepNum) == [1])
+
+        let unrelated = NativeQueuedMutation.shoppingAddItem(
+            name: "lemons",
+            quantity: nil,
+            unit: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_unrelated",
+            createdAt: Self.createdAt(11)
+        )
+        #expect(unrelated.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
+    }
+
     private static func representativeMutations() throws -> [NativeQueuedMutation] {
         let recipe: [NativeQueuedMutation] = [
             try .recipeCreate(clientMutationID: "cm_recipe_create", title: "Lemon Pasta", description: "Bright", servings: "4", steps: [], createdAt: createdAt(0)),
@@ -1758,6 +2658,82 @@ struct NativeSyncEngineTests {
 
     private static func createdAt(_ offset: Int) -> String {
         String(format: "2026-06-16T09:%02d:00.000Z", offset)
+    }
+
+    private static func decodedMutation(type: NativeQueuedMutationKind, fields: [String: Any]) throws -> NativeQueuedMutation {
+        try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: queuedMutationJSON(schemaVersion: 1, type: type.rawValue, fields: fields)
+        )
+    }
+
+    private static func jsonValue<T: Encodable>(_ value: T) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
+    }
+
+    private static func recipe(from payload: JSONValue) throws -> Recipe {
+        try JSONDecoder().decode(Recipe.self, from: JSONEncoder().encode(payload))
+    }
+
+    private static func optimisticRecipe(
+        id: String = "recipe_lemon",
+        title: String = "Lemon Pasta",
+        steps: [RecipeStep]? = nil
+    ) -> Recipe {
+        let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
+        return Recipe(
+            id: id,
+            title: title,
+            description: "Bright.",
+            servings: "4",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            coverImageURL: nil,
+            coverProvenanceLabel: nil,
+            coverSourceType: nil,
+            coverVariant: nil,
+            href: "/recipes/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: RecipeAttribution(
+                creditText: "\(title) by ari on Spoonjoy",
+                canonicalURL: canonicalURL,
+                sourceURLRaw: nil,
+                sourceHost: nil,
+                sourceRecipe: nil
+            ),
+            createdAt: createdAt(0),
+            updatedAt: createdAt(1),
+            steps: steps ?? [
+                RecipeStep(
+                    id: "step_one",
+                    stepNum: 1,
+                    stepTitle: "Boil",
+                    description: "Boil pasta.",
+                    duration: 600,
+                    ingredients: [
+                        RecipeIngredient(id: "ingredient_water", name: "water", quantity: 1, unit: "pot")
+                    ]
+                ),
+                RecipeStep(
+                    id: "step_two",
+                    stepNum: 2,
+                    stepTitle: "Finish",
+                    description: "Toss with lemon.",
+                    duration: 180,
+                    ingredients: [
+                        RecipeIngredient(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: "each")
+                    ],
+                    usingSteps: [
+                        RecipeStepOutputUse(
+                            id: "use_step_one",
+                            inputStepNum: 2,
+                            outputStepNum: 1,
+                            outputOfStep: RecipeStepOutputReference(stepNum: 1, stepTitle: "Boil")
+                        )
+                    ]
+                )
+            ],
+            cookbooks: []
+        )
     }
 
     private static func stagedMedia(_ id: String, fileName: String, contentType: String) -> NativeStagedMediaUpload {

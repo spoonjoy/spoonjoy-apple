@@ -30,6 +30,7 @@ struct RecipeEditorParityTests {
         #expect(editor.ownerTools.map(\.id) == ["save", "delete"])
         #expect(editor.deleteConfirmationTitle == "Delete Lemon Pantry Pasta?")
         #expect(editor.offlineIndicator.display == .synced)
+        #expect(editor.conflictBanner == nil)
 
         let nonOwner = RecipeEditorViewModel(
             mode: .edit(recipe: recipe, currentChefID: "chef_jules"),
@@ -39,6 +40,15 @@ struct RecipeEditorParityTests {
         #expect(!nonOwner.isOwner)
         #expect(nonOwner.ownerTools.isEmpty)
         #expect(nonOwner.blockingMessage == "Only ari can edit this recipe.")
+
+        var orphanedCreateDraft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
+        orphanedCreateDraft.currentChefID = "chef_jules"
+        let orphanedCreate = RecipeEditorViewModel(
+            mode: .create(currentChefID: "chef_ari", draft: RecipeEditorDraft.blank(currentChefID: "chef_ari")),
+            connectivity: .online,
+            now: Self.now
+        ).updatingDraft(orphanedCreateDraft)
+        #expect(orphanedCreate.blockingMessage == "Only the recipe owner can edit this recipe.")
 
         let blockedActions: [RecipeEditorAction] = [
             .save(clientMutationID: "cm_non_owner"),
@@ -83,6 +93,7 @@ struct RecipeEditorParityTests {
             #expect(plan.blockedReason == "Only ari can edit this recipe.")
             #expect(plan.remoteRequestBuilder == nil)
             #expect(plan.queuedMutation == nil)
+            #expect(plan.offlineFallbackMutation == nil)
         }
     }
 
@@ -113,14 +124,252 @@ struct RecipeEditorParityTests {
                     "quantity": 2,
                     "unit": "slice",
                     "name": "bread"
-                ]]
+                ]],
+                "outputStepNums": []
+            ], [
+                "stepTitle": "Serve toast",
+                "description": "Plate toast with butter.",
+                "duration": NSNull(),
+                "ingredients": [],
+                "outputStepNums": [1]
             ]]
         ])
         #expect(create.queuedMutation == nil)
+        #expect(create.offlineFallbackMutation?.queueableKind == .recipeCreate)
     }
 
-    @Test("draft validation blocks empty titles missing steps missing units and unsafe dependencies")
-    func draftValidationBlocksEmptyTitlesMissingStepsMissingUnitsAndUnsafeDependencies() throws {
+    @Test("draft change planner emits nested recipe editor actions without dropping visible form edits")
+    func draftChangePlannerEmitsNestedRecipeEditorActionsWithoutDroppingVisibleFormEdits() throws {
+        let original = RecipeEditorDraft(recipe: recipeEditorRecipe(), currentChefID: "chef_ari")
+        var draft = original
+        draft.title = "Lemon Pantry Pasta, edited"
+        draft.description = "A brighter weeknight pasta."
+        draft.steps = [
+            RecipeEditorStepDraft(
+                id: "step_finish",
+                stepNum: 1,
+                title: "Finish pasta",
+                description: "Toss pasta with lemon, garlic, and parmesan.",
+                duration: 240,
+                ingredients: [
+                    RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon juice", quantity: 2, unit: "tbsp"),
+                    RecipeEditorIngredientDraft(id: "local_parmesan", name: "parmesan", quantity: 0.5, unit: "cup")
+                ],
+                outputStepNums: []
+            ),
+            RecipeEditorStepDraft(
+                id: "step_boil",
+                stepNum: 2,
+                title: "Boil pasta",
+                description: "Boil spaghetti until al dente.",
+                duration: 600,
+                ingredients: [],
+                outputStepNums: []
+            ),
+            RecipeEditorStepDraft(
+                id: "local_step_serve",
+                stepNum: 3,
+                title: "Serve",
+                description: "Serve hot.",
+                duration: nil,
+                ingredients: [
+                    RecipeEditorIngredientDraft(id: "local_basil", name: "basil", quantity: 3, unit: "leaf")
+                ],
+                outputStepNums: []
+            )
+        ]
+
+        let actions = RecipeEditorDraftChangePlanner.actions(
+            original: original,
+            draft: draft,
+            clientMutationID: { "cm_\($0)" }
+        )
+
+        #expect(actions == [
+            .save(clientMutationID: "cm_recipe-save"),
+            .deleteIngredient(
+                stepID: "step_boil",
+                ingredientID: "ingredient_spaghetti",
+                clientMutationID: "cm_delete-ingredient-ingredient_spaghetti",
+                confirmation: .confirmed
+            ),
+            .reorderStep(
+                stepID: "step_finish",
+                toStepNum: 1,
+                clientMutationID: "cm_reorder-step-step_finish-1"
+            ),
+            .updateStep(
+                stepID: "step_finish",
+                clientMutationID: "cm_update-step-step_finish",
+                title: "Finish pasta",
+                description: "Toss pasta with lemon, garlic, and parmesan.",
+                duration: 240,
+                outputStepNums: []
+            ),
+            .deleteIngredient(
+                stepID: "step_finish",
+                ingredientID: "ingredient_lemon",
+                clientMutationID: "cm_replace-delete-ingredient-ingredient_lemon",
+                confirmation: .confirmed
+            ),
+            .addIngredient(
+                stepID: "step_finish",
+                clientMutationID: "cm_replace-add-ingredient-step_finish-ingredient_lemon",
+                ingredient: RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon juice", quantity: 2, unit: "tbsp")
+            ),
+            .addIngredient(
+                stepID: "step_finish",
+                clientMutationID: "cm_add-ingredient-step_finish-local_parmesan",
+                ingredient: RecipeEditorIngredientDraft(id: "local_parmesan", name: "parmesan", quantity: 0.5, unit: "cup")
+            ),
+            .reorderStep(
+                stepID: "step_boil",
+                toStepNum: 2,
+                clientMutationID: "cm_reorder-step-step_boil-2"
+            ),
+            .createStep(
+                clientMutationID: "cm_create-step-local_step_serve",
+                step: RecipeEditorStepDraft(
+                    id: "local_step_serve",
+                    stepNum: 3,
+                    title: "Serve",
+                    description: "Serve hot.",
+                    duration: nil,
+                    ingredients: [
+                        RecipeEditorIngredientDraft(id: "local_basil", name: "basil", quantity: 3, unit: "leaf")
+                    ],
+                    outputStepNums: []
+                )
+            )
+        ])
+
+        let createOnlyActions = RecipeEditorDraftChangePlanner.actions(
+            original: RecipeEditorDraft.blank(currentChefID: "chef_ari"),
+            draft: recipeCreateDraft(),
+            clientMutationID: { "cm_\($0)" }
+        )
+        #expect(createOnlyActions == [.save(clientMutationID: "cm_recipe-save")])
+
+        var deletedStepDraft = original
+        deletedStepDraft.steps.removeAll { $0.id == "step_boil" }
+        let deletedStepActions = RecipeEditorDraftChangePlanner.actions(
+            original: original,
+            draft: deletedStepDraft,
+            clientMutationID: { "cm_\($0)" }
+        )
+        #expect(deletedStepActions.contains(.deleteStep(
+            stepID: "step_boil",
+            clientMutationID: "cm_delete-step-step_boil",
+            confirmation: .confirmed
+        )))
+        #expect(!deletedStepActions.contains(.deleteIngredient(
+            stepID: "step_boil",
+            ingredientID: "ingredient_spaghetti",
+            clientMutationID: "cm_delete-ingredient-ingredient_spaghetti",
+            confirmation: .confirmed
+        )))
+
+        var invalidReplacementDraft = original
+        invalidReplacementDraft.steps[1].ingredients[0].name = " "
+        invalidReplacementDraft.steps[1].ingredients[0].quantity = 0
+        let invalidReplacementActions = RecipeEditorDraftChangePlanner.actions(
+            original: original,
+            draft: invalidReplacementDraft,
+            clientMutationID: { "cm_\($0)" }
+        )
+        #expect(invalidReplacementActions.first == .save(clientMutationID: "cm_recipe-save"))
+        let invalidReplacementAddIndex = try #require(invalidReplacementActions.firstIndex(of: .addIngredient(
+            stepID: "step_finish",
+            clientMutationID: "cm_replace-add-ingredient-step_finish-ingredient_lemon",
+            ingredient: RecipeEditorIngredientDraft(id: "ingredient_lemon", name: " ", quantity: 0, unit: "each")
+        )))
+        let invalidReplacementDeleteIndex = try #require(invalidReplacementActions.firstIndex(of: .deleteIngredient(
+            stepID: "step_finish",
+            ingredientID: "ingredient_lemon",
+            clientMutationID: "cm_replace-delete-ingredient-ingredient_lemon",
+            confirmation: .confirmed
+        )))
+        #expect(invalidReplacementDeleteIndex < invalidReplacementAddIndex)
+        let invalidReplacementEditor = RecipeEditorViewModel(
+            mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+            connectivity: .online,
+            now: Self.now
+        )
+        .updatingDraft(invalidReplacementDraft)
+        #expect(try invalidReplacementEditor.plan(.save(clientMutationID: "cm_recipe-save")).blockedReason == "Name every ingredient.")
+    }
+
+    @Test("draft renumbering preserves output dependency identity across reorders")
+    func draftRenumberingPreservesOutputDependencyIdentityAcrossReorders() {
+        var draft = RecipeEditorDraft(
+            recipeID: "recipe_layers",
+            currentChefID: "chef_ari",
+            title: "Layered Toast",
+            description: nil,
+            servings: nil,
+            steps: [
+                RecipeEditorStepDraft(id: "step_a", stepNum: 1, title: "A", description: "Make A.", duration: nil, ingredients: [], outputStepNums: []),
+                RecipeEditorStepDraft(id: "step_b", stepNum: 2, title: "B", description: "Make B.", duration: nil, ingredients: [], outputStepNums: [1]),
+                RecipeEditorStepDraft(id: "step_c", stepNum: 3, title: "C", description: "Make C.", duration: nil, ingredients: [], outputStepNums: [])
+            ]
+        )
+
+        draft.steps = [draft.steps[2], draft.steps[0], draft.steps[1]]
+        draft.renumberStepsPreservingOutputIdentities()
+
+        #expect(draft.steps.map(\.id) == ["step_c", "step_a", "step_b"])
+        #expect(draft.steps.map(\.stepNum) == [1, 2, 3])
+        #expect(draft.steps[2].outputStepNums == [2])
+
+        draft.steps = [draft.steps[2], draft.steps[0], draft.steps[1]]
+        draft.renumberStepsPreservingOutputIdentities()
+        #expect(draft.steps.map(\.id) == ["step_b", "step_c", "step_a"])
+        #expect(draft.steps[0].outputStepNums.isEmpty)
+
+        draft.steps[1].outputStepNums = [99]
+        draft.renumberStepsPreservingOutputIdentities()
+        #expect(draft.steps[1].outputStepNums.isEmpty)
+    }
+
+    @Test("recipe editor actions expose their client mutation id")
+    func recipeEditorActionsExposeTheirClientMutationID() {
+        let step = RecipeEditorStepDraft(
+            id: "local_step",
+            stepNum: 1,
+            title: "Serve",
+            description: "Serve warm.",
+            duration: nil,
+            ingredients: [],
+            outputStepNums: []
+        )
+        let ingredient = RecipeEditorIngredientDraft(id: "local_ingredient", name: "basil", quantity: 3, unit: "leaf")
+        let actions: [RecipeEditorAction] = [
+            .save(clientMutationID: "cm_save"),
+            .createStep(clientMutationID: "cm_create_step", step: step),
+            .updateStep(stepID: "step_one", clientMutationID: "cm_update_step", title: nil, description: "Stir.", duration: nil, outputStepNums: []),
+            .deleteStep(stepID: "step_one", clientMutationID: "cm_delete_step", confirmation: .confirmed),
+            .reorderStep(stepID: "step_one", toStepNum: 2, clientMutationID: "cm_reorder_step"),
+            .addIngredient(stepID: "step_one", clientMutationID: "cm_add_ingredient", ingredient: ingredient),
+            .deleteIngredient(stepID: "step_one", ingredientID: "ingredient_one", clientMutationID: "cm_delete_ingredient", confirmation: .confirmed),
+            .replaceOutputUses(inputStepID: "step_two", outputStepNums: [1], clientMutationID: "cm_replace_output"),
+            .deleteRecipe(clientMutationID: "cm_delete_recipe", confirmation: .confirmed)
+        ]
+
+        #expect(actions.map(\.clientMutationID) == [
+            "cm_save",
+            "cm_create_step",
+            "cm_update_step",
+            "cm_delete_step",
+            "cm_reorder_step",
+            "cm_add_ingredient",
+            "cm_delete_ingredient",
+            "cm_replace_output",
+            "cm_delete_recipe"
+        ])
+    }
+
+    @Test("draft validation blocks empty titles missing steps invalid ingredients and unsafe dependencies")
+    func draftValidationBlocksEmptyTitlesMissingStepsInvalidIngredientsAndUnsafeDependencies() throws {
         var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
         draft.title = " \n "
         draft.steps = []
@@ -135,19 +384,114 @@ struct RecipeEditorParityTests {
                 id: "step_finish",
                 stepNum: 1,
                 title: "Finish",
-                description: "Toss everything together.",
+                description: " ",
                 duration: nil,
                 ingredients: [
-                    RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: nil)
+                    RecipeEditorIngredientDraft(id: "ingredient_lemon", name: " ", quantity: 0, unit: nil)
                 ],
                 outputStepNums: [2]
             )
         ]
 
         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
-            "Choose a unit for lemon.",
+            "Describe every step.",
+            "Choose a unit for ingredient.",
+            "Name every ingredient.",
+            "Use a quantity between 0.001 and 99,999 for ingredient.",
             "Step 1 cannot use output from future step 2."
         ])
+
+        draft.steps[0].ingredients = [
+            RecipeEditorIngredientDraft(id: "ingredient_too_small", name: "salt", quantity: 0.0009, unit: "tsp"),
+            RecipeEditorIngredientDraft(id: "ingredient_too_big", name: "flour", quantity: 100_000, unit: "g"),
+            RecipeEditorIngredientDraft(id: "ingredient_invalid", name: "water", quantity: .infinity, unit: "ml")
+        ]
+        draft.steps[0].description = "Mix."
+        draft.steps[0].outputStepNums = []
+        #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
+            "Use a quantity between 0.001 and 99,999 for salt.",
+            "Use a quantity between 0.001 and 99,999 for flour.",
+            "Use a valid quantity for water."
+        ])
+    }
+
+    @Test("edge states block unsafe editor actions and expose queued recipe work")
+    func edgeStatesBlockUnsafeEditorActionsAndExposeQueuedRecipeWork() throws {
+        let recipe = recipeEditorRecipe()
+        let shoppingMutation = NativeQueuedMutation.shoppingAddItem(
+            name: "lemons",
+            quantity: 2,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_shopping",
+            createdAt: Self.now()
+        )
+        let recipeMutation = NativeQueuedMutation.recipeUpdate(
+            recipeID: recipe.id,
+            clientMutationID: "cm_existing_recipe",
+            title: recipe.title,
+            description: recipe.description,
+            servings: recipe.servings,
+            createdAt: Self.now()
+        )
+        let queuedEditor = RecipeEditorViewModel(
+            mode: .edit(recipe: recipe, currentChefID: "chef_ari"),
+            connectivity: .online,
+            queuedRecipeMutations: [shoppingMutation, recipeMutation],
+            now: Self.now
+        )
+
+        #expect(queuedEditor.offlineIndicator.display == .queuedWork(count: 1, oldestClientMutationID: "cm_existing_recipe"))
+
+        let editor = RecipeEditorViewModel(
+            mode: .edit(recipe: recipe, currentChefID: "chef_ari"),
+            connectivity: .online,
+            now: Self.now
+        )
+        #expect(try editor.plan(.deleteStep(
+            stepID: "step_boil",
+            clientMutationID: "cm_step_delete_blocked",
+            confirmation: .notConfirmed
+        )).blockedReason == "Confirm before deleting this step.")
+        #expect(try editor.plan(.deleteIngredient(
+            stepID: "step_finish",
+            ingredientID: "ingredient_lemon",
+            clientMutationID: "cm_ingredient_delete_blocked",
+            confirmation: .notConfirmed
+        )).blockedReason == "Confirm before deleting this ingredient.")
+
+        var invalidDraft = recipeCreateDraft()
+        invalidDraft.title = " "
+        let invalidEditor = RecipeEditorViewModel(
+            mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+            connectivity: .online,
+            now: Self.now
+        )
+        .updatingDraft(invalidDraft)
+
+        #expect(!invalidEditor.canSubmit)
+        #expect(try invalidEditor.plan(.save(clientMutationID: "cm_invalid_save")).blockedReason == "Add a recipe title.")
+
+        let createEditor = RecipeEditorViewModel(
+            mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+            connectivity: .online,
+            now: Self.now
+        )
+        #expect(throws: RecipeEditorPlanningError.missingRecipeID) {
+            try createEditor.plan(.createStep(
+                clientMutationID: "cm_missing_recipe_step",
+                step: RecipeEditorStepDraft(
+                    id: "local_missing_recipe_step",
+                    stepNum: 2,
+                    title: "Serve",
+                    description: "Serve warm.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: []
+                )
+            ))
+        }
     }
 
     @Test("online editor plans exact REST requests for recipe step ingredient and dependency edits")
@@ -168,7 +512,9 @@ struct RecipeEditorParityTests {
                 title: "Serve",
                 description: "Serve hot.",
                 duration: nil,
-                ingredients: [],
+                ingredients: [
+                    RecipeEditorIngredientDraft(id: "local_basil", name: "basil", quantity: 3, unit: "leaf")
+                ],
                 outputStepNums: [2]
             )
         ))
@@ -226,7 +572,11 @@ struct RecipeEditorParityTests {
             "stepTitle": "Serve",
             "description": "Serve hot.",
             "duration": NSNull(),
-            "ingredients": [],
+            "ingredients": [[
+                "quantity": 3,
+                "unit": "leaf",
+                "name": "basil"
+            ]],
             "outputStepNums": [2]
         ])
         try assertJSONRequest(try remoteRequest(from: updateStep), method: .patch, path: "/api/v1/recipes/recipe_lemon_pantry_pasta/steps/step_finish", expected: [
@@ -266,6 +616,10 @@ struct RecipeEditorParityTests {
         #expect(save.queuedMutation == nil)
         #expect(deleteRecipe.queuedMutation == nil)
         #expect(createStep.queuedMutation == nil)
+        #expect(save.offlineFallbackMutation?.queueableKind == .recipeUpdate)
+        #expect(save.offlineFallbackMutation?.recipeID == "recipe_lemon_pantry_pasta")
+        #expect(deleteRecipe.offlineFallbackMutation?.queueableKind == .recipeDelete)
+        #expect(createStep.offlineFallbackMutation?.queueableKind == .recipeStepCreate)
         #expect(addIngredient.successRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
     }
 
@@ -403,8 +757,81 @@ struct RecipeEditorParityTests {
         #expect(editor.conflictBanner?.title == "Recipe changed elsewhere")
         #expect(editor.conflictBanner?.message == "This recipe changed on another device.")
         #expect(editor.conflictBanner?.primaryAction == .reviewServerVersion)
-        #expect(editor.conflictBanner?.secondaryAction == .keepLocalDraft)
+        #expect(editor.conflictBanner?.secondaryAction == .discardLocalChange)
+        #expect(editor.conflictBanner?.discardActionTitle == "Discard Local Edit")
         #expect(try editor.plan(.save(clientMutationID: "cm_blocked_conflict")).blockedReason == "Resolve the recipe conflict before saving.")
+
+        let discardedConflictEditor = editor.replacingConflict(nil)
+        #expect(discardedConflictEditor.canSubmit)
+        #expect(try discardedConflictEditor.plan(.save(clientMutationID: "cm_discarded_conflict")).blockedReason == nil)
+
+        let queuedRecipeEdit = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_lemon_pantry_pasta",
+            clientMutationID: "cm_update_offline",
+            title: "Local pasta",
+            description: nil,
+            servings: nil,
+            createdAt: Self.now()
+        )
+        let dependentRecipeEdit = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_lemon_pantry_pasta",
+            clientMutationID: "cm_step_after_conflict",
+            stepNum: 3,
+            stepTitle: "Serve",
+            description: "Serve warm.",
+            duration: nil,
+            ingredients: [],
+            outputStepNums: [1],
+            createdAt: Self.now()
+        )
+        let unrelatedRecipeEdit = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_elsewhere",
+            clientMutationID: "cm_unrelated_recipe",
+            title: "Other recipe",
+            description: nil,
+            servings: nil,
+            createdAt: Self.now()
+        )
+        let scopedConflictEditor = RecipeEditorViewModel(
+            mode: .edit(recipe: recipeEditorRecipe(), currentChefID: "chef_ari"),
+            connectivity: .online,
+            conflict: conflict,
+            queuedRecipeMutations: [queuedRecipeEdit, dependentRecipeEdit, unrelatedRecipeEdit],
+            now: Self.now
+        )
+        #expect(scopedConflictEditor.conflictBanner?.discardActionTitle == "Discard 2 Queued Edits")
+        #expect(scopedConflictEditor.conflictBanner?.message == "This recipe changed on another device. Discarding will remove 2 queued edits for this recipe.")
+
+        let createConflict = RecipeEditorConflict(
+            resourceID: "recipe_local_cm_create_offline",
+            serverRevision: nil,
+            localClientMutationID: "cm_create_offline",
+            message: "New recipe conflicted."
+        )
+        let createMutation = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_create_offline",
+            title: "Local Toast",
+            description: nil,
+            servings: nil,
+            steps: [RecipeStepDraft(stepNum: 1, stepTitle: nil, description: "Toast.", duration: nil, ingredients: [RecipeIngredientDraft(quantity: 1, unit: "slice", name: "bread")], outputStepNums: [])],
+            createdAt: Self.now()
+        )
+        let dependentLocalRecipeEdit = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_local_cm_create_offline",
+            clientMutationID: "cm_created_recipe_update",
+            title: "Local Toast Plus",
+            description: nil,
+            servings: nil,
+            createdAt: Self.now()
+        )
+        let createConflictEditor = RecipeEditorViewModel(
+            mode: .create(currentChefID: "chef_ari", draft: recipeCreateDraft()),
+            connectivity: .online,
+            conflict: createConflict,
+            queuedRecipeMutations: [createMutation, dependentLocalRecipeEdit],
+            now: Self.now
+        )
+        #expect(createConflictEditor.conflictBanner?.discardActionTitle == "Discard 2 Queued Edits")
     }
 
     private static func now() -> String {
@@ -418,18 +845,27 @@ private func recipeCreateDraft() -> RecipeEditorDraft {
     draft.description = "Crispy, buttery toast."
     draft.servings = "2"
     draft.steps = [
-        RecipeEditorStepDraft(
-            id: "local_step_1",
-            stepNum: 1,
-            title: "Toast bread",
+            RecipeEditorStepDraft(
+                id: "local_step_1",
+                stepNum: 1,
+                title: "Toast bread",
             description: "Toast bread until crisp.",
             duration: 300,
             ingredients: [
                 RecipeEditorIngredientDraft(id: "local_bread", name: "bread", quantity: 2, unit: "slice")
-            ],
-            outputStepNums: []
-        )
-    ]
+                ],
+                outputStepNums: []
+            ),
+            RecipeEditorStepDraft(
+                id: "local_step_2",
+                stepNum: 2,
+                title: "Serve toast",
+                description: "Plate toast with butter.",
+                duration: nil,
+                ingredients: [],
+                outputStepNums: [1]
+            )
+        ]
     return draft
 }
 

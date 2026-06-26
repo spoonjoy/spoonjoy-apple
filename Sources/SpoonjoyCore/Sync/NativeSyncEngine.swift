@@ -268,6 +268,13 @@ public protocol NativeSyncStore: Actor {
     func loadQueue() throws -> NativeMutationQueue
     func saveQueue(_ queue: NativeMutationQueue) throws
     func saveQueue(_ queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) throws
+    func saveQueue(
+        _ queue: NativeMutationQueue,
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) throws
     func loadCheckpoint() throws -> NativeSyncCheckpoint
     func saveCheckpoint(_ checkpoint: NativeSyncCheckpoint) throws
     func appendTombstone(_ tombstone: NativeSyncTombstone) throws
@@ -308,6 +315,16 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     }
 
     public func saveQueue(_ queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) {
+        saveQueue(queue, accountID: accountID, environment: environment, upsertingCachedRecords: [], deletingCachedRecordKeys: [])
+    }
+
+    public func saveQueue(
+        _ queue: NativeMutationQueue,
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) {
         let scopeChanged = self.accountID != accountID || self.environment != environment
         self.accountID = accountID
         self.environment = environment
@@ -315,6 +332,12 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             checkpoint = nil
             records = [:]
             tombstones = NativeSyncTombstoneLog()
+        }
+        for deletedCacheKey in deletedCacheKeys {
+            records.removeValue(forKey: deletedCacheKey)
+        }
+        for cachedRecord in cachedRecords {
+            records[cachedRecord.cacheKey] = cachedRecord
         }
         self.queue = queue
     }
@@ -459,6 +482,16 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
     }
 
     public func saveQueue(_ queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) throws {
+        try saveQueue(queue, accountID: accountID, environment: environment, upsertingCachedRecords: [], deletingCachedRecordKeys: [])
+    }
+
+    public func saveQueue(
+        _ queue: NativeMutationQueue,
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) throws {
         let scopeChanged = self.accountID != accountID || self.environment != environment
         self.accountID = accountID
         self.environment = environment
@@ -467,7 +500,18 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
             records = [:]
             tombstones = []
         }
-        try saveQueue(queue)
+        for deletedCacheKey in deletedCacheKeys {
+            records.removeValue(forKey: deletedCacheKey)
+        }
+        for cachedRecord in cachedRecords {
+            records[cachedRecord.cacheKey] = cachedRecord
+        }
+        if let mediaResolver {
+            self.queue = try queue.resolvingStagedMedia(using: mediaResolver)
+        } else {
+            self.queue = queue
+        }
+        try persist()
     }
 
     public func loadCheckpoint() throws -> NativeSyncCheckpoint {
@@ -587,6 +631,16 @@ public actor UnavailableNativeSyncStore: NativeSyncStore {
     }
 
     public func saveQueue(_: NativeMutationQueue, accountID _: String?, environment _: NativeCacheEnvironment?) throws {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func saveQueue(
+        _: NativeMutationQueue,
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        upsertingCachedRecords _: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys _: Set<String>
+    ) throws {
         throw NativeSyncStoreError.unavailable(message)
     }
 
@@ -837,6 +891,119 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
 
     public var idempotencyKey: String { clientMutationID }
 
+    public var recipeID: String? {
+        stringValue("recipeId")
+    }
+
+    public var optimisticRecipeID: String? {
+        queueableKind == .recipeCreate ? "recipe_local_\(clientMutationID)" : recipeID
+    }
+
+    public func applyingOptimisticRecipeMutation(
+        to recipes: [Recipe],
+        fallbackChef: ChefSummary,
+        now: String
+    ) -> [Recipe] {
+        switch queueableKind {
+        case .recipeCreate:
+            return upsertingRecipe(optimisticCreatedRecipe(fallbackChef: fallbackChef, now: now), into: recipes)
+        case .recipeUpdate:
+            return recipes.map { recipe in
+                guard recipe.id == recipeID else {
+                    return recipe
+                }
+                return recipe.copy(
+                    title: stringValue("title") ?? recipe.title,
+                    description: optionalStringValue("description"),
+                    servings: optionalStringValue("servings"),
+                    updatedAt: now
+                )
+            }
+        case .recipeDelete:
+            guard let recipeID else {
+                return recipes
+            }
+            return recipes.filter { $0.id != recipeID }
+        case .recipeStepCreate:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                recipe.copy(
+                    updatedAt: now,
+                    steps: recipe.steps.inserting(
+                        optimisticStep(now: now),
+                        outputStepNumsForInsertedStep: intArrayValue("outputStepNums"),
+                        clientMutationID: clientMutationID
+                    )
+                )
+            }
+        case .recipeStepUpdate:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                recipe.copy(updatedAt: now, steps: recipe.steps.map { step in
+                    guard step.id == stringValue("stepId") else {
+                        return step
+                    }
+                    return step.copy(
+                        stepTitle: optionalStringValue("stepTitle"),
+                        description: stringValue("description") ?? step.description,
+                        duration: intValue("duration"),
+                        usingSteps: outputUses(inputStepNum: step.stepNum, recipe: recipe)
+                    )
+                })
+            }
+        case .recipeStepDelete:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                guard let stepID = stringValue("stepId") else {
+                    return recipe
+                }
+                return recipe.copy(updatedAt: now, steps: recipe.steps.deleting(stepID: stepID, clientMutationID: clientMutationID))
+            }
+        case .recipeStepReorder:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                guard let stepID = stringValue("stepId"), let toStepNum = intValue("toStepNum") else {
+                    return recipe
+                }
+                return recipe.copy(updatedAt: now, steps: recipe.steps.reordered(stepID: stepID, toStepNum: toStepNum, clientMutationID: clientMutationID))
+            }
+        case .recipeIngredientAdd:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                guard let stepID = stringValue("stepId") else {
+                    return recipe
+                }
+                return recipe.copy(updatedAt: now, steps: recipe.steps.map { step in
+                    guard step.id == stepID else {
+                        return step
+                    }
+                    return step.copy(ingredients: step.ingredients + [optimisticIngredient()])
+                })
+            }
+        case .recipeIngredientDelete:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                guard let stepID = stringValue("stepId"), let ingredientID = stringValue("ingredientId") else {
+                    return recipe
+                }
+                return recipe.copy(updatedAt: now, steps: recipe.steps.map { step in
+                    guard step.id == stepID else {
+                        return step
+                    }
+                    return step.copy(ingredients: step.ingredients.filter { $0.id != ingredientID })
+                })
+            }
+        case .recipeOutputUsesReplace:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                guard let inputStepID = stringValue("inputStepId") else {
+                    return recipe
+                }
+                return recipe.copy(updatedAt: now, steps: recipe.steps.map { step in
+                    guard step.id == inputStepID else {
+                        return step
+                    }
+                    return step.copy(usingSteps: outputUses(inputStepNum: step.stepNum, recipe: recipe))
+                })
+            }
+        default:
+            return recipes
+        }
+    }
+
     public var replayTarget: NativeReplayTarget {
         switch queueableKind {
         case .captureDraftCreate, .captureDraftEdit, .captureDraftDiscard:
@@ -868,6 +1035,15 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             "capture:\(stringValue("draftId") ?? clientMutationID)"
         case .recipeImportSubmit:
             "import:\(clientMutationID)"
+        }
+    }
+
+    var dependentDependencyKeysBlockedWithThisMutation: Set<String> {
+        switch queueableKind {
+        case .recipeCreate:
+            ["recipe:recipe_local_\(clientMutationID)"]
+        default:
+            []
         }
     }
 
@@ -926,6 +1102,81 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         var copy = self
         copy.lastError = message
         return copy
+    }
+
+    public func replacingResourceIDs(_ replacements: [String: String]) -> NativeQueuedMutation {
+        guard !replacements.isEmpty else {
+            return self
+        }
+
+        var nextValues = values
+        for key in Self.resourceIdentifierValueKeys {
+            guard case .string(let value)? = nextValues[key],
+                  let replacement = replacements[value] else {
+                continue
+            }
+            nextValues[key] = .string(replacement)
+        }
+
+        return NativeQueuedMutation(
+            id: id,
+            clientMutationID: clientMutationID,
+            createdAt: createdAt,
+            payloadSchemaVersion: payloadSchemaVersion,
+            retryCount: retryCount,
+            nextRetryAt: nextRetryAt,
+            lastError: lastError,
+            queueableKind: queueableKind,
+            values: nextValues,
+            media: media
+        )
+    }
+
+    public func recordingIDRemaps(_ idRemaps: [NativeSyncIDRemap]) -> NativeQueuedMutation {
+        let replacements = Dictionary(idRemaps.map { ($0.localID, $0.serverID) }, uniquingKeysWith: { _, latest in latest })
+        guard !replacements.isEmpty else {
+            return self
+        }
+
+        var nextValues = values
+        switch queueableKind {
+        case .recipeCreate:
+            nextValues["serverRecipeId"] = replacements["recipe_local_\(clientMutationID)"].map(JSONValue.string)
+            let serverStepIDs = stepsValue("steps").indices.map { index in
+                replacements["step_local_\(clientMutationID)_\(index + 1)"].map(JSONValue.string) ?? .null
+            }
+            nextValues["serverStepIds"] = .array(serverStepIDs)
+            nextValues["serverStepIngredientIds"] = .array(stepsValue("steps").enumerated().map { stepIndex, step in
+                guard case .object(let object) = step else {
+                    return .array([])
+                }
+                return .array(ingredientsValue("ingredients", in: object).indices.map { ingredientIndex in
+                    replacements["ingredient_local_\(clientMutationID)_\(stepIndex + 1)_\(ingredientIndex + 1)"].map(JSONValue.string) ?? .null
+                })
+            })
+        case .recipeStepCreate:
+            nextValues["serverStepId"] = replacements["step_local_\(clientMutationID)"].map(JSONValue.string)
+            nextValues["serverIngredientIds"] = .array(ingredientsValue("ingredients").indices.map { index in
+                replacements["ingredient_local_\(clientMutationID)_\(index + 1)"].map(JSONValue.string) ?? .null
+            })
+        case .recipeIngredientAdd:
+            nextValues["serverIngredientId"] = replacements["ingredient_local_\(clientMutationID)"].map(JSONValue.string)
+        default:
+            break
+        }
+
+        return NativeQueuedMutation(
+            id: id,
+            clientMutationID: clientMutationID,
+            createdAt: createdAt,
+            payloadSchemaVersion: payloadSchemaVersion,
+            retryCount: retryCount,
+            nextRetryAt: nextRetryAt,
+            lastError: lastError,
+            queueableKind: queueableKind,
+            values: nextValues,
+            media: media
+        )
     }
 
     public func requestBuilder() throws -> APIRequestBuilder {
@@ -1084,7 +1335,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         if includeClientMutation {
             body["clientMutationId"] = clientMutationID
         }
-        for (key, value) in values where !excludedKeys.contains(key) {
+        for (key, value) in values where !excludedKeys.contains(key) && !Self.internalValueKeys.contains(key) {
             body[key] = APIRequestSupport.jsonObject(from: value)
         }
         return body
@@ -1111,6 +1362,674 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         return value
     }
 
+    private static let internalValueKeys: Set<String> = [
+        "serverRecipeId",
+        "serverStepId",
+        "serverStepIds",
+        "serverIngredientId",
+        "serverIngredientIds",
+        "serverStepIngredientIds"
+    ]
+
+    private static let resourceIdentifierValueKeys: Set<String> = [
+        "recipeId",
+        "stepId",
+        "inputStepId",
+        "ingredientId",
+        "cookbookId",
+        "itemId",
+        "spoonId",
+        "coverId",
+        "replacementCoverId",
+        "deviceId",
+        "draftId"
+    ]
+}
+
+extension NativeQueuedMutation {
+    var mutatesRecipeCache: Bool {
+        switch queueableKind {
+        case .recipeCreate,
+             .recipeUpdate,
+             .recipeDelete,
+             .recipeStepCreate,
+             .recipeStepUpdate,
+             .recipeStepDelete,
+             .recipeStepReorder,
+             .recipeIngredientAdd,
+             .recipeIngredientDelete,
+             .recipeOutputUsesReplace:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+private extension NativeQueuedMutation {
+    func applyingToRecipe(in recipes: [Recipe], updatedAt: String, update: (Recipe) -> Recipe) -> [Recipe] {
+        guard let recipeID else {
+            return recipes
+        }
+        return recipes.map { recipe in
+            recipe.id == recipeID ? update(recipe).copy(updatedAt: updatedAt) : recipe
+        }
+    }
+
+    func upsertingRecipe(_ recipe: Recipe, into recipes: [Recipe]) -> [Recipe] {
+        guard recipes.contains(where: { $0.id == recipe.id }) else {
+            return (recipes + [recipe]).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        }
+        return recipes.map { $0.id == recipe.id ? recipe : $0 }
+    }
+
+    func optimisticCreatedRecipe(fallbackChef: ChefSummary, now: String) -> Recipe {
+        let id = stringValue("serverRecipeId") ?? "recipe_local_\(clientMutationID)"
+        let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
+        return Recipe(
+            id: id,
+            title: stringValue("title") ?? "Untitled Recipe",
+            description: optionalStringValue("description"),
+            servings: optionalStringValue("servings"),
+            chef: fallbackChef,
+            coverImageURL: nil,
+            coverProvenanceLabel: nil,
+            coverSourceType: nil,
+            coverVariant: nil,
+            href: "/recipes/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: RecipeAttribution(
+                creditText: "Queued offline by \(fallbackChef.username) on Spoonjoy",
+                canonicalURL: canonicalURL,
+                sourceURLRaw: nil,
+                sourceHost: nil,
+                sourceRecipe: nil
+            ),
+            createdAt: createdAt,
+            updatedAt: now,
+            steps: stepsValue("steps").enumerated().map { index, step in
+                optimisticStep(from: step, index: index + 1, now: now)
+            },
+            cookbooks: []
+        )
+    }
+
+    func optimisticStep(now: String) -> RecipeStep {
+        let stepNum = intValue("stepNum") ?? 1
+        return RecipeStep(
+            id: stringValue("serverStepId") ?? "step_local_\(clientMutationID)",
+            stepNum: stepNum,
+            stepTitle: optionalStringValue("stepTitle"),
+            description: stringValue("description") ?? "",
+            duration: intValue("duration"),
+            ingredients: ingredientsValue("ingredients").enumerated().map { index, ingredient in
+                optimisticIngredient(from: ingredient, index: index + 1)
+            },
+            usingSteps: outputUses(inputStepNum: stepNum, recipe: nil)
+        )
+    }
+
+    func optimisticStep(from value: JSONValue, index: Int, now _: String) -> RecipeStep {
+        guard case .object(let object) = value else {
+            return RecipeStep(id: serverStepID(at: index) ?? "step_local_\(clientMutationID)_\(index)", stepNum: index, stepTitle: nil, description: "", duration: nil, ingredients: [])
+        }
+        let stepNum = intValue("stepNum", in: object) ?? index
+        return RecipeStep(
+            id: serverStepID(at: index) ?? "step_local_\(clientMutationID)_\(index)",
+            stepNum: stepNum,
+            stepTitle: optionalStringValue("stepTitle", in: object),
+            description: stringValue("description", in: object) ?? "",
+            duration: intValue("duration", in: object),
+            ingredients: ingredientsValue("ingredients", in: object).enumerated().map { ingredientIndex, ingredient in
+                optimisticIngredient(from: ingredient, stepIndex: index, ingredientIndex: ingredientIndex + 1)
+            },
+            usingSteps: outputUses(inputStepNum: stepNum, outputStepNums: intArrayValue("outputStepNums", in: object), recipe: nil)
+        )
+    }
+
+    func optimisticIngredient() -> RecipeIngredient {
+        RecipeIngredient(
+            id: stringValue("serverIngredientId") ?? "ingredient_local_\(clientMutationID)",
+            name: stringValue("name") ?? "",
+            quantity: doubleValue("quantity") ?? 1,
+            unit: optionalStringValue("unit")
+        )
+    }
+
+    func optimisticIngredient(from value: JSONValue, index: Int) -> RecipeIngredient {
+        guard case .object(let object) = value else {
+            return RecipeIngredient(id: serverIngredientID(at: index) ?? "ingredient_local_\(clientMutationID)_\(index)", name: "", quantity: 1, unit: nil)
+        }
+        return RecipeIngredient(
+            id: serverIngredientID(at: index) ?? "ingredient_local_\(clientMutationID)_\(index)",
+            name: stringValue("name", in: object) ?? "",
+            quantity: doubleValue("quantity", in: object) ?? 1,
+            unit: optionalStringValue("unit", in: object)
+        )
+    }
+
+    func optimisticIngredient(from value: JSONValue, stepIndex: Int, ingredientIndex: Int) -> RecipeIngredient {
+        let id = serverIngredientID(stepIndex: stepIndex, ingredientIndex: ingredientIndex)
+            ?? "ingredient_local_\(clientMutationID)_\(stepIndex)_\(ingredientIndex)"
+        guard case .object(let object) = value else {
+            return RecipeIngredient(id: id, name: "", quantity: 1, unit: nil)
+        }
+        return RecipeIngredient(
+            id: id,
+            name: stringValue("name", in: object) ?? "",
+            quantity: doubleValue("quantity", in: object) ?? 1,
+            unit: optionalStringValue("unit", in: object)
+        )
+    }
+
+    func outputUses(inputStepNum: Int, recipe: Recipe?) -> [RecipeStepOutputUse] {
+        outputUses(inputStepNum: inputStepNum, outputStepNums: intArrayValue("outputStepNums"), recipe: recipe)
+    }
+
+    func outputUses(inputStepNum: Int, outputStepNums: [Int], recipe: Recipe?) -> [RecipeStepOutputUse] {
+        outputStepNums.filter { $0 < inputStepNum }.uniqued().map { outputStepNum in
+            let source = recipe?.steps.first { $0.stepNum == outputStepNum }
+            return RecipeStepOutputUse(
+                id: "use_local_\(clientMutationID)_\(inputStepNum)_\(outputStepNum)",
+                inputStepNum: inputStepNum,
+                outputStepNum: outputStepNum,
+                outputOfStep: RecipeStepOutputReference(stepNum: outputStepNum, stepTitle: source?.stepTitle)
+            )
+        }
+    }
+
+    func optionalStringValue(_ key: String) -> String? {
+        optionalStringValue(key, in: values)
+    }
+
+    func optionalStringValue(_ key: String, in object: [String: JSONValue]) -> String? {
+        guard let value = object[key] else {
+            return nil
+        }
+        if case .null = value {
+            return nil
+        }
+        guard case .string(let string) = value else {
+            return nil
+        }
+        return string
+    }
+
+    func stringValue(_ key: String, in object: [String: JSONValue]) -> String? {
+        guard case .string(let value)? = object[key] else {
+            return nil
+        }
+        return value
+    }
+
+    func serverStepID(at oneBasedIndex: Int) -> String? {
+        guard oneBasedIndex > 0,
+              case .array(let values)? = values["serverStepIds"],
+              values.indices.contains(oneBasedIndex - 1),
+              case .string(let value) = values[oneBasedIndex - 1],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    func serverIngredientID(at oneBasedIndex: Int) -> String? {
+        guard oneBasedIndex > 0,
+              case .array(let values)? = values["serverIngredientIds"],
+              values.indices.contains(oneBasedIndex - 1),
+              case .string(let value) = values[oneBasedIndex - 1],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    func serverIngredientID(stepIndex: Int, ingredientIndex: Int) -> String? {
+        guard stepIndex > 0,
+              ingredientIndex > 0,
+              case .array(let stepValues)? = values["serverStepIngredientIds"],
+              stepValues.indices.contains(stepIndex - 1),
+              case .array(let ingredientValues) = stepValues[stepIndex - 1],
+              ingredientValues.indices.contains(ingredientIndex - 1),
+              case .string(let value) = ingredientValues[ingredientIndex - 1],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    func intValue(_ key: String) -> Int? {
+        intValue(key, in: values)
+    }
+
+    func intValue(_ key: String, in object: [String: JSONValue]) -> Int? {
+        guard case .number(let value)? = object[key], value.rounded() == value else {
+            return nil
+        }
+        return Int(value)
+    }
+
+    func doubleValue(_ key: String) -> Double? {
+        doubleValue(key, in: values)
+    }
+
+    func doubleValue(_ key: String, in object: [String: JSONValue]) -> Double? {
+        guard case .number(let value)? = object[key] else {
+            return nil
+        }
+        return value
+    }
+
+    func intArrayValue(_ key: String) -> [Int] {
+        intArrayValue(key, in: values)
+    }
+
+    func intArrayValue(_ key: String, in object: [String: JSONValue]) -> [Int] {
+        guard case .array(let values)? = object[key] else {
+            return []
+        }
+        return values.compactMap { value in
+            guard case .number(let number) = value, number.rounded() == number else {
+                return nil
+            }
+            return Int(number)
+        }
+    }
+
+    func stepsValue(_ key: String) -> [JSONValue] {
+        guard case .array(let values)? = values[key] else {
+            return []
+        }
+        return values
+    }
+
+    func ingredientsValue(_ key: String) -> [JSONValue] {
+        ingredientsValue(key, in: values)
+    }
+
+    func ingredientsValue(_ key: String, in object: [String: JSONValue]) -> [JSONValue] {
+        guard case .array(let values)? = object[key] else {
+            return []
+        }
+        return values
+    }
+
+    func idRemaps(from responseData: JSONValue) -> [NativeSyncIDRemap] {
+        switch queueableKind {
+        case .recipeCreate:
+            let recipe = responseData.objectValue("recipe") ?? [:]
+            let requestSteps = stepsValue("steps")
+            var remaps = [NativeSyncIDRemap]()
+            appendRemap(
+                localID: "recipe_local_\(clientMutationID)",
+                serverID: recipe.stringValue("id") ?? responseData.objectStringValue("recipeId"),
+                to: &remaps
+            )
+            for (responseIndex, step) in recipe.arrayValue("steps").enumerated() {
+                let localStepIndex = localStepIndex(forResponseStep: step, fallbackIndex: responseIndex + 1)
+                guard requestSteps.indices.contains(localStepIndex - 1) else {
+                    continue
+                }
+                appendRemap(
+                    localID: "step_local_\(clientMutationID)_\(localStepIndex)",
+                    serverID: step.objectStringValue("id"),
+                    to: &remaps
+                )
+                appendIngredientRemaps(
+                    localIDPrefix: "ingredient_local_\(clientMutationID)_\(localStepIndex)",
+                    requestIngredients: requestIngredients(forStepAt: localStepIndex - 1, in: requestSteps),
+                    responseIngredients: step.objectArrayValue("ingredients"),
+                    to: &remaps
+                )
+            }
+            return remaps
+        case .recipeStepCreate:
+            let step = responseData.objectValue("step") ?? [:]
+            var remaps = [NativeSyncIDRemap]()
+            appendRemap(
+                localID: "step_local_\(clientMutationID)",
+                serverID: step.stringValue("id") ?? responseData.objectStringValue("stepId"),
+                to: &remaps
+            )
+            appendIngredientRemaps(
+                localIDPrefix: "ingredient_local_\(clientMutationID)",
+                requestIngredients: ingredientsValue("ingredients"),
+                responseIngredients: step.arrayValue("ingredients"),
+                to: &remaps
+            )
+            return remaps
+        case .recipeIngredientAdd:
+            var remaps = [NativeSyncIDRemap]()
+            appendRemap(
+                localID: "ingredient_local_\(clientMutationID)",
+                serverID: responseData.objectValue("ingredient")?.stringValue("id") ?? responseData.objectStringValue("ingredientId"),
+                to: &remaps
+            )
+            return remaps
+        default:
+            return []
+        }
+    }
+
+    func localStepIndex(forResponseStep step: JSONValue, fallbackIndex: Int) -> Int {
+        guard case .object(let object) = step,
+              let stepNum = intValue("stepNum", in: object),
+              stepNum > 0 else {
+            return fallbackIndex
+        }
+        return stepNum
+    }
+
+    func requestIngredients(forStepAt index: Int, in steps: [JSONValue]) -> [JSONValue] {
+        guard steps.indices.contains(index),
+              case .object(let object) = steps[index] else {
+            return []
+        }
+        return ingredientsValue("ingredients", in: object)
+    }
+
+    func appendIngredientRemaps(
+        localIDPrefix: String,
+        requestIngredients: [JSONValue],
+        responseIngredients: [JSONValue],
+        to remaps: inout [NativeSyncIDRemap]
+    ) {
+        var usedResponseIndexes = Set<Int>()
+        for (requestIndex, requestIngredient) in requestIngredients.enumerated() {
+            appendRemap(
+                localID: "\(localIDPrefix)_\(requestIndex + 1)",
+                serverID: matchingResponseIngredientID(
+                    for: requestIngredient,
+                    in: responseIngredients,
+                    usedResponseIndexes: &usedResponseIndexes
+                ),
+                to: &remaps
+            )
+        }
+    }
+
+    func matchingResponseIngredientID(
+        for requestIngredient: JSONValue,
+        in responseIngredients: [JSONValue],
+        usedResponseIndexes: inout Set<Int>
+    ) -> String? {
+        guard case .object(let requestObject) = requestIngredient,
+              let requestName = normalizedIngredientText(stringValue("name", in: requestObject) ?? stringValue("ingredientName", in: requestObject)),
+              let requestUnit = normalizedIngredientText(optionalStringValue("unit", in: requestObject)),
+              let requestQuantity = doubleValue("quantity", in: requestObject) else {
+            return nil
+        }
+
+        for (responseIndex, responseIngredient) in responseIngredients.enumerated() where !usedResponseIndexes.contains(responseIndex) {
+            guard case .object(let responseObject) = responseIngredient,
+                  let serverID = responseObject.stringValue("id"),
+                  let responseName = normalizedIngredientText(responseObject.stringValue("name")),
+                  let responseUnit = normalizedIngredientText(responseObject.stringValue("unit")),
+                  let responseQuantity = doubleValue("quantity", in: responseObject),
+                  responseName == requestName,
+                  responseUnit == requestUnit,
+                  quantitiesMatch(responseQuantity, requestQuantity) else {
+                continue
+            }
+
+            usedResponseIndexes.insert(responseIndex)
+            return serverID
+        }
+
+        return nil
+    }
+
+    func normalizedIngredientText(_ value: String?) -> String? {
+        guard let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !normalized.isEmpty else {
+            return nil
+        }
+        return normalized
+    }
+
+    func quantitiesMatch(_ lhs: Double, _ rhs: Double) -> Bool {
+        abs(lhs - rhs) <= 0.000_000_1
+    }
+
+    func appendRemap(localID: String, serverID: String?, to remaps: inout [NativeSyncIDRemap]) {
+        guard let serverID,
+              !serverID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              localID != serverID else {
+            return
+        }
+
+        remaps.append(NativeSyncIDRemap(localID: localID, serverID: serverID))
+    }
+}
+
+private extension JSONValue {
+    static func encoded<Value: Encodable>(_ value: Value) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
+    }
+
+    func decoded<Value: Decodable>(_ type: Value.Type) throws -> Value {
+        try JSONDecoder().decode(type, from: JSONEncoder().encode(self))
+    }
+
+    func objectValue(_ key: String) -> [String: JSONValue]? {
+        guard case .object(let object) = self,
+              case .object(let child)? = object[key] else {
+            return nil
+        }
+        return child
+    }
+
+    func objectStringValue(_ key: String) -> String? {
+        guard case .object(let object) = self else {
+            return nil
+        }
+        return object.stringValue(key)
+    }
+
+    func objectArrayValue(_ key: String) -> [JSONValue] {
+        guard case .object(let object) = self else {
+            return []
+        }
+        return object.arrayValue(key)
+    }
+
+}
+
+private extension Dictionary where Key == String, Value == JSONValue {
+    func stringValue(_ key: String) -> String? {
+        guard case .string(let value)? = self[key] else {
+            return nil
+        }
+        return value
+    }
+
+    func arrayValue(_ key: String) -> [JSONValue] {
+        guard case .array(let values)? = self[key] else {
+            return []
+        }
+        return values
+    }
+}
+
+private extension Recipe {
+    func copy(
+        title: String? = nil,
+        description: String?? = nil,
+        servings: String?? = nil,
+        updatedAt: String,
+        steps: [RecipeStep]? = nil
+    ) -> Recipe {
+        Recipe(
+            id: id,
+            title: title ?? self.title,
+            description: description ?? self.description,
+            servings: servings ?? self.servings,
+            chef: chef,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: attribution,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            steps: steps ?? self.steps,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons
+        )
+    }
+}
+
+private extension RecipeStep {
+    func copy(
+        stepNum: Int? = nil,
+        stepTitle: String?? = nil,
+        description: String? = nil,
+        duration: Int?? = nil,
+        ingredients: [RecipeIngredient]? = nil,
+        usingSteps: [RecipeStepOutputUse]? = nil
+    ) -> RecipeStep {
+        RecipeStep(
+            id: id,
+            stepNum: stepNum ?? self.stepNum,
+            stepTitle: stepTitle ?? self.stepTitle,
+            description: description ?? self.description,
+            duration: duration ?? self.duration,
+            ingredients: ingredients ?? self.ingredients,
+            usingSteps: usingSteps ?? self.usingSteps
+        )
+    }
+}
+
+private extension [RecipeStep] {
+    func sortedByStepNumber() -> [RecipeStep] {
+        sorted { left, right in
+            if left.stepNum == right.stepNum {
+                return left.id < right.id
+            }
+            return left.stepNum < right.stepNum
+        }
+    }
+
+    func inserting(
+        _ step: RecipeStep,
+        outputStepNumsForInsertedStep outputStepNums: [Int],
+        clientMutationID: String
+    ) -> [RecipeStep] {
+        var steps = sortedByStepNumber()
+        let oldStepIDByStepNum = steps.stepIDByStepNum()
+        let existingStepIDs = Set(steps.map(\.id))
+        let boundedStepNum = Swift.min(Swift.max(step.stepNum, 1), steps.count + 1)
+        steps.insert(step.copy(stepNum: boundedStepNum, usingSteps: []), at: boundedStepNum - 1)
+        var renumbered = steps.renumberedRemappingOutputUses(
+            oldStepIDByStepNum: oldStepIDByStepNum,
+            remappedStepIDs: existingStepIDs,
+            clientMutationID: clientMutationID
+        )
+        if let insertedIndex = renumbered.firstIndex(where: { $0.id == step.id }) {
+            let inputStepNum = renumbered[insertedIndex].stepNum
+            renumbered[insertedIndex] = renumbered[insertedIndex].copy(
+                usingSteps: renumbered.outputUses(
+                    inputStepNum: inputStepNum,
+                    outputStepNums: outputStepNums,
+                    clientMutationID: clientMutationID
+                )
+            )
+        }
+        return renumbered
+    }
+
+    func deleting(stepID: String, clientMutationID: String) -> [RecipeStep] {
+        let steps = sortedByStepNumber()
+        let oldStepIDByStepNum = steps.stepIDByStepNum()
+        let remaining = steps.filter { $0.id != stepID }
+        return remaining.renumberedRemappingOutputUses(
+            oldStepIDByStepNum: oldStepIDByStepNum,
+            remappedStepIDs: Set(remaining.map(\.id)),
+            clientMutationID: clientMutationID
+        )
+    }
+
+    func reordered(stepID: String, toStepNum: Int, clientMutationID: String) -> [RecipeStep] {
+        var steps = sortedByStepNumber()
+        let oldStepIDByStepNum = steps.stepIDByStepNum()
+        guard let currentIndex = steps.firstIndex(where: { $0.id == stepID }) else {
+            return steps
+        }
+
+        let moving = steps.remove(at: currentIndex)
+        let boundedStepNum = Swift.min(Swift.max(toStepNum, 1), steps.count + 1)
+        steps.insert(moving, at: boundedStepNum - 1)
+        return steps.renumberedRemappingOutputUses(
+            oldStepIDByStepNum: oldStepIDByStepNum,
+            remappedStepIDs: Set(steps.map(\.id)),
+            clientMutationID: clientMutationID
+        )
+    }
+
+    private func renumberedRemappingOutputUses(
+        oldStepIDByStepNum: [Int: String],
+        remappedStepIDs: Set<String>,
+        clientMutationID: String
+    ) -> [RecipeStep] {
+        let numbered = enumerated().map { index, step in
+            step.copy(stepNum: index + 1)
+        }
+        var newStepNumByID: [String: Int] = [:]
+        for step in numbered {
+            newStepNumByID[step.id] = step.stepNum
+        }
+        return numbered.map { step in
+            guard remappedStepIDs.contains(step.id) else {
+                return step
+            }
+
+            let remappedOutputStepNums = step.usingSteps.compactMap { outputUse -> Int? in
+                guard let outputStepID = oldStepIDByStepNum[outputUse.outputStepNum],
+                      let newOutputStepNum = newStepNumByID[outputStepID],
+                      newOutputStepNum < step.stepNum else {
+                    return nil
+                }
+                return newOutputStepNum
+            }
+            return step.copy(usingSteps: numbered.outputUses(
+                inputStepNum: step.stepNum,
+                outputStepNums: remappedOutputStepNums,
+                clientMutationID: clientMutationID
+            ))
+        }
+    }
+
+    private func outputUses(inputStepNum: Int, outputStepNums: [Int], clientMutationID: String) -> [RecipeStepOutputUse] {
+        outputStepNums
+            .filter { $0 < inputStepNum }
+            .uniqued()
+            .map { outputStepNum in
+                let source = first { $0.stepNum == outputStepNum }
+                return RecipeStepOutputUse(
+                    id: "use_local_\(clientMutationID)_\(inputStepNum)_\(outputStepNum)",
+                    inputStepNum: inputStepNum,
+                    outputStepNum: outputStepNum,
+                    outputOfStep: RecipeStepOutputReference(stepNum: outputStepNum, stepTitle: source?.stepTitle)
+                )
+            }
+    }
+
+    private func stepIDByStepNum() -> [Int: String] {
+        var stepIDByStepNum: [Int: String] = [:]
+        for step in self {
+            stepIDByStepNum[step.stepNum] = step.id
+        }
+        return stepIDByStepNum
+    }
+}
+
+private extension Array where Element == Int {
+    func uniqued() -> [Int] {
+        var seen = Set<Int>()
+        return sorted().filter { seen.insert($0).inserted }
+    }
 }
 
 public extension NativeQueuedMutation {
@@ -1395,7 +2314,8 @@ public extension NativeQueuedMutation {
                 "stepTitle": stringOrNull(step.stepTitle),
                 "description": .string(step.description),
                 "duration": intOrNull(step.duration),
-                "ingredients": ingredientDrafts(step.ingredients)
+                "ingredients": ingredientDrafts(step.ingredients),
+                "outputStepNums": .array(step.outputStepNums.map { .number(Double($0)) })
             ])
         })
     }
@@ -1584,6 +2504,10 @@ public struct NativeMutationQueue: Codable, Equatable, Sendable {
 
     public func appending(_ mutation: NativeQueuedMutation) throws -> NativeMutationQueue {
         try NativeMutationQueue(mutations: mutations + [mutation])
+    }
+
+    public func appending(contentsOf nextMutations: [NativeQueuedMutation]) throws -> NativeMutationQueue {
+        try NativeMutationQueue(mutations: mutations + nextMutations)
     }
 
     public func removing(clientMutationIDs drainedIDs: Set<String>) throws -> NativeMutationQueue {
@@ -1802,6 +2726,7 @@ public struct NativeSyncReport: Equatable, Sendable {
     public let accountID: String?
     public let environment: NativeCacheEnvironment?
     public let drainedClientMutationIDs: [String]
+    public let drainedMutations: [NativeQueuedMutation]
     public let conflicts: [NativeSyncConflict]
     public let pausedReason: NativeSyncPauseReason?
     public let retryAfterSeconds: Int?
@@ -1812,6 +2737,7 @@ public struct NativeSyncReport: Equatable, Sendable {
         accountID: String? = nil,
         environment: NativeCacheEnvironment? = nil,
         drainedClientMutationIDs: [String],
+        drainedMutations: [NativeQueuedMutation] = [],
         conflicts: [NativeSyncConflict],
         pausedReason: NativeSyncPauseReason?,
         retryAfterSeconds: Int?
@@ -1821,6 +2747,7 @@ public struct NativeSyncReport: Equatable, Sendable {
         self.accountID = accountID
         self.environment = environment
         self.drainedClientMutationIDs = drainedClientMutationIDs
+        self.drainedMutations = drainedMutations
         self.conflicts = conflicts
         self.pausedReason = pausedReason
         self.retryAfterSeconds = retryAfterSeconds
@@ -1832,8 +2759,18 @@ public enum NativeSyncBootstrapResult: Equatable, Sendable {
     case syncData(NativeSyncData)
 }
 
+public struct NativeSyncIDRemap: Equatable, Sendable {
+    public let localID: String
+    public let serverID: String
+
+    public init(localID: String, serverID: String) {
+        self.localID = localID
+        self.serverID = serverID
+    }
+}
+
 public enum NativeSyncMutationResult: Equatable, Sendable {
-    case success(serverRevision: NativeServerRevision?)
+    case success(serverRevision: NativeServerRevision?, idRemaps: [NativeSyncIDRemap] = [])
     case conflict(kind: NativeSyncConflictKind, serverRevision: NativeServerRevision?, message: String)
     case authFailure(message: String)
     case retry(afterSeconds: Int, message: String)
@@ -1862,12 +2799,12 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
 
     public func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
         do {
-            _ = try await apiTransport.send(
+            let envelope = try await apiTransport.send(
                 try mutation.requestBuilder(),
                 configuration: configuration,
                 decode: JSONValue.self
             )
-            return .success(serverRevision: nil)
+            return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
         } catch let error as APITransportError {
             return try Self.mutationResult(for: error, mutation: mutation)
         }
@@ -1971,14 +2908,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
         var remaining: [NativeQueuedMutation] = []
         var drainedClientMutationIDs: [String] = []
+        var drainedMutations: [NativeQueuedMutation] = []
         var conflicts: [NativeSyncConflict] = []
         var blockedDependencyKeys = Set<String>()
         var pausedReason: NativeSyncPauseReason?
         var retryAfterSeconds: Int?
+        var idReplacements: [String: String] = [:]
 
         var index = 0
         while index < originalQueue.mutations.count {
-            let mutation = originalQueue.mutations[index]
+            let mutation = originalQueue.mutations[index].replacingResourceIDs(idReplacements)
             guard !blockedDependencyKeys.contains(mutation.dependencyKey) else {
                 remaining.append(mutation)
                 index += 1
@@ -2001,8 +2940,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
 
             let result = try await transport.send(mutation, configuration: configuration)
             switch result {
-            case .success(let revision):
+            case .success(let revision, let idRemaps):
                 drainedClientMutationIDs.append(mutation.clientMutationID)
+                drainedMutations.append(mutation.recordingIDRemaps(idRemaps))
+                for remap in idRemaps {
+                    idReplacements[remap.localID] = remap.serverID
+                }
                 if case .tombstone(let token)? = revision {
                     try await store.appendTombstone(mutation.tombstone(token: token, at: clock()))
                 }
@@ -2015,10 +2958,11 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     message: message
                 ))
                 blockedDependencyKeys.insert(mutation.dependencyKey)
+                blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
             case .authFailure(let message):
                 pausedReason = .authRequired(message)
                 remaining.append(mutation)
-                remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1))
+                remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
                 index = originalQueue.mutations.count
                 continue
             case .retry(let afterSeconds, let message):
@@ -2028,15 +2972,29 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     nextRetryAt: NativeSyncClockFormatting.isoString(clock().addingTimeInterval(TimeInterval(afterSeconds)))
                 ))
                 blockedDependencyKeys.insert(mutation.dependencyKey)
+                blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
             }
 
             index += 1
         }
 
+        let drainedRecipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
+        let cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>)
+        if drainedRecipeMutations.isEmpty {
+            cachePatch = ([], [])
+        } else {
+            cachePatch = try Self.drainedRecipeCachePatch(
+                drainedMutations: drainedRecipeMutations,
+                snapshot: try await store.loadSnapshot(),
+                accountID: queueAccountID!
+            )
+        }
         try await store.saveQueue(
             NativeMutationQueue(mutations: remaining),
             accountID: queueAccountID,
-            environment: queueEnvironment
+            environment: queueEnvironment,
+            upsertingCachedRecords: cachePatch.upserting,
+            deletingCachedRecordKeys: cachePatch.deletingCacheKeys
         )
 
         return NativeSyncReport(
@@ -2045,6 +3003,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             accountID: bootstrapAccountID,
             environment: bootstrapEnvironment,
             drainedClientMutationIDs: drainedClientMutationIDs,
+            drainedMutations: drainedMutations,
             conflicts: conflicts,
             pausedReason: pausedReason,
             retryAfterSeconds: retryAfterSeconds
@@ -2057,6 +3016,30 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
 
         return min(current, candidate)
+    }
+
+    private static func drainedRecipeCachePatch(
+        drainedMutations: [NativeQueuedMutation],
+        snapshot: NativeSyncSnapshot,
+        accountID: String
+    ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
+        let cachedRecipes = try snapshot.cachedRecords
+            .filter { $0.kind == .recipe }
+            .map { try $0.payload.decoded(Recipe.self) }
+        let fallbackChef = cachedRecipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+        let updatedRecipes = drainedMutations.reduce(cachedRecipes) { recipes, mutation in
+            mutation.applyingOptimisticRecipeMutation(to: recipes, fallbackChef: fallbackChef, now: mutation.createdAt)
+        }
+        let deletedCacheKeys = Set(Set(cachedRecipes.map(\.id)).subtracting(updatedRecipes.map(\.id)).map { "\(NativeSyncEntryKind.recipe.rawValue):\($0)" })
+        let upserts = try updatedRecipes.map { recipe in
+            NativeSyncCachedRecord(
+                kind: .recipe,
+                resourceID: recipe.id,
+                payload: try JSONValue.encoded(recipe),
+                serverRevision: .updatedAt(recipe.updatedAt)
+            )
+        }
+        return (upserts, deletedCacheKeys)
     }
 
     private static func reusableCheckpoint(

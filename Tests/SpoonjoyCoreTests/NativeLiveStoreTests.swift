@@ -85,7 +85,7 @@ struct NativeLiveStoreTests {
                 createdAt: "2026-06-16T12:00:00.000Z"
             )
 
-            await liveStore.queueMutation(mutation)
+            try await liveStore.queueMutation(mutation)
             let persisted = try await syncStore.loadQueue()
 
             guard case .queuedWork(let content) = liveStore.bootstrapState else {
@@ -97,6 +97,711 @@ struct NativeLiveStoreTests {
             #expect(content.queuedMutations == [mutation])
             #expect(content.offlineIndicatorState.display == .queuedWork(count: 1, oldestClientMutationID: "cm_live_queue"))
         }
+    }
+
+    @MainActor
+    @Test("live store queueMutation optimistically reflects queued recipe edits")
+    func liveStoreQueueMutationOptimisticallyReflectsQueuedRecipeEdits() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_offline_edit", title: "Offline Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"))
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
+
+            await liveStore.bootstrap()
+            try await liveStore.queueMutation(NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_offline_edit",
+                clientMutationID: "cm_recipe_update_offline",
+                title: "Queued Pasta",
+                description: nil,
+                servings: "4",
+                createdAt: Self.isoString(Self.now)
+            ))
+            try await liveStore.queueMutation(try NativeQueuedMutation.recipeStepCreate(
+                recipeID: "recipe_offline_edit",
+                clientMutationID: "cm_step_offline",
+                stepNum: 2,
+                stepTitle: "Serve",
+                description: "Serve while warm.",
+                duration: nil,
+                ingredients: [RecipeIngredientDraft(quantity: 1, unit: "pinch", name: "salt")],
+                outputStepNums: [1],
+                createdAt: Self.isoString(Self.now)
+            ))
+            try await liveStore.queueMutation(try NativeQueuedMutation.recipeCreate(
+                clientMutationID: "cm_recipe_create_offline",
+                title: "Queued Toast",
+                description: "Buttery toast.",
+                servings: "2",
+                steps: [
+                    RecipeStepDraft(
+                        stepNum: 1,
+                        stepTitle: "Toast",
+                        description: "Toast bread.",
+                        duration: 120,
+                        ingredients: [RecipeIngredientDraft(quantity: 2, unit: "slice", name: "bread")],
+                        outputStepNums: []
+                    )
+                ],
+                createdAt: Self.isoString(Self.now)
+            ))
+
+            guard case .queuedWork(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected queuedWork after recipe mutations; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            let edited = try #require(content.recipe(id: "recipe_offline_edit"))
+            #expect(edited.title == "Queued Pasta")
+            #expect(edited.description == nil)
+            #expect(edited.servings == "4")
+            #expect(edited.steps.map(\.stepTitle) == ["Cook", "Serve"])
+            #expect(edited.steps[1].ingredients.map(\.name) == ["salt"])
+            #expect(edited.steps[1].usingSteps.map(\.outputStepNum) == [1])
+            #expect(content.recipes.contains { $0.id == "recipe_local_cm_recipe_create_offline" && $0.title == "Queued Toast" })
+            #expect(content.queuedMutations.map(\.clientMutationID) == [
+                "cm_recipe_update_offline",
+                "cm_step_offline",
+                "cm_recipe_create_offline"
+            ])
+
+            let offlineError = APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            )
+            let restoredLiveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ThrowingLiveStoreSyncTransport(error: offlineError)
+            )
+
+            await restoredLiveStore.bootstrap()
+            guard case .offlineStale(let restoredContent) = restoredLiveStore.bootstrapState else {
+                Issue.record("Expected offline restore with queued recipe overlays; got \(restoredLiveStore.bootstrapState)")
+                return
+            }
+            let restoredEdited = try #require(restoredContent.recipe(id: "recipe_offline_edit"))
+            #expect(restoredEdited.title == "Queued Pasta")
+            #expect(restoredEdited.steps.map(\.stepTitle) == ["Cook", "Serve"])
+            #expect(restoredContent.recipes.contains { $0.id == "recipe_local_cm_recipe_create_offline" && $0.title == "Queued Toast" })
+            #expect(restoredContent.queuedMutations.map(\.clientMutationID) == [
+                "cm_recipe_update_offline",
+                "cm_step_offline",
+                "cm_recipe_create_offline"
+            ])
+        }
+    }
+
+    @MainActor
+    @Test("live store keeps drained recipe editor mutations visible after immediate online drain")
+    func liveStoreKeepsDrainedRecipeEditorMutationsVisibleAfterImmediateOnlineDrain() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_drain_editor", title: "Server Pasta")
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_drain", name: "salt")
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [
+                        .result(.syncData(syncData)),
+                        .result(.success(cursor: nil, tombstones: []))
+                    ],
+                    sends: [.success(serverRevision: .updatedAt("2026-06-25T18:30:00.000Z"))]
+                )
+            )
+
+            await liveStore.bootstrap()
+            let result = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(
+                    recipeID: "recipe_drain_editor",
+                    clientMutationID: "cm_editor_online_batch",
+                    title: "Drained Pasta",
+                    description: recipe.description,
+                    servings: recipe.servings,
+                    createdAt: Self.isoString(Self.now)
+                )
+            ], drainImmediately: true)
+
+            #expect(result.submittedClientMutationIDs == ["cm_editor_online_batch"])
+            #expect(result.drainedClientMutationIDs == ["cm_editor_online_batch"])
+            #expect(result.remainingSubmittedClientMutationIDs.isEmpty)
+            #expect(result.submittedConflicts.isEmpty)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected drained editor mutation to return to liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.queuedMutations.isEmpty)
+            #expect(content.recipe(id: "recipe_drain_editor")?.title == "Drained Pasta")
+            #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @MainActor
+    @Test("live store does not double apply drained structural recipe mutations after immediate online drain")
+    func liveStoreDoesNotDoubleApplyDrainedStructuralRecipeMutationsAfterImmediateOnlineDrain() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_drain_structural", title: "Server Pasta")
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_drain_structural", name: "salt")
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [
+                        .result(.syncData(syncData)),
+                        .result(.success(cursor: nil, tombstones: []))
+                    ],
+                    sends: [
+                        .success(serverRevision: .updatedAt("2026-06-25T18:30:00.000Z")),
+                        .success(serverRevision: .updatedAt("2026-06-25T18:31:00.000Z"))
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            let result = try await liveStore.queueMutations([
+                try NativeQueuedMutation.recipeStepCreate(
+                    recipeID: "recipe_drain_structural",
+                    clientMutationID: "cm_editor_step_drain",
+                    stepNum: 2,
+                    stepTitle: "Serve",
+                    description: "Serve warm.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: [1],
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(5))
+                ),
+                try NativeQueuedMutation.recipeIngredientAdd(
+                    recipeID: "recipe_drain_structural",
+                    stepID: "step_recipe_drain_structural",
+                    clientMutationID: "cm_editor_ingredient_drain",
+                    quantity: 1,
+                    unit: "pinch",
+                    name: "basil",
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(10))
+                )
+            ], drainImmediately: true)
+
+            #expect(result.submittedClientMutationIDs == ["cm_editor_step_drain", "cm_editor_ingredient_drain"])
+            #expect(result.drainedClientMutationIDs == ["cm_editor_step_drain", "cm_editor_ingredient_drain"])
+            #expect(result.remainingSubmittedClientMutationIDs.isEmpty)
+            #expect(result.submittedConflicts.isEmpty)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected drained structural editor mutations to return to liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            let edited = try #require(content.recipe(id: "recipe_drain_structural"))
+            #expect(edited.steps.count == 2)
+            #expect(edited.steps.filter { $0.id == "step_local_cm_editor_step_drain" }.count == 1)
+            let newStep = try #require(edited.steps.first { $0.id == "step_local_cm_editor_step_drain" })
+            #expect(newStep.stepNum == 2)
+            #expect(newStep.description == "Serve warm.")
+            let baseStep = try #require(edited.steps.first { $0.id == "step_recipe_drain_structural" })
+            #expect(baseStep.ingredients.map(\.id) == ["ingredient_local_cm_editor_ingredient_drain"])
+            #expect(baseStep.ingredients.map(\.name) == ["basil"])
+        }
+    }
+
+    @MainActor
+    @Test("live store reports partial online recipe editor drains before the editor closes")
+    func liveStoreReportsPartialOnlineRecipeEditorDrainsBeforeEditorCloses() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_partial_editor", title: "Server Pasta")
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_partial", name: "salt")
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [
+                        .result(.syncData(syncData)),
+                        .result(.success(cursor: nil, tombstones: []))
+                    ],
+                    sends: [
+                        .success(serverRevision: .updatedAt("2026-06-25T18:30:00.000Z")),
+                        .conflict(kind: .validation, serverRevision: .updatedAt("server-partial"), message: "Recipe changed elsewhere.")
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            let result = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(
+                    recipeID: "recipe_partial_editor",
+                    clientMutationID: "cm_editor_save_partial",
+                    title: "Partially Saved Pasta",
+                    description: recipe.description,
+                    servings: recipe.servings,
+                    createdAt: Self.isoString(Self.now)
+                ),
+                try NativeQueuedMutation.recipeStepCreate(
+                    recipeID: "recipe_partial_editor",
+                    clientMutationID: "cm_editor_step_partial",
+                    stepNum: 2,
+                    stepTitle: "Serve",
+                    description: "Serve warm.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: [1],
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(5))
+                )
+            ], drainImmediately: true)
+
+            #expect(result.submittedClientMutationIDs == ["cm_editor_save_partial", "cm_editor_step_partial"])
+            #expect(result.drainedClientMutationIDs == ["cm_editor_save_partial"])
+            #expect(result.remainingSubmittedClientMutationIDs == ["cm_editor_step_partial"])
+            #expect(result.submittedConflicts == [
+                NativeSyncConflict(
+                    clientMutationID: "cm_editor_step_partial",
+                    kind: .validation,
+                    serverRevision: .updatedAt("server-partial"),
+                    message: "Recipe changed elsewhere."
+                )
+            ])
+            guard case .conflict(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected partial editor drain to surface conflict state; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipe(id: "recipe_partial_editor")?.title == "Partially Saved Pasta")
+            #expect(content.queuedMutations.map(\.clientMutationID) == ["cm_editor_step_partial"])
+            #expect(content.offlineIndicatorState.display == .conflict(recordID: "cm_editor_step_partial", mutationID: "cm_editor_step_partial"))
+        }
+    }
+
+    @MainActor
+    @Test("live store discards conflicted queued recipe mutation when discarding local edit")
+    func liveStoreDiscardsConflictedQueuedRecipeMutationWhenDiscardingLocalEdit() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_conflict", title: "Server Pasta")
+            let mutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_conflict",
+                clientMutationID: "cm_conflicted_recipe",
+                title: "Local Pasta",
+                description: recipe.description,
+                servings: recipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [mutation]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(
+                        kind: .recipe,
+                        resourceID: recipe.id,
+                        payload: try Self.jsonValue(recipe),
+                        serverRevision: .updatedAt(recipe.updatedAt)
+                    )
+                ]
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [.conflict(kind: .validation, serverRevision: nil, message: "Recipe changed elsewhere.")]
+                )
+            )
+
+            await liveStore.bootstrap()
+            guard case .conflict(let conflictContent) = liveStore.bootstrapState else {
+                Issue.record("Expected conflict before discard; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(conflictContent.syncConflicts.map(\.clientMutationID) == ["cm_conflicted_recipe"])
+            #expect(conflictContent.recipe(id: "recipe_conflict")?.title == "Local Pasta")
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_conflicted_recipe")
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            guard case .offlineStale(let resolvedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected resolved conflict to return to stale restored content; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(resolvedContent.syncConflicts.isEmpty)
+            #expect(resolvedContent.queuedMutations.isEmpty)
+            #expect(resolvedContent.recipe(id: "recipe_conflict")?.title == "Server Pasta")
+        }
+    }
+
+    @MainActor
+    @Test("live store queue and conflict discard no-ops leave state untouched")
+    func liveStoreQueueAndConflictDiscardNoopsLeaveStateUntouched() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_noop", title: "No-op Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_noop", name: "salt"))
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            )
+
+            await liveStore.bootstrap()
+            guard case .liveSynced(let syncedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected synced state before no-ops; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            let emptyQueueResult = try await liveStore.queueMutations([])
+            #expect(emptyQueueResult == NativeQueuedMutationBatchResult(
+                submittedClientMutationIDs: [],
+                drainedClientMutationIDs: [],
+                remainingSubmittedClientMutationIDs: [],
+                submittedConflicts: []
+            ))
+            guard case .liveSynced(let afterEmptyQueue) = liveStore.bootstrapState else {
+                Issue.record("Expected empty queue to preserve synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(afterEmptyQueue.recipes == syncedContent.recipes)
+            #expect(afterEmptyQueue.queuedMutations.isEmpty)
+
+            try await liveStore.discardQueuedMutation(clientMutationID: " \n ")
+            guard case .liveSynced(let afterBlankDiscard) = liveStore.bootstrapState else {
+                Issue.record("Expected blank discard to preserve synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(afterBlankDiscard.recipes == syncedContent.recipes)
+            #expect(afterBlankDiscard.queuedMutations.isEmpty)
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_missing")
+            guard case .liveSynced(let afterMissingDiscard) = liveStore.bootstrapState else {
+                Issue.record("Expected missing discard to preserve synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(afterMissingDiscard.recipes == syncedContent.recipes)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("live store discard keeps independent conflicts and removes dependent queued recipe work")
+    func liveStoreDiscardKeepsIndependentConflictsAndRemovesDependentQueuedRecipeWork() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let firstRecipe = Self.sampleRecipe(id: "recipe_conflict_one", title: "Server One")
+            let secondRecipe = Self.sampleRecipe(id: "recipe_conflict_two", title: "Server Two")
+            let firstMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: firstRecipe.id,
+                clientMutationID: "cm_conflict_one",
+                title: "Local One",
+                description: firstRecipe.description,
+                servings: firstRecipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let secondMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: secondRecipe.id,
+                clientMutationID: "cm_conflict_two",
+                title: "Local Two",
+                description: secondRecipe.description,
+                servings: secondRecipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [firstMutation, secondMutation]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: firstRecipe.id, payload: try Self.jsonValue(firstRecipe), serverRevision: .updatedAt(firstRecipe.updatedAt)),
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: secondRecipe.id, payload: try Self.jsonValue(secondRecipe), serverRevision: .updatedAt(secondRecipe.updatedAt))
+                ]
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [
+                        .conflict(kind: .validation, serverRevision: .updatedAt("server-one"), message: "First recipe changed elsewhere."),
+                        .conflict(kind: .validation, serverRevision: .updatedAt("server-two"), message: "Second recipe changed elsewhere.")
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            guard case .conflict(let conflictContent) = liveStore.bootstrapState else {
+                Issue.record("Expected two recipe conflicts before discard; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(conflictContent.syncConflicts.map(\.clientMutationID) == ["cm_conflict_one", "cm_conflict_two"])
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_conflict_one")
+            guard case .conflict(let remainingConflictContent) = liveStore.bootstrapState else {
+                Issue.record("Expected the second conflict to remain visible; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(remainingConflictContent.syncConflicts.map(\.clientMutationID) == ["cm_conflict_two"])
+            #expect(remainingConflictContent.offlineIndicatorState.display == .conflict(recordID: "cm_conflict_two", mutationID: "cm_conflict_two"))
+        }
+
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_conflict_chain", title: "Server Chain")
+            let firstMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: recipe.id,
+                clientMutationID: "cm_chain_conflict",
+                title: "Local Chain",
+                description: recipe.description,
+                servings: recipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let secondMutation = try NativeQueuedMutation.recipeStepCreate(
+                recipeID: recipe.id,
+                clientMutationID: "cm_chain_followup",
+                stepNum: 2,
+                stepTitle: "Serve",
+                description: "Serve warm.",
+                duration: nil,
+                ingredients: [],
+                outputStepNums: [1],
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [firstMutation, secondMutation]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt))
+                ]
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [.conflict(kind: .validation, serverRevision: nil, message: "Recipe changed elsewhere.")]
+                )
+            )
+
+            await liveStore.bootstrap()
+            guard case .conflict = liveStore.bootstrapState else {
+                Issue.record("Expected chained conflict before discard; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_chain_conflict")
+            guard case .offlineStale(let staleContent) = liveStore.bootstrapState else {
+                Issue.record("Expected dependent follow-up recipe work to be discarded with the conflict; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(staleContent.syncConflicts.isEmpty)
+            #expect(staleContent.queuedMutations.isEmpty)
+            #expect(staleContent.recipe(id: "recipe_conflict_chain")?.title == "Server Chain")
+        }
+
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_conflict_with_queued_work", title: "Server Queued")
+            let conflictedRecipeMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: recipe.id,
+                clientMutationID: "cm_conflict_with_queued_work",
+                title: "Local Queued",
+                description: recipe.description,
+                servings: recipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let profileMutation = NativeQueuedMutation.profileDisplayUpdate(
+                email: "ari@example.com",
+                username: "ari",
+                clientMutationID: "cm_profile_retry_after_discard",
+                createdAt: Self.isoString(Self.now.addingTimeInterval(1))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [conflictedRecipeMutation, profileMutation]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt))
+                ]
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [
+                        .conflict(kind: .validation, serverRevision: nil, message: "Recipe changed elsewhere."),
+                        .retry(afterSeconds: 120, message: "Profile save is waiting.")
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            guard case .conflict(let conflictContent) = liveStore.bootstrapState else {
+                Issue.record("Expected conflict with unrelated queued work before discard; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(conflictContent.syncConflicts.map(\.clientMutationID) == ["cm_conflict_with_queued_work"])
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_conflict_with_queued_work")
+            guard case .queuedWork(let queuedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected unrelated queued work to remain visible after discarding conflict; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(queuedContent.syncConflicts.isEmpty)
+            #expect(queuedContent.queuedMutations.map(\.clientMutationID) == ["cm_profile_retry_after_discard"])
+            #expect(queuedContent.offlineIndicatorState.display == .queuedWork(count: 1, oldestClientMutationID: "cm_profile_retry_after_discard"))
+            #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_profile_retry_after_discard"])
+        }
+
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let createMutation = try NativeQueuedMutation.recipeCreate(
+                clientMutationID: "cm_local_create_conflict",
+                title: "Local Only Cake",
+                description: nil,
+                servings: nil,
+                steps: [],
+                createdAt: Self.isoString(Self.now)
+            )
+            let dependentMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_local_cm_local_create_conflict",
+                clientMutationID: "cm_local_create_followup",
+                title: "Local Only Cake Edited",
+                description: nil,
+                servings: nil,
+                createdAt: Self.isoString(Self.now.addingTimeInterval(1))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [createMutation, dependentMutation])
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [.conflict(kind: .validation, serverRevision: nil, message: "Recipe create changed elsewhere.")]
+                )
+            )
+
+            await liveStore.bootstrap()
+            guard case .conflict(let conflictContent) = liveStore.bootstrapState else {
+                Issue.record("Expected local create conflict before discard; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(conflictContent.syncConflicts.map(\.clientMutationID) == ["cm_local_create_conflict"])
+            #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_local_create_conflict", "cm_local_create_followup"])
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_local_create_conflict")
+            guard case .offlineStale(let staleContent) = liveStore.bootstrapState else {
+                Issue.record("Expected local create and dependent edit to be discarded together; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(staleContent.syncConflicts.isEmpty)
+            #expect(staleContent.queuedMutations.isEmpty)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("live store executes recipe editor requests with auth-refreshing transport")
+    func liveStoreExecutesRecipeEditorRequestsWithAuthRefreshingTransport() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_expired",
+                refreshToken: "sj_refresh_original",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(-60),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_ari"
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_editor_execute", title: "Executed Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_execute", name: "pepper"))
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: syncTransport,
+                recipeEditorAPITransport: { refresher in
+                    RefreshingRecipeEditorAPITransport(
+                        refresher: refresher,
+                        expectedMethod: .patch,
+                        expectedPathComponents: ["api", "v1", "recipes", "recipe_editor_execute"]
+                    )
+                }
+            )
+            let request = try RecipeWriteRequests.updateRecipe(
+                id: "recipe_editor_execute",
+                clientMutationID: "cm_editor_execute",
+                title: "Executed Pasta",
+                description: nil,
+                servings: "4"
+            )
+
+            try await liveStore.executeRecipeEditorRequest(request)
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live sync after editor request execution; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.id) == ["recipe_editor_execute"])
+            #expect(await syncTransport.capturedBearerTokens() == ["sj_access_refreshed"])
+        }
+    }
+
+    @MainActor
+    @Test("live store dependencies default recipe editor transport is URLSession-backed")
+    func liveStoreDependenciesDefaultRecipeEditorTransportIsURLSessionBacked() throws {
+        let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+        let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+        let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+        let dependencies = NativeLiveAppStoreDependencies(
+            authSessionRepository: Self.authRepository(vault: InMemoryTokenVault()),
+            cacheStore: NativeDurableCacheStore(fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("unused-cache-\(UUID().uuidString).json")),
+            syncStore: syncStore,
+            syncEngine: engine,
+            syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: .spoonjoyProduction),
+            appStateStoreProvider: { nil },
+            configuration: .spoonjoyProduction,
+            cacheEnvironment: .production,
+            now: { Self.now }
+        )
+
+        #expect(dependencies.recipeEditorAPITransport(NoopRecipeEditorAPIRefresher()) is URLSessionAPITransport)
     }
 
     @MainActor
@@ -187,7 +892,7 @@ struct NativeLiveStoreTests {
             )
 
             await liveStore.bootstrap()
-            await liveStore.queueMutation(currentMutation)
+            try await liveStore.queueMutation(currentMutation)
             let snapshot = await syncStore.loadSnapshot()
 
             #expect(snapshot.accountID == "chef_current")
@@ -848,7 +1553,12 @@ struct NativeLiveStoreTests {
                 createdAt: Self.isoString(Self.now)
             )
 
-            await queueFailureStore.queueMutation(mutation)
+            do {
+                try await queueFailureStore.queueMutation(mutation)
+                Issue.record("Expected queueMutation to throw when sync store is unavailable.")
+            } catch {
+                #expect(String(describing: error).contains("sync store unavailable"))
+            }
 
             guard case .syncFailed(let queueContent, let queueMessage) = queueFailureStore.bootstrapState else {
                 Issue.record("Expected queue failure to produce syncFailed; got \(queueFailureStore.bootstrapState)")
@@ -918,6 +1628,14 @@ struct NativeLiveStoreTests {
                 return
             }
             #expect(content.offlineIndicatorState.display == .conflict(recordID: "cm_sync_outcome", mutationID: "cm_sync_outcome"))
+            #expect(content.syncConflicts == [
+                NativeSyncConflict(
+                    clientMutationID: "cm_sync_outcome",
+                    kind: .validation,
+                    serverRevision: .updatedAt("server-v2"),
+                    message: "Recipe changed on another device."
+                )
+            ])
         }
 
         try await assertSyncOutcome(
@@ -1010,10 +1728,14 @@ struct NativeLiveStoreTests {
             )
 
             await liveStore.bootstrap()
-            await liveStore.queueMutation(nextMutation)
+            let appendResult = try await liveStore.queueMutations([nextMutation])
 
             let snapshot = await syncStore.loadSnapshot()
             #expect(snapshot.queue.mutations.map(\.clientMutationID) == ["cm_existing", "cm_next"])
+            #expect(appendResult.submittedClientMutationIDs == ["cm_next"])
+            #expect(appendResult.drainedClientMutationIDs.isEmpty)
+            #expect(appendResult.remainingSubmittedClientMutationIDs == ["cm_next"])
+            #expect(appendResult.submittedConflicts.isEmpty)
             guard case .queuedWork(let content) = liveStore.bootstrapState else {
                 Issue.record("Expected queuedWork after append; got \(liveStore.bootstrapState)")
                 return
@@ -1200,6 +1922,7 @@ struct NativeLiveStoreTests {
                 "loadSnapshot",
                 "bootstrapFromLiveAPI",
                 "validSession()",
+                "recipeEditorAPITransport",
                 "switchEnvironment",
                 "recordingOpenedRoute",
                 "offlineIndicatorState",
@@ -1276,6 +1999,9 @@ struct NativeLiveStoreTests {
                 "contentState.captureDraft",
                 "NativeQueuedMutation",
                 "queueMutation",
+                "queueMutations",
+                "discardQueuedMutation",
+                "executeRecipeEditorRequest",
                 "syncTriggerCoordinator",
                 "OfflineStatusView(display:",
                 "offlineIndicatorState",
@@ -1289,8 +2015,49 @@ struct NativeLiveStoreTests {
                 "KitchenFixtureState.decodeFromBundle()",
                 "KitchenFixtureState.bootstrapFallback",
                 "SettingsState(\n                auth: .signedOut",
-                "QueuedMutation(",
+                "NativeQueuedMutation(",
                 "startedAt: \"2026-06-16T11:45:00.000Z\""
+            ]
+        )
+    }
+
+    @Test("recipe editor app surface drains online structural batches and labels conflict discard honestly")
+    func recipeEditorAppSurfaceDrainsOnlineStructuralBatchesAndLabelsConflictDiscardHonestly() throws {
+        let editor = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"))
+        let platform = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"))
+        let root = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"))
+
+        expectContent(
+            editor,
+            in: "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift",
+            contains: [
+                "mutationsDidQueue: @escaping @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult",
+                "let batchResult = try await mutationsDidQueue(mutations, editor.connectivity == .online)",
+                "submittedBatchNeedsAttention(batchResult, mutations: mutations)",
+                "Button(conflictBanner.discardActionTitle)",
+                "conflictDidDiscardLocalChange"
+            ],
+            forbids: [
+                "Button(\"Keep Draft\")",
+                "keepLocalDraft",
+                "conflictDidKeepDraft"
+            ]
+        )
+        expectContent(
+            platform,
+            in: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+            contains: [
+                "queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult",
+                "mutation.optimisticRecipeID == recipeID",
+                "conflictDidDiscardLocalChange: discardRecipeEditorLocalChange"
+            ]
+        )
+        expectContent(
+            root,
+            in: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+            contains: [
+                "queueMutations: { mutations, drainImmediately in",
+                "queueMutations(mutations, drainImmediately: drainImmediately)"
             ]
         )
     }
@@ -1563,6 +2330,14 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
 
     func saveQueue(_: NativeMutationQueue, accountID _: String?, environment _: NativeCacheEnvironment?) throws {}
 
+    func saveQueue(
+        _: NativeMutationQueue,
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        upsertingCachedRecords _: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys _: Set<String>
+    ) throws {}
+
     func loadCheckpoint() throws -> NativeSyncCheckpoint {
         throw NativeSyncStoreError.missingCheckpoint
     }
@@ -1629,9 +2404,58 @@ private struct ThrowingLiveStoreSyncTransport: NativeSyncTransport {
     }
 }
 
+private struct RefreshingRecipeEditorAPITransport: SpoonjoyAPITransport {
+    let refresher: any APIAuthenticationRefresher
+    let expectedMethod: APIRequestMethod
+    let expectedPathComponents: [String]
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        guard request.method == expectedMethod,
+              request.pathComponents == expectedPathComponents else {
+            throw NativeLiveStoreTestError.unexpectedRequest
+        }
+        guard configuration.bearerToken == "sj_access_refreshed" else {
+            throw NativeLiveStoreTestError.unexpectedBearerToken(configuration.bearerToken)
+        }
+
+        let refreshed = try await refresher.refreshedConfiguration(
+            after: APIError(
+                requestID: "recipe-editor-refresh",
+                code: "UNAUTHENTICATED",
+                message: "Refresh editor auth.",
+                status: 401
+            ),
+            configuration: configuration
+        )
+        guard refreshed.bearerToken == "sj_access_refreshed" else {
+            throw NativeLiveStoreTestError.unexpectedBearerToken(refreshed.bearerToken)
+        }
+        guard let data = JSONValue.object(["saved": .bool(true)]) as? Value else {
+            throw NativeLiveStoreTestError.unexpectedEnvelopeType
+        }
+        return APIEnvelope(requestID: "recipe-editor-ok", data: data)
+    }
+}
+
+private struct NoopRecipeEditorAPIRefresher: APIAuthenticationRefresher {
+    func refreshedConfiguration(
+        after _: APIError,
+        configuration: APIClientConfiguration
+    ) async throws -> APIClientConfiguration {
+        configuration
+    }
+}
+
 private enum NativeLiveStoreTestError: Error, CustomStringConvertible {
     case missingFile(String)
     case processFailed(String)
+    case unexpectedRequest
+    case unexpectedBearerToken(String?)
+    case unexpectedEnvelopeType
 
     var description: String {
         switch self {
@@ -1639,6 +2463,12 @@ private enum NativeLiveStoreTestError: Error, CustomStringConvertible {
             "Missing repo file: \(path)"
         case .processFailed(let output):
             output
+        case .unexpectedRequest:
+            "Unexpected recipe editor request."
+        case .unexpectedBearerToken(let token):
+            "Unexpected bearer token: \(token ?? "nil")"
+        case .unexpectedEnvelopeType:
+            "Unexpected recipe editor envelope decode type."
         }
     }
 }
@@ -1663,7 +2493,10 @@ private extension NativeLiveStoreTests {
         configuration: APIClientConfiguration = .spoonjoyProduction,
         cacheEnvironment: NativeCacheEnvironment = .production,
         appStateStoreProvider: @escaping @MainActor () -> NativeAppStateStore? = { nil },
-        fixtureFallbackPolicy: NativeFixtureFallbackPolicy = .disabledInProduction
+        fixtureFallbackPolicy: NativeFixtureFallbackPolicy = .disabledInProduction,
+        recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
+            URLSessionAPITransport(authenticationRefresher: refresher)
+        }
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
@@ -1676,6 +2509,7 @@ private extension NativeLiveStoreTests {
             configuration: configuration,
             cacheEnvironment: cacheEnvironment,
             fixtureFallbackPolicy: fixtureFallbackPolicy,
+            recipeEditorAPITransport: recipeEditorAPITransport,
             now: { Self.now }
         ))
     }

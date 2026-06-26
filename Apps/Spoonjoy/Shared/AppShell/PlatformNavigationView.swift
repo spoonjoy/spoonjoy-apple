@@ -7,9 +7,12 @@ struct PlatformNavigationView: View {
 
     private let contentState: NativeShellContentState
     private let offlineIndicatorState: OfflineIndicatorState
-    private let dismissOfflineIndicator: () -> Void
-    private let queueMutation: (NativeQueuedMutation) -> Void
-    private let recordCookProgress: (CookModeProgress) -> Void
+    private let dismissOfflineIndicator: @MainActor @Sendable () -> Void
+    private let queueMutation: @Sendable (NativeQueuedMutation) async throws -> Void
+    private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
+    private let discardQueuedMutation: @Sendable (String) async throws -> Void
+    private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
@@ -17,9 +20,12 @@ struct PlatformNavigationView: View {
         search: Binding<SearchState>,
         contentState: NativeShellContentState,
         offlineIndicatorState: OfflineIndicatorState,
-        dismissOfflineIndicator: @escaping () -> Void,
-        queueMutation: @escaping (NativeQueuedMutation) -> Void,
-        recordCookProgress: @escaping (CookModeProgress) -> Void,
+        dismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void,
+        queueMutation: @escaping @Sendable (NativeQueuedMutation) async throws -> Void,
+        queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
+        discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
+        executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
@@ -28,6 +34,9 @@ struct PlatformNavigationView: View {
         self.offlineIndicatorState = offlineIndicatorState
         self.dismissOfflineIndicator = dismissOfflineIndicator
         self.queueMutation = queueMutation
+        self.queueMutations = queueMutations
+        self.discardQueuedMutation = discardQueuedMutation
+        self.executeRecipeEditorRequest = executeRecipeEditorRequest
         self.recordCookProgress = recordCookProgress
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
@@ -129,6 +138,8 @@ struct PlatformNavigationView: View {
                 RecipeEditorView(
                     viewModel: editorViewModel,
                     mutationDidPlan: handleRecipeEditorPlan,
+                    mutationsDidQueue: queueMutations,
+                    conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
                     close: openRoute
                 )
             } else {
@@ -365,6 +376,7 @@ struct PlatformNavigationView: View {
             return RecipeEditorViewModel(
                 mode: .edit(recipe: recipe, currentChefID: chefID),
                 connectivity: recipeEditorConnectivity,
+                conflict: recipeEditorConflict(for: recipeID),
                 queuedRecipeMutations: contentState.queuedMutations,
                 now: timestamp
             )
@@ -372,6 +384,7 @@ struct PlatformNavigationView: View {
             return RecipeEditorViewModel(
                 mode: .create(currentChefID: chefID, draft: .blank(currentChefID: chefID)),
                 connectivity: recipeEditorConnectivity,
+                conflict: nil,
                 queuedRecipeMutations: contentState.queuedMutations,
                 now: timestamp
             )
@@ -386,10 +399,45 @@ struct PlatformNavigationView: View {
         return .online
     }
 
-    private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) {
-        if let queuedMutation = plan.queuedMutation {
-            queueMutation(queuedMutation)
+    private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
+        for conflict in contentState.syncConflicts {
+            guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
+                  mutation.optimisticRecipeID == recipeID else {
+                continue
+            }
+
+            return RecipeEditorConflict(
+                resourceID: recipeID,
+                serverRevision: conflict.serverRevision,
+                localClientMutationID: conflict.clientMutationID,
+                message: conflict.message
+            )
         }
+
+        return nil
+    }
+
+    private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func discardRecipeEditorLocalChange(_ conflict: RecipeEditorConflict) async throws {
+        try await discardQueuedMutation(conflict.localClientMutationID)
     }
 
     private func hasShoppingListIngredient(for recipe: Recipe) -> Bool {
@@ -434,12 +482,15 @@ struct PlatformNavigationView: View {
         checked: Bool,
         changedAt: String
     ) {
-        queueMutation(NativeQueuedMutation.shoppingCheckItem(
+        let mutation = NativeQueuedMutation.shoppingCheckItem(
             itemID: item.id,
             checked: checked,
             clientMutationID: "native-check-\(item.id)-\(Self.safeIdentifier(changedAt))",
             createdAt: changedAt
-        ))
+        )
+        Task {
+            try? await queueMutation(mutation)
+        }
     }
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {

@@ -292,6 +292,430 @@ struct APITransportTests {
         #expect(capturedRequests[5].value(forHTTPHeaderField: "X-Client-Mutation-Id") == nil)
     }
 
+    @Test("URLSession native sync transport extracts recipe editor id remaps from success envelopes")
+    func urlSessionNativeSyncTransportExtractsRecipeEditorIDRemapsFromSuccessEnvelopes() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_recipe_create",
+                        data: """
+                        {
+                          "created": true,
+                          "recipe": {
+                            "id": "recipe_server_created",
+                            "steps": [
+                              {
+                                "id": "step_server_first",
+                                "stepNum": 1,
+                                "ingredients": [
+                                  { "id": "ingredient_server_apple", "name": "apple", "quantity": 1, "unit": "whole" },
+                                  { "id": "ingredient_server_zucchini", "name": "zucchini", "quantity": 2, "unit": "cup" }
+                                ]
+                              },
+                              {
+                                "id": "step_server_second",
+                                "stepNum": 2,
+                                "ingredients": [
+                                  { "id": "ingredient_server_butter", "name": "butter", "quantity": 1, "unit": "tbsp" }
+                                ]
+                              }
+                            ]
+                          },
+                          "mutation": { "clientMutationId": "cm_recipe_create", "replayed": false }
+                        }
+                        """
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_step_create",
+                        data: """
+                        {
+                          "created": true,
+                          "step": {
+                            "id": "step_server_created",
+                            "ingredients": [
+                              { "id": "ingredient_server_basil", "name": "basil", "quantity": 2, "unit": "leaf" },
+                              { "id": "ingredient_server_salt", "name": "salt", "quantity": 1, "unit": "pinch" }
+                            ]
+                          },
+                          "mutation": { "clientMutationId": "cm_step_create", "replayed": false }
+                        }
+                        """
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_ingredient_add",
+                        data: """
+                        {
+                          "created": true,
+                          "ingredient": { "id": "ingredient_server_created" },
+                          "mutation": { "clientMutationId": "cm_ingredient_add", "replayed": false }
+                        }
+                        """
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let createRecipe = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_create",
+            title: "Offline Toast",
+            description: nil,
+            servings: nil,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Prep",
+                    description: "Prep.",
+                    duration: nil,
+                    ingredients: [
+                        RecipeIngredientDraft(quantity: 2, unit: "cup", name: "zucchini"),
+                        RecipeIngredientDraft(quantity: 1, unit: "whole", name: "apple")
+                    ],
+                    outputStepNums: []
+                ),
+                RecipeStepDraft(stepNum: 2, stepTitle: "Serve", description: "Serve.", duration: nil, ingredients: [RecipeIngredientDraft(quantity: 1, unit: "tbsp", name: "butter")], outputStepNums: [])
+            ],
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+        let createStep = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_server_created",
+            clientMutationID: "cm_step_create",
+            stepNum: 3,
+            stepTitle: "Garnish",
+            description: "Garnish.",
+            duration: nil,
+            ingredients: [
+                RecipeIngredientDraft(quantity: 1, unit: "pinch", name: "salt"),
+                RecipeIngredientDraft(quantity: 2, unit: "leaf", name: "basil")
+            ],
+            outputStepNums: [],
+            createdAt: "2026-06-16T12:01:00.000Z"
+        )
+        let addIngredient = try NativeQueuedMutation.recipeIngredientAdd(
+            recipeID: "recipe_server_created",
+            stepID: "step_server_created",
+            clientMutationID: "cm_ingredient_add",
+            quantity: 1,
+            unit: "tbsp",
+            name: "butter",
+            createdAt: "2026-06-16T12:02:00.000Z"
+        )
+
+        let createRecipeResult = try await transport.send(createRecipe, configuration: Self.configuration(bearerToken: "sj_access_native"))
+        let createStepResult = try await transport.send(createStep, configuration: Self.configuration(bearerToken: "sj_access_native"))
+        let addIngredientResult = try await transport.send(addIngredient, configuration: Self.configuration(bearerToken: "sj_access_native"))
+
+        #expect(createRecipeResult == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "recipe_local_cm_recipe_create", serverID: "recipe_server_created"),
+            NativeSyncIDRemap(localID: "step_local_cm_recipe_create_1", serverID: "step_server_first"),
+            NativeSyncIDRemap(localID: "ingredient_local_cm_recipe_create_1_1", serverID: "ingredient_server_zucchini"),
+            NativeSyncIDRemap(localID: "ingredient_local_cm_recipe_create_1_2", serverID: "ingredient_server_apple"),
+            NativeSyncIDRemap(localID: "step_local_cm_recipe_create_2", serverID: "step_server_second"),
+            NativeSyncIDRemap(localID: "ingredient_local_cm_recipe_create_2_1", serverID: "ingredient_server_butter")
+        ]))
+        #expect(createStepResult == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "step_local_cm_step_create", serverID: "step_server_created"),
+            NativeSyncIDRemap(localID: "ingredient_local_cm_step_create_1", serverID: "ingredient_server_salt"),
+            NativeSyncIDRemap(localID: "ingredient_local_cm_step_create_2", serverID: "ingredient_server_basil")
+        ]))
+        #expect(addIngredientResult == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "ingredient_local_cm_ingredient_add", serverID: "ingredient_server_created")
+        ]))
+    }
+
+    @Test("URLSession native sync transport extracts top-level recipe editor id remaps")
+    func urlSessionNativeSyncTransportExtractsTopLevelRecipeEditorIDRemaps() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_recipe_top_level",
+                        data: #"{ "created": true, "recipeId": "recipe_server_top_level" }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_step_top_level",
+                        data: #"{ "created": true, "recipeId": "recipe_server_top_level", "stepId": "step_server_top_level" }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_ingredient_top_level",
+                        data: #"{ "created": true, "recipeId": "recipe_server_top_level", "stepId": "step_server_top_level", "ingredientId": "ingredient_server_top_level" }"#
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let configuration = Self.configuration(bearerToken: "sj_access_native")
+        let createRecipe = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_top_level",
+            title: "Top-level Toast",
+            description: nil,
+            servings: nil,
+            steps: [RecipeStepDraft(stepNum: 1, stepTitle: "Prep", description: "Prep.", duration: nil, ingredients: [], outputStepNums: [])],
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+        let createStep = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_server_top_level",
+            clientMutationID: "cm_step_top_level",
+            stepNum: 2,
+            stepTitle: "Serve",
+            description: "Serve.",
+            duration: nil,
+            ingredients: [],
+            outputStepNums: [1],
+            createdAt: "2026-06-16T12:01:00.000Z"
+        )
+        let addIngredient = try NativeQueuedMutation.recipeIngredientAdd(
+            recipeID: "recipe_server_top_level",
+            stepID: "step_server_top_level",
+            clientMutationID: "cm_ingredient_top_level",
+            quantity: 1,
+            unit: "pinch",
+            name: "salt",
+            createdAt: "2026-06-16T12:02:00.000Z"
+        )
+
+        #expect(try await transport.send(createRecipe, configuration: configuration) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "recipe_local_cm_recipe_top_level", serverID: "recipe_server_top_level")
+        ]))
+        #expect(try await transport.send(createStep, configuration: configuration) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "step_local_cm_step_top_level", serverID: "step_server_top_level")
+        ]))
+        #expect(try await transport.send(addIngredient, configuration: configuration) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "ingredient_local_cm_ingredient_top_level", serverID: "ingredient_server_top_level")
+        ]))
+    }
+
+    @Test("URLSession native sync transport skips malformed blank and identity id remaps")
+    func urlSessionNativeSyncTransportSkipsMalformedBlankAndIdentityIDRemaps() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_recipe_missing_shape",
+                        data: #"{ "created": true, "mutation": { "clientMutationId": "cm_recipe_missing_shape" } }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_recipe_identity_shape",
+                        data: """
+                        {
+                          "created": true,
+                          "recipe": {
+                            "id": "recipe_local_cm_recipe_identity",
+                            "steps": [
+                              { "id": " " },
+                              "not-a-step-object",
+                              {}
+                            ]
+                          }
+                        }
+                        """
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_step_missing_shape",
+                        data: #"{ "created": true, "mutation": { "clientMutationId": "cm_step_missing_shape" } }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_step_malformed_shape",
+                        data: """
+                        {
+                          "created": true,
+                          "step": {
+                            "ingredients": [
+                              { "id": "ingredient_server_valid", "name": "salt", "quantity": 1, "unit": "pinch" },
+                              "not-an-ingredient-object",
+                              {}
+                            ]
+                          }
+                        }
+                        """
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_ingredient_missing_shape",
+                        data: #"{ "created": true, "ingredient": {} }"#
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let configuration = Self.configuration(bearerToken: "sj_access_native")
+        let missingRecipe = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_missing_shape",
+            title: "Missing shape",
+            description: nil,
+            servings: nil,
+            steps: [],
+            createdAt: "2026-06-16T12:03:00.000Z"
+        )
+        let identityRecipe = try NativeQueuedMutation.recipeCreate(
+            clientMutationID: "cm_recipe_identity",
+            title: "Identity shape",
+            description: nil,
+            servings: nil,
+            steps: [
+                RecipeStepDraft(stepNum: 1, stepTitle: "Prep", description: "Prep.", duration: nil, ingredients: [], outputStepNums: []),
+                RecipeStepDraft(stepNum: 2, stepTitle: "Cook", description: "Cook.", duration: nil, ingredients: [], outputStepNums: []),
+                RecipeStepDraft(stepNum: 3, stepTitle: "Serve", description: "Serve.", duration: nil, ingredients: [], outputStepNums: [])
+            ],
+            createdAt: "2026-06-16T12:04:00.000Z"
+        )
+        let missingStep = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_server_created",
+            clientMutationID: "cm_step_missing_shape",
+            stepNum: 4,
+            stepTitle: "Finish",
+            description: "Finish.",
+            duration: nil,
+            ingredients: [
+                RecipeIngredientDraft(quantity: 1, unit: "pinch", name: "salt"),
+                RecipeIngredientDraft(quantity: 2, unit: "leaf", name: "basil"),
+                RecipeIngredientDraft(quantity: 3, unit: "drop", name: "oil")
+            ],
+            outputStepNums: [],
+            createdAt: "2026-06-16T12:05:00.000Z"
+        )
+        let malformedStep = try NativeQueuedMutation.recipeStepCreate(
+            recipeID: "recipe_server_created",
+            clientMutationID: "cm_step_malformed_shape",
+            stepNum: 5,
+            stepTitle: "Garnish",
+            description: "Garnish.",
+            duration: nil,
+            ingredients: [
+                RecipeIngredientDraft(quantity: 1, unit: "pinch", name: "salt"),
+                RecipeIngredientDraft(quantity: 2, unit: "leaf", name: "basil"),
+                RecipeIngredientDraft(quantity: 3, unit: "drop", name: "oil")
+            ],
+            outputStepNums: [],
+            createdAt: "2026-06-16T12:05:30.000Z"
+        )
+        let malformedIngredient = try NativeQueuedMutation.recipeIngredientAdd(
+            recipeID: "recipe_server_created",
+            stepID: "step_server_created",
+            clientMutationID: "cm_ingredient_missing_shape",
+            quantity: 1,
+            unit: "tbsp",
+            name: "butter",
+            createdAt: "2026-06-16T12:06:00.000Z"
+        )
+
+        #expect(try await transport.send(missingRecipe, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(identityRecipe, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(missingStep, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(malformedStep, configuration: configuration) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "ingredient_local_cm_step_malformed_shape_1", serverID: "ingredient_server_valid")
+        ]))
+        #expect(try await transport.send(malformedIngredient, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+    }
+
+    @Test("URLSession native sync transport remaps only identifiable recipe create ingredients")
+    func urlSessionNativeSyncTransportRemapsOnlyIdentifiableRecipeCreateIngredients() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_recipe_partial_remaps",
+                        data: """
+                        {
+                          "created": true,
+                          "recipe": {
+                            "id": "recipe_server_decode",
+                            "steps": [
+                              {
+                                "id": "step_server_nonobject",
+                                "stepNum": 1,
+                                "ingredients": [
+                                  { "id": "ingredient_server_ignored", "name": "salt", "quantity": 1, "unit": "pinch" }
+                                ]
+                              },
+                              {
+                                "id": "step_server_matching",
+                                "stepNum": 2,
+                                "ingredients": [
+                                  { "id": "ingredient_server_oil", "name": "oil", "quantity": 2, "unit": "tbsp" }
+                                ]
+                              },
+                              {
+                                "id": "step_server_extra",
+                                "stepNum": 3,
+                                "ingredients": [
+                                  { "id": "ingredient_server_extra", "name": "extra", "quantity": 1, "unit": "pinch" }
+                                ]
+                              }
+                            ]
+                          },
+                          "mutation": { "clientMutationId": "cm_decode", "replayed": false }
+                        }
+                        """
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let mutation = try Self.decodedMutation(
+            type: .recipeCreate,
+            fields: [
+                "title": "Decoded Recipe",
+                "steps": [
+                    "not-a-step-object",
+                    [
+                        "ingredients": [
+                            ["name": "   ", "quantity": 1, "unit": "pinch"],
+                            ["name": "salt", "unit": "pinch"],
+                            ["ingredientName": "Oil", "quantity": 2, "unit": "TBSP"]
+                        ]
+                    ]
+                ]
+            ]
+        )
+
+        #expect(try await transport.send(mutation, configuration: Self.configuration(bearerToken: "sj_access_native")) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "recipe_local_cm_decode", serverID: "recipe_server_decode"),
+            NativeSyncIDRemap(localID: "step_local_cm_decode_1", serverID: "step_server_nonobject"),
+            NativeSyncIDRemap(localID: "step_local_cm_decode_2", serverID: "step_server_matching"),
+            NativeSyncIDRemap(localID: "ingredient_local_cm_decode_2_3", serverID: "ingredient_server_oil")
+        ]))
+    }
+
     @Test("API error envelopes preserve request IDs details and retry decisions")
     func apiErrorEnvelopesPreserveRequestIDsDetailsAndRetryDecisions() async throws {
         let session = RecordingURLSession(
@@ -916,12 +1340,16 @@ struct APITransportTests {
     }
 
     private static func successEnvelope(requestID: String, name: String) -> Data {
+        successEnvelope(requestID: requestID, data: #"{ "name": "\#(name)" }"#)
+    }
+
+    private static func successEnvelope(requestID: String, data: String) -> Data {
         Data(
             """
             {
               "ok": true,
               "requestId": "\(requestID)",
-              "data": { "name": "\(name)" }
+              "data": \(data)
             }
             """.utf8
         )
@@ -980,6 +1408,22 @@ struct APITransportTests {
               }
             }
             """.utf8
+        )
+    }
+
+    private static func decodedMutation(type: NativeQueuedMutationKind, fields: [String: Any]) throws -> NativeQueuedMutation {
+        var kind = fields
+        kind["type"] = type.rawValue
+        return try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "schemaVersion": 1,
+                "id": "native:cm_decode",
+                "clientMutationId": "cm_decode",
+                "createdAt": "2026-06-16T12:00:00.000Z",
+                "retryCount": 0,
+                "kind": kind
+            ])
         )
     }
 }

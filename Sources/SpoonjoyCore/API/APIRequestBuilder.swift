@@ -1,6 +1,6 @@
 import Foundation
 
-public struct APIRequestBuilder: Equatable {
+public struct APIRequestBuilder: Equatable, Sendable {
     public let method: APIRequestMethod
     public let pathComponents: [String]
     public let queryItems: [URLQueryItem]

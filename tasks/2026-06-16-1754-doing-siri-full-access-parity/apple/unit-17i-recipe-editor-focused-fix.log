@@ -1,0 +1,64 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native sync engine and mutation queue" started.
+◇ Suite "Native live store and shell wiring" started.
+◇ Suite "URLSession API transport" started.
+◇ Suite "Native scenario metadata" started.
+◇ Suite "Native recipe editor parity" started.
+◇ Suite "Deep link router" started.
+◇ Suite "Native expanded REST v1 request builders" started.
+◇ Test "live store does not double apply drained structural recipe mutations after immediate online drain" started.
+◇ Test "sync engine records step and ingredient create id remaps for drained optimistic mutations" started.
+◇ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" started.
+◇ Test "drained recipe mutations persist to file backed cache for restart" started.
+◇ Test "sync engine rewrites remaining local ids when auth failure pauses after create success" started.
+◇ Test "sync engine rewrites local optimistic recipe and step ids after create responses" started.
+◇ Test "sync engine blocks local recipe dependent replay when create has not drained" started.
+◇ Test "URLSession native sync transport extracts top-level recipe editor id remaps" started.
+◇ Test "queued mutation resource id replacement targets identifier fields only" started.
+◇ Test "optimistic recipe mutations cover every recipe branch and malformed payload fallback" started.
+◇ Test "live store keeps drained recipe editor mutations visible after immediate online drain" started.
+◇ Test "recipe editor app surface drains online structural batches and labels conflict discard honestly" started.
+◇ Test "live store discard keeps independent conflicts and removes dependent queued recipe work" started.
+◇ Test "URLSession native sync transport skips malformed blank and identity id remaps" started.
+◇ Test "URLSession native sync transport extracts recipe editor id remaps from success envelopes" started.
+◇ Test "live store reports partial online recipe editor drains before the editor closes" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "create draft plans exact online create request" started.
+◇ Test "draft validation blocks empty titles missing steps invalid ingredients and unsafe dependencies" started.
+◇ Test "routes every accepted web and scheme URL" started.
+◇ Test "recipe write and step builders encode idempotent JSON and delete fallback forms" started.
+◇ Test "draft change planner emits nested recipe editor actions without dropping visible form edits" started.
+◇ Test "conflict display pauses submit and exposes review choices" started.
+✔ Test "queued mutation resource id replacement targets identifier fields only" passed after 0.006 seconds.
+✔ Test "sync engine records step and ingredient create id remaps for drained optimistic mutations" passed after 0.006 seconds.
+✔ Test "URLSession native sync transport extracts top-level recipe editor id remaps" passed after 0.006 seconds.
+✔ Test "URLSession native sync transport skips malformed blank and identity id remaps" passed after 0.006 seconds.
+✔ Test "draft validation blocks empty titles missing steps invalid ingredients and unsafe dependencies" passed after 0.006 seconds.
+✔ Test "sync engine rewrites remaining local ids when auth failure pauses after create success" passed after 0.006 seconds.
+✔ Test "create draft plans exact online create request" passed after 0.006 seconds.
+✔ Test "sync engine rewrites local optimistic recipe and step ids after create responses" passed after 0.006 seconds.
+✔ Test "URLSession native sync transport extracts recipe editor id remaps from success envelopes" passed after 0.006 seconds.
+✔ Test "draft change planner emits nested recipe editor actions without dropping visible form edits" passed after 0.006 seconds.
+✔ Test "routes every accepted web and scheme URL" passed after 0.006 seconds.
+✔ Test "sync engine blocks local recipe dependent replay when create has not drained" passed after 0.006 seconds.
+✔ Test "optimistic recipe mutations cover every recipe branch and malformed payload fallback" passed after 0.006 seconds.
+✔ Suite "Deep link router" passed after 0.006 seconds.
+✔ Test "conflict display pauses submit and exposes review choices" passed after 0.006 seconds.
+✔ Test "recipe write and step builders encode idempotent JSON and delete fallback forms" passed after 0.006 seconds.
+✔ Suite "URLSession API transport" passed after 0.006 seconds.
+✔ Test "recipe editor app surface drains online structural batches and labels conflict discard honestly" passed after 0.006 seconds.
+✔ Suite "Native expanded REST v1 request builders" passed after 0.006 seconds.
+✔ Suite "Native recipe editor parity" passed after 0.007 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.006 seconds.
+✔ Suite "Native scenario metadata" passed after 0.007 seconds.
+✔ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" passed after 0.007 seconds.
+✔ Test "drained recipe mutations persist to file backed cache for restart" passed after 0.009 seconds.
+✔ Suite "Native sync engine and mutation queue" passed after 0.009 seconds.
+✔ Test "live store reports partial online recipe editor drains before the editor closes" passed after 0.017 seconds.
+✔ Test "live store keeps drained recipe editor mutations visible after immediate online drain" passed after 0.017 seconds.
+✔ Test "live store does not double apply drained structural recipe mutations after immediate online drain" passed after 0.018 seconds.
+✔ Test "live store discard keeps independent conflicts and removes dependent queued recipe work" passed after 0.021 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.021 seconds.
+✔ Test run with 23 tests in 7 suites passed after 0.022 seconds.

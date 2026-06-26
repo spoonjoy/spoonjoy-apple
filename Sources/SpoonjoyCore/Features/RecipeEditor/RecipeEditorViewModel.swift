@@ -25,6 +25,21 @@ public enum RecipeEditorAction: Equatable, Sendable {
     case deleteIngredient(stepID: String, ingredientID: String, clientMutationID: String, confirmation: RecipeEditorConfirmation)
     case replaceOutputUses(inputStepID: String, outputStepNums: [Int], clientMutationID: String)
     case deleteRecipe(clientMutationID: String, confirmation: RecipeEditorConfirmation)
+
+    public var clientMutationID: String {
+        switch self {
+        case .save(clientMutationID: let clientMutationID),
+             .createStep(clientMutationID: let clientMutationID, step: _),
+             .updateStep(stepID: _, clientMutationID: let clientMutationID, title: _, description: _, duration: _, outputStepNums: _),
+             .deleteStep(stepID: _, clientMutationID: let clientMutationID, confirmation: _),
+             .reorderStep(stepID: _, toStepNum: _, clientMutationID: let clientMutationID),
+             .addIngredient(stepID: _, clientMutationID: let clientMutationID, ingredient: _),
+             .deleteIngredient(stepID: _, ingredientID: _, clientMutationID: let clientMutationID, confirmation: _),
+             .replaceOutputUses(inputStepID: _, outputStepNums: _, clientMutationID: let clientMutationID),
+             .deleteRecipe(clientMutationID: let clientMutationID, confirmation: _):
+            clientMutationID
+        }
+    }
 }
 
 public struct RecipeEditorTool: Identifiable, Equatable, Sendable {
@@ -34,16 +49,16 @@ public struct RecipeEditorTool: Identifiable, Equatable, Sendable {
 
 public enum RecipeEditorConflictAction: Equatable, Sendable {
     case reviewServerVersion
-    case keepLocalDraft
+    case discardLocalChange
 }
 
 public struct RecipeEditorConflict: Equatable, Sendable {
     public let resourceID: String
-    public let serverRevision: NativeServerRevision
+    public let serverRevision: NativeServerRevision?
     public let localClientMutationID: String
     public let message: String
 
-    public init(resourceID: String, serverRevision: NativeServerRevision, localClientMutationID: String, message: String) {
+    public init(resourceID: String, serverRevision: NativeServerRevision?, localClientMutationID: String, message: String) {
         self.resourceID = resourceID
         self.serverRevision = serverRevision
         self.localClientMutationID = localClientMutationID
@@ -56,22 +71,26 @@ public struct RecipeEditorConflictBanner: Equatable, Sendable {
     public let message: String
     public let primaryAction: RecipeEditorConflictAction
     public let secondaryAction: RecipeEditorConflictAction
+    public let discardActionTitle: String
 }
 
 public struct RecipeEditorMutationPlan: Equatable {
     public let remoteRequestBuilder: APIRequestBuilder?
     public let queuedMutation: NativeQueuedMutation?
+    public let offlineFallbackMutation: NativeQueuedMutation?
     public let successRoute: AppRoute?
     public let blockedReason: String?
 
     public init(
         remoteRequestBuilder: APIRequestBuilder? = nil,
         queuedMutation: NativeQueuedMutation? = nil,
+        offlineFallbackMutation: NativeQueuedMutation? = nil,
         successRoute: AppRoute? = nil,
         blockedReason: String? = nil
     ) {
         self.remoteRequestBuilder = remoteRequestBuilder
         self.queuedMutation = queuedMutation
+        self.offlineFallbackMutation = offlineFallbackMutation
         self.successRoute = successRoute
         self.blockedReason = blockedReason
     }
@@ -81,7 +100,7 @@ public struct RecipeEditorViewModel {
     public private(set) var draft: RecipeEditorDraft
     public let mode: RecipeEditorMode
     public let connectivity: RecipeEditorConnectivity
-    public let conflict: RecipeEditorConflict?
+    public private(set) var conflict: RecipeEditorConflict?
     public let queuedRecipeMutations: [NativeQueuedMutation]
     private let now: () -> String
     private let ownerChefID: String?
@@ -157,11 +176,16 @@ public struct RecipeEditorViewModel {
             return nil
         }
 
+        let discardCount = discardMutationCount(for: conflict)
+        let discardNote = discardCount > 1
+            ? " Discarding will remove \(discardCount) queued edits for this recipe."
+            : ""
         return RecipeEditorConflictBanner(
             title: "Recipe changed elsewhere",
-            message: conflict.message,
+            message: "\(conflict.message)\(discardNote)",
             primaryAction: .reviewServerVersion,
-            secondaryAction: .keepLocalDraft
+            secondaryAction: .discardLocalChange,
+            discardActionTitle: discardCount > 1 ? "Discard \(discardCount) Queued Edits" : "Discard Local Edit"
         )
     }
 
@@ -189,6 +213,36 @@ public struct RecipeEditorViewModel {
         var copy = self
         copy.draft = draft
         return copy
+    }
+
+    public func replacingConflict(_ conflict: RecipeEditorConflict?) -> RecipeEditorViewModel {
+        var copy = self
+        copy.conflict = conflict
+        return copy
+    }
+
+    private func discardMutationCount(for conflict: RecipeEditorConflict) -> Int {
+        guard let discarded = queuedRecipeMutations.first(where: { $0.clientMutationID == conflict.localClientMutationID }) else {
+            return 1
+        }
+
+        let discardedDependencyKey = discarded.dependencyKey
+        let discardedLocalRecipeID = discarded.queueableKind == .recipeCreate
+            ? discarded.optimisticRecipeID
+            : nil
+        let mutationIDs = queuedRecipeMutations.compactMap { mutation -> String? in
+            if mutation.clientMutationID == discarded.clientMutationID {
+                return mutation.clientMutationID
+            }
+            if mutation.dependencyKey == discardedDependencyKey {
+                return mutation.clientMutationID
+            }
+            if let discardedLocalRecipeID, mutation.recipeID == discardedLocalRecipeID {
+                return mutation.clientMutationID
+            }
+            return nil
+        }
+        return max(1, Set(mutationIDs).count)
     }
 
     public func plan(_ action: RecipeEditorAction) throws -> RecipeEditorMutationPlan {
@@ -403,7 +457,11 @@ public struct RecipeEditorViewModel {
     private func plan(online: APIRequestBuilder, offline: NativeQueuedMutation, successRoute: AppRoute?) -> RecipeEditorMutationPlan {
         switch connectivity {
         case .online:
-            RecipeEditorMutationPlan(remoteRequestBuilder: online, successRoute: successRoute)
+            RecipeEditorMutationPlan(
+                remoteRequestBuilder: online,
+                offlineFallbackMutation: offline,
+                successRoute: successRoute
+            )
         case .offline:
             RecipeEditorMutationPlan(queuedMutation: offline, successRoute: successRoute)
         }
@@ -428,4 +486,5 @@ public struct RecipeEditorViewModel {
 
 public enum RecipeEditorPlanningError: Error, Equatable, Sendable {
     case missingRecipeID
+    case missingQueuedMutation
 }

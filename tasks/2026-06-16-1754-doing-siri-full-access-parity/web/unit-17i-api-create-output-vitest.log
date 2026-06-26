@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/lib/recipe-create.server.test.ts (12 tests) 994ms
+ ✓ test/lib/api-v1-recipe-writes.server.test.ts (7 tests) 155ms
+
+ Test Files  2 passed (2)
+      Tests  19 passed (19)
+   Start at  17:28:14
+   Duration  2.20s (transform 106ms, setup 177ms, import 263ms, tests 1.15s, environment 379ms)
+

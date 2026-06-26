@@ -11,6 +11,7 @@ public struct NativeLiveAppStoreDependencies {
     public let configuration: APIClientConfiguration
     public let cacheEnvironment: NativeCacheEnvironment
     public let fixtureFallbackPolicy: NativeFixtureFallbackPolicy
+    public let recipeEditorAPITransport: @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport
     public let now: @Sendable () -> Date
 
     public init(
@@ -23,6 +24,9 @@ public struct NativeLiveAppStoreDependencies {
         configuration: APIClientConfiguration,
         cacheEnvironment: NativeCacheEnvironment,
         fixtureFallbackPolicy: NativeFixtureFallbackPolicy = .disabledInProduction,
+        recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
+            URLSessionAPITransport(authenticationRefresher: refresher)
+        },
         now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
@@ -34,7 +38,27 @@ public struct NativeLiveAppStoreDependencies {
         self.configuration = configuration
         self.cacheEnvironment = cacheEnvironment
         self.fixtureFallbackPolicy = fixtureFallbackPolicy
+        self.recipeEditorAPITransport = recipeEditorAPITransport
         self.now = now
+    }
+}
+
+public struct NativeQueuedMutationBatchResult: Equatable, Sendable {
+    public let submittedClientMutationIDs: [String]
+    public let drainedClientMutationIDs: [String]
+    public let remainingSubmittedClientMutationIDs: [String]
+    public let submittedConflicts: [NativeSyncConflict]
+
+    public init(
+        submittedClientMutationIDs: [String],
+        drainedClientMutationIDs: [String],
+        remainingSubmittedClientMutationIDs: [String],
+        submittedConflicts: [NativeSyncConflict]
+    ) {
+        self.submittedClientMutationIDs = submittedClientMutationIDs
+        self.drainedClientMutationIDs = drainedClientMutationIDs
+        self.remainingSubmittedClientMutationIDs = remainingSubmittedClientMutationIDs
+        self.submittedConflicts = submittedConflicts
     }
 }
 
@@ -97,11 +121,16 @@ public struct NativeShellContentState {
     public let captureDraft: CaptureDraft?
     public let cookProgressByRecipeID: [String: CookModeProgress]
     public let queuedMutations: [NativeQueuedMutation]
+    public let syncConflicts: [NativeSyncConflict]
     public let searchResultsByScope: [SearchScope: [String]]
     public let authSessionState: NativeAuthSessionState
     public let environment: NativeCacheEnvironment
     public let configuration: APIClientConfiguration
     public let offlineIndicatorState: OfflineIndicatorState
+
+    public func recipe(id: String) -> Recipe? {
+        recipes.first { $0.id == id }
+    }
 
     public var settingsViewModel: SettingsViewModel {
         SettingsViewModel(
@@ -138,20 +167,23 @@ public struct NativeShellContentState {
     }
 
     func copy(
+        recipes: [Recipe]? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         queuedMutations: [NativeQueuedMutation]? = nil,
+        syncConflicts: [NativeSyncConflict]? = nil,
         environment: NativeCacheEnvironment? = nil,
         configuration: APIClientConfiguration? = nil,
         offlineIndicatorState: OfflineIndicatorState? = nil
     ) -> NativeShellContentState {
         NativeShellContentState(
-            recipes: recipes,
+            recipes: recipes ?? self.recipes,
             cookbooks: cookbooks,
             kitchen: kitchen,
             shoppingList: shoppingList,
             captureDraft: captureDraft,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
             queuedMutations: queuedMutations ?? self.queuedMutations,
+            syncConflicts: syncConflicts ?? self.syncConflicts,
             authSessionState: authSessionState,
             environment: environment ?? self.environment,
             configuration: configuration ?? self.configuration,
@@ -179,6 +211,7 @@ public struct NativeShellContentState {
             captureDraft: nil,
             cookProgressByRecipeID: [:],
             queuedMutations: [],
+            syncConflicts: [],
             authSessionState: authSessionState,
             environment: environment,
             configuration: configuration,
@@ -192,9 +225,15 @@ public struct NativeShellContentState {
         appSnapshot: NativeAppSnapshot?,
         authSessionState: NativeAuthSessionState,
         configuration: APIClientConfiguration,
+        optimisticMutations: [NativeQueuedMutation] = [],
         offlineIndicatorState: OfflineIndicatorState
     ) -> NativeShellContentState {
-        let recipes = restoredRecipes(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
+        let cachedRecipes = restoredRecipes(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
+        let recipes = recipesByApplyingQueuedRecipeMutations(
+            optimisticMutations + syncSnapshot.queue.mutations,
+            to: cachedRecipes,
+            authSessionState: authSessionState
+        )
         let cookbooks = restoredCookbooks(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
         let shoppingList = restoredShoppingList(
             cacheSnapshot: cacheSnapshot,
@@ -217,6 +256,7 @@ public struct NativeShellContentState {
             captureDraft: captureDraft,
             cookProgressByRecipeID: cookProgressByRecipeID,
             queuedMutations: syncSnapshot.queue.mutations,
+            syncConflicts: [],
             authSessionState: authSessionState,
             environment: cacheSnapshot.environment,
             configuration: configuration,
@@ -239,6 +279,34 @@ public struct NativeShellContentState {
             return placeholderRecipe(id: id, title: title, date: record.metadata.lastValidatedAt)
         }
         return (decoded + placeholders).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private static func recipesByApplyingQueuedRecipeMutations(
+        _ mutations: [NativeQueuedMutation],
+        to recipes: [Recipe],
+        authSessionState: NativeAuthSessionState
+    ) -> [Recipe] {
+        let fallbackChef = optimisticRecipeChef(authSessionState: authSessionState, recipes: recipes)
+        return mutations.reduce(recipes) { currentRecipes, mutation in
+            mutation.applyingOptimisticRecipeMutation(
+                to: currentRecipes,
+                fallbackChef: fallbackChef,
+                now: mutation.createdAt
+            )
+        }
+    }
+
+    private static func optimisticRecipeChef(authSessionState: NativeAuthSessionState, recipes: [Recipe]) -> ChefSummary {
+        if let chef = recipes.first?.chef {
+            return chef
+        }
+
+        switch authSessionState {
+        case .authenticated(let session), .refreshRequired(let session):
+            return ChefSummary(id: session.accountID ?? "signed-out", username: "Spoonjoy")
+        case .signedOut:
+            return ChefSummary(id: "signed-out", username: "Spoonjoy")
+        }
     }
 
     private static func restoredCookbooks(
@@ -439,6 +507,7 @@ public struct NativeShellContentState {
         captureDraft: CaptureDraft?,
         cookProgressByRecipeID: [String: CookModeProgress],
         queuedMutations: [NativeQueuedMutation],
+        syncConflicts: [NativeSyncConflict],
         authSessionState: NativeAuthSessionState,
         environment: NativeCacheEnvironment,
         configuration: APIClientConfiguration,
@@ -451,6 +520,7 @@ public struct NativeShellContentState {
         self.captureDraft = captureDraft
         self.cookProgressByRecipeID = cookProgressByRecipeID
         self.queuedMutations = queuedMutations
+        self.syncConflicts = syncConflicts
         self.searchResultsByScope = Self.searchResultsByScope(
             recipes: recipes,
             cookbooks: cookbooks,
@@ -638,11 +708,26 @@ public final class NativeLiveAppStore: ObservableObject {
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(offlineIndicatorState: reduced)))
     }
 
-    public func queueMutation(_ mutation: NativeQueuedMutation) async {
+    public func queueMutation(_ mutation: NativeQueuedMutation) async throws {
+        try await queueMutations([mutation])
+    }
+
+    @discardableResult
+    public func queueMutations(_ mutations: [NativeQueuedMutation], drainImmediately: Bool = false) async throws -> NativeQueuedMutationBatchResult {
+        let submittedClientMutationIDs = mutations.map(\.clientMutationID)
+        guard !mutations.isEmpty else {
+            return NativeQueuedMutationBatchResult(
+                submittedClientMutationIDs: [],
+                drainedClientMutationIDs: [],
+                remainingSubmittedClientMutationIDs: [],
+                submittedConflicts: []
+            )
+        }
+
         do {
             let scopedQueue = try await queueForCurrentScope()
             let queue = scopedQueue.queue
-            let nextQueue = try queue.appending(mutation)
+            let nextQueue = try queue.appending(contentsOf: mutations)
             try await dependencies.syncStore.saveQueue(
                 nextQueue,
                 accountID: scopedQueue.accountID,
@@ -655,13 +740,133 @@ public final class NativeLiveAppStore: ObservableObject {
                 ),
                 dismissal: nil
             )
-            apply(.queuedWork(currentContentState.copy(queuedMutations: nextQueue.mutations, offlineIndicatorState: indicator)))
+            let fallbackChef = optimisticRecipeChef
+            let optimisticRecipes = mutations.reduce(currentContentState.recipes) { recipes, mutation in
+                mutation.applyingOptimisticRecipeMutation(
+                    to: recipes,
+                    fallbackChef: fallbackChef,
+                    now: NativeLiveAppStoreClock.isoString(dependencies.now())
+                )
+            }
+            apply(.queuedWork(currentContentState.copy(
+                recipes: optimisticRecipes,
+                queuedMutations: nextQueue.mutations,
+                offlineIndicatorState: indicator
+            )))
+            if drainImmediately {
+                await bootstrap()
+            }
+            return queuedMutationBatchResult(submittedClientMutationIDs: submittedClientMutationIDs)
         } catch {
             apply(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "queue", retryAfter: nil), dismissal: nil)),
                 message: String(describing: error)
             ))
+            throw error
         }
+    }
+
+    private func queuedMutationBatchResult(submittedClientMutationIDs: [String]) -> NativeQueuedMutationBatchResult {
+        let submitted = Set(submittedClientMutationIDs)
+        let remaining = currentContentState.queuedMutations
+            .map(\.clientMutationID)
+            .filter { submitted.contains($0) }
+        let conflicts = currentContentState.syncConflicts
+            .filter { submitted.contains($0.clientMutationID) }
+        let blocked = Set(remaining).union(conflicts.map(\.clientMutationID))
+        let drained = submittedClientMutationIDs.filter { !blocked.contains($0) }
+        return NativeQueuedMutationBatchResult(
+            submittedClientMutationIDs: submittedClientMutationIDs,
+            drainedClientMutationIDs: drained,
+            remainingSubmittedClientMutationIDs: remaining,
+            submittedConflicts: conflicts
+        )
+    }
+
+    public func discardQueuedMutation(clientMutationID: String) async throws {
+        let trimmedClientMutationID = clientMutationID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedClientMutationID.isEmpty else {
+            return
+        }
+
+        let scopedQueue = try await queueForCurrentScope()
+        guard scopedQueue.queue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
+            return
+        }
+
+        let existingConflicts = currentContentState.syncConflicts
+        let clientMutationIDsToDiscard = Self.clientMutationIDsToDiscard(
+            from: scopedQueue.queue,
+            startingAt: trimmedClientMutationID
+        )
+        let nextQueue = try scopedQueue.queue.removing(clientMutationIDs: clientMutationIDsToDiscard)
+        try await dependencies.syncStore.saveQueue(
+            nextQueue,
+            accountID: scopedQueue.accountID,
+            environment: scopedQueue.environment
+        )
+
+        let restoredContent = try await restoreFromCache(authSessionState: currentContentState.authSessionState)
+        let remainingConflicts = existingConflicts.filter { !clientMutationIDsToDiscard.contains($0.clientMutationID) }
+        let content = restoredContent.copy(syncConflicts: remainingConflicts)
+        if let conflict = remainingConflicts.first {
+            apply(.conflict(content.copy(
+                offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil)
+            )))
+        } else if !content.queuedMutations.isEmpty {
+            apply(.queuedWork(content.copy(
+                offlineIndicatorState: OfflineIndicatorState(
+                    display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID),
+                    dismissal: nil
+                )
+            )))
+        } else {
+            apply(.offlineStale(content))
+        }
+    }
+
+    public func executeRecipeEditorRequest(_ request: APIRequestBuilder) async throws {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+        _ = try await transport.send(
+            request,
+            configuration: configuration,
+            decode: JSONValue.self
+        )
+        await bootstrap()
+    }
+
+    private var optimisticRecipeChef: ChefSummary {
+        currentContentState.recipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+    }
+
+    private static func clientMutationIDsToDiscard(
+        from queue: NativeMutationQueue,
+        startingAt clientMutationID: String
+    ) -> Set<String> {
+        let discarded = queue.mutations.first { $0.clientMutationID == clientMutationID }
+        let discardedDependencyKey = discarded?.dependencyKey
+        let discardedLocalRecipeID = discarded?.queueableKind == .recipeCreate ? discarded?.optimisticRecipeID : nil
+        return Set(queue.mutations.compactMap { mutation in
+            if mutation.clientMutationID == clientMutationID {
+                return mutation.clientMutationID
+            }
+            if let discardedDependencyKey, mutation.dependencyKey == discardedDependencyKey {
+                return mutation.clientMutationID
+            }
+            if let discardedLocalRecipeID, mutation.recipeID == discardedLocalRecipeID {
+                return mutation.clientMutationID
+            }
+            return nil
+        })
     }
 
     private func queueForCurrentScope() async throws -> (queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) {
@@ -734,7 +939,10 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
-    private func restoreFromCache(authSessionState: NativeAuthSessionState) async throws -> NativeShellContentState {
+    private func restoreFromCache(
+        authSessionState: NativeAuthSessionState,
+        optimisticMutations: [NativeQueuedMutation] = []
+    ) async throws -> NativeShellContentState {
         let record = try loadOrCreateCacheSnapshot(authSessionState: authSessionState)
         let syncSnapshot = try await scopedSyncSnapshot(authSessionState: authSessionState)
         let appSnapshot = loadAppSnapshot(
@@ -759,6 +967,7 @@ public final class NativeLiveAppStore: ObservableObject {
             appSnapshot: appSnapshot,
             authSessionState: authSessionState,
             configuration: configuration,
+            optimisticMutations: optimisticMutations,
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
         currentContentState = content
@@ -816,11 +1025,18 @@ public final class NativeLiveAppStore: ObservableObject {
     ) async throws {
         let report = try await syncTriggerCoordinator.handle(trigger)
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
-        let content = try await restoreFromCache(authSessionState: boundAuthState)
+        let drainedOverlayMutations = report.drainedMutations.filter { !$0.mutatesRecipeCache }
+        let content = try await restoreFromCache(
+            authSessionState: boundAuthState,
+            optimisticMutations: drainedOverlayMutations
+        )
             .copy(offlineIndicatorState: OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()))
 
         if let conflict = report.conflicts.first {
-            apply(.conflict(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil))))
+            apply(.conflict(content.copy(
+                syncConflicts: report.conflicts,
+                offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil)
+            )))
         } else if case .authRequired(let message)? = report.pausedReason {
             apply(.blocker(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .blocker(.providerSecret(resourceID: message)), dismissal: nil))))
         } else if let retryAfterSeconds = report.retryAfterSeconds {
@@ -917,6 +1133,19 @@ public final class NativeLiveAppStore: ObservableObject {
 
 public enum NativeLiveAppStoreError: Error, Equatable, Sendable {
     case fixtureFallbackEnabledInProduction
+}
+
+private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
+    let authSessionRepository: NativeAuthSessionRepository
+    let baseURL: URL
+
+    func refreshedConfiguration(
+        after _: APIError,
+        configuration _: APIClientConfiguration
+    ) async throws -> APIClientConfiguration {
+        let session = try await authSessionRepository.validSession()
+        return APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
+    }
 }
 
 enum NativeLiveAppStoreClock {

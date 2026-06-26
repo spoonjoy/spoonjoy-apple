@@ -303,6 +303,8 @@ struct AppStateTests {
             (.recipes, "recipes", "spoonjoy://recipes"),
             (.recipeDetail(id: "recipe_lemon", presentation: .detail), "recipe:recipe_lemon", "spoonjoy://recipes/recipe_lemon"),
             (.recipeDetail(id: "recipe_lemon", presentation: .cook), "recipe-cook:recipe_lemon", "spoonjoy://recipes/recipe_lemon/cook"),
+            (.recipeEditor(id: "recipe_lemon"), "recipe-editor:recipe_lemon", "spoonjoy://recipes/recipe_lemon/edit"),
+            (.recipeEditor(id: nil), "recipe-editor:new", "spoonjoy://recipes/new/edit"),
             (.cookbooks, "cookbooks", "spoonjoy://cookbooks"),
             (.cookbookDetail(id: "cookbook_weeknights"), "cookbook:cookbook_weeknights", "spoonjoy://cookbooks/cookbook_weeknights"),
             (.shoppingList, "shopping-list", "spoonjoy://shopping-list"),

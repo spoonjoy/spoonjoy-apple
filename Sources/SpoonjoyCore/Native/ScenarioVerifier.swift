@@ -692,11 +692,14 @@ public enum ScenarioVerifier {
         let hasAssociatedDomain = metadata.associatedDomains == ["applinks:\(DeepLinkManifest.webDomain)"]
         let hasScheme = metadata.urlSchemes == DeepLinkManifest.urlSchemes
         let hasWebRoutes = metadata.deepLinkRoutes.contains("https://\(DeepLinkManifest.webDomain)/recipes/{id}") &&
+            metadata.deepLinkRoutes.contains("https://\(DeepLinkManifest.webDomain)/recipes/{id}/edit") &&
             metadata.deepLinkRoutes.contains("https://\(DeepLinkManifest.webDomain)/recipes/{id}#cook") &&
             metadata.deepLinkRoutes.contains("https://\(DeepLinkManifest.webDomain)/shopping-list") &&
             metadata.deepLinkRoutes.contains("https://\(DeepLinkManifest.webDomain)/account/settings")
         let hasSchemeRoutes = metadata.deepLinkRoutes.contains("spoonjoy://recipes/{id}") &&
+            metadata.deepLinkRoutes.contains("spoonjoy://recipes/{id}/edit") &&
             metadata.deepLinkRoutes.contains("spoonjoy://recipes/{id}/cook") &&
+            metadata.deepLinkRoutes.contains("spoonjoy://recipes/new/edit") &&
             metadata.deepLinkRoutes.contains("spoonjoy://shopping-list")
 
         return hasAssociatedDomain && hasScheme && hasWebRoutes && hasSchemeRoutes ? .pass : .fail

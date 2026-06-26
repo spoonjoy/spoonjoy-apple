@@ -304,7 +304,8 @@ public struct RecipeStepDraft: Equatable, Sendable {
             "stepTitle": stepTitle ?? NSNull(),
             "description": description,
             "duration": duration ?? NSNull(),
-            "ingredients": ingredients.map(\.jsonObject)
+            "ingredients": ingredients.map(\.jsonObject),
+            "outputStepNums": outputStepNums
         ]
     }
 }

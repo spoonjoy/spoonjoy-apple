@@ -10,6 +10,7 @@ struct DeepLinkRouterTests {
             ("https://spoonjoy.app/", .kitchen),
             ("https://spoonjoy.app/recipes", .recipes),
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)),
+            ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta/edit", .recipeEditor(id: "recipe_lemon_pantry_pasta")),
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta#cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta?mode=cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
             ("https://spoonjoy.app/cookbooks", .cookbooks),
@@ -26,6 +27,8 @@ struct DeepLinkRouterTests {
             ("spoonjoy://recipes", .recipes),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta/cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
+            ("spoonjoy://recipes/recipe_lemon_pantry_pasta/edit", .recipeEditor(id: "recipe_lemon_pantry_pasta")),
+            ("spoonjoy://recipes/new/edit", .recipeEditor(id: nil)),
             ("spoonjoy://cookbooks", .cookbooks),
             ("spoonjoy://cookbooks/cookbook_weeknight", .cookbookDetail(id: "cookbook_weeknight")),
             ("spoonjoy://shopping-list", .shoppingList),
@@ -47,6 +50,8 @@ struct DeepLinkRouterTests {
             "https://spoonjoy.app/recipes/",
             "https://spoonjoy.app/recipes/%20%20",
             "https://spoonjoy.app/recipes/..",
+            "https://spoonjoy.app/recipes/new/edit",
+            "https://spoonjoy.app/recipes/%2E%2E%2Fsecret/edit",
             "https://spoonjoy.app/recipes/%2E%2E%2Fsecret",
             "https://spoonjoy.app/cookbooks/%2E%2E%2Fsecret",
             "https://spoonjoy.app/search?q=lemon%20pasta&scope=shopping",
@@ -57,6 +62,7 @@ struct DeepLinkRouterTests {
             "spoonjoy://recipes/",
             "spoonjoy://recipes/%2E%2E%2Fsecret",
             "spoonjoy://recipes/%2E%2E%2Fsecret/cook",
+            "spoonjoy://recipes/%2E%2E%2Fsecret/edit",
             "spoonjoy://cookbooks/%2E%2E%2Fsecret",
             "spoonjoy://search?q=lemon&scope=bad-scope",
             "spoonjoy://unknown"
@@ -98,6 +104,7 @@ struct DeepLinkRouterTests {
 
         #expect(AppRoute.cookbooks.section == .cookbooks)
         #expect(AppRoute.cookbookDetail(id: "cookbook_weeknight").section == .cookbooks)
+        #expect(AppRoute.recipeEditor(id: "recipe_lemon").section == .recipes)
         #expect(AppRoute.search(query: "rice", scope: .all).section == .search)
         #expect(AppRoute.capture.section == .capture)
         #expect(AppRoute.settings.section == .settings)
