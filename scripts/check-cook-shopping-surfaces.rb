@@ -8,13 +8,35 @@ ROOT = Pathname.new(__dir__).join("..").expand_path
 PROJECT_CONTRACT = ROOT.join("scripts/check-xcode-project-contract.rb")
 
 REQUIRED_FILES = [
+  "Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift",
   "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
+  "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
   "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift",
   "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
   "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift"
 ].freeze
 
 REQUIRED_TOKENS = {
+  "Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift" => [
+    "ShoppingSurfaceRepository",
+    "ShoppingSurfaceViewModel",
+    "ShoppingSurfaceAction",
+    "ShoppingSurfaceMutationPlan",
+    "ShoppingActionConfirmation",
+    "ShoppingActionConfirmationPrompt",
+    "ShoppingListRequests.addItem",
+    "ShoppingListRequests.setItemChecked",
+    "ShoppingListRequests.deleteItem",
+    "ShoppingListRequests.addIngredientsFromRecipe",
+    "ShoppingListRequests.clearCompleted",
+    "ShoppingListRequests.clearAll",
+    "NativeQueuedMutation.shoppingAddItem",
+    "NativeQueuedMutation.shoppingCheckItem",
+    "NativeQueuedMutation.shoppingDeleteItem",
+    "NativeQueuedMutation.shoppingAddFromRecipe",
+    "NativeQueuedMutation.shoppingClearCompleted",
+    "NativeQueuedMutation.shoppingClearAll"
+  ],
   "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift" => [
     "KitchenSafeControls",
     "Button",
@@ -36,6 +58,8 @@ REQUIRED_TOKENS = {
     "checkmark.circle.fill",
     "configuration.isOn.toggle()",
     "swipeActions",
+    "deleteItem",
+    "trash",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/CookModeView.swift" => [
@@ -46,17 +70,31 @@ REQUIRED_TOKENS = {
     "currentStep",
     "ProgressView",
     "Persisted progress",
+    "addRecipeIngredients",
+    "scaleFactor",
     "accessibilityLabel",
     "accessibilityValue",
     "KitchenTableTheme"
   ],
+  "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
+    "shoppingListMetadata",
+    "addRecipeIngredients",
+    "ShoppingSurfaceAction",
+    "cart.badge.plus"
+  ],
   "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift" => [
     "ShoppingListView",
-    "ShoppingListViewModel",
+    "ShoppingSurfaceViewModel",
     "ShoppingListState",
     "ReceiptListView",
     "EditMode",
     "settingChecked",
+    "TextField",
+    "addItem",
+    "deleteItem",
+    "clearCompleted",
+    "clearAll",
+    ".confirmationDialog",
     "KitchenTableTheme"
   ]
 }.freeze
@@ -103,11 +141,22 @@ unless platform_navigation.include?("CookModeView(") || platform_navigation.incl
   fail_check("PlatformNavigationView.swift missing cook mode route/view")
 end
 fail_check("PlatformNavigationView.swift missing ShoppingListView(") unless platform_navigation.include?("ShoppingListView(")
+[
+  "ShoppingSurfaceViewModel",
+  "performShoppingAction",
+  "queueMutation",
+  "executeRecipeEditorRequest"
+].each do |token|
+  fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
+end
 
 scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift").read
 [
   "cook progress persistence",
   "shopping checkoff",
+  "shopping add item",
+  "shopping add recipe ingredients",
+  "shopping clear confirmation",
   "CookModeView.swift",
   "ShoppingListView.swift",
   "ReceiptListView.swift",
