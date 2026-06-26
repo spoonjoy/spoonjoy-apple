@@ -164,6 +164,22 @@ struct RecipeActionParityTests {
         #expect(duplicateSave.remoteRequestBuilder == nil)
         #expect(duplicateSave.queuedMutation == nil)
 
+        let unavailableSave = try viewModel.plan(.saveToCookbook(
+            cookbookID: "cookbook_foreign",
+            clientMutationID: "cm_foreign_save"
+        ))
+        #expect(unavailableSave.blockedReason == "Choose one of your cookbooks before saving this recipe.")
+        #expect(unavailableSave.remoteRequestBuilder == nil)
+        #expect(unavailableSave.queuedMutation == nil)
+
+        let availableButUnsavedRemove = try viewModel.plan(.removeFromCookbook(
+            cookbookID: "cookbook_pantry",
+            clientMutationID: "cm_unsaved_remove"
+        ))
+        #expect(availableButUnsavedRemove.blockedReason == "This recipe is not saved in that cookbook.")
+        #expect(availableButUnsavedRemove.remoteRequestBuilder == nil)
+        #expect(availableButUnsavedRemove.queuedMutation == nil)
+
         let unavailableRemove = try viewModel.plan(.removeFromCookbook(
             cookbookID: "cookbook_foreign",
             clientMutationID: "cm_foreign_remove"
