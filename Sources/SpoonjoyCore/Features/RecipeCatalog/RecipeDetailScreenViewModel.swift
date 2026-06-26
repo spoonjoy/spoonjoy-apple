@@ -141,15 +141,55 @@ public struct RecipeDetailCookbookSaveState: Equatable, Sendable {
     }
 }
 
+public enum RecipeDetailActionID: String, Equatable, Sendable {
+    case startCooking
+    case saveToCookbook
+    case addToShoppingList
+    case share
+    case fork
+    case makeVariation
+    case edit
+    case manageCovers
+    case deleteRecipe
+}
+
+public struct RecipeShoppingListActionMetadata: Equatable, Sendable {
+    public let recipeID: String
+    public let hasIngredientsInShoppingList: Bool
+
+    public init(recipeID: String, hasIngredientsInShoppingList: Bool) {
+        self.recipeID = recipeID
+        self.hasIngredientsInShoppingList = hasIngredientsInShoppingList
+    }
+}
+
+public struct RecipeForkActionMetadata: Equatable, Sendable {
+    public let label: String
+    public let titleOverride: String
+
+    public init(label: String, titleOverride: String) {
+        self.label = label
+        self.titleOverride = titleOverride
+    }
+}
+
 public struct RecipeDetailOwnerTools: Equatable, Sendable {
     public let isVisible: Bool
     public let editPath: String
+    public let editRoute: AppRoute?
+    public let coverControlsRoute: AppRoute?
+    public let deleteConfirmation: RecipeActionConfirmationPrompt?
 }
 
 public struct RecipeDetailActions: Equatable, Sendable {
+    public let availableActionIDs: [RecipeDetailActionID]
     public let startCookingRoute: AppRoute
     public let shareURL: URL
     public let chefProfilePath: String
+    public let cookbookOptions: [RecipeCookbookSaveOption]
+    public let savedCookbookIDs: Set<String>
+    public let shoppingListMetadata: RecipeShoppingListActionMetadata
+    public let fork: RecipeForkActionMetadata
 }
 
 public struct RecipeDetailScreenViewModel: Equatable, Sendable {
@@ -166,6 +206,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     public let spoonSummary: RecipeDetailSpoonSummary
     public let cookbookSave: RecipeDetailCookbookSaveState
     public let hasIngredientsInShoppingList: Bool
+    public let actionContext: RecipeDetailContext
     public let ownerTools: RecipeDetailOwnerTools
     public let actions: RecipeDetailActions
     public let offlineIndicator: OfflineIndicatorState
@@ -208,14 +249,36 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
             savedCookbookIDs: context.savedInCookbookIDs
         )
         hasIngredientsInShoppingList = context.hasIngredientsInShoppingList
+        actionContext = context
+        let isOwner = context.currentChefID == recipe.chef.id
+        let deleteConfirmation = RecipeActionConfirmationPrompt(
+            title: "Delete \(recipe.title)?",
+            message: "This removes the recipe from your kitchen and syncs the deletion across your devices.",
+            confirmButtonTitle: "Delete Recipe",
+            isDestructive: true
+        )
         ownerTools = RecipeDetailOwnerTools(
-            isVisible: context.currentChefID == recipe.chef.id,
-            editPath: "/recipes/\(recipe.id)/edit"
+            isVisible: isOwner,
+            editPath: "/recipes/\(recipe.id)/edit",
+            editRoute: isOwner ? .recipeEditor(id: recipe.id) : nil,
+            coverControlsRoute: isOwner ? .recipeCoverControls(id: recipe.id) : nil,
+            deleteConfirmation: isOwner ? deleteConfirmation : nil
         )
         actions = RecipeDetailActions(
+            availableActionIDs: Self.actionIDs(isOwner: isOwner),
             startCookingRoute: .recipeDetail(id: recipe.id, presentation: .cook),
             shareURL: recipe.canonicalURL,
-            chefProfilePath: "/users/\(recipe.chef.username)"
+            chefProfilePath: "/users/\(recipe.chef.username)",
+            cookbookOptions: context.availableCookbooks,
+            savedCookbookIDs: context.savedInCookbookIDs,
+            shoppingListMetadata: RecipeShoppingListActionMetadata(
+                recipeID: recipe.id,
+                hasIngredientsInShoppingList: context.hasIngredientsInShoppingList
+            ),
+            fork: RecipeForkActionMetadata(
+                label: isOwner ? "Make a variation" : "Fork",
+                titleOverride: isOwner ? "\(recipe.title), my version" : recipe.title
+            )
         )
         offlineIndicator = result.offlineIndicator(now: context.now, freshnessPolicy: freshnessPolicy)
         supportedReadSurfaces = [
@@ -256,5 +319,28 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         }
 
         return "Serves \(servings)"
+    }
+
+    private static func actionIDs(isOwner: Bool) -> [RecipeDetailActionID] {
+        if isOwner {
+            return [
+                .startCooking,
+                .saveToCookbook,
+                .addToShoppingList,
+                .share,
+                .makeVariation,
+                .edit,
+                .manageCovers,
+                .deleteRecipe
+            ]
+        }
+
+        return [
+            .startCooking,
+            .saveToCookbook,
+            .addToShoppingList,
+            .share,
+            .fork
+        ]
     }
 }

@@ -22,6 +22,9 @@ public enum DeepLinkURLBuilder {
         case .recipeEditor(nil):
             components.host = "recipes"
             components.path = "/new/edit"
+        case .recipeCoverControls(let id):
+            components.host = "recipes"
+            components.path = "/\(id)/covers"
         case .cookbooks:
             components.host = "cookbooks"
         case .cookbookDetail(let id):

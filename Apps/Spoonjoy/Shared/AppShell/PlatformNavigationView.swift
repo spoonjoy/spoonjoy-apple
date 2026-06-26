@@ -119,8 +119,13 @@ struct PlatformNavigationView: View {
                 recipeID: id,
                 repository: recipeCatalogRepository,
                 initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+                actionConnectivity: recipeActionConnectivity,
                 context: recipeDetailContext(for:),
-                openRoute: openRoute
+                actionPlanner: { viewModel, context in
+                    recipeActionsViewModel(for: viewModel, context: context)
+                },
+                openRoute: openRoute,
+                performRecipeAction: performRecipeAction
             )
         case .recipeDetail(let id, .cook):
             CookModeRouteView(
@@ -145,6 +150,8 @@ struct PlatformNavigationView: View {
             } else {
                 ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "Recipe unavailable.")
             }
+        case .recipeCoverControls(let id):
+            ShellPlaceholderView(title: "Recipe Covers", systemImage: "photo.on.rectangle", detail: id)
         case .cookbooks:
             CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
@@ -256,7 +263,7 @@ struct PlatformNavigationView: View {
         switch route {
         case .kitchen:
             "Kitchen"
-        case .recipes, .recipeDetail, .recipeEditor:
+        case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
@@ -345,6 +352,16 @@ struct PlatformNavigationView: View {
         )
     }
 
+    private func recipeActionsViewModel(for viewModel: RecipeDetailScreenViewModel, context: RecipeDetailContext) -> RecipeActionsViewModel {
+        let plannedAt = timestamp()
+        return RecipeActionsViewModel(
+            recipe: viewModel.recipe,
+            context: context,
+            connectivity: recipeActionConnectivity,
+            now: { plannedAt }
+        )
+    }
+
     private func recipeDetailContext(for recipe: Recipe) -> RecipeDetailContext {
         RecipeDetailContext(
             currentChefID: currentChefID,
@@ -399,6 +416,14 @@ struct PlatformNavigationView: View {
         return .online
     }
 
+    private var recipeActionConnectivity: RecipeActionConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
     private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
         for conflict in contentState.syncConflicts {
             guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
@@ -418,6 +443,25 @@ struct PlatformNavigationView: View {
     }
 
     private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func performRecipeAction(_ plan: RecipeActionPlan) async throws {
         if let queuedMutation = plan.queuedMutation {
             try await queueMutation(queuedMutation)
             return

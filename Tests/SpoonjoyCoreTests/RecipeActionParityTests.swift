@@ -48,7 +48,7 @@ struct RecipeActionParityTests {
         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
             title: "Delete Lemon Pantry Pasta?",
-            message: "This removes the recipe from your kitchen and keeps a sync tombstone for offline devices.",
+            message: "This removes the recipe from your kitchen and syncs the deletion across your devices.",
             confirmButtonTitle: "Delete Recipe",
             isDestructive: true
         ))
@@ -133,6 +133,58 @@ struct RecipeActionParityTests {
         try assertJSONRequest(try queuedRequest(from: removeFallback), method: .delete, path: "/api/v1/cookbooks/cookbook_weeknights/recipes/recipe_lemon_pantry_pasta", expected: [
             "clientMutationId": "cm_remove"
         ])
+
+        let delete = try viewModel.plan(.deleteRecipe(
+            clientMutationID: "cm_delete_online",
+            confirmation: .confirmed
+        ))
+        let deleteRequest = try remoteRequest(from: delete)
+        assertNoBodyRequest(
+            deleteRequest,
+            method: .delete,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta",
+            queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_delete_online")]
+        )
+        #expect(delete.queuedMutation == nil)
+        let deleteFallback = try requireMutation(delete.offlineFallbackMutation, "delete offline fallback")
+        #expect(deleteFallback.queueableKind == NativeQueuedMutationKind.recipeDelete)
+        let deleteFallbackRequest = try queuedRequest(from: deleteFallback)
+        assertNoBodyRequest(
+            deleteFallbackRequest,
+            method: .delete,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta",
+            queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_delete_online")]
+        )
+
+        let duplicateSave = try viewModel.plan(.saveToCookbook(
+            cookbookID: "cookbook_weeknights",
+            clientMutationID: "cm_duplicate_save"
+        ))
+        #expect(duplicateSave.blockedReason == "This recipe is already saved in that cookbook.")
+        #expect(duplicateSave.remoteRequestBuilder == nil)
+        #expect(duplicateSave.queuedMutation == nil)
+
+        let unavailableRemove = try viewModel.plan(.removeFromCookbook(
+            cookbookID: "cookbook_foreign",
+            clientMutationID: "cm_foreign_remove"
+        ))
+        #expect(unavailableRemove.blockedReason == "Choose one of your cookbooks before removing this recipe.")
+        #expect(unavailableRemove.remoteRequestBuilder == nil)
+        #expect(unavailableRemove.queuedMutation == nil)
+
+        let staleSavedCookbookPlanner = RecipeActionsViewModel(
+            recipe: recipe,
+            context: Self.detailContext(currentChefID: "chef_ari", savedInCookbookIDs: ["cookbook_foreign"]),
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        let staleSavedCookbookRemove = try staleSavedCookbookPlanner.plan(.removeFromCookbook(
+            cookbookID: "cookbook_foreign",
+            clientMutationID: "cm_stale_foreign_remove"
+        ))
+        #expect(staleSavedCookbookRemove.blockedReason == "Choose one of your cookbooks before removing this recipe.")
+        #expect(staleSavedCookbookRemove.remoteRequestBuilder == nil)
+        #expect(staleSavedCookbookRemove.queuedMutation == nil)
     }
 
     @Test("offline actions queue safe mutations and owner delete requires confirmation")
@@ -190,14 +242,17 @@ struct RecipeActionParityTests {
         #expect(visitorDelete.queuedMutation == nil)
     }
 
-    private static func detailContext(currentChefID: String?) -> RecipeDetailContext {
+    private static func detailContext(
+        currentChefID: String?,
+        savedInCookbookIDs: Set<String> = ["cookbook_weeknights"]
+    ) -> RecipeDetailContext {
         RecipeDetailContext(
             currentChefID: currentChefID,
             availableCookbooks: [
                 RecipeCookbookSaveOption(id: "cookbook_weeknights", title: "Weeknights"),
                 RecipeCookbookSaveOption(id: "cookbook_pantry", title: "Pantry")
             ],
-            savedInCookbookIDs: ["cookbook_weeknights"],
+            savedInCookbookIDs: savedInCookbookIDs,
             hasIngredientsInShoppingList: true,
             now: Self.now
         )
@@ -298,6 +353,24 @@ private func assertJSONRequest(
     ])
     #expect(request.responseCachePolicy == .privateNoStore)
     #expect(NSDictionary(dictionary: try jsonBody(from: request)).isEqual(to: expected))
+}
+
+private func assertNoBodyRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    queryItems: [URLQueryItem]
+) {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.queryItems == queryItems)
+    #expect(request.headers == [
+        "Accept": "application/json",
+        "Authorization": "Bearer sj_private_token"
+    ])
+    #expect(request.body == nil)
+    #expect(request.responseCachePolicy == .privateNoStore)
 }
 
 private func jsonBody(from request: APIRequest) throws -> [String: Any] {

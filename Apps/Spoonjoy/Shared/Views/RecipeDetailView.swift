@@ -4,8 +4,11 @@ import SwiftUI
 struct RecipeDetailRouteView: View {
     let recipeID: String
     let repository: any RecipeCatalogRepository
+    let actionConnectivity: RecipeActionConnectivity
     let context: (Recipe) -> RecipeDetailContext
+    let actionPlanner: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel
     let openRoute: (AppRoute) -> Void
+    let performRecipeAction: @MainActor @Sendable (RecipeActionPlan) async throws -> Void
 
     @State private var viewModel: RecipeDetailScreenViewModel?
     @State private var errorMessage: String?
@@ -14,20 +17,32 @@ struct RecipeDetailRouteView: View {
         recipeID: String,
         repository: any RecipeCatalogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
+        actionConnectivity: RecipeActionConnectivity,
         context: @escaping (Recipe) -> RecipeDetailContext,
-        openRoute: @escaping (AppRoute) -> Void
+        actionPlanner: @escaping @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel,
+        openRoute: @escaping (AppRoute) -> Void,
+        performRecipeAction: @escaping @MainActor @Sendable (RecipeActionPlan) async throws -> Void
     ) {
         self.recipeID = recipeID
         self.repository = repository
+        self.actionConnectivity = actionConnectivity
         self.context = context
+        self.actionPlanner = actionPlanner
         self.openRoute = openRoute
+        self.performRecipeAction = performRecipeAction
         _viewModel = State(initialValue: initialViewModel)
     }
 
     var body: some View {
         Group {
             if let viewModel {
-                RecipeDetailView(viewModel: viewModel, openRoute: openRoute)
+                RecipeDetailView(
+                    viewModel: viewModel,
+                    actionConnectivity: actionConnectivity,
+                    actionPlanner: actionPlanner,
+                    openRoute: openRoute,
+                    performRecipeAction: performRecipeAction
+                )
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "text.book.closed")
                     .font(KitchenTableTheme.bodyNote)
@@ -61,7 +76,15 @@ struct RecipeDetailRouteView: View {
 
 struct RecipeDetailView: View {
     let viewModel: RecipeDetailScreenViewModel
+    let actionConnectivity: RecipeActionConnectivity
+    let actionPlanner: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel
     let openRoute: (AppRoute) -> Void
+    let performRecipeAction: @MainActor @Sendable (RecipeActionPlan) async throws -> Void
+
+    @State private var actionErrorMessage: String?
+    @State private var actionStatusMessage: String?
+    @State private var activeConfirmationDialog: RecipeActionConfirmationDialog?
+    @State private var localSavedCookbookIDs: Set<String>?
 
     var body: some View {
         ScrollView {
@@ -78,6 +101,41 @@ struct RecipeDetailView: View {
             .padding()
         }
         .background(KitchenTableTheme.bone)
+        .confirmationDialog(
+            activeConfirmationDialog?.prompt.title ?? "",
+            isPresented: Binding(
+                get: { activeConfirmationDialog != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        activeConfirmationDialog = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let dialog = activeConfirmationDialog {
+                Button(dialog.prompt.confirmButtonTitle, role: dialog.prompt.isDestructive ? .destructive : nil) {
+                    runAction(.deleteRecipe(clientMutationID: dialog.clientMutationID, confirmation: .confirmed))
+                    activeConfirmationDialog = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    activeConfirmationDialog = nil
+                }
+            }
+        } message: {
+            if let message = activeConfirmationDialog?.prompt.message {
+                Text(message)
+            }
+        }
+        .onAppear {
+            syncSavedCookbookStateIfNeeded()
+        }
+        .onChange(of: viewModel.id) { _, _ in
+            localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
+        }
+        .onChange(of: viewModel.cookbookSave.savedCookbookIDs) { _, nextIDs in
+            localSavedCookbookIDs = nextIDs
+        }
     }
 
     private var provenance: String {
@@ -122,12 +180,29 @@ struct RecipeDetailView: View {
             }
 
             HStack {
-                Button("Start Cooking") { openRoute(viewModel.actions.startCookingRoute) }
-                    .buttonStyle(.borderedProminent)
-                ShareLink(item: viewModel.actions.shareURL) {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                if hasAction(.startCooking) {
+                    Button("Start Cooking") { openRoute(viewModel.actions.startCookingRoute) }
+                        .buttonStyle(.borderedProminent)
+                }
+                if hasAction(.fork) || hasAction(.makeVariation) {
+                    Button {
+                        runAction(.fork(
+                            clientMutationID: clientMutationID(prefix: "fork"),
+                            titleOverride: viewModel.actions.fork.titleOverride
+                        ))
+                    } label: {
+                        Label(viewModel.actions.fork.label, systemImage: "arrow.branch")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                if hasAction(.share) {
+                    ShareLink(item: viewModel.actions.shareURL) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
                 }
             }
+
+            actionStatus
         }
     }
 
@@ -240,12 +315,39 @@ struct RecipeDetailView: View {
                 .foregroundStyle(KitchenTableTheme.charcoal)
 
             ForEach(viewModel.cookbookSave.availableCookbooks) { cookbook in
-                Label(
-                    cookbook.title,
-                    systemImage: viewModel.cookbookSave.isSaved(in: cookbook.id) ? "checkmark.circle.fill" : "circle"
-                )
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(viewModel.cookbookSave.isSaved(in: cookbook.id) ? KitchenTableTheme.herb : .secondary)
+                let isSaved = isCookbookSaved(cookbook.id)
+                HStack {
+                    Label(
+                        cookbook.title,
+                        systemImage: isSaved ? "checkmark.circle.fill" : "circle"
+                    )
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(isSaved ? KitchenTableTheme.herb : .secondary)
+
+                    Spacer()
+
+                    if isSaved {
+                        Button {
+                            runAction(.removeFromCookbook(
+                                cookbookID: cookbook.id,
+                                clientMutationID: clientMutationID(prefix: "remove-cookbook")
+                            ))
+                        } label: {
+                            Label("Remove", systemImage: "minus.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        Button {
+                            runAction(.saveToCookbook(
+                                cookbookID: cookbook.id,
+                                clientMutationID: clientMutationID(prefix: "save-cookbook")
+                            ))
+                        } label: {
+                            Label("Save", systemImage: "plus.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
             }
 
             if viewModel.hasIngredientsInShoppingList {
@@ -264,11 +366,34 @@ struct RecipeDetailView: View {
                     .foregroundStyle(KitchenTableTheme.charcoal)
 
                 Button {
-                    openRoute(.recipeEditor(id: viewModel.id))
+                    if let editRoute = viewModel.ownerTools.editRoute {
+                        openRoute(editRoute)
+                    }
                 } label: {
                     Label("Edit Recipe", systemImage: "pencil")
                 }
                 .font(KitchenTableTheme.bodyNote)
+
+                if let coverControlsRoute = viewModel.ownerTools.coverControlsRoute {
+                    Button {
+                        openRoute(coverControlsRoute)
+                    } label: {
+                        Label("Manage Covers", systemImage: "photo.on.rectangle")
+                    }
+                    .font(KitchenTableTheme.bodyNote)
+                }
+
+                if let deleteConfirmation = viewModel.ownerTools.deleteConfirmation {
+                    Button(role: .destructive) {
+                        activeConfirmationDialog = RecipeActionConfirmationDialog(
+                            prompt: deleteConfirmation,
+                            clientMutationID: clientMutationID(prefix: "delete-recipe")
+                        )
+                    } label: {
+                        Label("Delete Recipe", systemImage: "trash")
+                    }
+                    .font(KitchenTableTheme.bodyNote)
+                }
             }
         }
     }
@@ -285,5 +410,141 @@ struct RecipeDetailView: View {
         }
 
         return attribution.title
+    }
+
+    @ViewBuilder private var actionStatus: some View {
+        if let actionStatusMessage {
+            Label(actionStatusMessage, systemImage: "checkmark.circle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.herb)
+        } else if let actionErrorMessage {
+            Label(actionErrorMessage, systemImage: "exclamationmark.triangle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func hasAction(_ id: RecipeDetailActionID) -> Bool {
+        viewModel.actions.availableActionIDs.contains(id)
+    }
+
+    private func runAction(_ action: RecipeAction) {
+        Task {
+            do {
+                let plan = try actionPlanner(viewModel, currentActionContext).plan(action)
+                if let prompt = plan.confirmationPrompt {
+                    activeConfirmationDialog = RecipeActionConfirmationDialog(
+                        prompt: prompt,
+                        clientMutationID: action.clientMutationID
+                    )
+                    return
+                }
+                if let blockedReason = plan.blockedReason {
+                    actionErrorMessage = blockedReason
+                    actionStatusMessage = nil
+                    return
+                }
+                try await performRecipeAction(plan)
+                applyLocalSuccess(for: action)
+                actionErrorMessage = nil
+                actionStatusMessage = successMessage(for: action)
+                if shouldNavigateAfterSuccess(for: action), let successRoute = plan.successRoute {
+                    openRoute(successRoute)
+                }
+            } catch {
+                actionStatusMessage = nil
+                actionErrorMessage = "Could not update recipe."
+            }
+        }
+    }
+
+    private func clientMutationID(prefix: String) -> String {
+        "native-\(prefix)-\(safeIdentifier(timestamp()))-\(UUID().uuidString.lowercased())"
+    }
+
+    private func timestamp() -> String {
+        ISO8601DateFormatter().string(from: Date())
+    }
+
+    private func safeIdentifier(_ value: String) -> String {
+        value.map { character in
+            character.isLetter || character.isNumber ? String(character) : "-"
+        }.joined()
+    }
+
+    private var currentSavedCookbookIDs: Set<String> {
+        localSavedCookbookIDs ?? viewModel.cookbookSave.savedCookbookIDs
+    }
+
+    private var currentActionContext: RecipeDetailContext {
+        RecipeDetailContext(
+            currentChefID: viewModel.actionContext.currentChefID,
+            availableCookbooks: viewModel.actionContext.availableCookbooks,
+            savedInCookbookIDs: currentSavedCookbookIDs,
+            hasIngredientsInShoppingList: viewModel.actionContext.hasIngredientsInShoppingList,
+            now: viewModel.actionContext.now
+        )
+    }
+
+    private func isCookbookSaved(_ cookbookID: String) -> Bool {
+        currentSavedCookbookIDs.contains(cookbookID)
+    }
+
+    private func syncSavedCookbookStateIfNeeded() {
+        if localSavedCookbookIDs == nil {
+            localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
+        }
+    }
+
+    private func applyLocalSuccess(for action: RecipeAction) {
+        var nextIDs = currentSavedCookbookIDs
+        switch action {
+        case .saveToCookbook(let cookbookID, _):
+            nextIDs.insert(cookbookID)
+        case .removeFromCookbook(let cookbookID, _):
+            nextIDs.remove(cookbookID)
+        case .fork, .deleteRecipe:
+            break
+        }
+        localSavedCookbookIDs = nextIDs
+    }
+
+    private func successMessage(for action: RecipeAction) -> String {
+        switch action {
+        case .saveToCookbook:
+            "Saved to cookbook"
+        case .removeFromCookbook:
+            "Removed from cookbook"
+        case .fork:
+            "Variation started"
+        case .deleteRecipe:
+            "Recipe deleted"
+        }
+    }
+
+    private func shouldNavigateAfterSuccess(for action: RecipeAction) -> Bool {
+        switch action {
+        case .fork, .deleteRecipe:
+            true
+        case .saveToCookbook, .removeFromCookbook:
+            false
+        }
+    }
+}
+
+private struct RecipeActionConfirmationDialog {
+    let prompt: RecipeActionConfirmationPrompt
+    let clientMutationID: String
+}
+
+private extension RecipeAction {
+    var clientMutationID: String {
+        switch self {
+        case .fork(let clientMutationID, _),
+             .saveToCookbook(_, let clientMutationID),
+             .removeFromCookbook(_, let clientMutationID),
+             .deleteRecipe(let clientMutationID, _):
+            clientMutationID
+        }
     }
 }

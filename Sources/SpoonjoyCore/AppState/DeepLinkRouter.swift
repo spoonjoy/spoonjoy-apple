@@ -141,6 +141,14 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .recipeEditor(id: id)
         }
 
+        if segments.count == 3, segments[0] == "recipes", segments[2] == "covers" {
+            let id = segments[1]
+            guard safeID(id), id != "new" else {
+                return .unknownLink
+            }
+            return .recipeCoverControls(id: id)
+        }
+
         if segments == ["cookbooks"] {
             return .cookbooks
         }

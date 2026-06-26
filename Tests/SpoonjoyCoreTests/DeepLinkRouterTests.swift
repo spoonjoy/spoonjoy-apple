@@ -28,6 +28,7 @@ struct DeepLinkRouterTests {
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta/cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta/edit", .recipeEditor(id: "recipe_lemon_pantry_pasta")),
+            ("spoonjoy://recipes/recipe_lemon_pantry_pasta/covers", .recipeCoverControls(id: "recipe_lemon_pantry_pasta")),
             ("spoonjoy://recipes/new/edit", .recipeEditor(id: nil)),
             ("spoonjoy://cookbooks", .cookbooks),
             ("spoonjoy://cookbooks/cookbook_weeknight", .cookbookDetail(id: "cookbook_weeknight")),
@@ -63,6 +64,8 @@ struct DeepLinkRouterTests {
             "spoonjoy://recipes/%2E%2E%2Fsecret",
             "spoonjoy://recipes/%2E%2E%2Fsecret/cook",
             "spoonjoy://recipes/%2E%2E%2Fsecret/edit",
+            "spoonjoy://recipes/%2E%2E%2Fsecret/covers",
+            "spoonjoy://recipes/new/covers",
             "spoonjoy://cookbooks/%2E%2E%2Fsecret",
             "spoonjoy://search?q=lemon&scope=bad-scope",
             "spoonjoy://unknown"
@@ -105,6 +108,7 @@ struct DeepLinkRouterTests {
         #expect(AppRoute.cookbooks.section == .cookbooks)
         #expect(AppRoute.cookbookDetail(id: "cookbook_weeknight").section == .cookbooks)
         #expect(AppRoute.recipeEditor(id: "recipe_lemon").section == .recipes)
+        #expect(AppRoute.recipeCoverControls(id: "recipe_lemon").section == .recipes)
         #expect(AppRoute.search(query: "rice", scope: .all).section == .search)
         #expect(AppRoute.capture.section == .capture)
         #expect(AppRoute.settings.section == .settings)

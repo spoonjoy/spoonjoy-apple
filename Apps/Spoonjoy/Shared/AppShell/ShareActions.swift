@@ -29,6 +29,8 @@ struct ShareActions: View {
             components.path = "/recipes/\(id)"
         case .recipeEditor(nil):
             components.path = "/recipes"
+        case .recipeCoverControls(let id):
+            components.path = "/recipes/\(id)"
         case .cookbooks:
             components.path = "/cookbooks"
         case .cookbookDetail(let id):

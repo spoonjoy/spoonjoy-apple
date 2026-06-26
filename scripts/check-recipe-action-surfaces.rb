@@ -41,7 +41,7 @@ REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
     "RecipeActionsViewModel",
     "availableActionIDs",
-    "ConfirmationDialog",
+    ".confirmationDialog",
     "coverControlsRoute",
     "deleteConfirmation"
   ],
