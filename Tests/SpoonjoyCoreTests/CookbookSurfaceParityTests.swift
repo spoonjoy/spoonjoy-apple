@@ -327,6 +327,8 @@ struct CookbookSurfaceParityTests {
         )
         #expect(try visitor.plan(.rename(title: "New", clientMutationID: "cm_blocked")).blockedReason == "Only ari can edit this cookbook.")
         #expect(try visitor.plan(.deleteCookbook(clientMutationID: "cm_blocked_delete", confirmation: .confirmed)).blockedReason == "Only ari can delete this cookbook.")
+        #expect(try visitor.plan(.addRecipe(recipeID: "recipe_unsaved_flatbread", clientMutationID: "cm_blocked_add")).blockedReason == "Only ari can edit this cookbook.")
+        #expect(try visitor.plan(.removeRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_blocked_remove", confirmation: .confirmed)).blockedReason == "Only ari can edit this cookbook.")
 
         let owner = CookbookDetailViewModel(
             result: CookbookSurfaceDetailResult(

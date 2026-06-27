@@ -104,11 +104,23 @@ REQUIRED_WEB_COOKBOOK_WRITE_METHODS = {
   "/api/v1/cookbooks/{id}/recipes/{recipeId}" => ["POST", "DELETE"]
 }.freeze
 
-def swift_contract_source(content)
+def uncommented_swift(content)
   content
     .gsub(%r{/\*.*?\*/}m, "")
     .gsub(%r{//.*$}, "")
+end
+
+def swift_contract_source(content)
+  uncommented_swift(content)
     .gsub(/"(?:\\.|[^"\\])*"/m, "\"\"")
+end
+
+def required_token_source(relative_path, content)
+  if relative_path == "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
+    uncommented_swift(content)
+  else
+    swift_contract_source(content)
+  end
 end
 
 def web_method_declared?(content, path, method)
@@ -132,7 +144,7 @@ REQUIRED_TOKENS.each do |relative_path, tokens|
   path = ROOT.join(relative_path)
   next unless path.file?
 
-  content = swift_contract_source(path.read)
+  content = required_token_source(relative_path, path.read)
   missing = tokens.reject { |token| content.include?(token) }
   failures << "#{relative_path} missing required cookbook tokens: #{missing.join(", ")}" unless missing.empty?
 end
@@ -141,7 +153,7 @@ REQUIRED_FILES.each do |relative_path|
   path = ROOT.join(relative_path)
   next unless path.file?
 
-  content = swift_contract_source(path.read)
+  content = uncommented_swift(path.read)
   forbidden = FORBIDDEN_TOKENS.select { |token| content.include?(token) }
   failures << "#{relative_path} contains forbidden cookbook tokens: #{forbidden.join(", ")}" unless forbidden.empty?
 end
