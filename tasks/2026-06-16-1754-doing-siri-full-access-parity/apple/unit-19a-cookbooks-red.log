@@ -1,0 +1,924 @@
+COMMAND: swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter CookbookSurfaceParityTests
+Building for debugging...
+[0/5] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[2/7] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:394:51: error: cannot find type 'CookbookSurfaceRepository' in scope
+392 | }
+393 | 
+394 | private actor RecordingCookbookSurfaceRepository: CookbookSurfaceRepository {
+    |                                                   `- error: cannot find type 'CookbookSurfaceRepository' in scope
+395 |     private let page: CookbookSurfacePage
+396 |     private let detail: CookbookSurfaceDetailResult
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:395:23: error: cannot find type 'CookbookSurfacePage' in scope
+393 | 
+394 | private actor RecordingCookbookSurfaceRepository: CookbookSurfaceRepository {
+395 |     private let page: CookbookSurfacePage
+    |                       `- error: cannot find type 'CookbookSurfacePage' in scope
+396 |     private let detail: CookbookSurfaceDetailResult
+397 |     private var requests: [CookbookSurfaceListRequest] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:396:25: error: cannot find type 'CookbookSurfaceDetailResult' in scope
+394 | private actor RecordingCookbookSurfaceRepository: CookbookSurfaceRepository {
+395 |     private let page: CookbookSurfacePage
+396 |     private let detail: CookbookSurfaceDetailResult
+    |                         `- error: cannot find type 'CookbookSurfaceDetailResult' in scope
+397 |     private var requests: [CookbookSurfaceListRequest] = []
+398 |     private var detailIDs: [String] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:397:28: error: cannot find type 'CookbookSurfaceListRequest' in scope
+395 |     private let page: CookbookSurfacePage
+396 |     private let detail: CookbookSurfaceDetailResult
+397 |     private var requests: [CookbookSurfaceListRequest] = []
+    |                            `- error: cannot find type 'CookbookSurfaceListRequest' in scope
+398 |     private var detailIDs: [String] = []
+399 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:400:16: error: cannot find type 'CookbookSurfacePage' in scope
+398 |     private var detailIDs: [String] = []
+399 | 
+400 |     init(page: CookbookSurfacePage, detail: CookbookSurfaceDetailResult) {
+    |                `- error: cannot find type 'CookbookSurfacePage' in scope
+401 |         self.page = page
+402 |         self.detail = detail
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:400:45: error: cannot find type 'CookbookSurfaceDetailResult' in scope
+398 |     private var detailIDs: [String] = []
+399 | 
+400 |     init(page: CookbookSurfacePage, detail: CookbookSurfaceDetailResult) {
+    |                                             `- error: cannot find type 'CookbookSurfaceDetailResult' in scope
+401 |         self.page = page
+402 |         self.detail = detail
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:405:24: error: cannot find type 'CookbookSurfaceListRequest' in scope
+403 |     }
+404 | 
+405 |     var listRequests: [CookbookSurfaceListRequest] {
+    |                        `- error: cannot find type 'CookbookSurfaceListRequest' in scope
+406 |         requests
+407 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:413:77: error: cannot find type 'CookbookSurfacePage' in scope
+411 |     }
+412 | 
+413 |     func listCookbooks(request: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage {
+    |                                                                             `- error: cannot find type 'CookbookSurfacePage' in scope
+414 |         requests.append(request)
+415 |         return page
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:413:33: error: cannot find type 'CookbookSurfaceListRequest' in scope
+411 |     }
+412 | 
+413 |     func listCookbooks(request: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage {
+    |                                 `- error: cannot find type 'CookbookSurfaceListRequest' in scope
+414 |         requests.append(request)
+415 |         return page
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:418:53: error: cannot find type 'CookbookSurfaceDetailResult' in scope
+416 |     }
+417 | 
+418 |     func cookbookDetail(id: String) async throws -> CookbookSurfaceDetailResult {
+    |                                                     `- error: cannot find type 'CookbookSurfaceDetailResult' in scope
+419 |         detailIDs.append(id)
+420 |         return detail
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:424:47: error: cannot find type 'CookbookSurfaceActionPlan' in scope
+422 | }
+423 | 
+424 | private func cookbookRemoteRequest(from plan: CookbookSurfaceActionPlan) throws -> APIRequest {
+    |                                               `- error: cannot find type 'CookbookSurfaceActionPlan' in scope
+425 |     try #require(plan.remoteRequestBuilder).urlRequest(configuration: CookbookSurfaceParityTests.configuration)
+426 | }
+[3/7] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:394:51: error: cannot find type 'CookbookSurfaceRepository' in scope
+392 | }
+393 | 
+394 | private actor RecordingCookbookSurfaceRepository: CookbookSurfaceRepository {
+    |                                                   `- error: cannot find type 'CookbookSurfaceRepository' in scope
+395 |     private let page: CookbookSurfacePage
+396 |     private let detail: CookbookSurfaceDetailResult
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:395:23: error: cannot find type 'CookbookSurfacePage' in scope
+393 | 
+394 | private actor RecordingCookbookSurfaceRepository: CookbookSurfaceRepository {
+395 |     private let page: CookbookSurfacePage
+    |                       `- error: cannot find type 'CookbookSurfacePage' in scope
+396 |     private let detail: CookbookSurfaceDetailResult
+397 |     private var requests: [CookbookSurfaceListRequest] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:396:25: error: cannot find type 'CookbookSurfaceDetailResult' in scope
+394 | private actor RecordingCookbookSurfaceRepository: CookbookSurfaceRepository {
+395 |     private let page: CookbookSurfacePage
+396 |     private let detail: CookbookSurfaceDetailResult
+    |                         `- error: cannot find type 'CookbookSurfaceDetailResult' in scope
+397 |     private var requests: [CookbookSurfaceListRequest] = []
+398 |     private var detailIDs: [String] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:397:28: error: cannot find type 'CookbookSurfaceListRequest' in scope
+395 |     private let page: CookbookSurfacePage
+396 |     private let detail: CookbookSurfaceDetailResult
+397 |     private var requests: [CookbookSurfaceListRequest] = []
+    |                            `- error: cannot find type 'CookbookSurfaceListRequest' in scope
+398 |     private var detailIDs: [String] = []
+399 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:400:16: error: cannot find type 'CookbookSurfacePage' in scope
+398 |     private var detailIDs: [String] = []
+399 | 
+400 |     init(page: CookbookSurfacePage, detail: CookbookSurfaceDetailResult) {
+    |                `- error: cannot find type 'CookbookSurfacePage' in scope
+401 |         self.page = page
+402 |         self.detail = detail
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:400:45: error: cannot find type 'CookbookSurfaceDetailResult' in scope
+398 |     private var detailIDs: [String] = []
+399 | 
+400 |     init(page: CookbookSurfacePage, detail: CookbookSurfaceDetailResult) {
+    |                                             `- error: cannot find type 'CookbookSurfaceDetailResult' in scope
+401 |         self.page = page
+402 |         self.detail = detail
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:405:24: error: cannot find type 'CookbookSurfaceListRequest' in scope
+403 |     }
+404 | 
+405 |     var listRequests: [CookbookSurfaceListRequest] {
+    |                        `- error: cannot find type 'CookbookSurfaceListRequest' in scope
+406 |         requests
+407 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:413:77: error: cannot find type 'CookbookSurfacePage' in scope
+411 |     }
+412 | 
+413 |     func listCookbooks(request: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage {
+    |                                                                             `- error: cannot find type 'CookbookSurfacePage' in scope
+414 |         requests.append(request)
+415 |         return page
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:413:33: error: cannot find type 'CookbookSurfaceListRequest' in scope
+411 |     }
+412 | 
+413 |     func listCookbooks(request: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage {
+    |                                 `- error: cannot find type 'CookbookSurfaceListRequest' in scope
+414 |         requests.append(request)
+415 |         return page
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:418:53: error: cannot find type 'CookbookSurfaceDetailResult' in scope
+416 |     }
+417 | 
+418 |     func cookbookDetail(id: String) async throws -> CookbookSurfaceDetailResult {
+    |                                                     `- error: cannot find type 'CookbookSurfaceDetailResult' in scope
+419 |         detailIDs.append(id)
+420 |         return detail
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:424:47: error: cannot find type 'CookbookSurfaceActionPlan' in scope
+422 | }
+423 | 
+424 | private func cookbookRemoteRequest(from plan: CookbookSurfaceActionPlan) throws -> APIRequest {
+    |                                               `- error: cannot find type 'CookbookSurfaceActionPlan' in scope
+425 |     try #require(plan.remoteRequestBuilder).urlRequest(configuration: CookbookSurfaceParityTests.configuration)
+426 | }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:21:19: error: cannot find 'CookbookSurfacePage' in scope
+ 19 |         let availableRecipe = try Self.availableRecipe()
+ 20 |         let repository = RecordingCookbookSurfaceRepository(
+ 21 |             page: CookbookSurfacePage(
+    |                   `- error: cannot find 'CookbookSurfacePage' in scope
+ 22 |                 query: "weeknight",
+ 23 |                 limit: 20,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:30:21: error: cannot find 'CookbookSurfaceDetailResult' in scope
+ 28 |                 source: .live(requestID: "req_cookbook_list", validatedAt: Self.now)
+ 29 |             ),
+ 30 |             detail: CookbookSurfaceDetailResult(
+    |                     `- error: cannot find 'CookbookSurfaceDetailResult' in scope
+ 31 |                 cookbook: cookbook,
+ 32 |                 source: .live(requestID: "req_cookbook_detail", validatedAt: Self.now),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:24:25: error: 'nil' requires a contextual type
+ 22 |                 query: "weeknight",
+ 23 |                 limit: 20,
+ 24 |                 cursor: nil,
+    |                         `- error: 'nil' requires a contextual type
+ 25 |                 nextCursor: PaginationCursor(rawValue: "v1.cookbook.next"),
+ 26 |                 hasMore: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:28:26: error: cannot infer contextual base in reference to member 'live'
+ 26 |                 hasMore: true,
+ 27 |                 rows: [CookbookSummary(cookbook: cookbook)],
+ 28 |                 source: .live(requestID: "req_cookbook_list", validatedAt: Self.now)
+    |                          `- error: cannot infer contextual base in reference to member 'live'
+ 29 |             ),
+ 30 |             detail: CookbookSurfaceDetailResult(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:32:26: error: cannot infer contextual base in reference to member 'live'
+ 30 |             detail: CookbookSurfaceDetailResult(
+ 31 |                 cookbook: cookbook,
+ 32 |                 source: .live(requestID: "req_cookbook_detail", validatedAt: Self.now),
+    |                          `- error: cannot infer contextual base in reference to member 'live'
+ 33 |                 availableRecipes: [availableRecipe]
+ 34 |             )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:36:25: error: cannot find 'CookbookSurfaceViewModel' in scope
+ 34 |             )
+ 35 |         )
+ 36 |         let viewModel = CookbookSurfaceViewModel(
+    |                         `- error: cannot find 'CookbookSurfaceViewModel' in scope
+ 37 |             repository: repository,
+ 38 |             context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:38:22: error: cannot find 'CookbookSurfaceContext' in scope
+ 36 |         let viewModel = CookbookSurfaceViewModel(
+ 37 |             repository: repository,
+ 38 |             context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+    |                      `- error: cannot find 'CookbookSurfaceContext' in scope
+ 39 |             queuedMutations: [],
+ 40 |             conflicts: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:41:28: error: cannot infer contextual base in reference to member 'online'
+ 39 |             queuedMutations: [],
+ 40 |             conflicts: [],
+ 41 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 42 |             now: { Self.now },
+ 43 |             timestamp: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:54:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 52 |         #expect(list.resultCountLabel == "1 cookbook")
+ 53 |         #expect(list.emptyState == nil)
+ 54 |         #expect(list.rows.map(\.id) == ["cookbook_weeknights"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 55 |         #expect(list.rows.first?.title == "Weeknight Brights")
+ 56 |         #expect(list.rows.first?.chefLine == "By ari")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:61:51: error: cannot infer contextual base in reference to member 'synced'
+ 59 |         #expect(list.rows.first?.openRoute == .cookbookDetail(id: "cookbook_weeknights"))
+ 60 |         #expect(list.rows.first?.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_weeknights")
+ 61 |         #expect(list.offlineIndicator.display == .synced)
+    |                                                   `- error: cannot infer contextual base in reference to member 'synced'
+ 62 |         #expect(viewModel.openCookbookRoute(id: "cookbook_weeknights") == .cookbookDetail(id: "cookbook_weeknights"))
+ 63 |         #expect(await repository.listRequests == [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:64:13: error: cannot find 'CookbookSurfaceListRequest' in scope
+ 62 |         #expect(viewModel.openCookbookRoute(id: "cookbook_weeknights") == .cookbookDetail(id: "cookbook_weeknights"))
+ 63 |         #expect(await repository.listRequests == [
+ 64 |             CookbookSurfaceListRequest(query: "weeknight", limit: 20, cursor: nil)
+    |             `- error: cannot find 'CookbookSurfaceListRequest' in scope
+ 65 |         ])
+ 66 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:64:79: error: 'nil' requires a contextual type
+ 62 |         #expect(viewModel.openCookbookRoute(id: "cookbook_weeknights") == .cookbookDetail(id: "cookbook_weeknights"))
+ 63 |         #expect(await repository.listRequests == [
+ 64 |             CookbookSurfaceListRequest(query: "weeknight", limit: 20, cursor: nil)
+    |                                                                               `- error: 'nil' requires a contextual type
+ 65 |         ])
+ 66 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:74:36: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 72 |         #expect(detail.recipeCountLabel == "2 recipes")
+ 73 |         #expect(detail.sharePayload.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_weeknights")
+ 74 |         #expect(detail.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_soup"])
+    |                                    `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 75 |         #expect(detail.recipes.map(\.openRoute) == [
+ 76 |             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:75:36: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 73 |         #expect(detail.sharePayload.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_weeknights")
+ 74 |         #expect(detail.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_soup"])
+ 75 |         #expect(detail.recipes.map(\.openRoute) == [
+    |                                    `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 76 |             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
+ 77 |             .recipeDetail(id: "recipe_tomato_soup", presentation: .detail)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:76:14: error: type 'Any' has no member 'recipeDetail'
+ 74 |         #expect(detail.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_soup"])
+ 75 |         #expect(detail.recipes.map(\.openRoute) == [
+ 76 |             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
+    |              `- error: type 'Any' has no member 'recipeDetail'
+ 77 |             .recipeDetail(id: "recipe_tomato_soup", presentation: .detail)
+ 78 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:76:75: error: cannot infer contextual base in reference to member 'detail'
+ 74 |         #expect(detail.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_soup"])
+ 75 |         #expect(detail.recipes.map(\.openRoute) == [
+ 76 |             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
+    |                                                                           `- error: cannot infer contextual base in reference to member 'detail'
+ 77 |             .recipeDetail(id: "recipe_tomato_soup", presentation: .detail)
+ 78 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:77:14: error: type 'Any' has no member 'recipeDetail'
+ 75 |         #expect(detail.recipes.map(\.openRoute) == [
+ 76 |             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
+ 77 |             .recipeDetail(id: "recipe_tomato_soup", presentation: .detail)
+    |              `- error: type 'Any' has no member 'recipeDetail'
+ 78 |         ])
+ 79 |         #expect(detail.recipes.first?.servingsLabel == "Serves 4")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:77:68: error: cannot infer contextual base in reference to member 'detail'
+ 75 |         #expect(detail.recipes.map(\.openRoute) == [
+ 76 |             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
+ 77 |             .recipeDetail(id: "recipe_tomato_soup", presentation: .detail)
+    |                                                                    `- error: cannot infer contextual base in reference to member 'detail'
+ 78 |         ])
+ 79 |         #expect(detail.recipes.first?.servingsLabel == "Serves 4")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:82:56: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 80 |         #expect(detail.recipes.first?.coverProvenanceLabel == "Chef photo")
+ 81 |         #expect(detail.ownerTools.isVisible)
+ 82 |         #expect(detail.ownerTools.availableRecipes.map(\.id) == ["recipe_unsaved_flatbread"])
+    |                                                        `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 83 |         #expect(detail.ownerTools.editTitleActionTitle == "Edit title")
+ 84 |         #expect(detail.ownerTools.addRecipeActionTitle == "Add recipe")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:85:57: error: cannot find 'CookbookActionConfirmationPrompt' in scope
+ 83 |         #expect(detail.ownerTools.editTitleActionTitle == "Edit title")
+ 84 |         #expect(detail.ownerTools.addRecipeActionTitle == "Add recipe")
+ 85 |         #expect(detail.ownerTools.deleteConfirmation == CookbookActionConfirmationPrompt(
+    |                                                         `- error: cannot find 'CookbookActionConfirmationPrompt' in scope
+ 86 |             title: "Delete Weeknight Brights?",
+ 87 |             message: "This permanently deletes the cookbook and removes its recipe associations. Recipes stay in your kitchen.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:91:53: error: cannot infer contextual base in reference to member 'synced'
+ 89 |             isDestructive: true
+ 90 |         ))
+ 91 |         #expect(detail.offlineIndicator.display == .synced)
+    |                                                     `- error: cannot infer contextual base in reference to member 'synced'
+ 92 |         #expect(await repository.detailRequests == ["cookbook_weeknights"])
+ 93 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:94:23: error: cannot find 'CookbookDetailViewModel' in scope
+ 92 |         #expect(await repository.detailRequests == ["cookbook_weeknights"])
+ 93 | 
+ 94 |         let visitor = CookbookDetailViewModel(
+    |                       `- error: cannot find 'CookbookDetailViewModel' in scope
+ 95 |             result: CookbookSurfaceDetailResult(
+ 96 |                 cookbook: cookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:95:21: error: cannot find 'CookbookSurfaceDetailResult' in scope
+ 93 | 
+ 94 |         let visitor = CookbookDetailViewModel(
+ 95 |             result: CookbookSurfaceDetailResult(
+    |                     `- error: cannot find 'CookbookSurfaceDetailResult' in scope
+ 96 |                 cookbook: cookbook,
+ 97 |                 source: .live(requestID: "req_visitor", validatedAt: Self.now),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:100:22: error: cannot find 'CookbookSurfaceContext' in scope
+ 98 |                 availableRecipes: [availableRecipe]
+ 99 |             ),
+100 |             context: CookbookSurfaceContext(currentChefID: "chef_jules"),
+    |                      `- error: cannot find 'CookbookSurfaceContext' in scope
+101 |             queuedMutations: [],
+102 |             conflicts: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:97:26: error: cannot infer contextual base in reference to member 'live'
+ 95 |             result: CookbookSurfaceDetailResult(
+ 96 |                 cookbook: cookbook,
+ 97 |                 source: .live(requestID: "req_visitor", validatedAt: Self.now),
+    |                          `- error: cannot infer contextual base in reference to member 'live'
+ 98 |                 availableRecipes: [availableRecipe]
+ 99 |             ),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:103:28: error: cannot infer contextual base in reference to member 'online'
+101 |             queuedMutations: [],
+102 |             conflicts: [],
+103 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+104 |             now: { Self.now },
+105 |             timestamp: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:108:49: error: reference to member 'share' cannot be resolved without a contextual type
+106 |         )
+107 |         #expect(visitor.ownerTools.isVisible == false)
+108 |         #expect(visitor.availableActionIDs == [.share])
+    |                                                 `- error: reference to member 'share' cannot be resolved without a contextual type
+109 |     }
+110 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:127:22: error: cannot find 'CookbookDetailViewModel' in scope
+125 |         )
+126 | 
+127 |         let detail = CookbookDetailViewModel(
+    |                      `- error: cannot find 'CookbookDetailViewModel' in scope
+128 |             result: CookbookSurfaceDetailResult(
+129 |                 cookbook: cookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:128:21: error: cannot find 'CookbookSurfaceDetailResult' in scope
+126 | 
+127 |         let detail = CookbookDetailViewModel(
+128 |             result: CookbookSurfaceDetailResult(
+    |                     `- error: cannot find 'CookbookSurfaceDetailResult' in scope
+129 |                 cookbook: cookbook,
+130 |                 source: .cache(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:136:22: error: cannot find 'CookbookSurfaceContext' in scope
+134 |                 availableRecipes: []
+135 |             ),
+136 |             context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+    |                      `- error: cannot find 'CookbookSurfaceContext' in scope
+137 |             queuedMutations: [queuedRename],
+138 |             conflicts: [conflict],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:130:26: error: cannot infer contextual base in reference to member 'cache'
+128 |             result: CookbookSurfaceDetailResult(
+129 |                 cookbook: cookbook,
+130 |                 source: .cache(
+    |                          `- error: cannot infer contextual base in reference to member 'cache'
+131 |                     serverRevision: .updatedAt(cookbook.updatedAt),
+132 |                     lastValidatedAt: Self.staleValidatedAt
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:131:38: error: cannot infer contextual base in reference to member 'updatedAt'
+129 |                 cookbook: cookbook,
+130 |                 source: .cache(
+131 |                     serverRevision: .updatedAt(cookbook.updatedAt),
+    |                                      `- error: cannot infer contextual base in reference to member 'updatedAt'
+132 |                     lastValidatedAt: Self.staleValidatedAt
+133 |                 ),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:139:28: error: cannot infer contextual base in reference to member 'offline'
+137 |             queuedMutations: [queuedRename],
+138 |             conflicts: [conflict],
+139 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+140 |             now: { Self.now },
+141 |             timestamp: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:144:53: error: cannot infer contextual base in reference to member 'conflict'
+142 |         )
+143 | 
+144 |         #expect(detail.offlineIndicator.display == .conflict(
+    |                                                     `- error: cannot infer contextual base in reference to member 'conflict'
+145 |             recordID: "cm_cookbook_rename",
+146 |             mutationID: "cm_cookbook_rename"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:149:42: error: cannot find 'CookbookSurfaceConflictBanner' in scope
+147 |         ))
+148 |         #expect(detail.queuedWorkSummary == "1 cookbook change waiting to sync")
+149 |         #expect(detail.conflictBanner == CookbookSurfaceConflictBanner(
+    |                                          `- error: cannot find 'CookbookSurfaceConflictBanner' in scope
+150 |             localClientMutationID: "cm_cookbook_rename",
+151 |             message: "Cookbook changed elsewhere.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:155:25: error: cannot find 'CookbookSurfaceListViewModel' in scope
+153 |         ))
+154 | 
+155 |         let emptyList = CookbookSurfaceListViewModel(
+    |                         `- error: cannot find 'CookbookSurfaceListViewModel' in scope
+156 |             page: CookbookSurfacePage(
+157 |                 query: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:156:19: error: cannot find 'CookbookSurfacePage' in scope
+154 | 
+155 |         let emptyList = CookbookSurfaceListViewModel(
+156 |             page: CookbookSurfacePage(
+    |                   `- error: cannot find 'CookbookSurfacePage' in scope
+157 |                 query: nil,
+158 |                 limit: 20,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:157:24: error: 'nil' requires a contextual type
+155 |         let emptyList = CookbookSurfaceListViewModel(
+156 |             page: CookbookSurfacePage(
+157 |                 query: nil,
+    |                        `- error: 'nil' requires a contextual type
+158 |                 limit: 20,
+159 |                 cursor: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:159:25: error: 'nil' requires a contextual type
+157 |                 query: nil,
+158 |                 limit: 20,
+159 |                 cursor: nil,
+    |                         `- error: 'nil' requires a contextual type
+160 |                 nextCursor: nil,
+161 |                 hasMore: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:160:29: error: 'nil' requires a contextual type
+158 |                 limit: 20,
+159 |                 cursor: nil,
+160 |                 nextCursor: nil,
+    |                             `- error: 'nil' requires a contextual type
+161 |                 hasMore: false,
+162 |                 rows: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:163:26: error: cannot infer contextual base in reference to member 'cache'
+161 |                 hasMore: false,
+162 |                 rows: [],
+163 |                 source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+    |                          `- error: cannot infer contextual base in reference to member 'cache'
+164 |             ),
+165 |             now: { Self.now }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:163:48: error: 'nil' requires a contextual type
+161 |                 hasMore: false,
+162 |                 rows: [],
+163 |                 source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+    |                                                `- error: 'nil' requires a contextual type
+164 |             ),
+165 |             now: { Self.now }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:167:46: error: cannot find 'CookbookSurfaceEmptyState' in scope
+165 |             now: { Self.now }
+166 |         )
+167 |         #expect(emptyList.list.emptyState == CookbookSurfaceEmptyState(
+    |                                              `- error: cannot find 'CookbookSurfaceEmptyState' in scope
+168 |             title: "No cookbooks yet",
+169 |             message: "Create a cookbook to collect recipes into a kitchen-ready set.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:172:61: error: cannot infer contextual base in reference to member 'stale'
+170 |             systemImage: "books.vertical"
+171 |         ))
+172 |         #expect(emptyList.list.offlineIndicator.display == .stale(domain: .cookbookList))
+    |                                                             `- error: cannot infer contextual base in reference to member 'stale'
+173 | 
+174 |         let searchEmpty = CookbookSurfaceListViewModel(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:172:76: error: cannot infer contextual base in reference to member 'cookbookList'
+170 |             systemImage: "books.vertical"
+171 |         ))
+172 |         #expect(emptyList.list.offlineIndicator.display == .stale(domain: .cookbookList))
+    |                                                                            `- error: cannot infer contextual base in reference to member 'cookbookList'
+173 | 
+174 |         let searchEmpty = CookbookSurfaceListViewModel(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:174:27: error: cannot find 'CookbookSurfaceListViewModel' in scope
+172 |         #expect(emptyList.list.offlineIndicator.display == .stale(domain: .cookbookList))
+173 | 
+174 |         let searchEmpty = CookbookSurfaceListViewModel(
+    |                           `- error: cannot find 'CookbookSurfaceListViewModel' in scope
+175 |             page: CookbookSurfacePage(
+176 |                 query: "winter",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:175:19: error: cannot find 'CookbookSurfacePage' in scope
+173 | 
+174 |         let searchEmpty = CookbookSurfaceListViewModel(
+175 |             page: CookbookSurfacePage(
+    |                   `- error: cannot find 'CookbookSurfacePage' in scope
+176 |                 query: "winter",
+177 |                 limit: 20,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:178:25: error: 'nil' requires a contextual type
+176 |                 query: "winter",
+177 |                 limit: 20,
+178 |                 cursor: nil,
+    |                         `- error: 'nil' requires a contextual type
+179 |                 nextCursor: nil,
+180 |                 hasMore: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:179:29: error: 'nil' requires a contextual type
+177 |                 limit: 20,
+178 |                 cursor: nil,
+179 |                 nextCursor: nil,
+    |                             `- error: 'nil' requires a contextual type
+180 |                 hasMore: false,
+181 |                 rows: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:182:26: error: cannot infer contextual base in reference to member 'cache'
+180 |                 hasMore: false,
+181 |                 rows: [],
+182 |                 source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+    |                          `- error: cannot infer contextual base in reference to member 'cache'
+183 |             ),
+184 |             now: { Self.now }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:182:48: error: 'nil' requires a contextual type
+180 |                 hasMore: false,
+181 |                 rows: [],
+182 |                 source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+    |                                                `- error: 'nil' requires a contextual type
+183 |             ),
+184 |             now: { Self.now }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:186:48: error: cannot find 'CookbookSurfaceEmptyState' in scope
+184 |             now: { Self.now }
+185 |         )
+186 |         #expect(searchEmpty.list.emptyState == CookbookSurfaceEmptyState(
+    |                                                `- error: cannot find 'CookbookSurfaceEmptyState' in scope
+187 |             title: "No matching cookbooks",
+188 |             message: "Try another title, chef, or recipe in the collection.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:196:25: error: cannot find 'CookbookDetailViewModel' in scope
+194 |     func cookbookActionsPlanExactRESTMutationsWithOfflineFallbacksAndConfirmations() throws {
+195 |         let cookbook = try Self.cookbook()
+196 |         let viewModel = CookbookDetailViewModel(
+    |                         `- error: cannot find 'CookbookDetailViewModel' in scope
+197 |             result: CookbookSurfaceDetailResult(
+198 |                 cookbook: cookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:197:21: error: cannot find 'CookbookSurfaceDetailResult' in scope
+195 |         let cookbook = try Self.cookbook()
+196 |         let viewModel = CookbookDetailViewModel(
+197 |             result: CookbookSurfaceDetailResult(
+    |                     `- error: cannot find 'CookbookSurfaceDetailResult' in scope
+198 |                 cookbook: cookbook,
+199 |                 source: .live(requestID: "req_cookbook_detail", validatedAt: Self.now),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:202:22: error: cannot find 'CookbookSurfaceContext' in scope
+200 |                 availableRecipes: [try Self.availableRecipe()]
+201 |             ),
+202 |             context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+    |                      `- error: cannot find 'CookbookSurfaceContext' in scope
+203 |             queuedMutations: [],
+204 |             conflicts: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:199:26: error: cannot infer contextual base in reference to member 'live'
+197 |             result: CookbookSurfaceDetailResult(
+198 |                 cookbook: cookbook,
+199 |                 source: .live(requestID: "req_cookbook_detail", validatedAt: Self.now),
+    |                          `- error: cannot infer contextual base in reference to member 'live'
+200 |                 availableRecipes: [try Self.availableRecipe()]
+201 |             ),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:205:28: error: cannot infer contextual base in reference to member 'online'
+203 |             queuedMutations: [],
+204 |             conflicts: [],
+205 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+206 |             now: { Self.now },
+207 |             timestamp: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:210:42: error: cannot infer contextual base in reference to member 'create'
+208 |         )
+209 | 
+210 |         let create = try viewModel.plan(.create(title: "  Spring Lunches  ", clientMutationID: "cm_cookbook_create"))
+    |                                          `- error: cannot infer contextual base in reference to member 'create'
+211 |         try assertCookbookJSONRequest(
+212 |             try cookbookRemoteRequest(from: create),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:228:42: error: cannot infer contextual base in reference to member 'rename'
+226 |         )
+227 | 
+228 |         let rename = try viewModel.plan(.rename(title: "  Dinner Parties  ", clientMutationID: "cm_cookbook_rename"))
+    |                                          `- error: cannot infer contextual base in reference to member 'rename'
+229 |         try assertCookbookJSONRequest(
+230 |             try cookbookRemoteRequest(from: rename),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:247:48: error: cannot infer contextual base in reference to member 'deleteCookbook'
+245 |         )
+246 | 
+247 |         let deletePrompt = try viewModel.plan(.deleteCookbook(clientMutationID: "cm_cookbook_delete", confirmation: .required))
+    |                                                `- error: cannot infer contextual base in reference to member 'deleteCookbook'
+248 |         #expect(deletePrompt.remoteRequestBuilder == nil)
+249 |         #expect(deletePrompt.queuedMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:247:118: error: cannot infer contextual base in reference to member 'required'
+245 |         )
+246 | 
+247 |         let deletePrompt = try viewModel.plan(.deleteCookbook(clientMutationID: "cm_cookbook_delete", confirmation: .required))
+    |                                                                                                                      `- error: cannot infer contextual base in reference to member 'required'
+248 |         #expect(deletePrompt.remoteRequestBuilder == nil)
+249 |         #expect(deletePrompt.queuedMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:250:52: error: cannot find 'CookbookActionConfirmationPrompt' in scope
+248 |         #expect(deletePrompt.remoteRequestBuilder == nil)
+249 |         #expect(deletePrompt.queuedMutation == nil)
+250 |         #expect(deletePrompt.confirmationPrompt == CookbookActionConfirmationPrompt(
+    |                                                    `- error: cannot find 'CookbookActionConfirmationPrompt' in scope
+251 |             title: "Delete Weeknight Brights?",
+252 |             message: "This permanently deletes the cookbook and removes its recipe associations. Recipes stay in your kitchen.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:256:42: error: cannot infer contextual base in reference to member 'deleteCookbook'
+254 |             isDestructive: true
+255 |         ))
+256 |         let delete = try viewModel.plan(.deleteCookbook(clientMutationID: "cm_cookbook_delete", confirmation: .confirmed))
+    |                                          `- error: cannot infer contextual base in reference to member 'deleteCookbook'
+257 |         assertCookbookNoBodyRequest(
+258 |             try cookbookRemoteRequest(from: delete),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:256:112: error: cannot infer contextual base in reference to member 'confirmed'
+254 |             isDestructive: true
+255 |         ))
+256 |         let delete = try viewModel.plan(.deleteCookbook(clientMutationID: "cm_cookbook_delete", confirmation: .confirmed))
+    |                                                                                                                `- error: cannot infer contextual base in reference to member 'confirmed'
+257 |         assertCookbookNoBodyRequest(
+258 |             try cookbookRemoteRequest(from: delete),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:263:41: error: cannot infer contextual base in reference to member 'cookbooks'
+261 |             queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_cookbook_delete")]
+262 |         )
+263 |         #expect(delete.successRoute == .cookbooks)
+    |                                         `- error: cannot infer contextual base in reference to member 'cookbooks'
+264 |         let deleteFallback = try requireCookbookMutation(delete.offlineFallbackMutation, "delete fallback")
+265 |         assertCookbookMutationMetadata(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:272:39: error: cannot infer contextual base in reference to member 'addRecipe'
+270 |         )
+271 | 
+272 |         let add = try viewModel.plan(.addRecipe(recipeID: "recipe_unsaved_flatbread", clientMutationID: "cm_cookbook_add"))
+    |                                       `- error: cannot infer contextual base in reference to member 'addRecipe'
+273 |         try assertCookbookJSONRequest(
+274 |             try cookbookRemoteRequest(from: add),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:279:50: error: cannot infer key path type from context; consider explicitly specifying a root type
+277 |             expected: ["clientMutationId": "cm_cookbook_add"]
+278 |         )
+279 |         #expect(add.updatedCookbook?.recipes.map(\.id).contains("recipe_unsaved_flatbread") == true)
+    |                                                  `- error: cannot infer key path type from context; consider explicitly specifying a root type
+280 |         let addFallback = try requireCookbookMutation(add.offlineFallbackMutation, "add fallback")
+281 |         assertCookbookMutationMetadata(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:288:48: error: cannot infer contextual base in reference to member 'removeRecipe'
+286 |         )
+287 | 
+288 |         let removePrompt = try viewModel.plan(.removeRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_cookbook_remove", confirmation: .required))
+    |                                                `- error: cannot infer contextual base in reference to member 'removeRecipe'
+289 |         #expect(removePrompt.confirmationPrompt == CookbookActionConfirmationPrompt(
+290 |             title: "Remove Lemon Pantry Pasta?",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:288:155: error: cannot infer contextual base in reference to member 'required'
+286 |         )
+287 | 
+288 |         let removePrompt = try viewModel.plan(.removeRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_cookbook_remove", confirmation: .required))
+    |                                                                                                                                                           `- error: cannot infer contextual base in reference to member 'required'
+289 |         #expect(removePrompt.confirmationPrompt == CookbookActionConfirmationPrompt(
+290 |             title: "Remove Lemon Pantry Pasta?",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:289:52: error: cannot find 'CookbookActionConfirmationPrompt' in scope
+287 | 
+288 |         let removePrompt = try viewModel.plan(.removeRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_cookbook_remove", confirmation: .required))
+289 |         #expect(removePrompt.confirmationPrompt == CookbookActionConfirmationPrompt(
+    |                                                    `- error: cannot find 'CookbookActionConfirmationPrompt' in scope
+290 |             title: "Remove Lemon Pantry Pasta?",
+291 |             message: "This removes the recipe from this cookbook. The recipe itself stays in your kitchen.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:295:42: error: cannot infer contextual base in reference to member 'removeRecipe'
+293 |             isDestructive: true
+294 |         ))
+295 |         let remove = try viewModel.plan(.removeRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_cookbook_remove", confirmation: .confirmed))
+    |                                          `- error: cannot infer contextual base in reference to member 'removeRecipe'
+296 |         try assertCookbookJSONRequest(
+297 |             try cookbookRemoteRequest(from: remove),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:295:149: error: cannot infer contextual base in reference to member 'confirmed'
+293 |             isDestructive: true
+294 |         ))
+295 |         let remove = try viewModel.plan(.removeRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_cookbook_remove", confirmation: .confirmed))
+    |                                                                                                                                                     `- error: cannot infer contextual base in reference to member 'confirmed'
+296 |         try assertCookbookJSONRequest(
+297 |             try cookbookRemoteRequest(from: remove),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:302:53: error: cannot infer key path type from context; consider explicitly specifying a root type
+300 |             expected: ["clientMutationId": "cm_cookbook_remove"]
+301 |         )
+302 |         #expect(remove.updatedCookbook?.recipes.map(\.id) == ["recipe_tomato_soup"])
+    |                                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+303 |         let removeFallback = try requireCookbookMutation(remove.offlineFallbackMutation, "remove fallback")
+304 |         assertCookbookMutationMetadata(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:315:23: error: cannot find 'CookbookDetailViewModel' in scope
+313 |     func cookbookActionEdgesBlockNonOwnersDuplicatesAndDependentQueueBypasses() throws {
+314 |         let cookbook = try Self.cookbook()
+315 |         let visitor = CookbookDetailViewModel(
+    |                       `- error: cannot find 'CookbookDetailViewModel' in scope
+316 |             result: CookbookSurfaceDetailResult(
+317 |                 cookbook: cookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:316:21: error: cannot find 'CookbookSurfaceDetailResult' in scope
+314 |         let cookbook = try Self.cookbook()
+315 |         let visitor = CookbookDetailViewModel(
+316 |             result: CookbookSurfaceDetailResult(
+    |                     `- error: cannot find 'CookbookSurfaceDetailResult' in scope
+317 |                 cookbook: cookbook,
+318 |                 source: .live(requestID: "req_visitor", validatedAt: Self.now),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:321:22: error: cannot find 'CookbookSurfaceContext' in scope
+319 |                 availableRecipes: [try Self.availableRecipe()]
+320 |             ),
+321 |             context: CookbookSurfaceContext(currentChefID: "chef_jules"),
+    |                      `- error: cannot find 'CookbookSurfaceContext' in scope
+322 |             queuedMutations: [],
+323 |             conflicts: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:318:26: error: cannot infer contextual base in reference to member 'live'
+316 |             result: CookbookSurfaceDetailResult(
+317 |                 cookbook: cookbook,
+318 |                 source: .live(requestID: "req_visitor", validatedAt: Self.now),
+    |                          `- error: cannot infer contextual base in reference to member 'live'
+319 |                 availableRecipes: [try Self.availableRecipe()]
+320 |             ),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:324:28: error: cannot infer contextual base in reference to member 'online'
+322 |             queuedMutations: [],
+323 |             conflicts: [],
+324 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+325 |             now: { Self.now },
+326 |             timestamp: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:328:35: error: cannot infer contextual base in reference to member 'rename'
+326 |             timestamp: { Self.createdAt }
+327 |         )
+328 |         #expect(try visitor.plan(.rename(title: "New", clientMutationID: "cm_blocked")).blockedReason == "Only ari can edit this cookbook.")
+    |                                   `- error: cannot infer contextual base in reference to member 'rename'
+329 |         #expect(try visitor.plan(.deleteCookbook(clientMutationID: "cm_blocked_delete", confirmation: .confirmed)).blockedReason == "Only ari can delete this cookbook.")
+330 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:329:35: error: cannot infer contextual base in reference to member 'deleteCookbook'
+327 |         )
+328 |         #expect(try visitor.plan(.rename(title: "New", clientMutationID: "cm_blocked")).blockedReason == "Only ari can edit this cookbook.")
+329 |         #expect(try visitor.plan(.deleteCookbook(clientMutationID: "cm_blocked_delete", confirmation: .confirmed)).blockedReason == "Only ari can delete this cookbook.")
+    |                                   `- error: cannot infer contextual base in reference to member 'deleteCookbook'
+330 | 
+331 |         let owner = CookbookDetailViewModel(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:329:104: error: cannot infer contextual base in reference to member 'confirmed'
+327 |         )
+328 |         #expect(try visitor.plan(.rename(title: "New", clientMutationID: "cm_blocked")).blockedReason == "Only ari can edit this cookbook.")
+329 |         #expect(try visitor.plan(.deleteCookbook(clientMutationID: "cm_blocked_delete", confirmation: .confirmed)).blockedReason == "Only ari can delete this cookbook.")
+    |                                                                                                        `- error: cannot infer contextual base in reference to member 'confirmed'
+330 | 
+331 |         let owner = CookbookDetailViewModel(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:331:21: error: cannot find 'CookbookDetailViewModel' in scope
+329 |         #expect(try visitor.plan(.deleteCookbook(clientMutationID: "cm_blocked_delete", confirmation: .confirmed)).blockedReason == "Only ari can delete this cookbook.")
+330 | 
+331 |         let owner = CookbookDetailViewModel(
+    |                     `- error: cannot find 'CookbookDetailViewModel' in scope
+332 |             result: CookbookSurfaceDetailResult(
+333 |                 cookbook: cookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:332:21: error: cannot find 'CookbookSurfaceDetailResult' in scope
+330 | 
+331 |         let owner = CookbookDetailViewModel(
+332 |             result: CookbookSurfaceDetailResult(
+    |                     `- error: cannot find 'CookbookSurfaceDetailResult' in scope
+333 |                 cookbook: cookbook,
+334 |                 source: .live(requestID: "req_owner", validatedAt: Self.now),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:337:22: error: cannot find 'CookbookSurfaceContext' in scope
+335 |                 availableRecipes: []
+336 |             ),
+337 |             context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+    |                      `- error: cannot find 'CookbookSurfaceContext' in scope
+338 |             queuedMutations: [
+339 |                 NativeQueuedMutation.cookbookUpdate(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:334:26: error: cannot infer contextual base in reference to member 'live'
+332 |             result: CookbookSurfaceDetailResult(
+333 |                 cookbook: cookbook,
+334 |                 source: .live(requestID: "req_owner", validatedAt: Self.now),
+    |                          `- error: cannot infer contextual base in reference to member 'live'
+335 |                 availableRecipes: []
+336 |             ),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:347:28: error: cannot infer contextual base in reference to member 'online'
+345 |             ],
+346 |             conflicts: [],
+347 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+348 |             now: { Self.now },
+349 |             timestamp: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:351:33: error: cannot infer contextual base in reference to member 'addRecipe'
+349 |             timestamp: { Self.createdAt }
+350 |         )
+351 |         #expect(try owner.plan(.addRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_duplicate_add")).blockedReason == "This recipe is already in the cookbook.")
+    |                                 `- error: cannot infer contextual base in reference to member 'addRecipe'
+352 |         #expect(try owner.plan(.addRecipe(recipeID: "recipe_missing", clientMutationID: "cm_missing_add")).blockedReason == "Choose one of your recipes before adding it.")
+353 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:352:33: error: cannot infer contextual base in reference to member 'addRecipe'
+350 |         )
+351 |         #expect(try owner.plan(.addRecipe(recipeID: "recipe_lemon_pantry_pasta", clientMutationID: "cm_duplicate_add")).blockedReason == "This recipe is already in the cookbook.")
+352 |         #expect(try owner.plan(.addRecipe(recipeID: "recipe_missing", clientMutationID: "cm_missing_add")).blockedReason == "Choose one of your recipes before adding it.")
+    |                                 `- error: cannot infer contextual base in reference to member 'addRecipe'
+353 | 
+354 |         let queuedRename = try owner.plan(.rename(title: "Queued Behind Existing Work", clientMutationID: "cm_queued_rename"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:354:44: error: cannot infer contextual base in reference to member 'rename'
+352 |         #expect(try owner.plan(.addRecipe(recipeID: "recipe_missing", clientMutationID: "cm_missing_add")).blockedReason == "Choose one of your recipes before adding it.")
+353 | 
+354 |         let queuedRename = try owner.plan(.rename(title: "Queued Behind Existing Work", clientMutationID: "cm_queued_rename"))
+    |                                            `- error: cannot infer contextual base in reference to member 'rename'
+355 |         #expect(queuedRename.remoteRequestBuilder == nil)
+356 |         let queuedMutation = try requireCookbookMutation(queuedRename.queuedMutation, "queued rename behind pending cookbook work")
+[4/7] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[5/7] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[6/20] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[7/20] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[8/20] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[9/20] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[10/20] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[11/20] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[12/20] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[13/20] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[14/20] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[15/20] Compiling SpoonjoyCoreTests AppStateTests.swift
+[16/20] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[17/20] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[18/20] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+error: fatalError
+
+COMMAND: ruby scripts/check-cookbook-surfaces.rb
+FAIL: missing cookbook surface file: Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift
+FAIL: missing cookbook surface file: Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift
+FAIL: Apps/Spoonjoy/Shared/Views/CookbooksView.swift missing required cookbook tokens: CookbookSurfaceViewModel, CookbookDetailRouteView, NativeSharePayload.publicCookbook, ShareLink, ownerTools, confirmationDialog
+FAIL: Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing required cookbook tokens: CookbookDetailRouteView(, CookbookSurfaceViewModel, LiveCookbookSurfaceRepository, FallbackCookbookSurfaceRepository, performCookbookAction
+FAIL: Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing required cookbook tokens: cookbook detail, cookbook owner tools, cookbook create, cookbook rename, cookbook delete, cookbook add recipe, cookbook remove recipe
+FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing POST /api/v1/cookbooks for native cookbook parity
+FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing PATCH /api/v1/cookbooks/{id} for native cookbook parity
+FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing DELETE /api/v1/cookbooks/{id} for native cookbook parity
+FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing POST /api/v1/cookbooks/{id}/recipes/{recipeId} for native cookbook parity
+FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing DELETE /api/v1/cookbooks/{id}/recipes/{recipeId} for native cookbook parity
+
+swift_status=1
+surface_status=1
+unit 19a red contract failed as expected
