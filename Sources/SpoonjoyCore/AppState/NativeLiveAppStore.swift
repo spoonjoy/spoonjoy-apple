@@ -376,13 +376,13 @@ public struct NativeShellContentState {
         if items.isEmpty {
             if let appShoppingList = appSnapshot?.shoppingList {
                 baseShoppingList = appShoppingList
-            } else if syncSnapshot.checkpoint != nil {
+            } else if let checkpoint = syncSnapshot.checkpoint {
                 baseShoppingList = ShoppingListState(
                     id: "native-shopping-list",
                     chef: chef,
                     items: [],
-                    nextCursor: syncSnapshot.checkpoint?.shoppingCursor?.rawValue ?? "",
-                    updatedAt: syncSnapshot.checkpoint?.updatedAt ?? NativeLiveAppStoreClock.isoString(cacheSnapshot.createdAt)
+                    nextCursor: checkpoint.shoppingCursor?.rawValue ?? "",
+                    updatedAt: checkpoint.updatedAt
                 )
             } else {
                 baseShoppingList = nil

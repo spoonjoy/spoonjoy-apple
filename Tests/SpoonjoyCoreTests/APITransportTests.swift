@@ -609,6 +609,148 @@ struct APITransportTests {
         ]))
     }
 
+    @Test("URLSession native sync transport fails closed for unstable shopping recipe remaps")
+    func urlSessionNativeSyncTransportFailsClosedForUnstableShoppingRecipeRemaps() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_no_descriptors",
+                        data: """
+                        {
+                          "items": [
+                            { "id": "item_server_first", "name": "first", "quantity": 1, "unit": null },
+                            { "id": "item_server_second", "name": "second", "quantity": 2, "unit": "each" }
+                          ]
+                        }
+                        """
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_malformed_descriptors",
+                        data: #"{ "items": [{ "id": "item_server_sugar", "name": "sugar", "quantity": 1, "unit": "cup" }] }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_single_mismatch",
+                        data: #"{ "items": [{ "id": "item_server_sugar", "name": "sugar", "quantity": 4, "unit": "cup" }] }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_mixed_mismatch",
+                        data: #"{ "items": [{ "id": "item_server_sugar", "name": "sugar", "quantity": 4, "unit": "cup" }] }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_aggregate_mismatch",
+                        data: #"{ "items": [{ "id": "item_server_sugar", "name": "sugar", "quantity": 4, "unit": "cup" }] }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_blank_unit",
+                        data: #"{ "items": [{ "id": "item_server_blank_unit", "name": "sugar", "quantity": 1, "unit": null }] }"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_shopping_clear_empty", data: #"{}"#)
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let configuration = Self.configuration(bearerToken: "sj_access_native")
+        let noDescriptors = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_no_descriptors",
+            scaleFactor: 1,
+            clientMutationID: "cm_no_descriptors",
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+        let malformedDescriptors = try Self.decodedMutation(
+            type: .shoppingAddFromRecipe,
+            fields: [
+                "recipeId": "recipe_malformed_descriptors",
+                "scaleFactor": 1,
+                "shoppingRecipeIngredients": [
+                    ["name": "sugar", "unit": "cup"],
+                    ["quantity": 1, "unit": "cup"]
+                ]
+            ]
+        )
+        let singleMismatch = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_single_mismatch",
+            scaleFactor: 1,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar", name: "sugar", quantity: 1, unit: "cup")
+            ],
+            clientMutationID: "cm_single_mismatch",
+            createdAt: "2026-06-16T12:01:00.000Z"
+        )
+        let mixedMismatch = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_mixed_mismatch",
+            scaleFactor: 1,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar", name: "sugar", quantity: 1, unit: "cup"),
+                RecipeIngredient(id: "ingredient_flour", name: "flour", quantity: 1, unit: "cup")
+            ],
+            clientMutationID: "cm_mixed_mismatch",
+            createdAt: "2026-06-16T12:02:00.000Z"
+        )
+        let aggregateMismatch = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_aggregate_mismatch",
+            scaleFactor: 1,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar_a", name: "sugar", quantity: 1, unit: "cup"),
+                RecipeIngredient(id: "ingredient_sugar_b", name: "sugar", quantity: 2, unit: "cup")
+            ],
+            clientMutationID: "cm_aggregate_mismatch",
+            createdAt: "2026-06-16T12:03:00.000Z"
+        )
+        let blankUnitMatch = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_blank_unit",
+            scaleFactor: 1,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar_blank_unit", name: "sugar", quantity: 1, unit: "   ")
+            ],
+            clientMutationID: "cm_blank_unit",
+            createdAt: "2026-06-16T12:04:00.000Z"
+        )
+        let clearAll = NativeQueuedMutation.shoppingClearAll(
+            clientMutationID: "cm_clear_remap_empty",
+            createdAt: "2026-06-16T12:05:00.000Z"
+        )
+
+        #expect(try await transport.send(noDescriptors, configuration: configuration) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "item_local_cm_no_descriptors-ingredient-1", serverID: "item_server_first"),
+            NativeSyncIDRemap(localID: "item_local_cm_no_descriptors-ingredient-2", serverID: "item_server_second")
+        ]))
+        #expect(try await transport.send(malformedDescriptors, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(singleMismatch, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(mixedMismatch, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(aggregateMismatch, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+        #expect(try await transport.send(blankUnitMatch, configuration: configuration) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "item_local_cm_blank_unit-ingredient-1", serverID: "item_server_blank_unit")
+        ]))
+        #expect(try await transport.send(clearAll, configuration: configuration) == .success(serverRevision: nil, idRemaps: []))
+    }
+
     @Test("URLSession native sync transport extracts top-level recipe editor id remaps")
     func urlSessionNativeSyncTransportExtractsTopLevelRecipeEditorIDRemaps() async throws {
         let session = RecordingURLSession(

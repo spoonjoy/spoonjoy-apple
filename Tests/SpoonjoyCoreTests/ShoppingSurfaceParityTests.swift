@@ -103,6 +103,36 @@ struct ShoppingSurfaceParityTests {
         #expect(needsLiveLoad.offlineIndicator.display == .synced)
     }
 
+    @Test("live shopping repository fetches API read data into native state")
+    func liveShoppingRepositoryFetchesAPIReadDataIntoNativeState() async throws {
+        let fixture = try Self.shoppingList()
+        let transport = RecordingShoppingAPITransport(envelope: APIEnvelope(
+            requestID: "req_shopping_read",
+            data: ShoppingListReadData(
+                shoppingList: ShoppingListResponse(
+                    id: fixture.id,
+                    chef: fixture.chef,
+                    items: fixture.items,
+                    updatedAt: fixture.updatedAt
+                ),
+                nextCursor: ShoppingSyncCursor(rawValue: "v1.shopping.after")!
+            )
+        ))
+        let repository = LiveShoppingSurfaceRepository(
+            transport: transport,
+            configuration: Self.configuration
+        )
+
+        let state = try await repository.fetchShoppingList()
+        let requests = transport.requests
+
+        #expect(state.id == fixture.id)
+        #expect(state.activeItems.map(\.id) == fixture.activeItems.map(\.id))
+        #expect(state.nextCursor == "v1.shopping.after")
+        #expect(requests.map(\.url.path) == ["/api/v1/shopping-list"])
+        #expect(requests.first?.headers["Authorization"] == "Bearer sj_private_token")
+    }
+
     @Test("shopping conflicts and queued work are scoped to shopping mutations")
     func shoppingConflictsAndQueuedWorkAreScopedToShoppingMutations() throws {
         let recipeMutation = NativeQueuedMutation.recipeUpdate(
@@ -224,6 +254,37 @@ struct ShoppingSurfaceParityTests {
             ]
         )
         #expect(add.updatedShoppingList?.item(id: "item_local_cm_add_limes")?.name == "limes")
+
+        let emptyAdd = try ShoppingSurfaceViewModel(
+            shoppingList: try Self.emptyShoppingList(),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        ).plan(.addItem(
+            name: "starter salt",
+            quantity: 1,
+            unit: "pinch",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_add_first_item"
+        ))
+        #expect(emptyAdd.updatedShoppingList?.item(id: "item_local_cm_add_first_item")?.sortIndex == 0)
+
+        let emptyCheckViewModel = ShoppingSurfaceViewModel(
+            shoppingList: try Self.emptyShoppingList(),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        #expect(throws: KitchenStateError.itemNotFound("item_missing")) {
+            try emptyCheckViewModel.plan(.setItemChecked(
+                itemID: "item_missing",
+                checked: true,
+                clientMutationID: "cm_check_missing_empty"
+            ))
+        }
 
         let check = try viewModel.plan(.setItemChecked(
             itemID: "item_lemons",
@@ -704,6 +765,9 @@ struct ShoppingSurfaceParityTests {
             Self.shoppingItem(id: "item_salt", name: "salt", unit: "pinch"),
             Self.shoppingItem(id: "item_pasta", name: "pasta", unit: "oz")
         ])
+        let noUnitComplete = Self.shoppingList(items: [
+            Self.shoppingItem(id: "item_cilantro", name: "cilantro", unit: nil)
+        ])
         let deletedMatch = Self.shoppingList(items: [
             Self.shoppingItem(id: "item_salt_deleted", name: "salt", unit: "pinch", deletedAt: Self.createdAt),
             Self.shoppingItem(id: "item_pasta", name: "pasta", unit: "oz")
@@ -711,10 +775,157 @@ struct ShoppingSurfaceParityTests {
 
         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: nil) == false)
         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(Self.recipeWithIngredients([]), in: complete) == false)
+        #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(
+            Self.recipeWithIngredients([
+                RecipeIngredient(id: "ingredient_blank", name: "  ", quantity: 1, unit: "  ")
+            ]),
+            in: complete
+        ) == false)
         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: wrongUnit) == false)
         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: deletedMatch) == false)
         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: complete) == true)
+        #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(
+            Self.recipeWithIngredients([
+                RecipeIngredient(id: "ingredient_cilantro", name: "cilantro", quantity: 1, unit: "   ")
+            ]),
+            in: noUnitComplete
+        ) == true)
+    }
+
+    @Test("shopping surface covers queued local validation and prompt edge states")
+    func shoppingSurfaceCoversQueuedLocalValidationAndPromptEdgeStates() async throws {
+        let queuedClear = NativeQueuedMutation.shoppingClearAll(
+            clientMutationID: "cm_clear_waiting",
+            createdAt: Self.createdAt
+        )
+        let queuedViewModel = ShoppingSurfaceViewModel(
+            shoppingList: try Self.shoppingList(),
+            queuedMutations: [queuedClear],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        #expect(queuedViewModel.queuedWorkSummary == "1 shopping change waiting to sync")
+        #expect(queuedViewModel.offlineIndicator.display == .queuedWork(
+            count: 1,
+            oldestClientMutationID: "cm_clear_waiting"
+        ))
+
+        let replacement = try Self.emptyShoppingList()
+        #expect(queuedViewModel.replacingShoppingList(replacement).sections.isEmpty)
+
+        let blankAdd = try queuedViewModel.plan(.addItem(
+            name: "  ",
+            quantity: nil,
+            unit: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_blank_add"
+        ))
+        #expect(blankAdd.blockedReason == "Enter an item before adding it to your shopping list.")
+
+        let noUnitAdd = try queuedViewModel.plan(.addItem(
+            name: " Mint ",
+            quantity: nil,
+            unit: "   ",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_no_unit_add"
+        ))
+        let addedNoUnit = try #require(noUnitAdd.updatedShoppingList?.item(id: "item_local_cm_no_unit_add"))
+        #expect(addedNoUnit.quantity == nil)
+        #expect(addedNoUnit.unit == nil)
+
+        let missingDeletePrompt = try queuedViewModel.plan(.deleteItem(
+            itemID: "item_missing",
+            clientMutationID: "cm_delete_missing",
+            confirmation: .required
+        ))
+        #expect(missingDeletePrompt.confirmationPrompt?.title == "Remove this item?")
+
+        let unloaded = ShoppingSurfaceViewModel(
+            shoppingList: nil,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        #expect(unloaded.loadState == .needsLiveLoad)
+        #expect(unloaded.sections.isEmpty)
+        #expect(unloaded.activeCountLabel == "0 active")
+        let unloadedClear = try unloaded.plan(.clearAll(
+            clientMutationID: "cm_unloaded_clear",
+            confirmation: .confirmed
+        ))
+        #expect(unloadedClear.updatedShoppingList == nil)
+
+        var queuedMutations: [NativeQueuedMutation] = []
+        var recordedShoppingLists: [ShoppingListState] = []
+        let queuedOutcome = try await ShoppingSurfaceMutationExecutor.perform(
+            unloadedClear,
+            queueMutation: { queuedMutations.append($0) },
+            executeRemoteRequest: { _ in },
+            recordShoppingList: { recordedShoppingLists.append($0) }
+        )
+        #expect(queuedOutcome == .synced)
+        #expect(queuedMutations.isEmpty)
+        #expect(recordedShoppingLists.isEmpty)
+
+        let localOnlyList = try Self.emptyShoppingList()
+        let localOnlyOutcome = try await ShoppingSurfaceMutationExecutor.perform(
+            ShoppingSurfaceMutationPlan(updatedShoppingList: localOnlyList),
+            queueMutation: { queuedMutations.append($0) },
+            executeRemoteRequest: { _ in throw ShoppingSurfaceParityTestFailure("remote should not run") },
+            recordShoppingList: { recordedShoppingLists.append($0) }
+        )
+        #expect(localOnlyOutcome == .synced)
+        #expect(recordedShoppingLists == [localOnlyList])
+
+        let offlinePlan = try ShoppingSurfaceViewModel(
+            shoppingList: try Self.shoppingList(),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            now: { Self.createdAt }
+        ).plan(.addItem(
+            name: "oranges",
+            quantity: 3,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_offline_executor"
+        ))
+        let offlineOutcome = try await ShoppingSurfaceMutationExecutor.perform(
+            offlinePlan,
+            queueMutation: { queuedMutations.append($0) },
+            executeRemoteRequest: { _ in throw ShoppingSurfaceParityTestFailure("remote should not run") },
+            recordShoppingList: { recordedShoppingLists.append($0) }
+        )
+        #expect(offlineOutcome == .queuedForSync)
+        #expect(queuedMutations.map(\.clientMutationID) == ["cm_offline_executor"])
+
+        let offlineError = APITransportError(
+            kind: .offline,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: nil)
+        )
+        let remoteOnly = ShoppingSurfaceMutationPlan(
+            remoteRequestBuilder: try ShoppingListRequests.clearAll(clientMutationID: "cm_remote_only")
+        )
+        do {
+            _ = try await ShoppingSurfaceMutationExecutor.perform(
+                remoteOnly,
+                queueMutation: { queuedMutations.append($0) },
+                executeRemoteRequest: { _ in throw offlineError },
+                recordShoppingList: { recordedShoppingLists.append($0) }
+            )
+            throw ShoppingSurfaceParityTestFailure("Expected remote-only offline error to be rethrown.")
+        } catch let error as APITransportError {
+            #expect(error.kind == .offline)
+        }
     }
 
     @MainActor
@@ -827,6 +1038,37 @@ struct ShoppingSurfaceParityTests {
         #expect(successForm.actionErrorMessage == nil)
         #expect(acceptedPlans.first?.updatedShoppingList?.item(id: "item_local_cm_form_success")?.name == "limes")
         #expect(acceptedPlans.first?.updatedShoppingList?.item(id: "item_local_cm_form_success")?.unit == "each")
+
+        var blankForm = ShoppingAddItemFormState(itemName: "  ", itemQuantity: "", itemUnit: "")
+        await blankForm.submit(
+            viewModel: viewModel,
+            clientMutationID: "cm_form_blank",
+            actionDidPlan: { _ in throw ShoppingSurfaceParityTestFailure("blank form should not plan") }
+        )
+        #expect(blankForm.actionErrorMessage == "Enter an item before adding it to your shopping list.")
+        #expect(blankForm.actionStatusMessage == nil)
+
+        var invalidQuantityForm = ShoppingAddItemFormState(itemName: "Salt", itemQuantity: "NaN", itemUnit: "pinch")
+        await invalidQuantityForm.submit(
+            viewModel: viewModel,
+            clientMutationID: "cm_form_invalid_quantity",
+            actionDidPlan: { _ in throw ShoppingSurfaceParityTestFailure("invalid form should not plan") }
+        )
+        #expect(invalidQuantityForm.actionErrorMessage == "Enter a valid quantity.")
+        #expect(invalidQuantityForm.actionStatusMessage == nil)
+
+        var queuedForm = ShoppingAddItemFormState(itemName: "Salt", itemQuantity: "", itemUnit: "")
+        await queuedForm.submit(
+            viewModel: viewModel,
+            clientMutationID: "cm_form_queued",
+            actionDidPlan: { plan in
+                acceptedPlans.append(plan)
+                return .queuedForSync
+            }
+        )
+        #expect(queuedForm.actionStatusMessage == "Saved for sync")
+        #expect(queuedForm.actionErrorMessage == nil)
+        #expect(acceptedPlans.last?.updatedShoppingList?.item(id: "item_local_cm_form_queued")?.quantity == nil)
     }
 
     private static func shoppingList() throws -> ShoppingListState {
@@ -941,6 +1183,27 @@ private actor RecordingShoppingSurfaceRepository: ShoppingSurfaceRepository {
     func fetchShoppingList() async throws -> ShoppingListState {
         fetchCount += 1
         return shoppingList
+    }
+}
+
+private final class RecordingShoppingAPITransport: SpoonjoyAPITransport, @unchecked Sendable {
+    private let envelope: APIEnvelope<ShoppingListReadData>
+    private(set) var requests: [APIRequest] = []
+
+    init(envelope: APIEnvelope<ShoppingListReadData>) {
+        self.envelope = envelope
+    }
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode valueType: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        requests.append(try request.urlRequest(configuration: configuration))
+        guard valueType == ShoppingListReadData.self else {
+            throw ShoppingSurfaceParityTestFailure("Unexpected value type \(valueType).")
+        }
+        return envelope as! APIEnvelope<Value>
     }
 }
 

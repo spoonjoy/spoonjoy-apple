@@ -2,6 +2,10 @@ import AuthenticationServices
 import Foundation
 import SpoonjoyCore
 
+#if os(iOS) || os(tvOS) || os(visionOS)
+import UIKit
+#endif
+
 enum SpoonjoyWebAuthenticationCallback: Equatable {
     case https(host: String, path: String)
 }
@@ -81,6 +85,28 @@ final class SpoonjoyWebAuthenticationSession {
 
 private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        ASPresentationAnchor()
+        #if os(iOS) || os(tvOS) || os(visionOS)
+        let windowScene = MainActor.assumeIsolated {
+            Self.preferredWindowScene
+        }
+        guard let windowScene else {
+            preconditionFailure("Spoonjoy requires an active window scene before starting web authentication.")
+        }
+        return ASPresentationAnchor(windowScene: windowScene)
+        #else
+        return ASPresentationAnchor()
+        #endif
     }
+
+    #if os(iOS) || os(tvOS) || os(visionOS)
+    @MainActor
+    private static var preferredWindowScene: UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first { scene in
+            scene.activationState == .foregroundActive && scene.windows.contains { $0.isKeyWindow }
+        } ?? scenes.first { scene in
+            scene.activationState == .foregroundActive
+        } ?? scenes.first
+    }
+    #endif
 }

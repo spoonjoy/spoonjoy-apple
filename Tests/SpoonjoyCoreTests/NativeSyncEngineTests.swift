@@ -1934,6 +1934,55 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("drained shopping cache patch deletes removed cached rows and timestamps from first drained mutation")
+    func drainedShoppingCachePatchDeletesRemovedCachedRowsAndTimestampsFromFirstDrainedMutation() async throws {
+        let salt = Self.shoppingItem(id: "item_salt", name: "salt", quantity: 1, unit: "pinch")
+        let clearAll = NativeQueuedMutation.shoppingClearAll(
+            clientMutationID: "cm_clear_cached_shopping",
+            createdAt: Self.createdAt(3)
+        )
+        let add = NativeQueuedMutation.shoppingAddItem(
+            name: "pepper",
+            quantity: 1,
+            unit: "jar",
+            categoryKey: "pantry",
+            iconKey: "jar",
+            clientMutationID: "cm_add_after_clear",
+            createdAt: Self.createdAt(4)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [clearAll, add]),
+            cachedRecords: [
+                NativeSyncCachedRecord(
+                    kind: .shoppingItem,
+                    resourceID: salt.id,
+                    payload: try Self.jsonValue(salt),
+                    serverRevision: .updatedAt(salt.updatedAt)
+                )
+            ]
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: .updatedAt(Self.createdAt(5))),
+                .success(serverRevision: .updatedAt(Self.createdAt(6)))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let pepperRecord = try #require(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_local_cm_add_after_clear"))
+        let pepper = try Self.shoppingItem(from: pepperRecord.payload)
+
+        #expect(report.drainedClientMutationIDs == ["cm_clear_cached_shopping", "cm_add_after_clear"])
+        #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_salt") == nil)
+        #expect(pepper.name == "pepper")
+        #expect(pepper.updatedAt == Self.createdAt(3))
+    }
+
     @Test("sync engine records step and ingredient create id remaps for drained optimistic mutations")
     func syncEngineRecordsStepAndIngredientCreateIDRemapsForDrainedOptimisticMutations() async throws {
         let createStep = try NativeQueuedMutation.recipeStepCreate(
@@ -2264,6 +2313,13 @@ struct NativeSyncEngineTests {
             nextCursor: "",
             updatedAt: Self.createdAt(0)
         )
+        let emptyList = ShoppingListState(
+            id: "shopping_list_empty",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            items: [],
+            nextCursor: "",
+            updatedAt: Self.createdAt(0)
+        )
         let unchecked = NativeQueuedMutation.shoppingCheckItem(
             itemID: "item_salt",
             checked: false,
@@ -2280,6 +2336,38 @@ struct NativeSyncEngineTests {
         #expect(unchecked?.item(id: "item_salt")?.checkedAt == nil)
         #expect(unchecked?.item(id: "item_salt")?.updatedAt == Self.createdAt(3))
 
+        let uncheckedOnlyCompleted = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_salt",
+            checked: false,
+            clientMutationID: "cm_uncheck_only_completed",
+            createdAt: Self.createdAt(3)
+        ).applyingOptimisticShoppingMutation(
+            to: ShoppingListState(
+                id: "shopping_list_completed_only",
+                chef: ChefSummary(id: "chef_ari", username: "ari"),
+                items: [checkedSalt],
+                nextCursor: "",
+                updatedAt: Self.createdAt(0)
+            ),
+            recipes: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(3)
+        )
+        #expect(uncheckedOnlyCompleted?.item(id: "item_salt")?.sortIndex == 0)
+
+        let checkedMissingOnEmptyList = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_missing",
+            checked: true,
+            clientMutationID: "cm_check_missing_empty",
+            createdAt: Self.createdAt(3)
+        ).applyingOptimisticShoppingMutation(
+            to: emptyList,
+            recipes: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(3)
+        )
+        #expect(checkedMissingOnEmptyList == emptyList)
+
         let cleared = NativeQueuedMutation.shoppingClearCompleted(
             clientMutationID: "cm_clear_completed",
             createdAt: Self.createdAt(4)
@@ -2293,6 +2381,131 @@ struct NativeSyncEngineTests {
         #expect(cleared?.activeItems.isEmpty == true)
         #expect(cleared?.item(id: "item_salt")?.deletedAt == Self.createdAt(4))
         #expect(cleared?.item(id: "item_pepper")?.deletedAt == Self.createdAt(4))
+    }
+
+    @Test("optimistic shopping mutations fail closed for malformed replay payloads")
+    func optimisticShoppingMutationsFailClosedForMalformedReplayPayloads() throws {
+        let salt = Self.shoppingItem(id: "item_salt", name: "salt", quantity: 1, unit: "pinch")
+        let list = ShoppingListState(
+            id: "shopping_list_test",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            items: [salt],
+            nextCursor: "",
+            updatedAt: Self.createdAt(0)
+        )
+        let fallbackChef = ChefSummary(id: "chef_ari", username: "ari")
+
+        let missingNameAdd = try Self.decodedMutation(type: .shoppingAddItem, fields: [:])
+        let blankNameAdd = try Self.decodedMutation(type: .shoppingAddItem, fields: ["name": "  "])
+        let missingChecked = try Self.decodedMutation(type: .shoppingCheckItem, fields: ["itemId": "item_salt"])
+        let missingNameRecipeIngredient = try Self.decodedMutation(
+            type: .shoppingAddFromRecipe,
+            fields: [
+                "recipeId": "recipe_missing_name",
+                "scaleFactor": 1,
+                "shoppingRecipeIngredients": [
+                    ["quantity": 1, "unit": "cup"]
+                ]
+            ]
+        )
+        let fallbackRecipeIngredients = try Self.decodedMutation(
+            type: .shoppingAddFromRecipe,
+            fields: [
+                "recipeId": "recipe_missing_scale"
+            ]
+        )
+        let noRecipeIngredients = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_missing",
+            scaleFactor: 1,
+            clientMutationID: "cm_missing_recipe",
+            createdAt: Self.createdAt(1)
+        )
+        let malformedRecipeIngredients = try Self.decodedMutation(
+            type: .shoppingAddFromRecipe,
+            fields: [
+                "recipeId": "recipe_malformed",
+                "scaleFactor": 1,
+                "shoppingRecipeIngredients": [
+                    "not-an-object"
+                ]
+            ]
+        )
+        let deleteSalt = NativeQueuedMutation.shoppingDeleteItem(
+            itemID: "item_salt",
+            clientMutationID: "cm_delete_salt",
+            createdAt: Self.createdAt(2)
+        )
+        let deleteMissing = NativeQueuedMutation.shoppingDeleteItem(
+            itemID: "item_missing",
+            clientMutationID: "cm_delete_missing",
+            createdAt: Self.createdAt(2)
+        )
+        let clearAll = NativeQueuedMutation.shoppingClearAll(
+            clientMutationID: "cm_clear_all",
+            createdAt: Self.createdAt(3)
+        )
+        let nilUnitRecipe = Self.optimisticRecipe(
+            id: "recipe_missing_scale",
+            steps: [
+                RecipeStep(
+                    id: "step_nil_unit",
+                    stepNum: 1,
+                    stepTitle: nil,
+                    description: "Add water.",
+                    duration: nil,
+                    ingredients: [
+                        RecipeIngredient(id: "ingredient_water", name: "water", quantity: 2, unit: nil)
+                    ]
+                )
+            ]
+        )
+
+        #expect(missingNameAdd.optimisticRecipeID == nil)
+        #expect(missingNameAdd.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(4)) == list)
+        #expect(blankNameAdd.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(4)) == list)
+        #expect(missingChecked.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(4)) == list)
+        #expect(missingNameRecipeIngredient.applyingOptimisticShoppingMutation(to: nil, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(4))?.activeItems.isEmpty == true)
+        let fallbackRecipeList = try #require(fallbackRecipeIngredients.applyingOptimisticShoppingMutation(
+            to: nil,
+            recipes: [nilUnitRecipe],
+            fallbackChef: fallbackChef,
+            now: Self.createdAt(4)
+        ))
+        #expect(fallbackRecipeList.item(id: "item_local_cm_decode-ingredient-1")?.quantity == 2)
+        #expect(fallbackRecipeList.item(id: "item_local_cm_decode-ingredient-1")?.unit == nil)
+        #expect(noRecipeIngredients.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(4)) == list)
+        #expect(malformedRecipeIngredients.applyingOptimisticShoppingMutation(to: nil, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(4))?.activeItems.isEmpty == true)
+        #expect(deleteSalt.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(5))?.item(id: "item_salt")?.deletedAt == Self.createdAt(5))
+        #expect(deleteMissing.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(5)) == list)
+        #expect(clearAll.applyingOptimisticShoppingMutation(to: list, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(6))?.activeItems.isEmpty == true)
+        #expect(
+            NativeQueuedMutation.shoppingClearCompleted(
+                clientMutationID: "cm_clear_completed_nil",
+                createdAt: Self.createdAt(7)
+            ).applyingOptimisticShoppingMutation(to: nil, recipes: [], fallbackChef: fallbackChef, now: Self.createdAt(7)) == nil
+        )
+
+        let aggregateMismatch = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_aggregate_mismatch",
+            scaleFactor: 1,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar_a", name: "sugar", quantity: 1, unit: "cup"),
+                RecipeIngredient(id: "ingredient_sugar_b", name: "sugar", quantity: 2, unit: "cup")
+            ],
+            clientMutationID: "cm_aggregate_mismatch",
+            createdAt: Self.createdAt(8)
+        )
+
+        let unrelatedRecorded = aggregateMismatch.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "item_local_other", serverID: "item_server_other")
+        ])
+        let unrelatedJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [unrelatedRecorded])), encoding: .utf8))
+        #expect(unrelatedJSON.contains("serverItemIds") == false)
+
+        let clearRecorded = clearAll.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "item_local_clear", serverID: "item_server_clear")
+        ])
+        #expect(clearRecorded == clearAll)
     }
 
     @Test("sync engine blocks local recipe dependent replay when create has not drained")

@@ -1631,6 +1631,27 @@ struct NativeLiveStoreTests {
             #expect(liveStore.bootstrapState.contentState.cookProgress(for: "recipe_cached") == richCookProgress)
             #expect((try await syncStore.loadQueue()).mutations.isEmpty)
 
+            let manualShoppingList = ShoppingListState(
+                id: "shopping_list_manual_record",
+                chef: ChefSummary(id: "signed-out", username: "Spoonjoy"),
+                items: [
+                    Self.sampleShoppingItem(id: "item_manual_record", name: "manual lemons")
+                ],
+                nextCursor: "manual.cursor",
+                updatedAt: Self.isoString(Self.now)
+            )
+            liveStore.recordShoppingList(manualShoppingList)
+            let savedShoppingList = try appStateStore.loadOrCreate(
+                fallback: NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "signed-out",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+            ).value
+            #expect(savedShoppingList.shoppingList == manualShoppingList)
+            #expect(liveStore.bootstrapState.contentState.shoppingList == manualShoppingList)
+
             let nilStore = Self.liveStore(
                 directory: directory,
                 vault: vault,
@@ -1769,6 +1790,13 @@ struct NativeLiveStoreTests {
                 recipeID: "recipe_broken_store",
                 stepIDs: ["step_1"],
                 startedAt: Self.isoString(Self.now)
+            ))
+            brokenRouteStore.recordShoppingList(ShoppingListState(
+                id: "shopping_list_broken_store",
+                chef: ChefSummary(id: "chef_ari", username: "ari"),
+                items: [],
+                nextCursor: "",
+                updatedAt: Self.isoString(Self.now)
             ))
         }
     }
@@ -2101,6 +2129,38 @@ struct NativeLiveStoreTests {
         } else {
             Issue.record("Expected offline content to expose a cache recipe catalog source; got \(offlineCatalog.source)")
         }
+
+        let imageOnlyCaptureSnapshot = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: "signed-out",
+            environment: .production,
+            createdAt: Self.now,
+            records: [
+                try Self.cacheRecord(
+                    domain: .captureDraft(id: "draft_blank_text"),
+                    payload: .captureDraft(id: "draft_blank_text", source: .text("   "))
+                ),
+                try Self.cacheRecord(
+                    domain: .captureDraft(id: "draft_image_only"),
+                    payload: .captureDraft(id: "draft_image_only", source: .imageAsset("local-image-only"))
+                )
+            ],
+            dismissedIndicators: []
+        )
+        let imageOnlyContent = NativeShellContentState.restored(
+            cacheSnapshot: imageOnlyCaptureSnapshot,
+            syncSnapshot: NativeSyncSnapshot(
+                accountID: "signed-out",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            ),
+            appSnapshot: nil,
+            authSessionState: .signedOut,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: .synced(lastSyncedAt: Self.now)
+        )
+        #expect(imageOnlyContent.captureDraft == nil)
     }
 
     @MainActor

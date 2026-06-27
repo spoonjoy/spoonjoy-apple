@@ -308,7 +308,9 @@ struct NativeAuthSessionTests {
                 "path: \"/oauth/callback\"",
                 "handleOAuthCallback",
                 "cancel()",
-                "OAuthState"
+                "OAuthState",
+                "preferredWindowScene",
+                "ASPresentationAnchor(windowScene: windowScene)"
             ],
             forbids: [
                 "spoonjoy://oauth/callback",

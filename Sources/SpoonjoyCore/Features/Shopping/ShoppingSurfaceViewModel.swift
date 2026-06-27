@@ -244,11 +244,6 @@ public struct ShoppingAddItemFormState: Equatable, Sendable {
                 iconKey: nil,
                 clientMutationID: clientMutationID
             ))
-            if let blockedReason = plan.blockedReason {
-                actionErrorMessage = blockedReason
-                actionStatusMessage = nil
-                return
-            }
 
             let outcome = try await actionDidPlan(plan)
             itemName = ""

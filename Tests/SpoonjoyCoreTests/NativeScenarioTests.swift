@@ -144,9 +144,11 @@ struct NativeScenarioTests {
         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
         #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
         #expect(openRecipe.queuedMutation == nil)
+        #expect(openRecipe.nativeQueuedMutation == nil)
         #expect(openRecipe.captureDraft == nil)
         #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
         #expect(cookMode.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta/cook"))
+        #expect(cookMode.nativeQueuedMutation == nil)
         #expect(cookMode.captureDraft == nil)
         #expect(shoppingMutation.id == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
         #expect(shoppingMutation.clientMutationID == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
@@ -194,6 +196,7 @@ struct NativeScenarioTests {
         #expect(captureAction.route == .capture)
         #expect(captureAction.url == URL(string: "spoonjoy://capture"))
         #expect(captureAction.queuedMutation == nil)
+        #expect(captureAction.nativeQueuedMutation == nil)
 
         #expect(throws: NativeIntentActionError.self) {
             try resolver.openRecipe(recipeID: "../secret")
@@ -445,6 +448,16 @@ struct NativeScenarioTests {
     func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() {
         let defaultRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck()
         let defaultShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck()
+        let staleShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(selectedItemID: "item_missing")
+        let throwingShoppingAddCheck = ScenarioVerifier.shoppingAddItemCheck(loadShoppingList: {
+            throw FixtureLoadError.unavailable
+        })
+        let malformedShoppingRecipeCheck = ScenarioVerifier.shoppingAddRecipeIngredientsCheck(planBuilder: { _, _, _, _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingShoppingClearCheck = ScenarioVerifier.shoppingClearConfirmationCheck(loadShoppingList: {
+            throw FixtureLoadError.unavailable
+        })
         let missingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: { [] })
         let throwingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: {
             throw FixtureLoadError.unavailable
@@ -477,6 +490,14 @@ struct NativeScenarioTests {
 
         #expect(defaultRecipeCheck.status == .pass)
         #expect(defaultShoppingCheck.status == .pass)
+        #expect(staleShoppingCheck.status == .fail)
+        #expect(staleShoppingCheck.detail.contains("Shopping checkoff failed"))
+        #expect(throwingShoppingAddCheck.status == .fail)
+        #expect(throwingShoppingAddCheck.detail.contains("Shopping add item failed"))
+        #expect(malformedShoppingRecipeCheck.status == .fail)
+        #expect(malformedShoppingRecipeCheck.detail.contains("Shopping add recipe ingredients failed"))
+        #expect(throwingShoppingClearCheck.status == .fail)
+        #expect(throwingShoppingClearCheck.detail.contains("Shopping clear confirmation failed"))
         #expect(missingRecipeCheck.status == .fail)
         #expect(missingRecipeCheck.detail.contains("no cookable steps"))
         #expect(throwingRecipeCheck.status == .fail)

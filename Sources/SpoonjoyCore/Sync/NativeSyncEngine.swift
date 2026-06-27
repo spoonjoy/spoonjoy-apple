@@ -1756,7 +1756,7 @@ private extension NativeQueuedMutation {
         }
 
         for item in updated.activeItems where predicate(item) {
-            updated = (try? updated.removingItem(id: item.id, deletedAt: deletedAt)) ?? updated
+            updated = try! updated.removingItem(id: item.id, deletedAt: deletedAt)
         }
 
         return updated
@@ -3335,7 +3335,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         if !drainedRecipeMutations.isEmpty || !drainedShoppingMutations.isEmpty {
             let snapshot = try await store.loadSnapshot()
             if !drainedRecipeMutations.isEmpty {
-                let cachePatchAccountID = queueAccountID ?? previousSnapshot.accountID ?? "unbound"
+                let cachePatchAccountID = queueAccountID!
                 let recipePatch = try Self.drainedRecipeCachePatch(
                     drainedMutations: drainedRecipeMutations,
                     snapshot: snapshot,
@@ -3345,7 +3345,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 cachePatch.deletingCacheKeys.formUnion(recipePatch.deletingCacheKeys)
             }
             if !drainedShoppingMutations.isEmpty {
-                let cachePatchAccountID = queueAccountID ?? previousSnapshot.accountID ?? "unbound"
+                let cachePatchAccountID = queueAccountID!
                 let shoppingPatch = try Self.drainedShoppingCachePatch(
                     drainedMutations: drainedShoppingMutations,
                     snapshot: snapshot,
@@ -3427,7 +3427,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 chef: fallbackChef,
                 items: cachedItems,
                 nextCursor: snapshot.checkpoint?.shoppingCursor?.rawValue ?? "",
-                updatedAt: snapshot.checkpoint?.updatedAt ?? drainedMutations.first?.createdAt ?? ""
+                updatedAt: snapshot.checkpoint?.updatedAt ?? drainedMutations.first!.createdAt
             )
         let updated = drainedMutations.reduce(baseShoppingList) { shoppingList, mutation in
             mutation.applyingOptimisticShoppingMutation(

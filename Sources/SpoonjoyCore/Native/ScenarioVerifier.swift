@@ -522,7 +522,8 @@ public enum ScenarioVerifier {
     }
 
     static func shoppingCheckoffCheck(
-        loadShoppingList: () throws -> ShoppingListState = { try ShoppingListState.decodeFromBundle() }
+        loadShoppingList: () throws -> ShoppingListState = { try ShoppingListState.decodeFromBundle() },
+        selectedItemID: String? = nil
     ) -> ScenarioCheck {
         do {
             let viewModel = ShoppingSurfaceViewModel(
@@ -532,7 +533,7 @@ public enum ScenarioVerifier {
                 connectivity: .online,
                 now: { "2026-06-16T11:42:00.000Z" }
             )
-            guard let itemID = viewModel.sections.flatMap(\.items).first?.id else {
+            guard let itemID = selectedItemID ?? viewModel.sections.flatMap(\.items).first?.id else {
                 return ScenarioCheck(name: "shopping checkoff", status: .fail, detail: "Fixture shopping list has no active checkoff items.")
             }
 
@@ -541,13 +542,10 @@ public enum ScenarioVerifier {
                 checked: true,
                 clientMutationID: "scenario-shopping-check"
             ))
-            guard let shoppingList = plan.updatedShoppingList else {
-                return ScenarioCheck(name: "shopping checkoff", status: .fail, detail: "Shopping checkoff did not produce a local list update.")
-            }
-            let item = shoppingList.item(id: itemID)
+            let item = plan.updatedShoppingList?.item(id: itemID)
             let status: ScenarioCheckStatus = item?.checked == true &&
                 item?.checkedAt == "2026-06-16T11:42:00.000Z" &&
-                shoppingList.receiptSections.flatMap(\.items).contains { $0.id == itemID } ? .pass : .fail
+                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true ? .pass : .fail
 
             return ScenarioCheck(
                 name: "shopping checkoff",
@@ -597,20 +595,27 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func shoppingAddRecipeIngredientsCheck() -> ScenarioCheck {
-        do {
-            let plan = try ShoppingSurfaceViewModel(
+    static func shoppingAddRecipeIngredientsCheck(
+        recipeID: String = "recipe_lemon_pantry_pasta",
+        scaleFactor: Double = 1.5,
+        recipeIngredients: [RecipeIngredient] = scenarioShoppingIngredients,
+        planBuilder: (String, Double, [RecipeIngredient], String) throws -> ShoppingSurfaceMutationPlan = { recipeID, scaleFactor, recipeIngredients, clientMutationID in
+            try ShoppingSurfaceViewModel(
                 shoppingList: nil,
                 queuedMutations: [],
                 conflicts: [],
                 connectivity: .online,
                 now: { "2026-06-16T11:44:00.000Z" }
             ).plan(.addRecipeIngredients(
-                recipeID: "recipe_lemon_pantry_pasta",
-                scaleFactor: 1.5,
-                recipeIngredients: scenarioShoppingIngredients,
-                clientMutationID: "scenario-shopping-recipe"
+                recipeID: recipeID,
+                scaleFactor: scaleFactor,
+                recipeIngredients: recipeIngredients,
+                clientMutationID: clientMutationID
             ))
+        }
+    ) -> ScenarioCheck {
+        do {
+            let plan = try planBuilder(recipeID, scaleFactor, recipeIngredients, "scenario-shopping-recipe")
             let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .shoppingAddFromRecipe ? .pass : .fail
 
@@ -651,19 +656,25 @@ public enum ScenarioVerifier {
         loadShoppingList: () throws -> ShoppingListState = { try ShoppingListState.decodeFromBundle() }
     ) -> ScenarioCheck {
         do {
-            let plan = try ShoppingSurfaceViewModel(
+            let viewModel = ShoppingSurfaceViewModel(
                 shoppingList: try loadShoppingList(),
                 queuedMutations: [],
                 conflicts: [],
                 connectivity: .online,
                 now: { "2026-06-16T11:45:00.000Z" }
-            ).plan(.clearAll(
+            )
+            let plan = try viewModel.plan(.clearAll(
                 clientMutationID: "scenario-shopping-clear",
                 confirmation: .required
             ))
+            let confirmedPlan = try viewModel.plan(.clearAll(
+                clientMutationID: "scenario-shopping-clear-confirmed",
+                confirmation: .confirmed
+            ))
             let status: ScenarioCheckStatus = plan.confirmationPrompt?.isDestructive == true &&
                 plan.confirmationPrompt?.confirmButtonTitle == "Clear All" &&
-                plan.remoteRequestBuilder == nil ? .pass : .fail
+                plan.remoteRequestBuilder == nil &&
+                confirmedPlan.offlineFallbackMutation?.queueableKind == .shoppingClearAll ? .pass : .fail
 
             return ScenarioCheck(
                 name: "shopping clear confirmation",
