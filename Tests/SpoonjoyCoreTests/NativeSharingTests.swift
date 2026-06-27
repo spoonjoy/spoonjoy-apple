@@ -42,10 +42,36 @@ struct NativeSharingTests {
         }
     }
 
+    @Test("public route payloads back toolbar sharing without leaking native-only routes")
+    func publicRoutePayloadsBackToolbarSharingWithoutLeakingNativeOnlyRoutes() throws {
+        let recipeURL = try url("https://spoonjoy.app/recipes/recipe_lemon")
+        let cookbookURL = try url("https://spoonjoy.app/cookbooks/cookbook_weeknight")
+        let recipePayload = try #require(NativeSharePayload.publicRoute(.recipeDetail(id: "recipe_lemon", presentation: .detail)))
+        #expect(recipePayload.id == "recipe:recipe_lemon")
+        #expect(recipePayload.domain == .recipe)
+        #expect(recipePayload.kind == .publicURL)
+        #expect(recipePayload.publicURL == recipeURL)
+        #expect(recipePayload.route == .recipeDetail(id: "recipe_lemon", presentation: .detail))
+        #expect(recipePayload.nativeTransfer == .publicURL(recipeURL))
+
+        let cookbookPayload = try #require(NativeSharePayload.publicRoute(.cookbookDetail(id: "cookbook_weeknight")))
+        #expect(cookbookPayload.id == "cookbook:cookbook_weeknight")
+        #expect(cookbookPayload.domain == .cookbook)
+        #expect(cookbookPayload.publicURL == cookbookURL)
+        #expect(cookbookPayload.route == .cookbookDetail(id: "cookbook_weeknight"))
+        #expect(cookbookPayload.nativeTransfer == .publicURL(cookbookURL))
+
+        #expect(NativeSharePayload.publicRoute(.recipeDetail(id: "../secret", presentation: .detail)) == nil)
+        #expect(NativeSharePayload.publicRoute(.cookbookDetail(id: "cookbook/secret")) == nil)
+        #expect(NativeSharePayload.publicRoute(.recipeDetail(id: "recipe_lemon", presentation: .cook)) == nil)
+        #expect(NativeSharePayload.publicRoute(.shoppingList) == nil)
+        #expect(NativeSharePayload.publicRoute(.settings) == nil)
+    }
+
     @Test("recipe and cookbook public payloads use canonical model URLs exactly")
     func recipeAndCookbookPublicPayloadsUseCanonicalModelURLsExactly() throws {
-        let recipe = try Self.recipeFixture(canonicalURL: try url("https://spoonjoy.app/recipes/canonical-not-derived"))
-        let cookbook = try Self.cookbookFixture(canonicalURL: try url("https://spoonjoy.app/cookbooks/canonical-cookbook"))
+        let recipe = try Self.recipeFixture(canonicalURL: try url("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"))
+        let cookbook = try Self.cookbookFixture(canonicalURL: try url("https://spoonjoy.app/cookbooks/cookbook_weeknights"))
 
         let recipePayload = try NativeSharePayload.publicRecipe(recipe)
         let cookbookPayload = try NativeSharePayload.publicCookbook(cookbook)
@@ -106,7 +132,19 @@ struct NativeSharingTests {
     @Test("private product values use native transfers without fake public URLs")
     func privateProductValuesUseNativeTransfersWithoutFakePublicURLs() throws {
         let recipe = try RecipeFixtureCatalog.decodeFromBundle().recipes[0]
-        let spoon = try #require(recipe.recentSpoons.first)
+        let spoon = RecipeDetailRecentSpoon(
+            id: "spoon_share_private",
+            chefID: "chef_ari",
+            recipeID: recipe.id,
+            cookedAt: "2026-06-27T14:40:00.000Z",
+            photoURL: nil,
+            note: "More lemon next time.",
+            nextTime: "Use the good olive oil.",
+            deletedAt: nil,
+            createdAt: "2026-06-27T14:40:00.000Z",
+            updatedAt: "2026-06-27T14:41:00.000Z",
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
         let shoppingList = try ShoppingListState.decodeFromBundle()
         let shoppingItem = try #require(shoppingList.activeItems.first)
         let draft = try CaptureDraft.shareSheetURL(
@@ -132,6 +170,67 @@ struct NativeSharingTests {
             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"))
             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/recipes/new"))
         }
+    }
+
+    @Test("private transfer fallback labels cover sparse shopping spoon and capture values")
+    func privateTransferFallbackLabelsCoverSparseShoppingSpoonAndCaptureValues() throws {
+        let sparseItem = ShoppingListItem(
+            id: "item_sparse",
+            name: "salt",
+            quantity: nil,
+            unit: nil,
+            checked: false,
+            checkedAt: nil,
+            deletedAt: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            sortIndex: 1,
+            updatedAt: "2026-06-27T15:00:00.000Z"
+        )
+        let sparseItemPayload = NativeSharePayload.privateShoppingItem(sparseItem, listID: "list_private")
+        #expect(sparseItemPayload.subtitle == "Shopping list item")
+        #expect(sparseItemPayload.serializedTransferValue.contains("checked=false"))
+        #expect(!sparseItemPayload.serializedTransferValue.contains("quantity="))
+
+        let cookedAtOnlySpoon = RecipeDetailRecentSpoon(
+            id: "spoon_cooked_at_only",
+            chefID: "chef_ari",
+            recipeID: "recipe_lemon_pantry_pasta",
+            cookedAt: "2026-06-27T15:01:00.000Z",
+            photoURL: nil,
+            note: nil,
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: "2026-06-27T15:01:00.000Z",
+            updatedAt: "2026-06-27T15:01:00.000Z",
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        #expect(NativeSharePayload.privateSpoon(cookedAtOnlySpoon, recipeTitle: "Lemon Pantry Pasta").subtitle == "2026-06-27T15:01:00.000Z")
+
+        let untimedSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_no_note_or_time",
+            chefID: "chef_ari",
+            recipeID: "recipe_lemon_pantry_pasta",
+            cookedAt: nil,
+            photoURL: nil,
+            note: nil,
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: "2026-06-27T15:02:00.000Z",
+            updatedAt: "2026-06-27T15:02:00.000Z",
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        #expect(NativeSharePayload.privateSpoon(untimedSpoon, recipeTitle: "Lemon Pantry Pasta").subtitle == "Cook log")
+
+        let imageDraft = try CaptureDraft.cameraImage(
+            id: "draft_no_preview",
+            assetIdentifier: "asset_private_camera",
+            recognizedText: nil,
+            createdAt: "2026-06-27T15:03:00.000Z"
+        )
+        let imageDraftPayload = NativeSharePayload.privateCaptureDraft(imageDraft)
+        #expect(imageDraftPayload.title == "Capture Draft")
+        #expect(imageDraftPayload.subtitle == "camera-image")
     }
 
     @Test("sharing catalog stays system-share only and does not invent social surfaces")

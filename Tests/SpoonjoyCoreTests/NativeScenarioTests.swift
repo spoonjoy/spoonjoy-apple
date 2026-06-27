@@ -23,7 +23,8 @@ struct NativeScenarioTests {
         "capture-recipe-json-ld",
         "capture-recipe-video-url",
         "recipe-import-submit",
-        "share-recipe"
+        "share-recipe",
+        "share-cookbook"
     ]
     private let expectedOfflineFlows = [
         "fixture-offline-restore",

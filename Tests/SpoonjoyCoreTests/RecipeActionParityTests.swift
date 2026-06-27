@@ -34,7 +34,7 @@ struct RecipeActionParityTests {
             .deleteRecipe
         ])
         #expect(viewModel.actions.startCookingRoute == .recipeDetail(id: recipe.id, presentation: .cook))
-        #expect(viewModel.actions.shareURL.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
+        #expect(viewModel.actions.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
         #expect(viewModel.actions.chefProfilePath == "/users/ari")
         #expect(viewModel.actions.cookbookOptions.map(\.id) == ["cookbook_weeknights", "cookbook_pantry"])
         #expect(viewModel.actions.savedCookbookIDs == ["cookbook_weeknights"])

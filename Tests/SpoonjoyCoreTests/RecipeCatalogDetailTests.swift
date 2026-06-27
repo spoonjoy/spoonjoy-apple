@@ -121,7 +121,7 @@ struct RecipeCatalogDetailTests {
         #expect(viewModel.ownerTools.isVisible)
         #expect(viewModel.ownerTools.editPath == "/recipes/recipe_lemon_pantry_pasta/edit")
         #expect(viewModel.actions.startCookingRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
-        #expect(viewModel.actions.shareURL.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
+        #expect(viewModel.actions.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
         #expect(viewModel.actions.chefProfilePath == "/users/ari")
         #expect(viewModel.offlineIndicator.display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
         #expect(viewModel.offlineIndicator.display.informationalOnly)
