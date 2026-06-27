@@ -1,12 +1,13 @@
 import Foundation
 
-public struct APIRequestBuilder: Equatable {
+public struct APIRequestBuilder: Equatable, Sendable {
     public let method: APIRequestMethod
     public let pathComponents: [String]
     public let queryItems: [URLQueryItem]
     public let headers: [String: String]
     public let body: Data?
     public let defaultAuthorization: APIAuthorizationPolicy
+    public let responseCachePolicy: APIResponseCachePolicy?
 
     public init(
         method: APIRequestMethod,
@@ -14,7 +15,8 @@ public struct APIRequestBuilder: Equatable {
         queryItems: [URLQueryItem],
         headers: [String: String] = [:],
         body: Data? = nil,
-        defaultAuthorization: APIAuthorizationPolicy = .omit
+        defaultAuthorization: APIAuthorizationPolicy = .omit,
+        responseCachePolicy: APIResponseCachePolicy? = nil
     ) {
         self.method = method
         self.pathComponents = pathComponents
@@ -22,6 +24,7 @@ public struct APIRequestBuilder: Equatable {
         self.headers = headers
         self.body = body
         self.defaultAuthorization = defaultAuthorization
+        self.responseCachePolicy = responseCachePolicy
     }
 
     public func urlRequest(
@@ -36,10 +39,12 @@ public struct APIRequestBuilder: Equatable {
         }
 
         let authorization = authorization ?? defaultAuthorization
+        var includesBearerToken = false
         if authorization == .includeBearerToken,
            let bearerToken = configuration.bearerToken?.trimmingCharacters(in: .whitespacesAndNewlines),
            !bearerToken.isEmpty {
             requestHeaders["Authorization"] = "Bearer \(bearerToken)"
+            includesBearerToken = true
         }
 
         return APIRequest(
@@ -51,8 +56,22 @@ public struct APIRequestBuilder: Equatable {
             ),
             queryItems: queryItems,
             headers: requestHeaders,
-            body: body
+            body: body,
+            responseCachePolicy: resolvedResponseCachePolicy(includesBearerToken: includesBearerToken)
         )
+    }
+
+    private func resolvedResponseCachePolicy(includesBearerToken: Bool) -> APIResponseCachePolicy? {
+        guard includesBearerToken else {
+            return responseCachePolicy
+        }
+
+        switch responseCachePolicy {
+        case .publicCache:
+            return .privateNoStore
+        case .privateNoStore, nil:
+            return responseCachePolicy
+        }
     }
 
     private static func percentEncodePathSegment(_ segment: String) -> String {

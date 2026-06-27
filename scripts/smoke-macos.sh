@@ -2,10 +2,25 @@
 set -euo pipefail
 
 artifact_root="tasks/2026-06-15-2314-doing-native-app-skeleton"
+unit_slug="${UNIT_SLUG:-smoke-macos}"
+log_path=""
+blocker_path=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --artifact-root)
       artifact_root="$2"
+      shift 2
+      ;;
+    --unit-slug)
+      unit_slug="$2"
+      shift 2
+      ;;
+    --log)
+      log_path="$2"
+      shift 2
+      ;;
+    --blocker)
+      blocker_path="$2"
       shift 2
       ;;
     *)
@@ -15,15 +30,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-mkdir -p "$artifact_root"
-log_path="$artifact_root/smoke-macos.log"
-blocker_path="$artifact_root/smoke-macos-blocker.json"
+apple_dir="$artifact_root/apple"
+mkdir -p "$artifact_root" "$apple_dir"
+legacy_log_path="$artifact_root/smoke-macos.log"
+legacy_blocker_path="$artifact_root/smoke-macos-blocker.json"
+log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-macos-inner.log}"
+blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-macos-blocker.json}"
 derived_data_path="$artifact_root/DerivedData-macOS"
 app_path="$derived_data_path/Build/Products/BootstrapDebug/Spoonjoy.app"
-case "$app_path" in
-  /*) ;;
-  *) app_path="$(pwd)/$app_path" ;;
-esac
 state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 state_backup="$artifact_root/native-app-state-smoke-backup.json"
 route_query="codex-smoke-route-$(date +%s)"
@@ -40,6 +54,8 @@ build_command=(
   GCC_TREAT_WARNINGS_AS_ERRORS=YES
   build
 )
+mkdir -p "$(dirname "$log_path")" "$(dirname "$blocker_path")"
+rm -f "$blocker_path" "$legacy_blocker_path"
 
 write_blocker() {
   local capability="$1"
@@ -47,18 +63,20 @@ write_blocker() {
   local timeout_seconds="$3"
   local output_path="$4"
   local reason="$5"
+  local owner_action="$6"
   ruby -rjson -e '
-    path, capability, command, timeout_seconds, output_path, reason = ARGV
+    path, capability, command, timeout_seconds, output_path, reason, owner_action = ARGV
     blocker = {
       capability: capability,
       blocked: true,
       command: command,
       timeoutSeconds: Integer(timeout_seconds),
       outputPath: output_path,
-      reason: reason
+      reason: reason,
+      ownerAction: owner_action
     }
     File.write(path, JSON.pretty_generate(blocker) + "\n")
-  ' "$blocker_path" "$capability" "$command" "$timeout_seconds" "$output_path" "$reason"
+  ' "$blocker_path" "$capability" "$command" "$timeout_seconds" "$output_path" "$reason" "$owner_action"
 }
 
 state_had_backup=false
@@ -82,7 +100,7 @@ trap restore_state EXIT
 
 assert_route_proof() {
   local expected_route="$1"
-  local attempts=20
+  local attempts=60
   local delay="0.5"
   for _ in $(seq 1 "$attempts"); do
     if ruby -rjson -e '
@@ -115,23 +133,23 @@ assert_route_proof() {
 } > "$log_path" 2>&1
 
 if [[ "$build_status" -ne 0 ]]; then
-  write_blocker \
-    "MacOSLaunch" \
-    "$build_label" \
-    "30" \
-    "$log_path" \
-    "macOS launch smoke cannot run because the BootstrapDebug app bundle did not build."
-  printf 'macOS smoke blocked; see %s\n' "$blocker_path"
-  exit 0
+  printf 'macOS smoke build failed; see %s\n' "$log_path" >&2
+  exit "$build_status"
 fi
 
 if [[ ! -d "$app_path" ]]; then
+  printf 'macOS smoke app bundle missing at %s\n' "$app_path" >&2
+  exit 1
+fi
+
+if ! osascript -e 'id of application "Finder"' >> "$log_path" 2>&1; then
   write_blocker \
     "MacOSLaunch" \
-    "open -n '$app_path'" \
+    "osascript -e 'id of application \"Finder\"'" \
     "30" \
     "$log_path" \
-    "macOS app bundle was not found at the expected Spoonjoy.app path."
+    "macOS GUI automation is unavailable in this session." \
+    "Run the macOS smoke from an unlocked desktop session with Apple Events available."
   printf 'macOS smoke blocked; see %s\n' "$blocker_path"
   exit 0
 fi

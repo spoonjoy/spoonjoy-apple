@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-public enum OAuthPKCEError: Error, Equatable {
+public enum OAuthPKCEError: Error, Equatable, Sendable {
     case invalidVerifier
 }
 
@@ -9,6 +9,11 @@ public enum OAuthPKCE {
     private static let verifierCharacters = CharacterSet(
         charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~"
     )
+
+    public static func randomVerifier() -> String {
+        let bytes = (0..<32).map { _ in UInt8.random(in: UInt8.min...UInt8.max) }
+        return base64URLEncoded(Data(bytes))
+    }
 
     public static func isValidVerifier(_ verifier: String) -> Bool {
         guard (43...128).contains(verifier.count) else {
@@ -36,7 +41,7 @@ public enum OAuthPKCE {
     }
 }
 
-public struct OAuthState: RawRepresentable, Equatable {
+public struct OAuthState: RawRepresentable, Equatable, Sendable {
     public let rawValue: String
 
     public init?(rawValue: String) {

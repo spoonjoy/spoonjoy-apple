@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ShoppingSyncCursor: RawRepresentable, Codable, Equatable {
+public struct ShoppingSyncCursor: RawRepresentable, Codable, Equatable, Sendable {
     public let rawValue: String
 
     public init?(rawValue: String) {
@@ -13,25 +13,25 @@ public struct ShoppingSyncCursor: RawRepresentable, Codable, Equatable {
     }
 }
 
-public struct ShoppingListResponse: Decodable, Equatable {
+public struct ShoppingListResponse: Decodable, Equatable, Sendable {
     public let id: String
     public let chef: ChefSummary
     public let items: [ShoppingListItem]
     public let updatedAt: String
 }
 
-public struct ShoppingListReadData: Decodable, Equatable {
+public struct ShoppingListReadData: Decodable, Equatable, Sendable {
     public let shoppingList: ShoppingListResponse
     public let nextCursor: ShoppingSyncCursor
 }
 
-public struct ShoppingListSyncData: Decodable, Equatable {
+public struct ShoppingListSyncData: Decodable, Equatable, Sendable {
     public let items: [ShoppingListItem]
     public let nextCursor: ShoppingSyncCursor
     public let hasMore: Bool
 }
 
-public struct ShoppingItemMutationData: Decodable, Equatable {
+public struct ShoppingItemMutationData: Decodable, Equatable, Sendable {
     public let created: Bool
     public let updated: Bool
     public let removed: Bool?

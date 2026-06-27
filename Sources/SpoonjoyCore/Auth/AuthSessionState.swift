@@ -17,7 +17,7 @@ public enum AuthSessionState: Equatable, Sendable {
 
 public struct AuthSession: Equatable, Codable, Sendable {
     private static let bearerTokenType = "Bearer"
-    private static let requiredScopes: Set<String> = ["shopping_list:read", "shopping_list:write"]
+    private static let requiredScopes: Set<String> = Set(NativeAuthSession.defaultScopes)
 
     public let clientID: String
     public let accessToken: String
@@ -25,6 +25,7 @@ public struct AuthSession: Equatable, Codable, Sendable {
     public let tokenType: String
     public let expiresAt: Date
     public let scope: String
+    public let accountID: String?
 
     public var authorizationHeader: String {
         "\(tokenType) \(accessToken)"
@@ -36,13 +37,15 @@ public struct AuthSession: Equatable, Codable, Sendable {
         refreshToken: String,
         tokenType: String,
         expiresAt: Date,
-        scope: String
+        scope: String,
+        accountID: String? = nil
     ) throws {
         let clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         let accessToken = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let refreshToken = refreshToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let tokenType = tokenType.trimmingCharacters(in: .whitespacesAndNewlines)
         let scope = scope.trimmingCharacters(in: .whitespacesAndNewlines)
+        let accountID = accountID?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !clientID.isEmpty else {
             throw AuthSessionError.invalidClientID
@@ -72,6 +75,7 @@ public struct AuthSession: Equatable, Codable, Sendable {
         self.tokenType = Self.bearerTokenType
         self.expiresAt = expiresAt
         self.scope = scope
+        self.accountID = accountID?.isEmpty == true ? nil : accountID
     }
 
     public func state(at date: Date) -> AuthSessionState {
@@ -93,7 +97,20 @@ public struct AuthSession: Equatable, Codable, Sendable {
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: receivedAt.addingTimeInterval(TimeInterval(response.expiresIn)),
-            scope: response.scope
+            scope: response.scope,
+            accountID: accountID
+        )
+    }
+
+    public func bindingAccountID(_ accountID: String) throws -> AuthSession {
+        try AuthSession(
+            clientID: clientID,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            tokenType: tokenType,
+            expiresAt: expiresAt,
+            scope: scope,
+            accountID: accountID
         )
     }
 }

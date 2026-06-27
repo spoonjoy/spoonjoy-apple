@@ -1,0 +1,14 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/docs/developer-platform-guide.test.ts (2 tests) 286ms
+ ✓ test/lib/api-v1-openapi.server.test.ts (12 tests) 214ms
+ ✓ test/routes/api-v1-openapi.test.ts (2 tests) 151ms
+ ✓ test/config/api-v1-route-coverage.test.ts (3 tests) 33ms
+ ✓ test/scripts/generate-api-playground.test.ts (2 tests) 102ms
+ ✓ test/docs/developer-platform-docs.test.ts (7 tests) 37ms
+
+ Test Files  6 passed (6)
+      Tests  28 passed (28)
+   Start at  17:30:14
+   Duration  6.90s (transform 1.55s, setup 797ms, import 2.82s, tests 824ms, environment 1.49s)

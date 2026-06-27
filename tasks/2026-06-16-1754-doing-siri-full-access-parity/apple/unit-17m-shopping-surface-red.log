@@ -1,0 +1,458 @@
+COMMAND: swift test --filter ShoppingSurfaceParityTests
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:535:51: error: cannot find type 'ShoppingSurfaceRepository' in scope
+533 | }
+534 |
+535 | private actor RecordingShoppingSurfaceRepository: ShoppingSurfaceRepository {
+    |                                                   `- error: cannot find type 'ShoppingSurfaceRepository' in scope
+536 |     private let shoppingList: ShoppingListState
+537 |     private(set) var fetchCount = 0
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:549:47: error: cannot find type 'ShoppingSurfaceMutationPlan' in scope
+547 | }
+548 |
+549 | private func shoppingRemoteRequest(from plan: ShoppingSurfaceMutationPlan) throws -> APIRequest {
+    |                                               `- error: cannot find type 'ShoppingSurfaceMutationPlan' in scope
+550 |     guard let builder = plan.remoteRequestBuilder else {
+551 |         throw ShoppingSurfaceParityTestFailure("Expected an online shopping action to provide a remote request builder.")
+[4/6] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:535:51: error: cannot find type 'ShoppingSurfaceRepository' in scope
+533 | }
+534 |
+535 | private actor RecordingShoppingSurfaceRepository: ShoppingSurfaceRepository {
+    |                                                   `- error: cannot find type 'ShoppingSurfaceRepository' in scope
+536 |     private let shoppingList: ShoppingListState
+537 |     private(set) var fetchCount = 0
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:549:47: error: cannot find type 'ShoppingSurfaceMutationPlan' in scope
+547 | }
+548 |
+549 | private func shoppingRemoteRequest(from plan: ShoppingSurfaceMutationPlan) throws -> APIRequest {
+    |                                               `- error: cannot find type 'ShoppingSurfaceMutationPlan' in scope
+550 |     guard let builder = plan.remoteRequestBuilder else {
+551 |         throw ShoppingSurfaceParityTestFailure("Expected an online shopping action to provide a remote request builder.")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:42:35: error: cannot find 'ShoppingSurfaceViewModel' in scope
+ 40 |         ]
+ 41 |
+ 42 |         let viewModel = try await ShoppingSurfaceViewModel.load(
+    |                                   `- error: cannot find 'ShoppingSurfaceViewModel' in scope
+ 43 |             repository: repository,
+ 44 |             queuedMutations: queued,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:46:28: error: cannot infer contextual base in reference to member 'online'
+ 44 |             queuedMutations: queued,
+ 45 |             conflicts: conflicts,
+ 46 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 47 |             now: { Self.createdAt }
+ 48 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:52:41: error: cannot infer contextual base in reference to member 'loaded'
+ 50 |         #expect(await repository.fetchCount == 1)
+ 51 |         let expectedActiveItems = try Self.shoppingList().activeItems
+ 52 |         #expect(viewModel.loadState == .loaded)
+    |                                         `- error: cannot infer contextual base in reference to member 'loaded'
+ 53 |         #expect(viewModel.activeCountLabel == "3 active")
+ 54 |         #expect(viewModel.sections.map(\.title) == ["Produce", "Pantry", "Dairy"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:54:40: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 52 |         #expect(viewModel.loadState == .loaded)
+ 53 |         #expect(viewModel.activeCountLabel == "3 active")
+ 54 |         #expect(viewModel.sections.map(\.title) == ["Produce", "Pantry", "Dairy"])
+    |                                        `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 55 |         #expect(viewModel.sections.map { $0.items.map(\.id) } == [
+ 56 |             ["item_lemons"],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:55:55: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 53 |         #expect(viewModel.activeCountLabel == "3 active")
+ 54 |         #expect(viewModel.sections.map(\.title) == ["Produce", "Pantry", "Dairy"])
+ 55 |         #expect(viewModel.sections.map { $0.items.map(\.id) } == [
+    |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 56 |             ["item_lemons"],
+ 57 |             ["item_spaghetti"],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:63:45: error: cannot find 'ShoppingSurfaceConflictBanner' in scope
+ 61 |         #expect(viewModel.emptyState == nil)
+ 62 |         #expect(viewModel.queuedWorkSummary == "2 shopping changes waiting to sync")
+ 63 |         #expect(viewModel.conflictBanner == ShoppingSurfaceConflictBanner(
+    |                                             `- error: cannot find 'ShoppingSurfaceConflictBanner' in scope
+ 64 |             localClientMutationID: "cm_delete_lemons",
+ 65 |             message: "Shopping item changed elsewhere.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:68:56: error: cannot infer contextual base in reference to member 'conflict'
+ 66 |             actionTitle: "Review shopping conflict"
+ 67 |         ))
+ 68 |         #expect(viewModel.offlineIndicator.display == .conflict(
+    |                                                        `- error: cannot infer contextual base in reference to member 'conflict'
+ 69 |             recordID: "cm_delete_lemons",
+ 70 |             mutationID: "cm_delete_lemons"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:73:28: error: cannot find 'ShoppingSurfaceViewModel' in scope
+ 71 |         ))
+ 72 |
+ 73 |         let emptyOffline = ShoppingSurfaceViewModel(
+    |                            `- error: cannot find 'ShoppingSurfaceViewModel' in scope
+ 74 |             shoppingList: try Self.emptyShoppingList(),
+ 75 |             queuedMutations: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:77:28: error: cannot infer contextual base in reference to member 'offline'
+ 75 |             queuedMutations: [],
+ 76 |             conflicts: [],
+ 77 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+ 78 |             now: { Self.createdAt }
+ 79 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:80:44: error: cannot infer contextual base in reference to member 'loaded'
+ 78 |             now: { Self.createdAt }
+ 79 |         )
+ 80 |         #expect(emptyOffline.loadState == .loaded)
+    |                                            `- error: cannot infer contextual base in reference to member 'loaded'
+ 81 |         #expect(emptyOffline.activeCountLabel == "0 active")
+ 82 |         #expect(emptyOffline.sections.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:83:44: error: cannot find 'ShoppingSurfaceEmptyState' in scope
+ 81 |         #expect(emptyOffline.activeCountLabel == "0 active")
+ 82 |         #expect(emptyOffline.sections.isEmpty)
+ 83 |         #expect(emptyOffline.emptyState == ShoppingSurfaceEmptyState(
+    |                                            `- error: cannot find 'ShoppingSurfaceEmptyState' in scope
+ 84 |             title: "Your shopping list is empty",
+ 85 |             message: "Add ingredients from a recipe or jot down what you need.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:88:59: error: cannot infer contextual base in reference to member 'offline'
+ 86 |             systemImage: "cart"
+ 87 |         ))
+ 88 |         #expect(emptyOffline.offlineIndicator.display == .offline)
+    |                                                           `- error: cannot infer contextual base in reference to member 'offline'
+ 89 |
+ 90 |         let needsLiveLoad = ShoppingSurfaceViewModel(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:90:29: error: cannot find 'ShoppingSurfaceViewModel' in scope
+ 88 |         #expect(emptyOffline.offlineIndicator.display == .offline)
+ 89 |
+ 90 |         let needsLiveLoad = ShoppingSurfaceViewModel(
+    |                             `- error: cannot find 'ShoppingSurfaceViewModel' in scope
+ 91 |             shoppingList: nil,
+ 92 |             queuedMutations: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:91:27: error: 'nil' requires a contextual type
+ 89 |
+ 90 |         let needsLiveLoad = ShoppingSurfaceViewModel(
+ 91 |             shoppingList: nil,
+    |                           `- error: 'nil' requires a contextual type
+ 92 |             queuedMutations: [],
+ 93 |             conflicts: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:94:28: error: cannot infer contextual base in reference to member 'online'
+ 92 |             queuedMutations: [],
+ 93 |             conflicts: [],
+ 94 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 95 |             now: { Self.createdAt }
+ 96 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:97:45: error: cannot infer contextual base in reference to member 'needsLiveLoad'
+ 95 |             now: { Self.createdAt }
+ 96 |         )
+ 97 |         #expect(needsLiveLoad.loadState == .needsLiveLoad)
+    |                                             `- error: cannot infer contextual base in reference to member 'needsLiveLoad'
+ 98 |         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
+ 99 |             title: "Load your shopping list",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:98:45: error: cannot find 'ShoppingSurfaceEmptyState' in scope
+ 96 |         )
+ 97 |         #expect(needsLiveLoad.loadState == .needsLiveLoad)
+ 98 |         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
+    |                                             `- error: cannot find 'ShoppingSurfaceEmptyState' in scope
+ 99 |             title: "Load your shopping list",
+100 |             message: "Connect to Spoonjoy to sync your current list.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:103:60: error: cannot infer contextual base in reference to member 'synced'
+101 |             systemImage: "arrow.clockwise"
+102 |         ))
+103 |         #expect(needsLiveLoad.offlineIndicator.display == .synced)
+    |                                                            `- error: cannot infer contextual base in reference to member 'synced'
+104 |     }
+105 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:108:25: error: cannot find 'ShoppingSurfaceViewModel' in scope
+106 |     @Test("online shopping actions plan exact REST mutations with offline fallbacks")
+107 |     func onlineShoppingActionsPlanExactRESTMutationsWithOfflineFallbacks() throws {
+108 |         let viewModel = ShoppingSurfaceViewModel(
+    |                         `- error: cannot find 'ShoppingSurfaceViewModel' in scope
+109 |             shoppingList: try Self.shoppingListWithCompletedItem(),
+110 |             queuedMutations: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:112:28: error: cannot infer contextual base in reference to member 'online'
+110 |             queuedMutations: [],
+111 |             conflicts: [],
+112 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+113 |             now: { Self.createdAt }
+114 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:116:39: error: cannot infer contextual base in reference to member 'addItem'
+114 |         )
+115 |
+116 |         let add = try viewModel.plan(.addItem(
+    |                                       `- error: cannot infer contextual base in reference to member 'addItem'
+117 |             name: " Limes ",
+118 |             quantity: 4,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:160:41: error: cannot infer contextual base in reference to member 'setItemChecked'
+158 |         #expect(add.updatedShoppingList?.item(id: "item_local_cm_add_limes")?.name == "limes")
+159 |
+160 |         let check = try viewModel.plan(.setItemChecked(
+    |                                         `- error: cannot infer contextual base in reference to member 'setItemChecked'
+161 |             itemID: "item_lemons",
+162 |             checked: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:192:43: error: cannot infer contextual base in reference to member 'setItemChecked'
+190 |         )
+191 |
+192 |         let uncheck = try viewModel.plan(.setItemChecked(
+    |                                           `- error: cannot infer contextual base in reference to member 'setItemChecked'
+193 |             itemID: "item_spaghetti",
+194 |             checked: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:224:48: error: cannot infer contextual base in reference to member 'deleteItem'
+222 |         )
+223 |
+224 |         let deletePrompt = try viewModel.plan(.deleteItem(
+    |                                                `- error: cannot infer contextual base in reference to member 'deleteItem'
+225 |             itemID: "item_lemons",
+226 |             clientMutationID: "cm_delete_lemons",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:227:28: error: cannot infer contextual base in reference to member 'required'
+225 |             itemID: "item_lemons",
+226 |             clientMutationID: "cm_delete_lemons",
+227 |             confirmation: .required
+    |                            `- error: cannot infer contextual base in reference to member 'required'
+228 |         ))
+229 |         #expect(deletePrompt.remoteRequestBuilder == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:231:52: error: cannot find 'ShoppingActionConfirmationPrompt' in scope
+229 |         #expect(deletePrompt.remoteRequestBuilder == nil)
+230 |         #expect(deletePrompt.queuedMutation == nil)
+231 |         #expect(deletePrompt.confirmationPrompt == ShoppingActionConfirmationPrompt(
+    |                                                    `- error: cannot find 'ShoppingActionConfirmationPrompt' in scope
+232 |             title: "Remove lemons?",
+233 |             message: "This removes the item from your shopping list and syncs the change across your devices.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:238:42: error: cannot infer contextual base in reference to member 'deleteItem'
+236 |         ))
+237 |
+238 |         let delete = try viewModel.plan(.deleteItem(
+    |                                          `- error: cannot infer contextual base in reference to member 'deleteItem'
+239 |             itemID: "item_lemons",
+240 |             clientMutationID: "cm_delete_lemons",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:241:28: error: cannot infer contextual base in reference to member 'confirmed'
+239 |             itemID: "item_lemons",
+240 |             clientMutationID: "cm_delete_lemons",
+241 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+242 |         ))
+243 |         assertShoppingNoBodyRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:272:45: error: cannot infer contextual base in reference to member 'addRecipeIngredients'
+270 |         )
+271 |
+272 |         let addRecipe = try viewModel.plan(.addRecipeIngredients(
+    |                                             `- error: cannot infer contextual base in reference to member 'addRecipeIngredients'
+273 |             recipeID: "recipe_lemon_pantry_pasta",
+274 |             scaleFactor: 2.5,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:305:56: error: cannot infer contextual base in reference to member 'clearCompleted'
+303 |         )
+304 |
+305 |         let clearCompletedPrompt = try viewModel.plan(.clearCompleted(
+    |                                                        `- error: cannot infer contextual base in reference to member 'clearCompleted'
+306 |             clientMutationID: "cm_clear_completed",
+307 |             confirmation: .required
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:307:28: error: cannot infer contextual base in reference to member 'required'
+305 |         let clearCompletedPrompt = try viewModel.plan(.clearCompleted(
+306 |             clientMutationID: "cm_clear_completed",
+307 |             confirmation: .required
+    |                            `- error: cannot infer contextual base in reference to member 'required'
+308 |         ))
+309 |         #expect(clearCompletedPrompt.remoteRequestBuilder == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:310:60: error: cannot find 'ShoppingActionConfirmationPrompt' in scope
+308 |         ))
+309 |         #expect(clearCompletedPrompt.remoteRequestBuilder == nil)
+310 |         #expect(clearCompletedPrompt.confirmationPrompt == ShoppingActionConfirmationPrompt(
+    |                                                            `- error: cannot find 'ShoppingActionConfirmationPrompt' in scope
+311 |             title: "Clear completed items?",
+312 |             message: "This removes checked items and syncs the change across your devices.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:317:50: error: cannot infer contextual base in reference to member 'clearCompleted'
+315 |         ))
+316 |
+317 |         let clearCompleted = try viewModel.plan(.clearCompleted(
+    |                                                  `- error: cannot infer contextual base in reference to member 'clearCompleted'
+318 |             clientMutationID: "cm_clear_completed",
+319 |             confirmation: .confirmed
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:319:28: error: cannot infer contextual base in reference to member 'confirmed'
+317 |         let clearCompleted = try viewModel.plan(.clearCompleted(
+318 |             clientMutationID: "cm_clear_completed",
+319 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+320 |         ))
+321 |         try assertShoppingJSONRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:327:69: error: cannot infer key path type from context; consider explicitly specifying a root type
+325 |             expected: ["clientMutationId": "cm_clear_completed"]
+326 |         )
+327 |         #expect(clearCompleted.updatedShoppingList?.activeItems.map(\.id) == ["item_lemons", "item_parmesan"])
+    |                                                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+328 |         let clearCompletedFallback = try requireShoppingMutation(clearCompleted.offlineFallbackMutation, "clear completed fallback")
+329 |         assertShoppingMutationMetadata(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:342:44: error: cannot infer contextual base in reference to member 'clearAll'
+340 |         )
+341 |
+342 |         let clearAll = try viewModel.plan(.clearAll(
+    |                                            `- error: cannot infer contextual base in reference to member 'clearAll'
+343 |             clientMutationID: "cm_clear_all",
+344 |             confirmation: .confirmed
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:344:28: error: cannot infer contextual base in reference to member 'confirmed'
+342 |         let clearAll = try viewModel.plan(.clearAll(
+343 |             clientMutationID: "cm_clear_all",
+344 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+345 |         ))
+346 |         try assertShoppingJSONRequest(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:370:25: error: cannot find 'ShoppingSurfaceViewModel' in scope
+368 |     @Test("offline shopping actions queue safe mutations and destructive clears require confirmation")
+369 |     func offlineShoppingActionsQueueSafeMutationsAndDestructiveClearsRequireConfirmation() throws {
+370 |         let viewModel = ShoppingSurfaceViewModel(
+    |                         `- error: cannot find 'ShoppingSurfaceViewModel' in scope
+371 |             shoppingList: try Self.shoppingList(),
+372 |             queuedMutations: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:374:28: error: cannot infer contextual base in reference to member 'offline'
+372 |             queuedMutations: [],
+373 |             conflicts: [],
+374 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+375 |             now: { Self.createdAt }
+376 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:378:39: error: cannot infer contextual base in reference to member 'addItem'
+376 |         )
+377 |
+378 |         let add = try viewModel.plan(.addItem(
+    |                                       `- error: cannot infer contextual base in reference to member 'addItem'
+379 |             name: " Limes ",
+380 |             quantity: 4,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:408:42: error: cannot infer contextual base in reference to member 'deleteItem'
+406 |         )
+407 |
+408 |         let delete = try viewModel.plan(.deleteItem(
+    |                                          `- error: cannot infer contextual base in reference to member 'deleteItem'
+409 |             itemID: "item_lemons",
+410 |             clientMutationID: "cm_delete_lemons",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:411:28: error: cannot infer contextual base in reference to member 'confirmed'
+409 |             itemID: "item_lemons",
+410 |             clientMutationID: "cm_delete_lemons",
+411 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+412 |         ))
+413 |         let deleteMutation = try requireShoppingMutation(delete.queuedMutation, "offline delete")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:431:34: error: cannot find 'ShoppingSurfaceViewModel' in scope
+429 |         )
+430 |
+431 |         let clearCompleted = try ShoppingSurfaceViewModel(
+    |                                  `- error: cannot find 'ShoppingSurfaceViewModel' in scope
+432 |             shoppingList: try Self.shoppingListWithCompletedItem(),
+433 |             queuedMutations: [],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:435:28: error: cannot infer contextual base in reference to member 'offline'
+433 |             queuedMutations: [],
+434 |             conflicts: [],
+435 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+436 |             now: { Self.createdAt }
+437 |         ).plan(.clearCompleted(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:437:17: error: cannot infer contextual base in reference to member 'clearCompleted'
+435 |             connectivity: .offline,
+436 |             now: { Self.createdAt }
+437 |         ).plan(.clearCompleted(
+    |                 `- error: cannot infer contextual base in reference to member 'clearCompleted'
+438 |             clientMutationID: "cm_clear_completed",
+439 |             confirmation: .confirmed
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:439:28: error: cannot infer contextual base in reference to member 'confirmed'
+437 |         ).plan(.clearCompleted(
+438 |             clientMutationID: "cm_clear_completed",
+439 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+440 |         ))
+441 |         let clearCompletedMutation = try requireShoppingMutation(clearCompleted.queuedMutation, "offline clear completed")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:455:50: error: cannot infer contextual base in reference to member 'clearAll'
+453 |         )
+454 |
+455 |         let clearAllPrompt = try viewModel.plan(.clearAll(
+    |                                                  `- error: cannot infer contextual base in reference to member 'clearAll'
+456 |             clientMutationID: "cm_clear_all",
+457 |             confirmation: .required
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:457:28: error: cannot infer contextual base in reference to member 'required'
+455 |         let clearAllPrompt = try viewModel.plan(.clearAll(
+456 |             clientMutationID: "cm_clear_all",
+457 |             confirmation: .required
+    |                            `- error: cannot infer contextual base in reference to member 'required'
+458 |         ))
+459 |         #expect(clearAllPrompt.remoteRequestBuilder == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:461:54: error: cannot find 'ShoppingActionConfirmationPrompt' in scope
+459 |         #expect(clearAllPrompt.remoteRequestBuilder == nil)
+460 |         #expect(clearAllPrompt.queuedMutation == nil)
+461 |         #expect(clearAllPrompt.confirmationPrompt == ShoppingActionConfirmationPrompt(
+    |                                                      `- error: cannot find 'ShoppingActionConfirmationPrompt' in scope
+462 |             title: "Clear your whole shopping list?",
+463 |             message: "This removes every active item and syncs the change across your devices.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:468:44: error: cannot infer contextual base in reference to member 'clearAll'
+466 |         ))
+467 |
+468 |         let clearAll = try viewModel.plan(.clearAll(
+    |                                            `- error: cannot infer contextual base in reference to member 'clearAll'
+469 |             clientMutationID: "cm_clear_all",
+470 |             confirmation: .confirmed
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:470:28: error: cannot infer contextual base in reference to member 'confirmed'
+468 |         let clearAll = try viewModel.plan(.clearAll(
+469 |             clientMutationID: "cm_clear_all",
+470 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+471 |         ))
+472 |         let clearAllMutation = try requireShoppingMutation(clearAll.queuedMutation, "offline clear all")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:486:45: error: cannot infer contextual base in reference to member 'addRecipeIngredients'
+484 |         )
+485 |
+486 |         let addRecipe = try viewModel.plan(.addRecipeIngredients(
+    |                                             `- error: cannot infer contextual base in reference to member 'addRecipeIngredients'
+487 |             recipeID: "recipe_lemon_pantry_pasta",
+488 |             scaleFactor: 1.5,
+error: fatalError
+
+COMMAND: ruby scripts/check-cook-shopping-surfaces.rb
+FAIL: missing cook/shopping surface files: Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift
+red_check_ok=expected_failures_observed

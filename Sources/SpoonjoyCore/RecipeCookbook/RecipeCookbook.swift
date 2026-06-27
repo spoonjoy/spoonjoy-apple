@@ -1,28 +1,68 @@
 import Foundation
 
-public struct ChefSummary: Codable, Equatable {
+public struct ChefSummary: Codable, Equatable, Sendable {
     public let id: String
     public let username: String
+    public let photoURL: URL?
 
-    public init(id: String, username: String) {
+    public init(id: String, username: String, photoURL: URL? = nil) {
         self.id = id
         self.username = username
+        self.photoURL = photoURL
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case username
+        case photoURL = "photoUrl"
     }
 }
 
-public enum RecipeCoverSourceType: String, Codable, Equatable {
+public enum RecipeCoverSourceType: String, Equatable, Sendable {
     case chefUpload = "chef-upload"
     case editorializedChefPhoto = "editorialized-chef-photo"
-    case imported
+    case imported = "import"
     case aiGenerated = "ai-generated"
+    case aiPlaceholder = "ai-placeholder"
+    case spoon
 }
 
-public enum RecipeCoverVariant: String, Codable, Equatable {
+extension RecipeCoverSourceType: Codable {
+    public init(from decoder: Decoder) throws {
+        let rawValue = try decoder.singleValueContainer().decode(String.self)
+        switch rawValue {
+        case "chef-upload":
+            self = .chefUpload
+        case "editorialized-chef-photo":
+            self = .editorializedChefPhoto
+        case "import", "imported":
+            self = .imported
+        case "ai-generated":
+            self = .aiGenerated
+        case "ai-placeholder":
+            self = .aiPlaceholder
+        case "spoon":
+            self = .spoon
+        default:
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unknown recipe cover source type: \(rawValue)")
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum RecipeCoverVariant: String, Codable, Equatable, Sendable {
     case image
     case illustration
+    case stylized
 }
 
-public struct SourceRecipeAttribution: Codable, Equatable {
+public struct SourceRecipeAttribution: Codable, Equatable, Sendable {
     public let id: String
     public let title: String?
     public let chef: ChefSummary?
@@ -44,7 +84,7 @@ public struct SourceRecipeAttribution: Codable, Equatable {
     }
 }
 
-public struct RecipeAttribution: Codable, Equatable {
+public struct RecipeAttribution: Codable, Equatable, Sendable {
     public let creditText: String
     public let canonicalURL: URL
     public let sourceURLRaw: String?
@@ -72,7 +112,7 @@ public struct RecipeAttribution: Codable, Equatable {
     }
 }
 
-public struct RecipeIngredient: Codable, Equatable {
+public struct RecipeIngredient: Codable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let quantity: Double
@@ -86,13 +126,14 @@ public struct RecipeIngredient: Codable, Equatable {
     }
 }
 
-public struct RecipeStep: Codable, Equatable {
+public struct RecipeStep: Codable, Equatable, Sendable {
     public let id: String
     public let stepNum: Int
     public let stepTitle: String?
     public let description: String
     public let duration: Int?
     public let ingredients: [RecipeIngredient]
+    public let usingSteps: [RecipeStepOutputUse]
 
     public init(
         id: String,
@@ -100,7 +141,8 @@ public struct RecipeStep: Codable, Equatable {
         stepTitle: String?,
         description: String,
         duration: Int?,
-        ingredients: [RecipeIngredient]
+        ingredients: [RecipeIngredient],
+        usingSteps: [RecipeStepOutputUse] = []
     ) {
         self.id = id
         self.stepNum = stepNum
@@ -108,10 +150,72 @@ public struct RecipeStep: Codable, Equatable {
         self.description = description
         self.duration = duration
         self.ingredients = ingredients
+        self.usingSteps = usingSteps
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case stepNum
+        case stepTitle
+        case description
+        case duration
+        case ingredients
+        case usingSteps
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        stepNum = try container.decode(Int.self, forKey: .stepNum)
+        stepTitle = try container.decodeIfPresent(String.self, forKey: .stepTitle)
+        description = try container.decode(String.self, forKey: .description)
+        duration = try container.decodeIfPresent(Int.self, forKey: .duration)
+        ingredients = try container.decode([RecipeIngredient].self, forKey: .ingredients)
+        usingSteps = try container.decodeIfPresent([RecipeStepOutputUse].self, forKey: .usingSteps) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(stepNum, forKey: .stepNum)
+        try container.encodeIfPresent(stepTitle, forKey: .stepTitle)
+        try container.encode(description, forKey: .description)
+        try container.encodeIfPresent(duration, forKey: .duration)
+        try container.encode(ingredients, forKey: .ingredients)
+        try container.encode(usingSteps, forKey: .usingSteps)
     }
 }
 
-public struct CookbookLink: Codable, Equatable {
+public struct RecipeStepOutputReference: Codable, Equatable, Sendable {
+    public let stepNum: Int
+    public let stepTitle: String?
+
+    public init(stepNum: Int, stepTitle: String?) {
+        self.stepNum = stepNum
+        self.stepTitle = stepTitle
+    }
+}
+
+public struct RecipeStepOutputUse: Codable, Equatable, Sendable {
+    public let id: String
+    public let inputStepNum: Int
+    public let outputStepNum: Int
+    public let outputOfStep: RecipeStepOutputReference
+
+    public init(
+        id: String,
+        inputStepNum: Int,
+        outputStepNum: Int,
+        outputOfStep: RecipeStepOutputReference
+    ) {
+        self.id = id
+        self.inputStepNum = inputStepNum
+        self.outputStepNum = outputStepNum
+        self.outputOfStep = outputOfStep
+    }
+}
+
+public struct CookbookLink: Codable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let href: String
@@ -125,7 +229,7 @@ public struct CookbookLink: Codable, Equatable {
     }
 }
 
-public struct RecipeSummary: Codable, Equatable {
+public struct RecipeSummary: Codable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let description: String?
@@ -176,7 +280,7 @@ public struct RecipeSummary: Codable, Equatable {
     }
 }
 
-public struct Recipe: Codable, Equatable {
+public struct Recipe: Codable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let description: String?
@@ -193,6 +297,7 @@ public struct Recipe: Codable, Equatable {
     public let updatedAt: String
     public let steps: [RecipeStep]
     public let cookbooks: [CookbookLink]
+    public let recentSpoons: [RecipeDetailRecentSpoon]
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -211,15 +316,150 @@ public struct Recipe: Codable, Equatable {
         case updatedAt
         case steps
         case cookbooks
+        case recentSpoons
+    }
+
+    public init(
+        id: String,
+        title: String,
+        description: String?,
+        servings: String?,
+        chef: ChefSummary,
+        coverImageURL: URL?,
+        coverProvenanceLabel: String?,
+        coverSourceType: RecipeCoverSourceType?,
+        coverVariant: RecipeCoverVariant?,
+        href: String,
+        canonicalURL: URL,
+        attribution: RecipeAttribution,
+        createdAt: String,
+        updatedAt: String,
+        steps: [RecipeStep],
+        cookbooks: [CookbookLink],
+        recentSpoons: [RecipeDetailRecentSpoon] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.servings = servings
+        self.chef = chef
+        self.coverImageURL = coverImageURL
+        self.coverProvenanceLabel = coverProvenanceLabel
+        self.coverSourceType = coverSourceType
+        self.coverVariant = coverVariant
+        self.href = href
+        self.canonicalURL = canonicalURL
+        self.attribution = attribution
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.steps = steps
+        self.cookbooks = cookbooks
+        self.recentSpoons = recentSpoons
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        servings = try container.decodeIfPresent(String.self, forKey: .servings)
+        chef = try container.decode(ChefSummary.self, forKey: .chef)
+        coverImageURL = try container.decodeIfPresent(URL.self, forKey: .coverImageURL)
+        coverProvenanceLabel = try container.decodeIfPresent(String.self, forKey: .coverProvenanceLabel)
+        coverSourceType = try container.decodeIfPresent(RecipeCoverSourceType.self, forKey: .coverSourceType)
+        coverVariant = try container.decodeIfPresent(RecipeCoverVariant.self, forKey: .coverVariant)
+        href = try container.decode(String.self, forKey: .href)
+        canonicalURL = try container.decode(URL.self, forKey: .canonicalURL)
+        attribution = try container.decode(RecipeAttribution.self, forKey: .attribution)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        updatedAt = try container.decode(String.self, forKey: .updatedAt)
+        steps = try container.decode([RecipeStep].self, forKey: .steps)
+        cookbooks = try container.decode([CookbookLink].self, forKey: .cookbooks)
+        recentSpoons = try container.decodeIfPresent([RecipeDetailRecentSpoon].self, forKey: .recentSpoons) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(servings, forKey: .servings)
+        try container.encode(chef, forKey: .chef)
+        try container.encodeIfPresent(coverImageURL, forKey: .coverImageURL)
+        try container.encodeIfPresent(coverProvenanceLabel, forKey: .coverProvenanceLabel)
+        try container.encodeIfPresent(coverSourceType, forKey: .coverSourceType)
+        try container.encodeIfPresent(coverVariant, forKey: .coverVariant)
+        try container.encode(href, forKey: .href)
+        try container.encode(canonicalURL, forKey: .canonicalURL)
+        try container.encode(attribution, forKey: .attribution)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(steps, forKey: .steps)
+        try container.encode(cookbooks, forKey: .cookbooks)
+        try container.encode(recentSpoons, forKey: .recentSpoons)
     }
 }
 
-public enum CookbookCoverPresentation: String, Equatable {
+public struct RecipeDetailRecentSpoon: Codable, Equatable, Sendable {
+    public let id: String
+    public let chefID: String
+    public let recipeID: String
+    public let cookedAt: String?
+    public let photoURL: URL?
+    public let note: String?
+    public let nextTime: String?
+    public let deletedAt: String?
+    public let createdAt: String
+    public let updatedAt: String
+    public let chef: ChefSummary
+
+    public init(
+        id: String,
+        chefID: String,
+        recipeID: String,
+        cookedAt: String?,
+        photoURL: URL?,
+        note: String?,
+        nextTime: String?,
+        deletedAt: String?,
+        createdAt: String,
+        updatedAt: String,
+        chef: ChefSummary
+    ) {
+        self.id = id
+        self.chefID = chefID
+        self.recipeID = recipeID
+        self.cookedAt = cookedAt
+        self.photoURL = photoURL
+        self.note = note
+        self.nextTime = nextTime
+        self.deletedAt = deletedAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.chef = chef
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case chefID = "chefId"
+        case recipeID = "recipeId"
+        case cookedAt
+        case photoURL = "photoUrl"
+        case note
+        case nextTime
+        case deletedAt
+        case createdAt
+        case updatedAt
+        case chef
+    }
+}
+
+public enum CookbookCoverPresentation: String, Equatable, Sendable {
     case collage
     case textOnly
 }
 
-public struct CookbookCover: Equatable {
+public struct CookbookCover: Equatable, Sendable {
     public let imageURLs: [URL?]
 
     public init(imageURLs: [URL?]) {
@@ -235,7 +475,7 @@ public struct CookbookCover: Equatable {
     }
 }
 
-public struct CookbookAttribution: Codable, Equatable {
+public struct CookbookAttribution: Codable, Equatable, Sendable {
     public let creditText: String
     public let canonicalURL: URL
 
@@ -245,7 +485,7 @@ public struct CookbookAttribution: Codable, Equatable {
     }
 }
 
-public struct CookbookSummary: Equatable {
+public struct CookbookSummary: Equatable, Sendable {
     public let id: String
     public let title: String
     public let chef: ChefSummary
@@ -303,7 +543,7 @@ extension CookbookSummary: Codable {
     }
 }
 
-public struct Cookbook: Equatable {
+public struct Cookbook: Equatable, Sendable {
     public let id: String
     public let title: String
     public let chef: ChefSummary

@@ -1,0 +1,15 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-shell.test.ts (19 tests) 223ms
+ ✓ test/routes/api-v1-shopping-mutations.test.ts (6 tests) 340ms
+ ✓ test/routes/api-v1-shopping-sync.test.ts (6 tests) 249ms
+ ✓ test/routes/api-v1-scopes-public-tokens.test.ts (5 tests) 215ms
+ ✓ test/routes/api-v1-cookbooks.test.ts (6 tests) 194ms
+ ✓ test/routes/api-v1-tokens.test.ts (5 tests) 151ms
+ ✓ test/routes/api-v1-shopping-conflicts.test.ts (3 tests) 133ms
+
+ Test Files  7 passed (7)
+      Tests  50 passed (50)
+   Start at  22:59:10
+   Duration  5.91s (transform 345ms, setup 497ms, import 1.63s, tests 1.50s, environment 1.32s)

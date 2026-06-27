@@ -6,16 +6,14 @@ public enum PublicCatalogRequests {
         limit: Int,
         cursor: PaginationCursor?
     ) -> APIRequestBuilder {
-        APIRequestBuilder(
-            method: .get,
+        APIRequestSupport.publicRead(
             pathComponents: ["api", "v1", "recipes"],
             queryItems: listQueryItems(query: query, limit: limit, cursor: cursor)
         )
     }
 
     public static func recipeDetail(id: String) -> APIRequestBuilder {
-        APIRequestBuilder(
-            method: .get,
+        APIRequestSupport.publicRead(
             pathComponents: ["api", "v1", "recipes", id],
             queryItems: []
         )
@@ -26,16 +24,14 @@ public enum PublicCatalogRequests {
         limit: Int,
         cursor: PaginationCursor?
     ) -> APIRequestBuilder {
-        APIRequestBuilder(
-            method: .get,
+        APIRequestSupport.publicRead(
             pathComponents: ["api", "v1", "cookbooks"],
             queryItems: listQueryItems(query: query, limit: limit, cursor: cursor)
         )
     }
 
     public static func cookbookDetail(id: String) -> APIRequestBuilder {
-        APIRequestBuilder(
-            method: .get,
+        APIRequestSupport.publicRead(
             pathComponents: ["api", "v1", "cookbooks", id],
             queryItems: []
         )

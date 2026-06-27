@@ -1,0 +1,8 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "shell content exposes recipe catalog source for live and offline states" started.
+✔ Test "shell content exposes recipe catalog source for live and offline states" passed after 0.006 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.006 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.006 seconds.

@@ -4,6 +4,17 @@ import SwiftUI
 struct ReceiptListView: View {
     let sections: [ShoppingListReceiptSection]
     let setChecked: (ShoppingListItem, Bool) -> Void
+    let deleteItem: (ShoppingListItem) -> Void
+
+    init(
+        sections: [ShoppingListReceiptSection],
+        setChecked: @escaping (ShoppingListItem, Bool) -> Void,
+        deleteItem: @escaping (ShoppingListItem) -> Void = { _ in }
+    ) {
+        self.sections = sections
+        self.setChecked = setChecked
+        self.deleteItem = deleteItem
+    }
 
     var body: some View {
         List {
@@ -15,6 +26,12 @@ struct ReceiptListView: View {
                         }
                         .toggleStyle(.largeCheck)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deleteItem(item)
+                            } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+
                             Button {
                                 setChecked(item, true)
                             } label: {

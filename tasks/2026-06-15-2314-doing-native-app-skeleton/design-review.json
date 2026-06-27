@@ -1,5 +1,5 @@
 {
-  "mobileScreenshot": false,
+  "mobileScreenshot": true,
   "desktopScreenshot": true,
   "dynamicType": true,
   "voiceOverLabels": true,
@@ -7,13 +7,6 @@
   "reduceMotion": true,
   "contrast": true,
   "kitchenTableHierarchy": true,
-  "noOverlap": false,
-  "blockers": [
-    {
-      "capability": "CoreSimulator",
-      "command": "python3 .github/scripts/resolve-ios-simulator-destination.py",
-      "timeoutSeconds": 30,
-      "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log"
-    }
-  ]
+  "noOverlap": true,
+  "blockers": []
 }

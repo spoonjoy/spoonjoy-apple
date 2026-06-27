@@ -1,6 +1,6 @@
 import Foundation
 
-public struct PaginationCursor: RawRepresentable, Codable, Equatable {
+public struct PaginationCursor: RawRepresentable, Codable, Equatable, Sendable {
     public let rawValue: String
 
     public init?(rawValue: String) {

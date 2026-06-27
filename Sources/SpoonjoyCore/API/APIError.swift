@@ -6,18 +6,21 @@ public struct APIError: Error, Codable, Equatable {
     public let message: String
     public let status: Int
     public let retryAfterSeconds: Int?
+    public let details: [String: JSONValue]
 
     public init(
         requestID: String,
         code: String,
         message: String,
         status: Int,
-        retryAfterSeconds: Int? = nil
+        retryAfterSeconds: Int? = nil,
+        details: [String: JSONValue] = [:]
     ) {
         self.requestID = requestID
         self.code = code
         self.message = message
         self.status = status
         self.retryAfterSeconds = retryAfterSeconds
+        self.details = details
     }
 }

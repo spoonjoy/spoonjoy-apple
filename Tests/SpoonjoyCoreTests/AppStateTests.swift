@@ -210,6 +210,7 @@ struct AppStateTests {
                 true,
                 itemID: "item_lemons",
                 checkedAt: "2026-06-16T13:33:00.000Z",
+                updatedAt: "2026-06-16T13:33:00.000Z",
                 nextSortIndex: 99
             )
             let saved = try missingRecord.value
@@ -303,6 +304,9 @@ struct AppStateTests {
             (.recipes, "recipes", "spoonjoy://recipes"),
             (.recipeDetail(id: "recipe_lemon", presentation: .detail), "recipe:recipe_lemon", "spoonjoy://recipes/recipe_lemon"),
             (.recipeDetail(id: "recipe_lemon", presentation: .cook), "recipe-cook:recipe_lemon", "spoonjoy://recipes/recipe_lemon/cook"),
+            (.recipeEditor(id: "recipe_lemon"), "recipe-editor:recipe_lemon", "spoonjoy://recipes/recipe_lemon/edit"),
+            (.recipeEditor(id: nil), "recipe-editor:new", "spoonjoy://recipes/new/edit"),
+            (.recipeCoverControls(id: "recipe_lemon"), "recipe-covers:recipe_lemon", "spoonjoy://recipes/recipe_lemon/covers"),
             (.cookbooks, "cookbooks", "spoonjoy://cookbooks"),
             (.cookbookDetail(id: "cookbook_weeknights"), "cookbook:cookbook_weeknights", "spoonjoy://cookbooks/cookbook_weeknights"),
             (.shoppingList, "shopping-list", "spoonjoy://shopping-list"),
@@ -314,8 +318,17 @@ struct AppStateTests {
 
         for (route, identifier, rawURL) in cases {
             #expect(route.stateIdentifier == identifier)
+            #expect(AppRoute(stateIdentifier: identifier) == route)
             #expect(DeepLinkURLBuilder.url(for: route) == URL(string: rawURL), "\(route)")
         }
+
+        let colonSearchRoute = AppRoute.search(query: "lemon:quick", scope: .recipes)
+        #expect(AppRoute(stateIdentifier: colonSearchRoute.stateIdentifier) == colonSearchRoute)
+        #expect(AppRoute(stateIdentifier: "recipe:../secret") == nil)
+        #expect(AppRoute(stateIdentifier: "recipe: padded ") == nil)
+        #expect(AppRoute(stateIdentifier: "recipe-covers:../secret") == nil)
+        #expect(AppRoute(stateIdentifier: "search:recipes:   ") == nil)
+        #expect(AppRoute(stateIdentifier: "search:not-a-scope:lemon") == nil)
     }
 
     private func url(_ rawURL: String) throws -> URL {

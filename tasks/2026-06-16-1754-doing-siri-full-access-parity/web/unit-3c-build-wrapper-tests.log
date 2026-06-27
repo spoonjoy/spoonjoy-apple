@@ -1,0 +1,12 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/scripts/qa-preflight.test.ts (49 tests) 308ms
+ ✓ test/scripts/deployment-preflight.test.ts (127 tests) 211ms
+ ✓ test/build-output-hygiene.test.ts (3 tests) 63ms
+ ✓ test/scripts/build.test.ts (6 tests) 94ms
+
+ Test Files  4 passed (4)
+      Tests  185 passed (185)
+   Start at  03:08:06
+   Duration  2.92s (transform 244ms, setup 380ms, import 310ms, tests 676ms, environment 945ms)

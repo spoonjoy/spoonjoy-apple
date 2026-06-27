@@ -1,0 +1,419 @@
+COMMAND: swift test --filter RecipeActionParityTests
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:266:39: error: cannot find type 'RecipeActionPlan' in scope
+264 | }
+265 |
+266 | private func remoteRequest(from plan: RecipeActionPlan) throws -> APIRequest {
+    |                                       `- error: cannot find type 'RecipeActionPlan' in scope
+267 |     guard let builder = plan.remoteRequestBuilder else {
+268 |         throw RecipeActionParityTestFailure("Expected an online recipe action to provide a remote request builder.")
+[4/6] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:266:39: error: cannot find type 'RecipeActionPlan' in scope
+264 | }
+265 |
+266 | private func remoteRequest(from plan: RecipeActionPlan) throws -> APIRequest {
+    |                                       `- error: cannot find type 'RecipeActionPlan' in scope
+267 |     guard let builder = plan.remoteRequestBuilder else {
+268 |         throw RecipeActionParityTestFailure("Expected an online recipe action to provide a remote request builder.")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:26:35: error: value of type 'RecipeDetailActions' has no member 'availableActionIDs'
+ 24 |         )
+ 25 |
+ 26 |         #expect(viewModel.actions.availableActionIDs == [
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'availableActionIDs'
+ 27 |             .startCooking,
+ 28 |             .saveToCookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:27:14: error: reference to member 'startCooking' cannot be resolved without a contextual type
+ 25 |
+ 26 |         #expect(viewModel.actions.availableActionIDs == [
+ 27 |             .startCooking,
+    |              `- error: reference to member 'startCooking' cannot be resolved without a contextual type
+ 28 |             .saveToCookbook,
+ 29 |             .addToShoppingList,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:28:14: error: reference to member 'saveToCookbook' cannot be resolved without a contextual type
+ 26 |         #expect(viewModel.actions.availableActionIDs == [
+ 27 |             .startCooking,
+ 28 |             .saveToCookbook,
+    |              `- error: reference to member 'saveToCookbook' cannot be resolved without a contextual type
+ 29 |             .addToShoppingList,
+ 30 |             .share,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:29:14: error: reference to member 'addToShoppingList' cannot be resolved without a contextual type
+ 27 |             .startCooking,
+ 28 |             .saveToCookbook,
+ 29 |             .addToShoppingList,
+    |              `- error: reference to member 'addToShoppingList' cannot be resolved without a contextual type
+ 30 |             .share,
+ 31 |             .makeVariation,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:30:14: error: reference to member 'share' cannot be resolved without a contextual type
+ 28 |             .saveToCookbook,
+ 29 |             .addToShoppingList,
+ 30 |             .share,
+    |              `- error: reference to member 'share' cannot be resolved without a contextual type
+ 31 |             .makeVariation,
+ 32 |             .edit,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:31:14: error: reference to member 'makeVariation' cannot be resolved without a contextual type
+ 29 |             .addToShoppingList,
+ 30 |             .share,
+ 31 |             .makeVariation,
+    |              `- error: reference to member 'makeVariation' cannot be resolved without a contextual type
+ 32 |             .edit,
+ 33 |             .manageCovers,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:32:14: error: reference to member 'edit' cannot be resolved without a contextual type
+ 30 |             .share,
+ 31 |             .makeVariation,
+ 32 |             .edit,
+    |              `- error: reference to member 'edit' cannot be resolved without a contextual type
+ 33 |             .manageCovers,
+ 34 |             .deleteRecipe
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:33:14: error: reference to member 'manageCovers' cannot be resolved without a contextual type
+ 31 |             .makeVariation,
+ 32 |             .edit,
+ 33 |             .manageCovers,
+    |              `- error: reference to member 'manageCovers' cannot be resolved without a contextual type
+ 34 |             .deleteRecipe
+ 35 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:34:14: error: reference to member 'deleteRecipe' cannot be resolved without a contextual type
+ 32 |             .edit,
+ 33 |             .manageCovers,
+ 34 |             .deleteRecipe
+    |              `- error: reference to member 'deleteRecipe' cannot be resolved without a contextual type
+ 35 |         ])
+ 36 |         #expect(viewModel.actions.startCookingRoute == .recipeDetail(id: recipe.id, presentation: .cook))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:39:35: error: value of type 'RecipeDetailActions' has no member 'cookbookOptions'
+ 37 |         #expect(viewModel.actions.shareURL.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
+ 38 |         #expect(viewModel.actions.chefProfilePath == "/users/ari")
+ 39 |         #expect(viewModel.actions.cookbookOptions.map(\.id) == ["cookbook_weeknights", "cookbook_pantry"])
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'cookbookOptions'
+ 40 |         #expect(viewModel.actions.savedCookbookIDs == ["cookbook_weeknights"])
+ 41 |         #expect(viewModel.actions.shoppingListMetadata == RecipeShoppingListActionMetadata(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:39:55: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 37 |         #expect(viewModel.actions.shareURL.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
+ 38 |         #expect(viewModel.actions.chefProfilePath == "/users/ari")
+ 39 |         #expect(viewModel.actions.cookbookOptions.map(\.id) == ["cookbook_weeknights", "cookbook_pantry"])
+    |                                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 40 |         #expect(viewModel.actions.savedCookbookIDs == ["cookbook_weeknights"])
+ 41 |         #expect(viewModel.actions.shoppingListMetadata == RecipeShoppingListActionMetadata(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:40:35: error: value of type 'RecipeDetailActions' has no member 'savedCookbookIDs'
+ 38 |         #expect(viewModel.actions.chefProfilePath == "/users/ari")
+ 39 |         #expect(viewModel.actions.cookbookOptions.map(\.id) == ["cookbook_weeknights", "cookbook_pantry"])
+ 40 |         #expect(viewModel.actions.savedCookbookIDs == ["cookbook_weeknights"])
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'savedCookbookIDs'
+ 41 |         #expect(viewModel.actions.shoppingListMetadata == RecipeShoppingListActionMetadata(
+ 42 |             recipeID: recipe.id,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:41:59: error: cannot find 'RecipeShoppingListActionMetadata' in scope
+ 39 |         #expect(viewModel.actions.cookbookOptions.map(\.id) == ["cookbook_weeknights", "cookbook_pantry"])
+ 40 |         #expect(viewModel.actions.savedCookbookIDs == ["cookbook_weeknights"])
+ 41 |         #expect(viewModel.actions.shoppingListMetadata == RecipeShoppingListActionMetadata(
+    |                                                           `- error: cannot find 'RecipeShoppingListActionMetadata' in scope
+ 42 |             recipeID: recipe.id,
+ 43 |             hasIngredientsInShoppingList: true
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:41:35: error: value of type 'RecipeDetailActions' has no member 'shoppingListMetadata'
+ 39 |         #expect(viewModel.actions.cookbookOptions.map(\.id) == ["cookbook_weeknights", "cookbook_pantry"])
+ 40 |         #expect(viewModel.actions.savedCookbookIDs == ["cookbook_weeknights"])
+ 41 |         #expect(viewModel.actions.shoppingListMetadata == RecipeShoppingListActionMetadata(
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'shoppingListMetadata'
+ 42 |             recipeID: recipe.id,
+ 43 |             hasIngredientsInShoppingList: true
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:45:35: error: value of type 'RecipeDetailActions' has no member 'fork'
+ 43 |             hasIngredientsInShoppingList: true
+ 44 |         ))
+ 45 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta, my version")
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'fork'
+ 46 |         #expect(viewModel.actions.fork.label == "Make a variation")
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:46:35: error: value of type 'RecipeDetailActions' has no member 'fork'
+ 44 |         ))
+ 45 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta, my version")
+ 46 |         #expect(viewModel.actions.fork.label == "Make a variation")
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'fork'
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:47:38: error: value of type 'RecipeDetailOwnerTools' has no member 'editRoute'
+ 45 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta, my version")
+ 46 |         #expect(viewModel.actions.fork.label == "Make a variation")
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+    |                                      `- error: value of type 'RecipeDetailOwnerTools' has no member 'editRoute'
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+ 49 |         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:47:52: error: cannot infer contextual base in reference to member 'recipeEditor'
+ 45 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta, my version")
+ 46 |         #expect(viewModel.actions.fork.label == "Make a variation")
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+    |                                                    `- error: cannot infer contextual base in reference to member 'recipeEditor'
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+ 49 |         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:48:38: error: value of type 'RecipeDetailOwnerTools' has no member 'coverControlsRoute'
+ 46 |         #expect(viewModel.actions.fork.label == "Make a variation")
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+    |                                      `- error: value of type 'RecipeDetailOwnerTools' has no member 'coverControlsRoute'
+ 49 |         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
+ 50 |             title: "Delete Lemon Pantry Pasta?",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:48:61: error: cannot infer contextual base in reference to member 'recipeCoverControls'
+ 46 |         #expect(viewModel.actions.fork.label == "Make a variation")
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+    |                                                             `- error: cannot infer contextual base in reference to member 'recipeCoverControls'
+ 49 |         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
+ 50 |             title: "Delete Lemon Pantry Pasta?",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:49:60: error: cannot find 'RecipeActionConfirmationPrompt' in scope
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+ 49 |         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
+    |                                                            `- error: cannot find 'RecipeActionConfirmationPrompt' in scope
+ 50 |             title: "Delete Lemon Pantry Pasta?",
+ 51 |             message: "This removes the recipe from your kitchen and keeps a sync tombstone for offline devices.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:49:38: error: value of type 'RecipeDetailOwnerTools' has no member 'deleteConfirmation'
+ 47 |         #expect(viewModel.ownerTools.editRoute == .recipeEditor(id: recipe.id))
+ 48 |         #expect(viewModel.ownerTools.coverControlsRoute == .recipeCoverControls(id: recipe.id))
+ 49 |         #expect(viewModel.ownerTools.deleteConfirmation == RecipeActionConfirmationPrompt(
+    |                                      `- error: value of type 'RecipeDetailOwnerTools' has no member 'deleteConfirmation'
+ 50 |             title: "Delete Lemon Pantry Pasta?",
+ 51 |             message: "This removes the recipe from your kitchen and keeps a sync tombstone for offline devices.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:68:35: error: value of type 'RecipeDetailActions' has no member 'availableActionIDs'
+ 66 |         )
+ 67 |
+ 68 |         #expect(viewModel.actions.availableActionIDs == [
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'availableActionIDs'
+ 69 |             .startCooking,
+ 70 |             .saveToCookbook,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:69:14: error: reference to member 'startCooking' cannot be resolved without a contextual type
+ 67 |
+ 68 |         #expect(viewModel.actions.availableActionIDs == [
+ 69 |             .startCooking,
+    |              `- error: reference to member 'startCooking' cannot be resolved without a contextual type
+ 70 |             .saveToCookbook,
+ 71 |             .addToShoppingList,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:70:14: error: reference to member 'saveToCookbook' cannot be resolved without a contextual type
+ 68 |         #expect(viewModel.actions.availableActionIDs == [
+ 69 |             .startCooking,
+ 70 |             .saveToCookbook,
+    |              `- error: reference to member 'saveToCookbook' cannot be resolved without a contextual type
+ 71 |             .addToShoppingList,
+ 72 |             .share,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:71:14: error: reference to member 'addToShoppingList' cannot be resolved without a contextual type
+ 69 |             .startCooking,
+ 70 |             .saveToCookbook,
+ 71 |             .addToShoppingList,
+    |              `- error: reference to member 'addToShoppingList' cannot be resolved without a contextual type
+ 72 |             .share,
+ 73 |             .fork
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:72:14: error: reference to member 'share' cannot be resolved without a contextual type
+ 70 |             .saveToCookbook,
+ 71 |             .addToShoppingList,
+ 72 |             .share,
+    |              `- error: reference to member 'share' cannot be resolved without a contextual type
+ 73 |             .fork
+ 74 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:73:14: error: reference to member 'fork' cannot be resolved without a contextual type
+ 71 |             .addToShoppingList,
+ 72 |             .share,
+ 73 |             .fork
+    |              `- error: reference to member 'fork' cannot be resolved without a contextual type
+ 74 |         ])
+ 75 |         #expect(viewModel.actions.fork.label == "Fork")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:75:35: error: value of type 'RecipeDetailActions' has no member 'fork'
+ 73 |             .fork
+ 74 |         ])
+ 75 |         #expect(viewModel.actions.fork.label == "Fork")
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'fork'
+ 76 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta")
+ 77 |         #expect(!viewModel.ownerTools.isVisible)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:76:35: error: value of type 'RecipeDetailActions' has no member 'fork'
+ 74 |         ])
+ 75 |         #expect(viewModel.actions.fork.label == "Fork")
+ 76 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta")
+    |                                   `- error: value of type 'RecipeDetailActions' has no member 'fork'
+ 77 |         #expect(!viewModel.ownerTools.isVisible)
+ 78 |         #expect(viewModel.ownerTools.editRoute == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:78:38: error: value of type 'RecipeDetailOwnerTools' has no member 'editRoute'
+ 76 |         #expect(viewModel.actions.fork.titleOverride == "Lemon Pantry Pasta")
+ 77 |         #expect(!viewModel.ownerTools.isVisible)
+ 78 |         #expect(viewModel.ownerTools.editRoute == nil)
+    |                                      `- error: value of type 'RecipeDetailOwnerTools' has no member 'editRoute'
+ 79 |         #expect(viewModel.ownerTools.coverControlsRoute == nil)
+ 80 |         #expect(viewModel.ownerTools.deleteConfirmation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:79:38: error: value of type 'RecipeDetailOwnerTools' has no member 'coverControlsRoute'
+ 77 |         #expect(!viewModel.ownerTools.isVisible)
+ 78 |         #expect(viewModel.ownerTools.editRoute == nil)
+ 79 |         #expect(viewModel.ownerTools.coverControlsRoute == nil)
+    |                                      `- error: value of type 'RecipeDetailOwnerTools' has no member 'coverControlsRoute'
+ 80 |         #expect(viewModel.ownerTools.deleteConfirmation == nil)
+ 81 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:80:38: error: value of type 'RecipeDetailOwnerTools' has no member 'deleteConfirmation'
+ 78 |         #expect(viewModel.ownerTools.editRoute == nil)
+ 79 |         #expect(viewModel.ownerTools.coverControlsRoute == nil)
+ 80 |         #expect(viewModel.ownerTools.deleteConfirmation == nil)
+    |                                      `- error: value of type 'RecipeDetailOwnerTools' has no member 'deleteConfirmation'
+ 81 |     }
+ 82 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:86:25: error: cannot find 'RecipeActionsViewModel' in scope
+ 84 |     func onlineRecipeActionsPlanExactRESTMutationsWithOfflineFallbacks() throws {
+ 85 |         let recipe = try Self.recipeDetail()
+ 86 |         let viewModel = RecipeActionsViewModel(
+    |                         `- error: cannot find 'RecipeActionsViewModel' in scope
+ 87 |             recipe: recipe,
+ 88 |             context: Self.detailContext(currentChefID: "chef_ari"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:89:28: error: cannot infer contextual base in reference to member 'online'
+ 87 |             recipe: recipe,
+ 88 |             context: Self.detailContext(currentChefID: "chef_ari"),
+ 89 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 90 |             now: { Self.createdAt }
+ 91 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:93:40: error: cannot infer contextual base in reference to member 'fork'
+ 91 |         )
+ 92 |
+ 93 |         let fork = try viewModel.plan(.fork(
+    |                                        `- error: cannot infer contextual base in reference to member 'fork'
+ 94 |             clientMutationID: "cm_fork",
+ 95 |             titleOverride: "Lemon Pantry Pasta, my version"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:109:40: error: cannot infer contextual base in reference to member 'saveToCookbook'
+107 |         ])
+108 |
+109 |         let save = try viewModel.plan(.saveToCookbook(
+    |                                        `- error: cannot infer contextual base in reference to member 'saveToCookbook'
+110 |             cookbookID: "cookbook_pantry",
+111 |             clientMutationID: "cm_save"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:123:42: error: cannot infer contextual base in reference to member 'removeFromCookbook'
+121 |         ])
+122 |
+123 |         let remove = try viewModel.plan(.removeFromCookbook(
+    |                                          `- error: cannot infer contextual base in reference to member 'removeFromCookbook'
+124 |             cookbookID: "cookbook_weeknights",
+125 |             clientMutationID: "cm_remove"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:141:21: error: cannot find 'RecipeActionsViewModel' in scope
+139 |     func offlineActionsQueueSafeMutationsAndOwnerDeleteRequiresConfirmation() throws {
+140 |         let recipe = try Self.recipeDetail()
+141 |         let owner = RecipeActionsViewModel(
+    |                     `- error: cannot find 'RecipeActionsViewModel' in scope
+142 |             recipe: recipe,
+143 |             context: Self.detailContext(currentChefID: "chef_ari"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:144:28: error: cannot infer contextual base in reference to member 'offline'
+142 |             recipe: recipe,
+143 |             context: Self.detailContext(currentChefID: "chef_ari"),
+144 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+145 |             now: { Self.createdAt }
+146 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:148:42: error: cannot infer contextual base in reference to member 'saveToCookbook'
+146 |         )
+147 |
+148 |         let queuedSave = try owner.plan(.saveToCookbook(
+    |                                          `- error: cannot infer contextual base in reference to member 'saveToCookbook'
+149 |             cookbookID: "cookbook_pantry",
+150 |             clientMutationID: "cm_offline_save"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:161:49: error: cannot infer contextual base in reference to member 'deleteRecipe'
+159 |         #expect(queuedSave.blockedReason == nil)
+160 |
+161 |         let unconfirmedDelete = try owner.plan(.deleteRecipe(
+    |                                                 `- error: cannot infer contextual base in reference to member 'deleteRecipe'
+162 |             clientMutationID: "cm_delete",
+163 |             confirmation: .required
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:163:28: error: cannot infer contextual base in reference to member 'required'
+161 |         let unconfirmedDelete = try owner.plan(.deleteRecipe(
+162 |             clientMutationID: "cm_delete",
+163 |             confirmation: .required
+    |                            `- error: cannot infer contextual base in reference to member 'required'
+164 |         ))
+165 |         #expect(unconfirmedDelete.remoteRequestBuilder == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:169:47: error: cannot infer contextual base in reference to member 'deleteRecipe'
+167 |         #expect(unconfirmedDelete.confirmationPrompt?.isDestructive == true)
+168 |
+169 |         let confirmedDelete = try owner.plan(.deleteRecipe(
+    |                                               `- error: cannot infer contextual base in reference to member 'deleteRecipe'
+170 |             clientMutationID: "cm_delete",
+171 |             confirmation: .confirmed
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:171:28: error: cannot infer contextual base in reference to member 'confirmed'
+169 |         let confirmedDelete = try owner.plan(.deleteRecipe(
+170 |             clientMutationID: "cm_delete",
+171 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+172 |         ))
+173 |         #expect(confirmedDelete.remoteRequestBuilder == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:178:23: error: cannot find 'RecipeActionsViewModel' in scope
+176 |         #expect(confirmedDeleteMutation.dependencyKey == "recipe:recipe_lemon_pantry_pasta")
+177 |
+178 |         let visitor = RecipeActionsViewModel(
+    |                       `- error: cannot find 'RecipeActionsViewModel' in scope
+179 |             recipe: recipe,
+180 |             context: Self.detailContext(currentChefID: "chef_jules"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:181:28: error: cannot infer contextual base in reference to member 'online'
+179 |             recipe: recipe,
+180 |             context: Self.detailContext(currentChefID: "chef_jules"),
+181 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+182 |             now: { Self.createdAt }
+183 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:184:47: error: cannot infer contextual base in reference to member 'deleteRecipe'
+182 |             now: { Self.createdAt }
+183 |         )
+184 |         let visitorDelete = try visitor.plan(.deleteRecipe(
+    |                                               `- error: cannot infer contextual base in reference to member 'deleteRecipe'
+185 |             clientMutationID: "cm_visitor_delete",
+186 |             confirmation: .confirmed
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:186:28: error: cannot infer contextual base in reference to member 'confirmed'
+184 |         let visitorDelete = try visitor.plan(.deleteRecipe(
+185 |             clientMutationID: "cm_visitor_delete",
+186 |             confirmation: .confirmed
+    |                            `- error: cannot infer contextual base in reference to member 'confirmed'
+187 |         ))
+188 |         #expect(visitorDelete.blockedReason == "Only ari can delete this recipe.")
+error: fatalError
+swift_exit=1
+COMMAND: scripts/check-recipe-action-surfaces.rb
+FAIL: missing recipe action surface files: Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift
+surface_exit=1
+red_check_ok=expected_failures_observed

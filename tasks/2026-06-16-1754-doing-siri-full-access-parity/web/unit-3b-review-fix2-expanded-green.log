@@ -1,0 +1,21 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/developers-playground.test.tsx (36 tests) 5758ms
+     ✓ switches an already-mounted playground to session mode after sign-in  331ms
+     ✓ covers generated OAuth, mutation id, example body, and secret-response playground controls  575ms
+     ✓ copies generated playground values and reports clipboard failures  1787ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  440ms
+     ✓ handles OAuth callback validation failures and redirect submissions  408ms
+ ✓ test/routes/developers.test.tsx (8 tests) 492ms
+ ✓ test/routes/api-v1-telemetry.test.ts (16 tests) 351ms
+ ✓ test/docs/developer-platform-guide.test.ts (2 tests) 1076ms
+     ✓ renders the same guide on /developers  969ms
+ ✓ test/lib/api-v1-openapi.server.test.ts (10 tests) 127ms
+ ✓ test/scripts/generate-api-playground.test.ts (2 tests) 71ms
+ ✓ test/docs/developer-platform-docs.test.ts (7 tests) 30ms
+
+ Test Files  7 passed (7)
+      Tests  81 passed (81)
+   Start at  02:01:05
+   Duration  13.75s (transform 878ms, setup 587ms, import 2.71s, tests 7.91s, environment 1.52s)

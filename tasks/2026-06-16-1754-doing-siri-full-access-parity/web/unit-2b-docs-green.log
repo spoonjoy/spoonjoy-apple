@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/docs/developer-platform-guide.test.ts (2 tests) 181ms
+ ✓ test/docs/developer-platform-docs.test.ts (7 tests) 36ms
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  00:35:20
+   Duration  2.53s (transform 484ms, setup 268ms, import 1.13s, tests 217ms, environment 566ms)

@@ -164,6 +164,31 @@ struct RecipeCookbookTests {
         #expect(summary.updatedAt == recipe.updatedAt)
     }
 
+    @Test("recipe cover source accepts every current API spelling")
+    func recipeCoverSourceAcceptsEveryCurrentAPISpelling() throws {
+        let decoder = JSONDecoder()
+        let spellings: [(String, RecipeCoverSourceType)] = [
+            ("chef-upload", .chefUpload),
+            ("editorialized-chef-photo", .editorializedChefPhoto),
+            ("import", .imported),
+            ("imported", .imported),
+            ("ai-generated", .aiGenerated),
+            ("ai-placeholder", .aiPlaceholder),
+            ("spoon", .spoon)
+        ]
+
+        for (rawValue, expected) in spellings {
+            let decoded = try decoder.decode(RecipeCoverSourceType.self, from: Data("\"\(rawValue)\"".utf8))
+            #expect(decoded == expected)
+        }
+
+        let encoded = try JSONEncoder().encode(RecipeCoverSourceType.imported)
+        #expect(String(decoding: encoded, as: UTF8.self) == "\"import\"")
+        #expect(throws: DecodingError.self) {
+            _ = try decoder.decode(RecipeCoverSourceType.self, from: Data("\"unknown\"".utf8))
+        }
+    }
+
     @Test("recipe search summary falls back when serving text is absent")
     func recipeSearchSummaryFallsBackWithoutServings() throws {
         let catalog = try RecipeFixtureCatalog.decode(data: recipeCatalogData(servingsJSON: "null"))
@@ -334,20 +359,49 @@ struct RecipeCookbookTests {
 
     @Test("manual step and ingredient initializers preserve values")
     func manualStepAndIngredientInitializersPreserveValues() {
-        let chef = ChefSummary(id: "chef_manual", username: "manual")
+        let chef = ChefSummary(
+            id: "chef_manual",
+            username: "manual",
+            photoURL: URL(string: "https://spoonjoy.app/photos/users/manual.jpg")
+        )
         let ingredient = RecipeIngredient(id: "ingredient_manual", name: "pepper", quantity: 0.25, unit: nil)
+        let outputReference = RecipeStepOutputReference(stepNum: 1, stepTitle: "Make sauce")
+        let outputUse = RecipeStepOutputUse(
+            id: "use_manual",
+            inputStepNum: 2,
+            outputStepNum: 1,
+            outputOfStep: outputReference
+        )
         let step = RecipeStep(
             id: "step_manual",
             stepNum: 1,
             stepTitle: nil,
             description: "Season to taste.",
             duration: nil,
-            ingredients: [ingredient]
+            ingredients: [ingredient],
+            usingSteps: [outputUse]
+        )
+        let spoon = RecipeDetailRecentSpoon(
+            id: "spoon_manual",
+            chefID: "chef_manual",
+            recipeID: "recipe_manual",
+            cookedAt: nil,
+            photoURL: nil,
+            note: nil,
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: "2026-06-01T00:00:00.000Z",
+            updatedAt: "2026-06-01T00:00:00.000Z",
+            chef: chef
         )
 
         #expect(chef.username == "manual")
+        #expect(chef.photoURL == URL(string: "https://spoonjoy.app/photos/users/manual.jpg"))
         #expect(ingredient.unit == nil)
         #expect(step.ingredients == [ingredient])
+        #expect(step.usingSteps == [outputUse])
+        #expect(outputUse.outputOfStep == outputReference)
+        #expect(spoon.chef == chef)
     }
 }
 

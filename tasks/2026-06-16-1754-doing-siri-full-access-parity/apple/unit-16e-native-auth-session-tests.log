@@ -1,0 +1,38 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native auth session contract" started.
+◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
+◇ Test "native auth session source defines launch callback and restoration contract" started.
+◇ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" started.
+◇ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" started.
+◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
+◇ Test "Keychain token vault stores auth material outside general cache" started.
+◇ Test "local validation matrix delegates xcodebuild classification to wrapper" started.
+◇ Test "refresh rotation revoke logout and restoration persist through native repository" started.
+◇ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" started.
+◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
+◇ Test "Keychain token vault persists values and surfaces security statuses" started.
+◇ Test "native auth implementation is covered in process" started.
+◇ Test "auth files are wired into generated app targets and signed out flow" started.
+◇ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" started.
+◇ Test "web authentication adapter is executable with injected session factory" started.
+◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
+✔ Test "secure web handoff URLs are exact and separate from native OAuth redirects" passed after 0.002 seconds.
+✔ Test "native auth session source defines launch callback and restoration contract" passed after 0.002 seconds.
+✔ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" passed after 0.002 seconds.
+✔ Test "Keychain token vault stores auth material outside general cache" passed after 0.002 seconds.
+✔ Test "refresh rotation revoke logout and restoration persist through native repository" passed after 0.002 seconds.
+✔ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" passed after 0.002 seconds.
+✔ Test "OAuth callback contract uses universal links and rejects custom schemes" passed after 0.002 seconds.
+✔ Test "local validation matrix delegates xcodebuild classification to wrapper" passed after 0.002 seconds.
+✔ Test "Keychain token vault persists values and surfaces security statuses" passed after 0.002 seconds.
+✔ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" passed after 0.003 seconds.
+✔ Test "native auth implementation is covered in process" passed after 0.003 seconds.
+✔ Test "auth files are wired into generated app targets and signed out flow" passed after 0.455 seconds.
+✔ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" passed after 2.225 seconds.
+✔ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" passed after 9.960 seconds.
+✔ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" passed after 15.020 seconds.
+✔ Test "web authentication adapter is executable with injected session factory" passed after 18.251 seconds.
+✔ Suite "Native auth session contract" passed after 18.251 seconds.
+✔ Test run with 16 tests in 1 suite passed after 18.252 seconds.

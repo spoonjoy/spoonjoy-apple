@@ -1,0 +1,191 @@
+### swift-focused NativeLiveStoreTests
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (1.53s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "production fixture fallback is an explicit test and demo only policy" started.
+◇ Test "production sources cannot silently use fixture bundles" started.
+◇ Test "shell contract gate live store instead of fixture parity" started.
+◇ Test "core declares live app bootstrap state and repository dependencies" started.
+◇ Test "scenario verifier reports live store as structured checks and capabilities" started.
+◇ Test "signed out settings and offline indicator cover every live shell state" started.
+◇ Test "platform navigation consumes live content state and never decodes production fixtures" started.
+◇ Test "root view bootstraps through live store instead of fixture first run" started.
+◇ Test "live store contract covers global search scopes and environment rebinding" started.
+✘ Test "core declares live app bootstrap state and repository dependencies" recorded an issue at NativeLiveStoreTests.swift:11:9: Expectation failed: (content → nil) != nil
+↳ Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift should define the live app store contract.
+✘ Test "live store contract covers global search scopes and environment rebinding" recorded an issue at NativeLiveStoreTests.swift:132:9: Expectation failed: (content → nil) != nil
+↳ Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift should define live search and environment rebinding.
+✘ Test "production fixture fallback is an explicit test and demo only policy" recorded an issue at NativeLiveStoreTests.swift:316:9: Expectation failed: (content → nil) != nil
+↳ Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift should define fixture fallback policy.
+✘ Test "live store contract covers global search scopes and environment rebinding" failed after 0.001 seconds with 1 issue.
+✘ Test "core declares live app bootstrap state and repository dependencies" failed after 0.001 seconds with 1 issue.
+✘ Test "production fixture fallback is an explicit test and demo only policy" failed after 0.001 seconds with 1 issue.
+✔ Test "shell contract gate live store instead of fixture parity" passed after 0.001 seconds.
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: liveStore
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: NativeLiveAppStore
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift missing token: NativeAuthSessionRepository
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift missing token: SpoonjoyWebAuthenticationSession
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: NativeLiveAppStoreDependencies
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift missing token: startSignIn
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: bootstrap()
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift missing token: restoreState
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: NativeShellContentState
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift missing token: revokeAndLogout
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: bootstrapState
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift missing token: authRequired
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .signedOut
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift should not contain token: Open Kitchen
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift should not contain token: keep offline fixtures nearby
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .restoringCache
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift should not contain token: .disabled(true)
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift missing token: OfflineStatusView(display:
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: contentState.recipes
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .liveSynced
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift missing token: viewModel.offlineIndicatorDisplay
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift missing token: viewModel.dismissOfflineIndicator
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .offlineStale
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift missing token: viewModel.authSessionState
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift missing token: viewModel.environmentSwitcher
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .queuedWork
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift should not contain token: OfflineStatusView(state:
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/Views/SettingsView.swift should not contain token: settings.offline
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .conflict
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: contentState.cookbooks
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .blocker
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .destructiveConfirmation
+✘ Test "signed out settings and offline indicator cover every live shell state" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift should not contain token: legacyStatusLabel
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: case .syncFailed
+✘ Test "signed out settings and offline indicator cover every live shell state" failed after 0.003 seconds with 17 issues.
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: contentState.kitchen
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: contentState:
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: offlineIndicatorState:
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift missing token: dismissOfflineIndicator
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift should not contain token: NativeAppStateStore
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift should not contain token: NativeAppSnapshot.bootstrap
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: contentState.shoppingList
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift should not contain token: ShoppingListState.decodeFromBundle()
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift should not contain token: hasCompletedFirstRun
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift should not contain token: completeFirstRun(opening:
+✘ Test "root view bootstraps through live store instead of fixture first run" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift should not contain token: openKitchen: { completeFirstRun
+✘ Test "root view bootstraps through live store instead of fixture first run" failed after 0.003 seconds with 23 issues.
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: contentState.searchResults
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: contentState.captureDraft
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: NativeQueuedMutation
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: queueMutation
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: syncTriggerCoordinator
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: OfflineStatusView(display:
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: offlineIndicatorState
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:408:9: Expectation failed: isPresent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing token: dismissOfflineIndicator
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: RecipeFixtureCatalog.decodeFromBundle()
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: CookbookFixtureCatalog.decodeFromBundle()
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: KitchenFixtureState.decodeFromBundle()
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: KitchenFixtureState.bootstrapFallback
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: SettingsState(
+                  auth: .signedOut
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: QueuedMutation(
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" recorded an issue at NativeLiveStoreTests.swift:413:9: Expectation failed: isAbsent
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift should not contain token: startedAt: "2026-06-16T11:45:00.000Z"
+✘ Test "platform navigation consumes live content state and never decodes production fixtures" failed after 0.007 seconds with 20 issues.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check live store source.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check signed-out live bootstrap.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check restoring cache.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check live synced shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check offline stale shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check queued work shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check conflict shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check blocker shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check destructive confirmation shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check sync failed shell.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:269:13: Expectation failed: (checksByName[checkName] → nil) == .pass
+↳ ScenarioVerifier.finalReport should pass structured check fixture fallback disabled.
+✘ Test "scenario verifier reports live store as structured checks and capabilities" recorded an issue at NativeLiveStoreTests.swift:289:9: Expectation failed: (requiredOfflineFlows → ["sync-failed", "signed-out-state", "restoring-cache", "queued-work", "live-store-source", "conflict", "blocker", "live-synced", "destructive-confirmation", "offline-stale", "fixture-fallback-disabled"]).isSubset(of: reportedOfflineFlows → ["fixture-offline-restore", "shopping-queue-replay", "cook-mode-progress-restore"])
+↳ ScenarioVerifier.finalReport should expose live-store offline flows: blocker, conflict, destructive-confirmation, fixture-fallback-disabled, live-store-source, live-synced, offline-stale, queued-work, restoring-cache, signed-out-state, sync-failed
+✘ Test "scenario verifier reports live store as structured checks and capabilities" failed after 0.014 seconds with 12 issues.
+✘ Test "production sources cannot silently use fixture bundles" recorded an issue at NativeLiveStoreTests.swift:187:9: Expectation failed: (violations → ["Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift contains ShoppingListState.decodeFromBundle()", "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift contains ShoppingListState.decodeFromBundle()", "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift contains RecipeFixtureCatalog.decodeFromBundle()", "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift contains CookbookFixtureCatalog.decodeFromBundle()", "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift contains KitchenFixtureState.decodeFromBundle()"]).isEmpty → false
+↳ Fixture fallback must be test/demo/policy gated only: Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift contains ShoppingListState.decodeFromBundle(); Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift contains ShoppingListState.decodeFromBundle(); Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift contains RecipeFixtureCatalog.decodeFromBundle(); Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift contains CookbookFixtureCatalog.decodeFromBundle(); Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift contains KitchenFixtureState.decodeFromBundle()
+✘ Test "production sources cannot silently use fixture bundles" failed after 0.043 seconds with 1 issue.
+✘ Suite "Native live store and shell wiring" failed after 0.044 seconds with 76 issues.
+✘ Test run with 9 tests in 1 suite failed after 0.044 seconds with 76 issues.
+swift-focused status: 1
+### shell-contract
+FAIL: missing native shell files: Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift, Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift
+shell-contract status: 1
+unit-16a expected red: swift-focused and shell-contract both failed

@@ -1,0 +1,105 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/8] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[4/8] Compiling SpoonjoyCoreTests APITransportTests.swift
+[5/8] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[6/8] Emitting module SpoonjoyCoreTests
+[7/8] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:532:17: error: cannot find 'RecipeShoppingListCoverage' in scope
+530 |         ])
+531 |
+532 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: nil) == false)
+    |                 `- error: cannot find 'RecipeShoppingListCoverage' in scope
+533 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(Self.recipeWithIngredients([]), in: complete) == false)
+534 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:532:80: error: 'nil' requires a contextual type
+530 |         ])
+531 |
+532 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: nil) == false)
+    |                                                                                `- error: 'nil' requires a contextual type
+533 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(Self.recipeWithIngredients([]), in: complete) == false)
+534 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:533:17: error: cannot find 'RecipeShoppingListCoverage' in scope
+531 |
+532 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: nil) == false)
+533 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(Self.recipeWithIngredients([]), in: complete) == false)
+    |                 `- error: cannot find 'RecipeShoppingListCoverage' in scope
+534 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
+535 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: wrongUnit) == false)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:534:17: error: cannot find 'RecipeShoppingListCoverage' in scope
+532 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: nil) == false)
+533 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(Self.recipeWithIngredients([]), in: complete) == false)
+534 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
+    |                 `- error: cannot find 'RecipeShoppingListCoverage' in scope
+535 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: wrongUnit) == false)
+536 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: deletedMatch) == false)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:535:17: error: cannot find 'RecipeShoppingListCoverage' in scope
+533 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(Self.recipeWithIngredients([]), in: complete) == false)
+534 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
+535 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: wrongUnit) == false)
+    |                 `- error: cannot find 'RecipeShoppingListCoverage' in scope
+536 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: deletedMatch) == false)
+537 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: complete) == true)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:536:17: error: cannot find 'RecipeShoppingListCoverage' in scope
+534 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialOverlap) == false)
+535 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: wrongUnit) == false)
+536 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: deletedMatch) == false)
+    |                 `- error: cannot find 'RecipeShoppingListCoverage' in scope
+537 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: complete) == true)
+538 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:537:17: error: cannot find 'RecipeShoppingListCoverage' in scope
+535 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: wrongUnit) == false)
+536 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: deletedMatch) == false)
+537 |         #expect(RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: complete) == true)
+    |                 `- error: cannot find 'RecipeShoppingListCoverage' in scope
+538 |     }
+539 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:559:33: error: cannot find 'ShoppingSurfaceMutationExecutor' in scope
+557 |         var queuedMutations: [NativeQueuedMutation] = []
+558 |
+559 |         let outcome = try await ShoppingSurfaceMutationExecutor.perform(
+    |                                 `- error: cannot find 'ShoppingSurfaceMutationExecutor' in scope
+560 |             plan,
+561 |             queueMutation: { queuedMutations.append($0) },
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:582:39: error: cannot find 'ShoppingSurfaceMutationExecutor' in scope
+580 |         recordedShoppingLists = []
+581 |         executedRequestPaths = []
+582 |         let queuedOutcome = try await ShoppingSurfaceMutationExecutor.perform(
+    |                                       `- error: cannot find 'ShoppingSurfaceMutationExecutor' in scope
+583 |             plan,
+584 |             queueMutation: { queuedMutations.append($0) },
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:609:27: error: cannot find 'ShoppingAddItemFormState' in scope
+607 |             now: { Self.createdAt }
+608 |         )
+609 |         var failingForm = ShoppingAddItemFormState(
+    |                           `- error: cannot find 'ShoppingAddItemFormState' in scope
+610 |             itemName: " Limes ",
+611 |             itemQuantity: "2",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:628:27: error: cannot find 'ShoppingAddItemFormState' in scope
+626 |
+627 |         var acceptedPlans: [ShoppingSurfaceMutationPlan] = []
+628 |         var successForm = ShoppingAddItemFormState(
+    |                           `- error: cannot find 'ShoppingAddItemFormState' in scope
+629 |             itemName: " Limes ",
+630 |             itemQuantity: "2",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ShoppingSurfaceParityTests.swift:639:25: error: cannot infer contextual base in reference to member 'synced'
+637 |             actionDidPlan: { plan in
+638 |                 acceptedPlans.append(plan)
+639 |                 return .synced
+    |                         `- error: cannot infer contextual base in reference to member 'synced'
+640 |             }
+641 |         )
+error: fatalError

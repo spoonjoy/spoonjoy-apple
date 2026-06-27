@@ -7,7 +7,11 @@ struct NativeScenarioTests {
     private let expectedAppIntents = [
         "OpenRecipeIntent",
         "StartCookModeIntent",
-        "AddShoppingListItemIntent"
+        "AddShoppingListItemIntent",
+        "SetShoppingListItemCheckedIntent",
+        "AddRecipeIngredientsToShoppingListIntent",
+        "ClearCompletedShoppingItemsIntent",
+        "ClearShoppingListIntent"
     ]
     private let expectedSpotlightIndexedTypes = ["recipe", "cookbook", "shopping-list-item"]
     private let expectedSearchableScopes = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
@@ -23,6 +27,7 @@ struct NativeScenarioTests {
         "https://spoonjoy.app/",
         "https://spoonjoy.app/recipes",
         "https://spoonjoy.app/recipes/{id}",
+        "https://spoonjoy.app/recipes/{id}/edit",
         "https://spoonjoy.app/recipes/{id}#cook",
         "https://spoonjoy.app/recipes/{id}?mode=cook",
         "https://spoonjoy.app/cookbooks",
@@ -34,7 +39,10 @@ struct NativeScenarioTests {
         "spoonjoy://kitchen",
         "spoonjoy://recipes",
         "spoonjoy://recipes/{id}",
+        "spoonjoy://recipes/{id}/edit",
+        "spoonjoy://recipes/{id}/covers",
         "spoonjoy://recipes/{id}/cook",
+        "spoonjoy://recipes/new/edit",
         "spoonjoy://cookbooks",
         "spoonjoy://cookbooks/{id}",
         "spoonjoy://shopping-list",
@@ -106,16 +114,41 @@ struct NativeScenarioTests {
             unit: "   ",
             createdAt: "2026-06-16T14:04:00.000Z"
         )
+        let checkAction = try resolver.setShoppingListItemChecked(
+            itemID: " item_lemons ",
+            checked: true,
+            createdAt: "2026-06-16T14:05:00.000Z"
+        )
+        let uncheckAction = try resolver.setShoppingListItemChecked(
+            itemID: "item_lemons",
+            checked: false,
+            createdAt: "2026-06-16T14:06:00.000Z"
+        )
+        let addRecipeAction = try resolver.addRecipeIngredientsToShoppingList(
+            recipeID: " recipe_lemon_pantry_pasta ",
+            scaleFactor: 2,
+            createdAt: "2026-06-16T14:07:00.000Z"
+        )
+        let clearCompletedAction = resolver.clearCompletedShoppingItems(createdAt: "2026-06-16T14:08:00.000Z")
+        let clearAllAction = resolver.clearShoppingList(createdAt: "2026-06-16T14:09:00.000Z")
         let shoppingMutation = try #require(shoppingAction.queuedMutation)
+        let nativeShoppingMutation = try #require(shoppingAction.nativeQueuedMutation)
+        let checkMutation = try #require(checkAction.nativeQueuedMutation)
+        let uncheckMutation = try #require(uncheckAction.nativeQueuedMutation)
+        let addRecipeMutation = try #require(addRecipeAction.nativeQueuedMutation)
+        let clearCompletedMutation = try #require(clearCompletedAction.nativeQueuedMutation)
+        let clearAllMutation = try #require(clearAllAction.nativeQueuedMutation)
         let captureDraft = try #require(captureAction.captureDraft)
         let pantryMutation = try #require(pantryAction.queuedMutation)
 
         #expect(openRecipe.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
         #expect(openRecipe.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
         #expect(openRecipe.queuedMutation == nil)
+        #expect(openRecipe.nativeQueuedMutation == nil)
         #expect(openRecipe.captureDraft == nil)
         #expect(cookMode.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
         #expect(cookMode.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta/cook"))
+        #expect(cookMode.nativeQueuedMutation == nil)
         #expect(cookMode.captureDraft == nil)
         #expect(shoppingMutation.id == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
         #expect(shoppingMutation.clientMutationID == "intent-shopping-add-preserved-lemons-2026-06-16T14-00-00-000Z")
@@ -132,6 +165,7 @@ struct NativeScenarioTests {
         #expect(shoppingAction.route == .shoppingList)
         #expect(shoppingAction.url == URL(string: "spoonjoy://shopping-list"))
         #expect(shoppingAction.captureDraft == nil)
+        #expect(nativeShoppingMutation.queueableKind == .shoppingAddItem)
         #expect(
             pantryMutation.kind == .shoppingAdd(
                 name: "flaky salt",
@@ -141,12 +175,28 @@ struct NativeScenarioTests {
                 iconKey: nil
             )
         )
+        #expect(checkAction.route == .shoppingList)
+        #expect(checkAction.url == URL(string: "spoonjoy://shopping-list"))
+        #expect(checkAction.queuedMutation == nil)
+        #expect(checkMutation.queueableKind == .shoppingCheckItem)
+        #expect(checkMutation.clientMutationID == "intent-shopping-check-item_lemons-checked-2026-06-16T14-05-00-000Z")
+        #expect(uncheckMutation.queueableKind == .shoppingCheckItem)
+        #expect(uncheckMutation.clientMutationID == "intent-shopping-check-item_lemons-unchecked-2026-06-16T14-06-00-000Z")
+        #expect(addRecipeAction.route == .shoppingList)
+        #expect(addRecipeAction.url == URL(string: "spoonjoy://shopping-list"))
+        #expect(addRecipeMutation.queueableKind == .shoppingAddFromRecipe)
+        #expect(addRecipeMutation.clientMutationID == "intent-shopping-recipe-recipe_lemon_pantry_pasta-2026-06-16T14-07-00-000Z")
+        #expect(clearCompletedMutation.queueableKind == .shoppingClearCompleted)
+        #expect(clearCompletedMutation.clientMutationID == "intent-shopping-clear-completed-2026-06-16T14-08-00-000Z")
+        #expect(clearAllMutation.queueableKind == .shoppingClearAll)
+        #expect(clearAllMutation.clientMutationID == "intent-shopping-clear-all-2026-06-16T14-09-00-000Z")
         #expect(captureDraft.id == "intent-capture-2026-06-16T14-02-00-000Z")
         #expect(captureDraft.previewLines == ["https://example.com/lemon-pasta", "Add parsley."])
         #expect(captureDraft.status == .localOnly)
         #expect(captureAction.route == .capture)
         #expect(captureAction.url == URL(string: "spoonjoy://capture"))
         #expect(captureAction.queuedMutation == nil)
+        #expect(captureAction.nativeQueuedMutation == nil)
 
         #expect(throws: NativeIntentActionError.self) {
             try resolver.openRecipe(recipeID: "../secret")
@@ -162,6 +212,21 @@ struct NativeScenarioTests {
         #expect(throws: NativeIntentActionError.self) {
             try resolver.captureRecipe(source: "  ", createdAt: "2026-06-16T14:03:00.000Z")
         }
+        #expect(throws: NativeIntentActionError.self) {
+            try resolver.setShoppingListItemChecked(
+                itemID: "../item",
+                checked: true,
+                createdAt: "2026-06-16T14:10:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.self) {
+            try resolver.addRecipeIngredientsToShoppingList(
+                recipeID: "recipe_lemon_pantry_pasta",
+                scaleFactor: 0,
+                createdAt: "2026-06-16T14:11:00.000Z"
+            )
+        }
+        #expect(NativeIntentActionError.authRequired.description == "Sign in to Spoonjoy before queueing this Siri action.")
     }
 
     @Test("spotlight index plan builds route aware searchable documents")
@@ -383,6 +448,16 @@ struct NativeScenarioTests {
     func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() {
         let defaultRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck()
         let defaultShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck()
+        let staleShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(selectedItemID: "item_missing")
+        let throwingShoppingAddCheck = ScenarioVerifier.shoppingAddItemCheck(loadShoppingList: {
+            throw FixtureLoadError.unavailable
+        })
+        let malformedShoppingRecipeCheck = ScenarioVerifier.shoppingAddRecipeIngredientsCheck(planBuilder: { _, _, _, _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingShoppingClearCheck = ScenarioVerifier.shoppingClearConfirmationCheck(loadShoppingList: {
+            throw FixtureLoadError.unavailable
+        })
         let missingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: { [] })
         let throwingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: {
             throw FixtureLoadError.unavailable
@@ -415,6 +490,14 @@ struct NativeScenarioTests {
 
         #expect(defaultRecipeCheck.status == .pass)
         #expect(defaultShoppingCheck.status == .pass)
+        #expect(staleShoppingCheck.status == .fail)
+        #expect(staleShoppingCheck.detail.contains("Shopping checkoff failed"))
+        #expect(throwingShoppingAddCheck.status == .fail)
+        #expect(throwingShoppingAddCheck.detail.contains("Shopping add item failed"))
+        #expect(malformedShoppingRecipeCheck.status == .fail)
+        #expect(malformedShoppingRecipeCheck.detail.contains("Shopping add recipe ingredients failed"))
+        #expect(throwingShoppingClearCheck.status == .fail)
+        #expect(throwingShoppingClearCheck.detail.contains("Shopping clear confirmation failed"))
         #expect(missingRecipeCheck.status == .fail)
         #expect(missingRecipeCheck.detail.contains("no cookable steps"))
         #expect(throwingRecipeCheck.status == .fail)
@@ -529,6 +612,7 @@ struct NativeScenarioTests {
             #expect(!missingSourceReport.ok)
             #expect(missingSourceChecks["app intents source"] == .fail)
             #expect(missingSourceChecks["spotlight source"] == .fail)
+            #expect(ScenarioVerifier.fixtureFallbackDisabledCheck(rootURL: directory).status == .fail)
             #expect(!emptyMetadataReport.ok)
             #expect(emptyMetadataChecks["native metadata"] == .fail)
             #expect(emptyMetadataChecks["deep link metadata"] == .fail)
@@ -550,6 +634,10 @@ struct NativeScenarioTests {
             "struct OpenRecipeIntent: AppIntent",
             "struct StartCookModeIntent: AppIntent",
             "struct AddShoppingListItemIntent: AppIntent",
+            "struct SetShoppingListItemCheckedIntent: AppIntent",
+            "struct AddRecipeIngredientsToShoppingListIntent: AppIntent",
+            "struct ClearCompletedShoppingItemsIntent: AppIntent",
+            "struct ClearShoppingListIntent: AppIntent",
             "struct CaptureRecipeIntent: AppIntent"
         ] {
             #expect(appIntentsSource.contains(declaration))
@@ -563,7 +651,17 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains(".result(opensIntent:"))
         #expect(appIntentsSource.contains("dialog:"))
         #expect(appIntentsSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(appIntentsSource.contains("FileBackedNativeSyncStore"))
+        #expect(appIntentsSource.contains("NativeQueuedMutation.intentMutation(from:"))
+        #expect(appIntentsSource.contains("saveQueue"))
+        #expect(appIntentsSource.contains("KeychainTokenVault()"))
+        #expect(appIntentsSource.contains("trustedIntentScope"))
+        #expect(appIntentsSource.contains("NativeIntentActionError.authRequired"))
+        #expect(appIntentsSource.contains("accountID: scope.accountID"))
+        #expect(appIntentsSource.contains("environment: scope.environment"))
+        #expect(appIntentsSource.contains("try await SpoonjoyIntentStateWriter().apply"))
         #expect(!appIntentsSource.contains("native-app-snapshot.json"))
+        #expect(!appIntentsSource.contains("ShoppingListState.decodeFromBundle()"))
         #expect(!appIntentsSource.contains("func perform() async throws -> some IntentResult {\n        .result()\n    }"))
 
         for declaration in [

@@ -1,0 +1,18 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+      Coverage enabled with istanbul
+
+ ✓ test/routes/api-v1-native-sync.test.ts (13 tests) 772ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  18:27:47
+   Duration  2.74s (transform 837ms, setup 182ms, import 1.35s, tests 772ms, environment 264ms)
+
+ % Coverage report from istanbul
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |
+ ...sync.server.ts |     100 |      100 |     100 |     100 |
+-------------------|---------|----------|---------|---------|-------------------

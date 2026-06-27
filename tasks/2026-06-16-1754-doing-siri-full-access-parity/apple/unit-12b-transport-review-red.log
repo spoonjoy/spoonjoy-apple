@@ -1,0 +1,40 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests APITransportTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (2.44s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "URLSession API transport" started.
+◇ Test "bare and malformed 401 responses refresh and replay authenticated requests once" started.
+◇ Test "HTTP failure status wins over successful JSON envelopes" started.
+◇ Test "ordinary server error envelopes preserve full API error fields" started.
+◇ Test "API error envelopes preserve request IDs details and retry decisions" started.
+◇ Test "offline failures and cancellations are classified distinctly" started.
+◇ Test "transport preserves already encoded path segments exactly once" started.
+◇ Test "URLSession transport builds URLRequests and decodes successful envelopes" started.
+◇ Test "non JSON and malformed JSON failures retain status and request id context" started.
+◇ Test "401 responses refresh configuration and replay authenticated requests once" started.
+◇ Test "a second 401 after refresh is surfaced instead of looping" started.
+✔ Test "offline failures and cancellations are classified distinctly" passed after 0.003 seconds.
+✔ Test "non JSON and malformed JSON failures retain status and request id context" passed after 0.003 seconds.
+✘ Test "HTTP failure status wins over successful JSON envelopes" recorded an issue at APITransportTests.swift:189:25: Issue recorded
+↳ Expected non-2xx success envelope to throw
+✔ Test "URLSession transport builds URLRequests and decodes successful envelopes" passed after 0.003 seconds.
+✔ Test "API error envelopes preserve request IDs details and retry decisions" passed after 0.003 seconds.
+✔ Test "a second 401 after refresh is surfaced instead of looping" passed after 0.003 seconds.
+✘ Test "HTTP failure status wins over successful JSON envelopes" failed after 0.003 seconds with 1 issue.
+✘ Test "transport preserves already encoded path segments exactly once" recorded an issue at APITransportTests.swift:78:9: Expectation failed: (capturedRequest.url?.absoluteString → "https://spoonjoy.app/api/v1/recipes/recipe%252Fwith%2520spaces%252F%25C3%25A9t%25C3%25A9?include=chef%20profile") == "https://spoonjoy.app/api/v1/recipes/recipe%2Fwith%20spaces%2F%C3%A9t%C3%A9?include=chef%20profile"
+✔ Test "401 responses refresh configuration and replay authenticated requests once" passed after 0.003 seconds.
+✘ Test "transport preserves already encoded path segments exactly once" failed after 0.003 seconds with 1 issue.
+✘ Test "bare and malformed 401 responses refresh and replay authenticated requests once" recorded an issue at APITransportTests.swift:317:6: Caught error: APITransportError(kind: SpoonjoyCore.APITransportErrorKind.nonJSONResponse, requestID: Optional("req_bare_auth"), statusCode: Optional(401), apiError: nil, retryDecision: SpoonjoyCore.APIRetryDecision.refreshAuthentication)
+✘ Test "bare and malformed 401 responses refresh and replay authenticated requests once" failed after 0.004 seconds with 1 issue.
+✘ Test "ordinary server error envelopes preserve full API error fields" recorded an issue at APITransportTests.swift:155:13: Expectation failed: (error.retryDecision → .retrySameRequest(afterSeconds: nil)) == (.retrySameRequest(afterSeconds: 7) → .retrySameRequest(afterSeconds: Optional(7)))
+✘ Test "ordinary server error envelopes preserve full API error fields" failed after 0.004 seconds with 1 issue.
+✘ Suite "URLSession API transport" failed after 0.004 seconds with 4 issues.
+✘ Test run with 10 tests in 1 suite failed after 0.004 seconds with 4 issues.

@@ -4,25 +4,44 @@ import SwiftUI
 struct PlatformNavigationView: View {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
-    @Binding var appSnapshot: NativeAppSnapshot
-    private let recipes: [Recipe]
-    private let cookbooks: [Cookbook]
-    private let kitchen: KitchenFixtureState
-    private let persistSnapshot: (NativeAppSnapshot) -> Void
+
+    private let contentState: NativeShellContentState
+    private let offlineIndicatorState: OfflineIndicatorState
+    private let dismissOfflineIndicator: @MainActor @Sendable () -> Void
+    private let queueMutation: @Sendable (NativeQueuedMutation) async throws -> Void
+    private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
+    private let discardQueuedMutation: @Sendable (String) async throws -> Void
+    private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
+    private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
+    private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
         navigation: Binding<AppNavigationState>,
         search: Binding<SearchState>,
-        appSnapshot: Binding<NativeAppSnapshot>,
-        persistSnapshot: @escaping (NativeAppSnapshot) -> Void
+        contentState: NativeShellContentState,
+        offlineIndicatorState: OfflineIndicatorState,
+        dismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void,
+        queueMutation: @escaping @Sendable (NativeQueuedMutation) async throws -> Void,
+        queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
+        discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
+        executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
+        recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
+        syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
         _search = search
-        _appSnapshot = appSnapshot
-        recipes = (try? RecipeFixtureCatalog.decodeFromBundle().recipes) ?? []
-        cookbooks = (try? CookbookFixtureCatalog.decodeFromBundle().cookbooks) ?? []
-        kitchen = (try? KitchenFixtureState.decodeFromBundle()) ?? KitchenFixtureState.bootstrapFallback
-        self.persistSnapshot = persistSnapshot
+        self.contentState = contentState
+        self.offlineIndicatorState = offlineIndicatorState
+        self.dismissOfflineIndicator = dismissOfflineIndicator
+        self.queueMutation = queueMutation
+        self.queueMutations = queueMutations
+        self.discardQueuedMutation = discardQueuedMutation
+        self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.recordShoppingList = recordShoppingList
+        self.recordCookProgress = recordCookProgress
+        self.syncTriggerCoordinator = syncTriggerCoordinator
     }
 
     var body: some View {
@@ -51,8 +70,17 @@ struct PlatformNavigationView: View {
                 navigation.navigate(to: search.route)
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
+            .safeAreaInset(edge: .bottom) {
+                OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .background(KitchenTableTheme.bone.opacity(0.94))
+            }
             .task(id: spotlightIndexIdentity) {
                 await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
+            }
+            .task(id: contentState.environment.rawValue) {
+                _ = try? await syncTriggerCoordinator.handle(.foreground)
             }
         }
 #if os(macOS)
@@ -80,37 +108,69 @@ struct PlatformNavigationView: View {
         switch route {
         case .kitchen:
             KitchenView(
-                kitchen: kitchen,
-                recipes: recipes,
-                cookbooks: cookbooks,
+                kitchen: contentState.kitchen,
+                recipes: contentState.recipes,
+                cookbooks: contentState.cookbooks,
                 openRecipe: openRecipe,
                 startCooking: startCooking,
                 openCookbook: openCookbook
             )
         case .recipes:
-            RecipesView(recipes: recipes, openRecipe: openRecipe)
+            RecipesView(viewModel: recipeCatalogViewModel, openRoute: openRoute)
         case .recipeDetail(let id, .detail):
-            if let recipe = recipe(id: id) {
-                RecipeDetailView(viewModel: RecipeDetailViewModel(recipe: recipe), startCooking: startCooking)
-            } else {
-                ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
-            }
+            RecipeDetailRouteView(
+                recipeID: id,
+                repository: recipeCatalogRepository,
+                initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+                actionConnectivity: recipeActionConnectivity,
+                shoppingViewModel: shoppingViewModel,
+                context: recipeDetailContext(for:),
+                actionPlanner: { viewModel, context in
+                    recipeActionsViewModel(for: viewModel, context: context)
+                },
+                openRoute: openRoute,
+                performRecipeAction: performRecipeAction,
+                performShoppingAction: performShoppingAction
+            )
         case .recipeDetail(let id, .cook):
-            if let recipe = recipe(id: id) {
-                CookModeView(
-                    viewModel: CookModeViewModel(recipe: recipe, progress: cookProgress(for: recipe)),
-                    progressDidChange: { progress in
-                        persistAppSnapshot(appSnapshot.updatingCookProgress(progress, savedAt: timestamp()))
-                    },
-                    close: {
-                        openRecipe(id)
-                    }
+            CookModeRouteView(
+                recipeID: id,
+                repository: recipeCatalogRepository,
+                initialRecipe: recipe(id: id),
+                progress: cookProgress(for:),
+                progressDidChange: recordCookProgress,
+                shoppingViewModel: shoppingViewModel,
+                performShoppingAction: performShoppingAction,
+                close: {
+                    openRecipe(id)
+                }
+            )
+        case .recipeEditor(let id):
+            if let editorViewModel = recipeEditorViewModel(id: id) {
+                RecipeEditorView(
+                    viewModel: editorViewModel,
+                    mutationDidPlan: handleRecipeEditorPlan,
+                    mutationsDidQueue: queueMutations,
+                    conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
+                    close: openRoute
                 )
             } else {
-                ShellPlaceholderView(title: "Recipe", systemImage: "text.book.closed", detail: id)
+                ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "Recipe unavailable.")
             }
+        case .recipeCoverControls(let id):
+            RecipeCoverControlsRouteView(
+                recipeID: id,
+                initialRecipe: recipe(id: id),
+                recipeRepository: recipeCatalogRepository,
+                configuration: contentState.configuration,
+                connectivity: recipeCoverControlsConnectivity,
+                performCoverAction: performCoverAction,
+                close: {
+                    openRecipe(id)
+                }
+            )
         case .cookbooks:
-            CookbooksView(cookbooks: cookbooks, openCookbook: openCookbook)
+            CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
             if let cookbook = cookbook(id: id) {
                 CookbookDetailPlaceholder(cookbook: cookbook)
@@ -118,22 +178,16 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
             }
         case .shoppingList:
-            if let shoppingViewModel {
-                ShoppingListView(
-                    viewModel: shoppingViewModel,
-                    viewModelDidChange: { nextViewModel, item, checked, changedAt in
-                        persistShoppingList(nextViewModel.shoppingList, item: item, checked: checked, changedAt: changedAt)
-                    }
-                )
-            } else {
-                ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Shopping list unavailable.")
-            }
+            ShoppingListView(
+                viewModel: shoppingViewModel,
+                actionDidPlan: performShoppingAction
+            )
         case .search(let query, let scope):
             SearchView(
                 search: $search,
-                recipes: recipes,
-                cookbooks: cookbooks,
-                shoppingList: shoppingViewModel?.shoppingList,
+                recipes: contentState.recipes,
+                cookbooks: contentState.cookbooks,
+                shoppingList: contentState.shoppingList,
                 openRecipe: openRecipe,
                 openCookbook: openCookbook,
                 openShoppingItem: { _ in
@@ -148,14 +202,16 @@ struct PlatformNavigationView: View {
                 search.apply(route: .search(query: query, scope: scope))
             }
         case .capture:
-            CaptureDraftView(
-                viewModel: captureViewModel,
-                draftDidChange: { nextViewModel in
-                    persistAppSnapshot(appSnapshot.updatingCaptureDraft(nextViewModel.draft, savedAt: timestamp()))
-                }
-            )
+            if let captureViewModel {
+                CaptureDraftView(viewModel: captureViewModel, draftDidChange: { _ in })
+            } else {
+                ShellPlaceholderView(title: "Capture", systemImage: "camera", detail: "Capture drafts will appear here after sign-in or offline restore.")
+            }
         case .settings:
-            SettingsView(viewModel: settingsViewModel)
+            SettingsView(
+                viewModel: contentState.settingsViewModel,
+                onDismissOfflineIndicator: dismissOfflineIndicator
+            )
         case .unknownLink:
             ShellPlaceholderView(title: "Link Not Found", systemImage: "link.badge.plus", detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.")
         }
@@ -218,7 +274,7 @@ struct PlatformNavigationView: View {
         switch route {
         case .kitchen:
             "Kitchen"
-        case .recipes, .recipeDetail:
+        case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
@@ -251,23 +307,23 @@ struct PlatformNavigationView: View {
     }
 
     private func recipe(id: String) -> Recipe? {
-        recipes.first { $0.id == id }
+        contentState.recipes.first { $0.id == id }
     }
 
     private func cookbook(id: String) -> Cookbook? {
-        cookbooks.first { $0.id == id }
+        contentState.cookbooks.first { $0.id == id }
     }
 
     private func cookProgress(for recipe: Recipe) -> CookModeProgress {
-        appSnapshot.cookProgress(for: recipe.id) ?? CookModeProgress(
-            recipeID: recipe.id,
-            stepIDs: recipe.steps.map(\.id),
-            startedAt: "2026-06-16T11:45:00.000Z"
-        )
+        contentState.cookProgress(for: recipe.id) ?? CookModeProgress.starting(recipe: recipe, startedAt: timestamp())
     }
 
     private func openRecipe(_ id: String) {
         navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
+    }
+
+    private func openRoute(_ route: AppRoute) {
+        navigation.navigate(to: route)
     }
 
     private func startCooking(_ id: String) {
@@ -278,60 +334,256 @@ struct PlatformNavigationView: View {
         navigation.navigate(to: .cookbookDetail(id: id))
     }
 
-    private var shoppingViewModel: ShoppingListViewModel? {
-        appSnapshot.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
+    private var shoppingViewModel: ShoppingSurfaceViewModel {
+        ShoppingSurfaceViewModel(
+            shoppingList: contentState.shoppingList,
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: shoppingSurfaceConnectivity,
+            now: { ISO8601DateFormatter().string(from: Date()) }
+        )
+    }
+
+    private var recipeCatalogRepository: any RecipeCatalogRepository {
+        let catalog = contentState.recipeCatalog
+        let snapshotRepository = SnapshotRecipeCatalogRepository(
+            page: catalog,
+            details: contentState.recipes.map { recipe in
+                RecipeCatalogDetailResult(recipe: recipe, source: catalog.source)
+            }
+        )
+        let liveRepository = LiveRecipeCatalogRepository(configuration: contentState.configuration)
+        return FallbackRecipeCatalogRepository(primary: liveRepository, fallback: snapshotRepository)
+    }
+
+    private var recipeCatalogViewModel: RecipeCatalogViewModel {
+        let viewModel = RecipeCatalogViewModel(repository: recipeCatalogRepository)
+        viewModel.apply(page: contentState.recipeCatalog)
+        return viewModel
+    }
+
+    private func recipeDetailScreenViewModel(for recipe: Recipe) -> RecipeDetailScreenViewModel {
+        RecipeDetailScreenViewModel(
+            result: RecipeCatalogDetailResult(recipe: recipe, source: contentState.recipeCatalog.source),
+            context: recipeDetailContext(for: recipe)
+        )
+    }
+
+    private func recipeActionsViewModel(for viewModel: RecipeDetailScreenViewModel, context: RecipeDetailContext) -> RecipeActionsViewModel {
+        let plannedAt = timestamp()
+        return RecipeActionsViewModel(
+            recipe: viewModel.recipe,
+            context: context,
+            connectivity: recipeActionConnectivity,
+            now: { plannedAt }
+        )
+    }
+
+    private func recipeDetailContext(for recipe: Recipe) -> RecipeDetailContext {
+        RecipeDetailContext(
+            currentChefID: currentChefID,
+            availableCookbooks: contentState.cookbooks.map { cookbook in
+                RecipeCookbookSaveOption(id: cookbook.id, title: cookbook.title)
+            },
+            savedInCookbookIDs: Set(recipe.cookbooks.map(\.id)),
+            hasIngredientsInShoppingList: hasShoppingListIngredient(for: recipe),
+            now: Date()
+        )
+    }
+
+    private var currentChefID: String? {
+        switch contentState.authSessionState {
+        case .signedOut:
+            nil
+        case .authenticated(let session), .refreshRequired(let session):
+            session.accountID
+        }
+    }
+
+    private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
+        let chefID = currentChefID ?? "signed-out"
+        switch id {
+        case .some(let recipeID):
+            guard let recipe = recipe(id: recipeID) else {
+                return nil
+            }
+            return RecipeEditorViewModel(
+                mode: .edit(recipe: recipe, currentChefID: chefID),
+                connectivity: recipeEditorConnectivity,
+                conflict: recipeEditorConflict(for: recipeID),
+                queuedRecipeMutations: contentState.queuedMutations,
+                now: timestamp
+            )
+        case nil:
+            return RecipeEditorViewModel(
+                mode: .create(currentChefID: chefID, draft: .blank(currentChefID: chefID)),
+                connectivity: recipeEditorConnectivity,
+                conflict: nil,
+                queuedRecipeMutations: contentState.queuedMutations,
+                now: timestamp
+            )
+        }
+    }
+
+    private var recipeEditorConnectivity: RecipeEditorConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var recipeActionConnectivity: RecipeActionConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var recipeCoverControlsConnectivity: RecipeCoverControlsConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var shoppingSurfaceConnectivity: ShoppingSurfaceConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
+        for conflict in contentState.syncConflicts {
+            guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
+                  mutation.optimisticRecipeID == recipeID else {
+                continue
+            }
+
+            return RecipeEditorConflict(
+                resourceID: recipeID,
+                serverRevision: conflict.serverRevision,
+                localClientMutationID: conflict.clientMutationID,
+                message: conflict.message
+            )
+        }
+
+        return nil
+    }
+
+    private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func performRecipeAction(_ plan: RecipeActionPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func performCoverAction(_ plan: RecipeCoverControlsMutationPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func hasQueuedMutation(withDependencyKey dependencyKey: String) -> Bool {
+        contentState.queuedMutations.contains { mutation in
+            mutation.dependencyKey == dependencyKey
+        }
+    }
+
+    private func performShoppingAction(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
+        try await ShoppingSurfaceMutationExecutor.perform(
+            plan,
+            queueMutation: queueMutation,
+            executeRemoteRequest: executeRecipeEditorRequest,
+            recordShoppingList: recordShoppingList
+        )
+    }
+
+    private func discardRecipeEditorLocalChange(_ conflict: RecipeEditorConflict) async throws {
+        try await discardQueuedMutation(conflict.localClientMutationID)
+    }
+
+    private func hasShoppingListIngredient(for recipe: Recipe) -> Bool {
+        RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: contentState.shoppingList)
     }
 
     private var spotlightIndexIdentity: String {
         [
-            recipes.map(\.id).joined(separator: ","),
-            cookbooks.map(\.id).joined(separator: ","),
-            appSnapshot.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
+            contentState.recipes.map(\.id).joined(separator: ","),
+            contentState.cookbooks.map(\.id).joined(separator: ","),
+            contentState.searchResultsByScope[search.scope]?.joined(separator: ",") ?? "search-unavailable",
+            contentState.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
         ].joined(separator: "|")
     }
 
     private var spotlightIndexDocuments: [SpotlightIndexDocument] {
-        guard let shoppingList = appSnapshot.shoppingList else {
+        guard let shoppingList = contentState.shoppingList else {
             return []
         }
 
         return SpotlightIndexPlan.documents(
-            recipes: recipes,
-            cookbooks: cookbooks,
+            recipes: contentState.recipes,
+            cookbooks: contentState.cookbooks,
             shoppingList: shoppingList
         )
     }
 
     private var captureViewModel: CaptureDraftViewModel? {
-        appSnapshot.captureDraft.map(CaptureDraftViewModel.init(draft:))
-    }
-
-    private func persistShoppingList(
-        _ shoppingList: ShoppingListState,
-        item: ShoppingListItem,
-        checked: Bool,
-        changedAt: String
-    ) {
-        let mutation = QueuedMutation(
-            id: "queued-\(item.id)-\(Self.safeIdentifier(changedAt))",
-            clientMutationID: "native-check-\(item.id)-\(Self.safeIdentifier(changedAt))",
-            createdAt: changedAt,
-            kind: .shoppingCheck(itemID: item.id, checked: checked)
-        )
-        guard let nextSnapshot = try? appSnapshot.updatingShoppingList(
-            shoppingList,
-            queuedMutation: mutation,
-            savedAt: changedAt
-        ) else {
-            return
-        }
-
-        persistAppSnapshot(nextSnapshot)
-    }
-
-    private func persistAppSnapshot(_ snapshot: NativeAppSnapshot) {
-        appSnapshot = snapshot
-        persistSnapshot(snapshot)
+        contentState.captureDraft.map(CaptureDraftViewModel.init(draft:))
     }
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {
@@ -350,26 +602,6 @@ struct PlatformNavigationView: View {
         value.map { character in
             character.isLetter || character.isNumber ? String(character) : "-"
         }.joined()
-    }
-}
-
-private extension PlatformNavigationView {
-    var settingsViewModel: SettingsViewModel {
-        SettingsViewModel(
-            settings: SettingsState(
-                auth: .signedOut,
-                environment: .production(baseURL: Self.productionBaseURL),
-                offline: appSnapshot.offlineState,
-                preferredCookModeTextSize: .large
-            )
-        )
-    }
-
-    static var productionBaseURL: URL {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "spoonjoy.app"
-        return components.url ?? URL(fileURLWithPath: "/")
     }
 }
 
@@ -406,17 +638,5 @@ private struct CookbookDetailPlaceholder: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
-    }
-}
-
-private extension KitchenFixtureState {
-    static var bootstrapFallback: KitchenFixtureState {
-        KitchenFixtureState(
-            status: .bootstrap,
-            leadObject: .recipe(id: "recipe_lemon_pantry_pasta", title: "Lemon Pantry Pasta"),
-            primaryAction: .startCookMode(recipeID: "recipe_lemon_pantry_pasta"),
-            counts: KitchenCounts(recipes: 0, cookbooks: 0, shoppingItems: 0),
-            offlineRestore: OfflineRestoreMetadata(snapshotID: "bootstrap", includesShoppingList: false)
-        )
     }
 }

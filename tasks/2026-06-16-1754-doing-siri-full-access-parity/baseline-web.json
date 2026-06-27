@@ -1,0 +1,133 @@
+{
+  "generatedAt": "2026-06-17T05:16:53.133Z",
+  "repo": "spoonjoy-v2",
+  "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+  "branch": "slugger/siri-full-access-parity",
+  "head": "fce74f221252478d8452789b52d5bedef9cd1e9e",
+  "upstream": null,
+  "upstreamHead": null,
+  "statusPorcelain": "## slugger/siri-full-access-parity",
+  "dirtyEntries": [],
+  "allowedDirtyPrefixes": [],
+  "unexpectedDirtyEntries": [],
+  "cleanExceptAllowedArtifacts": true,
+  "remotes": [
+    {
+      "name": "origin",
+      "url": "https://github.com/spoonjoy/spoonjoy-v2.git",
+      "direction": "fetch"
+    },
+    {
+      "name": "origin",
+      "url": "https://github.com/spoonjoy/spoonjoy-v2.git",
+      "direction": "push"
+    }
+  ],
+  "expectedRemote": "https://github.com/spoonjoy/spoonjoy-v2.git",
+  "expectedRemotePresent": true,
+  "workflowFiles": [],
+  "commands": {
+    "branch": {
+      "argv": [
+        "git",
+        "branch",
+        "--show-current"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:53.031Z",
+      "finishedAt": "2026-06-17T05:16:53.042Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "slugger/siri-full-access-parity",
+      "stderr": ""
+    },
+    "head": {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:53.042Z",
+      "finishedAt": "2026-06-17T05:16:53.054Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "fce74f221252478d8452789b52d5bedef9cd1e9e",
+      "stderr": ""
+    },
+    "upstream": {
+      "argv": [
+        "git",
+        "rev-parse",
+        "--abbrev-ref",
+        "--symbolic-full-name",
+        "@{u}"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:53.054Z",
+      "finishedAt": "2026-06-17T05:16:53.065Z",
+      "exitCode": 128,
+      "signal": null,
+      "ok": false,
+      "stdout": "",
+      "stderr": "fatal: no upstream configured for branch 'slugger/siri-full-access-parity'"
+    },
+    "upstreamHead": null,
+    "statusPorcelain": {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "-b"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:53.065Z",
+      "finishedAt": "2026-06-17T05:16:53.112Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "## slugger/siri-full-access-parity",
+      "stderr": ""
+    },
+    "remotesRaw": {
+      "argv": [
+        "git",
+        "remote",
+        "-v"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:53.112Z",
+      "finishedAt": "2026-06-17T05:16:53.124Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "origin\thttps://github.com/spoonjoy/spoonjoy-v2.git (fetch)\norigin\thttps://github.com/spoonjoy/spoonjoy-v2.git (push)",
+      "stderr": ""
+    },
+    "workflowFiles": {
+      "argv": [
+        "/bin/zsh",
+        "-lc",
+        "find .github/workflows -maxdepth 1 ( -name \"*.yml\" -o -name \"*.yaml\" ) -type f 2>/dev/null | sort"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-v2",
+      "startedAt": "2026-06-17T05:16:53.124Z",
+      "finishedAt": "2026-06-17T05:16:53.133Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "",
+      "stderr": "zsh:1: unknown file attribute:"
+    }
+  },
+  "branchProtectionSummary": {
+    "ok": true,
+    "requiredCheckNames": [
+      "coverage",
+      "e2e",
+      "build-storybook"
+    ]
+  }
+}

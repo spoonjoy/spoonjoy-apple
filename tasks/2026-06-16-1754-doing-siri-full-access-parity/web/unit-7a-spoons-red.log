@@ -1,0 +1,172 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-spoons.test.ts (8 tests | 8 failed) 428ms
+     × declares spoon routes with optional public reads and bearer write gates 63ms
+     × lists recipe spoons with cursor pagination, deleted-row filtering, active cover context, and public/private cache behavior 62ms
+     × creates JSON cook logs with trimmed fields, cookedAt validation, idempotency metadata, and origin-owner notification flags 30ms
+     × accepts uploaded spoon photos, auto-seeds owner origin covers, and ignores forged cover opt-ins from non-owners 37ms
+     × validates empty content, cookedAt, GIF uploads, and owner-owned photoUrl assignment 26ms
+     × validates note and nextTime payload types and length on create and update 33ms
+     × updates and deletes only owned active spoons on the recipe path while excluding deleted spoons from reads 40ms
+     × lets a deleted prior owner spoon reopen origin-cook cover seeding 49ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > declares spoon routes with optional public reads and bearer write gates
+AssertionError: expected 405 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:365:36
+    363|       `recipes/${recipe.id}/spoons`,
+    364|     ));
+    365|     expect(anonymousCreate.status).toBe(401);
+       |                                    ^
+    366|     expectErrorEnvelope(await readJson(anonymousCreate), "req_spoon_an…
+    367|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > lists recipe spoons with cursor pagination, deleted-row filtering, active cover context, and public/private cache behavior
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:437:30
+    435|     const firstPayload = await readJson(firstPage);
+    436|
+    437|     expect(firstPage.status).toBe(200);
+       |                              ^
+    438|     expectPublicEnvelopeHeaders(firstPage, "req_spoon_list_public");
+    439|     expectSuccessEnvelope(firstPayload, "req_spoon_list_public");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > creates JSON cook logs with trimmed fields, cookedAt validation, idempotency metadata, and origin-owner notification flags
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:506:29
+    504|     const payload = await readJson(response);
+    505|
+    506|     expect(response.status).toBe(201);
+       |                             ^
+    507|     expectPrivateEnvelopeHeaders(response, "req_spoon_json_create");
+    508|     expectSuccessEnvelope(payload, "req_spoon_json_create");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > accepts uploaded spoon photos, auto-seeds owner origin covers, and ignores forged cover opt-ins from non-owners
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:567:34
+    565|     const ownerPayload = await readJson(ownerResponse);
+    566|
+    567|     expect(ownerResponse.status).toBe(201);
+       |                                  ^
+    568|     expectPrivateEnvelopeHeaders(ownerResponse, "req_spoon_owner_photo…
+    569|     expectSuccessEnvelope(ownerPayload, "req_spoon_owner_photo");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > validates empty content, cookedAt, GIF uploads, and owner-owned photoUrl assignment
+AssertionError: expected 405 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:650:26
+    648|       `recipes/${recipe.id}/spoons`,
+    649|     ));
+    650|     expect(empty.status).toBe(400);
+       |                          ^
+    651|     expectErrorEnvelope(await readJson(empty), "req_spoon_empty", "val…
+    652|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > validates note and nextTime payload types and length on create and update
+AssertionError: expected 405 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:711:31
+    709|         `recipes/${recipe.id}/spoons`,
+    710|       ));
+    711|       expect(response.status).toBe(400);
+       |                               ^
+    712|       expectErrorEnvelope(await readJson(response), requestId, "valida…
+    713|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > updates and deletes only owned active spoons on the recipe path while excluding deleted spoons from reads
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:755:27
+    753|     ));
+    754|     const updatePayload = await readJson(update);
+    755|     expect(update.status).toBe(200);
+       |                           ^
+    756|     expectPrivateEnvelopeHeaders(update, "req_spoon_update");
+    757|     expectSuccessEnvelope(updatePayload, "req_spoon_update");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  test/routes/api-v1-spoons.test.ts > API v1 recipe spoon endpoints > lets a deleted prior owner spoon reopen origin-cook cover seeding
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-spoons.test.ts:862:29
+    860|     const payload = await readJson(response);
+    861|
+    862|     expect(response.status).toBe(201);
+       |                             ^
+    863|     expectSuccessEnvelope(payload, "req_spoon_origin_after_delete");
+    864|     expectCreateSpoonData(payload.data, clientMutationId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  11:37:48
+   Duration  2.65s (transform 681ms, setup 251ms, import 1.28s, tests 428ms, environment 406ms)

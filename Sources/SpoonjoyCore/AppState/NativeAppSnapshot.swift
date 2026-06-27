@@ -6,6 +6,8 @@ public enum NativeAppSnapshotError: Error, Equatable {
 
 public struct NativeAppSnapshot: Codable, Equatable {
     public let schemaVersion: Int
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
     public let hasCompletedFirstRun: Bool
     public let cookProgressByRecipeID: [String: CookModeProgress]
     public let shoppingList: ShoppingListState?
@@ -14,9 +16,40 @@ public struct NativeAppSnapshot: Codable, Equatable {
     public let lastOpenedRoute: String?
     public let savedAt: String
 
-    public static func bootstrap(shoppingList: ShoppingListState?, savedAt: String) -> NativeAppSnapshot {
+    public init(
+        schemaVersion: Int,
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil,
+        hasCompletedFirstRun: Bool,
+        cookProgressByRecipeID: [String: CookModeProgress],
+        shoppingList: ShoppingListState?,
+        captureDraft: CaptureDraft?,
+        pendingMutations: MutationQueue,
+        lastOpenedRoute: String?,
+        savedAt: String
+    ) {
+        self.schemaVersion = schemaVersion
+        self.accountID = accountID
+        self.environment = environment
+        self.hasCompletedFirstRun = hasCompletedFirstRun
+        self.cookProgressByRecipeID = cookProgressByRecipeID
+        self.shoppingList = shoppingList
+        self.captureDraft = captureDraft
+        self.pendingMutations = pendingMutations
+        self.lastOpenedRoute = lastOpenedRoute
+        self.savedAt = savedAt
+    }
+
+    public static func bootstrap(
+        shoppingList: ShoppingListState?,
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil,
+        savedAt: String
+    ) -> NativeAppSnapshot {
         NativeAppSnapshot(
             schemaVersion: 1,
+            accountID: accountID,
+            environment: environment,
             hasCompletedFirstRun: false,
             cookProgressByRecipeID: [:],
             shoppingList: shoppingList,
@@ -47,6 +80,10 @@ public struct NativeAppSnapshot: Codable, Equatable {
 
     public func cookProgress(for recipeID: String) -> CookModeProgress? {
         cookProgressByRecipeID[recipeID]
+    }
+
+    public func isScoped(accountID: String?, environment: NativeCacheEnvironment?) -> Bool {
+        self.accountID == accountID && self.environment == environment
     }
 
     public func completingFirstRun(savedAt: String) -> NativeAppSnapshot {
@@ -87,6 +124,10 @@ public struct NativeAppSnapshot: Codable, Equatable {
         copy(lastOpenedRoute: route.stateIdentifier, savedAt: savedAt)
     }
 
+    public func copyForCacheMigration(pendingMutations: MutationQueue) -> NativeAppSnapshot {
+        copy(pendingMutations: pendingMutations, savedAt: savedAt)
+    }
+
     private func copy(
         hasCompletedFirstRun: Bool? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
@@ -98,6 +139,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
     ) -> NativeAppSnapshot {
         NativeAppSnapshot(
             schemaVersion: schemaVersion,
+            accountID: accountID,
+            environment: environment,
             hasCompletedFirstRun: hasCompletedFirstRun ?? self.hasCompletedFirstRun,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
             shoppingList: shoppingList ?? self.shoppingList,

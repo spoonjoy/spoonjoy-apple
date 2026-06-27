@@ -1,0 +1,662 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts (6 tests | 5 failed) 561ms
+     ✓ declares write scope rows for item mutation endpoints 23ms
+     × adds, checks, and removes shopping-list items with exact mutation envelopes 90ms
+     × restores matching items, rejects unknown fields, and requires clientMutationId 41ms
+     × covers mutation validation, duplicate text, false checks, and missing item boundaries 167ms
+     × replays exact idempotent responses and rejects key conflicts 43ms
+     × enforces shopping_list:write before mutation body handling 65ms
+ ❯ test/routes/api-v1-shopping-sync.test.ts (6 tests | 4 failed) 211ms
+     ✓ declares read scope rows for list and sync endpoints 18ms
+     × returns the authenticated shopping list with active items and next cursor 38ms
+     × returns an empty shopping list for a chef with no items 16ms
+     × syncs active items and tombstones, filters by cursor, and reports hasMore false 30ms
+     ✓ uses deterministic sync ordering and cursor fallbacks 44ms
+     × requires authentication, enforces shopping_list:read, and validates cursors 24ms
+ ❯ test/routes/api-v1-scopes-public-tokens.test.ts (5 tests | 4 failed) 140ms
+     ✓ resolves method-specific scope requirements from one matrix 10ms
+     × allows optional discovery routes anonymously and for authenticated callers with no scopes 18ms
+     × rejects OAuth access tokens bound to the MCP protected resource on REST API v1 13ms
+     × enforces recipe and cookbook read scopes only when a bearer caller is present 23ms
+     × enforces token read/write scopes for sessions and explicit token scopes only 31ms
+ ❯ test/routes/api-v1-cookbooks.test.ts (6 tests | 5 failed) 186ms
+     × searches public cookbooks anonymously with query alias and limit behavior 46ms
+     × defaults blank cookbook queries, allows boundary limits, and handles zero active recipes 18ms
+     × returns cookbook detail with active recipe summaries and scoped bearer success 23ms
+     ✓ uses active recipe covers for cookbook art while recipe entries expose provenance 25ms
+     × returns missing cookbooks as not_found 8ms
+     × validates limit and rejects bearer tokens without cookbooks:read 19ms
+ ❯ test/routes/api-v1-shell.test.ts (19 tests | 9 failed) 152ms
+     ✓ is registered before the legacy /api/* catch-all route 7ms
+     × serves the exact discovery envelope with request IDs and CORS headers 12ms
+     ✓ treats a missing splat param as the v1 root 6ms
+     × serves anonymous health and generated request IDs 4ms
+     ✓ types Workers waitUntil context for future API v1 telemetry scheduling 3ms
+     ✓ exposes a bound waitUntil scheduler from API v1 route args 4ms
+     ✓ omits the API v1 scheduler when waitUntil is unavailable 3ms
+     ✓ does not schedule API v1 telemetry when PostHog is disabled 4ms
+     ✓ serves authenticated health with principal summary and scopes 15ms
+     × returns the v1 error envelope and Retry-After when the rate limiter denies a request before auth 5ms
+     × returns invalid_token for optional-auth routes when a bad bearer is present 5ms
+     × normalizes unexpected optional-auth failures to internal_error 5ms
+     × serves the OpenAPI shell document 10ms
+     × handles CORS preflight for any v1 path 4ms
+     × returns stable envelopes for unknown endpoints, unsupported methods, and malformed JSON 5ms
+     ✓ exports the full v1 error status map 4ms
+     ✓ serializes error details and internal fallback errors 4ms
+     ✓ validates JSON request body shape and byte limits directly 5ms
+     × normalizes unexpected optional-auth failures into internal errors 9ms
+ ❯ test/routes/api-v1-tokens.test.ts (5 tests | 5 failed) 128ms
+     × lists credential metadata for session and tokens:read bearer callers 30ms
+     × creates session tokens with requested and default scopes and never stores the secret 14ms
+     × caps bearer-created token scopes and rejects scope escalation 15ms
+     × revokes credentials and allows self-revoke for the current request only 19ms
+     × returns stable auth and validation errors for token endpoints 14ms
+ ❯ test/routes/api-v1-shopping-conflicts.test.ts (3 tests | 3 failed) 138ms
+     × uses server write order for check/delete conflicts and rejects client timestamps 53ms
+     × returns machine-readable missing item and malformed JSON errors 37ms
+     × returns retry semantics while an idempotent mutation is in progress 17ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 35 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-cookbooks.test.ts > API v1 public cookbook reads > searches public cookbooks anonymously with query alias and limit behavior
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-cookbooks.test.ts:23:64
+     21|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     22|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     23|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     24|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     25| }
+ ❯ test/routes/api-v1-cookbooks.test.ts:107:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/35]⎯
+
+ FAIL  test/routes/api-v1-cookbooks.test.ts > API v1 public cookbook reads > defaults blank cookbook queries, allows boundary limits, and handles zero active recipes
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-cookbooks.test.ts:23:64
+     21|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     22|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     23|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     24|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     25| }
+ ❯ test/routes/api-v1-cookbooks.test.ts:189:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/35]⎯
+
+ FAIL  test/routes/api-v1-cookbooks.test.ts > API v1 public cookbook reads > returns cookbook detail with active recipe summaries and scoped bearer success
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-cookbooks.test.ts:23:64
+     21|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     22|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     23|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     24|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     25| }
+ ❯ test/routes/api-v1-cookbooks.test.ts:245:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/35]⎯
+
+ FAIL  test/routes/api-v1-cookbooks.test.ts > API v1 public cookbook reads > returns missing cookbooks as not_found
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-cookbooks.test.ts:23:64
+     21|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     22|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     23|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     24|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     25| }
+ ❯ test/routes/api-v1-cookbooks.test.ts:396:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/35]⎯
+
+ FAIL  test/routes/api-v1-cookbooks.test.ts > API v1 public cookbook reads > validates limit and rejects bearer tokens without cookbooks:read
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-cookbooks.test.ts:23:64
+     21|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     22|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     23|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     24|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     25| }
+ ❯ test/routes/api-v1-cookbooks.test.ts:413:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/35]⎯
+
+ FAIL  test/routes/api-v1-scopes-public-tokens.test.ts > API v1 public/token scope matrix > allows optional discovery routes anonymously and for authenticated callers with no scopes
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-scopes-public-tokens.test.ts:31:64
+     29|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     30|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     31|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     32|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     33| }
+ ❯ test/routes/api-v1-scopes-public-tokens.test.ts:77:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/35]⎯
+
+ FAIL  test/routes/api-v1-scopes-public-tokens.test.ts > API v1 public/token scope matrix > rejects OAuth access tokens bound to the MCP protected resource on REST API v1
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-scopes-public-tokens.test.ts:31:64
+     29|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     30|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     31|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     32|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     33| }
+ ❯ test/routes/api-v1-scopes-public-tokens.test.ts:103:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/35]⎯
+
+ FAIL  test/routes/api-v1-scopes-public-tokens.test.ts > API v1 public/token scope matrix > enforces recipe and cookbook read scopes only when a bearer caller is present
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-scopes-public-tokens.test.ts:31:64
+     29|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     30|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     31|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     32|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     33| }
+ ❯ test/routes/api-v1-scopes-public-tokens.test.ts:151:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/35]⎯
+
+ FAIL  test/routes/api-v1-scopes-public-tokens.test.ts > API v1 public/token scope matrix > enforces token read/write scopes for sessions and explicit token scopes only
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-scopes-public-tokens.test.ts:31:64
+     29|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     30|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     31|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     32|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     33| }
+ ❯ test/routes/api-v1-scopes-public-tokens.test.ts:219:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > serves the exact discovery envelope with request IDs and CORS headers
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:58:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > serves anonymous health and generated request IDs
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:89:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > returns the v1 error envelope and Retry-After when the rate limiter denies a request before auth
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:219:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > returns invalid_token for optional-auth routes when a bad bearer is present
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:243:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > normalizes unexpected optional-auth failures to internal_error
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:268:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > serves the OpenAPI shell document
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:295:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > handles CORS preflight for any v1 path
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ test/routes/api-v1-shell.test.ts:313:66
+    311|     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("…
+    312|     expect(response.headers.get("Access-Control-Allow-Headers")).toBe(…
+    313|     expect(response.headers.get("Access-Control-Allow-Methods")).toBe(…
+       |                                                                  ^
+    314|     expect(response.headers.get("Access-Control-Expose-Headers")).toBe…
+    315|     expect(response.headers.has("Content-Type")).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > returns stable envelopes for unknown endpoints, unsupported methods, and malformed JSON
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:324:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/35]⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > normalizes unexpected optional-auth failures into internal errors
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectV1Headers test/routes/api-v1-shell.test.ts:35:64
+     33|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     34|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     35|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     36|   expect(response.headers.get("Access-Control-Expose-Headers")).toCont…
+     37| }
+ ❯ test/routes/api-v1-shell.test.ts:562:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-conflicts.test.ts > API v1 shopping-list conflict and error semantics > uses server write order for check/delete conflicts and rejects client timestamps
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-conflicts.test.ts:36:64
+     34|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     35|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     36|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     37|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     38| }
+ ❯ test/routes/api-v1-shopping-conflicts.test.ts:98:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-conflicts.test.ts > API v1 shopping-list conflict and error semantics > returns machine-readable missing item and malformed JSON errors
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-conflicts.test.ts:36:64
+     34|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     35|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     36|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     37|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     38| }
+ ❯ test/routes/api-v1-shopping-conflicts.test.ts:181:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-conflicts.test.ts > API v1 shopping-list conflict and error semantics > returns retry semantics while an idempotent mutation is in progress
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-conflicts.test.ts:36:64
+     34|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     35|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     36|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     37|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     38| }
+ ❯ test/routes/api-v1-shopping-conflicts.test.ts:261:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > adds, checks, and removes shopping-list items with exact mutation envelopes
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-mutations.test.ts:53:64
+     51|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     52|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     53|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     54|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     55| }
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:179:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > restores matching items, rejects unknown fields, and requires clientMutationId
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-mutations.test.ts:53:64
+     51|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     52|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     53|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     54|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     55| }
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:296:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > covers mutation validation, duplicate text, false checks, and missing item boundaries
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-mutations.test.ts:53:64
+     51|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     52|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     53|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     54|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     55| }
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:513:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > replays exact idempotent responses and rejects key conflicts
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-mutations.test.ts:53:64
+     51|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     52|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     53|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     54|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     55| }
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:566:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > enforces shopping_list:write before mutation body handling
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-mutations.test.ts:53:64
+     51|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     52|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     53|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     54|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     55| }
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:635:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > returns the authenticated shopping list with active items and next cursor
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-sync.test.ts:28:64
+     26|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     27|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     28|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     29|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     30| }
+ ❯ test/routes/api-v1-shopping-sync.test.ts:150:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > returns an empty shopping list for a chef with no items
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-sync.test.ts:28:64
+     26|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     27|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     28|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     29|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     30| }
+ ❯ test/routes/api-v1-shopping-sync.test.ts:200:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > syncs active items and tombstones, filters by cursor, and reports hasMore false
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-sync.test.ts:28:64
+     26|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     27|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     28|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     29|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     30| }
+ ❯ test/routes/api-v1-shopping-sync.test.ts:241:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/35]⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > requires authentication, enforces shopping_list:read, and validates cursors
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-shopping-sync.test.ts:28:64
+     26|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     27|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     28|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     29|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     30| }
+ ❯ test/routes/api-v1-shopping-sync.test.ts:362:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/35]⎯
+
+ FAIL  test/routes/api-v1-tokens.test.ts > API v1 personal token metadata > lists credential metadata for session and tokens:read bearer callers
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-tokens.test.ts:30:64
+     28|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     29|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     30|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     31|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     32| }
+ ❯ test/routes/api-v1-tokens.test.ts:77:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/35]⎯
+
+ FAIL  test/routes/api-v1-tokens.test.ts > API v1 personal token metadata > creates session tokens with requested and default scopes and never stores the secret
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-tokens.test.ts:30:64
+     28|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     29|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     30|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     31|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     32| }
+ ❯ test/routes/api-v1-tokens.test.ts:114:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/35]⎯
+
+ FAIL  test/routes/api-v1-tokens.test.ts > API v1 personal token metadata > caps bearer-created token scopes and rejects scope escalation
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-tokens.test.ts:30:64
+     28|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     29|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     30|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     31|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     32| }
+ ❯ test/routes/api-v1-tokens.test.ts:172:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/35]⎯
+
+ FAIL  test/routes/api-v1-tokens.test.ts > API v1 personal token metadata > revokes credentials and allows self-revoke for the current request only
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-tokens.test.ts:30:64
+     28|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     29|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     30|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     31|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     32| }
+ ❯ test/routes/api-v1-tokens.test.ts:221:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/35]⎯
+
+ FAIL  test/routes/api-v1-tokens.test.ts > API v1 personal token metadata > returns stable auth and validation errors for token endpoints
+AssertionError: expected 'GET, POST, PATCH, PUT, DELETE, OPTIONS' to be 'GET, POST, PATCH, DELETE, OPTIONS' // Object.is equality
+
+Expected: "GET, POST, PATCH, DELETE, OPTIONS"
+Received: "GET, POST, PATCH, PUT, DELETE, OPTIONS"
+
+ ❯ expectEnvelopeHeaders test/routes/api-v1-tokens.test.ts:30:64
+     28|   expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*"…
+     29|   expect(response.headers.get("Access-Control-Allow-Headers")).toBe("A…
+     30|   expect(response.headers.get("Access-Control-Allow-Methods")).toBe("G…
+       |                                                                ^
+     31|   expect(response.headers.get("Access-Control-Expose-Headers")).toBe("…
+     32| }
+ ❯ test/routes/api-v1-tokens.test.ts:313:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/35]⎯
+
+
+ Test Files  7 failed (7)
+      Tests  35 failed | 15 passed (50)
+   Start at  22:56:40
+   Duration  6.61s (transform 410ms, setup 557ms, import 1.77s, tests 1.52s, environment 1.80s)

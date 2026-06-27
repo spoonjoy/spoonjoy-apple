@@ -1,0 +1,255 @@
+{
+  "generatedAt": "2026-06-17T05:16:54.325Z",
+  "repository": "spoonjoy/spoonjoy-apple",
+  "branch": "main",
+  "expectedRequiredChecks": [
+    "Swift tests",
+    "Native scenario verifier",
+    "App bundle",
+    "Coverage"
+  ],
+  "requiredCheckNames": [
+    "Swift tests",
+    "Native scenario verifier",
+    "App bundle",
+    "Coverage"
+  ],
+  "missingExpectedRequiredChecks": [],
+  "strictStatusChecks": true,
+  "enforceAdmins": true,
+  "requiredPullRequestReviews": null,
+  "restrictions": null,
+  "evidence": {
+    "branch": {
+      "name": "main",
+      "commit": {
+        "sha": "a4550dd47fc288c000755eec31d201f34751cd30",
+        "node_id": "C_kwDOS7_F29oAKGE0NTUwZGQ0N2ZjMjg4YzAwMDc1NWVlYzMxZDIwMWYzNDc1MWNkMzA",
+        "commit": {
+          "author": {
+            "name": "Ari Mendelow",
+            "email": "ari@mendelow.me",
+            "date": "2026-06-16T23:11:56Z"
+          },
+          "committer": {
+            "name": "GitHub",
+            "email": "noreply@github.com",
+            "date": "2026-06-16T23:11:56Z"
+          },
+          "message": "Fix native validation artifact root handling\n\nMerged after protected checks passed: Swift tests, Native scenario verifier, App bundle, Coverage. Local full native matrix also passed with absolute temp artifact root.",
+          "tree": {
+            "sha": "8053195638709e9ab3405896198327336a1ed02a",
+            "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/git/trees/8053195638709e9ab3405896198327336a1ed02a"
+          },
+          "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/git/commits/a4550dd47fc288c000755eec31d201f34751cd30",
+          "comment_count": 0,
+          "verification": {
+            "verified": true,
+            "reason": "valid",
+            "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqMdg8CRC1aQ7uu5UhlAAAroYQAAuedtfQ6lLoYSVNSdBuoCce\n1OrO1LZQmDLMiPxSSI/hhb25ykpg75i+bNRXOBiTgKb8AOLt6Fdfr1cQ6q6HgKNe\nkOIyAuNOxj+0/vd9KrC5HlipqPafeC8Gi+qqzvEgHZfyeCEe6Gr5s5nLSLCegWtx\n/VJRlsh+2HOb/SZSl9QfRNRrkAIx6YqXsWb0Vl8PqGnjkhZ5sT3mPoCjrDG3dy8x\nPNMNWUg3fzySz1by9OOjL3XhK4DSkFhvGvwRTvvvwbWmaHAukNSxLWZOZ/Y0/NjQ\n24rw3nGxSRO6agHu911AtiM7GN9lkMQ+qNgd4zYu5ni8CEq7FQKQ0Cg2nV4KLv+/\n7E1gGCdptQemBoTI3V0fqb6vj5GN92JSBrqawOJGgtBNWzWaVc3wn1hb+XxCnqWG\njK7QkCOcBEECp57UWPHY/LaaCiwSvDZr2vztxMuyhpThzK/IvzbxrjQnqOy0UNQn\nQqvkfT9n2OhtWq8bq15WNmqEVIywdnYRIwBjcpSH4iki1Z4j4FCY8At5jvWTetMt\ncxXnRYxOCK5Fj45xUoqHYHgjPfR7Y7AjuumPMUEFc3Dc5mU7AuEzXxdTKOGUX3/v\np4WMN0T/NJ5KlNZfReSlt/Tj7pzTuVGHwMjPXZV40ZpS0py1qlYfox4fPyHTKHV7\nXtBaI6Ek/e+Z876Coh9R\n=vRBL\n-----END PGP SIGNATURE-----\n",
+            "payload": "tree 8053195638709e9ab3405896198327336a1ed02a\nparent 2b05a27c969974737dc352520ebf5ad7123d5f49\nauthor Ari Mendelow <ari@mendelow.me> 1781651516 -0700\ncommitter GitHub <noreply@github.com> 1781651516 -0700\n\nFix native validation artifact root handling\n\nMerged after protected checks passed: Swift tests, Native scenario verifier, App bundle, Coverage. Local full native matrix also passed with absolute temp artifact root.",
+            "verified_at": "2026-06-16T23:11:57Z"
+          }
+        },
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/commits/a4550dd47fc288c000755eec31d201f34751cd30",
+        "html_url": "https://github.com/spoonjoy/spoonjoy-apple/commit/a4550dd47fc288c000755eec31d201f34751cd30",
+        "comments_url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/commits/a4550dd47fc288c000755eec31d201f34751cd30/comments",
+        "author": {
+          "login": "arimendelow",
+          "id": 16390116,
+          "node_id": "MDQ6VXNlcjE2MzkwMTE2",
+          "avatar_url": "https://avatars.githubusercontent.com/u/16390116?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/arimendelow",
+          "html_url": "https://github.com/arimendelow",
+          "followers_url": "https://api.github.com/users/arimendelow/followers",
+          "following_url": "https://api.github.com/users/arimendelow/following{/other_user}",
+          "gists_url": "https://api.github.com/users/arimendelow/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/arimendelow/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/arimendelow/subscriptions",
+          "organizations_url": "https://api.github.com/users/arimendelow/orgs",
+          "repos_url": "https://api.github.com/users/arimendelow/repos",
+          "events_url": "https://api.github.com/users/arimendelow/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/arimendelow/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": true
+        },
+        "committer": {
+          "login": "web-flow",
+          "id": 19864447,
+          "node_id": "MDQ6VXNlcjE5ODY0NDQ3",
+          "avatar_url": "https://avatars.githubusercontent.com/u/19864447?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/web-flow",
+          "html_url": "https://github.com/web-flow",
+          "followers_url": "https://api.github.com/users/web-flow/followers",
+          "following_url": "https://api.github.com/users/web-flow/following{/other_user}",
+          "gists_url": "https://api.github.com/users/web-flow/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/web-flow/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/web-flow/subscriptions",
+          "organizations_url": "https://api.github.com/users/web-flow/orgs",
+          "repos_url": "https://api.github.com/users/web-flow/repos",
+          "events_url": "https://api.github.com/users/web-flow/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/web-flow/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "parents": [
+          {
+            "sha": "2b05a27c969974737dc352520ebf5ad7123d5f49",
+            "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/commits/2b05a27c969974737dc352520ebf5ad7123d5f49",
+            "html_url": "https://github.com/spoonjoy/spoonjoy-apple/commit/2b05a27c969974737dc352520ebf5ad7123d5f49"
+          }
+        ]
+      },
+      "_links": {
+        "self": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main",
+        "html": "https://github.com/spoonjoy/spoonjoy-apple/tree/main"
+      },
+      "protected": true,
+      "protection": {
+        "enabled": true,
+        "required_status_checks": {
+          "enforcement_level": "everyone",
+          "contexts": [
+            "Swift tests",
+            "Native scenario verifier",
+            "App bundle",
+            "Coverage"
+          ],
+          "checks": [
+            {
+              "context": "Swift tests",
+              "app_id": null
+            },
+            {
+              "context": "Native scenario verifier",
+              "app_id": null
+            },
+            {
+              "context": "App bundle",
+              "app_id": null
+            },
+            {
+              "context": "Coverage",
+              "app_id": null
+            }
+          ]
+        }
+      },
+      "protection_url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection"
+    },
+    "protection": {
+      "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection",
+      "required_status_checks": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_status_checks",
+        "strict": true,
+        "contexts": [
+          "Swift tests",
+          "Native scenario verifier",
+          "App bundle",
+          "Coverage"
+        ],
+        "contexts_url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_status_checks/contexts",
+        "checks": [
+          {
+            "context": "Swift tests",
+            "app_id": null
+          },
+          {
+            "context": "Native scenario verifier",
+            "app_id": null
+          },
+          {
+            "context": "App bundle",
+            "app_id": null
+          },
+          {
+            "context": "Coverage",
+            "app_id": null
+          }
+        ]
+      },
+      "required_signatures": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_signatures",
+        "enabled": false
+      },
+      "enforce_admins": {
+        "url": "https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/enforce_admins",
+        "enabled": true
+      },
+      "required_linear_history": {
+        "enabled": true
+      },
+      "allow_force_pushes": {
+        "enabled": false
+      },
+      "allow_deletions": {
+        "enabled": false
+      },
+      "block_creations": {
+        "enabled": false
+      },
+      "required_conversation_resolution": {
+        "enabled": true
+      },
+      "lock_branch": {
+        "enabled": false
+      },
+      "allow_fork_syncing": {
+        "enabled": false
+      }
+    },
+    "rulesets": []
+  },
+  "commands": {
+    "branch": {
+      "argv": [
+        "gh",
+        "api",
+        "repos/spoonjoy/spoonjoy-apple/branches/main"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:53.603Z",
+      "finishedAt": "2026-06-17T05:16:53.952Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "{\"name\":\"main\",\"commit\":{\"sha\":\"a4550dd47fc288c000755eec31d201f34751cd30\",\"node_id\":\"C_kwDOS7_F29oAKGE0NTUwZGQ0N2ZjMjg4YzAwMDc1NWVlYzMxZDIwMWYzNDc1MWNkMzA\",\"commit\":{\"author\":{\"name\":\"Ari Mendelow\",\"email\":\"ari@mendelow.me\",\"date\":\"2026-06-16T23:11:56Z\"},\"committer\":{\"name\":\"GitHub\",\"email\":\"noreply@github.com\",\"date\":\"2026-06-16T23:11:56Z\"},\"message\":\"Fix native validation artifact root handling\\n\\nMerged after protected checks passed: Swift tests, Native scenario verifier, App bundle, Coverage. Local full native matrix also passed with absolute temp artifact root.\",\"tree\":{\"sha\":\"8053195638709e9ab3405896198327336a1ed02a\",\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/git/trees/8053195638709e9ab3405896198327336a1ed02a\"},\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/git/commits/a4550dd47fc288c000755eec31d201f34751cd30\",\"comment_count\":0,\"verification\":{\"verified\":true,\"reason\":\"valid\",\"signature\":\"-----BEGIN PGP SIGNATURE-----\\n\\nwsFcBAABCAAQBQJqMdg8CRC1aQ7uu5UhlAAAroYQAAuedtfQ6lLoYSVNSdBuoCce\\n1OrO1LZQmDLMiPxSSI/hhb25ykpg75i+bNRXOBiTgKb8AOLt6Fdfr1cQ6q6HgKNe\\nkOIyAuNOxj+0/vd9KrC5HlipqPafeC8Gi+qqzvEgHZfyeCEe6Gr5s5nLSLCegWtx\\n/VJRlsh+2HOb/SZSl9QfRNRrkAIx6YqXsWb0Vl8PqGnjkhZ5sT3mPoCjrDG3dy8x\\nPNMNWUg3fzySz1by9OOjL3XhK4DSkFhvGvwRTvvvwbWmaHAukNSxLWZOZ/Y0/NjQ\\n24rw3nGxSRO6agHu911AtiM7GN9lkMQ+qNgd4zYu5ni8CEq7FQKQ0Cg2nV4KLv+/\\n7E1gGCdptQemBoTI3V0fqb6vj5GN92JSBrqawOJGgtBNWzWaVc3wn1hb+XxCnqWG\\njK7QkCOcBEECp57UWPHY/LaaCiwSvDZr2vztxMuyhpThzK/IvzbxrjQnqOy0UNQn\\nQqvkfT9n2OhtWq8bq15WNmqEVIywdnYRIwBjcpSH4iki1Z4j4FCY8At5jvWTetMt\\ncxXnRYxOCK5Fj45xUoqHYHgjPfR7Y7AjuumPMUEFc3Dc5mU7AuEzXxdTKOGUX3/v\\np4WMN0T/NJ5KlNZfReSlt/Tj7pzTuVGHwMjPXZV40ZpS0py1qlYfox4fPyHTKHV7\\nXtBaI6Ek/e+Z876Coh9R\\n=vRBL\\n-----END PGP SIGNATURE-----\\n\",\"payload\":\"tree 8053195638709e9ab3405896198327336a1ed02a\\nparent 2b05a27c969974737dc352520ebf5ad7123d5f49\\nauthor Ari Mendelow <ari@mendelow.me> 1781651516 -0700\\ncommitter GitHub <noreply@github.com> 1781651516 -0700\\n\\nFix native validation artifact root handling\\n\\nMerged after protected checks passed: Swift tests, Native scenario verifier, App bundle, Coverage. Local full native matrix also passed with absolute temp artifact root.\",\"verified_at\":\"2026-06-16T23:11:57Z\"}},\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/commits/a4550dd47fc288c000755eec31d201f34751cd30\",\"html_url\":\"https://github.com/spoonjoy/spoonjoy-apple/commit/a4550dd47fc288c000755eec31d201f34751cd30\",\"comments_url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/commits/a4550dd47fc288c000755eec31d201f34751cd30/comments\",\"author\":{\"login\":\"arimendelow\",\"id\":16390116,\"node_id\":\"MDQ6VXNlcjE2MzkwMTE2\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/16390116?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/arimendelow\",\"html_url\":\"https://github.com/arimendelow\",\"followers_url\":\"https://api.github.com/users/arimendelow/followers\",\"following_url\":\"https://api.github.com/users/arimendelow/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/arimendelow/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/arimendelow/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/arimendelow/subscriptions\",\"organizations_url\":\"https://api.github.com/users/arimendelow/orgs\",\"repos_url\":\"https://api.github.com/users/arimendelow/repos\",\"events_url\":\"https://api.github.com/users/arimendelow/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/arimendelow/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":true},\"committer\":{\"login\":\"web-flow\",\"id\":19864447,\"node_id\":\"MDQ6VXNlcjE5ODY0NDQ3\",\"avatar_url\":\"https://avatars.githubusercontent.com/u/19864447?v=4\",\"gravatar_id\":\"\",\"url\":\"https://api.github.com/users/web-flow\",\"html_url\":\"https://github.com/web-flow\",\"followers_url\":\"https://api.github.com/users/web-flow/followers\",\"following_url\":\"https://api.github.com/users/web-flow/following{/other_user}\",\"gists_url\":\"https://api.github.com/users/web-flow/gists{/gist_id}\",\"starred_url\":\"https://api.github.com/users/web-flow/starred{/owner}{/repo}\",\"subscriptions_url\":\"https://api.github.com/users/web-flow/subscriptions\",\"organizations_url\":\"https://api.github.com/users/web-flow/orgs\",\"repos_url\":\"https://api.github.com/users/web-flow/repos\",\"events_url\":\"https://api.github.com/users/web-flow/events{/privacy}\",\"received_events_url\":\"https://api.github.com/users/web-flow/received_events\",\"type\":\"User\",\"user_view_type\":\"public\",\"site_admin\":false},\"parents\":[{\"sha\":\"2b05a27c969974737dc352520ebf5ad7123d5f49\",\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/commits/2b05a27c969974737dc352520ebf5ad7123d5f49\",\"html_url\":\"https://github.com/spoonjoy/spoonjoy-apple/commit/2b05a27c969974737dc352520ebf5ad7123d5f49\"}]},\"_links\":{\"self\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main\",\"html\":\"https://github.com/spoonjoy/spoonjoy-apple/tree/main\"},\"protected\":true,\"protection\":{\"enabled\":true,\"required_status_checks\":{\"enforcement_level\":\"everyone\",\"contexts\":[\"Swift tests\",\"Native scenario verifier\",\"App bundle\",\"Coverage\"],\"checks\":[{\"context\":\"Swift tests\",\"app_id\":null},{\"context\":\"Native scenario verifier\",\"app_id\":null},{\"context\":\"App bundle\",\"app_id\":null},{\"context\":\"Coverage\",\"app_id\":null}]}},\"protection_url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection\"}",
+      "stderr": ""
+    },
+    "protection": {
+      "argv": [
+        "gh",
+        "api",
+        "repos/spoonjoy/spoonjoy-apple/branches/main/protection"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:53.134Z",
+      "finishedAt": "2026-06-17T05:16:53.603Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection\",\"required_status_checks\":{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_status_checks\",\"strict\":true,\"contexts\":[\"Swift tests\",\"Native scenario verifier\",\"App bundle\",\"Coverage\"],\"contexts_url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_status_checks/contexts\",\"checks\":[{\"context\":\"Swift tests\",\"app_id\":null},{\"context\":\"Native scenario verifier\",\"app_id\":null},{\"context\":\"App bundle\",\"app_id\":null},{\"context\":\"Coverage\",\"app_id\":null}]},\"required_signatures\":{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/required_signatures\",\"enabled\":false},\"enforce_admins\":{\"url\":\"https://api.github.com/repos/spoonjoy/spoonjoy-apple/branches/main/protection/enforce_admins\",\"enabled\":true},\"required_linear_history\":{\"enabled\":true},\"allow_force_pushes\":{\"enabled\":false},\"allow_deletions\":{\"enabled\":false},\"block_creations\":{\"enabled\":false},\"required_conversation_resolution\":{\"enabled\":true},\"lock_branch\":{\"enabled\":false},\"allow_fork_syncing\":{\"enabled\":false}}",
+      "stderr": ""
+    },
+    "rulesets": {
+      "argv": [
+        "gh",
+        "api",
+        "repos/spoonjoy/spoonjoy-apple/rulesets"
+      ],
+      "cwd": "/Users/arimendelow/Projects/spoonjoy-apple",
+      "startedAt": "2026-06-17T05:16:53.952Z",
+      "finishedAt": "2026-06-17T05:16:54.325Z",
+      "exitCode": 0,
+      "signal": null,
+      "ok": true,
+      "stdout": "[]",
+      "stderr": ""
+    }
+  },
+  "ok": true
+}

@@ -1,0 +1,260 @@
+{
+  "ok": true,
+  "generatedAt": "2026-06-27T13:37:32Z",
+  "steps": [
+    {
+      "name": "xcode version",
+      "status": "pass",
+      "command": "bash -c xcode_version=\"$(xcodebuild -version)\" && printf \"%s\\n\" \"$xcode_version\" && first_line=\"$(printf \"%s\\n\" \"$xcode_version\" | sed -n \"1p\")\" && test \"$first_line\" = \"Xcode 26.5\"",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-version.log",
+      "required": true
+    },
+    {
+      "name": "ruby bundle check",
+      "status": "pass",
+      "command": "scripts/bundle-check.sh",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-bundle-check.log",
+      "required": true
+    },
+    {
+      "name": "swift tests",
+      "status": "pass",
+      "command": "swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-swift-test.log",
+      "required": true
+    },
+    {
+      "name": "swift coverage test",
+      "status": "pass",
+      "command": "swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-test.log",
+      "required": true
+    },
+    {
+      "name": "swift coverage path",
+      "status": "pass",
+      "command": "swift test --show-codecov-path",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/coverage-json-path.log",
+      "required": true
+    },
+    {
+      "name": "coverage enforcement",
+      "status": "pass",
+      "command": "ruby scripts/enforce-swift-coverage.rb --coverage-json /Users/arimendelow/Projects/spoonjoy-apple/.build/arm64-apple-macosx/debug/codecov/SpoonjoyApple.json --minimum 100 --include Sources/SpoonjoyCore",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-enforce.log",
+      "required": true
+    },
+    {
+      "name": "native scenario final",
+      "status": "pass",
+      "command": "scripts/verify-native-scenarios.sh --stage final --output tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-report.json",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-scenario.log",
+      "required": true
+    },
+    {
+      "name": "xcode project contract",
+      "status": "pass",
+      "command": "scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-project-contract.log",
+      "required": true
+    },
+    {
+      "name": "xcode generator contract",
+      "status": "pass",
+      "command": "scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-generator-contract.log",
+      "required": true
+    },
+    {
+      "name": "native design contract",
+      "status": "pass",
+      "command": "ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-design-contract.log",
+      "required": true
+    },
+    {
+      "name": "kitchen surfaces contract",
+      "status": "pass",
+      "command": "ruby scripts/check-kitchen-recipe-surfaces.rb",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-kitchen-surfaces-contract.log",
+      "required": true
+    },
+    {
+      "name": "cook shopping contract",
+      "status": "pass",
+      "command": "ruby scripts/check-cook-shopping-surfaces.rb",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-cook-shopping-contract.log",
+      "required": true
+    },
+    {
+      "name": "search capture settings contract",
+      "status": "pass",
+      "command": "ruby scripts/check-search-capture-settings-surfaces.rb",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-search-capture-contract.log",
+      "required": true
+    },
+    {
+      "name": "launch screenshot contract",
+      "status": "pass",
+      "command": "ruby scripts/check-launch-screenshot-contract.rb",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-launch-screenshot-contract.log",
+      "required": true
+    },
+    {
+      "name": "AASA validation or blocker",
+      "status": "pass",
+      "command": "ruby scripts/validate-aasa.rb --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-aasa.log",
+      "required": true
+    },
+    {
+      "name": "iOS app bundle",
+      "status": "blocked",
+      "command": "scripts/run-xcodebuild-with-blocker.sh --output tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log --blocker tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json --timeout-seconds 30 -- xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy iOS -configuration BootstrapDebug -destination generic/platform=iOS Simulator CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+      "required": true,
+      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "name": "macOS app bundle",
+      "status": "blocked",
+      "command": "skipped after iOS XcodePlatform blocker",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log",
+      "required": true,
+      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "name": "macOS launch smoke",
+      "status": "blocked",
+      "command": "skipped after XcodePlatform blocker",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log",
+      "required": true,
+      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "name": "iOS simulator smoke",
+      "status": "blocked",
+      "command": "skipped after XcodePlatform blocker",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios.log",
+      "required": true,
+      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "name": "screenshots and design review",
+      "status": "blocked",
+      "command": "skipped after XcodePlatform blocker",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
+      "required": true,
+      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json"
+    },
+    {
+      "name": "design review validation",
+      "status": "pass",
+      "command": "ruby scripts/validate-design-review-blocker.rb tasks/2026-06-16-1754-doing-siri-full-access-parity/design-review-blocked.json --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity --unit-slug matrix",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-review.log",
+      "required": true
+    },
+    {
+      "name": "warning scan",
+      "status": "pass",
+      "command": "scripts/fail-on-warning.rb --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-swift-test.log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-test.log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-scenario.log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-warning-scan.log",
+      "required": true
+    }
+  ],
+  "blockers": [
+    {
+      "capability": "XcodePlatform",
+      "blocked": true,
+      "command": "xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy iOS -configuration BootstrapDebug -destination generic/platform=iOS Simulator CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
+      "timeoutSeconds": 30,
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+      "reason": "Local Xcode platform or pre-parse state blocked app bundle validation.",
+      "ownerAction": "Install the required Xcode platform/runtime and rerun app bundle validation.",
+      "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "capability": "XcodePlatform",
+      "blocked": true,
+      "command": "screenshots skipped after app-bundle XcodePlatform blocker",
+      "timeoutSeconds": 30,
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform.log",
+      "reason": "Local Xcode platform or pre-parse state blocked app bundle validation.",
+      "ownerAction": "Install the required Xcode platform/runtime and rerun app bundle validation.",
+      "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json"
+    },
+    {
+      "generatedAt": "2026-06-27T06:37:29-07:00",
+      "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
+      "httpsNoRedirectExpected": true,
+      "redirected": false,
+      "requiredAppIDs": [
+        "TEAMID.app.spoonjoy.Spoonjoy",
+        "TEAMID.app.spoonjoy.Spoonjoy.mac"
+      ],
+      "expectedRoutes": [
+        "https://spoonjoy.app/",
+        "https://spoonjoy.app/recipes",
+        "https://spoonjoy.app/recipes/{id}",
+        "https://spoonjoy.app/recipes/{id}/edit",
+        "https://spoonjoy.app/recipes/{id}#cook",
+        "https://spoonjoy.app/recipes/{id}?mode=cook",
+        "https://spoonjoy.app/cookbooks",
+        "https://spoonjoy.app/cookbooks/{id}",
+        "https://spoonjoy.app/shopping-list",
+        "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+        "https://spoonjoy.app/recipes/new",
+        "https://spoonjoy.app/account/settings"
+      ],
+      "expectedComponents": [
+        {
+          "/": "/"
+        },
+        {
+          "/": "/recipes"
+        },
+        {
+          "/": "/recipes/*"
+        },
+        {
+          "/": "/cookbooks"
+        },
+        {
+          "/": "/cookbooks/*"
+        },
+        {
+          "/": "/shopping-list"
+        },
+        {
+          "/": "/search",
+          "?": {
+            "*": "*"
+          }
+        },
+        {
+          "/": "/recipes/new"
+        },
+        {
+          "/": "/account/settings"
+        }
+      ],
+      "fetched": {
+        "status": 404,
+        "contentType": "text/html",
+        "location": null,
+        "bodySHA256": "b4c10efd3282e6725c16d8c2f1cc709068b98017cfe9769cd1fbcd4dbea6b52f",
+        "bodyBytes": 14841
+      },
+      "validJSON": false,
+      "discoveredAppIDs": [
+
+      ],
+      "ok": false,
+      "blocked": true,
+      "capability": "AASAProductionValidation",
+      "reason": "AASA endpoint did not return valid JSON.",
+      "blockerReason": "AASA endpoint did not return valid JSON.",
+      "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/aasa-production-blocker.json"
+    }
+  ]
+}

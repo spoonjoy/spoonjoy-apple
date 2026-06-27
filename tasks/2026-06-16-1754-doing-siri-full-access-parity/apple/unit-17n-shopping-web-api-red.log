@@ -1,0 +1,82 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-shopping-sync.test.ts (8 tests | 3 failed) 307ms
+     × declares read scope rows for list and sync endpoints 17ms
+     ✓ returns the authenticated shopping list with active items and next cursor 42ms
+     ✓ returns an empty shopping list for a chef with no items 16ms
+     ✓ syncs active items and tombstones, filters by cursor, and reports hasMore false 29ms
+     ✓ uses deterministic sync ordering and cursor fallbacks 39ms
+     ✓ requires authentication, enforces shopping_list:read, and validates cursors 41ms
+     × adds recipe ingredients through API v1 with duplicate merge and idempotent replay 29ms
+     × clears completed and all shopping-list items through API v1 20ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > declares read scope rows for list and sync endpoints
+AssertionError: expected null to deeply equal { auth: 'bearer', …(1) }
+
+- Expected:
+{
+  "auth": "bearer",
+  "scopes": [
+    "shopping_list:write",
+  ],
+}
+
++ Received:
+null
+
+ ❯ test/routes/api-v1-shopping-sync.test.ts:171:83
+    169|       scopes: ["shopping_list:read"],
+    170|     });
+    171|     expect(resolveApiV1ScopeRequirement("POST", "shopping-list/add-fro…
+       |                                                                                   ^
+    172|       auth: "bearer",
+    173|       scopes: ["shopping_list:write"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > adds recipe ingredients through API v1 with duplicate merge and idempotent replay
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ test/routes/api-v1-shopping-sync.test.ts:505:29
+    503|     const replayPayload = await readJson(replay);
+    504|
+    505|     expect(response.status).toBe(200);
+       |                             ^
+    506|     expectEnvelopeHeaders(response, "req_shopping_add_recipe");
+    507|     expectSuccessEnvelope(payload, "req_shopping_add_recipe");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > clears completed and all shopping-list items through API v1
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ test/routes/api-v1-shopping-sync.test.ts:557:35
+    555|     const clearCompletedPayload = await readJson(clearCompleted);
+    556|
+    557|     expect(clearCompleted.status).toBe(200);
+       |                                   ^
+    558|     expectEnvelopeHeaders(clearCompleted, "req_shopping_clear_complete…
+    559|     expectSuccessEnvelope(clearCompletedPayload, "req_shopping_clear_c…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 5 passed (8)
+   Start at  01:11:33
+   Duration  1.23s (transform 190ms, setup 152ms, import 359ms, tests 307ms, environment 273ms)

@@ -1,0 +1,417 @@
+import SpoonjoyCore
+import SwiftUI
+
+struct RecipeCoverControlsRouteView: View {
+    let recipeID: String
+    let initialRecipe: Recipe?
+    let recipeRepository: any RecipeCatalogRepository
+    let configuration: APIClientConfiguration
+    let connectivity: RecipeCoverControlsConnectivity
+    let performCoverAction: @MainActor @Sendable (RecipeCoverControlsMutationPlan) async throws -> Void
+    let close: () -> Void
+
+    @State private var recipe: Recipe?
+    @State private var data: RecipeCoverControlsData?
+    @State private var loadMessage: String?
+    @State private var actionMessage: String?
+    @State private var actionError: String?
+    @State private var providerBlocker: RecipeCoverProviderBlockerDisplay?
+
+    var body: some View {
+        Group {
+            if let recipe {
+                RecipeCoverControlsView(
+                    recipe: recipe,
+                    data: data ?? .snapshot(recipe: recipe),
+                    loadMessage: loadMessage,
+                    actionMessage: actionMessage,
+                    actionError: actionError,
+                    providerBlocker: providerBlocker,
+                    connectivity: connectivity,
+                    runAction: runAction,
+                    close: close
+                )
+            } else if let loadMessage {
+                Label(loadMessage, systemImage: "photo.on.rectangle")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding()
+                    .background(KitchenTableTheme.bone)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(KitchenTableTheme.bone)
+            }
+        }
+        .task(id: recipeID) {
+            await load()
+        }
+    }
+
+    @MainActor private func load() async {
+        do {
+            let loadedRecipe: Recipe
+            if let initialRecipe {
+                loadedRecipe = initialRecipe
+            } else {
+                let detail = try await recipeRepository.recipeDetail(id: recipeID)
+                loadedRecipe = detail.recipe
+            }
+            recipe = loadedRecipe
+            do {
+                data = try await RecipeCoverControlsData.live(
+                    recipeID: loadedRecipe.id,
+                    configuration: configuration
+                )
+                loadMessage = nil
+            } catch {
+                data = .snapshot(recipe: loadedRecipe)
+                loadMessage = "Cover history is unavailable; showing the current cached cover."
+            }
+        } catch {
+            loadMessage = "Recipe unavailable."
+        }
+    }
+
+    @MainActor private func runAction(_ action: RecipeCoverControlsAction) {
+        guard let recipe else { return }
+        let plan: RecipeCoverControlsMutationPlan
+        do {
+            plan = try RecipeCoverControlsMutationPlan.plan(
+                action,
+                recipeID: recipe.id,
+                connectivity: connectivity
+            )
+        } catch {
+            actionError = error.localizedDescription
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                try await performCoverAction(plan)
+                actionError = nil
+                actionMessage = action.successMessage
+                providerBlocker = nil
+                await load()
+            } catch {
+                if let blocker = RecipeCoverProviderBlockerDisplay.from(error: error) {
+                    providerBlocker = blocker
+                    actionError = blocker.message
+                } else {
+                    actionError = "Cover change could not be saved."
+                }
+            }
+        }
+    }
+}
+
+struct RecipeCoverControlsView: View {
+    let recipe: Recipe
+    let data: RecipeCoverControlsData
+    let loadMessage: String?
+    let actionMessage: String?
+    let actionError: String?
+    let providerBlocker: RecipeCoverProviderBlockerDisplay?
+    let connectivity: RecipeCoverControlsConnectivity
+    let runAction: @MainActor (RecipeCoverControlsAction) -> Void
+    let close: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                header
+                statusMessages
+                noCoverControl
+                coverList
+                spoonPhotoList
+            }
+            .padding()
+        }
+        .background(KitchenTableTheme.bone)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                close()
+            } label: {
+                Label("Recipe", systemImage: "chevron.left")
+            }
+            .buttonStyle(.borderless)
+
+            Text("Recipe Covers")
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(recipe.title)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(.secondary)
+            if connectivity == .offline {
+                Label("Changes will queue until Spoonjoy is online.", systemImage: "wifi.slash")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.brass)
+            }
+        }
+    }
+
+    @ViewBuilder private var statusMessages: some View {
+        if let loadMessage {
+            Label(loadMessage, systemImage: "exclamationmark.triangle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+        }
+        if let actionMessage {
+            Label(actionMessage, systemImage: "checkmark.circle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.herb)
+        }
+        if let actionError {
+            Label(actionError, systemImage: "exclamationmark.octagon")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(.red)
+        }
+        if let providerBlocker {
+            providerBlockerBanner(providerBlocker)
+        }
+    }
+
+    private func providerBlockerBanner(_ blocker: RecipeCoverProviderBlockerDisplay) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            OfflineStatusView(display: blocker.offlineIndicatorDisplay)
+            Text(blocker.message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.tomato)
+            if blocker.ownerActionRequired {
+                Text("Owner setup is required before editorial cover generation can run.")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var noCoverControl: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("No cover selected")
+                    .font(.headline)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                Text("Use an explicit empty state for this recipe.")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                runAction(.setNoCover(clientMutationID: clientMutationID(prefix: "cover-none")))
+            } label: {
+                Label("Set No Cover", systemImage: "photo.badge.minus")
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    @ViewBuilder private var coverList: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Saved Covers")
+                .font(.title2)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+
+            if data.covers.isEmpty {
+                Text("No saved covers yet.")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(.secondary)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.background)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            } else {
+                ForEach(data.covers) { cover in
+                    coverRow(cover)
+                }
+            }
+        }
+    }
+
+    private func coverRow(_ cover: RecipeCoverCandidate) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                RecipeCoverImage(url: cover.thumbnailURL)
+                    .frame(width: 92, height: 92)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(cover.statusLabel)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(.secondary)
+                        if cover.isActive {
+                            Text("Current")
+                                .font(KitchenTableTheme.uiLabel)
+                                .foregroundStyle(KitchenTableTheme.brass)
+                        }
+                    }
+                    Text(cover.createdAtLabel)
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(.secondary)
+                    if let provenanceLabel = cover.provenanceLabel {
+                        Text(provenanceLabel)
+                            .font(KitchenTableTheme.bodyNote)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                    }
+                    if let providerBlocker = cover.providerBlocker {
+                        OfflineStatusView(display: providerBlocker.offlineIndicatorDisplay)
+                        Text(providerBlocker.message)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.tomato)
+                    } else if let failureReason = cover.failureReason {
+                        Text(failureReason)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.tomato)
+                    }
+                }
+                Spacer()
+            }
+
+            ForEach(cover.variants) { variant in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(variant.provenanceLabel)
+                            .font(KitchenTableTheme.bodyNote)
+                        Text(variant.variant.label)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if variant.isActive {
+                        Label("Active", systemImage: "checkmark.circle.fill")
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.brass)
+                    } else if cover.canActivate {
+                        Button {
+                            runAction(.activate(
+                                coverID: cover.id,
+                                variant: variant.variant,
+                                clientMutationID: clientMutationID(prefix: "cover-use")
+                            ))
+                        } label: {
+                            Label("Use", systemImage: "checkmark.circle")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            HStack {
+                if cover.canMutate {
+                    Button {
+                        runAction(.regenerate(
+                            coverID: cover.id,
+                            activateWhenReady: false,
+                            clientMutationID: clientMutationID(prefix: "cover-regenerate")
+                        ))
+                    } label: {
+                        Label("Regenerate", systemImage: "wand.and.stars")
+                    }
+                    .buttonStyle(.bordered)
+
+                    if cover.isActive {
+                        let replacementOptions = replacementOptions(for: cover)
+                        if !replacementOptions.isEmpty {
+                            Menu {
+                                ForEach(replacementOptions) { option in
+                                    Button {
+                                        runAction(.archive(
+                                            coverID: cover.id,
+                                            replacementCoverID: option.coverID,
+                                            replacementVariant: option.variant,
+                                            confirmNoCover: false,
+                                            deleteSafeObjects: false,
+                                            clientMutationID: clientMutationID(prefix: "cover-archive-replace")
+                                        ))
+                                    } label: {
+                                        Label(option.label, systemImage: "arrow.triangle.2.circlepath")
+                                    }
+                                }
+                            } label: {
+                                Label("Archive And Replace", systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+
+                    Button(role: .destructive) {
+                        runAction(.archive(
+                            coverID: cover.id,
+                            replacementCoverID: nil,
+                            replacementVariant: nil,
+                            confirmNoCover: cover.isActive,
+                            deleteSafeObjects: false,
+                            clientMutationID: clientMutationID(prefix: "cover-archive")
+                        ))
+                    } label: {
+                        Label(cover.isActive ? "Archive And Clear" : "Archive", systemImage: "archivebox")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private func replacementOptions(for cover: RecipeCoverCandidate) -> [RecipeCoverReplacementOption] {
+        data.replacementOptions(for: cover)
+    }
+
+    @ViewBuilder private var spoonPhotoList: some View {
+        if !data.spoonImages.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Spoon Photos")
+                    .font(.title2)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+
+                ForEach(data.spoonImages) { spoon in
+                    HStack(spacing: 12) {
+                        RecipeCoverImage(url: spoon.photoURL)
+                            .frame(width: 76, height: 76)
+                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(spoon.chef.username)
+                                .font(KitchenTableTheme.bodyNote)
+                            Text(spoon.cookedAtLabel)
+                                .font(KitchenTableTheme.uiLabel)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            runAction(.createFromSpoon(
+                                spoonID: spoon.id,
+                                activate: false,
+                                generateEditorial: true,
+                                clientMutationID: clientMutationID(prefix: "cover-spoon")
+                            ))
+                        } label: {
+                            Label("Create Cover", systemImage: "photo.badge.plus")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding()
+                    .background(.background)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                }
+            }
+        }
+    }
+
+    private func clientMutationID(prefix: String) -> String {
+        "\(prefix)-\(UUID().uuidString)"
+    }
+}

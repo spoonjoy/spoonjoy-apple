@@ -35,6 +35,10 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "OpenRecipeIntent",
             "StartCookModeIntent",
             "AddShoppingListItemIntent",
+            "SetShoppingListItemCheckedIntent",
+            "AddRecipeIngredientsToShoppingListIntent",
+            "ClearCompletedShoppingItemsIntent",
+            "ClearShoppingListIntent",
             "CaptureRecipeIntent"
         ],
         spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item"],

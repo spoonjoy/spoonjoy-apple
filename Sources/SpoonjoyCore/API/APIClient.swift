@@ -23,7 +23,13 @@ public enum APIRequestMethod: String, Equatable, Sendable {
     case get = "GET"
     case post = "POST"
     case patch = "PATCH"
+    case put = "PUT"
     case delete = "DELETE"
+}
+
+public enum APIResponseCachePolicy: Equatable, Sendable {
+    case publicCache(maxAgeSeconds: Int, staleWhileRevalidateSeconds: Int)
+    case privateNoStore
 }
 
 public struct APIRequestURL: Equatable, Sendable {
@@ -38,4 +44,5 @@ public struct APIRequest: Equatable, Sendable {
     public let queryItems: [URLQueryItem]
     public let headers: [String: String]
     public let body: Data?
+    public let responseCachePolicy: APIResponseCachePolicy?
 }

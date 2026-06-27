@@ -1,0 +1,112 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-native-sync.test.ts (5 tests | 5 failed) 345ms
+     × declares the private current-chef sync scope and enforces auth before syncing 112ms
+     × returns freshness metadata and ordered upsert entries for the current product model 35ms
+     × paginates by deterministic updatedAt, kind, and id ordering with opaque cursors 36ms
+     × returns delete tombstones for recipes, cookbooks, spoons, and shopping items without payload leaks 34ms
+     × validates cursor and page limits before returning native sync data 34ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > declares the private current-chef sync scope and enforces auth before syncing
+AssertionError: expected 405 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 405
+
+ ❯ test/routes/api-v1-native-sync.test.ts:354:32
+    352|       headers: { "X-Request-Id": "req_native_sync_missing_auth" },
+    353|     }) as unknown as Request, "me/sync"));
+    354|     expect(missingAuth.status).toBe(401);
+       |                                ^
+    355|     expectPrivateEnvelopeHeaders(missingAuth, "req_native_sync_missing…
+    356|     expectErrorEnvelope(await readJson(missingAuth), "req_native_sync_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > returns freshness metadata and ordered upsert entries for the current product model
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-native-sync.test.ts:370:29
+    368|     const payload = await readJson(response);
+    369|
+    370|     expect(response.status).toBe(200);
+       |                             ^
+    371|     expectPrivateEnvelopeHeaders(response, "req_native_sync_full");
+    372|     expectSuccessEnvelope(payload, "req_native_sync_full");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > paginates by deterministic updatedAt, kind, and id ordering with opaque cursors
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-native-sync.test.ts:472:26
+    470|     const firstPayload = await readJson(first);
+    471|
+    472|     expect(first.status).toBe(200);
+       |                          ^
+    473|     expectSuccessEnvelope(firstPayload, "req_native_sync_page_1");
+    474|     expectNativeSyncDataShape(firstPayload.data);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > returns delete tombstones for recipes, cookbooks, spoons, and shopping items without payload leaks
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-native-sync.test.ts:520:29
+    518|     const payload = await readJson(response);
+    519|
+    520|     expect(response.status).toBe(200);
+       |                             ^
+    521|     expectPrivateEnvelopeHeaders(response, "req_native_sync_tombstones…
+    522|     expectSuccessEnvelope(payload, "req_native_sync_tombstones");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > validates cursor and page limits before returning native sync data
+AssertionError: expected 405 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 405
+
+ ❯ test/routes/api-v1-native-sync.test.ts:610:31
+    608|         requestId,
+    609|       ), "me/sync"));
+    610|       expect(response.status).toBe(400);
+       |                               ^
+    611|       expectPrivateEnvelopeHeaders(response, requestId);
+    612|       expectErrorEnvelope(await readJson(response), requestId, "invali…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  17:18:25
+   Duration  2.86s (transform 745ms, setup 437ms, import 1.66s, tests 345ms, environment 265ms)

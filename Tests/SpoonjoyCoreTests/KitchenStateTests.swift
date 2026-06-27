@@ -32,6 +32,7 @@ struct KitchenStateTests {
             true,
             itemID: "item_lemons",
             checkedAt: "2026-06-01T00:20:00.000Z",
+            updatedAt: "2026-06-01T00:20:00.000Z",
             nextSortIndex: 4
         )
         let checkedLemons = try #require(checked.item(id: "item_lemons"))
@@ -40,10 +41,17 @@ struct KitchenStateTests {
         #expect(checkedLemons.checkedAt == "2026-06-01T00:20:00.000Z")
         #expect(checked.activeItems.map(\.id) == ["item_spaghetti", "item_parmesan", "item_lemons"])
 
-        let unchecked = try checked.settingChecked(false, itemID: "item_lemons", checkedAt: nil, nextSortIndex: 4)
+        let unchecked = try checked.settingChecked(
+            false,
+            itemID: "item_lemons",
+            checkedAt: nil,
+            updatedAt: "2026-06-01T00:21:00.000Z",
+            nextSortIndex: 4
+        )
         let uncheckedLemons = try #require(unchecked.item(id: "item_lemons"))
         #expect(!uncheckedLemons.checked)
         #expect(uncheckedLemons.checkedAt == nil)
+        #expect(uncheckedLemons.updatedAt == "2026-06-01T00:21:00.000Z")
 
         let removed = try unchecked.removingItem(
             id: "item_spaghetti",
@@ -190,6 +198,7 @@ struct KitchenStateTests {
             true,
             itemID: "item_lemons",
             checkedAt: "2026-06-01T00:20:00.000Z",
+            updatedAt: "2026-06-01T00:20:00.000Z",
             nextSortIndex: 4
         )
         let restoredChecked = try checkedState.addingOrRestoringItem(
@@ -229,7 +238,7 @@ struct KitchenStateTests {
     func shoppingListOperationsReportUsefulErrors() throws {
         let state = try ShoppingListState.decodeFromBundle()
 
-        #expect(try shoppingErrorDescription { _ = try state.settingChecked(true, itemID: "missing", checkedAt: nil, nextSortIndex: 0) } == "Shopping list item missing was not found.")
+        #expect(try shoppingErrorDescription { _ = try state.settingChecked(true, itemID: "missing", checkedAt: nil, updatedAt: "2026-06-01T00:00:00.000Z", nextSortIndex: 0) } == "Shopping list item missing was not found.")
         #expect(try shoppingErrorDescription { _ = try state.removingItem(id: "missing", deletedAt: "2026-06-01T00:00:00.000Z") } == "Shopping list item missing was not found.")
         #expect(try shoppingErrorDescription {
             _ = try state.addingOrRestoringItem(
@@ -298,6 +307,21 @@ struct KitchenStateTests {
         let restored = try CookModeProgress.restore(from: staleSnapshot)
         #expect(restored.activeStepIndex == 0)
         #expect(restored.completedStepIDs == ["step_1"])
+
+        let restoredCurrentOnly = CookModeProgress(
+            recipeID: "recipe_current_only",
+            completedStepIDs: [],
+            currentStepID: "step_current"
+        )
+        #expect(restoredCurrentOnly.stepIDs == ["step_current"])
+        #expect(restoredCurrentOnly.currentStepID == "step_current")
+        let restoredEmpty = CookModeProgress(
+            recipeID: "recipe_empty_restore",
+            completedStepIDs: [],
+            currentStepID: nil
+        )
+        #expect(restoredEmpty.stepIDs.isEmpty)
+        #expect(restoredEmpty.currentStepID == nil)
     }
 
     @Test("capture drafts stay local until explicitly promoted")

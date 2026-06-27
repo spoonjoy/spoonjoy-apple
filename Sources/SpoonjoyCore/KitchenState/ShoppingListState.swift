@@ -4,6 +4,8 @@ public enum KitchenStateError: Error, Equatable, CustomStringConvertible {
     case itemNotFound(String)
     case emptyItemName
     case missingCookModeStep(String)
+    case missingCookModeIngredient(String)
+    case missingCookModeStepOutputUse(String)
 
     public var description: String {
         switch self {
@@ -13,11 +15,15 @@ public enum KitchenStateError: Error, Equatable, CustomStringConvertible {
             "Shopping list item name must be non-empty."
         case .missingCookModeStep(let id):
             "Cook mode step \(id) was not found."
+        case .missingCookModeIngredient(let id):
+            "Cook mode ingredient \(id) was not found."
+        case .missingCookModeStepOutputUse(let id):
+            "Cook mode step output use \(id) was not found."
         }
     }
 }
 
-public struct ShoppingListItem: Codable, Equatable {
+public struct ShoppingListItem: Codable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let quantity: Double?
@@ -46,7 +52,7 @@ public struct ShoppingListItem: Codable, Equatable {
         return "\(formattedQuantity) \(unit)"
     }
 
-    func settingChecked(_ checked: Bool, checkedAt: String?, nextSortIndex: Int) -> ShoppingListItem {
+    func settingChecked(_ checked: Bool, checkedAt: String?, updatedAt: String, nextSortIndex: Int) -> ShoppingListItem {
         ShoppingListItem(
             id: id,
             name: name,
@@ -58,7 +64,7 @@ public struct ShoppingListItem: Codable, Equatable {
             categoryKey: categoryKey,
             iconKey: iconKey,
             sortIndex: checked ? nextSortIndex : sortIndex,
-            updatedAt: checkedAt ?? updatedAt
+            updatedAt: updatedAt
         )
     }
 
@@ -108,12 +114,12 @@ public struct ShoppingListItem: Codable, Equatable {
     }
 }
 
-public struct ShoppingListReceiptSection: Equatable {
+public struct ShoppingListReceiptSection: Equatable, Sendable {
     public let title: String
     public let items: [ShoppingListItem]
 }
 
-public struct ShoppingListMutationMetadata: Codable, Equatable {
+public struct ShoppingListMutationMetadata: Codable, Equatable, Sendable {
     public let clientMutationID: String
     public let replayed: Bool
 
@@ -128,14 +134,14 @@ public struct ShoppingListMutationMetadata: Codable, Equatable {
     }
 }
 
-public struct ShoppingListMutationResult: Equatable {
+public struct ShoppingListMutationResult: Equatable, Sendable {
     public let created: Bool
     public let updated: Bool
     public let shoppingList: ShoppingListState
     public let mutation: ShoppingListMutationMetadata
 }
 
-public struct ShoppingListState: Codable, Equatable {
+public struct ShoppingListState: Codable, Equatable, Sendable {
     public let id: String
     public let chef: ChefSummary
     public let items: [ShoppingListItem]
@@ -187,10 +193,11 @@ public struct ShoppingListState: Codable, Equatable {
         _ checked: Bool,
         itemID: String,
         checkedAt: String?,
+        updatedAt: String,
         nextSortIndex: Int
     ) throws -> ShoppingListState {
         try replacingItem(id: itemID) { item in
-            item.settingChecked(checked, checkedAt: checkedAt, nextSortIndex: nextSortIndex)
+            item.settingChecked(checked, checkedAt: checkedAt, updatedAt: updatedAt, nextSortIndex: nextSortIndex)
         }
     }
 

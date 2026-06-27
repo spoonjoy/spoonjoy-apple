@@ -1,0 +1,78 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts (9 tests | 3 failed) 638ms
+     ✓ declares write scope rows for item mutation endpoints 26ms
+     ✓ adds, checks, and removes shopping-list items with exact mutation envelopes 112ms
+     ✓ restores matching items, rejects unknown fields, and requires clientMutationId 58ms
+     ✓ covers mutation validation, duplicate text, false checks, and missing item boundaries 110ms
+     ✓ replays exact idempotent responses and rejects key conflicts 65ms
+     × adds owner and public recipe ingredients with scale, merge, restore, and exact mutation envelopes 54ms
+     × handles recipe-add empty ingredients and clear operations with checked, deleted, and empty-list rows 26ms
+     × enforces auth, scope, and body validation for shopping parity mutations 22ms
+     ✓ enforces shopping_list:write before mutation body handling 22ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > adds owner and public recipe ingredients with scale, merge, restore, and exact mutation envelopes
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:744:29
+    742|     const addOwnerPayload = await readJson(addOwner);
+    743|
+    744|     expect(addOwner.status).toBe(200);
+       |                             ^
+    745|     expectEnvelopeHeaders(addOwner, "req_bulk_add_owner_recipe");
+    746|     expectSuccessEnvelope(addOwnerPayload, "req_bulk_add_owner_recipe"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > handles recipe-add empty ingredients and clear operations with checked, deleted, and empty-list rows
+AssertionError: expected 405 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 405
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:848:29
+    846|     ));
+    847|     const emptyAddPayload = await readJson(emptyAdd);
+    848|     expect(emptyAdd.status).toBe(200);
+       |                             ^
+    849|     expectSuccessEnvelope(emptyAddPayload, "req_bulk_add_empty_recipe"…
+    850|     expectRecipeShoppingMutationData(emptyAddPayload.data, "bulk-add-e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/routes/api-v1-shopping-mutations.test.ts > API v1 shopping-list mutations > enforces auth, scope, and body validation for shopping parity mutations
+AssertionError: expected 405 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 405
+
+ ❯ test/routes/api-v1-shopping-mutations.test.ts:979:32
+    977|       body: JSON.stringify({ clientMutationId: "bulk-missing-auth", re…
+    978|     }) as unknown as Request, "shopping-list/add-from-recipe"));
+    979|     expect(missingAuth.status).toBe(401);
+       |                                ^
+    980|     expectEnvelopeHeaders(missingAuth, "req_bulk_missing_auth");
+    981|     expectErrorEnvelope(await readJson(missingAuth), "req_bulk_missing…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 6 passed (9)
+   Start at  15:49:52
+   Duration  2.83s (transform 782ms, setup 180ms, import 1.48s, tests 638ms, environment 362ms)

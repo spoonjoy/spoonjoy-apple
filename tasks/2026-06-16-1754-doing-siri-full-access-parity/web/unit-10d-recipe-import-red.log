@@ -1,0 +1,213 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-recipe-import.test.ts (11 tests | 10 failed) 367ms
+     ✓ declares the authenticated kitchen-write route contract 28ms
+     × imports a recipe URL through the native mutation envelope and captures the provider fetch 33ms
+     × imports raw text through the provider-backed capture path 18ms
+     × imports a JSON-LD capture payload without fetching a public URL 19ms
+     × imports a video URL through oEmbed and the recipe LLM path 17ms
+     × returns the canonical provider-secret blocker for provider-bound local imports 17ms
+     × suffixes duplicate imported titles instead of failing the capture 19ms
+     × requires authentication and the kitchen-write scope 21ms
+     × validates exact request body shape before reserving idempotency 17ms
+     × replays an identical import request without creating a second recipe 20ms
+     × rejects a reused clientMutationId with different import content 16ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > imports a recipe URL through the native mutation envelope and captures the provider fetch
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:356:29
+    354|
+    355|     const payload = await readJson(response);
+    356|     expect(response.status).toBe(201);
+       |                             ^
+    357|     expectPrivateEnvelopeHeaders(response, "req_import_url");
+    358|     expectSuccessEnvelope(payload, "req_import_url");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > imports raw text through the provider-backed capture path
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:386:29
+    384|
+    385|     const payload = await readJson(response);
+    386|     expect(response.status).toBe(201);
+       |                             ^
+    387|     expectSuccessEnvelope(payload, "req_import_text");
+    388|     expectImportMutationData(payload.data, clientMutationId, false, "t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > imports a JSON-LD capture payload without fetching a public URL
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:415:29
+    413|
+    414|     const payload = await readJson(response);
+    415|     expect(response.status).toBe(201);
+       |                             ^
+    416|     expectSuccessEnvelope(payload, "req_import_jsonld");
+    417|     expectImportMutationData(payload.data, clientMutationId, false, "j…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > imports a video URL through oEmbed and the recipe LLM path
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:441:29
+    439|
+    440|     const payload = await readJson(response);
+    441|     expect(response.status).toBe(201);
+       |                             ^
+    442|     expectSuccessEnvelope(payload, "req_import_video");
+    443|     expectImportMutationData(payload.data, clientMutationId, false, "v…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > returns the canonical provider-secret blocker for provider-bound local imports
+AssertionError: expected 405 to be 202 // Object.is equality
+
+- Expected
++ Received
+
+- 202
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:468:29
+    466|
+    467|     const payload = await readJson(response);
+    468|     expect(response.status).toBe(202);
+       |                             ^
+    469|     expectSuccessEnvelope(payload, "req_import_provider_blocker");
+    470|     expectImportMutationData(payload.data, clientMutationId, false, "t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > suffixes duplicate imported titles instead of failing the capture
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:499:29
+    497|
+    498|     const payload = await readJson(response);
+    499|     expect(response.status).toBe(201);
+       |                             ^
+    500|     expectSuccessEnvelope(payload, "req_import_duplicate_title");
+    501|     expect(payload.data.recipe.title).toBe("Codex Lemon Pasta (importe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > requires authentication and the kitchen-write scope
+AssertionError: expected 405 to be 401 // Object.is equality
+
+- Expected
++ Received
+
+- 401
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:517:32
+    515|       { OPENAI_API_KEY: "sk-test", ARTIFACT_ROOT: artifactRoot },
+    516|     ));
+    517|     expect(missingAuth.status).toBe(401);
+       |                                ^
+    518|     expectErrorEnvelope(await readJson(missingAuth), "req_import_missi…
+    519|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > validates exact request body shape before reserving idempotency
+AssertionError: expected 405 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:548:29
+    546|
+    547|     const payload = await readJson(response);
+    548|     expect(response.status).toBe(400);
+       |                             ^
+    549|     expectErrorEnvelope(payload, "req_import_validation", "validation_…
+    550|     await expect(db.apiIdempotencyKey.count()).resolves.toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > replays an identical import request without creating a second recipe
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:574:26
+    572|     const firstPayload = await readJson(first);
+    573|     const secondPayload = await readJson(second);
+    574|     expect(first.status).toBe(201);
+       |                          ^
+    575|     expect(second.status).toBe(201);
+    576|     expectImportMutationData(firstPayload.data, body.clientMutationId,…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯
+
+ FAIL  test/routes/api-v1-recipe-import.test.ts > API v1 recipe import > rejects a reused clientMutationId with different import content
+AssertionError: expected 405 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 405
+
+ ❯ test/routes/api-v1-recipe-import.test.ts:604:26
+    602|     ));
+    603|
+    604|     expect(first.status).toBe(201);
+       |                          ^
+    605|     expect(conflict.status).toBe(409);
+    606|     expectErrorEnvelope(await readJson(conflict), "req_import_conflict…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  10 failed | 1 passed (11)
+   Start at  18:29:43
+   Duration  2.78s (transform 840ms, setup 210ms, import 1.61s, tests 367ms, environment 377ms)

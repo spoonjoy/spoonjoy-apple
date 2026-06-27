@@ -1,0 +1,120 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/66] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[4/66] Compiling SpoonjoyCore OAuthRequests.swift
+[5/66] Compiling SpoonjoyCore OAuthResponses.swift
+[6/66] Compiling SpoonjoyCore RefreshCoordinator.swift
+[7/66] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[8/66] Compiling SpoonjoyCore TokenVault.swift
+[9/72] Compiling SpoonjoyCore SearchState.swift
+[10/72] Compiling SpoonjoyCore AuthSessionState.swift
+[11/72] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[12/72] Compiling SpoonjoyCore KeychainTokenVault.swift
+[13/72] Compiling SpoonjoyCore NativeAuthSession.swift
+[14/72] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[15/72] Compiling SpoonjoyCore OAuthPKCE.swift
+[16/72] Compiling SpoonjoyCore KitchenFixtureState.swift
+[17/72] Compiling SpoonjoyCore SettingsState.swift
+[18/72] Compiling SpoonjoyCore ShoppingListState.swift
+[19/72] Compiling SpoonjoyCore DeepLinkManifest.swift
+[20/72] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[21/72] Compiling SpoonjoyCore NativeIntentAction.swift
+[22/72] Emitting module SpoonjoyCore
+[23/72] Compiling SpoonjoyCore APIClient.swift
+[24/72] Compiling SpoonjoyCore APIEnvelope.swift
+[25/72] Compiling SpoonjoyCore APIError.swift
+[26/72] Compiling SpoonjoyCore APIRequestBuilder.swift
+[27/72] Compiling SpoonjoyCore APIRequestSupport.swift
+[28/72] Compiling SpoonjoyCore APIRetryPolicy.swift
+[29/72] Compiling SpoonjoyCore APITransport.swift
+[30/72] Compiling SpoonjoyCore JSONValue.swift
+[31/72] Compiling SpoonjoyCore NativeAPIRequests.swift
+[32/72] Compiling SpoonjoyCore PaginationCursor.swift
+[33/72] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[34/72] Compiling SpoonjoyCore ShoppingListAPI.swift
+[35/72] Compiling SpoonjoyCore ShoppingListRequests.swift
+[36/72] Compiling SpoonjoyCore AppNavigationState.swift
+[37/72] Compiling SpoonjoyCore ScenarioCommand.swift
+[38/72] Compiling SpoonjoyCore ScenarioReport.swift
+[39/72] Compiling SpoonjoyCore ScenarioVerifier.swift
+[40/72] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[41/72] Compiling SpoonjoyCore JSONFileStore.swift
+[42/72] Compiling SpoonjoyCore MutationQueue.swift
+[43/72] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[44/72] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[45/72] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[46/72] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[47/72] Compiling SpoonjoyCore CaptureDraft.swift
+[48/72] Compiling SpoonjoyCore CookModeProgress.swift
+[49/72] Compiling SpoonjoyCore AppRoute.swift
+[50/72] Compiling SpoonjoyCore DeepLinkRouter.swift
+[51/72] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[52/72] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[53/72] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[54/72] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[55/72] Compiling SpoonjoyCore ScreenViewModels.swift
+[56/72] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[57/72] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[58/72] Compiling SpoonjoyCore NativeDurableCache.swift
+[59/72] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[60/72] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[61/72] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[62/72] Compiling SpoonjoyCore OfflineSnapshot.swift
+[63/72] Compiling SpoonjoyCore SyncCheckpoint.swift
+[64/72] Compiling SpoonjoyCore RecipeCookbook.swift
+[65/72] Compiling SpoonjoyCore SpoonjoyCore.swift
+[66/72] Compiling SpoonjoyCore NativeSyncEngine.swift
+[67/72] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[68/94] Compiling SpoonjoyScenarioVerifier main.swift
+[69/94] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[70/94] Emitting module SpoonjoyScenarioVerifier
+[70/94] Write Objects.LinkFileList
+[71/94] Linking SpoonjoyScenarioVerifier
+[72/94] Applying SpoonjoyScenarioVerifier
+[74/94] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[75/94] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[76/95] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[77/95] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[78/95] Compiling SpoonjoyCoreTests AppStateTests.swift
+[79/95] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[80/95] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[81/95] Emitting module SpoonjoyCoreTests
+[82/95] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[83/95] Compiling SpoonjoyCoreTests APITransportTests.swift
+[84/95] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[85/95] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[86/95] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[87/95] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[88/95] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[89/95] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[90/95] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[91/95] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[92/95] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[93/95] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[94/97] Compiling SpoonjoyApplePackageTests runner.swift
+[95/97] Emitting module SpoonjoyApplePackageTests
+[95/97] Write Objects.LinkFileList
+[96/97] Linking SpoonjoyApplePackageTests
+Build complete! (17.38s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native cook mode parity" started.
+◇ Test "legacy cook progress rehydrates against a full recipe after placeholder restore" started.
+◇ Test "scale ingredient checkoff and step output checkoff match web cook mode" started.
+◇ Test "start and continue cook mode preserve active step route state" started.
+◇ Test "duration timers exist only for duration bearing steps" started.
+◇ Test "Siri and deep links open or continue cook mode in the correct place" started.
+◇ Test "view model covers empty progress navigation bounds and quantity format edges" started.
+◇ Test "offline app snapshot restores exact cook mode progress" started.
+✔ Test "Siri and deep links open or continue cook mode in the correct place" passed after 0.001 seconds.
+✔ Test "legacy cook progress rehydrates against a full recipe after placeholder restore" passed after 0.005 seconds.
+✔ Test "start and continue cook mode preserve active step route state" passed after 0.005 seconds.
+✔ Test "duration timers exist only for duration bearing steps" passed after 0.005 seconds.
+✔ Test "view model covers empty progress navigation bounds and quantity format edges" passed after 0.005 seconds.
+✔ Test "scale ingredient checkoff and step output checkoff match web cook mode" passed after 0.006 seconds.
+✔ Test "offline app snapshot restores exact cook mode progress" passed after 0.007 seconds.
+✔ Suite "Native cook mode parity" passed after 0.007 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.007 seconds.

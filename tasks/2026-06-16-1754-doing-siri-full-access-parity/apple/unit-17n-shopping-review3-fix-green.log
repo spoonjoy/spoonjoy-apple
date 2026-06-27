@@ -1,0 +1,35 @@
+COMMAND: ruby scripts/check-cook-shopping-surfaces.rb
+cook and shopping surfaces contract ok
+COMMAND: swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter APITransportTests/urlSessionNativeSyncTransportExtractsShoppingAddFromRecipeItemIDRemaps
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Emitting module SpoonjoyCore
+[4/7] Compiling SpoonjoyCore NativeSyncEngine.swift
+[5/12] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[6/12] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[7/12] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[8/12] Compiling SpoonjoyCore ScenarioVerifier.swift
+[9/12] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[9/13] Write Objects.LinkFileList
+[10/21] Linking SpoonjoyScenarioVerifier
+[11/21] Applying SpoonjoyScenarioVerifier
+[13/21] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[14/21] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[15/21] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[16/21] Emitting module SpoonjoyCoreTests
+[17/21] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[18/21] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[19/21] Compiling SpoonjoyCoreTests APITransportTests.swift
+[20/21] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[20/22] Write Objects.LinkFileList
+[21/22] Linking SpoonjoyApplePackageTests
+Build complete! (12.70s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "URLSession API transport" started.
+◇ Test "URLSession native sync transport extracts shopping add-from-recipe item id remaps" started.
+✔ Test "URLSession native sync transport extracts shopping add-from-recipe item id remaps" passed after 0.005 seconds.
+✔ Suite "URLSession API transport" passed after 0.005 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.005 seconds.

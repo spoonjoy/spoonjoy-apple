@@ -1,0 +1,323 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+Test Suite 'All tests' started at 2026-06-25 00:31:45.263.
+Test Suite 'All tests' passed at 2026-06-25 00:31:45.264.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Kitchen state domain" started.
+◇ Suite "Shopping API v1 client" started.
+◇ Suite "Token vault and refresh coordination" started.
+◇ Suite "OAuth PKCE request construction" started.
+◇ Suite "Public API v1 read client" started.
+◇ Suite "App state and screen view models" started.
+◇ Suite "Native expanded REST v1 request builders" started.
+◇ Suite "Recipe and cookbook domain" started.
+◇ Suite "SpoonjoyCore bootstrap" started.
+◇ Suite "Deep link router" started.
+◇ Suite "Offline store and mutation queue" started.
+◇ Suite "Native scenario metadata" started.
+◇ Test "capture drafts stay local until explicitly promoted" started.
+◇ Test "shopping list add or restore merges matching display items" started.
+◇ Test "shopping list operations cover local create, display, grouping, and error edges" started.
+◇ Test "delete item request supports header body and query idempotency" started.
+◇ Test "shopping list read and sync requests require bearer auth" started.
+◇ Test "cook mode progress handles empty, duplicate, invalid, and stale state" started.
+◇ Test "settings state handles signed-out local and kitchen-scope variants" started.
+◇ Test "settings state describes auth environment and offline readiness" started.
+◇ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" started.
+◇ Test "kitchen fixture associated values encode back to fixture shape" started.
+◇ Test "check item request encodes item id and checked state" started.
+◇ Test "auth sessions validate, classify state, and rotate token responses" started.
+◇ Test "OAuth register and token responses decode snake case payloads" started.
+◇ Test "authorize request builds browser URL and omits REST resource" started.
+◇ Test "shopping sync cursor rejects blank values" started.
+◇ Test "PKCE verifier validation and S256 challenge match RFC vector" started.
+◇ Test "pagination cursor rejects blank raw values" started.
+◇ Test "shopping list envelopes decode read sync and mutation payloads" started.
+◇ Test "token exchange refresh and revoke requests are form encoded" started.
+◇ Test "shopping list checkoff and removal keep receipt ordering stable" started.
+◇ Test "cook mode progress persists current step and completion" started.
+◇ Test "retry policy classifies idempotency and HTTP error responses" started.
+◇ Test "capture drafts reject empty local text" started.
+◇ Test "add item request sends JSON mutation body" started.
+◇ Test "redirect validator accepts app links and localhost loopback only" started.
+◇ Test "disconnect cancels in-flight refresh and prevents session resurrection" started.
+◇ Test "token vault persists client id and sessions independently" started.
+◇ Test "kitchen fixture exposes the lead food object and restore metadata" started.
+◇ Test "OAuth state trims and validates exact callback state" started.
+◇ Test "kitchen fixture supports explicit fallback construction" started.
+◇ Test "refresh coordinator returns valid sessions without network refresh" started.
+◇ Test "shopping list fixture decodes receipt rows and active ordering" started.
+◇ Test "cookbook list data decodes summary rows without detail recipes" started.
+◇ Test "disconnect invalidates every waiter on a shared in-flight refresh" started.
+◇ Test "refresh failures preserve prior session and disconnect clears auth state" started.
+◇ Test "cookbook list and detail requests share public read policy" started.
+◇ Test "recipe list request builds anonymous GET with query parameters" started.
+◇ Test "recipe detail request encodes path ids and omits stale bearer token by default" started.
+◇ Test "register request sends dynamic client registration JSON" started.
+◇ Test "success envelopes decode recipe list data and pagination metadata" started.
+◇ Test "missing sessions are invalid refresh state" started.
+◇ Test "error envelopes map API errors without losing status or request id" started.
+◇ Test "native app snapshot covers unavailable offline no-op queue and schema errors" started.
+◇ Test "route identifiers and native URLs cover every app route" started.
+◇ Test "public reads keep blank bearer tokens and blank queries out of requests" started.
+◇ Test "shopping list operations report useful errors" started.
+◇ Test "navigation applies deep links through the shared router" started.
+◇ Test "shopping list restore matches normalized unit and moves restored rows to active tail" started.
+◇ Test "search state trims queries and exposes a route" started.
+◇ Test "search state hydrates from search routes" started.
+◇ Test "screen view models delegate to existing domain state" started.
+◇ Test "native app snapshot persists first run cook shopping capture and queued mutations" started.
+◇ Test "navigation state tracks route sidebar recipe and cook mode" started.
+◇ Test "profile notification token and APNs mutations encode JSON or multipart bodies" started.
+◇ Test "native app state location is shared by app and native intents" started.
+◇ Test "recipe validation rejects malformed public payloads" started.
+◇ Test "optional public profile and search requests omit bearer by default but can include it" started.
+◇ Test "recipe search summary falls back when serving text is absent" started.
+◇ Test "recipe write and step builders encode idempotent JSON and delete fallback forms" started.
+◇ Test "private account sync token and APNs requests use bearer auth and exact paths" started.
+◇ Test "recipe search summary exposes public navigation fields" started.
+◇ Test "cookbook catalog returns nil for missing ids" started.
+◇ Test "public catalog reads stay anonymous by default and carry public cache policy" started.
+◇ Test "recipe fixture decodes API v1 recipe detail shape" started.
+◇ Test "discovery and generated contract requests are anonymous exact GETs" started.
+◇ Test "recipe import builders preserve source variants in idempotent JSON bodies" started.
+◇ Test "cookbook search summary uses singular recipe text" started.
+◇ Test "cookbook and shopping parity builders encode idempotent bodies" started.
+◇ Test "multipart builders reject unsafe header values and use unique boundaries" started.
+◇ Test "recipe catalog returns nil for missing ids" started.
+◇ Test "cookbook fixture decodes cover, recipe summaries, and attribution" started.
+◇ Test "recipe cover and spoon builders cover multipart JSON and optional public list auth" started.
+◇ Test "recipe attribution exposes only safe source links" started.
+◇ Test "API error envelopes preserve structured details for native recovery decisions" started.
+◇ Test "recipe steps and ingredients preserve display-safe API data" started.
+◇ Test "cookbook encoding preserves the API v1 field names" started.
+◇ Test "rejects unsafe or unsupported links as unknown" started.
+◇ Test "custom router configuration and route sections stay explicit" started.
+◇ Test "recipe search summary preserves free-form serving text" started.
+◇ Test "preserves decoded search query and defaults missing scope to all" started.
+◇ Test "routes every accepted web and scheme URL" started.
+◇ Test "cookbook search summary exposes cover-aware navigation fields" started.
+◇ Test "malformed component and percent decode inputs stay safe" started.
+◇ Test "recipe summary preserves index row fields from detail recipes" started.
+◇ Test "manual step and ingredient initializers preserve values" started.
+◇ Test "deleted source recipes do not expose safe navigation links" started.
+◇ Test "cookbook validation rejects malformed public payloads" started.
+◇ Test "cookbook cover falls back cleanly when no images are available" started.
+◇ Test "missing fixture reports file-not-found" started.
+◇ Test "bootstrap report allows only future native/app checks to remain pending" started.
+◇ Test "scenario command parses final stage" started.
+◇ Test "scenario command errors have useful descriptions" started.
+◇ Test "app integration sources typecheck and declare expected native types" started.
+◇ Test "scenario command rejects malformed arguments" started.
+◇ Test "product name is stable" started.
+◇ Test "scenario command parses bootstrap stage and output" started.
+◇ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" started.
+◇ Test "surface behavioral checks fail closed for missing or throwing fixture data" started.
+◇ Test "fixture resources are copied into test bundle" started.
+◇ Test "surfaces report proves kitchen recipe cook and shopping slices" started.
+◇ Test "surfaces report fails when surface sources are missing" started.
+◇ Test "mutation queue serializes shopping mutations and rejects duplicates" started.
+◇ Test "final behavioral checks fail closed for weak settings offline and link safety" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "native intent actions resolve routes local mutations and capture drafts" started.
+◇ Test "native metadata command parses stage and output path" started.
+◇ Test "final report proves search capture settings and deep link safety" started.
+◇ Test "spotlight index plan builds route aware searchable documents" started.
+◇ Test "scenario command parses surfaces stage" started.
+◇ Test "scenario command writes output and supports stdout mode" started.
+◇ Test "native metadata report encoding is deterministic" started.
+◇ Test "scenario verifier covers root override and failing native metadata checks" started.
+◇ Test "mutation queue validates public construction and durable restore invariants" started.
+◇ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+◇ Test "sync checkpoint persists trimmed durable shopping cursor" started.
+◇ Test "JSON file store reports non-decoding parser failures as unreadable" started.
+◇ Test "JSON file store saves loads deletes and reports file source" started.
+◇ Test "offline snapshot restores shopping list checkpoint and pending mutations" started.
+◇ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" started.
+◇ Test "JSON file store does not fallback for filesystem read errors" started.
+✔ Test "capture drafts stay local until explicitly promoted" passed after 0.005 seconds.
+✔ Test "shopping list read and sync requests require bearer auth" passed after 0.005 seconds.
+✔ Test "delete item request supports header body and query idempotency" passed after 0.005 seconds.
+✔ Test "settings state handles signed-out local and kitchen-scope variants" passed after 0.005 seconds.
+✔ Test "cook mode progress handles empty, duplicate, invalid, and stale state" passed after 0.005 seconds.
+✔ Test "settings state describes auth environment and offline readiness" passed after 0.005 seconds.
+✔ Test "OAuth register and token responses decode snake case payloads" passed after 0.006 seconds.
+✔ Test "authorize request builds browser URL and omits REST resource" passed after 0.006 seconds.
+✔ Test "shopping sync cursor rejects blank values" passed after 0.006 seconds.
+✔ Test "auth sessions validate, classify state, and rotate token responses" passed after 0.006 seconds.
+✔ Test "token exchange refresh and revoke requests are form encoded" passed after 0.006 seconds.
+✔ Test "PKCE verifier validation and S256 challenge match RFC vector" passed after 0.006 seconds.
+✔ Test "cook mode progress persists current step and completion" passed after 0.006 seconds.
+✔ Test "retry policy classifies idempotency and HTTP error responses" passed after 0.006 seconds.
+✔ Test "shopping list envelopes decode read sync and mutation payloads" passed after 0.006 seconds.
+✔ Test "capture drafts reject empty local text" passed after 0.006 seconds.
+✔ Test "pagination cursor rejects blank raw values" passed after 0.006 seconds.
+✔ Test "OAuth state trims and validates exact callback state" passed after 0.006 seconds.
+✔ Test "kitchen fixture supports explicit fallback construction" passed after 0.006 seconds.
+✔ Test "redirect validator accepts app links and localhost loopback only" passed after 0.006 seconds.
+✔ Test "token vault persists client id and sessions independently" passed after 0.006 seconds.
+✔ Test "refresh coordinator returns valid sessions without network refresh" passed after 0.006 seconds.
+✔ Test "cookbook list and detail requests share public read policy" passed after 0.006 seconds.
+✔ Test "recipe detail request encodes path ids and omits stale bearer token by default" passed after 0.006 seconds.
+✔ Test "cookbook list data decodes summary rows without detail recipes" passed after 0.006 seconds.
+✔ Test "register request sends dynamic client registration JSON" passed after 0.006 seconds.
+✔ Test "success envelopes decode recipe list data and pagination metadata" passed after 0.006 seconds.
+✔ Test "route identifiers and native URLs cover every app route" passed after 0.006 seconds.
+✔ Test "missing sessions are invalid refresh state" passed after 0.006 seconds.
+✔ Test "error envelopes map API errors without losing status or request id" passed after 0.006 seconds.
+✔ Test "recipe list request builds anonymous GET with query parameters" passed after 0.006 seconds.
+✔ Test "public reads keep blank bearer tokens and blank queries out of requests" passed after 0.006 seconds.
+✔ Test "add item request sends JSON mutation body" passed after 0.006 seconds.
+✔ Test "shopping list operations report useful errors" passed after 0.006 seconds.
+✔ Test "check item request encodes item id and checked state" passed after 0.007 seconds.
+✔ Test "shopping list add or restore merges matching display items" passed after 0.007 seconds.
+✔ Test "shopping list checkoff and removal keep receipt ordering stable" passed after 0.006 seconds.
+✔ Test "kitchen fixture exposes the lead food object and restore metadata" passed after 0.006 seconds.
+✔ Test "search state trims queries and exposes a route" passed after 0.006 seconds.
+✔ Test "shopping list operations cover local create, display, grouping, and error edges" passed after 0.007 seconds.
+✔ Test "navigation applies deep links through the shared router" passed after 0.006 seconds.
+✔ Test "search state hydrates from search routes" passed after 0.006 seconds.
+✔ Test "kitchen fixture associated values encode back to fixture shape" passed after 0.007 seconds.
+✔ Test "shopping list fixture decodes receipt rows and active ordering" passed after 0.007 seconds.
+✔ Test "shopping list restore matches normalized unit and moves restored rows to active tail" passed after 0.008 seconds.
+✔ Test "navigation state tracks route sidebar recipe and cook mode" passed after 0.009 seconds.
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}
+✔ Test "optional public profile and search requests omit bearer by default but can include it" passed after 0.009 seconds.
+✔ Test "recipe search summary falls back when serving text is absent" passed after 0.009 seconds.
+✔ Test "private account sync token and APNs requests use bearer auth and exact paths" passed after 0.009 seconds.
+✔ Test "recipe validation rejects malformed public payloads" passed after 0.009 seconds.
+✔ Test "recipe search summary exposes public navigation fields" passed after 0.009 seconds.
+✔ Test "profile notification token and APNs mutations encode JSON or multipart bodies" passed after 0.009 seconds.
+✔ Test "cookbook catalog returns nil for missing ids" passed after 0.009 seconds.
+✔ Test "native app snapshot covers unavailable offline no-op queue and schema errors" passed after 0.010 seconds.
+✔ Test "screen view models delegate to existing domain state" passed after 0.010 seconds.
+✔ Test "cookbook search summary uses singular recipe text" passed after 0.009 seconds.
+✔ Test "recipe fixture decodes API v1 recipe detail shape" passed after 0.009 seconds.
+✔ Test "discovery and generated contract requests are anonymous exact GETs" passed after 0.009 seconds.
+✔ Test "public catalog reads stay anonymous by default and carry public cache policy" passed after 0.009 seconds.
+✔ Test "native app state location is shared by app and native intents" passed after 0.010 seconds.
+✔ Test "recipe import builders preserve source variants in idempotent JSON bodies" passed after 0.009 seconds.
+✔ Test "recipe write and step builders encode idempotent JSON and delete fallback forms" passed after 0.009 seconds.
+✔ Test "recipe catalog returns nil for missing ids" passed after 0.009 seconds.
+✔ Test "cookbook fixture decodes cover, recipe summaries, and attribution" passed after 0.009 seconds.
+✔ Test "API error envelopes preserve structured details for native recovery decisions" passed after 0.009 seconds.
+✔ Test "multipart builders reject unsafe header values and use unique boundaries" passed after 0.009 seconds.
+✔ Test "custom router configuration and route sections stay explicit" passed after 0.009 seconds.
+✔ Test "recipe search summary preserves free-form serving text" passed after 0.009 seconds.
+✔ Test "rejects unsafe or unsupported links as unknown" passed after 0.009 seconds.
+✔ Test "recipe steps and ingredients preserve display-safe API data" passed after 0.009 seconds.
+✔ Test "malformed component and percent decode inputs stay safe" passed after 0.009 seconds.
+✔ Test "preserves decoded search query and defaults missing scope to all" passed after 0.009 seconds.
+✔ Test "manual step and ingredient initializers preserve values" passed after 0.009 seconds.
+✔ Test "cookbook and shopping parity builders encode idempotent bodies" passed after 0.009 seconds.
+✔ Test "cookbook search summary exposes cover-aware navigation fields" passed after 0.009 seconds.
+✔ Test "cookbook cover falls back cleanly when no images are available" passed after 0.009 seconds.
+✔ Test "deleted source recipes do not expose safe navigation links" passed after 0.009 seconds.
+✔ Test "recipe summary preserves index row fields from detail recipes" passed after 0.009 seconds.
+✔ Test "cookbook validation rejects malformed public payloads" passed after 0.009 seconds.
+✔ Test "routes every accepted web and scheme URL" passed after 0.009 seconds.
+✔ Test "cookbook encoding preserves the API v1 field names" passed after 0.009 seconds.
+✔ Test "missing fixture reports file-not-found" passed after 0.008 seconds.
+✔ Test "product name is stable" passed after 0.006 seconds.
+✔ Test "scenario command rejects malformed arguments" passed after 0.006 seconds.
+✔ Test "scenario command errors have useful descriptions" passed after 0.006 seconds.
+✔ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" passed after 0.006 seconds.
+✔ Test "recipe cover and spoon builders cover multipart JSON and optional public list auth" passed after 0.009 seconds.
+✔ Test "bootstrap report allows only future native/app checks to remain pending" passed after 0.006 seconds.
+✔ Test "fixture resources are copied into test bundle" passed after 0.006 seconds.
+✔ Test "recipe attribution exposes only safe source links" passed after 0.009 seconds.
+✔ Test "surface behavioral checks fail closed for missing or throwing fixture data" passed after 0.006 seconds.
+✔ Test "native metadata command parses stage and output path" passed after 0.006 seconds.
+✔ Test "native intent actions resolve routes local mutations and capture drafts" passed after 0.006 seconds.
+✔ Test "final behavioral checks fail closed for weak settings offline and link safety" passed after 0.006 seconds.
+✔ Test "scenario command parses bootstrap stage and output" passed after 0.006 seconds.
+✔ Test "scenario command parses surfaces stage" passed after 0.006 seconds.
+✔ Test "mutation queue serializes shopping mutations and rejects duplicates" passed after 0.006 seconds.
+✔ Test "surfaces report fails when surface sources are missing" passed after 0.006 seconds.
+✔ Test "spotlight index plan builds route aware searchable documents" passed after 0.006 seconds.
+✔ Test "mutation queue validates public construction and durable restore invariants" passed after 0.006 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.006 seconds.
+✔ Test "native app snapshot persists first run cook shopping capture and queued mutations" passed after 0.010 seconds.
+✔ Test "JSON file store covers missing fallback corrupt without fallback and empty delete" passed after 0.006 seconds.
+✔ Test "scenario verifier covers root override and failing native metadata checks" passed after 0.006 seconds.
+✔ Test "sync checkpoint persists trimmed durable shopping cursor" passed after 0.006 seconds.
+✔ Test "native metadata report encoding is deterministic" passed after 0.006 seconds.
+✔ Test "offline snapshot restores shopping list checkpoint and pending mutations" passed after 0.006 seconds.
+✔ Test "JSON file store reports non-decoding parser failures as unreadable" passed after 0.006 seconds.
+✔ Test "scenario command writes output and supports stdout mode" passed after 0.006 seconds.
+✔ Test "JSON file store saves loads deletes and reports file source" passed after 0.006 seconds.
+✔ Suite "Shopping API v1 client" passed after 0.011 seconds.
+✔ Suite "Kitchen state domain" passed after 0.011 seconds.
+✔ Test "corrupt JSON recovers from fallback without overwriting the corrupt file" passed after 0.006 seconds.
+✔ Suite "OAuth PKCE request construction" passed after 0.011 seconds.
+✔ Test "refresh failures preserve prior session and disconnect clears auth state" passed after 0.011 seconds.
+✔ Suite "Public API v1 read client" passed after 0.011 seconds.
+✔ Suite "Native expanded REST v1 request builders" passed after 0.011 seconds.
+✔ Suite "Deep link router" passed after 0.011 seconds.
+✔ Suite "Recipe and cookbook domain" passed after 0.011 seconds.
+✔ Test "JSON file store does not fallback for filesystem read errors" passed after 0.006 seconds.
+✔ Suite "App state and screen view models" passed after 0.012 seconds.
+✔ Suite "Offline store and mutation queue" passed after 0.012 seconds.
+✔ Test "disconnect cancels in-flight refresh and prevents session resurrection" passed after 0.011 seconds.
+✔ Test "surfaces report proves kitchen recipe cook and shopping slices" passed after 0.007 seconds.
+✔ Test "final report proves search capture settings and deep link safety" passed after 0.011 seconds.
+✔ Test "scenario command parses final stage" passed after 0.012 seconds.
+✔ Suite "SpoonjoyCore bootstrap" passed after 0.017 seconds.
+✔ Test "disconnect invalidates every waiter on a shared in-flight refresh" passed after 0.018 seconds.
+✔ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" passed after 0.044 seconds.
+✔ Suite "Token vault and refresh coordination" passed after 0.044 seconds.
+✔ Test "app integration sources typecheck and declare expected native types" passed after 0.400 seconds.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 9.049 seconds.
+✔ Suite "Native scenario metadata" passed after 9.054 seconds.
+✔ Test run with 121 tests in 12 suites passed after 9.055 seconds.
