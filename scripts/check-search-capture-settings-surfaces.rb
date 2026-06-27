@@ -39,6 +39,7 @@ REQUIRED_TOKENS = {
     "SettingsView",
     "SettingsViewModel",
     "SettingsState",
+    "settings.statusRows",
     "Form",
     "Section",
     "OfflineStatusView",
@@ -48,9 +49,15 @@ REQUIRED_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift" => [
     "OfflineStatusView",
-    "OfflineState",
-    "statusLabel",
+    "OfflineIndicatorDisplay",
+    "informationalOnly",
+    "queuedWork",
+    "syncFailure",
+    "conflict",
+    "blocker",
+    "destructiveConfirmation",
     "Label",
+    "Button",
     "KitchenTableTheme"
   ]
 }.freeze
@@ -122,12 +129,19 @@ end
   "openChef: { username in",
   "search.update(query: username, scope: .chefs)",
   "navigation.navigate(to: search.route)",
-  "SettingsView(viewModel: settingsViewModel)",
-  "var settingsViewModel: SettingsViewModel",
-  "SettingsState(",
-  "offline: appSnapshot.offlineState"
+  "SettingsView(",
+  "contentState.settingsViewModel"
 ].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
+end
+
+live_store = uncommented_swift(ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift").read)
+[
+  "public var settingsViewModel: SettingsViewModel",
+  "SettingsState(",
+  "offline: offlineState"
+].each do |token|
+  fail_check("NativeLiveAppStore.swift missing #{token}") unless live_store.include?(token)
 end
 
 scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift").read

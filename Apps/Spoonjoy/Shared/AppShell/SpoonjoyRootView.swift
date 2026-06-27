@@ -122,6 +122,7 @@ struct SpoonjoyRootView: View {
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },
+            recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator
         )

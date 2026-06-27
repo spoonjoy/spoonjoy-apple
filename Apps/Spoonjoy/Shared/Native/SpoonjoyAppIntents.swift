@@ -89,6 +89,102 @@ struct AddShoppingListItemIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+struct SetShoppingListItemCheckedIntent: AppIntent {
+    static let title: LocalizedStringResource = "Set Shopping Item Checked"
+    static let description = IntentDescription("Check or uncheck a Spoonjoy shopping-list item.")
+
+    @Parameter(title: "Item ID")
+    var itemID: String
+
+    @Parameter(title: "Checked")
+    var checked: Bool
+
+    init() {
+        itemID = ""
+        checked = true
+    }
+
+    init(itemID: String, checked: Bool) {
+        self.itemID = itemID
+        self.checked = checked
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().setShoppingListItemChecked(
+            itemID: itemID,
+            checked: checked,
+            createdAt: createdAt
+        )
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Updated shopping item in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct AddRecipeIngredientsToShoppingListIntent: AppIntent {
+    static let title: LocalizedStringResource = "Add Recipe Ingredients"
+    static let description = IntentDescription("Add a Spoonjoy recipe's ingredients to the shopping list.")
+
+    @Parameter(title: "Recipe ID")
+    var recipeID: String
+
+    @Parameter(title: "Scale Factor")
+    var scaleFactor: Double
+
+    init() {
+        recipeID = ""
+        scaleFactor = 1
+    }
+
+    init(recipeID: String, scaleFactor: Double = 1) {
+        self.recipeID = recipeID
+        self.scaleFactor = scaleFactor
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().addRecipeIngredientsToShoppingList(
+            recipeID: recipeID,
+            scaleFactor: scaleFactor,
+            createdAt: createdAt
+        )
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe ingredients in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ClearCompletedShoppingItemsIntent: AppIntent {
+    static let title: LocalizedStringResource = "Clear Completed Shopping Items"
+    static let description = IntentDescription("Remove completed items from the Spoonjoy shopping list.")
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = NativeIntentActionResolver().clearCompletedShoppingItems(createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Cleared completed shopping items in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ClearShoppingListIntent: AppIntent {
+    static let title: LocalizedStringResource = "Clear Shopping List"
+    static let description = IntentDescription("Remove all items from the Spoonjoy shopping list.")
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = NativeIntentActionResolver().clearShoppingList(createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Cleared the Spoonjoy shopping list")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct CaptureRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Capture Recipe"
     static let description = IntentDescription("Save a recipe URL or note into Spoonjoy capture drafts.")
@@ -152,7 +248,11 @@ private struct SpoonjoyIntentStateWriter {
     func apply(_ action: NativeIntentAction, savedAt: String) async throws {
         switch action {
         case .addShoppingListItem(let mutation, _, _):
-            try await appendNativeMutation(try NativeQueuedMutation.intentMutation(from: mutation))
+            let nativeMutation = try NativeQueuedMutation.intentMutation(from: mutation)
+            try await appendNativeMutation(nativeMutation)
+            try await applyShoppingMutation(nativeMutation, savedAt: savedAt, legacyQueuedMutation: mutation)
+        case .shoppingMutation(let mutation, _, _):
+            try await appendNativeMutation(mutation)
             try await applyShoppingMutation(mutation, savedAt: savedAt)
         case .captureDraft(let draft, _, _):
             try await appendNativeMutation(.captureDraftCreate(
@@ -169,26 +269,26 @@ private struct SpoonjoyIntentStateWriter {
         }
     }
 
-    private func applyShoppingMutation(_ mutation: QueuedMutation, savedAt: String) async throws {
-        guard case .shoppingAdd(let name, let quantity, let unit, let categoryKey, let iconKey) = mutation.kind else {
-            return
-        }
-
+    private func applyShoppingMutation(
+        _ mutation: NativeQueuedMutation,
+        savedAt: String,
+        legacyQueuedMutation: QueuedMutation? = nil
+    ) async throws {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
         var snapshot = try await loadSnapshot(savedAt: savedAt)
-        guard let shoppingList = snapshot.shoppingList else {
+        let fallbackChef = ChefSummary(id: scope.accountID, username: "Spoonjoy")
+        guard let updatedShoppingList = mutation.applyingOptimisticShoppingMutation(
+            to: snapshot.shoppingList,
+            recipes: [],
+            fallbackChef: fallbackChef,
+            now: savedAt
+        ) else {
             return
         }
-        let result = try shoppingList.addingOrRestoringItem(
-            name: name,
-            quantity: quantity,
-            unit: unit,
-            categoryKey: categoryKey,
-            iconKey: iconKey,
-            clientMutationID: mutation.clientMutationID
-        )
         snapshot = try snapshot.updatingShoppingList(
-            result.shoppingList,
-            queuedMutation: mutation,
+            updatedShoppingList,
+            queuedMutation: legacyQueuedMutation,
             savedAt: savedAt
         )
         try store.save(snapshot)

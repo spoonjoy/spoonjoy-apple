@@ -1004,6 +1004,87 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         }
     }
 
+    public func applyingOptimisticShoppingMutation(
+        to shoppingList: ShoppingListState?,
+        recipes: [Recipe],
+        fallbackChef: ChefSummary,
+        now: String
+    ) -> ShoppingListState? {
+        switch queueableKind {
+        case .shoppingAddItem:
+            guard let name = stringValue("name") else {
+                return shoppingList
+            }
+            let base = optimisticShoppingListBase(shoppingList, fallbackChef: fallbackChef, now: now)
+            guard let updated = try? base.addingOrRestoringItem(
+                name: name,
+                quantity: doubleValue("quantity"),
+                unit: optionalStringValue("unit"),
+                categoryKey: optionalStringValue("categoryKey"),
+                iconKey: optionalStringValue("iconKey"),
+                clientMutationID: clientMutationID
+            ).shoppingList else {
+                return shoppingList
+            }
+            return updated.replacingShoppingItemID(
+                "item_local_\(clientMutationID)",
+                with: optionalStringValue("serverItemId")
+            )
+        case .shoppingCheckItem:
+            guard let itemID = stringValue("itemId"),
+                  let checked = boolValue("checked"),
+                  let shoppingList else {
+                return shoppingList
+            }
+            return (try? shoppingList.settingChecked(
+                checked,
+                itemID: itemID,
+                checkedAt: checked ? now : nil,
+                updatedAt: now,
+                nextSortIndex: (shoppingList.activeItems.map(\.sortIndex).max() ?? -1) + 1
+            )) ?? shoppingList
+        case .shoppingDeleteItem:
+            guard let itemID = stringValue("itemId"),
+                  let shoppingList else {
+                return shoppingList
+            }
+            return (try? shoppingList.removingItem(id: itemID, deletedAt: now)) ?? shoppingList
+        case .shoppingAddFromRecipe:
+            let ingredients = shoppingRecipeIngredientsForReplay(recipes: recipes)
+            guard !ingredients.isEmpty else {
+                return shoppingList
+            }
+            return ingredients.enumerated().reduce(
+                optimisticShoppingListBase(shoppingList, fallbackChef: fallbackChef, now: now)
+            ) { currentList, pair in
+                let (index, ingredientValue) = pair
+                guard case .object(let ingredient) = ingredientValue else {
+                    return currentList
+                }
+                let ingredientMutationID = "\(clientMutationID)-ingredient-\(index + 1)"
+                let quantity = doubleValue("quantity", in: ingredient)
+                let updated = (try? currentList.addingOrRestoringItem(
+                    name: stringValue("name", in: ingredient) ?? "",
+                    quantity: quantity,
+                    unit: optionalStringValue("unit", in: ingredient),
+                    categoryKey: nil,
+                    iconKey: nil,
+                    clientMutationID: ingredientMutationID
+                ).shoppingList) ?? currentList
+                return updated.replacingShoppingItemID(
+                    "item_local_\(ingredientMutationID)",
+                    with: serverShoppingItemID(at: index)
+                )
+            }
+        case .shoppingClearCompleted:
+            return removingShoppingItems(from: shoppingList, deletedAt: now) { $0.checked || $0.checkedAt != nil }
+        case .shoppingClearAll:
+            return removingShoppingItems(from: shoppingList, deletedAt: now) { _ in true }
+        default:
+            return shoppingList
+        }
+    }
+
     public var replayTarget: NativeReplayTarget {
         switch queueableKind {
         case .captureDraftCreate, .captureDraftEdit, .captureDraftDiscard:
@@ -1161,6 +1242,13 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             })
         case .recipeIngredientAdd:
             nextValues["serverIngredientId"] = replacements["ingredient_local_\(clientMutationID)"].map(JSONValue.string)
+        case .shoppingAddItem:
+            nextValues["serverItemId"] = replacements["item_local_\(clientMutationID)"].map(JSONValue.string)
+        case .shoppingAddFromRecipe:
+            let serverItemIDs = indexedServerShoppingItemIDs(from: replacements)
+            if !serverItemIDs.isEmpty {
+                nextValues["serverItemIds"] = .array(serverItemIDs)
+            }
         default:
             break
         }
@@ -1368,7 +1456,10 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         "serverStepIds",
         "serverIngredientId",
         "serverIngredientIds",
-        "serverStepIngredientIds"
+        "serverStepIngredientIds",
+        "serverItemId",
+        "serverItemIds",
+        "shoppingRecipeIngredients"
     ]
 
     private static let resourceIdentifierValueKeys: Set<String> = [
@@ -1399,6 +1490,20 @@ extension NativeQueuedMutation {
              .recipeIngredientAdd,
              .recipeIngredientDelete,
              .recipeOutputUsesReplace:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var mutatesShoppingCache: Bool {
+        switch queueableKind {
+        case .shoppingAddItem,
+             .shoppingCheckItem,
+             .shoppingDeleteItem,
+             .shoppingAddFromRecipe,
+             .shoppingClearCompleted,
+             .shoppingClearAll:
             return true
         default:
             return false
@@ -1620,6 +1725,64 @@ private extension NativeQueuedMutation {
         return value
     }
 
+    func boolValue(_ key: String) -> Bool? {
+        guard case .bool(let value)? = values[key] else {
+            return nil
+        }
+        return value
+    }
+
+    func optimisticShoppingListBase(
+        _ shoppingList: ShoppingListState?,
+        fallbackChef: ChefSummary,
+        now: String
+    ) -> ShoppingListState {
+        shoppingList ?? ShoppingListState(
+            id: "native-shopping-list",
+            chef: fallbackChef,
+            items: [],
+            nextCursor: "",
+            updatedAt: now
+        )
+    }
+
+    func removingShoppingItems(
+        from shoppingList: ShoppingListState?,
+        deletedAt: String,
+        matching predicate: (ShoppingListItem) -> Bool
+    ) -> ShoppingListState? {
+        guard var updated = shoppingList else {
+            return nil
+        }
+
+        for item in updated.activeItems where predicate(item) {
+            updated = (try? updated.removingItem(id: item.id, deletedAt: deletedAt)) ?? updated
+        }
+
+        return updated
+    }
+
+    func shoppingRecipeIngredientsForReplay(recipes: [Recipe]) -> [JSONValue] {
+        let descriptors = shoppingRecipeIngredientsValue()
+        if !descriptors.isEmpty {
+            return descriptors
+        }
+
+        guard let recipeID = stringValue("recipeId"),
+              let recipe = recipes.first(where: { $0.id == recipeID }) else {
+            return []
+        }
+
+        let scaleFactor = doubleValue("scaleFactor") ?? 1
+        return recipe.steps.flatMap(\.ingredients).map { ingredient in
+            .object([
+                "name": .string(ingredient.name),
+                "quantity": .number(ingredient.quantity * scaleFactor),
+                "unit": ingredient.unit.map(JSONValue.string) ?? .null
+            ])
+        }
+    }
+
     func intArrayValue(_ key: String) -> [Int] {
         intArrayValue(key, in: values)
     }
@@ -1706,6 +1869,35 @@ private extension NativeQueuedMutation {
                 to: &remaps
             )
             return remaps
+        case .shoppingAddItem:
+            var remaps = [NativeSyncIDRemap]()
+            appendRemap(
+                localID: "item_local_\(clientMutationID)",
+                serverID: responseData.objectValue("item")?.stringValue("id") ?? responseData.objectStringValue("itemId"),
+                to: &remaps
+            )
+            return remaps
+        case .shoppingAddFromRecipe:
+            var remaps = [NativeSyncIDRemap]()
+            let requestIngredients = shoppingRecipeIngredientsValue()
+            let responseItems = responseData.objectArrayValue("items")
+            if requestIngredients.isEmpty {
+                for (index, item) in responseItems.enumerated() {
+                    appendRemap(
+                        localID: "item_local_\(clientMutationID)-ingredient-\(index + 1)",
+                        serverID: item.objectStringValue("id"),
+                        to: &remaps
+                    )
+                }
+            } else {
+                appendShoppingItemRemaps(
+                    localIDPrefix: "item_local_\(clientMutationID)-ingredient",
+                    requestIngredients: requestIngredients,
+                    responseItems: responseItems,
+                    to: &remaps
+                )
+            }
+            return remaps
         default:
             return []
         }
@@ -1748,6 +1940,27 @@ private extension NativeQueuedMutation {
         }
     }
 
+    func appendShoppingItemRemaps(
+        localIDPrefix: String,
+        requestIngredients: [JSONValue],
+        responseItems: [JSONValue],
+        to remaps: inout [NativeSyncIDRemap]
+    ) {
+        var usedResponseIndexes = Set<Int>()
+        for (requestIndex, requestIngredient) in requestIngredients.enumerated() {
+            appendRemap(
+                localID: "\(localIDPrefix)-\(requestIndex + 1)",
+                serverID: matchingResponseShoppingItemID(
+                    for: requestIngredient,
+                    requestIngredients: requestIngredients,
+                    in: responseItems,
+                    usedResponseIndexes: &usedResponseIndexes
+                ),
+                to: &remaps
+            )
+        }
+    }
+
     func matchingResponseIngredientID(
         for requestIngredient: JSONValue,
         in responseIngredients: [JSONValue],
@@ -1779,12 +1992,90 @@ private extension NativeQueuedMutation {
         return nil
     }
 
+    func matchingResponseShoppingItemID(
+        for requestIngredient: JSONValue,
+        requestIngredients: [JSONValue],
+        in responseItems: [JSONValue],
+        usedResponseIndexes: inout Set<Int>
+    ) -> String? {
+        guard case .object(let requestObject) = requestIngredient,
+              let requestName = normalizedIngredientText(stringValue("name", in: requestObject)),
+              let requestQuantity = doubleValue("quantity", in: requestObject) else {
+            return nil
+        }
+        let requestUnit = normalizedOptionalIngredientText(optionalStringValue("unit", in: requestObject))
+
+        for (responseIndex, responseItem) in responseItems.enumerated() where !usedResponseIndexes.contains(responseIndex) {
+            guard case .object(let responseObject) = responseItem,
+                  let serverID = responseObject.stringValue("id"),
+                  let responseName = normalizedIngredientText(responseObject.stringValue("name")),
+                  let responseQuantity = doubleValue("quantity", in: responseObject),
+                  responseName == requestName,
+                  normalizedOptionalIngredientText(responseObject.stringValue("unit")) == requestUnit,
+                  quantitiesMatch(responseQuantity, requestQuantity) else {
+                continue
+            }
+
+            usedResponseIndexes.insert(responseIndex)
+            return serverID
+        }
+
+        guard let aggregateQuantity = aggregateShoppingQuantity(
+            matchingName: requestName,
+            matchingUnit: requestUnit,
+            in: requestIngredients
+        ) else {
+            return nil
+        }
+
+        for responseItem in responseItems {
+            guard case .object(let responseObject) = responseItem,
+                  let serverID = responseObject.stringValue("id"),
+                  let responseName = normalizedIngredientText(responseObject.stringValue("name")),
+                  let responseQuantity = doubleValue("quantity", in: responseObject),
+                  responseName == requestName,
+                  normalizedOptionalIngredientText(responseObject.stringValue("unit")) == requestUnit,
+                  quantitiesMatch(responseQuantity, aggregateQuantity) else {
+                continue
+            }
+
+            return serverID
+        }
+
+        return nil
+    }
+
+    func aggregateShoppingQuantity(
+        matchingName requestName: String,
+        matchingUnit requestUnit: String?,
+        in requestIngredients: [JSONValue]
+    ) -> Double? {
+        let matchingQuantities = requestIngredients.compactMap { ingredient -> Double? in
+            guard case .object(let object) = ingredient,
+                  normalizedIngredientText(stringValue("name", in: object)) == requestName,
+                  normalizedOptionalIngredientText(optionalStringValue("unit", in: object)) == requestUnit else {
+                return nil
+            }
+            return doubleValue("quantity", in: object)
+        }
+
+        guard matchingQuantities.count > 1 else {
+            return nil
+        }
+        return matchingQuantities.reduce(0, +)
+    }
+
     func normalizedIngredientText(_ value: String?) -> String? {
         guard let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
               !normalized.isEmpty else {
             return nil
         }
         return normalized
+    }
+
+    func normalizedOptionalIngredientText(_ value: String?) -> String? {
+        let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized?.isEmpty == false ? normalized : nil
     }
 
     func quantitiesMatch(_ lhs: Double, _ rhs: Double) -> Bool {
@@ -1799,6 +2090,47 @@ private extension NativeQueuedMutation {
         }
 
         remaps.append(NativeSyncIDRemap(localID: localID, serverID: serverID))
+    }
+
+    func indexedServerShoppingItemIDs(from replacements: [String: String]) -> [JSONValue] {
+        let prefix = "item_local_\(clientMutationID)-ingredient-"
+        let indexedReplacements = replacements.compactMap { localID, serverID -> (Int, String)? in
+            guard localID.hasPrefix(prefix),
+                  let index = Int(localID.dropFirst(prefix.count)),
+                  index > 0 else {
+                return nil
+            }
+            return (index, serverID)
+        }
+        guard let maxIndex = indexedReplacements.map(\.0).max() else {
+            return []
+        }
+
+        var serverItemIDs = Array(repeating: JSONValue.null, count: maxIndex)
+        for (index, serverID) in indexedReplacements {
+            serverItemIDs[index - 1] = .string(serverID)
+        }
+        return serverItemIDs
+    }
+
+    func serverShoppingItemID(at index: Int) -> String? {
+        guard case .array(let serverItemIDs)? = values["serverItemIds"],
+              serverItemIDs.indices.contains(index),
+              case .string(let serverItemID) = serverItemIDs[index] else {
+            return nil
+        }
+        return serverItemID
+    }
+
+    func shoppingRecipeIngredientsValue() -> [JSONValue] {
+        arrayValue("shoppingRecipeIngredients")
+    }
+
+    func arrayValue(_ key: String) -> [JSONValue] {
+        guard case .array(let array)? = values[key] else {
+            return []
+        }
+        return array
     }
 }
 
@@ -2143,8 +2475,27 @@ public extension NativeQueuedMutation {
         NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .shoppingDeleteItem, values: ["itemId": .string(itemID)])
     }
 
-    static func shoppingAddFromRecipe(recipeID: String, scaleFactor: Double, clientMutationID: String, createdAt: String) -> NativeQueuedMutation {
-        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .shoppingAddFromRecipe, values: ["recipeId": .string(recipeID), "scaleFactor": .number(scaleFactor)])
+    static func shoppingAddFromRecipe(
+        recipeID: String,
+        scaleFactor: Double,
+        recipeIngredients: [RecipeIngredient] = [],
+        clientMutationID: String,
+        createdAt: String
+    ) -> NativeQueuedMutation {
+        var values: [String: JSONValue] = [
+            "recipeId": .string(recipeID),
+            "scaleFactor": .number(scaleFactor)
+        ]
+        if !recipeIngredients.isEmpty {
+            values["shoppingRecipeIngredients"] = .array(recipeIngredients.map { ingredient in
+                .object([
+                    "name": .string(ingredient.name),
+                    "quantity": .number(ingredient.quantity * scaleFactor),
+                    "unit": stringOrNull(ingredient.unit)
+                ])
+            })
+        }
+        return NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .shoppingAddFromRecipe, values: values)
     }
 
     static func shoppingClearCompleted(clientMutationID: String, createdAt: String) -> NativeQueuedMutation {
@@ -2979,15 +3330,30 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
 
         let drainedRecipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
-        let cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>)
-        if drainedRecipeMutations.isEmpty {
-            cachePatch = ([], [])
-        } else {
-            cachePatch = try Self.drainedRecipeCachePatch(
-                drainedMutations: drainedRecipeMutations,
-                snapshot: try await store.loadSnapshot(),
-                accountID: queueAccountID!
-            )
+        let drainedShoppingMutations = drainedMutations.filter(\.mutatesShoppingCache)
+        var cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) = ([], [])
+        if !drainedRecipeMutations.isEmpty || !drainedShoppingMutations.isEmpty {
+            let snapshot = try await store.loadSnapshot()
+            if !drainedRecipeMutations.isEmpty {
+                let cachePatchAccountID = queueAccountID ?? previousSnapshot.accountID ?? "unbound"
+                let recipePatch = try Self.drainedRecipeCachePatch(
+                    drainedMutations: drainedRecipeMutations,
+                    snapshot: snapshot,
+                    accountID: cachePatchAccountID
+                )
+                cachePatch.upserting.append(contentsOf: recipePatch.upserting)
+                cachePatch.deletingCacheKeys.formUnion(recipePatch.deletingCacheKeys)
+            }
+            if !drainedShoppingMutations.isEmpty {
+                let cachePatchAccountID = queueAccountID ?? previousSnapshot.accountID ?? "unbound"
+                let shoppingPatch = try Self.drainedShoppingCachePatch(
+                    drainedMutations: drainedShoppingMutations,
+                    snapshot: snapshot,
+                    accountID: cachePatchAccountID
+                )
+                cachePatch.upserting.append(contentsOf: shoppingPatch.upserting)
+                cachePatch.deletingCacheKeys.formUnion(shoppingPatch.deletingCacheKeys)
+            }
         }
         try await store.saveQueue(
             NativeMutationQueue(mutations: remaining),
@@ -3037,6 +3403,53 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 resourceID: recipe.id,
                 payload: try JSONValue.encoded(recipe),
                 serverRevision: .updatedAt(recipe.updatedAt)
+            )
+        }
+        return (upserts, deletedCacheKeys)
+    }
+
+    private static func drainedShoppingCachePatch(
+        drainedMutations: [NativeQueuedMutation],
+        snapshot: NativeSyncSnapshot,
+        accountID: String
+    ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
+        let cachedItems = try snapshot.cachedRecords
+            .filter { $0.kind == .shoppingItem }
+            .map { try $0.payload.decoded(ShoppingListItem.self) }
+        let cachedRecipes = try snapshot.cachedRecords
+            .filter { $0.kind == .recipe }
+            .map { try $0.payload.decoded(Recipe.self) }
+        let fallbackChef = cachedRecipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+        let baseShoppingList: ShoppingListState? = cachedItems.isEmpty
+            ? nil
+            : ShoppingListState(
+                id: "native-shopping-list",
+                chef: fallbackChef,
+                items: cachedItems,
+                nextCursor: snapshot.checkpoint?.shoppingCursor?.rawValue ?? "",
+                updatedAt: snapshot.checkpoint?.updatedAt ?? drainedMutations.first?.createdAt ?? ""
+            )
+        let updated = drainedMutations.reduce(baseShoppingList) { shoppingList, mutation in
+            mutation.applyingOptimisticShoppingMutation(
+                to: shoppingList,
+                recipes: cachedRecipes,
+                fallbackChef: fallbackChef,
+                now: mutation.createdAt
+            )
+        }
+        guard let updatedShoppingList = updated else {
+            return ([], [])
+        }
+
+        let activeItems = updatedShoppingList.activeItems
+        let activeItemIDs = Set(activeItems.map(\.id))
+        let deletedCacheKeys = Set(cachedItems.map(\.id).filter { !activeItemIDs.contains($0) }.map { "\(NativeSyncEntryKind.shoppingItem.rawValue):\($0)" })
+        let upserts = try activeItems.map { item in
+            NativeSyncCachedRecord(
+                kind: .shoppingItem,
+                resourceID: item.id,
+                payload: try JSONValue.encoded(item),
+                serverRevision: .updatedAt(item.updatedAt)
             )
         }
         return (upserts, deletedCacheKeys)
@@ -3104,6 +3517,44 @@ private extension NativeQueuedMutation {
         default:
             .recipe
         }
+    }
+}
+
+private extension ShoppingListState {
+    func replacingShoppingItemID(_ localID: String, with serverID: String?) -> ShoppingListState {
+        guard let serverID,
+              !serverID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              serverID != localID else {
+            return self
+        }
+
+        return ShoppingListState(
+            id: id,
+            chef: chef,
+            items: items.map { item in
+                item.id == localID ? item.replacingShoppingItemID(serverID) : item
+            },
+            nextCursor: nextCursor,
+            updatedAt: updatedAt
+        )
+    }
+}
+
+private extension ShoppingListItem {
+    func replacingShoppingItemID(_ itemID: String) -> ShoppingListItem {
+        ShoppingListItem(
+            id: itemID,
+            name: name,
+            quantity: quantity,
+            unit: unit,
+            checked: checked,
+            checkedAt: checkedAt,
+            deletedAt: deletedAt,
+            categoryKey: categoryKey,
+            iconKey: iconKey,
+            sortIndex: sortIndex,
+            updatedAt: updatedAt
+        )
     }
 }
 

@@ -9,6 +9,8 @@ struct CookModeRouteView: View {
     let initialRecipe: Recipe?
     let progress: (Recipe) -> CookModeProgress
     let progressDidChange: (CookModeProgress) -> Void
+    let shoppingViewModel: ShoppingSurfaceViewModel
+    let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let close: () -> Void
 
     @State private var recipe: Recipe?
@@ -20,6 +22,8 @@ struct CookModeRouteView: View {
         initialRecipe: Recipe?,
         progress: @escaping (Recipe) -> CookModeProgress,
         progressDidChange: @escaping (CookModeProgress) -> Void = { _ in },
+        shoppingViewModel: ShoppingSurfaceViewModel,
+        performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
         close: @escaping () -> Void = {}
     ) {
         self.recipeID = recipeID
@@ -27,6 +31,8 @@ struct CookModeRouteView: View {
         self.initialRecipe = initialRecipe
         self.progress = progress
         self.progressDidChange = progressDidChange
+        self.shoppingViewModel = shoppingViewModel
+        self.performShoppingAction = performShoppingAction
         self.close = close
         _recipe = State(initialValue: initialRecipe)
     }
@@ -37,6 +43,8 @@ struct CookModeRouteView: View {
                 CookModeView(
                     viewModel: CookModeViewModel(recipe: recipe, progress: restoredProgress(for: recipe)),
                     progressDidChange: progressDidChange,
+                    shoppingViewModel: shoppingViewModel,
+                    performShoppingAction: performShoppingAction,
                     close: close
                 )
             } else if let errorMessage {
@@ -81,17 +89,25 @@ struct CookModeRouteView: View {
 struct CookModeView: View {
     private let recipe: Recipe
     @State private var progress: CookModeProgress
+    @State private var shoppingStatusMessage: String?
+    @State private var shoppingErrorMessage: String?
     private let progressDidChange: (CookModeProgress) -> Void
+    private let shoppingViewModel: ShoppingSurfaceViewModel
+    private let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     private let close: () -> Void
 
     init(
         viewModel: CookModeViewModel,
         progressDidChange: @escaping (CookModeProgress) -> Void = { _ in },
+        shoppingViewModel: ShoppingSurfaceViewModel,
+        performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
         close: @escaping () -> Void = {}
     ) {
         recipe = viewModel.recipe
         _progress = State(initialValue: viewModel.progress)
         self.progressDidChange = progressDidChange
+        self.shoppingViewModel = shoppingViewModel
+        self.performShoppingAction = performShoppingAction
         self.close = close
     }
 
@@ -157,6 +173,23 @@ struct CookModeView: View {
 
             ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
                 updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
+            }
+
+            Button {
+                addRecipeIngredients(scaleFactor: progress.scaleFactor)
+            } label: {
+                Label("Add Ingredients", systemImage: "cart.badge.plus")
+            }
+            .buttonStyle(.bordered)
+
+            if let shoppingStatusMessage {
+                Label(shoppingStatusMessage, systemImage: "checkmark.circle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.herb)
+            } else if let shoppingErrorMessage {
+                Label(shoppingErrorMessage, systemImage: "exclamationmark.triangle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.tomato)
             }
         }
     }
@@ -316,6 +349,33 @@ struct CookModeView: View {
         progressDidChange(nextProgress)
     }
 
+    private func addRecipeIngredients(scaleFactor: Double) {
+        let createdAt = timestamp()
+        let action = ShoppingSurfaceAction.addRecipeIngredients(
+            recipeID: recipe.id,
+            scaleFactor: scaleFactor,
+            recipeIngredients: recipe.steps.flatMap(\.ingredients),
+            clientMutationID: clientMutationID(prefix: "cook-shopping")
+        )
+        Task {
+            do {
+                let plan = try ShoppingSurfaceViewModel(
+                    shoppingList: shoppingViewModel.shoppingList,
+                    queuedMutations: shoppingViewModel.queuedMutations,
+                    conflicts: shoppingViewModel.conflicts,
+                    connectivity: shoppingViewModel.connectivity,
+                    now: { createdAt }
+                ).plan(action)
+                let outcome = try await performShoppingAction(plan)
+                shoppingStatusMessage = outcome == .queuedForSync ? "Ingredients saved for sync" : "Ingredients added to shopping"
+                shoppingErrorMessage = nil
+            } catch {
+                shoppingStatusMessage = nil
+                shoppingErrorMessage = "Could not update shopping list."
+            }
+        }
+    }
+
     private func normalizeProgressForCurrentRecipe() {
         guard !recipe.steps.isEmpty,
               let normalizedProgress = try? CookModeProgress.restore(from: progress.snapshot(), recipe: recipe),
@@ -328,6 +388,10 @@ struct CookModeView: View {
 
     private func timestamp() -> String {
         ISO8601DateFormatter().string(from: Date())
+    }
+
+    private func clientMutationID(prefix: String) -> String {
+        "\(prefix)-\(UUID().uuidString)"
     }
 }
 

@@ -1,0 +1,10 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-shopping-sync.test.ts (9 tests) 340ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  01:54:56
+   Duration  1.22s (transform 195ms, setup 118ms, import 396ms, tests 340ms, environment 217ms)
+

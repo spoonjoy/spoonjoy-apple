@@ -168,6 +168,7 @@ public struct NativeShellContentState {
 
     func copy(
         recipes: [Recipe]? = nil,
+        shoppingList: ShoppingListState? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         queuedMutations: [NativeQueuedMutation]? = nil,
         syncConflicts: [NativeSyncConflict]? = nil,
@@ -179,7 +180,7 @@ public struct NativeShellContentState {
             recipes: recipes ?? self.recipes,
             cookbooks: cookbooks,
             kitchen: kitchen,
-            shoppingList: shoppingList,
+            shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
             queuedMutations: queuedMutations ?? self.queuedMutations,
@@ -239,7 +240,9 @@ public struct NativeShellContentState {
             cacheSnapshot: cacheSnapshot,
             syncSnapshot: syncSnapshot,
             appSnapshot: appSnapshot,
-            recipes: recipes
+            recipes: recipes,
+            authSessionState: authSessionState,
+            optimisticMutations: optimisticMutations
         )
         let captureDraft = restoredCaptureDraft(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let cookProgressByRecipeID = restoredCookProgress(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
@@ -330,7 +333,9 @@ public struct NativeShellContentState {
         cacheSnapshot: NativeDurableCacheSnapshot,
         syncSnapshot: NativeSyncSnapshot,
         appSnapshot: NativeAppSnapshot?,
-        recipes: [Recipe]
+        recipes: [Recipe],
+        authSessionState: NativeAuthSessionState,
+        optimisticMutations: [NativeQueuedMutation]
     ) -> ShoppingListState? {
         let decodedItems = syncSnapshot.cachedRecords
             .filter { $0.kind == .shoppingItem }
@@ -366,23 +371,46 @@ public struct NativeShellContentState {
             }
             return left.sortIndex < right.sortIndex
         }
-        guard !items.isEmpty else {
-            return appSnapshot?.shoppingList
-        }
         let chef = recipes.first?.chef ?? ChefSummary(id: cacheSnapshot.accountID, username: "Spoonjoy")
-        let cursor = syncSnapshot.checkpoint?.shoppingCursor?.rawValue ?? cacheSnapshot.records.compactMap { record -> String? in
-            guard case .shoppingList(_, let syncCursor) = record.payload else {
-                return nil
+        let baseShoppingList: ShoppingListState?
+        if items.isEmpty {
+            if let appShoppingList = appSnapshot?.shoppingList {
+                baseShoppingList = appShoppingList
+            } else if syncSnapshot.checkpoint != nil {
+                baseShoppingList = ShoppingListState(
+                    id: "native-shopping-list",
+                    chef: chef,
+                    items: [],
+                    nextCursor: syncSnapshot.checkpoint?.shoppingCursor?.rawValue ?? "",
+                    updatedAt: syncSnapshot.checkpoint?.updatedAt ?? NativeLiveAppStoreClock.isoString(cacheSnapshot.createdAt)
+                )
+            } else {
+                baseShoppingList = nil
             }
-            return syncCursor
-        }.first ?? ""
-        return ShoppingListState(
-            id: "native-shopping-list",
-            chef: chef,
-            items: items,
-            nextCursor: cursor,
-            updatedAt: syncSnapshot.checkpoint?.updatedAt ?? NativeLiveAppStoreClock.isoString(cacheSnapshot.createdAt)
-        )
+        } else {
+            let cursor = syncSnapshot.checkpoint?.shoppingCursor?.rawValue ?? cacheSnapshot.records.compactMap { record -> String? in
+                guard case .shoppingList(_, let syncCursor) = record.payload else {
+                    return nil
+                }
+                return syncCursor
+            }.first ?? ""
+            baseShoppingList = ShoppingListState(
+                id: "native-shopping-list",
+                chef: chef,
+                items: items,
+                nextCursor: cursor,
+                updatedAt: syncSnapshot.checkpoint?.updatedAt ?? NativeLiveAppStoreClock.isoString(cacheSnapshot.createdAt)
+            )
+        }
+        let fallbackChef = optimisticRecipeChef(authSessionState: authSessionState, recipes: recipes)
+        return (optimisticMutations + syncSnapshot.queue.mutations).reduce(baseShoppingList) { shoppingList, mutation in
+            mutation.applyingOptimisticShoppingMutation(
+                to: shoppingList,
+                recipes: recipes,
+                fallbackChef: fallbackChef,
+                now: mutation.createdAt
+            )
+        }
     }
 
     private static func restoredCaptureDraft(cacheSnapshot: NativeDurableCacheSnapshot, appSnapshot: NativeAppSnapshot?) -> CaptureDraft? {
@@ -452,6 +480,25 @@ public struct NativeShellContentState {
 
     private static func decodedPayload<Value: Decodable>(_ type: Value.Type, from payload: JSONValue) -> Value? {
         try? JSONDecoder().decode(type, from: JSONEncoder().encode(payload))
+    }
+
+    fileprivate static func encodedPayload<Value: Encodable>(_ value: Value) throws -> JSONValue {
+        try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
+    }
+
+    fileprivate static func shoppingCacheRecords(from shoppingList: ShoppingListState?) throws -> [NativeSyncCachedRecord] {
+        guard let shoppingList else {
+            return []
+        }
+
+        return try shoppingList.activeItems.map { item in
+            NativeSyncCachedRecord(
+                kind: .shoppingItem,
+                resourceID: item.id,
+                payload: try encodedPayload(item),
+                serverRevision: .updatedAt(item.updatedAt)
+            )
+        }
     }
 
     private static func placeholderRecipe(id: String, title: String, date: Date) -> Recipe {
@@ -728,10 +775,13 @@ public final class NativeLiveAppStore: ObservableObject {
             let scopedQueue = try await queueForCurrentScope()
             let queue = scopedQueue.queue
             let nextQueue = try queue.appending(contentsOf: mutations)
+            let baseShoppingCacheRecords = try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
             try await dependencies.syncStore.saveQueue(
                 nextQueue,
                 accountID: scopedQueue.accountID,
-                environment: scopedQueue.environment
+                environment: scopedQueue.environment,
+                upsertingCachedRecords: baseShoppingCacheRecords,
+                deletingCachedRecordKeys: []
             )
             let indicator = OfflineIndicatorState(
                 display: .queuedWork(
@@ -748,8 +798,17 @@ public final class NativeLiveAppStore: ObservableObject {
                     now: NativeLiveAppStoreClock.isoString(dependencies.now())
                 )
             }
+            let optimisticShoppingList = mutations.reduce(currentContentState.shoppingList) { shoppingList, mutation in
+                mutation.applyingOptimisticShoppingMutation(
+                    to: shoppingList,
+                    recipes: optimisticRecipes,
+                    fallbackChef: fallbackChef,
+                    now: mutation.createdAt
+                )
+            }
             apply(.queuedWork(currentContentState.copy(
                 recipes: optimisticRecipes,
+                shoppingList: optimisticShoppingList,
                 queuedMutations: nextQueue.mutations,
                 offlineIndicatorState: indicator
             )))
@@ -939,6 +998,33 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    public func recordShoppingList(_ shoppingList: ShoppingListState) {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        if let appStateStore = dependencies.appStateStoreProvider() {
+            do {
+                let fallback = NativeAppSnapshot.bootstrap(
+                    shoppingList: currentContentState.shoppingList,
+                    accountID: accountID,
+                    environment: cacheEnvironment,
+                    savedAt: savedAt
+                )
+                let record = try appStateStore.loadOrCreate(fallback: fallback)
+                let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+                    ? record.value
+                    : fallback
+                try appStateStore.save(
+                    try baseSnapshot
+                        .completingFirstRun(savedAt: savedAt)
+                        .updatingShoppingList(shoppingList, queuedMutation: nil, savedAt: savedAt)
+                )
+            } catch {
+                // Keep the live app responsive even if the optional app snapshot write fails.
+            }
+        }
+
+        apply(stateMatchingCurrentSeverity(with: currentContentState.copy(shoppingList: shoppingList)))
+    }
+
     private func restoreFromCache(
         authSessionState: NativeAuthSessionState,
         optimisticMutations: [NativeQueuedMutation] = []
@@ -1025,7 +1111,9 @@ public final class NativeLiveAppStore: ObservableObject {
     ) async throws {
         let report = try await syncTriggerCoordinator.handle(trigger)
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
-        let drainedOverlayMutations = report.drainedMutations.filter { !$0.mutatesRecipeCache }
+        let drainedOverlayMutations = report.drainedMutations.filter {
+            !$0.mutatesRecipeCache && !$0.mutatesShoppingCache
+        }
         let content = try await restoreFromCache(
             authSessionState: boundAuthState,
             optimisticMutations: drainedOverlayMutations

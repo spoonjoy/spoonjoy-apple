@@ -12,6 +12,7 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
@@ -25,6 +26,7 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
@@ -37,6 +39,7 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
@@ -120,12 +123,14 @@ struct PlatformNavigationView: View {
                 repository: recipeCatalogRepository,
                 initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
                 actionConnectivity: recipeActionConnectivity,
+                shoppingViewModel: shoppingViewModel,
                 context: recipeDetailContext(for:),
                 actionPlanner: { viewModel, context in
                     recipeActionsViewModel(for: viewModel, context: context)
                 },
                 openRoute: openRoute,
-                performRecipeAction: performRecipeAction
+                performRecipeAction: performRecipeAction,
+                performShoppingAction: performShoppingAction
             )
         case .recipeDetail(let id, .cook):
             CookModeRouteView(
@@ -134,6 +139,8 @@ struct PlatformNavigationView: View {
                 initialRecipe: recipe(id: id),
                 progress: cookProgress(for:),
                 progressDidChange: recordCookProgress,
+                shoppingViewModel: shoppingViewModel,
+                performShoppingAction: performShoppingAction,
                 close: {
                     openRecipe(id)
                 }
@@ -161,16 +168,10 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
             }
         case .shoppingList:
-            if let shoppingViewModel {
-                ShoppingListView(
-                    viewModel: shoppingViewModel,
-                    viewModelDidChange: { nextViewModel, item, checked, changedAt in
-                        queueShoppingListMutation(nextViewModel.shoppingList, item: item, checked: checked, changedAt: changedAt)
-                    }
-                )
-            } else {
-                ShellPlaceholderView(title: "Shopping", systemImage: "checklist", detail: "Shopping list unavailable.")
-            }
+            ShoppingListView(
+                viewModel: shoppingViewModel,
+                actionDidPlan: performShoppingAction
+            )
         case .search(let query, let scope):
             SearchView(
                 search: $search,
@@ -323,8 +324,14 @@ struct PlatformNavigationView: View {
         navigation.navigate(to: .cookbookDetail(id: id))
     }
 
-    private var shoppingViewModel: ShoppingListViewModel? {
-        contentState.shoppingList.map(ShoppingListViewModel.init(shoppingList:))
+    private var shoppingViewModel: ShoppingSurfaceViewModel {
+        ShoppingSurfaceViewModel(
+            shoppingList: contentState.shoppingList,
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: shoppingSurfaceConnectivity,
+            now: { ISO8601DateFormatter().string(from: Date()) }
+        )
     }
 
     private var recipeCatalogRepository: any RecipeCatalogRepository {
@@ -424,6 +431,14 @@ struct PlatformNavigationView: View {
         return .online
     }
 
+    private var shoppingSurfaceConnectivity: ShoppingSurfaceConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
     private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
         for conflict in contentState.syncConflicts {
             guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
@@ -480,19 +495,21 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private func performShoppingAction(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
+        try await ShoppingSurfaceMutationExecutor.perform(
+            plan,
+            queueMutation: queueMutation,
+            executeRemoteRequest: executeRecipeEditorRequest,
+            recordShoppingList: recordShoppingList
+        )
+    }
+
     private func discardRecipeEditorLocalChange(_ conflict: RecipeEditorConflict) async throws {
         try await discardQueuedMutation(conflict.localClientMutationID)
     }
 
     private func hasShoppingListIngredient(for recipe: Recipe) -> Bool {
-        guard let shoppingList = contentState.shoppingList else {
-            return false
-        }
-
-        let shoppingNames = Set(shoppingList.activeItems.map { $0.name.lowercased() })
-        return recipe.steps
-            .flatMap(\.ingredients)
-            .contains { shoppingNames.contains($0.name.lowercased()) }
+        RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: contentState.shoppingList)
     }
 
     private var spotlightIndexIdentity: String {
@@ -518,23 +535,6 @@ struct PlatformNavigationView: View {
 
     private var captureViewModel: CaptureDraftViewModel? {
         contentState.captureDraft.map(CaptureDraftViewModel.init(draft:))
-    }
-
-    private func queueShoppingListMutation(
-        _: ShoppingListState,
-        item: ShoppingListItem,
-        checked: Bool,
-        changedAt: String
-    ) {
-        let mutation = NativeQueuedMutation.shoppingCheckItem(
-            itemID: item.id,
-            checked: checked,
-            clientMutationID: "native-check-\(item.id)-\(Self.safeIdentifier(changedAt))",
-            createdAt: changedAt
-        )
-        Task {
-            try? await queueMutation(mutation)
-        }
     }
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {

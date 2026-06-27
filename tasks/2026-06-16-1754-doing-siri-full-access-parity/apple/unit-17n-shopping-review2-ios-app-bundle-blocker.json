@@ -1,0 +1,9 @@
+{
+  "capability": "XcodePlatform",
+  "blocked": true,
+  "command": "xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy iOS -configuration BootstrapDebug -destination generic/platform=iOS Simulator CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
+  "timeoutSeconds": 180,
+  "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-17n-shopping-review2-xcodebuild-ios.log",
+  "reason": "Local Xcode platform or pre-parse state blocked app bundle validation.",
+  "ownerAction": "Install the required Xcode platform/runtime and rerun app bundle validation."
+}

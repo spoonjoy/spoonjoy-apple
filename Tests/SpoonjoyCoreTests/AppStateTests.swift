@@ -210,6 +210,7 @@ struct AppStateTests {
                 true,
                 itemID: "item_lemons",
                 checkedAt: "2026-06-16T13:33:00.000Z",
+                updatedAt: "2026-06-16T13:33:00.000Z",
                 nextSortIndex: 99
             )
             let saved = try missingRecord.value

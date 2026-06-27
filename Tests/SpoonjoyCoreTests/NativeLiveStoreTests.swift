@@ -56,6 +56,45 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store represents an empty synced shopping list")
+    func liveStoreRepresentsAnEmptySyncedShoppingList() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_current",
+                refreshToken: "sj_refresh_current",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "client_live"
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_empty_shopping", title: "Empty List Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil)
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live store to finish in liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.shoppingList != nil)
+            #expect(content.shoppingList?.activeItems.isEmpty == true)
+            #expect(content.kitchen.counts.shoppingItems == 0)
+            #expect(content.searchResultsByScope[.shoppingList]?.isEmpty == true)
+        }
+    }
+
+    @MainActor
     @Test("live store queueMutation persists mutations through native sync store")
     func liveStoreQueueMutationPersistsMutationsThroughNativeSyncStore() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -95,7 +134,80 @@ struct NativeLiveStoreTests {
 
             #expect(persisted.mutations == [mutation])
             #expect(content.queuedMutations == [mutation])
+            #expect(content.shoppingList?.activeItems.map(\.name) == ["lemons"])
+            #expect(content.shoppingList?.activeItems.first?.quantity == 2)
             #expect(content.offlineIndicatorState.display == .queuedWork(count: 1, oldestClientMutationID: "cm_live_queue"))
+        }
+    }
+
+    @MainActor
+    @Test("live store restores queued shopping mutations as optimistic content")
+    func liveStoreRestoresQueuedShoppingMutationsAsOptimisticContent() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(
+                id: "recipe_offline_shopping",
+                title: "Offline Shopping Pasta",
+                ingredients: [
+                    RecipeIngredient(id: "ingredient_pasta", name: "pasta", quantity: 8, unit: "oz"),
+                    RecipeIngredient(id: "ingredient_lemon", name: "lemons", quantity: 1, unit: "each")
+                ]
+            )
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"))
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
+
+            await liveStore.bootstrap()
+            try await liveStore.queueMutations([
+                NativeQueuedMutation.shoppingAddItem(
+                    name: "limes",
+                    quantity: 2,
+                    unit: "each",
+                    categoryKey: "produce",
+                    iconKey: "lemon",
+                    clientMutationID: "cm_shopping_add_limes",
+                    createdAt: Self.isoString(Self.now)
+                ),
+                NativeQueuedMutation.shoppingAddFromRecipe(
+                    recipeID: "recipe_offline_shopping",
+                    scaleFactor: 1.5,
+                    clientMutationID: "cm_shopping_recipe",
+                    createdAt: Self.isoString(Self.now)
+                )
+            ])
+
+            guard case .queuedWork(let queuedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected queued shopping work; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(queuedContent.shoppingList?.activeItems.map(\.name) == ["salt", "limes", "pasta", "lemons"])
+            #expect(queuedContent.shoppingList?.item(id: "item_local_cm_shopping_recipe-ingredient-1")?.quantity == 12)
+            #expect(queuedContent.queuedMutations.map(\.clientMutationID) == ["cm_shopping_add_limes", "cm_shopping_recipe"])
+
+            let offlineError = APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            )
+            let restoredLiveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ThrowingLiveStoreSyncTransport(error: offlineError)
+            )
+
+            await restoredLiveStore.bootstrap()
+            guard case .offlineStale(let restoredContent) = restoredLiveStore.bootstrapState else {
+                Issue.record("Expected offline restore with queued shopping overlays; got \(restoredLiveStore.bootstrapState)")
+                return
+            }
+            #expect(restoredContent.shoppingList?.activeItems.map(\.name) == ["salt", "limes", "pasta", "lemons"])
+            #expect(restoredContent.shoppingList?.item(id: "item_local_cm_shopping_add_limes")?.quantity == 2)
+            #expect(restoredContent.shoppingList?.item(id: "item_local_cm_shopping_recipe-ingredient-1")?.quantity == 12)
+            #expect(restoredContent.queuedMutations.map(\.clientMutationID) == ["cm_shopping_add_limes", "cm_shopping_recipe"])
         }
     }
 
@@ -246,6 +358,153 @@ struct NativeLiveStoreTests {
             #expect(content.queuedMutations.isEmpty)
             #expect(content.recipe(id: "recipe_drain_editor")?.title == "Drained Pasta")
             #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @MainActor
+    @Test("live store keeps drained shopping mutations visible and cached after immediate online drain")
+    func liveStoreKeepsDrainedShoppingMutationsVisibleAndCachedAfterImmediateOnlineDrain() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_shopping_drain", title: "Shopping Drain Pasta")
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt")
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [
+                        .result(.syncData(syncData)),
+                        .result(.success(cursor: nil, tombstones: []))
+                    ],
+                    sends: [
+                        .success(serverRevision: .updatedAt("2026-06-25T18:30:00.000Z"), idRemaps: [
+                            NativeSyncIDRemap(localID: "item_local_cm_shopping_drain_pepper", serverID: "item_server_pepper")
+                        ])
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            let result = try await liveStore.queueMutations([
+                NativeQueuedMutation.shoppingAddItem(
+                    name: "pepper",
+                    quantity: 1,
+                    unit: "jar",
+                    categoryKey: "pantry",
+                    iconKey: "jar",
+                    clientMutationID: "cm_shopping_drain_pepper",
+                    createdAt: Self.isoString(Self.now)
+                )
+            ], drainImmediately: true)
+
+            #expect(result.submittedClientMutationIDs == ["cm_shopping_drain_pepper"])
+            #expect(result.drainedClientMutationIDs == ["cm_shopping_drain_pepper"])
+            #expect(result.remainingSubmittedClientMutationIDs.isEmpty)
+            #expect(result.submittedConflicts.isEmpty)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected drained shopping mutation to return to liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.queuedMutations.isEmpty)
+            #expect(content.shoppingList?.activeItems.map(\.name) == ["salt", "pepper"])
+            #expect(content.shoppingList?.item(id: "item_server_pepper")?.quantity == 1)
+            #expect(content.shoppingList?.item(id: "item_local_cm_shopping_drain_pepper") == nil)
+
+            let offlineError = APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            )
+            let restoredLiveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ThrowingLiveStoreSyncTransport(error: offlineError)
+            )
+
+            await restoredLiveStore.bootstrap()
+            guard case .offlineStale(let restoredContent) = restoredLiveStore.bootstrapState else {
+                Issue.record("Expected offline restore with drained shopping cache; got \(restoredLiveStore.bootstrapState)")
+                return
+            }
+            #expect(restoredContent.shoppingList?.activeItems.map(\.name) == ["salt", "pepper"])
+            #expect(restoredContent.shoppingList?.item(id: "item_server_pepper")?.quantity == 1)
+            #expect(restoredContent.queuedMutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("live store persists drained shopping checks when the base list came from app snapshot")
+    func liveStorePersistsDrainedShoppingChecksWhenBaseListCameFromAppSnapshot() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let snapshotItem = Self.sampleShoppingItem(id: "item_snapshot", name: "snapshot salt")
+            let snapshotList = ShoppingListState(
+                id: "shopping_list_snapshot",
+                chef: ChefSummary(id: "chef_ari", username: "ari"),
+                items: [snapshotItem],
+                nextCursor: "",
+                updatedAt: Self.isoString(Self.now)
+            )
+            try appStateStore.save(
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: snapshotList,
+                    accountID: "chef_ari",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [
+                        .result(.success(cursor: nil, tombstones: [])),
+                        .result(.success(cursor: nil, tombstones: []))
+                    ],
+                    sends: [.success(serverRevision: .updatedAt("2026-06-25T18:40:00.000Z"))]
+                ),
+                appStateStoreProvider: { appStateStore }
+            )
+
+            await liveStore.bootstrap()
+            let result = try await liveStore.queueMutations([
+                NativeQueuedMutation.shoppingCheckItem(
+                    itemID: "item_snapshot",
+                    checked: true,
+                    clientMutationID: "cm_snapshot_check",
+                    createdAt: Self.isoString(Self.now)
+                )
+            ], drainImmediately: true)
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected drained snapshot shopping mutation to return to liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            let cachedSnapshotItem = try #require(try await syncStore.cachedRecord(kind: .shoppingItem, resourceID: "item_snapshot"))
+            let cachedItem = try JSONDecoder().decode(ShoppingListItem.self, from: JSONEncoder().encode(cachedSnapshotItem.payload))
+
+            #expect(result.drainedClientMutationIDs == ["cm_snapshot_check"])
+            #expect(result.remainingSubmittedClientMutationIDs.isEmpty)
+            #expect(content.queuedMutations.isEmpty)
+            #expect(content.shoppingList?.item(id: "item_snapshot")?.checked == true)
+            #expect(cachedItem.checked == true)
         }
     }
 
@@ -2590,11 +2849,31 @@ private extension NativeLiveStoreTests {
 
     static func sampleSyncData(
         recipe: Recipe,
-        shoppingItem: ShoppingListItem,
+        shoppingItem: ShoppingListItem?,
         accountID: String = "client_live",
         environment: NativeCacheEnvironment = .production
     ) throws -> NativeSyncData {
-        NativeSyncData(
+        var entries = [
+            NativeSyncEntry(
+                action: .upsert,
+                kind: .recipe,
+                resourceID: recipe.id,
+                updatedAt: recipe.updatedAt,
+                payload: try jsonValue(recipe),
+                tombstone: nil
+            )
+        ]
+        if let shoppingItem {
+            entries.append(NativeSyncEntry(
+                action: .upsert,
+                kind: .shoppingItem,
+                resourceID: shoppingItem.id,
+                updatedAt: shoppingItem.updatedAt,
+                payload: try jsonValue(shoppingItem),
+                tombstone: nil
+            ))
+        }
+        return NativeSyncData(
             freshness: NativeSyncFreshness(
                 accountID: accountID,
                 environment: environment,
@@ -2603,30 +2882,13 @@ private extension NativeLiveStoreTests {
                 generatedAt: isoString(now),
                 lastValidatedAt: isoString(now)
             ),
-            entries: [
-                NativeSyncEntry(
-                    action: .upsert,
-                    kind: .recipe,
-                    resourceID: recipe.id,
-                    updatedAt: recipe.updatedAt,
-                    payload: try jsonValue(recipe),
-                    tombstone: nil
-                ),
-                NativeSyncEntry(
-                    action: .upsert,
-                    kind: .shoppingItem,
-                    resourceID: shoppingItem.id,
-                    updatedAt: shoppingItem.updatedAt,
-                    payload: try jsonValue(shoppingItem),
-                    tombstone: nil
-                )
-            ],
+            entries: entries,
             nextCursor: PaginationCursor(rawValue: "v1.live.after"),
             hasMore: false
         )
     }
 
-    static func sampleRecipe(id: String, title: String) -> Recipe {
+    static func sampleRecipe(id: String, title: String, ingredients: [RecipeIngredient] = []) -> Recipe {
         let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
         let chef = ChefSummary(id: "chef_ari", username: "ari")
         return Recipe(
@@ -2657,7 +2919,7 @@ private extension NativeLiveStoreTests {
                     stepTitle: "Cook",
                     description: "Toss with lemon.",
                     duration: 5,
-                    ingredients: []
+                    ingredients: ingredients
                 )
             ],
             cookbooks: []

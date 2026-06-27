@@ -2,6 +2,8 @@ import Foundation
 
 public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case invalidRecipeID(String)
+    case invalidShoppingItemID(String)
+    case invalidScaleFactor(Double)
     case emptyShoppingItem
     case emptyCaptureSource
     case authRequired
@@ -10,6 +12,10 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .invalidRecipeID(let recipeID):
             "Recipe ID \(recipeID) is not safe for a native route."
+        case .invalidShoppingItemID(let itemID):
+            "Shopping item ID \(itemID) is not safe for a native route."
+        case .invalidScaleFactor(let scaleFactor):
+            "Scale factor \(scaleFactor) must be greater than zero."
         case .emptyShoppingItem:
             "Shopping item name must be non-empty."
         case .emptyCaptureSource:
@@ -23,12 +29,14 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
 public enum NativeIntentAction: Equatable {
     case openRoute(AppRoute, url: URL)
     case addShoppingListItem(QueuedMutation, route: AppRoute, url: URL)
+    case shoppingMutation(NativeQueuedMutation, route: AppRoute, url: URL)
     case captureDraft(CaptureDraft, route: AppRoute, url: URL)
 
     public var route: AppRoute {
         switch self {
         case .openRoute(let route, _),
              .addShoppingListItem(_, let route, _),
+             .shoppingMutation(_, let route, _),
              .captureDraft(_, let route, _):
             route
         }
@@ -38,6 +46,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .openRoute(_, let url),
              .addShoppingListItem(_, _, let url),
+             .shoppingMutation(_, _, let url),
              .captureDraft(_, _, let url):
             url
         }
@@ -46,6 +55,17 @@ public enum NativeIntentAction: Equatable {
     public var queuedMutation: QueuedMutation? {
         switch self {
         case .addShoppingListItem(let mutation, _, _):
+            mutation
+        case .openRoute, .shoppingMutation, .captureDraft:
+            nil
+        }
+    }
+
+    public var nativeQueuedMutation: NativeQueuedMutation? {
+        switch self {
+        case .addShoppingListItem(let mutation, _, _):
+            try? NativeQueuedMutation.intentMutation(from: mutation)
+        case .shoppingMutation(let mutation, _, _):
             mutation
         case .openRoute, .captureDraft:
             nil
@@ -56,7 +76,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .captureDraft(let draft, _, _):
             draft
-        case .openRoute, .addShoppingListItem:
+        case .openRoute, .addShoppingListItem, .shoppingMutation:
             nil
         }
     }
@@ -113,6 +133,71 @@ public struct NativeIntentActionResolver {
         )
     }
 
+    public func setShoppingListItemChecked(
+        itemID: String,
+        checked: Bool,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let id = try canonicalShoppingItemID(itemID)
+        let mutationID = "intent-shopping-check-\(stableToken(id))-\(checked ? "checked" : "unchecked")-\(stableToken(createdAt))"
+        return .shoppingMutation(
+            .shoppingCheckItem(
+                itemID: id,
+                checked: checked,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .shoppingList,
+            url: schemeURL(host: "shopping-list")
+        )
+    }
+
+    public func addRecipeIngredientsToShoppingList(
+        recipeID: String,
+        scaleFactor: Double,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let id = try canonicalRecipeID(recipeID)
+        guard scaleFactor.isFinite && scaleFactor > 0 else {
+            throw NativeIntentActionError.invalidScaleFactor(scaleFactor)
+        }
+        let mutationID = "intent-shopping-recipe-\(stableToken(id))-\(stableToken(createdAt))"
+        return .shoppingMutation(
+            .shoppingAddFromRecipe(
+                recipeID: id,
+                scaleFactor: scaleFactor,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .shoppingList,
+            url: schemeURL(host: "shopping-list")
+        )
+    }
+
+    public func clearCompletedShoppingItems(createdAt: String) -> NativeIntentAction {
+        let mutationID = "intent-shopping-clear-completed-\(stableToken(createdAt))"
+        return .shoppingMutation(
+            .shoppingClearCompleted(
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .shoppingList,
+            url: schemeURL(host: "shopping-list")
+        )
+    }
+
+    public func clearShoppingList(createdAt: String) -> NativeIntentAction {
+        let mutationID = "intent-shopping-clear-all-\(stableToken(createdAt))"
+        return .shoppingMutation(
+            .shoppingClearAll(
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .shoppingList,
+            url: schemeURL(host: "shopping-list")
+        )
+    }
+
     public func captureRecipe(source: String, createdAt: String) throws -> NativeIntentAction {
         let trimmedSource = try requiredTrimmed(source, error: .emptyCaptureSource)
         let draft = try CaptureDraft.localText(
@@ -140,6 +225,23 @@ public struct NativeIntentActionResolver {
             id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
         else {
             throw NativeIntentActionError.invalidRecipeID(recipeID)
+        }
+
+        return id
+    }
+
+    private func canonicalShoppingItemID(_ itemID: String) throws -> String {
+        let id = itemID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            !id.isEmpty,
+            !id.contains("/"),
+            !id.contains("\\"),
+            !id.contains(".."),
+            id != ".",
+            id != "..",
+            id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
+        else {
+            throw NativeIntentActionError.invalidShoppingItemID(itemID)
         }
 
         return id

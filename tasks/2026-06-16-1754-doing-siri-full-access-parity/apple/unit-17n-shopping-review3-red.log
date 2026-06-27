@@ -1,0 +1,23 @@
+COMMAND: ruby scripts/check-cook-shopping-surfaces.rb
+FAIL: Apps/Spoonjoy/Shared/Views/CookModeView.swift missing required cook/shopping tokens: shoppingViewModel
+COMMAND: swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --filter APITransportTests/urlSessionNativeSyncTransportExtractsShoppingAddFromRecipeItemIDRemaps
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests APITransportTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (3.86s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "URLSession API transport" started.
+◇ Test "URLSession native sync transport extracts shopping add-from-recipe item id remaps" started.
+✘ Test "URLSession native sync transport extracts shopping add-from-recipe item id remaps" recorded an issue at APITransportTests.swift:542:9: Expectation failed: try await transport.send(addFromRecipe, configuration: Self.configuration(bearerToken: "sj_access_native")) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_recipe-ingredient-1", serverID: "item_server_pasta"),
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_recipe-ingredient-2", serverID: "item_server_lemons")
+        ])
+✘ Test "URLSession native sync transport extracts shopping add-from-recipe item id remaps" failed after 0.005 seconds with 1 issue.
+✘ Suite "URLSession API transport" failed after 0.005 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.005 seconds with 1 issue.

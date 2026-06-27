@@ -131,7 +131,11 @@ struct NativeSyncEngineTests {
 
         #expect(report.bootstrapCursor?.rawValue == "v1.cursor.after")
         #expect(report.drainedClientMutationIDs == ["cm_after_bootstrap"])
-        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari", "shoppingItem:item_local_cm_after_bootstrap"])
+        let persistedItemRecord = try #require(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_local_cm_after_bootstrap"))
+        let persistedItem = try Self.shoppingItem(from: persistedItemRecord.payload)
+        #expect(persistedItem.name == "lemons")
+        #expect(persistedItem.quantity == 4)
         #expect(snapshot.tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
         #expect(snapshot.queue.mutations.isEmpty)
     }
@@ -1689,6 +1693,247 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("sync engine rewrites dependent shopping item ids after add drains")
+    func syncEngineRewritesDependentShoppingItemIDsAfterAddDrains() async throws {
+        let add = NativeQueuedMutation.shoppingAddItem(
+            name: "pepper",
+            quantity: 1,
+            unit: "jar",
+            categoryKey: "pantry",
+            iconKey: "jar",
+            clientMutationID: "cm_shopping_add_pepper",
+            createdAt: Self.createdAt(0)
+        )
+        let check = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_local_cm_shopping_add_pepper",
+            checked: true,
+            clientMutationID: "cm_shopping_check_pepper",
+            createdAt: Self.createdAt(1)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [add, check])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: .updatedAt(Self.createdAt(2)), idRemaps: [
+                    NativeSyncIDRemap(localID: "item_local_cm_shopping_add_pepper", serverID: "item_server_pepper")
+                ]),
+                .success(serverRevision: .updatedAt(Self.createdAt(3)))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let optimisticList = report.drainedMutations.reduce(
+            ShoppingListState(
+                id: "shopping_list_test",
+                chef: ChefSummary(id: "chef_ari", username: "ari"),
+                items: [],
+                nextCursor: "",
+                updatedAt: Self.createdAt(0)
+            )
+        ) { list, mutation in
+            mutation.applyingOptimisticShoppingMutation(
+                to: list,
+                recipes: [],
+                fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+                now: mutation.createdAt
+            ) ?? list
+        }
+
+        #expect(report.drainedClientMutationIDs == ["cm_shopping_add_pepper", "cm_shopping_check_pepper"])
+        #expect(await transport.requestPaths == [
+            "/api/v1/me/sync",
+            "/api/v1/shopping-list/items",
+            "/api/v1/shopping-list/items/item_server_pepper"
+        ])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(optimisticList.item(id: "item_server_pepper")?.name == "pepper")
+        #expect(optimisticList.item(id: "item_server_pepper")?.checked == true)
+        #expect(optimisticList.item(id: "item_local_cm_shopping_add_pepper") == nil)
+    }
+
+    @Test("sync engine rewrites dependent shopping item ids after add-from-recipe drains")
+    func syncEngineRewritesDependentShoppingItemIDsAfterAddFromRecipeDrains() async throws {
+        let addRecipe = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_lemon",
+            scaleFactor: 2,
+            clientMutationID: "cm_shopping_recipe",
+            createdAt: Self.createdAt(0)
+        )
+        let checkLemon = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_local_cm_shopping_recipe-ingredient-2",
+            checked: true,
+            clientMutationID: "cm_shopping_check_recipe_lemon",
+            createdAt: Self.createdAt(1)
+        )
+        let recipe = Self.optimisticRecipe()
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [addRecipe, checkLemon]),
+            cachedRecords: [
+                NativeSyncCachedRecord(
+                    kind: .recipe,
+                    resourceID: recipe.id,
+                    payload: try Self.jsonValue(recipe),
+                    serverRevision: .updatedAt(recipe.updatedAt)
+                )
+            ]
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: .updatedAt(Self.createdAt(2)), idRemaps: [
+                    NativeSyncIDRemap(localID: "item_local_cm_shopping_recipe-ingredient-1", serverID: "item_server_water"),
+                    NativeSyncIDRemap(localID: "item_local_cm_shopping_recipe-ingredient-2", serverID: "item_server_lemon")
+                ]),
+                .success(serverRevision: .updatedAt(Self.createdAt(3)))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let lemonRecord = try #require(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_server_lemon"))
+        let lemon = try Self.shoppingItem(from: lemonRecord.payload)
+
+        #expect(report.drainedClientMutationIDs == ["cm_shopping_recipe", "cm_shopping_check_recipe_lemon"])
+        #expect(await transport.requestPaths == [
+            "/api/v1/me/sync",
+            "/api/v1/shopping-list/add-from-recipe",
+            "/api/v1/shopping-list/items/item_server_lemon"
+        ])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(lemon.name == "lemon")
+        #expect(lemon.quantity == 2)
+        #expect(lemon.checked == true)
+        #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_local_cm_shopping_recipe-ingredient-2") == nil)
+    }
+
+    @Test("drained add-from-recipe replays queued ingredient descriptors without cached recipe")
+    func drainedAddFromRecipeReplaysQueuedIngredientDescriptorsWithoutCachedRecipe() async throws {
+        let addRecipe = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_uncached_layer_cake",
+            scaleFactor: 2,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar_a", name: "sugar", quantity: 1, unit: "cup"),
+                RecipeIngredient(id: "ingredient_sugar_b", name: "sugar", quantity: 0.5, unit: "cup")
+            ],
+            clientMutationID: "cm_shopping_uncached_recipe",
+            createdAt: Self.createdAt(0)
+        )
+        let checkSugar = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_local_cm_shopping_uncached_recipe-ingredient-1",
+            checked: true,
+            clientMutationID: "cm_shopping_check_uncached_sugar",
+            createdAt: Self.createdAt(1)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [addRecipe, checkSugar])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: .updatedAt(Self.createdAt(2)), idRemaps: [
+                    NativeSyncIDRemap(localID: "item_local_cm_shopping_uncached_recipe-ingredient-1", serverID: "item_server_sugar"),
+                    NativeSyncIDRemap(localID: "item_local_cm_shopping_uncached_recipe-ingredient-2", serverID: "item_server_sugar")
+                ]),
+                .success(serverRevision: .updatedAt(Self.createdAt(3)))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let sugarRecord = try #require(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_server_sugar"))
+        let sugar = try Self.shoppingItem(from: sugarRecord.payload)
+
+        #expect(report.drainedClientMutationIDs == ["cm_shopping_uncached_recipe", "cm_shopping_check_uncached_sugar"])
+        #expect(await transport.requestPaths == [
+            "/api/v1/me/sync",
+            "/api/v1/shopping-list/add-from-recipe",
+            "/api/v1/shopping-list/items/item_server_sugar"
+        ])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(sugar.name == "sugar")
+        #expect(sugar.quantity == 3)
+        #expect(sugar.unit == "cup")
+        #expect(sugar.checked == true)
+        #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_local_cm_shopping_uncached_recipe-ingredient-1") == nil)
+        #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_local_cm_shopping_uncached_recipe-ingredient-2") == nil)
+    }
+
+    @Test("drained shopping mutations persist to file backed cache for restart")
+    func drainedShoppingMutationsPersistToFileBackedCacheForRestart() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let salt = Self.shoppingItem(id: "item_salt", name: "salt", quantity: 1, unit: "pinch")
+            let add = NativeQueuedMutation.shoppingAddItem(
+                name: "pepper",
+                quantity: 1,
+                unit: "jar",
+                categoryKey: "pantry",
+                iconKey: "jar",
+                clientMutationID: "cm_shopping_restart_add",
+                createdAt: Self.createdAt(2)
+            )
+            let check = NativeQueuedMutation.shoppingCheckItem(
+                itemID: "item_local_cm_shopping_restart_add",
+                checked: true,
+                clientMutationID: "cm_shopping_restart_check",
+                createdAt: Self.createdAt(3)
+            )
+            let fallback = NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .local,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [add, check]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .shoppingItem, resourceID: salt.id, payload: try Self.jsonValue(salt), serverRevision: .updatedAt(salt.updatedAt))
+                ],
+                tombstones: []
+            )
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
+            let transport = RecordingNativeSyncTransport(
+                bootstrap: .success(cursor: nil, tombstones: []),
+                mutationResults: [
+                    .success(serverRevision: .updatedAt(Self.createdAt(4)), idRemaps: [
+                        NativeSyncIDRemap(localID: "item_local_cm_shopping_restart_add", serverID: "item_server_pepper")
+                    ]),
+                    .success(serverRevision: .updatedAt(Self.createdAt(5)))
+                ]
+            )
+            let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+            let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
+            let restoredPepperRecord = try #require(try await restored.cachedRecord(kind: .shoppingItem, resourceID: "item_server_pepper"))
+            let restoredSaltRecord = try #require(try await restored.cachedRecord(kind: .shoppingItem, resourceID: "item_salt"))
+            let restoredPepper = try Self.shoppingItem(from: restoredPepperRecord.payload)
+            let restoredSalt = try Self.shoppingItem(from: restoredSaltRecord.payload)
+
+            #expect(report.drainedClientMutationIDs == ["cm_shopping_restart_add", "cm_shopping_restart_check"])
+            #expect(try await restored.loadQueue().mutations.isEmpty)
+            #expect(restoredSalt.name == "salt")
+            #expect(restoredPepper.id == "item_server_pepper")
+            #expect(restoredPepper.name == "pepper")
+            #expect(restoredPepper.checked == true)
+            #expect(try await restored.cachedRecord(kind: .shoppingItem, resourceID: "item_local_cm_shopping_restart_add") == nil)
+            #expect(await transport.requestPaths == [
+                "/api/v1/me/sync",
+                "/api/v1/shopping-list/items",
+                "/api/v1/shopping-list/items/item_server_pepper"
+            ])
+        }
+    }
+
     @Test("sync engine records step and ingredient create id remaps for drained optimistic mutations")
     func syncEngineRecordsStepAndIngredientCreateIDRemapsForDrainedOptimisticMutations() async throws {
         let createStep = try NativeQueuedMutation.recipeStepCreate(
@@ -1914,9 +2159,140 @@ struct NativeSyncEngineTests {
         #expect(partialOptimistic.first?.steps.map(\.id) == ["step_local_cm_nested_array_1"])
         #expect(shoppingJSON.contains("recipe_local_target"))
         #expect(shoppingJSON.contains("recipe_server_target") == false)
-        #expect(shopping.recordingIDRemaps([
+        let recordedShopping = shopping.recordingIDRemaps([
             NativeSyncIDRemap(localID: "item_local_cm_default_remap", serverID: "item_server_default")
-        ]) == shopping)
+        ])
+        let recordedShoppingList = recordedShopping.applyingOptimisticShoppingMutation(
+            to: nil,
+            recipes: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(7)
+        )
+        let recordedShoppingJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [recordedShopping])), encoding: .utf8))
+        let recordedShoppingRequestBody = try #require(
+            try recordedShopping.requestBuilder().urlRequest(configuration: configuration).body.flatMap { String(data: $0, encoding: .utf8) }
+        )
+        #expect(recordedShoppingList?.item(id: "item_server_default")?.name == "recipe_local_target")
+        #expect(recordedShoppingList?.item(id: "item_local_cm_default_remap") == nil)
+        #expect(recordedShoppingJSON.contains("serverItemId") == true)
+        #expect(recordedShoppingRequestBody.contains("serverItemId") == false)
+
+        let addRecipe = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_lemon",
+            scaleFactor: 1,
+            clientMutationID: "cm_recipe_items_remap",
+            createdAt: Self.createdAt(8)
+        ).recordingIDRemaps([
+            NativeSyncIDRemap(localID: "item_local_cm_recipe_items_remap-ingredient-1", serverID: "item_server_water"),
+            NativeSyncIDRemap(localID: "item_local_cm_recipe_items_remap-ingredient-2", serverID: "item_server_lemon")
+        ])
+        let addRecipeJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [addRecipe])), encoding: .utf8))
+        let addRecipeRequestBody = try #require(
+            try addRecipe.requestBuilder().urlRequest(configuration: configuration).body.flatMap { String(data: $0, encoding: .utf8) }
+        )
+        let addRecipeList = addRecipe.applyingOptimisticShoppingMutation(
+            to: nil,
+            recipes: [Self.optimisticRecipe()],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(9)
+        )
+        #expect(addRecipeList?.activeItems.map(\.id) == ["item_server_water", "item_server_lemon"])
+        #expect(addRecipeJSON.contains("serverItemIds") == true)
+        #expect(addRecipeRequestBody.contains("serverItemIds") == false)
+        #expect(addRecipeRequestBody.contains("item_server_lemon") == false)
+    }
+
+    @Test("stale shopping check mutations preserve the current list")
+    func staleShoppingCheckMutationsPreserveTheCurrentList() {
+        let salt = Self.shoppingItem(id: "item_salt", name: "salt", quantity: 1, unit: "pinch")
+        let list = ShoppingListState(
+            id: "shopping_list_test",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            items: [salt],
+            nextCursor: "",
+            updatedAt: Self.createdAt(0)
+        )
+        let staleCheck = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_missing",
+            checked: true,
+            clientMutationID: "cm_stale_check",
+            createdAt: Self.createdAt(1)
+        )
+
+        let updated = staleCheck.applyingOptimisticShoppingMutation(
+            to: list,
+            recipes: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(2)
+        )
+
+        #expect(updated == list)
+    }
+
+    @Test("optimistic shopping check and clear completed update stale timestamps")
+    func optimisticShoppingCheckAndClearCompletedUpdateStaleTimestamps() throws {
+        let checkedSalt = ShoppingListItem(
+            id: "item_salt",
+            name: "salt",
+            quantity: 1,
+            unit: "pinch",
+            checked: true,
+            checkedAt: Self.createdAt(1),
+            deletedAt: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            sortIndex: 0,
+            updatedAt: Self.createdAt(1)
+        )
+        let staleCompletedPepper = ShoppingListItem(
+            id: "item_pepper",
+            name: "pepper",
+            quantity: 1,
+            unit: "pinch",
+            checked: false,
+            checkedAt: Self.createdAt(2),
+            deletedAt: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            sortIndex: 1,
+            updatedAt: Self.createdAt(2)
+        )
+        let list = ShoppingListState(
+            id: "shopping_list_test",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            items: [checkedSalt, staleCompletedPepper],
+            nextCursor: "",
+            updatedAt: Self.createdAt(0)
+        )
+        let unchecked = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_salt",
+            checked: false,
+            clientMutationID: "cm_uncheck_salt",
+            createdAt: Self.createdAt(3)
+        ).applyingOptimisticShoppingMutation(
+            to: list,
+            recipes: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(3)
+        )
+
+        #expect(unchecked?.item(id: "item_salt")?.checked == false)
+        #expect(unchecked?.item(id: "item_salt")?.checkedAt == nil)
+        #expect(unchecked?.item(id: "item_salt")?.updatedAt == Self.createdAt(3))
+
+        let cleared = NativeQueuedMutation.shoppingClearCompleted(
+            clientMutationID: "cm_clear_completed",
+            createdAt: Self.createdAt(4)
+        ).applyingOptimisticShoppingMutation(
+            to: list,
+            recipes: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            now: Self.createdAt(4)
+        )
+
+        #expect(cleared?.activeItems.isEmpty == true)
+        #expect(cleared?.item(id: "item_salt")?.deletedAt == Self.createdAt(4))
+        #expect(cleared?.item(id: "item_pepper")?.deletedAt == Self.createdAt(4))
     }
 
     @Test("sync engine blocks local recipe dependent replay when create has not drained")
@@ -2673,6 +3049,31 @@ struct NativeSyncEngineTests {
 
     private static func recipe(from payload: JSONValue) throws -> Recipe {
         try JSONDecoder().decode(Recipe.self, from: JSONEncoder().encode(payload))
+    }
+
+    private static func shoppingItem(from payload: JSONValue) throws -> ShoppingListItem {
+        try JSONDecoder().decode(ShoppingListItem.self, from: JSONEncoder().encode(payload))
+    }
+
+    private static func shoppingItem(
+        id: String,
+        name: String,
+        quantity: Double?,
+        unit: String?
+    ) -> ShoppingListItem {
+        ShoppingListItem(
+            id: id,
+            name: name,
+            quantity: quantity,
+            unit: unit,
+            checked: false,
+            checkedAt: nil,
+            deletedAt: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            sortIndex: 0,
+            updatedAt: createdAt(0)
+        )
     }
 
     private static func optimisticRecipe(

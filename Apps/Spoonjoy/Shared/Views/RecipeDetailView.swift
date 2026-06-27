@@ -5,10 +5,12 @@ struct RecipeDetailRouteView: View {
     let recipeID: String
     let repository: any RecipeCatalogRepository
     let actionConnectivity: RecipeActionConnectivity
+    let shoppingViewModel: ShoppingSurfaceViewModel
     let context: (Recipe) -> RecipeDetailContext
     let actionPlanner: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel
     let openRoute: (AppRoute) -> Void
     let performRecipeAction: @MainActor @Sendable (RecipeActionPlan) async throws -> Void
+    let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
 
     @State private var viewModel: RecipeDetailScreenViewModel?
     @State private var errorMessage: String?
@@ -18,18 +20,22 @@ struct RecipeDetailRouteView: View {
         repository: any RecipeCatalogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
         actionConnectivity: RecipeActionConnectivity,
+        shoppingViewModel: ShoppingSurfaceViewModel,
         context: @escaping (Recipe) -> RecipeDetailContext,
         actionPlanner: @escaping @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel,
         openRoute: @escaping (AppRoute) -> Void,
-        performRecipeAction: @escaping @MainActor @Sendable (RecipeActionPlan) async throws -> Void
+        performRecipeAction: @escaping @MainActor @Sendable (RecipeActionPlan) async throws -> Void,
+        performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     ) {
         self.recipeID = recipeID
         self.repository = repository
         self.actionConnectivity = actionConnectivity
+        self.shoppingViewModel = shoppingViewModel
         self.context = context
         self.actionPlanner = actionPlanner
         self.openRoute = openRoute
         self.performRecipeAction = performRecipeAction
+        self.performShoppingAction = performShoppingAction
         _viewModel = State(initialValue: initialViewModel)
     }
 
@@ -39,9 +45,11 @@ struct RecipeDetailRouteView: View {
                 RecipeDetailView(
                     viewModel: viewModel,
                     actionConnectivity: actionConnectivity,
+                    shoppingViewModel: shoppingViewModel,
                     actionPlanner: actionPlanner,
                     openRoute: openRoute,
-                    performRecipeAction: performRecipeAction
+                    performRecipeAction: performRecipeAction,
+                    performShoppingAction: performShoppingAction
                 )
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "text.book.closed")
@@ -77,14 +85,18 @@ struct RecipeDetailRouteView: View {
 struct RecipeDetailView: View {
     let viewModel: RecipeDetailScreenViewModel
     let actionConnectivity: RecipeActionConnectivity
+    let shoppingViewModel: ShoppingSurfaceViewModel
     let actionPlanner: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel
     let openRoute: (AppRoute) -> Void
     let performRecipeAction: @MainActor @Sendable (RecipeActionPlan) async throws -> Void
+    let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
 
     @State private var actionErrorMessage: String?
     @State private var actionStatusMessage: String?
     @State private var activeConfirmationDialog: RecipeActionConfirmationDialog?
     @State private var localSavedCookbookIDs: Set<String>?
+    @State private var localHasIngredientsInShoppingList: Bool?
+    @State private var shoppingScaleFactor: Double = 1
 
     var body: some View {
         ScrollView {
@@ -129,12 +141,18 @@ struct RecipeDetailView: View {
         }
         .onAppear {
             syncSavedCookbookStateIfNeeded()
+            syncShoppingStateIfNeeded()
         }
         .onChange(of: viewModel.id) { _, _ in
             localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
+            localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
+            shoppingScaleFactor = 1
         }
         .onChange(of: viewModel.cookbookSave.savedCookbookIDs) { _, nextIDs in
             localSavedCookbookIDs = nextIDs
+        }
+        .onChange(of: viewModel.hasIngredientsInShoppingList) { _, hasIngredients in
+            localHasIngredientsInShoppingList = hasIngredients
         }
     }
 
@@ -199,6 +217,23 @@ struct RecipeDetailView: View {
                     ShareLink(item: viewModel.actions.shareURL) {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
+                }
+                if hasAction(.addToShoppingList) {
+                    Stepper(value: $shoppingScaleFactor, in: 0.25...4, step: 0.25) {
+                        Label("Scale \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x", systemImage: "person.2")
+                    }
+                    .frame(maxWidth: 220)
+
+                    Button {
+                        addRecipeIngredients()
+                    } label: {
+                        Label(
+                            hasIngredientsInShoppingList ? "In List" : "Add Ingredients",
+                            systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
+                        )
+                    }
+                    .disabled(hasIngredientsInShoppingList)
+                    .buttonStyle(.bordered)
                 }
             }
 
@@ -350,7 +385,7 @@ struct RecipeDetailView: View {
                 }
             }
 
-            if viewModel.hasIngredientsInShoppingList {
+            if hasIngredientsInShoppingList {
                 Label("Ingredients are on your shopping list", systemImage: "checklist")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
@@ -458,6 +493,41 @@ struct RecipeDetailView: View {
         }
     }
 
+    private func addRecipeIngredients() {
+        let shoppingListMetadata = viewModel.actions.shoppingListMetadata
+        let action: ShoppingSurfaceAction = .addRecipeIngredients(
+            recipeID: shoppingListMetadata.recipeID,
+            scaleFactor: shoppingScaleFactor,
+            recipeIngredients: viewModel.recipe.steps.flatMap(\.ingredients),
+            clientMutationID: clientMutationID(prefix: "shopping-recipe")
+        )
+        runShoppingAction(action)
+    }
+
+    private func runShoppingAction(_ action: ShoppingSurfaceAction) {
+        let createdAt = timestamp()
+        Task {
+            do {
+                let plan = try ShoppingSurfaceViewModel(
+                    shoppingList: shoppingViewModel.shoppingList,
+                    queuedMutations: shoppingViewModel.queuedMutations,
+                    conflicts: shoppingViewModel.conflicts,
+                    connectivity: shoppingViewModel.connectivity,
+                    now: { createdAt }
+                ).plan(action)
+                let outcome = try await performShoppingAction(plan)
+                localHasIngredientsInShoppingList = true
+                actionErrorMessage = nil
+                actionStatusMessage = outcome == .queuedForSync
+                    ? "Ingredients saved for sync"
+                    : "\(viewModel.ingredientReceipt.rows.count) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
+            } catch {
+                actionStatusMessage = nil
+                actionErrorMessage = "Could not update shopping list."
+            }
+        }
+    }
+
     private func clientMutationID(prefix: String) -> String {
         "native-\(prefix)-\(safeIdentifier(timestamp()))-\(UUID().uuidString.lowercased())"
     }
@@ -481,9 +551,13 @@ struct RecipeDetailView: View {
             currentChefID: viewModel.actionContext.currentChefID,
             availableCookbooks: viewModel.actionContext.availableCookbooks,
             savedInCookbookIDs: currentSavedCookbookIDs,
-            hasIngredientsInShoppingList: viewModel.actionContext.hasIngredientsInShoppingList,
+            hasIngredientsInShoppingList: hasIngredientsInShoppingList,
             now: viewModel.actionContext.now
         )
+    }
+
+    private var hasIngredientsInShoppingList: Bool {
+        localHasIngredientsInShoppingList ?? viewModel.hasIngredientsInShoppingList
     }
 
     private func isCookbookSaved(_ cookbookID: String) -> Bool {
@@ -493,6 +567,12 @@ struct RecipeDetailView: View {
     private func syncSavedCookbookStateIfNeeded() {
         if localSavedCookbookIDs == nil {
             localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
+        }
+    }
+
+    private func syncShoppingStateIfNeeded() {
+        if localHasIngredientsInShoppingList == nil {
+            localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
         }
     }
 

@@ -328,6 +328,7 @@ public struct ShoppingListViewModel: Equatable {
                 checked,
                 itemID: id,
                 checkedAt: checkedAt,
+                updatedAt: checkedAt,
                 nextSortIndex: nextSortIndex
             )
         )

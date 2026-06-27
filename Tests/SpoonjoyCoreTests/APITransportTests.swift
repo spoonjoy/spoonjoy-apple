@@ -433,6 +433,182 @@ struct APITransportTests {
         ]))
     }
 
+    @Test("URLSession native sync transport extracts shopping add item id remaps")
+    func urlSessionNativeSyncTransportExtractsShoppingAddItemIDRemaps() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_add",
+                        data: """
+                        {
+                          "created": true,
+                          "updated": false,
+                          "item": {
+                            "id": "item_server_limes",
+                            "name": "limes",
+                            "quantity": 4,
+                            "unit": "each",
+                            "checked": false,
+                            "checkedAt": null,
+                            "deletedAt": null,
+                            "categoryKey": "produce",
+                            "iconKey": "lemon",
+                            "sortIndex": 1,
+                            "updatedAt": "2026-06-16T12:00:00.000Z"
+                          },
+                          "mutation": { "clientMutationId": "cm_shopping_add_limes", "replayed": false }
+                        }
+                        """
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let addItem = NativeQueuedMutation.shoppingAddItem(
+            name: "limes",
+            quantity: 4,
+            unit: "each",
+            categoryKey: "produce",
+            iconKey: "lemon",
+            clientMutationID: "cm_shopping_add_limes",
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+
+        #expect(try await transport.send(addItem, configuration: Self.configuration(bearerToken: "sj_access_native")) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_add_limes", serverID: "item_server_limes")
+        ]))
+    }
+
+    @Test("URLSession native sync transport extracts shopping add-from-recipe item id remaps")
+    func urlSessionNativeSyncTransportExtractsShoppingAddFromRecipeItemIDRemaps() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe",
+                        data: """
+                        {
+                          "recipe": { "id": "recipe_lemon_pasta", "title": "Lemon Pasta" },
+                          "created": 2,
+                          "updated": 0,
+                          "items": [
+                            {
+                              "id": "item_server_lemons",
+                              "name": "lemons",
+                              "quantity": 2,
+                              "unit": "each",
+                              "checked": false,
+                              "checkedAt": null,
+                              "deletedAt": null,
+                              "categoryKey": null,
+                              "iconKey": null,
+                              "sortIndex": 1,
+                              "updatedAt": "2026-06-16T12:00:00.000Z"
+                            },
+                            {
+                              "id": "item_server_pasta",
+                              "name": "pasta",
+                              "quantity": 8,
+                              "unit": "oz",
+                              "checked": false,
+                              "checkedAt": null,
+                              "deletedAt": null,
+                              "categoryKey": null,
+                              "iconKey": null,
+                              "sortIndex": 2,
+                              "updatedAt": "2026-06-16T12:00:00.000Z"
+                            }
+                          ],
+                          "mutation": { "clientMutationId": "cm_shopping_recipe", "replayed": false }
+                        }
+                        """
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let addFromRecipe = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_lemon_pasta",
+            scaleFactor: 2,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_pasta", name: "pasta", quantity: 4, unit: "oz"),
+                RecipeIngredient(id: "ingredient_lemons", name: "lemons", quantity: 1, unit: "each")
+            ],
+            clientMutationID: "cm_shopping_recipe",
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+
+        #expect(try await transport.send(addFromRecipe, configuration: Self.configuration(bearerToken: "sj_access_native")) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_recipe-ingredient-1", serverID: "item_server_pasta"),
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_recipe-ingredient-2", serverID: "item_server_lemons")
+        ]))
+        let request = try #require(await session.capturedRequests().first)
+        let requestBody = try #require(request.httpBody.flatMap { String(data: $0, encoding: .utf8) })
+        #expect(requestBody.contains(#""recipeId":"recipe_lemon_pasta""#))
+        #expect(requestBody.contains(#""scaleFactor":2"#))
+        #expect(requestBody.contains("shoppingRecipeIngredients") == false)
+        #expect(requestBody.contains("serverItemIds") == false)
+    }
+
+    @Test("URLSession native sync transport remaps duplicate recipe ingredients to coalesced shopping row")
+    func urlSessionNativeSyncTransportRemapsDuplicateRecipeIngredientsToCoalescedShoppingRow() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(
+                        requestID: "req_shopping_recipe_duplicates",
+                        data: """
+                        {
+                          "recipe": { "id": "recipe_duplicate_sugar", "title": "Layer Cake" },
+                          "created": 1,
+                          "updated": 1,
+                          "items": [
+                            {
+                              "id": "item_server_sugar",
+                              "name": "sugar",
+                              "quantity": 3,
+                              "unit": "cup",
+                              "checked": false,
+                              "checkedAt": null,
+                              "deletedAt": null,
+                              "categoryKey": null,
+                              "iconKey": null,
+                              "sortIndex": 1,
+                              "updatedAt": "2026-06-16T12:00:00.000Z"
+                            }
+                          ],
+                          "mutation": { "clientMutationId": "cm_shopping_duplicate_recipe", "replayed": false }
+                        }
+                        """
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let addFromRecipe = NativeQueuedMutation.shoppingAddFromRecipe(
+            recipeID: "recipe_duplicate_sugar",
+            scaleFactor: 2,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_sugar_a", name: "sugar", quantity: 1, unit: "cup"),
+                RecipeIngredient(id: "ingredient_sugar_b", name: "sugar", quantity: 0.5, unit: "cup")
+            ],
+            clientMutationID: "cm_shopping_duplicate_recipe",
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+
+        #expect(try await transport.send(addFromRecipe, configuration: Self.configuration(bearerToken: "sj_access_native")) == .success(serverRevision: nil, idRemaps: [
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_duplicate_recipe-ingredient-1", serverID: "item_server_sugar"),
+            NativeSyncIDRemap(localID: "item_local_cm_shopping_duplicate_recipe-ingredient-2", serverID: "item_server_sugar")
+        ]))
+    }
+
     @Test("URLSession native sync transport extracts top-level recipe editor id remaps")
     func urlSessionNativeSyncTransportExtractsTopLevelRecipeEditorIDRemaps() async throws {
         let session = RecordingURLSession(

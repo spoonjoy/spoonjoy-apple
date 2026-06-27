@@ -1,0 +1,9 @@
+Building for debugging...
+[0/3] Write swift-version--58304C5D6DBC2206.txt
+Build of product 'SpoonjoyScenarioVerifier' complete! (0.13s)
+native scenario verification ok: surfaces
+xcode project contract ok
+native design language contract ok
+kitchen and recipe surfaces contract ok
+cook and shopping surfaces contract ok
+search capture settings surfaces contract ok
