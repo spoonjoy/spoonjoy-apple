@@ -172,6 +172,115 @@ struct NativeSharingTests {
         }
     }
 
+    @Test("capture draft private transfers redact credential URLs and local media identifiers")
+    func captureDraftPrivateTransfersRedactCredentialURLsAndLocalMediaIdentifiers() throws {
+        let signedURLDraft = try CaptureDraft.shareSheetURL(
+            id: "draft_signed_url",
+            url: try url("https://recipes.example/import/card?token=secret-token&signature=sig#private"),
+            createdAt: "2026-06-27T15:04:00.000Z"
+        )
+        let signedURLPayload = NativeSharePayload.privateCaptureDraft(signedURLDraft)
+        #expect(signedURLPayload.title == "recipes.example")
+        #expect(signedURLPayload.serializedTransferValue.contains("capturedHost=recipes.example"))
+
+        let localPathDraft = try CaptureDraft.localText(
+            id: "draft_local_path",
+            rawText: "/Users/ari/Library/Mobile Documents/Recipes/private-card.jpg\naccess_token=abc",
+            sourceURL: try url("https://captures.example/raw?access_token=abc&key=def"),
+            createdAt: "2026-06-27T15:05:00.000Z"
+        )
+        let localPathPayload = NativeSharePayload.privateCaptureDraft(localPathDraft)
+        #expect(localPathPayload.title == "Capture Draft")
+        #expect(localPathPayload.serializedTransferValue.contains("sourceHost=captures.example"))
+
+        let jsonDraft = try CaptureDraft.jsonLD(
+            id: "draft_json_signed_source",
+            jsonLD: .object(["name": .string("Imported recipe")]),
+            sourceURL: try url("https://json.example/schema?sig=signed-secret"),
+            createdAt: "2026-06-27T15:06:00.000Z"
+        )
+        let jsonPayload = NativeSharePayload.privateCaptureDraft(jsonDraft)
+        #expect(jsonPayload.title == "json.example")
+        #expect(jsonPayload.serializedTransferValue.contains("sourceHost=json.example"))
+
+        let mediaDraft = try CaptureDraft.cameraImage(
+            id: "draft_private_media_identifier",
+            assetIdentifier: "/private/var/mobile/Media/DCIM/secret-card.jpg",
+            recognizedText: nil,
+            createdAt: "2026-06-27T15:07:00.000Z"
+        )
+        let mediaPayload = NativeSharePayload.privateCaptureDraft(mediaDraft)
+        #expect(mediaPayload.title == "Capture Draft")
+
+        for payload in [signedURLPayload, localPathPayload, jsonPayload, mediaPayload] {
+            assertNoSensitiveShareFragments(payload)
+        }
+    }
+
+    @Test("private transfer edge labels cover checked items and sanitized capture titles")
+    func privateTransferEdgeLabelsCoverCheckedItemsAndSanitizedCaptureTitles() throws {
+        let checkedItem = ShoppingListItem(
+            id: "item_checked",
+            name: "olive oil",
+            quantity: 2,
+            unit: "tbsp",
+            checked: true,
+            checkedAt: "2026-06-27T15:08:00.000Z",
+            deletedAt: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            sortIndex: 2,
+            updatedAt: "2026-06-27T15:08:00.000Z"
+        )
+        let checkedPayload = NativeSharePayload.privateShoppingItem(checkedItem, listID: "list_private")
+        #expect(checkedPayload.subtitle == "2 tbsp")
+        #expect(checkedPayload.serializedTransferValue.contains("checked=true"))
+
+        let httpURLDraft = try CaptureDraft.shareSheetURL(
+            id: "draft_http_url",
+            url: try url("http://plain.example/recipe?token=hidden"),
+            createdAt: "2026-06-27T15:09:00.000Z"
+        )
+        let httpPayload = NativeSharePayload.privateCaptureDraft(httpURLDraft)
+        #expect(httpPayload.title == "plain.example")
+        #expect(httpPayload.serializedTransferValue.contains("capturedHost=plain.example"))
+        assertNoSensitiveShareFragments(httpPayload)
+
+        let textURLDraft = try CaptureDraft.localText(
+            id: "draft_text_url",
+            rawText: "https://text.example/recipe?signature=hidden",
+            createdAt: "2026-06-27T15:10:00.000Z"
+        )
+        let textURLPayload = NativeSharePayload.privateCaptureDraft(textURLDraft)
+        #expect(textURLPayload.title == "text.example")
+        assertNoSensitiveShareFragments(textURLPayload)
+
+        let plainTextDraft = try CaptureDraft.localText(
+            id: "draft_plain_text",
+            rawText: "Grandma's lemon card",
+            createdAt: "2026-06-27T15:11:00.000Z"
+        )
+        #expect(NativeSharePayload.privateCaptureDraft(plainTextDraft).title == "Grandma's lemon card")
+
+        let missingCapturedURLDraft = CaptureDraft(
+            id: "draft_missing_capture_url",
+            source: .url,
+            rawText: "",
+            imageAssetIdentifier: nil,
+            capturedURL: nil,
+            createdAt: "2026-06-27T15:12:00.000Z"
+        )
+        #expect(NativeSharePayload.privateCaptureDraft(missingCapturedURLDraft).title == "Capture Draft")
+
+        let jsonDraftWithoutSource = try CaptureDraft.jsonLD(
+            id: "draft_json_without_source",
+            jsonLD: .object(["name": .string("No source")]),
+            sourceURL: nil,
+            createdAt: "2026-06-27T15:13:00.000Z"
+        )
+        #expect(NativeSharePayload.privateCaptureDraft(jsonDraftWithoutSource).title == "Capture Draft")
+    }
+
     @Test("private transfer fallback labels cover sparse shopping spoon and capture values")
     func privateTransferFallbackLabelsCoverSparseShoppingSpoonAndCaptureValues() throws {
         let sparseItem = ShoppingListItem(
@@ -321,5 +430,37 @@ struct NativeSharingTests {
 
     private func url(_ rawURL: String) throws -> URL {
         try #require(URL(string: rawURL))
+    }
+
+    private func assertNoSensitiveShareFragments(_ payload: NativeSharePayload) {
+        let combined = [
+            payload.title,
+            payload.subtitle,
+            payload.serializedTransferValue
+        ].joined(separator: "\n")
+        let forbiddenFragments = [
+            "https://recipes.example/import",
+            "https://captures.example/raw",
+            "https://json.example/schema",
+            "http://plain.example/recipe",
+            "https://text.example/recipe",
+            "token=",
+            "access_token",
+            "signature=",
+            "sig=",
+            "key=",
+            "secret-token",
+            "signed-secret",
+            "/Users/",
+            "/private/",
+            "file://",
+            "Media/DCIM",
+            "private-card.jpg",
+            "secret-card.jpg"
+        ]
+
+        for fragment in forbiddenFragments {
+            #expect(!combined.contains(fragment), "private transfer leaked \(fragment)")
+        }
     }
 }

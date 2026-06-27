@@ -185,15 +185,15 @@ public struct NativeSharePayload: Equatable, Identifiable, Sendable {
     }
 
     public static func privateCaptureDraft(_ draft: CaptureDraft) -> NativeSharePayload {
-        let title = draft.previewLines.first ?? "Capture Draft"
+        let title = privateCaptureDraftTitle(draft)
         let serializedValue = privateTransferValue(
             domain: .captureDraft,
             resourceID: draft.id,
             title: title,
             fields: [
                 ("source", draft.source.rawValue),
-                ("sourceURL", draft.sourceURL?.absoluteString),
-                ("capturedURL", draft.capturedURL?.absoluteString),
+                ("sourceHost", sanitizedURLHost(draft.sourceURL)),
+                ("capturedHost", sanitizedURLHost(draft.capturedURL)),
                 ("createdAt", draft.createdAt)
             ]
         )
@@ -285,6 +285,57 @@ public struct NativeSharePayload: Equatable, Identifiable, Sendable {
             .replacingOccurrences(of: ";", with: ",")
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
+    }
+
+    private static func privateCaptureDraftTitle(_ draft: CaptureDraft) -> String {
+        switch draft.source {
+        case .url, .shareSheetURL, .videoURL:
+            return sanitizedURLHost(draft.capturedURL) ?? "Capture Draft"
+        case .jsonLD:
+            return sanitizedURLHost(draft.sourceURL) ?? "Capture Draft"
+        case .text, .image, .cameraImage, .photoLibraryImage:
+            return sanitizedPreviewTitle(draft.previewLines.first) ?? "Capture Draft"
+        }
+    }
+
+    private static func sanitizedPreviewTitle(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: trimmed), let host = sanitizedURLHost(url) {
+            return host
+        }
+
+        let lowercased = trimmed.lowercased()
+        let unsafeMarkers = [
+            "file://",
+            "/users/",
+            "/private/",
+            "/var/mobile/",
+            "token=",
+            "access_token",
+            "signature=",
+            "sig=",
+            "secret=",
+            "credential="
+        ]
+        guard !unsafeMarkers.contains(where: { lowercased.contains($0) }) else {
+            return nil
+        }
+        return String(trimmed.prefix(80))
+    }
+
+    private static func sanitizedURLHost(_ url: URL?) -> String? {
+        guard let url,
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = components.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              let host = components.host?.lowercased(),
+              !host.isEmpty else {
+            return nil
+        }
+        return host
     }
 }
 

@@ -76,11 +76,24 @@ if sharing_core.file?
     "case .recipeDetail",
     "case .cookbookDetail",
     "privateTransfer",
+    "sanitizedURLHost",
     "spoonjoy.app",
     "return nil"
   ]
   missing_tokens = required_tokens.reject { |token| content.include?(token) }
   failures << "#{sharing_core.relative_path_from(ROOT)} missing required sharing tokens: #{missing_tokens.join(", ")}" unless missing_tokens.empty?
+
+  private_capture_leak_tokens = [
+    "sourceURL?.absoluteString",
+    "capturedURL?.absoluteString",
+    "imageAssetIdentifier",
+    "assetIdentifier",
+    "fileURLWithPath"
+  ]
+  private_capture_hits = private_capture_leak_tokens.select { |token| content.include?(token) }
+  unless private_capture_hits.empty?
+    failures << "#{sharing_core.relative_path_from(ROOT)} must not serialize raw capture URLs or media identifiers in private share transfers: #{private_capture_hits.join(", ")}"
+  end
 else
   failures << "missing Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift"
 end
