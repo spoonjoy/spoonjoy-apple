@@ -2,7 +2,7 @@ COMMAND: swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors --f
 Building for debugging...
 [0/5] Write swift-version--58304C5D6DBC2206.txt
 error: emit-module command failed with exit code 1 (use -v to see invocation)
-[2/7] Emitting module SpoonjoyCoreTests
+[2/5] Emitting module SpoonjoyCoreTests
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:394:51: error: cannot find type 'CookbookSurfaceRepository' in scope
 392 | }
 393 | 
@@ -90,7 +90,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
     |                                               `- error: cannot find type 'CookbookSurfaceActionPlan' in scope
 425 |     try #require(plan.remoteRequestBuilder).urlRequest(configuration: CookbookSurfaceParityTests.configuration)
 426 | }
-[3/7] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[3/5] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CookbookSurfaceParityTests.swift:394:51: error: cannot find type 'CookbookSurfaceRepository' in scope
 392 | }
 393 | 
@@ -890,21 +890,6 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
     |                                            `- error: cannot infer contextual base in reference to member 'rename'
 355 |         #expect(queuedRename.remoteRequestBuilder == nil)
 356 |         let queuedMutation = try requireCookbookMutation(queuedRename.queuedMutation, "queued rename behind pending cookbook work")
-[4/7] Compiling SpoonjoyCoreTests CookModeParityTests.swift
-[5/7] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
-[6/20] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
-[7/20] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
-[8/20] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
-[9/20] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
-[10/20] Compiling SpoonjoyCoreTests NativeSharingTests.swift
-[11/20] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
-[12/20] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
-[13/20] Compiling SpoonjoyCoreTests KitchenStateTests.swift
-[14/20] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
-[15/20] Compiling SpoonjoyCoreTests AppStateTests.swift
-[16/20] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
-[17/20] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
-[18/20] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
 error: fatalError
 
 COMMAND: ruby scripts/check-cookbook-surfaces.rb
@@ -913,11 +898,6 @@ FAIL: missing cookbook surface file: Sources/SpoonjoyCore/Features/Cookbooks/Coo
 FAIL: Apps/Spoonjoy/Shared/Views/CookbooksView.swift missing required cookbook tokens: CookbookSurfaceViewModel, CookbookDetailRouteView, NativeSharePayload.publicCookbook, ShareLink, ownerTools, confirmationDialog
 FAIL: Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing required cookbook tokens: CookbookDetailRouteView(, CookbookSurfaceViewModel, LiveCookbookSurfaceRepository, FallbackCookbookSurfaceRepository, performCookbookAction
 FAIL: Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing required cookbook tokens: cookbook detail, cookbook owner tools, cookbook create, cookbook rename, cookbook delete, cookbook add recipe, cookbook remove recipe
-FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing POST /api/v1/cookbooks for native cookbook parity
-FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing PATCH /api/v1/cookbooks/{id} for native cookbook parity
-FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing DELETE /api/v1/cookbooks/{id} for native cookbook parity
-FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing POST /api/v1/cookbooks/{id}/recipes/{recipeId} for native cookbook parity
-FAIL: /Users/arimendelow/Projects/spoonjoy-v2/app/lib/api-v1-contract.server.ts missing DELETE /api/v1/cookbooks/{id}/recipes/{recipeId} for native cookbook parity
 
 swift_status=1
 surface_status=1
