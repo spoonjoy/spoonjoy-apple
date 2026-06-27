@@ -32,3 +32,8 @@
 - `ScenarioVerifier` final checks now assert capture import submission, provider-secret blocker handling, and offline retry planning.
 - `scripts/check-search-capture-settings-surfaces.rb` forbids the previous no-op capture handler, local-only copy, and blocker path that discarded queued provider-secret imports.
 - New core files live under SwiftPM-discovered `Sources/SpoonjoyCore`; project membership remains covered by the existing generator/contract.
+
+## Coverage Follow-Up
+
+- Unit 18i covers the CI coverage gap for capture/import by exercising every persisted `NativeMutationSource` variant, malformed source decode paths, incomplete capture-draft source states, provider-secret default-resource fallbacks, non-provider/empty import responses, direct live-store import execution, durable draft retry/discard persistence, no-app-state provider blockers, broken app-state cleanup paths, accepted import transport envelopes without blockers, and the capture-import scenario failure path.
+- Local validation for the follow-up is recorded under `apple/unit-18i-capture-import-*`: 13 focused capture/import tests, 341 full Swift tests, `Sources/SpoonjoyCore` coverage at `100.00% (14698/14698)`, green search/capture/settings surface and surfaces-scenario checks, a canonical local screenshot/design-review blocker for the missing iOS simulator platform, and `warning scan ok`.

@@ -1433,12 +1433,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now())
         )
 
-        let providerSecretResourceID = report.blockers.compactMap { blocker -> String? in
-            if case .providerSecret(let resourceID) = blocker {
+        let providerSecretResourceID = report.blockers.first.map { blocker -> String in
+            switch blocker {
+            case .providerSecret(let resourceID):
                 return resourceID
             }
-            return nil
-        }.first
+        }
 
         if let conflict = report.conflicts.first {
             apply(.conflict(content.copy(

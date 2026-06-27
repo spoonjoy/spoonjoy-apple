@@ -322,6 +322,30 @@ struct APITransportTests {
         #expect(capturedRequest.url?.absoluteString == "https://spoonjoy.app/api/v1/recipes/import")
     }
 
+    @Test("URLSession native sync transport drains accepted recipe imports without blockers")
+    func urlSessionNativeSyncTransportDrainsAcceptedRecipeImportsWithoutBlockers() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.recipeImportAcceptedEnvelope(requestID: "req_import_accepted")
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let result = try await transport.send(
+            .recipeImportSubmit(
+                source: .url(URL(string: "https://example.com/accepted-import")!),
+                clientMutationID: "cm_import_accepted",
+                createdAt: "2026-06-16T12:05:30.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+
+        #expect(result == .success(serverRevision: nil))
+    }
+
     @Test("URLSession native sync transport extracts recipe editor id remaps from success envelopes")
     func urlSessionNativeSyncTransportExtractsRecipeEditorIDRemapsFromSuccessEnvelopes() async throws {
         let session = RecordingURLSession(
@@ -1748,6 +1772,24 @@ struct APITransportTests {
                   "capability": "ProviderSecret",
                   "provider": "openai",
                   "resource": "recipe-import"
+                }
+              ]
+            }
+            """
+        )
+    }
+
+    private static func recipeImportAcceptedEnvelope(requestID: String) -> Data {
+        successEnvelope(
+            requestID: requestID,
+            data: """
+            {
+              "recipe": null,
+              "importCode": "accepted",
+              "blockers": [
+                {
+                  "capability": "AlreadyHandled",
+                  "resource": "ignored"
                 }
               ]
             }

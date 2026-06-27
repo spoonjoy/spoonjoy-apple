@@ -475,6 +475,9 @@ struct NativeScenarioTests {
         let throwingShoppingClearCheck = ScenarioVerifier.shoppingClearConfirmationCheck(loadShoppingList: {
             throw FixtureLoadError.unavailable
         })
+        let throwingCaptureImportCheck = ScenarioVerifier.captureDraftCreationCheck(makeDraft: {
+            throw FixtureLoadError.unavailable
+        })
         let missingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: { [] })
         let throwingRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck(loadRecipes: {
             throw FixtureLoadError.unavailable
@@ -515,6 +518,8 @@ struct NativeScenarioTests {
         #expect(malformedShoppingRecipeCheck.detail.contains("Shopping add recipe ingredients failed"))
         #expect(throwingShoppingClearCheck.status == .fail)
         #expect(throwingShoppingClearCheck.detail.contains("Shopping clear confirmation failed"))
+        #expect(throwingCaptureImportCheck.status == .fail)
+        #expect(throwingCaptureImportCheck.detail.contains("Capture import scenario failed"))
         #expect(missingRecipeCheck.status == .fail)
         #expect(missingRecipeCheck.detail.contains("no cookable steps"))
         #expect(throwingRecipeCheck.status == .fail)

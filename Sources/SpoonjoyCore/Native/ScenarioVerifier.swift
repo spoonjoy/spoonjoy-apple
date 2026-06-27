@@ -874,13 +874,15 @@ public enum ScenarioVerifier {
         )
     }
 
-    private static func captureDraftCreationCheck() -> ScenarioCheck {
+    static func captureDraftCreationCheck(makeDraft: () throws -> CaptureDraft = {
+        try CaptureDraft.importURL(
+            id: "scenario-draft",
+            url: URL(string: "https://example.com/recipe")!,
+            createdAt: "2026-06-16T12:08:00.000Z"
+        )
+    }) -> ScenarioCheck {
         do {
-            let draft = try CaptureDraft.importURL(
-                id: "scenario-draft",
-                url: URL(string: "https://example.com/recipe")!,
-                createdAt: "2026-06-16T12:08:00.000Z"
-            )
+            let draft = try makeDraft()
             let viewModel = CaptureDraftViewModel(draft: draft)
             let mutation = NativeQueuedMutation.recipeImportSubmit(
                 source: try draft.importSource(),
