@@ -154,6 +154,16 @@ struct SpoonCookLogView: View {
                 .toggleStyle(.switch)
                 .disabled(stagedPhoto == nil || actionInFlight)
 
+                if hasStagedPhoto {
+                    Button {
+                        clearStagedPhoto()
+                    } label: {
+                        Label("Clear Photo", systemImage: "xmark.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(actionInFlight)
+                }
+
                 Spacer()
 
                 Button {
@@ -300,18 +310,11 @@ struct SpoonCookLogView: View {
 
     @MainActor private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item else {
-            stagedPhoto = nil
-            useAsRecipeCover = false
-            persistDraft()
             return
         }
         do {
             guard let (contentType, fileExtension) = item.supportedContentTypes.compactMap(Self.supportedPhotoContentType).first else {
-                selectedPhoto = nil
-                stagedPhoto = nil
-                useAsRecipeCover = false
-                actionErrorMessage = "Unsupported photo format. Choose a JPEG, PNG, or WebP image."
-                persistDraft()
+                rejectSelectedPhoto("Unsupported photo format. Choose a JPEG, PNG, or WebP image.")
                 return
             }
             guard let data = try await item.loadTransferable(type: Data.self), !data.isEmpty else {
@@ -319,11 +322,7 @@ struct SpoonCookLogView: View {
                 return
             }
             if case .rejected(let error) = viewModel.evaluateNewPhoto(byteCount: data.count, replacing: stagedPhoto) {
-                selectedPhoto = nil
-                stagedPhoto = nil
-                useAsRecipeCover = false
-                actionErrorMessage = Self.mediaRejectionMessage(error)
-                persistDraft()
+                rejectSelectedPhoto(Self.mediaRejectionMessage(error))
                 return
             }
             stagedPhoto = SpoonCookLogPhotoAttachment(
@@ -337,6 +336,19 @@ struct SpoonCookLogView: View {
         } catch {
             actionErrorMessage = "Photo could not be loaded."
         }
+    }
+
+    @MainActor private func rejectSelectedPhoto(_ message: String) {
+        selectedPhoto = nil
+        actionErrorMessage = message
+    }
+
+    @MainActor private func clearStagedPhoto() {
+        selectedPhoto = nil
+        stagedPhoto = nil
+        useAsRecipeCover = false
+        actionErrorMessage = nil
+        persistDraft()
     }
 
     private static func supportedPhotoContentType(_ contentType: UTType) -> (String, String)? {
