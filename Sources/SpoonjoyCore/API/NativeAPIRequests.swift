@@ -866,6 +866,21 @@ public struct RecipeImportResponse: Decodable, Equatable {
         importCode = try container.decodeIfPresent(String.self, forKey: .importCode)
         blockers = try container.decodeIfPresent([JSONValue].self, forKey: .blockers)
     }
+
+    public var providerSecretBlockerResourceID: String? {
+        for blocker in blockers ?? [] {
+            guard case .object(let object) = blocker,
+                  object["capability"] == .string("ProviderSecret") else {
+                continue
+            }
+            if case .string(let resourceID)? = object["resource"] {
+                let trimmed = resourceID.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? "recipe-import" : trimmed
+            }
+            return "recipe-import"
+        }
+        return nil
+    }
 }
 
 public enum RecipeImportRequests {

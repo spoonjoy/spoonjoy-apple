@@ -122,8 +122,15 @@ struct SpoonjoyRootView: View {
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },
+            executeCaptureImportRequest: { request in
+                try await liveStore.executeCaptureImportRequest(request)
+            },
             recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
+            recordCaptureDraft: liveStore.recordCaptureDraft,
+            discardCaptureDraft: liveStore.discardCaptureDraft,
+            recordCaptureImportRetry: liveStore.recordCaptureImportRetry,
+            recordCaptureImportBlocker: liveStore.recordCaptureImportBlocker,
             recordSpoonCookLogDraft: liveStore.recordSpoonCookLogDraft,
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator
         )

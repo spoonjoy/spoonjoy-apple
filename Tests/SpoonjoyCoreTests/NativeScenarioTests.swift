@@ -15,11 +15,23 @@ struct NativeScenarioTests {
     ]
     private let expectedSpotlightIndexedTypes = ["recipe", "cookbook", "shopping-list-item"]
     private let expectedSearchableScopes = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
-    private let expectedShareActions = ["capture-recipe-url", "share-recipe"]
+    private let expectedShareActions = [
+        "capture-recipe-url",
+        "capture-recipe-text",
+        "capture-recipe-camera",
+        "capture-recipe-photo-library",
+        "capture-recipe-json-ld",
+        "capture-recipe-video-url",
+        "recipe-import-submit",
+        "share-recipe"
+    ]
     private let expectedOfflineFlows = [
         "fixture-offline-restore",
         "shopping-queue-replay",
-        "cook-mode-progress-restore"
+        "cook-mode-progress-restore",
+        "capture-draft-offline",
+        "capture-import-offline-retry",
+        "provider-secret-blocked-import"
     ]
     private let expectedAssociatedDomains = ["applinks:spoonjoy.app"]
     private let expectedURLSchemes = ["spoonjoy"]
@@ -393,7 +405,12 @@ struct NativeScenarioTests {
         #expect(checksByName["receipt controls source"] == .pass)
         #expect(checksByName["kitchen safe controls source"] == .pass)
         #expect(checksByName["navigation surface source"] == .pass)
-        #expect(checksByName["remaining surfaces"] == .pending)
+        #expect(checksByName["search surface source"] == .pass)
+        #expect(checksByName["capture surface source"] == .pass)
+        #expect(checksByName["settings surface source"] == .pass)
+        #expect(checksByName["offline status source"] == .pass)
+        #expect(checksByName["navigation final surface source"] == .pass)
+        #expect(report.checks.filter { $0.status == .pending }.isEmpty)
         #expect(report.checks.filter { $0.status == .fail }.isEmpty)
         #expect(Set(report.nativeCapabilities.deepLinkRoutes) == Set(expectedDeepLinkRoutes))
     }
@@ -414,7 +431,7 @@ struct NativeScenarioTests {
         #expect(checksByName["durable native state"] == .pass)
         #expect(checksByName["shopping checkoff"] == .pass)
         #expect(checksByName["search"] == .pass)
-        #expect(checksByName["capture draft creation"] == .pass)
+        #expect(checksByName["capture import submission"] == .pass)
         #expect(checksByName["settings state"] == .pass)
         #expect(checksByName["offline status"] == .pass)
         #expect(checksByName["safe unknown link"] == .pass)
@@ -756,7 +773,7 @@ struct NativeScenarioTests {
             #expect(surfaces.exitCode == 0, Comment(rawValue: surfaces.combinedOutput))
             #expect(surfacesReport.ok)
             #expect(surfacesReport.stage == .surfaces)
-            #expect(surfacesReport.checks.filter { $0.status == .pending }.map(\.name) == ["remaining surfaces"])
+            #expect(surfacesReport.checks.filter { $0.status == .pending }.isEmpty)
 
             let defaultOutputDirectory = directory.appendingPathComponent("default-output", isDirectory: true)
             try FileManager.default.createDirectory(at: defaultOutputDirectory, withIntermediateDirectories: true)

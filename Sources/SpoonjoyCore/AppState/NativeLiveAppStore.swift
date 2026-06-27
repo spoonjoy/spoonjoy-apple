@@ -177,6 +177,7 @@ public struct NativeShellContentState {
     func copy(
         recipes: [Recipe]? = nil,
         shoppingList: ShoppingListState? = nil,
+        captureDraft: CaptureDraft?? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]? = nil,
         queuedMutations: [NativeQueuedMutation]? = nil,
@@ -190,7 +191,7 @@ public struct NativeShellContentState {
             cookbooks: cookbooks,
             kitchen: kitchen,
             shoppingList: shoppingList ?? self.shoppingList,
-            captureDraft: captureDraft,
+            captureDraft: captureDraft ?? self.captureDraft,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
             spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID ?? self.spoonCookLogDraftsByRecipeID,
             queuedMutations: queuedMutations ?? self.queuedMutations,
@@ -945,6 +946,30 @@ public final class NativeLiveAppStore: ObservableObject {
         await bootstrap()
     }
 
+    public func executeCaptureImportRequest(_ request: APIRequestBuilder) async throws -> RecipeImportResponse {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+        let envelope = try await transport.send(
+            request,
+            configuration: configuration,
+            decode: RecipeImportResponse.self
+        )
+        if let recipe = envelope.data.recipe {
+            var recipes = currentContentState.recipes.filter { $0.id != recipe.id }
+            recipes.insert(recipe, at: 0)
+            apply(stateMatchingCurrentSeverity(with: currentContentState.copy(recipes: recipes)))
+        }
+        return envelope.data
+    }
+
     private var optimisticRecipeChef: ChefSummary {
         currentContentState.recipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
     }
@@ -1067,6 +1092,152 @@ public final class NativeLiveAppStore: ObservableObject {
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(shoppingList: shoppingList)))
     }
 
+    public func recordCaptureDraft(_ draft: CaptureDraft) {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        if let appStateStore = dependencies.appStateStoreProvider() {
+            do {
+                let fallback = NativeAppSnapshot.bootstrap(
+                    shoppingList: currentContentState.shoppingList,
+                    accountID: accountID,
+                    environment: cacheEnvironment,
+                    savedAt: savedAt
+                )
+                let record = try appStateStore.loadOrCreate(fallback: fallback)
+                let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+                    ? record.value
+                    : fallback
+                try appStateStore.save(
+                    baseSnapshot
+                        .completingFirstRun(savedAt: savedAt)
+                        .recordingCaptureDraft(draft, savedAt: savedAt)
+                )
+            } catch {
+                apply(.syncFailed(
+                    currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "capture-draft", retryAfter: nil), dismissal: nil)),
+                    message: "Capture draft could not be saved offline."
+                ))
+                return
+            }
+        }
+
+        apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(draft))))
+    }
+
+    public func discardCaptureDraft(id draftID: String) {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        if let appStateStore = dependencies.appStateStoreProvider() {
+            do {
+                let fallback = NativeAppSnapshot.bootstrap(
+                    shoppingList: currentContentState.shoppingList,
+                    accountID: accountID,
+                    environment: cacheEnvironment,
+                    savedAt: savedAt
+                )
+                let record = try appStateStore.loadOrCreate(fallback: fallback)
+                let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+                    ? record.value
+                    : fallback
+                try appStateStore.save(
+                    baseSnapshot
+                        .completingFirstRun(savedAt: savedAt)
+                        .discardingCaptureDraft(id: draftID, savedAt: savedAt)
+                )
+            } catch {
+                return
+            }
+        }
+
+        guard currentContentState.captureDraft?.id == draftID else {
+            return
+        }
+        apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(nil))))
+    }
+
+    public func recordCaptureImportRetry(_ mutation: NativeQueuedMutation) {
+        guard mutation.queueableKind == .recipeImportSubmit,
+              let appStateStore = dependencies.appStateStoreProvider() else {
+            return
+        }
+
+        do {
+            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: currentContentState.shoppingList,
+                accountID: accountID,
+                environment: cacheEnvironment,
+                savedAt: savedAt
+            )
+            let record = try appStateStore.loadOrCreate(fallback: fallback)
+            let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+                ? record.value
+                : fallback
+            try appStateStore.save(
+                baseSnapshot
+                    .completingFirstRun(savedAt: savedAt)
+                    .recordingCaptureImportRetry(mutation, savedAt: savedAt)
+            )
+        } catch {
+            return
+        }
+    }
+
+    public func recordCaptureImportBlocker(_ blocker: CaptureImportBlocker) {
+        let resourceID: String
+        switch blocker {
+        case .providerSecret:
+            resourceID = "recipe-import"
+        }
+
+        if let appStateStore = dependencies.appStateStoreProvider() {
+            do {
+                try persistCaptureImportProviderBlocker(
+                    resourceID: resourceID,
+                    authSessionState: currentContentState.authSessionState,
+                    appStateStore: appStateStore
+                )
+            } catch {
+                apply(.syncFailed(
+                    currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "capture-import-blocker", retryAfter: nil), dismissal: nil)),
+                    message: "Capture import blocker could not be saved offline."
+                ))
+                return
+            }
+        }
+
+        apply(.blocker(currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(
+            display: .blocker(.providerSecret(resourceID: resourceID)),
+            dismissal: nil
+        ))))
+    }
+
+    private func persistCaptureImportProviderBlocker(
+        resourceID: String,
+        authSessionState: NativeAuthSessionState,
+        appStateStore: NativeAppStateStore? = nil
+    ) throws {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let scopedAccountID = accountID(for: authSessionState)
+        let store = appStateStore ?? dependencies.appStateStoreProvider()
+        guard let store else {
+            return
+        }
+        let fallback = NativeAppSnapshot.bootstrap(
+            shoppingList: currentContentState.shoppingList,
+            accountID: scopedAccountID,
+            environment: cacheEnvironment,
+            savedAt: savedAt
+        )
+        let record = try store.loadOrCreate(fallback: fallback)
+        let baseSnapshot = record.value.isScoped(accountID: scopedAccountID, environment: cacheEnvironment)
+            ? record.value
+            : fallback
+        try store.save(
+            baseSnapshot
+                .completingFirstRun(savedAt: savedAt)
+                .recordingCaptureImportProviderBlocker(resourceID: resourceID, savedAt: savedAt)
+        )
+    }
+
     public func recordSpoonCookLogDraft(_ draft: SpoonCookLogDraftState?, forRecipeID recipeID: String) {
         let trimmedRecipeID = recipeID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedRecipeID.isEmpty else {
@@ -1161,6 +1332,8 @@ public final class NativeLiveAppStore: ObservableObject {
                 count: syncSnapshot.queue.mutations.count,
                 oldestClientMutationID: syncSnapshot.queue.mutations.first?.clientMutationID
             )
+        } else if let resourceID = appSnapshot?.captureImportProviderBlocker {
+            display = .blocker(.providerSecret(resourceID: resourceID))
         } else if record.source == .file || syncSnapshot.checkpoint != nil || !syncSnapshot.cachedRecords.isEmpty {
             display = .stale(domain: .accountBootstrap)
         } else {
@@ -1237,14 +1410,35 @@ public final class NativeLiveAppStore: ObservableObject {
     ) async throws {
         let report = try await syncTriggerCoordinator.handle(trigger)
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
+        clearDrainedCaptureImports(
+            Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
+            authSessionState: boundAuthState
+        )
         let drainedOverlayMutations = report.drainedMutations.filter {
             !$0.mutatesRecipeCache && !$0.mutatesShoppingCache
         }
-        let content = try await restoreFromCache(
+        let restoredContent = try await restoreFromCache(
             authSessionState: boundAuthState,
             optimisticMutations: drainedOverlayMutations
         )
-            .copy(offlineIndicatorState: OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()))
+        let shouldPreserveRestoredBlocker: Bool
+        if case .blocker = restoredContent.offlineIndicatorState.display {
+            shouldPreserveRestoredBlocker = true
+        } else {
+            shouldPreserveRestoredBlocker = false
+        }
+        let content = restoredContent.copy(
+            offlineIndicatorState: shouldPreserveRestoredBlocker
+                ? restoredContent.offlineIndicatorState
+                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now())
+        )
+
+        let providerSecretResourceID = report.blockers.compactMap { blocker -> String? in
+            if case .providerSecret(let resourceID) = blocker {
+                return resourceID
+            }
+            return nil
+        }.first
 
         if let conflict = report.conflicts.first {
             apply(.conflict(content.copy(
@@ -1253,6 +1447,9 @@ public final class NativeLiveAppStore: ObservableObject {
             )))
         } else if case .authRequired(let message)? = report.pausedReason {
             apply(.blocker(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .blocker(.providerSecret(resourceID: message)), dismissal: nil))))
+        } else if let providerSecretResourceID {
+            try? persistCaptureImportProviderBlocker(resourceID: providerSecretResourceID, authSessionState: boundAuthState)
+            apply(.blocker(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .blocker(.providerSecret(resourceID: providerSecretResourceID)), dismissal: nil))))
         } else if let retryAfterSeconds = report.retryAfterSeconds {
             apply(.syncFailed(
                 content.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "sync", retryAfter: .seconds(retryAfterSeconds)), dismissal: nil)),
@@ -1260,8 +1457,39 @@ public final class NativeLiveAppStore: ObservableObject {
             ))
         } else if !content.queuedMutations.isEmpty {
             apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
+        } else if case .blocker = content.offlineIndicatorState.display {
+            apply(.blocker(content))
         } else {
             apply(.liveSynced(content))
+        }
+    }
+
+    private func clearDrainedCaptureImports(_ clientMutationIDs: Set<String>, authSessionState: NativeAuthSessionState) {
+        guard !clientMutationIDs.isEmpty,
+              let appStateStore = dependencies.appStateStoreProvider() else {
+            return
+        }
+
+        do {
+            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+            let scopedAccountID = accountID(for: authSessionState)
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: currentContentState.shoppingList,
+                accountID: scopedAccountID,
+                environment: cacheEnvironment,
+                savedAt: savedAt
+            )
+            let record = try appStateStore.loadOrCreate(fallback: fallback)
+            let baseSnapshot = record.value.isScoped(accountID: scopedAccountID, environment: cacheEnvironment)
+                ? record.value
+                : fallback
+            try appStateStore.save(
+                baseSnapshot
+                    .completingFirstRun(savedAt: savedAt)
+                    .clearingDrainedCaptureImport(clientMutationIDs: clientMutationIDs, savedAt: savedAt)
+            )
+        } catch {
+            return
         }
     }
 

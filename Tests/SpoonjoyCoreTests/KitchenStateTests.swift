@@ -324,8 +324,8 @@ struct KitchenStateTests {
         #expect(restoredEmpty.currentStepID == nil)
     }
 
-    @Test("capture drafts stay local until explicitly promoted")
-    func captureDraftsStayLocalUntilPromoted() throws {
+    @Test("text capture drafts stay local and import ready")
+    func textCaptureDraftsStayLocalAndImportReady() throws {
         let draft = try CaptureDraft.localText(
             id: "capture_text_1",
             rawText: "  2 eggs\n1 cup rice  ",
@@ -336,7 +336,13 @@ struct KitchenStateTests {
         #expect(draft.status == .localOnly)
         #expect(draft.rawText == "2 eggs\n1 cup rice")
         #expect(draft.previewLines == ["2 eggs", "1 cup rice"])
-        #expect(!draft.canCreateServerRecipe)
+        #expect(draft.canCreateServerRecipe)
+        let importSource = try draft.importSource().jsonValue()
+        #expect(draft.importReadiness == .ready)
+        #expect(importSource == .object([
+            "type": .string("text"),
+            "text": .string("2 eggs\n1 cup rice")
+        ]))
         #expect(draft.imageAssetIdentifier == nil)
     }
 

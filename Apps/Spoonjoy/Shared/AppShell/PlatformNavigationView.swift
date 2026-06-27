@@ -12,8 +12,13 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
     private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
+    private let recordCaptureDraftHandler: @MainActor @Sendable (CaptureDraft) -> Void
+    private let discardCaptureDraftHandler: @MainActor @Sendable (String) -> Void
+    private let recordCaptureImportRetryHandler: @MainActor @Sendable (NativeQueuedMutation) -> Void
+    private let recordCaptureImportBlockerHandler: @MainActor @Sendable (CaptureImportBlocker) -> Void
     private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
@@ -27,8 +32,13 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
         recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
+        recordCaptureDraft: @escaping @MainActor @Sendable (CaptureDraft) -> Void,
+        discardCaptureDraft: @escaping @MainActor @Sendable (String) -> Void,
+        recordCaptureImportRetry: @escaping @MainActor @Sendable (NativeQueuedMutation) -> Void,
+        recordCaptureImportBlocker: @escaping @MainActor @Sendable (CaptureImportBlocker) -> Void,
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
@@ -41,8 +51,13 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.executeCaptureImportRequest = executeCaptureImportRequest
         self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
+        self.recordCaptureDraftHandler = recordCaptureDraft
+        self.discardCaptureDraftHandler = discardCaptureDraft
+        self.recordCaptureImportRetryHandler = recordCaptureImportRetry
+        self.recordCaptureImportBlockerHandler = recordCaptureImportBlocker
         self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
@@ -211,11 +226,13 @@ struct PlatformNavigationView: View {
                 search.apply(route: .search(query: query, scope: scope))
             }
         case .capture:
-            if let captureViewModel {
-                CaptureDraftView(viewModel: captureViewModel, draftDidChange: { _ in })
-            } else {
-                ShellPlaceholderView(title: "Capture", systemImage: "camera", detail: "Capture drafts will appear here after sign-in or offline restore.")
-            }
+            CaptureDraftView(
+                viewModel: captureViewModel,
+                importViewModel: captureImportViewModel,
+                draftDidChange: recordCaptureDraft(_:),
+                draftDidDiscard: discardCaptureDraft(_:),
+                importDidSubmit: performCaptureImport(draft:)
+            )
         case .settings:
             SettingsView(
                 viewModel: contentState.settingsViewModel,
@@ -502,6 +519,26 @@ struct PlatformNavigationView: View {
         return .online
     }
 
+    private var captureImportConnectivity: CaptureImportConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var pendingCaptureImportMutation: NativeQueuedMutation? {
+        guard let draft = contentState.captureDraft,
+              let draftImportSource = try? draft.importSource() else {
+            return nil
+        }
+
+        return contentState.queuedMutations.first {
+            $0.queueableKind == .recipeImportSubmit &&
+                $0.recipeImportSource == draftImportSource
+        }
+    }
+
     private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
         for conflict in contentState.syncConflicts {
             guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
@@ -658,6 +695,96 @@ struct PlatformNavigationView: View {
 
     private var captureViewModel: CaptureDraftViewModel? {
         contentState.captureDraft.map(CaptureDraftViewModel.init(draft:))
+    }
+
+    private var captureImportViewModel: CaptureImportViewModel? {
+        contentState.captureDraft.map {
+            CaptureImportViewModel(
+                draft: $0,
+                connectivity: captureImportConnectivity,
+                pendingRetryMutation: pendingCaptureImportMutation
+            )
+        }
+    }
+
+    private func recordCaptureDraft(_ draft: CaptureDraft) {
+        recordCaptureDraftHandler(draft)
+    }
+
+    private func discardCaptureDraft(_ draft: CaptureDraft) async throws {
+        let draftImportSource = try? draft.importSource()
+        let pendingImportClientMutationIDs = contentState.queuedMutations
+            .filter {
+                $0.queueableKind == .recipeImportSubmit &&
+                    draftImportSource != nil &&
+                    $0.recipeImportSource == draftImportSource
+            }
+            .map(\.clientMutationID)
+
+        for pendingImportClientMutationID in pendingImportClientMutationIDs {
+            try await discardQueuedMutation(pendingImportClientMutationID)
+        }
+
+        discardCaptureDraftHandler(draft.id)
+    }
+
+    private func performCaptureImport(draft: CaptureDraft) async throws -> CaptureImportPlan {
+        let clientMutationID = pendingCaptureImportMutation?.clientMutationID ?? "cm_capture_import_\(UUID().uuidString)"
+        let plannedAt = timestamp()
+        let viewModel = CaptureImportViewModel(
+            draft: draft,
+            connectivity: captureImportConnectivity,
+            pendingRetryMutation: pendingCaptureImportMutation
+        )
+        let submitPlan = try viewModel.planSubmit(clientMutationID: clientMutationID, createdAt: plannedAt)
+
+        if let mutation = submitPlan.offlineRetryMutation {
+            try await queueCaptureImportRetryIfNeeded(mutation)
+            recordCaptureImportRetryHandler(mutation)
+            return submitPlan
+        }
+
+        guard let request = submitPlan.requestBuilder else {
+            return submitPlan
+        }
+
+        do {
+            let response = try await executeCaptureImportRequest(request)
+            let completionPlan = try viewModel.planImportResult(
+                response,
+                clientMutationID: clientMutationID,
+                createdAt: timestamp()
+            )
+            if let blocker = completionPlan.blocker {
+                recordCaptureImportBlockerHandler(blocker)
+            }
+            if let drainedClientMutationID = completionPlan.drainedClientMutationID,
+               pendingCaptureImportMutation?.clientMutationID == drainedClientMutationID {
+                try? await discardQueuedMutation(drainedClientMutationID)
+            }
+            if completionPlan.captureDraftAfterCompletion == nil {
+                discardCaptureDraftHandler(draft.id)
+            }
+            if let route = completionPlan.importedRecipeRoute {
+                openRoute(route)
+            }
+            return completionPlan
+        } catch let error as APITransportError where error.isOffline {
+            let offlinePlan = try CaptureImportViewModel(draft: draft, connectivity: .offline)
+                .planSubmit(clientMutationID: clientMutationID, createdAt: timestamp())
+            if let mutation = offlinePlan.offlineRetryMutation {
+                try await queueCaptureImportRetryIfNeeded(mutation)
+                recordCaptureImportRetryHandler(mutation)
+            }
+            return offlinePlan
+        }
+    }
+
+    private func queueCaptureImportRetryIfNeeded(_ mutation: NativeQueuedMutation) async throws {
+        guard pendingCaptureImportMutation?.clientMutationID != mutation.clientMutationID else {
+            return
+        }
+        try await queueMutation(mutation)
     }
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {

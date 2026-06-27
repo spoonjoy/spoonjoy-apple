@@ -116,7 +116,7 @@ struct CaptureImportSurfaceTests {
             )
             let request = try mutation.requestBuilder().urlRequest(configuration: Self.privateConfiguration)
 
-            Self.assertJSONRequest(request, expected: [
+            try Self.assertJSONRequest(request, expected: [
                 "clientMutationId": "cm_import_\(index)",
                 "source": testCase.1
             ])
@@ -137,6 +137,31 @@ struct CaptureImportSurfaceTests {
         #expect(throws: CaptureDraftImportError.needsTextRecognition) {
             _ = try draft.importSource()
         }
+    }
+
+    @Test("recipe import mutations expose source for visible draft matching")
+    func recipeImportMutationsExposeSourceForVisibleDraftMatching() throws {
+        let urlDraft = try CaptureDraft.importURL(
+            id: "draft_import_source_url",
+            url: URL(string: "https://example.com/source-match")!,
+            createdAt: Self.createdAt
+        )
+        let textDraft = try CaptureDraft.localText(
+            id: "draft_import_source_text",
+            rawText: "Ingredient source matching\nBake until golden.",
+            sourceURL: URL(string: "https://example.com/text-source")!,
+            createdAt: Self.createdAt
+        )
+        let mutation = NativeQueuedMutation.recipeImportSubmit(
+            source: try urlDraft.importSource(),
+            clientMutationID: "cm_import_source_match",
+            createdAt: Self.createdAt
+        )
+        let urlSource = try urlDraft.importSource()
+        let textSource = try textDraft.importSource()
+
+        #expect(mutation.recipeImportSource == urlSource)
+        #expect(mutation.recipeImportSource != textSource)
     }
 
     @Test("capture drafts and import retry survive snapshot and sync-store round trips")
@@ -176,6 +201,89 @@ struct CaptureImportSurfaceTests {
         #expect(decoded.pendingCaptureImport?.clientMutationID == "cm_import_roundtrip")
         #expect(try await restoredSyncStore.loadQueue().mutations == [mutation])
         #expect(decoded.discardingCaptureDraft(id: draft.id, savedAt: Self.createdAt).captureDraft == nil)
+    }
+
+    @Test("replacing capture drafts clears stale pending import metadata")
+    func replacingCaptureDraftsClearsStalePendingImportMetadata() throws {
+        let firstDraft = try CaptureDraft.importURL(
+            id: "draft_pending_import_original",
+            url: URL(string: "https://example.com/original-import")!,
+            createdAt: Self.createdAt
+        )
+        let secondDraft = try CaptureDraft.localText(
+            id: "draft_pending_import_replacement",
+            rawText: "Replacement draft\nDo not retry the old URL.",
+            createdAt: Self.createdAt
+        )
+        let mutation = NativeQueuedMutation.recipeImportSubmit(
+            source: try firstDraft.importSource(),
+            clientMutationID: "cm_original_import",
+            createdAt: Self.createdAt
+        )
+        let retrying = NativeAppSnapshot
+            .bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.createdAt
+            )
+            .recordingCaptureDraft(firstDraft, savedAt: Self.createdAt)
+            .recordingCaptureImportRetry(mutation, savedAt: Self.createdAt)
+        let blocked = retrying.recordingCaptureImportProviderBlocker(resourceID: "recipe-import", savedAt: Self.createdAt)
+        let sameRetryingDraft = retrying.recordingCaptureDraft(firstDraft, savedAt: Self.createdAt)
+        let replacedRetryingDraft = retrying.recordingCaptureDraft(secondDraft, savedAt: Self.createdAt)
+        let sameBlockedDraft = blocked.recordingCaptureDraft(firstDraft, savedAt: Self.createdAt)
+        let replacedBlockedDraft = blocked.recordingCaptureDraft(secondDraft, savedAt: Self.createdAt)
+
+        #expect(sameRetryingDraft.pendingCaptureImport?.clientMutationID == "cm_original_import")
+        #expect(replacedRetryingDraft.captureDraft == secondDraft)
+        #expect(replacedRetryingDraft.pendingCaptureImport == nil)
+        #expect(replacedRetryingDraft.captureImportProviderBlocker == nil)
+        #expect(sameBlockedDraft.captureImportProviderBlocker == "recipe-import")
+        #expect(replacedBlockedDraft.captureDraft == secondDraft)
+        #expect(replacedBlockedDraft.pendingCaptureImport == nil)
+        #expect(replacedBlockedDraft.captureImportProviderBlocker == nil)
+    }
+
+    @Test("capture import provider blockers persist and clear with retry or drained import")
+    func captureImportProviderBlockersPersistAndClearWithRetryOrDrainedImport() throws {
+        let draft = try CaptureDraft.importURL(
+            id: "draft_provider_blocker_roundtrip",
+            url: URL(string: "https://example.com/provider-blocker")!,
+            createdAt: Self.createdAt
+        )
+        let mutation = NativeQueuedMutation.recipeImportSubmit(
+            source: try draft.importSource(),
+            clientMutationID: "cm_provider_blocker",
+            createdAt: Self.createdAt
+        )
+        let blocked = NativeAppSnapshot
+            .bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.createdAt
+            )
+            .recordingCaptureDraft(draft, savedAt: Self.createdAt)
+            .recordingCaptureImportProviderBlocker(resourceID: "recipe-import", savedAt: Self.createdAt)
+        let decoded = try JSONDecoder().decode(NativeAppSnapshot.self, from: JSONEncoder().encode(blocked))
+        let retrying = decoded.recordingCaptureImportRetry(mutation, savedAt: Self.createdAt)
+        let blockedRetry = retrying.recordingCaptureImportProviderBlocker(resourceID: "recipe-import", savedAt: Self.createdAt)
+        let drained = retrying.clearingDrainedCaptureImport(
+            clientMutationIDs: ["cm_provider_blocker"],
+            savedAt: Self.createdAt
+        )
+
+        #expect(decoded.captureDraft == draft)
+        #expect(decoded.captureImportProviderBlocker == "recipe-import")
+        #expect(retrying.pendingCaptureImport == mutation)
+        #expect(retrying.captureImportProviderBlocker == nil)
+        #expect(blockedRetry.captureImportProviderBlocker == "recipe-import")
+        #expect(blockedRetry.pendingCaptureImport == nil)
+        #expect(blockedRetry.captureDraft == draft)
+        #expect(drained.captureDraft == nil)
+        #expect(drained.pendingCaptureImport == nil)
+        #expect(drained.captureImportProviderBlocker == nil)
     }
 
     @Test("provider-secret blockers produce user-facing blocked state without remote retry work")
@@ -233,7 +341,7 @@ struct CaptureImportSurfaceTests {
         )
         let request = try #require(submitPlan.requestBuilder)
             .urlRequest(configuration: Self.privateConfiguration)
-        Self.assertJSONRequest(request, expected: [
+        try Self.assertJSONRequest(request, expected: [
             "clientMutationId": "cm_import_offline",
             "source": [
                 "type": "url",

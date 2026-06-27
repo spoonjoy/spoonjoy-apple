@@ -794,16 +794,137 @@ public struct NativeStagedMediaDirectory: NativeStagedMediaResolving {
     }
 }
 
+public enum NativeCaptureTextSource: String, Codable, Equatable, Sendable {
+    case camera
+    case photoLibrary = "photo-library"
+}
+
+public struct NativeCaptureTextMetadata: Codable, Equatable, Sendable {
+    public let source: NativeCaptureTextSource
+    public let assetIdentifier: String?
+
+    public init(source: NativeCaptureTextSource, assetIdentifier: String?) {
+        self.source = source
+        self.assetIdentifier = assetIdentifier
+    }
+
+    public init?(jsonValue: JSONValue) {
+        guard case .object(let object) = jsonValue,
+              case .string(let sourceRawValue)? = object["source"],
+              let source = NativeCaptureTextSource(rawValue: sourceRawValue) else {
+            return nil
+        }
+
+        let assetIdentifier: String?
+        if case .string(let value)? = object["assetIdentifier"] {
+            assetIdentifier = value
+        } else {
+            assetIdentifier = nil
+        }
+
+        self.init(source: source, assetIdentifier: assetIdentifier)
+    }
+
+    func jsonValue() -> JSONValue {
+        var object: [String: JSONValue] = ["source": .string(source.rawValue)]
+        if let assetIdentifier {
+            object["assetIdentifier"] = .string(assetIdentifier)
+        }
+        return .object(object)
+    }
+}
+
 public enum NativeMutationSource: Codable, Equatable, Sendable {
     case url(URL)
     case text(String)
+    case textWithMetadata(String, sourceURL: URL?, capture: NativeCaptureTextMetadata?)
+    case jsonLD(JSONValue, sourceURL: URL?)
+    case videoURL(URL)
+
+    public init?(jsonValue: JSONValue) {
+        guard case .object(let object) = jsonValue,
+              case .string(let type)? = object["type"] else {
+            return nil
+        }
+
+        switch type {
+        case "url":
+            guard case .string(let value)? = object["url"],
+                  let url = URL(string: value) else {
+                return nil
+            }
+            self = .url(url)
+        case "text":
+            guard case .string(let text)? = object["text"] else {
+                return nil
+            }
+            let sourceURL: URL?
+            if case .string(let value)? = object["url"] {
+                sourceURL = URL(string: value)
+            } else {
+                sourceURL = nil
+            }
+            let capture: NativeCaptureTextMetadata?
+            if let value = object["capture"] {
+                capture = NativeCaptureTextMetadata(jsonValue: value)
+            } else {
+                capture = nil
+            }
+            self = .textWithMetadata(text, sourceURL: sourceURL, capture: capture)
+        case "json-ld":
+            guard let jsonLD = object["jsonLd"] else {
+                return nil
+            }
+            let sourceURL: URL?
+            if case .string(let value)? = object["url"] {
+                sourceURL = URL(string: value)
+            } else {
+                sourceURL = nil
+            }
+            self = .jsonLD(jsonLD, sourceURL: sourceURL)
+        case "video-url":
+            guard case .string(let value)? = object["url"],
+                  let url = URL(string: value) else {
+                return nil
+            }
+            self = .videoURL(url)
+        default:
+            return nil
+        }
+    }
 
     public func jsonValue() -> JSONValue {
         switch self {
         case .url(let url):
-            .object(["type": .string("url"), "url": .string(url.absoluteString)])
+            return JSONValue.object([
+                "type": JSONValue.string("url"),
+                "url": JSONValue.string(url.absoluteString)
+            ])
         case .text(let text):
-            .object(["type": .string("text"), "text": .string(text)])
+            return JSONValue.object([
+                "type": JSONValue.string("text"),
+                "text": JSONValue.string(text)
+            ])
+        case .textWithMetadata(let text, let sourceURL, let capture):
+            var object: [String: JSONValue] = [
+                "type": .string("text"),
+                "text": .string(text)
+            ]
+            if let sourceURL {
+                object["url"] = .string(sourceURL.absoluteString)
+            }
+            if let capture {
+                object["capture"] = capture.jsonValue()
+            }
+            return .object(object)
+        case .jsonLD(let jsonLD, let sourceURL):
+            return .object([
+                "type": .string("json-ld"),
+                "jsonLd": jsonLD,
+                "url": sourceURL.map { .string($0.absoluteString) } ?? .null
+            ])
+        case .videoURL(let url):
+            return .object(["type": .string("video-url"), "url": .string(url.absoluteString)])
         }
     }
 }
@@ -928,6 +1049,15 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
 
     public var stagedMediaUploadStageIDs: Set<String> {
         Set(media.values.map(\.localStageID))
+    }
+
+    public var recipeImportSource: NativeMutationSource? {
+        guard queueableKind == .recipeImportSubmit,
+              let source = values["source"] else {
+            return nil
+        }
+
+        return NativeMutationSource(jsonValue: source)
     }
 
     public var recipeID: String? {
@@ -3301,6 +3431,10 @@ public enum NativeSyncPauseReason: Equatable, Sendable {
     case authRequired(String)
 }
 
+public enum NativeSyncMutationBlocker: Equatable, Sendable {
+    case providerSecret(resourceID: String)
+}
+
 public struct NativeSyncReport: Equatable, Sendable {
     public let trigger: NativeCacheRevalidationTrigger
     public let bootstrapCursor: PaginationCursor?
@@ -3309,6 +3443,7 @@ public struct NativeSyncReport: Equatable, Sendable {
     public let drainedClientMutationIDs: [String]
     public let drainedMutations: [NativeQueuedMutation]
     public let conflicts: [NativeSyncConflict]
+    public let blockers: [NativeSyncMutationBlocker]
     public let pausedReason: NativeSyncPauseReason?
     public let retryAfterSeconds: Int?
 
@@ -3320,6 +3455,7 @@ public struct NativeSyncReport: Equatable, Sendable {
         drainedClientMutationIDs: [String],
         drainedMutations: [NativeQueuedMutation] = [],
         conflicts: [NativeSyncConflict],
+        blockers: [NativeSyncMutationBlocker] = [],
         pausedReason: NativeSyncPauseReason?,
         retryAfterSeconds: Int?
     ) {
@@ -3330,6 +3466,7 @@ public struct NativeSyncReport: Equatable, Sendable {
         self.drainedClientMutationIDs = drainedClientMutationIDs
         self.drainedMutations = drainedMutations
         self.conflicts = conflicts
+        self.blockers = blockers
         self.pausedReason = pausedReason
         self.retryAfterSeconds = retryAfterSeconds
     }
@@ -3354,6 +3491,7 @@ public enum NativeSyncMutationResult: Equatable, Sendable {
     case success(serverRevision: NativeServerRevision?, idRemaps: [NativeSyncIDRemap] = [])
     case conflict(kind: NativeSyncConflictKind, serverRevision: NativeServerRevision?, message: String)
     case authFailure(message: String)
+    case blocked(NativeSyncMutationBlocker, message: String)
     case retry(afterSeconds: Int, message: String)
 }
 
@@ -3380,6 +3518,9 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
 
     public func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
         do {
+            if mutation.queueableKind == .recipeImportSubmit {
+                return try await sendRecipeImportSubmit(mutation, configuration: configuration)
+            }
             let envelope = try await apiTransport.send(
                 try mutation.requestBuilder(),
                 configuration: configuration,
@@ -3389,6 +3530,21 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         } catch let error as APITransportError {
             return try Self.mutationResult(for: error, mutation: mutation)
         }
+    }
+
+    private func sendRecipeImportSubmit(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        let envelope = try await apiTransport.send(
+            try mutation.requestBuilder(),
+            configuration: configuration,
+            decode: RecipeImportResponse.self
+        )
+        if let providerSecretResourceID = envelope.data.providerSecretBlockerResourceID {
+            return .blocked(
+                .providerSecret(resourceID: providerSecretResourceID),
+                message: "ProviderSecret is required before Spoonjoy can finish this import."
+            )
+        }
+        return .success(serverRevision: nil)
     }
 
     private static func mutationResult(
@@ -3491,6 +3647,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         var drainedClientMutationIDs: [String] = []
         var drainedMutations: [NativeQueuedMutation] = []
         var conflicts: [NativeSyncConflict] = []
+        var blockers: [NativeSyncMutationBlocker] = []
         var blockedDependencyKeys = Set<String>()
         var pausedReason: NativeSyncPauseReason?
         var retryAfterSeconds: Int?
@@ -3546,6 +3703,11 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
                 index = originalQueue.mutations.count
                 continue
+            case .blocked(let blocker, let message):
+                blockers.append(blocker)
+                remaining.append(mutation.recordingError(message))
+                blockedDependencyKeys.insert(mutation.dependencyKey)
+                blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
             case .retry(let afterSeconds, let message):
                 retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, afterSeconds)
                 remaining.append(mutation.recordingRetry(
@@ -3601,6 +3763,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             drainedClientMutationIDs: drainedClientMutationIDs,
             drainedMutations: drainedMutations,
             conflicts: conflicts,
+            blockers: blockers,
             pausedReason: pausedReason,
             retryAfterSeconds: retryAfterSeconds
         )

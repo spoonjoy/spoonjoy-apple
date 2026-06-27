@@ -196,7 +196,80 @@ public enum ScenarioVerifier {
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
                     tokens: ["KitchenView(", "RecipesView(", "RecipeDetailRouteView(", "CookModeRouteView(", "LiveRecipeCatalogRepository", "FallbackRecipeCatalogRepository", "ShoppingListView(", "CookbooksView("]
                 ),
-                ScenarioCheck(name: "remaining surfaces", status: .pending, detail: "Search, capture, and settings surfaces land in Unit 16.")
+                sourceCheck(
+                    name: "search surface source",
+                    detail: "Search surface includes native searchable scopes and typed result rows.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
+                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows", "openChef(chef.username)"],
+                    forbiddenTokens: [".searchable(", ".searchScopes("]
+                ),
+                sourceCheck(
+                    name: "capture surface source",
+                    detail: "Capture surface creates native drafts and submits import-ready sources.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
+                    tokens: [
+                        "CaptureDraftView",
+                        "CaptureDraftViewModel",
+                        "CaptureImportViewModel",
+                        "CaptureDraft.localText",
+                        "CaptureDraft.importURL",
+                        "CaptureDraft.videoURL",
+                        "CaptureDraft.jsonLD",
+                        "CaptureDraft.cameraImage",
+                        "CaptureDraft.photoLibraryImage",
+                        "PhotosPicker",
+                        "CameraCaptureView",
+                        "VNRecognizeTextRequest",
+                        "onChange(of: inputDraft)",
+                        "reconcile(with: inputDraft)",
+                        "hasPendingImport",
+                        "Submit Import",
+                        "plan.userFacingMessage",
+                        "canCreateServerRecipe"
+                    ],
+                    forbiddenTokens: [
+                        "Promotion requires a separate reviewed flow"
+                    ]
+                ),
+                sourceCheck(
+                    name: "settings surface source",
+                    detail: "Settings surface presents auth, environment, shopping permissions, and offline state.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
+                    tokens: ["SettingsView", "SettingsViewModel", "Form", "Section", "OfflineStatusView(display:", "viewModel.authSessionState", "viewModel.environmentSwitcher"]
+                ),
+                sourceCheck(
+                    name: "offline status source",
+                    detail: "Offline status component presents live OfflineIndicatorDisplay states.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift",
+                    tokens: ["OfflineStatusView", "OfflineIndicatorDisplay", "informationalOnly", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation", "Label", "Button"]
+                ),
+                sourceCheck(
+                    name: "navigation final surface source",
+                    detail: "Platform navigation routes search, capture, settings, and import submission to real surfaces.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                    tokens: [
+                        "SearchView(",
+                        "CaptureDraftView(",
+                        "recordCaptureDraft",
+                        "discardCaptureDraft",
+                        "recordCaptureImportRetry",
+                        "recordCaptureImportBlocker",
+                        "queueCaptureImportRetryIfNeeded",
+                        "recipeImportSource == draftImportSource",
+                        "pendingCaptureImportMutation?.clientMutationID != mutation.clientMutationID",
+                        "executeCaptureImportRequest",
+                        "performCaptureImport(draft:",
+                        "SettingsView("
+                    ],
+                    forbiddenTokens: [
+                        "pendingCaptureImportMutation?.clientMutationID == clientMutationID"
+                    ]
+                )
             ],
             nativeCapabilities: metadata.scenarioCapabilities
         )
@@ -260,10 +333,32 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface creates local-only drafts without claiming server recipe writes.",
+                    detail: "Capture surface creates native drafts and submits import-ready sources.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
-                    tokens: ["CaptureDraftView", "CaptureDraftViewModel", "CaptureDraft.localText", "TextEditor", "canCreateServerRecipe"]
+                    tokens: [
+                        "CaptureDraftView",
+                        "CaptureDraftViewModel",
+                        "CaptureImportViewModel",
+                        "CaptureDraft.localText",
+                        "CaptureDraft.importURL",
+                        "CaptureDraft.videoURL",
+                        "CaptureDraft.jsonLD",
+                        "CaptureDraft.cameraImage",
+                        "CaptureDraft.photoLibraryImage",
+                        "PhotosPicker",
+                        "CameraCaptureView",
+                        "VNRecognizeTextRequest",
+                        "onChange(of: inputDraft)",
+                        "reconcile(with: inputDraft)",
+                        "hasPendingImport",
+                        "Submit Import",
+                        "plan.userFacingMessage",
+                        "canCreateServerRecipe"
+                    ],
+                    forbiddenTokens: [
+                        "Promotion requires a separate reviewed flow"
+                    ]
                 ),
                 sourceCheck(
                     name: "settings surface source",
@@ -292,6 +387,15 @@ public enum ScenarioVerifier {
                         "search.update(query: username, scope: .chefs)",
                         "navigation.navigate(to: search.route)",
                         "CaptureDraftView(",
+                        "recordCaptureDraft",
+                        "discardCaptureDraft",
+                        "recordCaptureImportRetry",
+                        "recordCaptureImportBlocker",
+                        "queueCaptureImportRetryIfNeeded",
+                        "recipeImportSource == draftImportSource",
+                        "pendingCaptureImportMutation?.clientMutationID != mutation.clientMutationID",
+                        "executeCaptureImportRequest",
+                        "performCaptureImport(draft:",
                         "SettingsView(",
                         "contentState.settingsViewModel",
                         "OfflineStatusView(display:",
@@ -299,6 +403,8 @@ public enum ScenarioVerifier {
                     ],
                     forbiddenTokens: [
                         ".constant(routeSearch)",
+                        "draftDidChange: { _ in }",
+                        "pendingCaptureImportMutation?.clientMutationID == clientMutationID",
                         "defaultSettings",
                         "PlatformNavigationView.defaultSettings",
                         "signedOutProductionSettingsTemplate"
@@ -769,21 +875,64 @@ public enum ScenarioVerifier {
     }
 
     private static func captureDraftCreationCheck() -> ScenarioCheck {
-        let draft = try? CaptureDraft.localText(
-            id: "scenario-draft",
-            rawText: "https://example.com/recipe\nlemon pasta",
-            createdAt: "2026-06-16T12:08:00.000Z"
-        )
-        let viewModel = draft.map(CaptureDraftViewModel.init(draft:))
-        let status: ScenarioCheckStatus = viewModel?.status == .localOnly &&
-            viewModel?.previewLines == ["https://example.com/recipe", "lemon pasta"] &&
-            viewModel?.canCreateServerRecipe == false ? .pass : .fail
+        do {
+            let draft = try CaptureDraft.importURL(
+                id: "scenario-draft",
+                url: URL(string: "https://example.com/recipe")!,
+                createdAt: "2026-06-16T12:08:00.000Z"
+            )
+            let viewModel = CaptureDraftViewModel(draft: draft)
+            let mutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "scenario-import",
+                createdAt: "2026-06-16T12:08:00.000Z"
+            )
+            let request = try mutation.requestBuilder()
+                .urlRequest(configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"))
+            let offlinePlan = try CaptureImportViewModel(draft: draft, connectivity: .offline)
+                .planSubmit(clientMutationID: "scenario-import", createdAt: "2026-06-16T12:08:00.000Z")
+            let providerSecretResponse = try JSONDecoder().decode(RecipeImportResponse.self, from: Data(
+                """
+                {
+                  "importCode": "provider-secret",
+                  "blockers": [
+                    {
+                      "capability": "ProviderSecret",
+                      "retryAfterSeconds": 30,
+                      "ownerAction": true
+                    }
+                  ]
+                }
+                """.utf8
+            ))
+            let providerSecretPlan = try CaptureImportViewModel(draft: draft, connectivity: .online)
+                .planImportResult(
+                    providerSecretResponse,
+                    clientMutationID: "scenario-import",
+                    createdAt: "2026-06-16T12:08:00.000Z"
+                )
+            let status: ScenarioCheckStatus =
+                viewModel.status == .localOnly &&
+                viewModel.previewLines == ["https://example.com/recipe"] &&
+                viewModel.canCreateServerRecipe &&
+                request.url.path == "/api/v1/recipes/import" &&
+                offlinePlan.offlineRetryMutation?.queueableKind == .recipeImportSubmit &&
+                providerSecretPlan.blocker == .providerSecret(retryAfterSeconds: 30)
+                ? .pass
+                : .fail
 
-        return ScenarioCheck(
-            name: "capture draft creation",
-            status: status,
-            detail: "Capture creates a local draft and rejects production-write claims."
-        )
+            return ScenarioCheck(
+                name: "capture import submission",
+                status: status,
+                detail: "Capture creates import-ready drafts, queues offline import retry, and exposes provider secret blocker state."
+            )
+        } catch {
+            return ScenarioCheck(
+                name: "capture import submission",
+                status: .fail,
+                detail: "Capture import scenario failed: \(error)."
+            )
+        }
     }
 
     static func settingsStateCheck(settings: SettingsState? = nil) -> ScenarioCheck {

@@ -16,6 +16,10 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Spoonjoy uses the camera to capture recipes from cookbooks, cards, and kitchen notes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Spoonjoy uses selected photos to create local recipe capture drafts.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
