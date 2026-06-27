@@ -1,0 +1,9 @@
+{
+  "capability": "CoreSimulator",
+  "blocked": true,
+  "command": "python3 .github/scripts/resolve-ios-simulator-destination.py",
+  "timeoutSeconds": 30,
+  "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18l-sharing-screenshots-smoke-ios.log",
+  "reason": "No available iPhone simulator destination was found.",
+  "ownerAction": "Install an available iPhone simulator runtime and bootable device."
+}
