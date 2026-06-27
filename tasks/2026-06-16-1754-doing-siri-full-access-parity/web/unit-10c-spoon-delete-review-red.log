@@ -21,7 +21,7 @@
  FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > refreshes parent recipe previews when a recent spoon is deleted after the recipe cursor
 AssertionError: expected undefined to match object { action: 'upsert', …(4) }
 
-- Expected: 
+- Expected:
 {
   "action": "upsert",
   "kind": "recipe",
@@ -32,7 +32,7 @@ AssertionError: expected undefined to match object { action: 'upsert', …(4) }
   "tombstone": null,
 }
 
-+ Received: 
++ Received:
 undefined
 
  ❯ test/routes/api-v1-native-sync.test.ts:988:25
@@ -50,4 +50,3 @@ undefined
       Tests  1 failed | 12 passed (13)
    Start at  18:26:54
    Duration  3.14s (transform 731ms, setup 205ms, import 1.43s, tests 875ms, environment 435ms)
-

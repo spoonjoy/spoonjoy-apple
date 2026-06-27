@@ -55,18 +55,18 @@ SwiftDriver SpoonjoyCore normal arm64 com.apple.xcode.tools.swift.compiler (in t
 SwiftEmitModule normal arm64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 EmitSwiftModule normal arm64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ ScenarioVerifier.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftEmitModule normal x86_64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 EmitSwiftModule normal x86_64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -118,7 +118,7 @@ SwiftCompile normal x86_64 Compiling\ ScenarioVerifier.swift /Users/arimendelow/
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -143,36 +143,36 @@ ExtractAppIntentsMetadata (in target 'SpoonjoyCore' from project 'SpoonjoyApple'
 SwiftEmitModule normal x86_64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 EmitSwiftModule normal x86_64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal x86_64 Compiling\ PlatformNavigationView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal x86_64 Compiling\ CookModeView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftEmitModule normal arm64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 EmitSwiftModule normal arm64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal arm64 Compiling\ CookModeView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal arm64 Compiling\ PlatformNavigationView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -277,4 +277,3 @@ CopySwiftLibs /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-ad
 Ignoring --strip-bitcode because --sign was not passed
 
 ** BUILD SUCCEEDED **
-

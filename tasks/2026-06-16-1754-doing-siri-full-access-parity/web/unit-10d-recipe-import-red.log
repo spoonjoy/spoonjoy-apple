@@ -26,7 +26,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:356:29
-    354| 
+    354|
     355|     const payload = await readJson(response);
     356|     expect(response.status).toBe(201);
        |                             ^
@@ -45,7 +45,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:386:29
-    384| 
+    384|
     385|     const payload = await readJson(response);
     386|     expect(response.status).toBe(201);
        |                             ^
@@ -64,7 +64,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:415:29
-    413| 
+    413|
     414|     const payload = await readJson(response);
     415|     expect(response.status).toBe(201);
        |                             ^
@@ -83,7 +83,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:441:29
-    439| 
+    439|
     440|     const payload = await readJson(response);
     441|     expect(response.status).toBe(201);
        |                             ^
@@ -102,7 +102,7 @@ AssertionError: expected 405 to be 202 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:468:29
-    466| 
+    466|
     467|     const payload = await readJson(response);
     468|     expect(response.status).toBe(202);
        |                             ^
@@ -121,7 +121,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:499:29
-    497| 
+    497|
     498|     const payload = await readJson(response);
     499|     expect(response.status).toBe(201);
        |                             ^
@@ -145,7 +145,7 @@ AssertionError: expected 405 to be 401 // Object.is equality
     517|     expect(missingAuth.status).toBe(401);
        |                                ^
     518|     expectErrorEnvelope(await readJson(missingAuth), "req_import_missi…
-    519| 
+    519|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯
 
@@ -159,7 +159,7 @@ AssertionError: expected 405 to be 400 // Object.is equality
 + 405
 
  ❯ test/routes/api-v1-recipe-import.test.ts:548:29
-    546| 
+    546|
     547|     const payload = await readJson(response);
     548|     expect(response.status).toBe(400);
        |                             ^
@@ -198,7 +198,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 
  ❯ test/routes/api-v1-recipe-import.test.ts:604:26
     602|     ));
-    603| 
+    603|
     604|     expect(first.status).toBe(201);
        |                          ^
     605|     expect(conflict.status).toBe(409);
@@ -211,4 +211,3 @@ AssertionError: expected 405 to be 201 // Object.is equality
       Tests  10 failed | 1 passed (11)
    Start at  18:29:43
    Duration  2.78s (transform 840ms, setup 210ms, import 1.61s, tests 367ms, environment 377ms)
-

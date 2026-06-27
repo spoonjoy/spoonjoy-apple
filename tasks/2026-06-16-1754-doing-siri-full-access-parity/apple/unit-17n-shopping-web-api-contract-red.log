@@ -974,12 +974,12 @@ AssertionError: expected '# Spoonjoy API\n\nSpoonjoy\'s public …' to contain '
 +
 
  ❯ test/docs/developer-platform-docs.test.ts:33:23
-     31| 
+     31|
      32|     for (const path of uniqueResourcePaths) {
      33|       expect(apiDocs).toContain(path);
        |                       ^
      34|     }
-     35| 
+     35|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
 
@@ -1017,12 +1017,12 @@ AssertionError: expected [ …(22) ] to deeply equal [ …(25) ]
  FAIL  test/lib/api-v1-openapi.server.test.ts > API v1 OpenAPI document > declares paths, auth, scopes, parameters, examples, and error responses for every resource
 TypeError: Cannot read properties of undefined (reading 'post')
  ❯ operation test/lib/api-v1-openapi.server.test.ts:36:29
-     34| 
+     34|
      35| function operation(document: any, path: string, method: string) {
      36|   return document.paths[path][method.toLowerCase()];
        |                             ^
      37| }
-     38| 
+     38|
  ❯ test/lib/api-v1-openapi.server.test.ts:127:20
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
@@ -1032,4 +1032,3 @@ TypeError: Cannot read properties of undefined (reading 'post')
       Tests  3 failed | 13 passed (16)
    Start at  01:12:47
    Duration  1.93s (transform 221ms, setup 208ms, import 624ms, tests 205ms, environment 517ms)
-

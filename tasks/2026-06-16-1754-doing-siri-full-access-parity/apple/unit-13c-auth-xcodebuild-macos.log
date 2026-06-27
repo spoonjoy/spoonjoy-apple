@@ -62,7 +62,7 @@ SwiftEmitModule normal arm64 Emitting\ module\ for\ SpoonjoyCore (in target 'Spo
 
 EmitSwiftModule normal arm64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -90,7 +90,7 @@ SwiftEmitModule normal x86_64 Emitting\ module\ for\ SpoonjoyCore (in target 'Sp
 
 EmitSwiftModule normal x86_64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Emitting module for SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -122,7 +122,7 @@ SwiftEmitModule normal arm64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjo
 
 EmitSwiftModule normal arm64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
@@ -138,7 +138,7 @@ SwiftEmitModule normal x86_64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonj
 
 EmitSwiftModule normal x86_64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Emitting module for Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
@@ -154,129 +154,129 @@ SwiftCompile normal x86_64 Compiling\ OAuthRedirectValidator.swift,\ SecureAuthW
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ APIClient.swift,\ APIEnvelope.swift,\ APIError.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIClient.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIEnvelope.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIClient.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIEnvelope.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ APIRequestBuilder.swift,\ APIRequestSupport.swift,\ APIRetryPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestSupport.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestSupport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ NativeIndicatorDismissalStore.swift,\ NativeMediaStagingPolicy.swift,\ OfflineFreshnessIndicator.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ NativeCachePrefetchPolicy.swift,\ NativeDurableCache.swift,\ NativeDurableCacheStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ CaptureDraft.swift,\ CookModeProgress.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ JSONFileStore.swift,\ MutationQueue.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/JSONFileStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/JSONFileStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ APITransport.swift,\ JSONValue.swift,\ NativeAPIRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APITransport.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/JSONValue.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/JSONValue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ PublicCatalogRequests.swift,\ ShoppingListRequests.swift,\ NativeAppSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ NativeAuthSession.swift,\ NativeAuthSessionRepository.swift,\ OAuthPKCE.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling OAuthRedirectValidator.swift, SecureAuthWebHandoff.swift, NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -286,19 +286,19 @@ SwiftCompile normal x86_64 Compiling\ ScreenViewModels.swift /Users/arimendelow/
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ ScenarioVerifier.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ NativeIntentAction.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling JSONFileStore.swift, MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -306,7 +306,7 @@ SwiftCompile normal x86_64 Compiling\ OfflineSnapshot.swift /Users/arimendelow/P
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling APIClient.swift, APIEnvelope.swift, APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -314,7 +314,7 @@ SwiftCompile normal x86_64 Compiling\ OAuthRequests.swift /Users/arimendelow/Pro
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling NativeAuthSession.swift, NativeAuthSessionRepository.swift, OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -325,19 +325,19 @@ SwiftDriverJobDiscovery normal x86_64 Compiling APIRequestBuilder.swift, APIRequ
 SwiftCompile normal x86_64 Compiling\ RecipeCookbook.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ ScenarioCommand.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ ShoppingListState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -345,7 +345,7 @@ SwiftCompile normal x86_64 Compiling\ KitchenFixtureState.swift /Users/arimendel
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -353,7 +353,7 @@ SwiftCompile normal x86_64 Compiling\ SpoonjoyCore.swift /Users/arimendelow/Proj
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/SpoonjoyCore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling OfflineSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -388,132 +388,132 @@ Ld /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfha
 SwiftCompile normal arm64 Compiling\ CaptureDraft.swift,\ CookModeProgress.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ NativeCachePrefetchPolicy.swift,\ NativeDurableCache.swift,\ NativeDurableCacheStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ APIClient.swift,\ APIEnvelope.swift,\ APIError.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIClient.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIEnvelope.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIClient.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIEnvelope.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ PublicCatalogRequests.swift,\ ShoppingListRequests.swift,\ NativeAppSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ NativeAuthSession.swift,\ NativeAuthSessionRepository.swift,\ OAuthPKCE.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ APITransport.swift,\ JSONValue.swift,\ NativeAPIRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APITransport.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/JSONValue.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/JSONValue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ OAuthRedirectValidator.swift,\ SecureAuthWebHandoff.swift,\ NativeCacheFreshnessPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ JSONFileStore.swift,\ MutationQueue.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/JSONFileStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/JSONFileStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ NativeIndicatorDismissalStore.swift,\ NativeMediaStagingPolicy.swift,\ OfflineFreshnessIndicator.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ APIRequestBuilder.swift,\ APIRequestSupport.swift,\ APIRetryPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestSupport.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestSupport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling OAuthRedirectValidator.swift, SecureAuthWebHandoff.swift, NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -523,19 +523,19 @@ SwiftCompile normal arm64 Compiling\ NativeIntentAction.swift /Users/arimendelow
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ ScenarioVerifier.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ ScreenViewModels.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling APIClient.swift, APIEnvelope.swift, APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -543,7 +543,7 @@ SwiftCompile normal arm64 Compiling\ OAuthRequests.swift /Users/arimendelow/Proj
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling NativeAuthSession.swift, NativeAuthSessionRepository.swift, OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -553,7 +553,7 @@ SwiftCompile normal arm64 Compiling\ OfflineSnapshot.swift /Users/arimendelow/Pr
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling PublicCatalogRequests.swift, ShoppingListRequests.swift, NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -562,19 +562,19 @@ SwiftDriverJobDiscovery normal arm64 Compiling APIRequestBuilder.swift, APIReque
 SwiftCompile normal arm64 Compiling\ RecipeCookbook.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ ScenarioCommand.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ KitchenFixtureState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -582,7 +582,7 @@ SwiftCompile normal arm64 Compiling\ SpoonjoyCore.swift /Users/arimendelow/Proje
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/SpoonjoyCore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -590,7 +590,7 @@ SwiftCompile normal arm64 Compiling\ ShoppingListState.swift /Users/arimendelow/
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling OAuthRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -699,4 +699,3 @@ ProcessInfoPlistFile /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoo
     builtin-infoPlistUtility /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources/SpoonjoyApple_SpoonjoyCore.bundle -o /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Info.plist
 
 ** BUILD SUCCEEDED **
-

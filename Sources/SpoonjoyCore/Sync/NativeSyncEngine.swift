@@ -1001,6 +1001,23 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
                     return step.copy(usingSteps: outputUses(inputStepNum: step.stepNum, recipe: recipe))
                 })
             }
+        case .coverSetNoCover, .coverSetActive:
+            return clearingActiveRecipeCover(in: recipes, updatedAt: now)
+        case .coverArchive:
+            guard boolValue("confirmNoCover") == true || optionalStringValue("replacementCoverId") != nil else {
+                return recipes
+            }
+            return clearingActiveRecipeCover(in: recipes, updatedAt: now)
+        case .coverFromSpoon:
+            guard boolValue("activate") == true else {
+                return recipes
+            }
+            return clearingActiveRecipeCover(in: recipes, updatedAt: now)
+        case .coverRegenerate:
+            guard boolValue("activateWhenReady") == true else {
+                return recipes
+            }
+            return clearingActiveRecipeCover(in: recipes, updatedAt: now)
         default:
             return recipes
         }
@@ -1493,8 +1510,16 @@ extension NativeQueuedMutation {
              .recipeStepReorder,
              .recipeIngredientAdd,
              .recipeIngredientDelete,
-             .recipeOutputUsesReplace:
+             .recipeOutputUsesReplace,
+             .coverSetNoCover,
+             .coverSetActive:
             return true
+        case .coverArchive:
+            return boolValue("confirmNoCover") == true || optionalStringValue("replacementCoverId") != nil
+        case .coverFromSpoon:
+            return boolValue("activate") == true
+        case .coverRegenerate:
+            return boolValue("activateWhenReady") == true
         default:
             return false
         }
@@ -1522,6 +1547,18 @@ private extension NativeQueuedMutation {
         }
         return recipes.map { recipe in
             recipe.id == recipeID ? update(recipe).copy(updatedAt: updatedAt) : recipe
+        }
+    }
+
+    func clearingActiveRecipeCover(in recipes: [Recipe], updatedAt: String) -> [Recipe] {
+        applyingToRecipe(in: recipes, updatedAt: updatedAt) { recipe in
+            recipe.copy(
+                coverImageURL: .some(nil),
+                coverProvenanceLabel: .some(nil),
+                coverSourceType: .some(nil),
+                coverVariant: .some(nil),
+                updatedAt: updatedAt
+            )
         }
     }
 
@@ -2192,6 +2229,10 @@ private extension Recipe {
         title: String? = nil,
         description: String?? = nil,
         servings: String?? = nil,
+        coverImageURL: URL?? = nil,
+        coverProvenanceLabel: String?? = nil,
+        coverSourceType: RecipeCoverSourceType?? = nil,
+        coverVariant: RecipeCoverVariant?? = nil,
         updatedAt: String,
         steps: [RecipeStep]? = nil
     ) -> Recipe {
@@ -2201,10 +2242,10 @@ private extension Recipe {
             description: description ?? self.description,
             servings: servings ?? self.servings,
             chef: chef,
-            coverImageURL: coverImageURL,
-            coverProvenanceLabel: coverProvenanceLabel,
-            coverSourceType: coverSourceType,
-            coverVariant: coverVariant,
+            coverImageURL: coverImageURL ?? self.coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel ?? self.coverProvenanceLabel,
+            coverSourceType: coverSourceType ?? self.coverSourceType,
+            coverVariant: coverVariant ?? self.coverVariant,
             href: href,
             canonicalURL: canonicalURL,
             attribution: attribution,

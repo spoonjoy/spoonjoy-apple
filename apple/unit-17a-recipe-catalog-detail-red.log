@@ -5,14 +5,14 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 [3/6] Emitting module SpoonjoyCoreTests
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:335:49: error: cannot find type 'RecipeCatalogRepository' in scope
 333 | }
-334 | 
+334 |
 335 | private actor RecordingRecipeCatalogRepository: RecipeCatalogRepository {
     |                                                 `- error: cannot find type 'RecipeCatalogRepository' in scope
 336 |     private let page: RecipeCatalogPage
 337 |     private let detail: RecipeCatalogDetailResult
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:336:23: error: cannot find type 'RecipeCatalogPage' in scope
-334 | 
+334 |
 335 | private actor RecordingRecipeCatalogRepository: RecipeCatalogRepository {
 336 |     private let page: RecipeCatalogPage
     |                       `- error: cannot find type 'RecipeCatalogPage' in scope
@@ -33,11 +33,11 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 338 |     private var requests: [RecipeCatalogListRequest] = []
     |                            `- error: cannot find type 'RecipeCatalogListRequest' in scope
 339 |     private var detailIDs: [String] = []
-340 | 
+340 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:341:16: error: cannot find type 'RecipeCatalogPage' in scope
 339 |     private var detailIDs: [String] = []
-340 | 
+340 |
 341 |     init(page: RecipeCatalogPage, detail: RecipeCatalogDetailResult) {
     |                `- error: cannot find type 'RecipeCatalogPage' in scope
 342 |         self.page = page
@@ -45,7 +45,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:341:43: error: cannot find type 'RecipeCatalogDetailResult' in scope
 339 |     private var detailIDs: [String] = []
-340 | 
+340 |
 341 |     init(page: RecipeCatalogPage, detail: RecipeCatalogDetailResult) {
     |                                           `- error: cannot find type 'RecipeCatalogDetailResult' in scope
 342 |         self.page = page
@@ -53,7 +53,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:346:24: error: cannot find type 'RecipeCatalogListRequest' in scope
 344 |     }
-345 | 
+345 |
 346 |     var listRequests: [RecipeCatalogListRequest] {
     |                        `- error: cannot find type 'RecipeCatalogListRequest' in scope
 347 |         requests
@@ -61,7 +61,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:354:73: error: cannot find type 'RecipeCatalogPage' in scope
 352 |     }
-353 | 
+353 |
 354 |     func listRecipes(request: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
     |                                                                         `- error: cannot find type 'RecipeCatalogPage' in scope
 355 |         requests.append(request)
@@ -69,7 +69,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:354:31: error: cannot find type 'RecipeCatalogListRequest' in scope
 352 |     }
-353 | 
+353 |
 354 |     func listRecipes(request: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
     |                               `- error: cannot find type 'RecipeCatalogListRequest' in scope
 355 |         requests.append(request)
@@ -77,7 +77,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:359:51: error: cannot find type 'RecipeCatalogDetailResult' in scope
 357 |     }
-358 | 
+358 |
 359 |     func recipeDetail(id: String) async throws -> RecipeCatalogDetailResult {
     |                                                   `- error: cannot find type 'RecipeCatalogDetailResult' in scope
 360 |         detailIDs.append(id)
@@ -85,14 +85,14 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 [4/6] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:335:49: error: cannot find type 'RecipeCatalogRepository' in scope
 333 | }
-334 | 
+334 |
 335 | private actor RecordingRecipeCatalogRepository: RecipeCatalogRepository {
     |                                                 `- error: cannot find type 'RecipeCatalogRepository' in scope
 336 |     private let page: RecipeCatalogPage
 337 |     private let detail: RecipeCatalogDetailResult
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:336:23: error: cannot find type 'RecipeCatalogPage' in scope
-334 | 
+334 |
 335 | private actor RecordingRecipeCatalogRepository: RecipeCatalogRepository {
 336 |     private let page: RecipeCatalogPage
     |                       `- error: cannot find type 'RecipeCatalogPage' in scope
@@ -113,11 +113,11 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 338 |     private var requests: [RecipeCatalogListRequest] = []
     |                            `- error: cannot find type 'RecipeCatalogListRequest' in scope
 339 |     private var detailIDs: [String] = []
-340 | 
+340 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:341:16: error: cannot find type 'RecipeCatalogPage' in scope
 339 |     private var detailIDs: [String] = []
-340 | 
+340 |
 341 |     init(page: RecipeCatalogPage, detail: RecipeCatalogDetailResult) {
     |                `- error: cannot find type 'RecipeCatalogPage' in scope
 342 |         self.page = page
@@ -125,7 +125,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:341:43: error: cannot find type 'RecipeCatalogDetailResult' in scope
 339 |     private var detailIDs: [String] = []
-340 | 
+340 |
 341 |     init(page: RecipeCatalogPage, detail: RecipeCatalogDetailResult) {
     |                                           `- error: cannot find type 'RecipeCatalogDetailResult' in scope
 342 |         self.page = page
@@ -133,7 +133,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:346:24: error: cannot find type 'RecipeCatalogListRequest' in scope
 344 |     }
-345 | 
+345 |
 346 |     var listRequests: [RecipeCatalogListRequest] {
     |                        `- error: cannot find type 'RecipeCatalogListRequest' in scope
 347 |         requests
@@ -141,7 +141,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:354:73: error: cannot find type 'RecipeCatalogPage' in scope
 352 |     }
-353 | 
+353 |
 354 |     func listRecipes(request: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
     |                                                                         `- error: cannot find type 'RecipeCatalogPage' in scope
 355 |         requests.append(request)
@@ -149,7 +149,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:354:31: error: cannot find type 'RecipeCatalogListRequest' in scope
 352 |     }
-353 | 
+353 |
 354 |     func listRecipes(request: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
     |                               `- error: cannot find type 'RecipeCatalogListRequest' in scope
 355 |         requests.append(request)
@@ -157,7 +157,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:359:51: error: cannot find type 'RecipeCatalogDetailResult' in scope
 357 |     }
-358 | 
+358 |
 359 |     func recipeDetail(id: String) async throws -> RecipeCatalogDetailResult {
     |                                                   `- error: cannot find type 'RecipeCatalogDetailResult' in scope
 360 |         detailIDs.append(id)
@@ -241,7 +241,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  32 |         #expect(recipe.recentSpoons.first?.nextTime == "Add parsley.")
     |                        `- error: value of type 'Recipe' has no member 'recentSpoons'
  33 |     }
- 34 | 
+ 34 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:39:19: error: cannot find 'RecipeCatalogPage' in scope
  37 |         let recipe = try Self.recipeDetail()
@@ -288,7 +288,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  52 |         )
  53 |         let viewModel = RecipeCatalogViewModel(repository: repository)
     |                         `- error: cannot find 'RecipeCatalogViewModel' in scope
- 54 | 
+ 54 |
  55 |         try await viewModel.load(query: "  lemon  ", limit: 20)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:64:32: error: cannot infer key path type from context; consider explicitly specifying a root type
@@ -529,7 +529,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 159 |         #expect(cached.offlineIndicator(now: Self.now, freshnessPolicy: .offlineProductContract).display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
     |                                                                                                              `- error: cannot infer contextual base in reference to member 'stale'
 160 |     }
-161 | 
+161 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:159:125: error: cannot infer contextual base in reference to member 'recipeDetail'
 157 |         #expect(cached.recipe.steps[1].usingSteps.map(\.outputStepNum) == [1])
@@ -537,7 +537,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 159 |         #expect(cached.offlineIndicator(now: Self.now, freshnessPolicy: .offlineProductContract).display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
     |                                                                                                                             `- error: cannot infer contextual base in reference to member 'recipeDetail'
 160 |     }
-161 | 
+161 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:159:74: error: cannot infer contextual base in reference to member 'offlineProductContract'
 157 |         #expect(cached.recipe.steps[1].usingSteps.map(\.outputStepNum) == [1])
@@ -545,7 +545,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 159 |         #expect(cached.offlineIndicator(now: Self.now, freshnessPolicy: .offlineProductContract).display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
     |                                                                          `- error: cannot infer contextual base in reference to member 'offlineProductContract'
 160 |     }
-161 | 
+161 |
 error: fatalError
 
 --- surface contract red ---

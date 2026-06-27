@@ -5,7 +5,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 [3/7] Emitting module SpoonjoyCoreTests
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:415:37: error: cannot find type 'RecipeEditorDraft' in scope
 413 | }
-414 | 
+414 |
 415 | private func recipeCreateDraft() -> RecipeEditorDraft {
     |                                     `- error: cannot find type 'RecipeEditorDraft' in scope
 416 |     var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
@@ -13,7 +13,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:492:39: error: cannot find type 'RecipeEditorMutationPlan' in scope
 490 | }
-491 | 
+491 |
 492 | private func remoteRequest(from plan: RecipeEditorMutationPlan) throws -> APIRequest {
     |                                       `- error: cannot find type 'RecipeEditorMutationPlan' in scope
 493 |     guard let builder = plan.remoteRequestBuilder else {
@@ -22,7 +22,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 [5/7] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:415:37: error: cannot find type 'RecipeEditorDraft' in scope
 413 | }
-414 | 
+414 |
 415 | private func recipeCreateDraft() -> RecipeEditorDraft {
     |                                     `- error: cannot find type 'RecipeEditorDraft' in scope
 416 |     var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
@@ -30,7 +30,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:492:39: error: cannot find type 'RecipeEditorMutationPlan' in scope
 490 | }
-491 | 
+491 |
 492 | private func remoteRequest(from plan: RecipeEditorMutationPlan) throws -> APIRequest {
     |                                       `- error: cannot find type 'RecipeEditorMutationPlan' in scope
 493 |     guard let builder = plan.remoteRequestBuilder else {
@@ -62,7 +62,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:21:34: error: cannot infer contextual base in reference to member 'recipeEditor'
  19 |         )
- 20 | 
+ 20 |
  21 |         #expect(editor.route == .recipeEditor(id: "recipe_lemon_pantry_pasta"))
     |                                  `- error: cannot infer contextual base in reference to member 'recipeEditor'
  22 |         #expect(editor.isOwner)
@@ -97,19 +97,19 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  31 |         #expect(editor.deleteConfirmationTitle == "Delete Lemon Pantry Pasta?")
  32 |         #expect(editor.offlineIndicator.display == .synced)
     |                                                     `- error: cannot infer contextual base in reference to member 'synced'
- 33 | 
+ 33 |
  34 |         let nonOwner = RecipeEditorViewModel(
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:34:24: error: cannot find 'RecipeEditorViewModel' in scope
  32 |         #expect(editor.offlineIndicator.display == .synced)
- 33 | 
+ 33 |
  34 |         let nonOwner = RecipeEditorViewModel(
     |                        `- error: cannot find 'RecipeEditorViewModel' in scope
  35 |             mode: .edit(recipe: recipe, currentChefID: "chef_jules"),
  36 |             connectivity: .online,
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:35:20: error: cannot infer contextual base in reference to member 'edit'
- 33 | 
+ 33 |
  34 |         let nonOwner = RecipeEditorViewModel(
  35 |             mode: .edit(recipe: recipe, currentChefID: "chef_jules"),
     |                    `- error: cannot infer contextual base in reference to member 'edit'
@@ -126,7 +126,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:43:30: error: cannot find type 'RecipeEditorAction' in scope
  41 |         #expect(nonOwner.blockingMessage == "Only ari can edit this recipe.")
- 42 | 
+ 42 |
  43 |         let blockedActions: [RecipeEditorAction] = [
     |                              `- error: cannot find type 'RecipeEditorAction' in scope
  44 |             .save(clientMutationID: "cm_non_owner"),
@@ -206,7 +206,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:97:34: error: cannot infer contextual base in reference to member 'recipeEditor'
  95 |         )
- 96 | 
+ 96 |
  97 |         #expect(editor.route == .recipeEditor(id: nil))
     |                                  `- error: cannot infer contextual base in reference to member 'recipeEditor'
  98 |         #expect(editor.isOwner)
@@ -214,7 +214,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:97:51: error: 'nil' requires a contextual type
  95 |         )
- 96 | 
+ 96 |
  97 |         #expect(editor.route == .recipeEditor(id: nil))
     |                                                   `- error: 'nil' requires a contextual type
  98 |         #expect(editor.isOwner)
@@ -225,12 +225,12 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  98 |         #expect(editor.isOwner)
  99 |         #expect(editor.ownerTools.map(\.id) == ["save"])
     |                                       `- error: cannot infer key path type from context; consider explicitly specifying a root type
-100 | 
+100 |
 101 |         let create = try editor.plan(.save(clientMutationID: "cm_create"))
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:101:39: error: cannot infer contextual base in reference to member 'save'
  99 |         #expect(editor.ownerTools.map(\.id) == ["save"])
-100 | 
+100 |
 101 |         let create = try editor.plan(.save(clientMutationID: "cm_create"))
     |                                       `- error: cannot infer contextual base in reference to member 'save'
 102 |         let request = try remoteRequest(from: create)
@@ -294,7 +294,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:147:17: error: cannot find 'RecipeEditorValidator' in scope
 145 |         ]
-146 | 
+146 |
 147 |         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
     |                 `- error: cannot find 'RecipeEditorValidator' in scope
 148 |             "Choose a unit for lemon.",
@@ -302,7 +302,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:147:59: error: cannot infer key path type from context; consider explicitly specifying a root type
 145 |         ]
-146 | 
+146 |
 147 |         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
     |                                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
 148 |             "Choose a unit for lemon.",
@@ -334,14 +334,14 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:161:37: error: cannot infer contextual base in reference to member 'save'
 159 |         )
-160 | 
+160 |
 161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
     |                                     `- error: cannot infer contextual base in reference to member 'save'
 162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
 163 |         let createStep = try editor.plan(.createStep(
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:162:45: error: cannot infer contextual base in reference to member 'deleteRecipe'
-160 | 
+160 |
 161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
 162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
     |                                             `- error: cannot infer contextual base in reference to member 'deleteRecipe'
@@ -349,7 +349,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 164 |             clientMutationID: "cm_step_create",
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:162:104: error: cannot infer contextual base in reference to member 'confirmed'
-160 | 
+160 |
 161 |         let save = try editor.plan(.save(clientMutationID: "cm_update"))
 162 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
     |                                                                                                        `- error: cannot infer contextual base in reference to member 'confirmed'
@@ -458,7 +458,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 269 |         #expect(addIngredient.successRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
     |                                                `- error: cannot infer contextual base in reference to member 'recipeDetail'
 270 |     }
-271 | 
+271 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:269:109: error: cannot infer contextual base in reference to member 'detail'
 267 |         #expect(deleteRecipe.queuedMutation == nil)
@@ -466,7 +466,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 269 |         #expect(addIngredient.successRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
     |                                                                                                             `- error: cannot infer contextual base in reference to member 'detail'
 270 |     }
-271 | 
+271 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:274:28: error: cannot find 'RecipeEditorViewModel' in scope
 272 |     @Test("offline editor queues every allowed recipe mutation with stable dependency keys")
@@ -518,14 +518,14 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:285:51: error: cannot infer contextual base in reference to member 'save'
 283 |         )
-284 | 
+284 |
 285 |         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
     |                                                   `- error: cannot infer contextual base in reference to member 'save'
 286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
 287 |         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:286:37: error: cannot infer contextual base in reference to member 'save'
-284 | 
+284 |
 285 |         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
 286 |         let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
     |                                     `- error: cannot infer contextual base in reference to member 'save'
@@ -738,7 +738,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 363 |         ].compactMap(\.queuedMutation?.dependencyKey) == Array(repeating: "recipe:recipe_lemon_pantry_pasta", count: 9))
     |                      |- error: value of type 'Any' has no member 'queuedMutation'
     |                      `- note: cast 'Any' to 'AnyObject' or use 'as!' to force downcast to a more specific type to access members
-364 | 
+364 |
 365 |         let editQueuedMutations = [
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:375:22: error: value of type 'Any' has no member 'queuedMutation'
@@ -752,7 +752,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:382:50: error: cannot infer contextual base in reference to member 'deleteRecipe'
 380 |         ) == .queuedWork(count: 9, oldestClientMutationID: "cm_update_offline"))
-381 | 
+381 |
 382 |         let unconfirmedDelete = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_blocked", confirmation: .notConfirmed))
     |                                                  `- error: cannot infer contextual base in reference to member 'deleteRecipe'
 383 |         #expect(unconfirmedDelete.blockedReason == "Confirm before deleting this recipe.")
@@ -760,7 +760,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:382:117: error: cannot infer contextual base in reference to member 'notConfirmed'
 380 |         ) == .queuedWork(count: 9, oldestClientMutationID: "cm_update_offline"))
-381 | 
+381 |
 382 |         let unconfirmedDelete = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_blocked", confirmation: .notConfirmed))
     |                                                                                                                     `- error: cannot infer contextual base in reference to member 'notConfirmed'
 383 |         #expect(unconfirmedDelete.blockedReason == "Confirm before deleting this recipe.")
@@ -812,10 +812,10 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 407 |         #expect(try editor.plan(.save(clientMutationID: "cm_blocked_conflict")).blockedReason == "Resolve the recipe conflict before saving.")
     |                                  `- error: cannot infer contextual base in reference to member 'save'
 408 |     }
-409 | 
+409 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift:416:17: error: cannot find 'RecipeEditorDraft' in scope
-414 | 
+414 |
 415 | private func recipeCreateDraft() -> RecipeEditorDraft {
 416 |     var draft = RecipeEditorDraft.blank(currentChefID: "chef_ari")
     |                 `- error: cannot find 'RecipeEditorDraft' in scope

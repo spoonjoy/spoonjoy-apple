@@ -70,7 +70,7 @@ AssertionError: expected [ 'cmqhu0t0i00196vuopunegzxj', …(3) ] to not include 
     328|     expect(publicOnlyAllPayload.data.isAuthenticated).toBe(true);
     329|     expect(publicOnlyAllPayload.data.results.map((result: { id: string…
        |                                                                                              ^
-    330| 
+    330|
     331|     for (const [scope, expectedType] of [
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
@@ -80,4 +80,3 @@ AssertionError: expected [ 'cmqhu0t0i00196vuopunegzxj', …(3) ] to not include 
       Tests  2 failed | 2 passed (4)
    Start at  01:51:39
    Duration  2.34s (transform 432ms, setup 178ms, import 1.46s, tests 259ms, environment 286ms)
-

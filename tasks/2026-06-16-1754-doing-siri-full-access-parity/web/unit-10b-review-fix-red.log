@@ -28,7 +28,7 @@ Error: ENOENT: no such file or directory, open '/Users/arimendelow/Projects/spoo
      72|     db.exec(readFileSync(MIGRATION_PATH, "utf8"));
        |             ^
      73|   });
-     74| 
+     74|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
 
@@ -123,7 +123,7 @@ TypeError: Cannot read properties of undefined (reading 'create')
  FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > keeps hard-deleted cookbook sync tombstones after idempotency cleanup
 AssertionError: expected undefined to match object { action: 'delete', …(3) }
 
-- Expected: 
+- Expected:
 {
   "action": "delete",
   "kind": "cookbook",
@@ -138,7 +138,7 @@ AssertionError: expected undefined to match object { action: 'delete', …(3) }
   },
 }
 
-+ Received: 
++ Received:
 undefined
 
  ❯ test/routes/api-v1-native-sync.test.ts:781:26
@@ -154,7 +154,7 @@ undefined
  FAIL  test/routes/api-v1-native-sync.test.ts > API v1 private native sync > uses recipe children and cookbook membership changes as incremental sync revisions
 AssertionError: expected undefined to match object { kind: 'recipe', …(2) }
 
-- Expected: 
+- Expected:
 {
   "kind": "recipe",
   "payload": {
@@ -167,7 +167,7 @@ AssertionError: expected undefined to match object { kind: 'recipe', …(2) }
   "updatedAt": "2026-06-01T00:12:00.000Z",
 }
 
-+ Received: 
++ Received:
 undefined
 
  ❯ test/routes/api-v1-native-sync.test.ts:817:30
@@ -197,4 +197,3 @@ TypeError: Cannot read properties of undefined (reading 'create')
       Tests  7 failed | 3 passed | 4 skipped (14)
    Start at  17:47:40
    Duration  3.28s (transform 789ms, setup 321ms, import 1.58s, tests 596ms, environment 499ms)
-

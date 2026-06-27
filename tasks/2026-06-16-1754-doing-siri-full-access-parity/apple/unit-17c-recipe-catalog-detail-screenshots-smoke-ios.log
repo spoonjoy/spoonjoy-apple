@@ -2,5 +2,5 @@ Listing iOS simulator runtimes: xcrun simctl list runtimes
 == Runtimes ==
 runtime list exit code: 0
 No available iPhone simulator found.
-resolved destination: 
+resolved destination:
 resolver exit code: 1

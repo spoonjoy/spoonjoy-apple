@@ -195,6 +195,7 @@ public struct RecipeCoverControlsData: Equatable, Sendable {
                 archivedAt: nil,
                 generationStatus: "none",
                 failureReason: nil,
+                isServerBacked: false,
                 sourceImageURL: nil,
                 createdAt: recipe.updatedAt
             )
@@ -249,6 +250,7 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
     public let archivedAt: String?
     public let generationStatus: String
     public let failureReason: String?
+    public let isServerBacked: Bool
     public let sourceImageURL: URL?
     public let createdAt: String
 
@@ -265,6 +267,7 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
         case archivedAt
         case generationStatus
         case failureReason
+        case isServerBacked
         case sourceImageURL = "sourceImageUrl"
         case createdAt
     }
@@ -282,6 +285,7 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
         archivedAt: String?,
         generationStatus: String,
         failureReason: String?,
+        isServerBacked: Bool = true,
         sourceImageURL: URL?,
         createdAt: String
     ) {
@@ -297,8 +301,28 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
         self.archivedAt = archivedAt
         self.generationStatus = generationStatus
         self.failureReason = failureReason
+        self.isServerBacked = isServerBacked
         self.sourceImageURL = sourceImageURL
         self.createdAt = createdAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        recipeID = try container.decode(String.self, forKey: .recipeID)
+        status = try container.decode(String.self, forKey: .status)
+        sourceType = try container.decode(String.self, forKey: .sourceType)
+        imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
+        stylizedImageURL = try container.decodeIfPresent(URL.self, forKey: .stylizedImageURL)
+        displayURL = try container.decodeIfPresent(URL.self, forKey: .displayURL)
+        activeVariant = try container.decodeIfPresent(RecipeCoverAPIVariant.self, forKey: .activeVariant)
+        provenanceLabel = try container.decodeIfPresent(String.self, forKey: .provenanceLabel)
+        archivedAt = try container.decodeIfPresent(String.self, forKey: .archivedAt)
+        generationStatus = try container.decode(String.self, forKey: .generationStatus)
+        failureReason = try container.decodeIfPresent(String.self, forKey: .failureReason)
+        isServerBacked = try container.decodeIfPresent(Bool.self, forKey: .isServerBacked) ?? true
+        sourceImageURL = try container.decodeIfPresent(URL.self, forKey: .sourceImageURL)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
     }
 
     public var thumbnailURL: URL? {
@@ -310,11 +334,11 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
     }
 
     public var canActivate: Bool {
-        (status == "ready" || status == "processing") && archivedAt == nil
+        isServerBacked && (status == "ready" || status == "processing") && archivedAt == nil
     }
 
     public var canMutate: Bool {
-        (status == "ready" || status == "processing" || status == "failed") && archivedAt == nil
+        isServerBacked && (status == "ready" || status == "processing" || status == "failed") && archivedAt == nil
     }
 
     public var statusLabel: String {

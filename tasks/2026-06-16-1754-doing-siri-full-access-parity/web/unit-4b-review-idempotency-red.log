@@ -19,7 +19,7 @@ Generated app/lib/generated/api-v1-playground.ts
  FAIL  test/routes/api-v1-idempotent-recovery.test.ts > API v1 idempotent mutation recovery > recovers a committed incomplete mutation instead of replaying the write
 TypeError: (0 , __vite_ssr_import_3__.runIdempotentApiV1Mutation) is not a function
  ❯ test/routes/api-v1-idempotent-recovery.test.ts:86:28
-     84| 
+     84|
      85|     let writeCalls = 0;
      86|     const response = await runIdempotentApiV1Mutation(
        |                            ^
@@ -31,7 +31,7 @@ TypeError: (0 , __vite_ssr_import_3__.runIdempotentApiV1Mutation) is not a funct
  FAIL  test/routes/api-v1-idempotent-recovery.test.ts > API v1 idempotent mutation recovery > completes idempotency from recovery when a callback throws after committing
 TypeError: (0 , __vite_ssr_import_3__.runIdempotentApiV1Mutation) is not a function
  ❯ test/routes/api-v1-idempotent-recovery.test.ts:130:25
-    128| 
+    128|
     129|     let writeCalls = 0;
     130|     const first = await runIdempotentApiV1Mutation(
        |                         ^
@@ -45,4 +45,3 @@ TypeError: (0 , __vite_ssr_import_3__.runIdempotentApiV1Mutation) is not a funct
       Tests  2 failed (2)
    Start at  04:02:36
    Duration  3.06s (transform 698ms, setup 324ms, import 1.23s, tests 139ms, environment 598ms)
-

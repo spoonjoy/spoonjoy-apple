@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-27T13:08:16Z",
+  "generatedAt": "2026-06-27T13:37:32Z",
   "steps": [
     {
       "name": "xcode version",
@@ -184,7 +184,7 @@
       "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json"
     },
     {
-      "generatedAt": "2026-06-27T06:08:12-07:00",
+      "generatedAt": "2026-06-27T06:37:29-07:00",
       "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
       "httpsNoRedirectExpected": true,
       "redirected": false,

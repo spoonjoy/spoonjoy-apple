@@ -56,35 +56,35 @@ SwiftCompile normal arm64 Compiling\ PlatformNavigationView.swift /Users/arimend
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftEmitModule normal x86_64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 EmitSwiftModule normal x86_64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal x86_64 Compiling\ RecipeDetailView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftEmitModule normal arm64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 EmitSwiftModule normal arm64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal x86_64 Compiling\ PlatformNavigationView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal arm64 Compiling\ RecipeDetailView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
@@ -129,12 +129,12 @@ SwiftDriverJobDiscovery normal x86_64 Compiling PlatformNavigationView.swift (in
 SwiftCompile normal arm64 Compiling\ SpoonjoyRootView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftCompile normal x86_64 Compiling\ SpoonjoyRootView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
@@ -199,4 +199,3 @@ ExtractAppIntentsMetadata (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 2026-06-25 18:55:47.323 appintentsmetadataprocessor[1542:5054123] Metadata root: /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources/Metadata.appintents
 
 ** BUILD SUCCEEDED **
-

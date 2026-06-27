@@ -25,7 +25,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:244:29
     242|     const payload = await readJson(response);
-    243| 
+    243|
     244|     expect(response.status).toBe(200);
        |                             ^
     245|     expectPrivateEnvelopeHeaders(response, "req_me_bootstrap");
@@ -44,7 +44,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:376:29
     374|     const payload = await readJson(response);
-    375| 
+    375|
     376|     expect(response.status).toBe(200);
        |                             ^
     377|     expectPrivateEnvelopeHeaders(response, "req_me_oauth_only_bootstra…
@@ -75,7 +75,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:572:29
     570|     const payload = await readJson(response);
-    571| 
+    571|
     572|     expect(response.status).toBe(200);
        |                             ^
     573|     expectPrivateEnvelopeHeaders(response, "req_me_patch");
@@ -94,7 +94,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:628:29
     626|     const defaultsPayload = await readJson(defaults);
-    627| 
+    627|
     628|     expect(defaults.status).toBe(200);
        |                             ^
     629|     expectPrivateEnvelopeHeaders(defaults, "req_me_prefs_defaults");
@@ -113,7 +113,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:692:27
     690|     const uploadPayload = await readJson(upload);
-    691| 
+    691|
     692|     expect(upload.status).toBe(200);
        |                           ^
     693|     expectPrivateEnvelopeHeaders(upload, "req_me_photo_upload");
@@ -132,7 +132,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:785:27
     783|     const createPayload = await readJson(create);
-    784| 
+    784|
     785|     expect(create.status).toBe(201);
        |                           ^
     786|     expectPrivateEnvelopeHeaders(create, "req_me_apns_create");
@@ -151,7 +151,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:983:25
     981|     const listPayload = await readJson(list);
-    982| 
+    982|
     983|     expect(list.status).toBe(200);
        |                         ^
     984|     expectPrivateEnvelopeHeaders(list, "req_me_connections");
@@ -170,7 +170,7 @@ AssertionError: expected 405 to be 401 // Object.is equality
 
  ❯ test/routes/api-v1-me.test.ts:1044:32
     1042|     const missingAuthPayload = await readJson(missingAuth);
-    1043| 
+    1043|
     1044|     expect(missingAuth.status).toBe(401);
        |                                ^
     1045|     expectPrivateEnvelopeHeaders(missingAuth, "req_me_missing_auth");
@@ -183,4 +183,3 @@ AssertionError: expected 405 to be 401 // Object.is equality
       Tests  9 failed (9)
    Start at  23:39:46
    Duration  1.53s (transform 266ms, setup 157ms, import 672ms, tests 251ms, environment 292ms)
-

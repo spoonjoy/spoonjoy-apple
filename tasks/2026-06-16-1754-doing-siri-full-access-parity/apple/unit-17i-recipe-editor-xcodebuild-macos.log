@@ -56,25 +56,25 @@ SwiftCompile normal x86_64 Compiling\ NativeSyncEngine.swift /Users/arimendelow/
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftEmitModule normal x86_64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 EmitSwiftModule normal x86_64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftEmitModule normal arm64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 EmitSwiftModule normal arm64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ NativeSyncEngine.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -120,7 +120,7 @@ SwiftEmitModule normal arm64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjo
 
 EmitSwiftModule normal arm64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftDriver\ Compilation Spoonjoy\ macOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -178,7 +178,7 @@ SwiftEmitModule normal x86_64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonj
 
 EmitSwiftModule normal x86_64 (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
-    
+
 
 SwiftDriver\ Compilation Spoonjoy\ macOS normal x86_64 com.apple.xcode.tools.swift.compiler (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -241,4 +241,3 @@ CopySwiftLibs /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-ad
 Ignoring --strip-bitcode because --sign was not passed
 
 ** BUILD SUCCEEDED **
-

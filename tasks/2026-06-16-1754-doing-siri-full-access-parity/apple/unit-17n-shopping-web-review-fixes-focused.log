@@ -118,7 +118,7 @@ AssertionError: expected 27 to be 24 // Object.is equality
     135|     expect(data.manifest.operations.length).toBe(24);
        |                                             ^
     136|   });
-    137| 
+    137|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
 
@@ -127,4 +127,3 @@ AssertionError: expected 27 to be 24 // Object.is equality
       Tests  3 failed | 71 passed (74)
    Start at  01:33:43
    Duration  9.51s (transform 433ms, setup 440ms, import 1.70s, tests 5.08s, environment 1.28s)
-

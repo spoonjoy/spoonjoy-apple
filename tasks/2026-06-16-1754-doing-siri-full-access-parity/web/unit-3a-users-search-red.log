@@ -20,7 +20,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-users-search.test.ts:160:29
     158|     const payload = await readJson(response);
-    159| 
+    159|
     160|     expect(response.status).toBe(200);
        |                             ^
     161|     expectPublicEnvelopeHeaders(response, "req_user_profile");
@@ -39,7 +39,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-users-search.test.ts:224:35
     222|     const fellowPayload = await readJson(fellowResponse);
-    223| 
+    223|
     224|     expect(fellowResponse.status).toBe(200);
        |                                   ^
     225|     expectPublicEnvelopeHeaders(fellowResponse, "req_user_fellow_chefs…
@@ -58,7 +58,7 @@ AssertionError: expected 405 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-users-search.test.ts:295:33
     293|     const publicPayload = await readJson(publicSearch);
-    294| 
+    294|
     295|     expect(publicSearch.status).toBe(200);
        |                                 ^
     296|     expectPublicEnvelopeHeaders(publicSearch, "req_search_public");
@@ -77,7 +77,7 @@ AssertionError: expected 405 to be 404 // Object.is equality
 
  ❯ test/routes/api-v1-users-search.test.ts:369:28
     367|     const missingPayload = await readJson(missing);
-    368| 
+    368|
     369|     expect(missing.status).toBe(404);
        |                            ^
     370|     expect(missing.headers.get("X-Request-Id")).toBe("req_user_missing…
@@ -90,4 +90,3 @@ AssertionError: expected 405 to be 404 // Object.is equality
       Tests  4 failed (4)
    Start at  01:28:48
    Duration  1.85s (transform 402ms, setup 214ms, import 901ms, tests 211ms, environment 340ms)
-

@@ -32,7 +32,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 
  ❯ test/routes/api-v1-recipe-writes.test.ts:282:26
     280|     const firstPayload = await readJson(first);
-    281| 
+    281|
     282|     expect(first.status).toBe(201);
        |                          ^
     283|     expectPrivateEnvelopeHeaders(first, "req_recipe_create");
@@ -89,7 +89,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
 
  ❯ test/routes/api-v1-recipe-writes.test.ts:526:29
     524|     await Promise.all(captured);
-    525| 
+    525|
     526|     expect(response.status).toBe(201);
        |                             ^
     527|     expectPrivateEnvelopeHeaders(response, "req_recipe_fork");
@@ -130,7 +130,7 @@ AssertionError: expected 405 to be 201 // Object.is equality
     730|     ));
     731|     expect(create.status).toBe(201);
        |                           ^
-    732| 
+    732|
     733|     const differentCreateBody = await action(routeArgs(
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
@@ -140,4 +140,3 @@ AssertionError: expected 405 to be 201 // Object.is equality
       Tests  6 failed | 1 passed (7)
    Start at  03:40:18
    Duration  2.26s (transform 543ms, setup 174ms, import 1.28s, tests 352ms, environment 290ms)
-

@@ -418,7 +418,7 @@ AssertionError: expected 27 to be 24 // Object.is equality
     135|     expect(data.manifest.operations.length).toBe(24);
        |                                             ^
     136|   });
-    137| 
+    137|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 

@@ -97,7 +97,7 @@ AssertionError: expected [ 'POST /api/v1/recipes', …(46) ] to deeply equal []
      49|         .map(endpointKey),
      50|     ).toEqual([]);
        |       ^
-     51| 
+     51|
      52|     expect(apiDocs).toContain("Native app contract");
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
@@ -1055,7 +1055,7 @@ AssertionError: expected '# Spoonjoy API\n\nSpoonjoy\'s public …' to contain '
 +
 
  ❯ test/docs/developer-platform-guide.test.ts:141:23
-    139| 
+    139|
     140|     for (const marker of GUIDE_MARKERS) {
     141|       expect(apiDocs).toContain(marker);
        |                       ^
@@ -1225,7 +1225,7 @@ AssertionError: expected 'API v1Spoonjoy Developer PlatformBuil…' to contain '
 + If attribution.sourceRecipe.deleted is true, credit it as unavailable instead of linking it.Referenceroot/api/v1GETAnonymousAnonymous callers allowed; authenticated callers are scope checked.health/api/v1/healthGETAnonymousAnonymous callers allowed; authenticated callers are scope checked.openapi/api/v1/openapi.jsonGETAnonymousAnonymous callers allowed; authenticated callers are scope checked.openapi-sdk/api/v1/openapi.sdk.jsonGETAnonymousAnonymous callers allowed; authenticated callers are scope checked.openapi-connector/api/v1/openapi.connector.jsonGETAnonymousAnonymous callers allowed; authenticated callers are scope checked.recipes/api/v1/recipesGETrecipes:readAnonymous callers allowed; authenticated callers are scope checked.recipe/api/v1/recipes/{id}GETrecipes:readAnonymous callers allowed; authenticated callers are scope checked.cookbooks/api/v1/cookbooksGETcookbooks:readAnonymous callers allowed; authenticated callers are scope checked.cookbook/api/v1/cookbooks/{id}GETcookbooks:readAnonymous callers allowed; authenticated callers are scope checked.shopping-list/api/v1/shopping-listGETshopping_list:readAuthenticated chef surface.shopping-list-sync/api/v1/shopping-list/syncGETshopping_list:readAuthenticated chef surface.shopping-list-items/api/v1/shopping-list/itemsPOSTshopping_list:writeAuthenticated chef surface.shopping-list-item/api/v1/shopping-list/items/{itemId}PATCHshopping_list:writeDELETEshopping_list:writeAuthenticated chef surface.tokens/api/v1/tokensGETtokens:readPOSTtokens:writeAuthenticated chef surface.token/api/v1/tokens/{credentialId}DELETEtokens:writeAuthenticated chef surface.Scopespublic:readPublic readkitchen:readDelegated kitchen readkitchen:writeDelegated kitchen writerecipes:readRecipe graph readcookbooks:readCookbook graph readshopping_list:readShopping list readshopping_list:writeShopping list writetokens:readToken metadata readtokens:writeBearer credential create and revokeAuthSpoonjoy sessionBest for the playground and same-origin browser clients. Sign in once; your login is the credential for private API calls.Bearer credentialsBest only when a client runs outside the Spoonjoy browser session. The token API is exposed as part of the generated surface.OAuth/PKCE appsBest for third-party apps. Dynamic registration, authorize, and token routes are exposed for delegated consent.MCP clientsBest for assistant-style clients that need a tool connection instead of raw REST calls.Delegated and device-style authorizationBest for clients that need a chef to approve access from a constrained device or external runtime.Sync And SafetyRecipe and cookbook lists are public catalog search endpoints today. The query parameter wins when both query and q are supplied; lists include cursor, nextCursor, hasMore, cover images, canonicalUrl, and attribution fields. Owner export and deleted recipe tombstones are not in API v1 yet.Shopping-list cursor sync is the current incremental owner-data path. Store nextCursor after applying each batch and retry mutations with stable clientMutationId values.Recipe ingredient quantities, units, servings, temperatures, and timers are original author data in API v1. Units are free-form display strings, not a canonical conversion model; there is no /api/v1/units registry or density table yet.API v1 is rate limited by IP and credential before authentication work. Rate-limited responses return 429 and Retry-After; configured limits are edge abuse protection, not a globally precise quota meter.CursorUse the returned nextCursor as the next request cursor after applying every item in the page durably. Treat it as opaque; ISO timestamps are accepted only as a bootstrap convenience.TombstonesSync includes deleted rows with deletedAt so offline clients can remove local items.PaginationUse limit from 1 to 50 for small payloads. hasMore: true means continue with the returned nextCursor; webhooks, REST Hooks, SSE, and event subscriptions are not available yet.Idempotent shopping-list mutationsclientMutationId is scoped to the chef, retained for 24 hours, and bound to method, path, and body hash. Persist and retry the exact serialized body for that mutation id.ReplayRetry the same request with the same clientMutationId after a timeout; Spoonjoy returns the recorded response with mutation.replayed: true.ConflictReusing the same clientMutationId for a different method, path, or body returns 409 idempotency_conflict.RetriesRetry network timeouts, 429, and 5xx responses with the same mutation id. Refresh or reconnect on 401. Do not retry validation, scope, or idempotency conflicts unchanged.Sample flowRead public recipes and cookbooks anonymously before adding auth.Use Session for logged-in playground calls; use bearer or OAuth only when a client runs outside that session.Use a stable mutation id for shopping-list writes, then retry with the same value when a network call is interrupted.Use the sync cursor to fetch shopping-list changes, including removed items.Client Starting PointsPublic catalogGET /api/v1/recipes and GET /api/v1/cookbooks need no token.Private listUse shopping-list read and write scopes for pantry-style clients.Machine errorsEvery v1 error returns ok false, requestId, code, message, and status.
 
  ❯ test/docs/developer-platform-guide.test.ts:178:28
-    176| 
+    176|
     177|     for (const marker of GUIDE_MARKERS) {
     178|       expect(renderedText).toContain(marker);
        |                            ^
@@ -1363,7 +1363,7 @@ AssertionError: expected [ 'POST /api/v1/recipes', …(46) ] to deeply equal []
     207|         .map(endpointKey),
     208|     ).toEqual([]);
        |       ^
-    209| 
+    209|
     210|     for (const row of NATIVE_REST_ENDPOINT_SCOPE) {
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
@@ -1507,4 +1507,3 @@ AssertionError: expected [ 'POST /api/v1/recipes', …(46) ] to deeply equal []
       Tests  7 failed | 18 passed (25)
    Start at  22:26:18
    Duration  3.76s (transform 458ms, setup 453ms, import 1.02s, tests 408ms, environment 1.11s)
-

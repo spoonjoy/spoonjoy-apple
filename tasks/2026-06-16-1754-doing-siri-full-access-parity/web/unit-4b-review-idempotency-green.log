@@ -16,4 +16,3 @@ Generated app/lib/generated/api-v1-playground.ts
       Tests  2 passed (2)
    Start at  04:11:14
    Duration  1.55s (transform 356ms, setup 157ms, import 805ms, tests 140ms, environment 280ms)
-

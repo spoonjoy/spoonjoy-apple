@@ -66,6 +66,9 @@ struct CoverControlSurfaceTests {
         #expect(imageCover.activeVariant == .image)
         #expect(imageCover.variants.map(\.variant) == [.image])
         #expect(imageCover.variants.first?.provenanceLabel == "Chef photo")
+        #expect(!imageCover.isServerBacked)
+        #expect(!imageCover.canActivate)
+        #expect(!imageCover.canMutate)
 
         let stylizedSnapshot = RecipeCoverControlsData.snapshot(recipe: Self.recipe(coverVariant: .stylized))
         let stylizedCover = try #require(stylizedSnapshot.covers.first)
@@ -145,6 +148,53 @@ struct CoverControlSurfaceTests {
             cookedAt: Self.createdAt,
             chef: ChefSummary(id: "chef", username: "chef")
         ).cookedAtLabel == "Jun 27, 2026")
+    }
+
+    @Test("cover candidates decode server backing default and explicit fallback flag")
+    func coverCandidatesDecodeServerBackingDefaultAndExplicitFallbackFlag() throws {
+        let defaultServerBacked = try JSONDecoder().decode(RecipeCoverCandidate.self, from: Data("""
+        {
+          "id": "cover/default",
+          "recipeId": "recipe/lemon",
+          "status": "ready",
+          "sourceType": "chef-upload",
+          "imageUrl": "https://spoonjoy.app/covers/raw.jpg",
+          "stylizedImageUrl": null,
+          "displayUrl": null,
+          "activeVariant": "image",
+          "provenanceLabel": "Chef photo",
+          "archivedAt": null,
+          "generationStatus": "none",
+          "failureReason": null,
+          "sourceImageUrl": null,
+          "createdAt": "2026-06-27T12:00:00.000Z"
+        }
+        """.utf8))
+        #expect(defaultServerBacked.isServerBacked)
+        #expect(defaultServerBacked.canMutate)
+
+        let explicitLocalFallback = try JSONDecoder().decode(RecipeCoverCandidate.self, from: Data("""
+        {
+          "id": "active-recipe_lemon",
+          "recipeId": "recipe/lemon",
+          "status": "ready",
+          "sourceType": "chef-upload",
+          "imageUrl": "https://spoonjoy.app/covers/raw.jpg",
+          "stylizedImageUrl": null,
+          "displayUrl": null,
+          "activeVariant": "image",
+          "provenanceLabel": "Chef photo",
+          "archivedAt": null,
+          "generationStatus": "none",
+          "failureReason": null,
+          "isServerBacked": false,
+          "sourceImageUrl": null,
+          "createdAt": "2026-06-27T12:00:00.000Z"
+        }
+        """.utf8))
+        #expect(!explicitLocalFallback.isServerBacked)
+        #expect(!explicitLocalFallback.canActivate)
+        #expect(!explicitLocalFallback.canMutate)
     }
 
     @Test("provider-secret blockers classify API errors and expose shell blocker display")

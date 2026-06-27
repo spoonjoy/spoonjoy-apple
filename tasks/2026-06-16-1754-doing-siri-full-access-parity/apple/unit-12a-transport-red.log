@@ -5,7 +5,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 [3/6] Emitting module SpoonjoyCoreTests
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:418:36: error: cannot find type 'URLSessionPerforming' in scope
 416 | }
-417 | 
+417 |
 418 | private actor RecordingURLSession: URLSessionPerforming {
     |                                    `- error: cannot find type 'URLSessionPerforming' in scope
 419 |     private var responses: [Result<(Data, URLResponse), Error>]
@@ -13,7 +13,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:441:49: error: cannot find type 'APIAuthenticationRefresher' in scope
 439 | }
-440 | 
+440 |
 441 | private actor RecordingAuthenticationRefresher: APIAuthenticationRefresher {
     |                                                 `- error: cannot find type 'APIAuthenticationRefresher' in scope
 442 |     private let refreshedConfiguration: APIClientConfiguration
@@ -21,7 +21,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 [4/6] Compiling SpoonjoyCoreTests APITransportTests.swift
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:418:36: error: cannot find type 'URLSessionPerforming' in scope
 416 | }
-417 | 
+417 |
 418 | private actor RecordingURLSession: URLSessionPerforming {
     |                                    `- error: cannot find type 'URLSessionPerforming' in scope
 419 |     private var responses: [Result<(Data, URLResponse), Error>]
@@ -29,7 +29,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:441:49: error: cannot find type 'APIAuthenticationRefresher' in scope
 439 | }
-440 | 
+440 |
 441 | private actor RecordingAuthenticationRefresher: APIAuthenticationRefresher {
     |                                                 `- error: cannot find type 'APIAuthenticationRefresher' in scope
 442 |     private let refreshedConfiguration: APIClientConfiguration
@@ -48,7 +48,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  67 |         )
  68 |         let transport = URLSessionAPITransport(session: session)
     |                         `- error: cannot find 'URLSessionAPITransport' in scope
- 69 | 
+ 69 |
  70 |         do {
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:77:30: error: cannot find type 'APITransportError' in scope
@@ -72,7 +72,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 110 |         )
 111 |         let transport = URLSessionAPITransport(session: session)
     |                         `- error: cannot find 'URLSessionAPITransport' in scope
-112 | 
+112 |
 113 |         do {
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:120:30: error: cannot find type 'APITransportError' in scope
@@ -104,7 +104,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 160 |         )
 161 |         let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
     |                         `- error: cannot find 'URLSessionAPITransport' in scope
-162 | 
+162 |
 163 |         let replayedRequest = Self.privateMutationRequest()
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:232:25: error: cannot find 'URLSessionAPITransport' in scope
@@ -112,7 +112,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 231 |         )
 232 |         let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
     |                         `- error: cannot find 'URLSessionAPITransport' in scope
-233 | 
+233 |
 234 |         do {
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:241:30: error: cannot find type 'APITransportError' in scope
@@ -132,7 +132,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 245 |             #expect(await session.capturedRequests().count == 2)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:272:27: error: cannot find 'URLSessionAPITransport' in scope
-270 | 
+270 |
 271 |         do {
 272 |             _ = try await URLSessionAPITransport(session: nonJSONSession).send(
     |                           `- error: cannot find 'URLSessionAPITransport' in scope
@@ -153,7 +153,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 282 |             #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
     |                                             `- error: cannot infer contextual base in reference to member 'retrySameRequest'
 283 |         }
-284 | 
+284 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:282:76: error: 'nil' requires a contextual type
 280 |             #expect(error.statusCode == 502)
@@ -161,10 +161,10 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 282 |             #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
     |                                                                            `- error: 'nil' requires a contextual type
 283 |         }
-284 | 
+284 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:286:27: error: cannot find 'URLSessionAPITransport' in scope
-284 | 
+284 |
 285 |         do {
 286 |             _ = try await URLSessionAPITransport(session: malformedJSONSession).send(
     |                           `- error: cannot find 'URLSessionAPITransport' in scope
@@ -188,7 +188,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 298 |     }
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:306:27: error: cannot find 'URLSessionAPITransport' in scope
-304 | 
+304 |
 305 |         do {
 306 |             _ = try await URLSessionAPITransport(session: offlineSession).send(
     |                           `- error: cannot find 'URLSessionAPITransport' in scope
@@ -220,7 +220,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 316 |         }
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/APITransportTests.swift:319:27: error: cannot find 'URLSessionAPITransport' in scope
-317 | 
+317 |
 318 |         do {
 319 |             _ = try await URLSessionAPITransport(session: cancelledSession).send(
     |                           `- error: cannot find 'URLSessionAPITransport' in scope

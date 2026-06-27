@@ -16,7 +16,7 @@
  FAIL  test/routes/api-v1-shopping-sync.test.ts > API v1 shopping-list read and sync > declares read scope rows for list and sync endpoints
 AssertionError: expected null to deeply equal { auth: 'bearer', …(1) }
 
-- Expected: 
+- Expected:
 {
   "auth": "bearer",
   "scopes": [
@@ -24,7 +24,7 @@ AssertionError: expected null to deeply equal { auth: 'bearer', …(1) }
   ],
 }
 
-+ Received: 
++ Received:
 null
 
  ❯ test/routes/api-v1-shopping-sync.test.ts:171:83
@@ -48,7 +48,7 @@ AssertionError: expected 404 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-shopping-sync.test.ts:505:29
     503|     const replayPayload = await readJson(replay);
-    504| 
+    504|
     505|     expect(response.status).toBe(200);
        |                             ^
     506|     expectEnvelopeHeaders(response, "req_shopping_add_recipe");
@@ -67,7 +67,7 @@ AssertionError: expected 404 to be 200 // Object.is equality
 
  ❯ test/routes/api-v1-shopping-sync.test.ts:557:35
     555|     const clearCompletedPayload = await readJson(clearCompleted);
-    556| 
+    556|
     557|     expect(clearCompleted.status).toBe(200);
        |                                   ^
     558|     expectEnvelopeHeaders(clearCompleted, "req_shopping_clear_complete…
@@ -80,4 +80,3 @@ AssertionError: expected 404 to be 200 // Object.is equality
       Tests  3 failed | 5 passed (8)
    Start at  01:11:33
    Duration  1.23s (transform 190ms, setup 152ms, import 359ms, tests 307ms, environment 273ms)
-

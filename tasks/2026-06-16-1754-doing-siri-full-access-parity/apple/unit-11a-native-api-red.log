@@ -65,19 +65,19 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
   19 |         let docsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(baseURL: Self.privateConfiguration.baseURL)
      |                                  `- error: cannot find 'APIDiscoveryRequests' in scope
   20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
-  21 | 
+  21 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:20:41: error: cannot find type 'APIDiscoveryResponse' in scope
   18 |             .urlRequest(configuration: Self.privateConfiguration)
   19 |         let docsHandoffURL = try APIDiscoveryRequests.docsHandoffURL(baseURL: Self.privateConfiguration.baseURL)
   20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
      |                                         `- error: cannot find type 'APIDiscoveryResponse' in scope
-  21 | 
+  21 |
   22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:22:38: error: cannot infer contextual base in reference to member 'get'
   20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
-  21 | 
+  21 |
   22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
      |                                      `- error: cannot infer contextual base in reference to member 'get'
   23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
@@ -85,14 +85,14 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:22:75: error: 'nil' requires a contextual type
   20 |         let discovery = try APIEnvelope<APIDiscoveryResponse>.decode(Self.discoveryEnvelope)
-  21 | 
+  21 |
   22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
      |                                                                           `- error: 'nil' requires a contextual type
   23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
   24 |         assertRequest(openAPI, method: .get, path: "/api/v1/openapi.json", authorization: nil)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:23:40: error: cannot infer contextual base in reference to member 'get'
-  21 | 
+  21 |
   22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
   23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
      |                                        `- error: cannot infer contextual base in reference to member 'get'
@@ -100,7 +100,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
   25 |         assertRequest(sdkOpenAPI, method: .get, path: "/api/v1/openapi.sdk.json", authorization: nil)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:23:84: error: 'nil' requires a contextual type
-  21 | 
+  21 |
   22 |         assertRequest(root, method: .get, path: "/api/v1", authorization: nil)
   23 |         assertRequest(health, method: .get, path: "/api/v1/health", authorization: nil)
      |                                                                                    `- error: 'nil' requires a contextual type
@@ -321,11 +321,11 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  123 |         let disconnect = try PrivateAccountRequests.disconnectConnection(connectionID: "oauth/cm client")
      |                              `- error: cannot find 'PrivateAccountRequests' in scope
  124 |             .urlRequest(configuration: Self.privateConfiguration)
- 125 | 
+ 125 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:126:48: error: cannot infer contextual base in reference to member 'get'
  124 |             .urlRequest(configuration: Self.privateConfiguration)
- 125 | 
+ 125 |
  126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
      |                                                `- error: cannot infer contextual base in reference to member 'get'
  127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
@@ -333,14 +333,14 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:126:137: error: cannot infer contextual base in reference to member 'privateNoStore'
  124 |             .urlRequest(configuration: Self.privateConfiguration)
- 125 | 
+ 125 |
  126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
      |                                                                                                                                         `- error: cannot infer contextual base in reference to member 'privateNoStore'
  127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
  128 |         assertRequest(notificationPreferences, method: .get, path: "/api/v1/me/notification-preferences", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:127:41: error: cannot infer contextual base in reference to member 'get'
- 125 | 
+ 125 |
  126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
  127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
      |                                         `- error: cannot infer contextual base in reference to member 'get'
@@ -348,7 +348,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  129 |         assertRequest(connections, method: .get, path: "/api/v1/me/connections", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:127:138: error: cannot infer contextual base in reference to member 'privateNoStore'
- 125 | 
+ 125 |
  126 |         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
  127 |         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
      |                                                                                                                                          `- error: cannot infer contextual base in reference to member 'privateNoStore'
@@ -589,7 +589,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:245:50: error: cannot infer contextual base in reference to member 'get'
  243 |         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
- 244 | 
+ 244 |
  245 |         assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
      |                                                  `- error: cannot infer contextual base in reference to member 'get'
  246 |         assertRequest(
@@ -597,7 +597,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:245:105: error: 'nil' requires a contextual type
  243 |         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
- 244 | 
+ 244 |
  245 |         assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
      |                                                                                                         `- error: 'nil' requires a contextual type
  246 |         assertRequest(
@@ -605,7 +605,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:245:132: error: cannot infer contextual base in reference to member 'publicCache'
  243 |         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
- 244 | 
+ 244 |
  245 |         assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
      |                                                                                                                                    `- error: cannot infer contextual base in reference to member 'publicCache'
  246 |         assertRequest(
@@ -1133,7 +1133,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:764:46: error: cannot infer contextual base in reference to member 'get'
  762 |         .urlRequest(configuration: Self.privateConfiguration)
- 763 | 
+ 763 |
  764 |         assertRequest(readShopping, method: .get, path: "/api/v1/shopping-list", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
      |                                              `- error: cannot infer contextual base in reference to member 'get'
  765 |         #expect(readShopping.body == nil)
@@ -1141,7 +1141,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:764:146: error: cannot infer contextual base in reference to member 'privateNoStore'
  762 |         .urlRequest(configuration: Self.privateConfiguration)
- 763 | 
+ 763 |
  764 |         assertRequest(readShopping, method: .get, path: "/api/v1/shopping-list", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
      |                                                                                                                                                  `- error: cannot infer contextual base in reference to member 'privateNoStore'
  765 |         #expect(readShopping.body == nil)
@@ -1264,7 +1264,7 @@ error: emit-module command failed with exit code 1 (use -v to see invocation)
  901 |     func apiErrorEnvelopesPreserveStructuredDetailsForNativeRecoveryDecisions() throws {
  902 |         let result = try APIEnvelope<RecipeImportResponse>.decodeResult(Self.recipeImportErrorEnvelope)
      |                                      `- error: cannot find type 'RecipeImportResponse' in scope
- 903 | 
+ 903 |
  904 |         switch result {
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeAPIExpansionTests.swift:911:52: error: cannot find 'JSONValue' in scope

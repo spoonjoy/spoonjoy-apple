@@ -1698,6 +1698,123 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("drained cover mutations clear stale active cover cache for restart")
+    func drainedCoverMutationsClearStaleActiveCoverCacheForRestart() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let coveredRecipe = Self.optimisticRecipe(
+                coverImageURL: URL(string: "https://spoonjoy.app/photos/covers/old.jpg"),
+                coverProvenanceLabel: "Chef photo",
+                coverSourceType: .chefUpload,
+                coverVariant: .image
+            )
+            let mutations: [NativeQueuedMutation] = [
+                .coverSetActive(
+                    recipeID: coveredRecipe.id,
+                    coverID: "cover_new",
+                    clientMutationID: "cm_cover_restart_active",
+                    variant: .stylized,
+                    createdAt: Self.createdAt(2)
+                ),
+                .coverSetNoCover(
+                    recipeID: coveredRecipe.id,
+                    clientMutationID: "cm_cover_restart_none",
+                    confirmNoCover: true,
+                    createdAt: Self.createdAt(3)
+                ),
+                .coverArchive(
+                    recipeID: coveredRecipe.id,
+                    coverID: "cover_old",
+                    clientMutationID: "cm_cover_restart_archive",
+                    replacementCoverID: nil,
+                    replacementVariant: nil,
+                    confirmNoCover: true,
+                    deleteSafeObjects: false,
+                    createdAt: Self.createdAt(4)
+                ),
+                .coverArchive(
+                    recipeID: coveredRecipe.id,
+                    coverID: "cover_replacement_old",
+                    clientMutationID: "cm_cover_restart_archive_replacement",
+                    replacementCoverID: "cover_new",
+                    replacementVariant: .stylized,
+                    confirmNoCover: false,
+                    deleteSafeObjects: false,
+                    createdAt: Self.createdAt(5)
+                ),
+                .coverRegenerate(
+                    recipeID: coveredRecipe.id,
+                    coverID: "cover_new",
+                    activateWhenReady: false,
+                    clientMutationID: "cm_cover_restart_regenerate",
+                    createdAt: Self.createdAt(6)
+                ),
+                .coverRegenerate(
+                    recipeID: coveredRecipe.id,
+                    coverID: "cover_new",
+                    activateWhenReady: true,
+                    clientMutationID: "cm_cover_restart_regenerate_active",
+                    createdAt: Self.createdAt(7)
+                ),
+                .coverFromSpoon(
+                    recipeID: coveredRecipe.id,
+                    spoonID: "spoon_photo",
+                    clientMutationID: "cm_cover_restart_spoon",
+                    activate: true,
+                    generateEditorial: true,
+                    createdAt: Self.createdAt(8)
+                )
+            ]
+            let fallback = NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .local,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: mutations),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: coveredRecipe.id, payload: try Self.jsonValue(coveredRecipe), serverRevision: .updatedAt(coveredRecipe.updatedAt))
+                ],
+                tombstones: []
+            )
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
+            let transport = RecordingNativeSyncTransport(
+                bootstrap: .success(cursor: nil, tombstones: []),
+                mutationResults: mutations.map { _ in .success(serverRevision: nil) }
+            )
+            let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+            let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
+            let restoredRecipeRecord = try #require(try await restored.cachedRecord(kind: .recipe, resourceID: coveredRecipe.id))
+            let restoredRecipe = try Self.recipe(from: restoredRecipeRecord.payload)
+
+            #expect(report.drainedClientMutationIDs == [
+                "cm_cover_restart_active",
+                "cm_cover_restart_none",
+                "cm_cover_restart_archive",
+                "cm_cover_restart_archive_replacement",
+                "cm_cover_restart_regenerate",
+                "cm_cover_restart_regenerate_active",
+                "cm_cover_restart_spoon"
+            ])
+            #expect(try await restored.loadQueue().mutations.isEmpty)
+            #expect(restoredRecipe.coverImageURL == nil)
+            #expect(restoredRecipe.coverProvenanceLabel == nil)
+            #expect(restoredRecipe.coverSourceType == nil)
+            #expect(restoredRecipe.coverVariant == nil)
+            #expect(restoredRecipe.updatedAt == Self.createdAt(8))
+            #expect(await transport.requestPaths == [
+                "/api/v1/me/sync",
+                "/api/v1/recipes/recipe_lemon/covers/cover_new",
+                "/api/v1/recipes/recipe_lemon/covers",
+                "/api/v1/recipes/recipe_lemon/covers/cover_old",
+                "/api/v1/recipes/recipe_lemon/covers/cover_replacement_old",
+                "/api/v1/recipes/recipe_lemon/covers/regenerate",
+                "/api/v1/recipes/recipe_lemon/covers/regenerate",
+                "/api/v1/recipes/recipe_lemon/covers/from-spoon/spoon_photo"
+            ])
+        }
+    }
+
     @Test("sync engine rewrites dependent shopping item ids after add drains")
     func syncEngineRewritesDependentShoppingItemIDsAfterAddDrains() async throws {
         let add = NativeQueuedMutation.shoppingAddItem(
@@ -3113,6 +3230,104 @@ struct NativeSyncEngineTests {
         )
         #expect(missingOutputInput.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0].steps == recipe.steps)
 
+        let coveredRecipe = Self.optimisticRecipe(
+            coverImageURL: URL(string: "https://spoonjoy.app/photos/covers/old.jpg"),
+            coverProvenanceLabel: "Chef photo",
+            coverSourceType: .chefUpload,
+            coverVariant: .image
+        )
+        let coverCleared = NativeQueuedMutation.coverSetNoCover(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_cover_none_optimistic",
+            confirmNoCover: true,
+            createdAt: Self.createdAt(11)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(coverCleared.coverImageURL == nil)
+        #expect(coverCleared.coverProvenanceLabel == nil)
+        #expect(coverCleared.coverSourceType == nil)
+        #expect(coverCleared.coverVariant == nil)
+        #expect(coverCleared.updatedAt == now)
+
+        let coverActivated = NativeQueuedMutation.coverSetActive(
+            recipeID: "recipe_lemon",
+            coverID: "cover_new",
+            clientMutationID: "cm_cover_active_optimistic",
+            variant: .stylized,
+            createdAt: Self.createdAt(12)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(coverActivated.coverImageURL == nil)
+        #expect(coverActivated.coverVariant == nil)
+
+        let inactiveArchive = NativeQueuedMutation.coverArchive(
+            recipeID: "recipe_lemon",
+            coverID: "cover_inactive",
+            clientMutationID: "cm_cover_archive_inactive",
+            replacementCoverID: nil,
+            replacementVariant: nil,
+            confirmNoCover: false,
+            deleteSafeObjects: false,
+            createdAt: Self.createdAt(13)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(inactiveArchive == coveredRecipe)
+
+        let replacementArchive = NativeQueuedMutation.coverArchive(
+            recipeID: "recipe_lemon",
+            coverID: "cover_old",
+            clientMutationID: "cm_cover_archive_replace",
+            replacementCoverID: "cover_new",
+            replacementVariant: .image,
+            confirmNoCover: false,
+            deleteSafeObjects: false,
+            createdAt: Self.createdAt(14)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(replacementArchive.coverImageURL == nil)
+
+        let inactiveRegenerate = NativeQueuedMutation.coverRegenerate(
+            recipeID: "recipe_lemon",
+            coverID: "cover_old",
+            activateWhenReady: false,
+            clientMutationID: "cm_cover_regen_inactive",
+            createdAt: Self.createdAt(15)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(inactiveRegenerate == coveredRecipe)
+
+        let activeRegenerate = NativeQueuedMutation.coverRegenerate(
+            recipeID: "recipe_lemon",
+            coverID: "cover_old",
+            activateWhenReady: true,
+            clientMutationID: "cm_cover_regen_active",
+            createdAt: Self.createdAt(16)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(activeRegenerate.coverImageURL == nil)
+
+        let inactiveSpoonCover = NativeQueuedMutation.coverFromSpoon(
+            recipeID: "recipe_lemon",
+            spoonID: "spoon_photo",
+            clientMutationID: "cm_cover_spoon_inactive",
+            activate: false,
+            generateEditorial: true,
+            createdAt: Self.createdAt(17)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(inactiveSpoonCover == coveredRecipe)
+
+        let activeSpoonCover = NativeQueuedMutation.coverFromSpoon(
+            recipeID: "recipe_lemon",
+            spoonID: "spoon_photo",
+            clientMutationID: "cm_cover_spoon_active",
+            activate: true,
+            generateEditorial: true,
+            createdAt: Self.createdAt(18)
+        )
+        .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
+        #expect(activeSpoonCover.coverImageURL == nil)
+
         let malformedUpdate = try Self.decodedMutation(
             type: .recipeUpdate,
             fields: [
@@ -3298,6 +3513,10 @@ struct NativeSyncEngineTests {
     private static func optimisticRecipe(
         id: String = "recipe_lemon",
         title: String = "Lemon Pasta",
+        coverImageURL: URL? = nil,
+        coverProvenanceLabel: String? = nil,
+        coverSourceType: RecipeCoverSourceType? = nil,
+        coverVariant: RecipeCoverVariant? = nil,
         steps: [RecipeStep]? = nil
     ) -> Recipe {
         let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
@@ -3307,10 +3526,10 @@ struct NativeSyncEngineTests {
             description: "Bright.",
             servings: "4",
             chef: ChefSummary(id: "chef_ari", username: "ari"),
-            coverImageURL: nil,
-            coverProvenanceLabel: nil,
-            coverSourceType: nil,
-            coverVariant: nil,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
             href: "/recipes/\(id)",
             canonicalURL: canonicalURL,
             attribution: RecipeAttribution(
