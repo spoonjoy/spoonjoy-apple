@@ -1,0 +1,8 @@
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-coverage-test-3.log:290:◇ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" started.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-coverage-test-3.log:427:◇ Test "retry results block the failed dependency key while independent mutations can still drain" started.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-coverage-test-3.log:640:✔ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" passed after 0.307 seconds.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-coverage-test-3.log:750:✔ Test "retry results block the failed dependency key while independent mutations can still drain" passed after 0.300 seconds.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-swift-full.log:107:◇ Test "retry results block the failed dependency key while independent mutations can still drain" started.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-swift-full.log:332:◇ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" started.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-swift-full.log:466:✔ Test "retry results block the failed dependency key while independent mutations can still drain" passed after 0.324 seconds.
+tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-swift-full.log:650:✔ Test "indicator transitions preserve queued failed conflict blocker destructive and dismissed states" passed after 0.318 seconds.

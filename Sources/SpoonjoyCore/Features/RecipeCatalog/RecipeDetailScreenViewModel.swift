@@ -113,6 +113,7 @@ public struct RecipeDetailSpoonSummary: Equatable, Sendable {
 
 public struct RecipeDetailSpoonRow: Identifiable, Equatable, Sendable {
     public let id: String
+    public let spoon: RecipeDetailRecentSpoon
     public let chefLine: String
     public let note: String?
     public let nextTime: String?
@@ -120,6 +121,7 @@ public struct RecipeDetailSpoonRow: Identifiable, Equatable, Sendable {
 
     public init(spoon: RecipeDetailRecentSpoon) {
         id = spoon.id
+        self.spoon = spoon
         chefLine = "\(spoon.chef.username) cooked this"
         note = spoon.note
         nextTime = spoon.nextTime

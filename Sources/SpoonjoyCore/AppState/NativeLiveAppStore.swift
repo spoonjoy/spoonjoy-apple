@@ -12,6 +12,7 @@ public struct NativeLiveAppStoreDependencies {
     public let cacheEnvironment: NativeCacheEnvironment
     public let fixtureFallbackPolicy: NativeFixtureFallbackPolicy
     public let recipeEditorAPITransport: @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport
+    public let stagedMediaDirectory: NativeStagedMediaDirectory?
     public let now: @Sendable () -> Date
 
     public init(
@@ -27,6 +28,7 @@ public struct NativeLiveAppStoreDependencies {
         recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
             URLSessionAPITransport(authenticationRefresher: refresher)
         },
+        stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
         now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
@@ -39,6 +41,7 @@ public struct NativeLiveAppStoreDependencies {
         self.cacheEnvironment = cacheEnvironment
         self.fixtureFallbackPolicy = fixtureFallbackPolicy
         self.recipeEditorAPITransport = recipeEditorAPITransport
+        self.stagedMediaDirectory = stagedMediaDirectory
         self.now = now
     }
 }
@@ -120,6 +123,7 @@ public struct NativeShellContentState {
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
     public let cookProgressByRecipeID: [String: CookModeProgress]
+    public let spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]
     public let queuedMutations: [NativeQueuedMutation]
     public let syncConflicts: [NativeSyncConflict]
     public let searchResultsByScope: [SearchScope: [String]]
@@ -166,10 +170,15 @@ public struct NativeShellContentState {
         cookProgressByRecipeID[recipeID]
     }
 
+    public func spoonCookLogDraft(recipeID: String) -> SpoonCookLogDraftState? {
+        spoonCookLogDraftsByRecipeID[recipeID]
+    }
+
     func copy(
         recipes: [Recipe]? = nil,
         shoppingList: ShoppingListState? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
+        spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]? = nil,
         queuedMutations: [NativeQueuedMutation]? = nil,
         syncConflicts: [NativeSyncConflict]? = nil,
         environment: NativeCacheEnvironment? = nil,
@@ -183,6 +192,7 @@ public struct NativeShellContentState {
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
+            spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID ?? self.spoonCookLogDraftsByRecipeID,
             queuedMutations: queuedMutations ?? self.queuedMutations,
             syncConflicts: syncConflicts ?? self.syncConflicts,
             authSessionState: authSessionState,
@@ -211,6 +221,7 @@ public struct NativeShellContentState {
             shoppingList: nil,
             captureDraft: nil,
             cookProgressByRecipeID: [:],
+            spoonCookLogDraftsByRecipeID: [:],
             queuedMutations: [],
             syncConflicts: [],
             authSessionState: authSessionState,
@@ -246,6 +257,7 @@ public struct NativeShellContentState {
         )
         let captureDraft = restoredCaptureDraft(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let cookProgressByRecipeID = restoredCookProgress(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
+        let spoonCookLogDraftsByRecipeID = appSnapshot?.spoonCookLogDraftsByRecipeID ?? [:]
         return NativeShellContentState(
             recipes: recipes,
             cookbooks: cookbooks,
@@ -258,6 +270,7 @@ public struct NativeShellContentState {
             shoppingList: shoppingList,
             captureDraft: captureDraft,
             cookProgressByRecipeID: cookProgressByRecipeID,
+            spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID,
             queuedMutations: syncSnapshot.queue.mutations,
             syncConflicts: [],
             authSessionState: authSessionState,
@@ -281,7 +294,31 @@ public struct NativeShellContentState {
             }
             return placeholderRecipe(id: id, title: title, date: record.metadata.lastValidatedAt)
         }
-        return (decoded + placeholders).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        let syncedSpoonsByRecipeID = Dictionary(
+            grouping: syncSnapshot.cachedRecords
+                .filter { $0.kind == .spoon }
+                .compactMap { decodedPayload(RecipeDetailRecentSpoon.self, from: $0.payload) },
+            by: \.recipeID
+        )
+        let tombstonedSpoonIDs = Set(syncSnapshot.tombstones.compactMap { tombstone in
+            tombstone.resourceType == .spoon ? tombstone.resourceID : nil
+        })
+        return (decoded + placeholders)
+            .map { recipe in
+                let syncedSpoons = syncedSpoonsByRecipeID[recipe.id] ?? []
+                guard !syncedSpoons.isEmpty || !tombstonedSpoonIDs.isEmpty else {
+                    return recipe
+                }
+                let retainedSummarySpoons = recipe.recentSpoons.filter { !tombstonedSpoonIDs.contains($0.id) }
+                let restoredSpoons = syncedSpoons
+                    .filter { !tombstonedSpoonIDs.contains($0.id) }
+                    .reduce(retainedSummarySpoons) { $0.upsertingRestoredRecentSpoon($1) }
+                guard restoredSpoons != recipe.recentSpoons else {
+                    return recipe
+                }
+                return recipe.replacingRestoredRecentSpoons(restoredSpoons)
+            }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     private static func recipesByApplyingQueuedRecipeMutations(
@@ -553,6 +590,7 @@ public struct NativeShellContentState {
         shoppingList: ShoppingListState?,
         captureDraft: CaptureDraft?,
         cookProgressByRecipeID: [String: CookModeProgress],
+        spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState],
         queuedMutations: [NativeQueuedMutation],
         syncConflicts: [NativeSyncConflict],
         authSessionState: NativeAuthSessionState,
@@ -566,6 +604,7 @@ public struct NativeShellContentState {
         self.shoppingList = shoppingList
         self.captureDraft = captureDraft
         self.cookProgressByRecipeID = cookProgressByRecipeID
+        self.spoonCookLogDraftsByRecipeID = spoonCookLogDraftsByRecipeID
         self.queuedMutations = queuedMutations
         self.syncConflicts = syncConflicts
         self.searchResultsByScope = Self.searchResultsByScope(
@@ -776,6 +815,9 @@ public final class NativeLiveAppStore: ObservableObject {
             let queue = scopedQueue.queue
             let nextQueue = try queue.appending(contentsOf: mutations)
             let baseShoppingCacheRecords = try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
+            for mutation in mutations {
+                try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
+            }
             try await dependencies.syncStore.saveQueue(
                 nextQueue,
                 accountID: scopedQueue.accountID,
@@ -1025,6 +1067,83 @@ public final class NativeLiveAppStore: ObservableObject {
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(shoppingList: shoppingList)))
     }
 
+    public func recordSpoonCookLogDraft(_ draft: SpoonCookLogDraftState?, forRecipeID recipeID: String) {
+        let trimmedRecipeID = recipeID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRecipeID.isEmpty else {
+            return
+        }
+
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let nextPersistableDraft = draft?.persistable
+        let previousDraft = currentContentState.spoonCookLogDraft(recipeID: trimmedRecipeID)
+        var previousStoredDraft = previousDraft
+        if let appStateStore = dependencies.appStateStoreProvider() {
+            var newlySavedStagedPhoto: NativeStagedMediaUpload?
+            do {
+                if let stagedPhoto = draft?.stagedPhoto, !stagedPhoto.data.isEmpty {
+                    try dependencies.stagedMediaDirectory?.save(stagedPhoto)
+                    if previousDraft?.stagedPhoto?.localStageID != stagedPhoto.localStageID {
+                        newlySavedStagedPhoto = stagedPhoto
+                    }
+                }
+                let fallback = NativeAppSnapshot.bootstrap(
+                    shoppingList: currentContentState.shoppingList,
+                    accountID: accountID,
+                    environment: cacheEnvironment,
+                    savedAt: savedAt
+                )
+                let record = try appStateStore.loadOrCreate(fallback: fallback)
+                let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+                    ? record.value
+                    : fallback
+                previousStoredDraft = baseSnapshot.spoonCookLogDraft(for: trimmedRecipeID) ?? previousDraft
+                try appStateStore.save(
+                    baseSnapshot
+                        .completingFirstRun(savedAt: savedAt)
+                        .updatingSpoonCookLogDraft(draft, forRecipeID: trimmedRecipeID, savedAt: savedAt)
+                )
+            } catch {
+                if let newlySavedStagedPhoto {
+                    deleteSpoonDraftMediaIfUnqueued(newlySavedStagedPhoto)
+                }
+                apply(.syncFailed(
+                    currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "spoon-draft", retryAfter: nil), dismissal: nil)),
+                    message: "Cook log draft could not be saved offline."
+                ))
+                return
+            }
+        }
+        deleteSupersededSpoonDraftMedia(
+            previous: previousStoredDraft?.stagedPhoto,
+            next: nextPersistableDraft?.stagedPhoto
+        )
+
+        var nextDrafts = currentContentState.spoonCookLogDraftsByRecipeID
+        if let draft = nextPersistableDraft {
+            nextDrafts[draft.recipeID] = draft
+        } else {
+            nextDrafts.removeValue(forKey: trimmedRecipeID)
+        }
+        apply(stateMatchingCurrentSeverity(with: currentContentState.copy(spoonCookLogDraftsByRecipeID: nextDrafts)))
+    }
+
+    private func deleteSupersededSpoonDraftMedia(
+        previous: NativeStagedMediaUpload?,
+        next: NativeStagedMediaUpload?
+    ) {
+        guard let previous, previous.localStageID != next?.localStageID else {
+            return
+        }
+        deleteSpoonDraftMediaIfUnqueued(previous)
+    }
+
+    private func deleteSpoonDraftMediaIfUnqueued(_ upload: NativeStagedMediaUpload) {
+        guard !currentContentState.queuedMutations.contains(where: { $0.stagedMediaUploadStageIDs.contains(upload.localStageID) }) else {
+            return
+        }
+        try? dependencies.stagedMediaDirectory?.delete(upload)
+    }
+
     private func restoreFromCache(
         authSessionState: NativeAuthSessionState,
         optimisticMutations: [NativeQueuedMutation] = []
@@ -1084,7 +1203,14 @@ public final class NativeLiveAppStore: ObservableObject {
               snapshot.environment == cacheEnvironment else {
             return .empty
         }
-        return snapshot
+        return NativeSyncSnapshot(
+            accountID: snapshot.accountID,
+            environment: snapshot.environment,
+            checkpoint: snapshot.checkpoint,
+            queue: try await dependencies.syncStore.loadQueue(),
+            cachedRecords: snapshot.cachedRecords,
+            tombstones: snapshot.tombstones
+        )
     }
 
     private func loadAppSnapshot(authSessionState: NativeAuthSessionState, savedAt: String) -> NativeAppSnapshot? {
@@ -1241,5 +1367,39 @@ enum NativeLiveAppStoreClock {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: date)
+    }
+}
+
+private extension Recipe {
+    func replacingRestoredRecentSpoons(_ recentSpoons: [RecipeDetailRecentSpoon]) -> Recipe {
+        Recipe(
+            id: id,
+            title: title,
+            description: description,
+            servings: servings,
+            chef: chef,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: attribution,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            steps: steps,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons
+        )
+    }
+}
+
+private extension Array where Element == RecipeDetailRecentSpoon {
+    func upsertingRestoredRecentSpoon(_ spoon: RecipeDetailRecentSpoon) -> [RecipeDetailRecentSpoon] {
+        var remaining = filter { $0.id != spoon.id }
+        remaining.insert(spoon, at: 0)
+        return remaining.sorted {
+            ($0.cookedAt ?? $0.createdAt) > ($1.cookedAt ?? $1.createdAt)
+        }
     }
 }

@@ -1,0 +1,6 @@
+Running iOS simulator smoke
+iOS simulator smoke blocked; see tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18c-spoon-logs-screenshots-core-simulator-blocker.json
+Running macOS launch smoke
+macOS smoke ok
+2026-06-27 07:57:23.932 osascript[13261:10261185] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
+2026-06-27 07:57:24.272 osascript[13288:10261239] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)

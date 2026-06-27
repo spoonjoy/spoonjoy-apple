@@ -1,0 +1,140 @@
+[0/1] Planning build
+Building for debugging...
+[0/8] Write sources
+[2/8] Write swift-version--58304C5D6DBC2206.txt
+[4/73] Compiling SpoonjoyCore OAuthRequests.swift
+[5/73] Compiling SpoonjoyCore OAuthResponses.swift
+[6/73] Compiling SpoonjoyCore RefreshCoordinator.swift
+[7/73] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[8/73] Compiling SpoonjoyCore TokenVault.swift
+[9/73] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[10/73] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[11/80] Compiling SpoonjoyCore AuthSessionState.swift
+[12/80] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[13/80] Compiling SpoonjoyCore KeychainTokenVault.swift
+[14/80] Compiling SpoonjoyCore NativeAuthSession.swift
+[15/80] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[16/80] Compiling SpoonjoyCore OAuthPKCE.swift
+[17/80] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[18/80] Compiling SpoonjoyCore APIClient.swift
+[19/80] Compiling SpoonjoyCore APIEnvelope.swift
+[20/80] Compiling SpoonjoyCore APIError.swift
+[21/80] Compiling SpoonjoyCore APIRequestBuilder.swift
+[22/80] Compiling SpoonjoyCore APIRequestSupport.swift
+[23/80] Compiling SpoonjoyCore APIRetryPolicy.swift
+[24/80] Compiling SpoonjoyCore APITransport.swift
+[25/80] Compiling SpoonjoyCore JSONValue.swift
+[26/80] Compiling SpoonjoyCore NativeAPIRequests.swift
+[27/80] Compiling SpoonjoyCore PaginationCursor.swift
+[28/80] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[29/80] Compiling SpoonjoyCore ShoppingListAPI.swift
+[30/80] Compiling SpoonjoyCore ShoppingListRequests.swift
+[31/80] Compiling SpoonjoyCore AppNavigationState.swift
+[32/80] Compiling SpoonjoyCore AppRoute.swift
+[33/80] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[34/80] Compiling SpoonjoyCore NativeIntentAction.swift
+[35/80] Compiling SpoonjoyCore ScenarioCommand.swift
+[36/80] Compiling SpoonjoyCore ScenarioReport.swift
+[37/80] Compiling SpoonjoyCore ScenarioVerifier.swift
+[38/80] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[39/80] Compiling SpoonjoyCore JSONFileStore.swift
+[40/80] Emitting module SpoonjoyCore
+[41/80] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[42/80] Compiling SpoonjoyCore CaptureDraft.swift
+[43/80] Compiling SpoonjoyCore CookModeProgress.swift
+[44/80] Compiling SpoonjoyCore KitchenFixtureState.swift
+[45/80] Compiling SpoonjoyCore SettingsState.swift
+[46/80] Compiling SpoonjoyCore ShoppingListState.swift
+[47/80] Compiling SpoonjoyCore DeepLinkManifest.swift
+[48/80] Compiling SpoonjoyCore NativeDurableCache.swift
+[49/80] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[50/80] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[51/80] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[52/80] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[53/80] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[54/80] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[55/80] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[56/80] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[57/80] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[58/80] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[59/80] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[60/80] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[61/80] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[62/80] Compiling SpoonjoyCore DeepLinkRouter.swift
+[63/80] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[64/80] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[65/80] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[66/80] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[67/80] Compiling SpoonjoyCore ScreenViewModels.swift
+[68/80] Compiling SpoonjoyCore SearchState.swift
+[69/80] Compiling SpoonjoyCore MutationQueue.swift
+[70/80] Compiling SpoonjoyCore OfflineSnapshot.swift
+[71/80] Compiling SpoonjoyCore SyncCheckpoint.swift
+[72/80] Compiling SpoonjoyCore RecipeCookbook.swift
+[73/80] Compiling SpoonjoyCore SpoonjoyCore.swift
+[74/80] Compiling SpoonjoyCore NativeSyncEngine.swift
+[75/80] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[76/106] Compiling SpoonjoyScenarioVerifier main.swift
+[77/106] Emitting module SpoonjoyScenarioVerifier
+[78/106] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[78/106] Write Objects.LinkFileList
+[79/106] Linking SpoonjoyScenarioVerifier
+[80/106] Applying SpoonjoyScenarioVerifier
+[82/106] Emitting module SpoonjoyCoreTests
+[83/108] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[84/108] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[85/108] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[86/108] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[87/108] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[88/108] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[89/108] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[90/108] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[91/108] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[92/108] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[93/108] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[94/108] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[95/108] Compiling SpoonjoyCoreTests APITransportTests.swift
+[96/108] Compiling SpoonjoyCoreTests AppStateTests.swift
+[97/108] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[98/108] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[99/108] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[100/108] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[101/108] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[102/108] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[103/108] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[104/108] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[105/108] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[106/108] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[107/110] Emitting module SpoonjoyApplePackageTests
+[108/110] Compiling SpoonjoyApplePackageTests runner.swift
+[108/110] Write Objects.LinkFileList
+[109/110] Linking SpoonjoyApplePackageTests
+Build complete! (20.51s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native spoon cook-log surface parity" started.
+◇ Test "empty spoon create is blocked before reaching the API" started.
+◇ Test "photo spoon actions plan multipart uploads and offline staged media" started.
+◇ Test "cook-log view model covers equality queued online synced and skipped conflicts" started.
+◇ Test "recipe detail wires the native spoon cook-log surface" started.
+◇ Test "cook-log draft state normalizes text and persists staged photo metadata only" started.
+◇ Test "spoon actions expose success messages and block unauthorized or empty edits" started.
+◇ Test "cook-log view model exposes ownership empty queued and conflict states" started.
+◇ Test "online spoon actions plan exact REST mutations with offline fallbacks" started.
+◇ Test "live spoon cook-log repository fetches public recipe spoons" started.
+◇ Test "cook-log view model enforces staged media policy" started.
+◇ Test "cook-log list data decodes defaults and summary-projected spoons" started.
+✔ Test "empty spoon create is blocked before reaching the API" passed after 0.028 seconds.
+✔ Test "cook-log draft state normalizes text and persists staged photo metadata only" passed after 0.028 seconds.
+✔ Test "live spoon cook-log repository fetches public recipe spoons" passed after 0.028 seconds.
+✔ Test "cook-log view model covers equality queued online synced and skipped conflicts" passed after 0.028 seconds.
+✔ Test "photo spoon actions plan multipart uploads and offline staged media" passed after 0.059 seconds.
+✔ Test "cook-log list data decodes defaults and summary-projected spoons" passed after 0.113 seconds.
+✔ Test "cook-log view model enforces staged media policy" passed after 0.113 seconds.
+✔ Test "recipe detail wires the native spoon cook-log surface" passed after 0.131 seconds.
+✔ Test "online spoon actions plan exact REST mutations with offline fallbacks" passed after 0.137 seconds.
+✔ Test "spoon actions expose success messages and block unauthorized or empty edits" passed after 0.138 seconds.
+✔ Test "cook-log view model exposes ownership empty queued and conflict states" passed after 0.142 seconds.
+✔ Suite "Native spoon cook-log surface parity" passed after 0.142 seconds.
+✔ Test run with 11 tests in 1 suite passed after 0.143 seconds.

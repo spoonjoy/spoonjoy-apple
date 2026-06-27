@@ -235,7 +235,7 @@ struct NativeSyncEngineTests {
                 fallback: NativeSyncSnapshot(checkpoint: nil, queue: queue)
             )
             _ = try await fileQueueResetStore.apply(syncData: syncData, validatedAt: now)
-            #expect((await fileQueueResetStore.loadSnapshot()).queue.mutations.isEmpty)
+            #expect((try await fileQueueResetStore.loadSnapshot()).queue.mutations.isEmpty)
 
             let fileRecordResetStore = try FileBackedNativeSyncStore(
                 fileURL: directory.appendingPathComponent("record-reset.json"),
@@ -246,7 +246,7 @@ struct NativeSyncEngineTests {
                 )
             )
             _ = try await fileRecordResetStore.apply(syncData: syncData, validatedAt: now)
-            #expect((await fileRecordResetStore.loadSnapshot()).cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+            #expect((try await fileRecordResetStore.loadSnapshot()).cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
 
             let fileTombstoneResetStore = try FileBackedNativeSyncStore(
                 fileURL: directory.appendingPathComponent("tombstone-reset.json"),
@@ -264,7 +264,7 @@ struct NativeSyncEngineTests {
                 )
             )
             _ = try await fileTombstoneResetStore.apply(syncData: syncData, validatedAt: now)
-            #expect((await fileTombstoneResetStore.loadSnapshot()).tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+            #expect((try await fileTombstoneResetStore.loadSnapshot()).tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
         }
 
         let localMutation = NativeQueuedMutation.captureDraftCreate(
@@ -460,17 +460,20 @@ struct NativeSyncEngineTests {
         #expect(dictionaryEquals(persistedKinds["spoon.createPhoto"]?["photo"] as? [String: Any] ?? [:], [
             "localStageId": "stage_spoon_1",
             "fileName": "spoon.webp",
-            "contentType": "image/webp"
+            "contentType": "image/webp",
+            "byteCount": 3
         ]))
         #expect(dictionaryEquals(persistedKinds["cover.upload"]?["image"] as? [String: Any] ?? [:], [
             "localStageId": "stage_cover_1",
             "fileName": "cover.png",
-            "contentType": "image/png"
+            "contentType": "image/png",
+            "byteCount": 3
         ]))
         #expect(dictionaryEquals(persistedKinds["profile.photo.upload"]?["photo"] as? [String: Any] ?? [:], [
             "localStageId": "stage_profile_1",
             "fileName": "profile.jpg",
-            "contentType": "image/jpeg"
+            "contentType": "image/jpeg",
+            "byteCount": 3
         ]))
         #expect((persistedKinds["recipe.import.submit"]?["source"] as? [String: Any])?["url"] as? String == "https://example.com/recipe")
         #expect(json.contains("stage_cover_1"))
@@ -478,6 +481,36 @@ struct NativeSyncEngineTests {
         #expect(json.contains("stage_profile_1"))
         #expect(json.contains("rawMediaPath") == false)
         #expect(json.contains("signedURL") == false)
+
+        let legacyQueuedPhoto = try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: Data(
+                """
+                {
+                  "schemaVersion": 1,
+                  "id": "native:cm_legacy_photo",
+                  "clientMutationId": "cm_legacy_photo",
+                  "createdAt": "2026-06-16T09:00:00.000Z",
+                  "retryCount": 0,
+                  "kind": {
+                    "type": "spoon.createPhoto",
+                    "recipeId": "recipe_lemon",
+                    "photo": {
+                      "localStageId": "stage_legacy_spoon",
+                      "fileName": "legacy-spoon.jpg",
+                      "contentType": "image/jpeg"
+                    },
+                    "note": null,
+                    "nextTime": null,
+                    "cookedAt": null,
+                    "useAsRecipeCover": false
+                  }
+                }
+                """.utf8
+            )
+        )
+        #expect(legacyQueuedPhoto.stagedMediaUploadCount == 1)
+        #expect(legacyQueuedPhoto.stagedMediaUploadByteCount == 0)
     }
 
     @Test("file backed sync store restores queue checkpoint tombstones and staged media for restart")
@@ -513,7 +546,7 @@ struct NativeSyncEngineTests {
             let restored = try FileBackedNativeSyncStore(fileURL: storeURL, mediaResolver: mediaDirectory)
             let restoredQueue = try await restored.loadQueue()
             let request = try restoredQueue.mutations[0].requestBuilder().urlRequest(configuration: configuration)
-            let snapshot = await restored.loadSnapshot()
+            let snapshot = try await restored.loadSnapshot()
 
             #expect(try await restored.loadCheckpoint() == checkpoint)
             #expect(restoredQueue.mutations.map(\.clientMutationID) == ["cm_profile_restart"])
@@ -600,9 +633,9 @@ struct NativeSyncEngineTests {
             )
 
             try await fileStore.saveQueue(currentQueue, accountID: "chef_current", environment: .production)
-            let snapshot = await fileStore.loadSnapshot()
+            let snapshot = try await fileStore.loadSnapshot()
             let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
-            let restoredSnapshot = await restored.loadSnapshot()
+            let restoredSnapshot = try await restored.loadSnapshot()
 
             #expect(snapshot.accountID == "chef_current")
             #expect(snapshot.environment == .production)
@@ -802,7 +835,7 @@ struct NativeSyncEngineTests {
                 trigger: .launch,
                 scope: NativeSyncExecutionScope(expectedAccountID: "chef_current", environment: .production)
             )
-            let snapshot = await store.loadSnapshot()
+            let snapshot = try await store.loadSnapshot()
 
             #expect(await transport.bootstrapQueryItems == [URLQueryItem(name: "limit", value: "20")])
             #expect(await transport.clientMutationIDs.isEmpty)
@@ -890,7 +923,7 @@ struct NativeSyncEngineTests {
             let fileStore = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
 
             _ = try await fileStore.apply(syncData: currentSyncData, validatedAt: now)
-            let fileSnapshot = await fileStore.loadSnapshot()
+            let fileSnapshot = try await fileStore.loadSnapshot()
 
             #expect(fileSnapshot.accountID == "chef_current")
             #expect(fileSnapshot.environment == .production)
@@ -966,8 +999,8 @@ struct NativeSyncEngineTests {
 
             let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
             #expect(try await restored.cachedRecord(kind: .profile, resourceID: "chef_ari")?.serverRevision == .updatedAt("2026-06-16T09:11:01.000Z"))
-            #expect(await restored.loadSnapshot().cachedRecords.map(\.cacheKey) == ["cookbook:cookbook_file", "profile:chef_ari"])
-            #expect(await restored.loadSnapshot().tombstones == [tombstone])
+            #expect((try await restored.loadSnapshot()).cachedRecords.map(\.cacheKey) == ["cookbook:cookbook_file", "profile:chef_ari"])
+            #expect((try await restored.loadSnapshot()).tombstones == [tombstone])
             let plainQueue = try NativeMutationQueue(mutations: [
                 .profileDisplayUpdate(email: "ari@example.com", username: "ari", clientMutationID: "cm_file_plain_queue", createdAt: Self.createdAt(42))
             ])
@@ -979,6 +1012,14 @@ struct NativeSyncEngineTests {
             #expect(throws: NativeStagedMediaDirectoryError.missingStage("missing_stage")) {
                 _ = try mediaDirectory.data(for: Self.stagedMedia("missing_stage", fileName: "missing.jpg", contentType: "image/jpeg"))
             }
+            let savedStage = Self.stagedMedia("saved_stage", fileName: "saved.jpg", contentType: "image/jpeg")
+            try mediaDirectory.save(savedStage)
+            #expect(try mediaDirectory.data(for: savedStage) == savedStage.data)
+            try mediaDirectory.delete(savedStage)
+            #expect(throws: NativeStagedMediaDirectoryError.missingStage(savedStage.localStageID)) {
+                _ = try mediaDirectory.data(for: savedStage)
+            }
+            try mediaDirectory.delete(localStageID: "already_missing_stage")
             let unreadableStageID = "unreadable_stage"
             let unreadableFileName = unreadableStageID.utf8.map { String(format: "%02x", $0) }.joined()
             try FileManager.default.createDirectory(at: mediaDirectoryURL.appendingPathComponent(unreadableFileName), withIntermediateDirectories: true)
@@ -1698,6 +1739,99 @@ struct NativeSyncEngineTests {
         }
     }
 
+    @Test("drained spoon mutations persist to recipe cache for restart")
+    func drainedSpoonMutationsPersistToRecipeCacheForRestart() async throws {
+        try await withTemporaryDirectory { directory in
+            let storeURL = directory.appendingPathComponent("sync.json")
+            let chef = ChefSummary(id: "chef_ari", username: "ari")
+            let existingSpoon = RecipeDetailRecentSpoon(
+                id: "spoon_existing",
+                chefID: chef.id,
+                recipeID: "recipe_lemon",
+                cookedAt: Self.createdAt(1),
+                photoURL: URL(string: "/photos/spoons/existing.jpg"),
+                note: "Too salty.",
+                nextTime: nil,
+                deletedAt: nil,
+                createdAt: Self.createdAt(1),
+                updatedAt: Self.createdAt(1),
+                chef: chef
+            )
+            let lemonRecipe = Self.optimisticRecipe(recentSpoons: [existingSpoon])
+            let create = NativeQueuedMutation.spoonCreate(
+                recipeID: lemonRecipe.id,
+                clientMutationID: "cm_spoon_restart_create",
+                note: "Great cold.",
+                nextTime: nil,
+                cookedAt: Self.createdAt(2),
+                photoURL: nil,
+                useAsRecipeCover: false,
+                createdAt: Self.createdAt(2)
+            )
+            let update = NativeQueuedMutation.spoonUpdate(
+                recipeID: lemonRecipe.id,
+                spoonID: existingSpoon.id,
+                clientMutationID: "cm_spoon_restart_update",
+                note: nil,
+                nextTime: "Use less salt.",
+                cookedAt: Self.createdAt(3),
+                photoURL: nil,
+                createdAt: Self.createdAt(3)
+            )
+            let delete = NativeQueuedMutation.spoonDelete(
+                recipeID: lemonRecipe.id,
+                spoonID: existingSpoon.id,
+                clientMutationID: "cm_spoon_restart_delete",
+                createdAt: Self.createdAt(4)
+            )
+            let fallback = NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .local,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [create, update, delete]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: lemonRecipe.id, payload: try Self.jsonValue(lemonRecipe), serverRevision: .updatedAt(lemonRecipe.updatedAt))
+                ],
+                tombstones: []
+            )
+            let store = try FileBackedNativeSyncStore(fileURL: storeURL, fallback: fallback)
+            let transport = RecordingNativeSyncTransport(
+                bootstrap: .success(cursor: nil, tombstones: []),
+                mutationResults: [
+                    .success(serverRevision: .updatedAt(Self.createdAt(2)), idRemaps: [
+                        NativeSyncIDRemap(localID: "spoon_local_cm_spoon_restart_create", serverID: "spoon_server_restart")
+                    ]),
+                    .success(serverRevision: .updatedAt(Self.createdAt(3))),
+                    .success(serverRevision: .tombstone("spoon_existing_deleted"))
+                ]
+            )
+            let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+            let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+            let restored = try FileBackedNativeSyncStore(fileURL: storeURL)
+            let restoredRecord = try #require(try await restored.cachedRecord(kind: .recipe, resourceID: lemonRecipe.id))
+            let restoredRecipe = try Self.recipe(from: restoredRecord.payload)
+            let createdSpoon = try #require(restoredRecipe.recentSpoons.first { $0.id == "spoon_server_restart" })
+            let deletedSpoon = try #require(restoredRecipe.recentSpoons.first { $0.id == existingSpoon.id })
+
+            #expect(report.drainedClientMutationIDs == ["cm_spoon_restart_create", "cm_spoon_restart_update", "cm_spoon_restart_delete"])
+            #expect(report.drainedMutations.first?.optimisticSpoonID == "spoon_server_restart")
+            #expect(try await restored.loadQueue().mutations.isEmpty)
+            #expect(createdSpoon.note == "Great cold.")
+            #expect(createdSpoon.cookedAt == Self.createdAt(2))
+            #expect(deletedSpoon.note == nil)
+            #expect(deletedSpoon.nextTime == "Use less salt.")
+            #expect(deletedSpoon.deletedAt == Self.createdAt(4))
+            #expect((try await restored.loadSnapshot()).tombstones.map(\.resourceType) == [.spoon])
+            #expect(await transport.requestPaths == [
+                "/api/v1/me/sync",
+                "/api/v1/recipes/recipe_lemon/spoons",
+                "/api/v1/recipes/recipe_lemon/spoons/spoon_existing",
+                "/api/v1/recipes/recipe_lemon/spoons/spoon_existing"
+            ])
+        }
+    }
+
     @Test("drained cover mutations clear stale active cover cache for restart")
     func drainedCoverMutationsClearStaleActiveCoverCacheForRestart() async throws {
         try await withTemporaryDirectory { directory in
@@ -2209,6 +2343,56 @@ struct NativeSyncEngineTests {
             "ingredient_local_cm_decode_2_1",
             "ingredient_local_cm_decode_2_2"
         ])
+    }
+
+    @Test("sync engine records spoon create id remaps without sending internal fields")
+    func syncEngineRecordsSpoonCreateIDRemapsWithoutSendingInternalFields() throws {
+        let create = NativeQueuedMutation.spoonCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_spoon_remap",
+            note: "Cooked.",
+            nextTime: nil,
+            cookedAt: nil,
+            photoURL: nil,
+            useAsRecipeCover: false,
+            createdAt: Self.createdAt(0)
+        )
+        let createPhoto = NativeQueuedMutation.spoonCreatePhoto(
+            recipeID: "recipe_lemon",
+            photo: Self.stagedMedia("stage_spoon_remap", fileName: "spoon.webp", contentType: "image/webp"),
+            clientMutationID: "cm_spoon_photo_remap",
+            note: nil,
+            nextTime: nil,
+            cookedAt: nil,
+            useAsRecipeCover: false,
+            createdAt: Self.createdAt(1)
+        )
+        let nestedResponse = try JSONDecoder().decode(
+            JSONValue.self,
+            from: Data(#"{"spoon":{"id":"spoon_server_remap"}}"#.utf8)
+        )
+        let flatResponse = try JSONDecoder().decode(
+            JSONValue.self,
+            from: Data(#"{"spoonId":"spoon_server_photo_remap"}"#.utf8)
+        )
+
+        #expect(create.idRemaps(from: nestedResponse) == [
+            NativeSyncIDRemap(localID: "spoon_local_cm_spoon_remap", serverID: "spoon_server_remap")
+        ])
+        #expect(createPhoto.idRemaps(from: flatResponse) == [
+            NativeSyncIDRemap(localID: "spoon_local_cm_spoon_photo_remap", serverID: "spoon_server_photo_remap")
+        ])
+
+        let remappedCreate = create.recordingIDRemaps([
+            NativeSyncIDRemap(localID: "spoon_local_cm_spoon_remap", serverID: "spoon_server_remap")
+        ])
+        let request = try remappedCreate.requestBuilder().urlRequest(configuration: configuration)
+        let body = try decodedJSONBody(from: request)
+
+        #expect(remappedCreate.optimisticSpoonID == "spoon_server_remap")
+        #expect(body["serverSpoonId"] == nil)
+        #expect(body["clientMutationId"] as? String == "cm_spoon_remap")
+        #expect(body["note"] as? String == "Cooked.")
     }
 
     @Test("queued mutation resource id replacement targets identifier fields only")
@@ -3194,6 +3378,24 @@ struct NativeSyncEngineTests {
         )
         #expect(missingDeleteID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
 
+        let missingSpoonRecipeID = try Self.decodedMutation(
+            type: .spoonCreate,
+            fields: ["note": "No recipe."]
+        )
+        #expect(missingSpoonRecipeID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
+
+        let missingSpoonID = try Self.decodedMutation(
+            type: .spoonUpdate,
+            fields: ["recipeId": "recipe_lemon", "note": "No spoon."]
+        )
+        #expect(missingSpoonID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
+
+        let missingSpoonDeleteID = try Self.decodedMutation(
+            type: .spoonDelete,
+            fields: ["recipeId": "recipe_lemon"]
+        )
+        #expect(missingSpoonDeleteID.applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now) == [recipe])
+
         let missingStepDeleteID = try Self.decodedMutation(
             type: .recipeStepDelete,
             fields: ["recipeId": "recipe_lemon"]
@@ -3327,6 +3529,184 @@ struct NativeSyncEngineTests {
         )
         .applyingOptimisticRecipeMutation(to: [coveredRecipe], fallbackChef: chef, now: now)[0]
         #expect(activeSpoonCover.coverImageURL == nil)
+
+        let spoonCreated = NativeQueuedMutation.spoonCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_spoon_create_optimistic",
+            note: "Cooked offline.",
+            nextTime: "More lemon.",
+            cookedAt: Self.createdAt(19),
+            photoURL: "/photos/spoons/offline.jpg",
+            useAsRecipeCover: true,
+            createdAt: Self.createdAt(19)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        let optimisticSpoon = try #require(spoonCreated.recentSpoons.first)
+        #expect(optimisticSpoon.id == "spoon_local_cm_spoon_create_optimistic")
+        #expect(NativeQueuedMutation.spoonCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_spoon_id_optimistic",
+            note: "ID only.",
+            nextTime: nil,
+            cookedAt: nil,
+            photoURL: nil,
+            useAsRecipeCover: false,
+            createdAt: Self.createdAt(29)
+        ).optimisticSpoonID == "spoon_local_cm_spoon_id_optimistic")
+        #expect(optimisticSpoon.recipeID == "recipe_lemon")
+        #expect(optimisticSpoon.chef == chef)
+        #expect(optimisticSpoon.note == "Cooked offline.")
+        #expect(optimisticSpoon.nextTime == "More lemon.")
+        #expect(optimisticSpoon.cookedAt == Self.createdAt(19))
+        #expect(optimisticSpoon.photoURL?.absoluteString == "/photos/spoons/offline.jpg")
+
+        let fallbackRecipeIDSpoon = try Self.decodedMutation(
+            type: .spoonCreate,
+            fields: ["note": "No route recipe."]
+        )
+        .optimisticCreatedSpoon(for: recipe, fallbackChef: chef, now: now)
+        #expect(fallbackRecipeIDSpoon.recipeID == recipe.id)
+
+        let remappedSpoonCreate = NativeQueuedMutation.spoonCreatePhoto(
+            recipeID: "recipe_lemon",
+            photo: Self.stagedMedia("stage_spoon_optimistic", fileName: "spoon.webp", contentType: "image/webp"),
+            clientMutationID: "cm_spoon_photo_optimistic",
+            note: "Photo offline.",
+            nextTime: nil,
+            cookedAt: nil,
+            useAsRecipeCover: false,
+            createdAt: Self.createdAt(20)
+        )
+        .recordingIDRemaps([
+            NativeSyncIDRemap(localID: "spoon_local_cm_spoon_photo_optimistic", serverID: "spoon_server_photo")
+        ])
+        .applyingOptimisticRecipeMutation(to: [recipe], fallbackChef: chef, now: now)[0]
+        let remappedPhotoSpoon = try #require(remappedSpoonCreate.recentSpoons.first)
+        #expect(remappedPhotoSpoon.id == "spoon_server_photo")
+        #expect(remappedSpoonCreate.recentSpoons.first?.id == "spoon_server_photo")
+        #expect(remappedPhotoSpoon.note == "Photo offline.")
+        #expect(remappedPhotoSpoon.photoURL == nil)
+
+        let unscheduledExistingSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_unscheduled",
+            chefID: chef.id,
+            recipeID: "recipe_lemon",
+            cookedAt: nil,
+            photoURL: nil,
+            note: "Older unscheduled cook",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.createdAt(18),
+            updatedAt: Self.createdAt(18),
+            chef: chef
+        )
+        let scheduledExistingSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_scheduled",
+            chefID: chef.id,
+            recipeID: "recipe_lemon",
+            cookedAt: Self.createdAt(19),
+            photoURL: nil,
+            note: "Dated cook",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.createdAt(17),
+            updatedAt: Self.createdAt(19),
+            chef: chef
+        )
+        let sortedSpoonCreate = NativeQueuedMutation.spoonCreate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_spoon_sort_fallback",
+            note: "Sort fallback.",
+            nextTime: nil,
+            cookedAt: nil,
+            photoURL: nil,
+            useAsRecipeCover: false,
+            createdAt: Self.createdAt(30)
+        )
+        .applyingOptimisticRecipeMutation(
+            to: [Self.optimisticRecipe(recentSpoons: [unscheduledExistingSpoon, scheduledExistingSpoon])],
+            fallbackChef: chef,
+            now: now
+        )[0]
+        #expect(sortedSpoonCreate.recentSpoons.map(\.id) == ["spoon_local_cm_spoon_sort_fallback", "spoon_scheduled", "spoon_unscheduled"])
+
+        let existingSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_existing",
+            chefID: chef.id,
+            recipeID: "recipe_lemon",
+            cookedAt: Self.createdAt(1),
+            photoURL: URL(string: "/photos/spoons/old.jpg"),
+            note: "Old note",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.createdAt(1),
+            updatedAt: Self.createdAt(1),
+            chef: chef
+        )
+        let recipeWithSpoon = Self.optimisticRecipe(recentSpoons: [existingSpoon])
+        let spoonUpdated = NativeQueuedMutation.spoonUpdate(
+            recipeID: "recipe_lemon",
+            spoonID: "spoon_existing",
+            clientMutationID: "cm_spoon_update_optimistic",
+            note: nil,
+            nextTime: "Use less salt.",
+            cookedAt: Self.createdAt(21),
+            photoURL: nil,
+            createdAt: Self.createdAt(21)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipeWithSpoon], fallbackChef: chef, now: now)[0]
+        let updatedSpoon = try #require(spoonUpdated.recentSpoons.first)
+        #expect(updatedSpoon.id == "spoon_existing")
+        #expect(updatedSpoon.note == nil)
+        #expect(updatedSpoon.nextTime == "Use less salt.")
+        #expect(updatedSpoon.cookedAt == Self.createdAt(21))
+        #expect(updatedSpoon.photoURL == nil)
+        #expect(updatedSpoon.deletedAt == nil)
+        #expect(NativeQueuedMutation.spoonUpdate(
+            recipeID: "recipe_lemon",
+            spoonID: "spoon_existing",
+            clientMutationID: "cm_spoon_id_update",
+            note: "ID branch.",
+            nextTime: nil,
+            cookedAt: nil,
+            photoURL: nil,
+            createdAt: Self.createdAt(30)
+        ).optimisticSpoonID == "spoon_existing")
+
+        let preservedSpoonUpdate = try Self.decodedMutation(
+            type: .spoonUpdate,
+            fields: [
+                "recipeId": "recipe_lemon",
+                "spoonId": "spoon_existing"
+            ]
+        )
+        .applyingOptimisticRecipeMutation(to: [recipeWithSpoon], fallbackChef: chef, now: now)[0]
+        let preservedSpoon = try #require(preservedSpoonUpdate.recentSpoons.first)
+        #expect(preservedSpoon.cookedAt == existingSpoon.cookedAt)
+        #expect(preservedSpoon.photoURL == existingSpoon.photoURL)
+        #expect(preservedSpoon.note == existingSpoon.note)
+        #expect(preservedSpoon.nextTime == existingSpoon.nextTime)
+
+        let spoonDeleted = NativeQueuedMutation.spoonDelete(
+            recipeID: "recipe_lemon",
+            spoonID: "spoon_existing",
+            clientMutationID: "cm_spoon_delete_optimistic",
+            createdAt: Self.createdAt(22)
+        )
+        .applyingOptimisticRecipeMutation(to: [recipeWithSpoon], fallbackChef: chef, now: now)[0]
+        #expect(spoonDeleted.recentSpoons.first?.deletedAt == now)
+        #expect(spoonDeleted.recentSpoons.first?.updatedAt == now)
+        #expect(NativeQueuedMutation.spoonDelete(
+            recipeID: "recipe_lemon",
+            spoonID: "spoon_existing",
+            clientMutationID: "cm_spoon_id_delete",
+            createdAt: Self.createdAt(31)
+        ).optimisticSpoonID == "spoon_existing")
+        #expect(NativeQueuedMutation.recipeDelete(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_recipe_delete_no_spoon_id",
+            createdAt: Self.createdAt(32)
+        ).optimisticSpoonID == nil)
 
         let malformedUpdate = try Self.decodedMutation(
             type: .recipeUpdate,
@@ -3517,7 +3897,8 @@ struct NativeSyncEngineTests {
         coverProvenanceLabel: String? = nil,
         coverSourceType: RecipeCoverSourceType? = nil,
         coverVariant: RecipeCoverVariant? = nil,
-        steps: [RecipeStep]? = nil
+        steps: [RecipeStep]? = nil,
+        recentSpoons: [RecipeDetailRecentSpoon] = []
     ) -> Recipe {
         let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
         return Recipe(
@@ -3571,7 +3952,8 @@ struct NativeSyncEngineTests {
                     ]
                 )
             ],
-            cookbooks: []
+            cookbooks: [],
+            recentSpoons: recentSpoons
         )
     }
 

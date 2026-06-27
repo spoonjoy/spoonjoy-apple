@@ -1,12 +1,12 @@
 {
   "blocked": true,
-  "capability": "XcodePlatform",
-  "sourceBlockerPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json",
+  "capability": "CoreSimulator",
+  "sourceBlockerPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18c-spoon-logs-screenshots-core-simulator-blocker.json",
   "skippedArtifacts": [
     "screenshots/ios-mobile.png",
     "screenshots/macos-desktop.png",
     "design-review.json"
   ],
-  "reason": "Local Xcode platform or pre-parse state blocked app bundle validation.",
-  "ownerAction": "Install the required Xcode platform/runtime and rerun app bundle validation."
+  "reason": "No available iPhone simulator destination was found.",
+  "ownerAction": "Install an available iPhone simulator runtime and bootable device."
 }

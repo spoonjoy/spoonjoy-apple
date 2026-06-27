@@ -1,0 +1,85 @@
+Another instance of SwiftPM (PID: 1434) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "environment switch clears previous environment content and applies scoped sync" started.
+◇ Test "live store persists drained shopping checks when the base list came from app snapshot" started.
+◇ Test "production sources cannot silently use fixture bundles" started.
+◇ Test "live store ignores legacy unscoped app snapshot state" started.
+◇ Test "live store contract covers global search scopes and environment rebinding" started.
+◇ Test "core declares live app bootstrap state and repository dependencies" started.
+◇ Test "production fixture fallback is an explicit test and demo only policy" started.
+◇ Test "live store restores only bound account cache route and Siri capture draft" started.
+◇ Test "live store dependencies default recipe editor transport is URLSession-backed" started.
+◇ Test "live store queueMutation persists mutations through native sync store" started.
+◇ Test "unbound authenticated offline restore fails closed for private sync cache" started.
+◇ Test "live store reports fixture fallback and queue persistence failures as sync failures" started.
+◇ Test "live store keeps drained shopping mutations visible and cached after immediate online drain" started.
+◇ Test "live store discards conflicted queued recipe mutation when discarding local edit" started.
+◇ Test "live store ignores app snapshot state from another account" started.
+◇ Test "live store maps sync conflict auth retry and local queue outcomes to shell states" started.
+◇ Test "live store reports partial online recipe editor drains before the editor closes" started.
+◇ Test "platform navigation consumes live content state and never decodes production fixtures" started.
+◇ Test "recipe editor app surface drains online structural batches and labels conflict discard honestly" started.
+◇ Test "live store appends mutations to matching scoped queue" started.
+◇ Test "live store does not double apply drained structural recipe mutations after immediate online drain" started.
+◇ Test "root view bootstraps through live store instead of fixture first run" started.
+◇ Test "signed out live store restores durable fallback content and records scoped routes" started.
+◇ Test "scenario verifier reports live store as structured checks and capabilities" started.
+◇ Test "live store queue and conflict discard no-ops leave state untouched" started.
+◇ Test "live store refreshes auth before sync and hydrates applied sync cache" started.
+◇ Test "signed out settings and offline indicator cover every live shell state" started.
+◇ Test "live store discard keeps independent conflicts and removes dependent queued recipe work" started.
+◇ Test "live store queueMutation optimistically reflects queued recipe edits" started.
+◇ Test "bootstrap states replace content without changing severity" started.
+◇ Test "live store queueMutation discards previous owner media queue before appending current work" started.
+◇ Test "live store executes recipe editor requests with auth-refreshing transport" started.
+◇ Test "live store represents an empty synced shopping list" started.
+◇ Test "live store covers shopping merge ties signed-in settings and environment failures" started.
+◇ Test "live store restores queued shopping mutations as optimistic content" started.
+◇ Test "shell contract gate live store instead of fixture parity" started.
+◇ Test "shell content exposes recipe catalog source for live and offline states" started.
+◇ Test "live store keeps drained recipe editor mutations visible after immediate online drain" started.
+✔ Test "bootstrap states replace content without changing severity" passed after 0.006 seconds.
+✔ Test "shell contract gate live store instead of fixture parity" passed after 0.006 seconds.
+✔ Test "recipe editor app surface drains online structural batches and labels conflict discard honestly" passed after 0.006 seconds.
+✔ Test "signed out settings and offline indicator cover every live shell state" passed after 0.006 seconds.
+✔ Test "root view bootstraps through live store instead of fixture first run" passed after 0.006 seconds.
+✔ Test "live store contract covers global search scopes and environment rebinding" passed after 0.007 seconds.
+✔ Test "platform navigation consumes live content state and never decodes production fixtures" passed after 0.009 seconds.
+✔ Test "shell content exposes recipe catalog source for live and offline states" passed after 0.009 seconds.
+✔ Test "live store dependencies default recipe editor transport is URLSession-backed" passed after 0.016 seconds.
+✔ Test "core declares live app bootstrap state and repository dependencies" passed after 0.018 seconds.
+✔ Test "scenario verifier reports live store as structured checks and capabilities" passed after 0.027 seconds.
+✔ Test "live store queueMutation persists mutations through native sync store" passed after 0.048 seconds.
+✔ Test "unbound authenticated offline restore fails closed for private sync cache" passed after 0.059 seconds.
+✔ Test "live store ignores legacy unscoped app snapshot state" passed after 0.059 seconds.
+✔ Test "live store ignores app snapshot state from another account" passed after 0.060 seconds.
+✔ Test "live store restores only bound account cache route and Siri capture draft" passed after 0.066 seconds.
+✔ Test "live store represents an empty synced shopping list" passed after 0.066 seconds.
+✔ Test "signed out live store restores durable fallback content and records scoped routes" passed after 0.070 seconds.
+✔ Test "live store reports fixture fallback and queue persistence failures as sync failures" passed after 0.071 seconds.
+✔ Test "environment switch clears previous environment content and applies scoped sync" passed after 0.071 seconds.
+✔ Test "live store covers shopping merge ties signed-in settings and environment failures" passed after 0.073 seconds.
+✔ Test "live store appends mutations to matching scoped queue" passed after 0.074 seconds.
+✔ Test "live store discards conflicted queued recipe mutation when discarding local edit" passed after 0.075 seconds.
+✔ Test "live store queueMutation discards previous owner media queue before appending current work" passed after 0.075 seconds.
+✔ Test "live store refreshes auth before sync and hydrates applied sync cache" passed after 0.076 seconds.
+✔ Test "live store queue and conflict discard no-ops leave state untouched" passed after 0.076 seconds.
+✔ Test "live store executes recipe editor requests with auth-refreshing transport" passed after 0.078 seconds.
+✔ Test "live store persists drained shopping checks when the base list came from app snapshot" passed after 0.080 seconds.
+✔ Test "live store reports partial online recipe editor drains before the editor closes" passed after 0.081 seconds.
+✔ Test "live store restores queued shopping mutations as optimistic content" passed after 0.081 seconds.
+✔ Test "live store keeps drained recipe editor mutations visible after immediate online drain" passed after 0.083 seconds.
+✔ Test "live store does not double apply drained structural recipe mutations after immediate online drain" passed after 0.084 seconds.
+✔ Test "live store keeps drained shopping mutations visible and cached after immediate online drain" passed after 0.086 seconds.
+✔ Test "live store maps sync conflict auth retry and local queue outcomes to shell states" passed after 0.087 seconds.
+✔ Test "live store queueMutation optimistically reflects queued recipe edits" passed after 0.087 seconds.
+✔ Test "live store discard keeps independent conflicts and removes dependent queued recipe work" passed after 0.090 seconds.
+✔ Test "production sources cannot silently use fixture bundles" passed after 0.100 seconds.
+✔ Test "production fixture fallback is an explicit test and demo only policy" passed after 0.467 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.467 seconds.
+✔ Test run with 38 tests in 1 suite passed after 0.468 seconds.
