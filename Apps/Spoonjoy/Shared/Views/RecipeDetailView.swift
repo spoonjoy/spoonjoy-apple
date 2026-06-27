@@ -4,12 +4,19 @@ import SwiftUI
 struct RecipeDetailRouteView: View {
     let recipeID: String
     let repository: any RecipeCatalogRepository
+    let spoonRepository: any SpoonCookLogRepository
+    let snapshotViewModel: RecipeDetailScreenViewModel?
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
     let context: (Recipe) -> RecipeDetailContext
     let actionPlanner: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel
+    let spoonCookLogViewModel: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailSpoonSummary) -> SpoonCookLogViewModel
+    let spoonCookLogDraft: @MainActor @Sendable (RecipeDetailScreenViewModel) -> SpoonCookLogDraftState?
     let openRoute: (AppRoute) -> Void
     let performRecipeAction: @MainActor @Sendable (RecipeActionPlan) async throws -> Void
+    let performSpoonCookLogAction: @MainActor @Sendable (SpoonCookLogMutationPlan) async throws -> Void
+    let recordSpoonCookLogDraft: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
+    let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
 
     @State private var viewModel: RecipeDetailScreenViewModel?
@@ -18,23 +25,36 @@ struct RecipeDetailRouteView: View {
     init(
         recipeID: String,
         repository: any RecipeCatalogRepository,
+        spoonRepository: any SpoonCookLogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
         actionConnectivity: RecipeActionConnectivity,
         shoppingViewModel: ShoppingSurfaceViewModel,
         context: @escaping (Recipe) -> RecipeDetailContext,
         actionPlanner: @escaping @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel,
+        spoonCookLogViewModel: @escaping @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailSpoonSummary) -> SpoonCookLogViewModel,
+        spoonCookLogDraft: @escaping @MainActor @Sendable (RecipeDetailScreenViewModel) -> SpoonCookLogDraftState?,
         openRoute: @escaping (AppRoute) -> Void,
         performRecipeAction: @escaping @MainActor @Sendable (RecipeActionPlan) async throws -> Void,
+        performSpoonCookLogAction: @escaping @MainActor @Sendable (SpoonCookLogMutationPlan) async throws -> Void,
+        recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
+        discardSpoonCookLogConflict: @escaping @MainActor @Sendable (String) async throws -> Void,
         performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     ) {
         self.recipeID = recipeID
         self.repository = repository
+        self.spoonRepository = spoonRepository
+        snapshotViewModel = initialViewModel
         self.actionConnectivity = actionConnectivity
         self.shoppingViewModel = shoppingViewModel
         self.context = context
         self.actionPlanner = actionPlanner
+        self.spoonCookLogViewModel = spoonCookLogViewModel
+        self.spoonCookLogDraft = spoonCookLogDraft
         self.openRoute = openRoute
         self.performRecipeAction = performRecipeAction
+        self.performSpoonCookLogAction = performSpoonCookLogAction
+        self.recordSpoonCookLogDraft = recordSpoonCookLogDraft
+        self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
         _viewModel = State(initialValue: initialViewModel)
     }
@@ -47,8 +67,13 @@ struct RecipeDetailRouteView: View {
                     actionConnectivity: actionConnectivity,
                     shoppingViewModel: shoppingViewModel,
                     actionPlanner: actionPlanner,
+                    spoonCookLogViewModel: spoonCookLogViewModel,
+                    spoonCookLogDraft: spoonCookLogDraft,
                     openRoute: openRoute,
                     performRecipeAction: performRecipeAction,
+                    performSpoonCookLogAction: performSpoonCookLogAction,
+                    recordSpoonCookLogDraft: recordSpoonCookLogDraft,
+                    discardSpoonCookLogConflict: discardSpoonCookLogConflict,
                     performShoppingAction: performShoppingAction
                 )
             } else if let errorMessage {
@@ -67,12 +92,19 @@ struct RecipeDetailRouteView: View {
         .task(id: recipeID) {
             await loadRecipe()
         }
+        .onChange(of: snapshotViewModel) { _, nextViewModel in
+            guard let nextViewModel, nextViewModel != viewModel else {
+                return
+            }
+            viewModel = nextViewModel
+        }
     }
 
     @MainActor private func loadRecipe() async {
         do {
             let result = try await repository.recipeDetail(id: recipeID)
-            viewModel = RecipeDetailScreenViewModel(result: result, context: context(result.recipe))
+            let detailResult = await detailResultByLoadingFullSpoonList(result)
+            viewModel = RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe))
             errorMessage = nil
         } catch {
             if viewModel == nil {
@@ -80,6 +112,45 @@ struct RecipeDetailRouteView: View {
             }
         }
     }
+
+    private func detailResultByLoadingFullSpoonList(_ result: RecipeCatalogDetailResult) async -> RecipeCatalogDetailResult {
+        do {
+            let cookLog = try await fullCookLog(recipeID: result.recipe.id)
+            return RecipeCatalogDetailResult(
+                recipe: result.recipe.replacingRecentSpoons(cookLog.spoons),
+                source: result.source
+            )
+        } catch {
+            return result
+        }
+    }
+
+    private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
+        var cursor: PaginationCursor?
+        var seenCursors = Set<String>()
+        var spoons: [RecipeDetailRecentSpoon] = []
+
+        while true {
+            let page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: cursor, limit: 50)
+            spoons.append(contentsOf: page.spoons)
+
+            guard page.hasMore else {
+                return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
+            }
+            guard let nextCursor = page.nextCursor else {
+                throw RecipeDetailCookLogPaginationError.missingNextCursor
+            }
+            guard seenCursors.insert(nextCursor.rawValue).inserted else {
+                throw RecipeDetailCookLogPaginationError.repeatedCursor(nextCursor.rawValue)
+            }
+            cursor = nextCursor
+        }
+    }
+}
+
+private enum RecipeDetailCookLogPaginationError: Error {
+    case missingNextCursor
+    case repeatedCursor(String)
 }
 
 struct RecipeDetailView: View {
@@ -87,8 +158,13 @@ struct RecipeDetailView: View {
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
     let actionPlanner: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailContext) -> RecipeActionsViewModel
+    let spoonCookLogViewModel: @MainActor @Sendable (RecipeDetailScreenViewModel, RecipeDetailSpoonSummary) -> SpoonCookLogViewModel
+    let spoonCookLogDraft: @MainActor @Sendable (RecipeDetailScreenViewModel) -> SpoonCookLogDraftState?
     let openRoute: (AppRoute) -> Void
     let performRecipeAction: @MainActor @Sendable (RecipeActionPlan) async throws -> Void
+    let performSpoonCookLogAction: @MainActor @Sendable (SpoonCookLogMutationPlan) async throws -> Void
+    let recordSpoonCookLogDraft: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
+    let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
 
     @State private var actionErrorMessage: String?
@@ -106,7 +182,16 @@ struct RecipeDetailView: View {
                 cookbookSpread
                 ingredientReceipt
                 method
-                spoonSummary
+                SpoonCookLogView(
+                    viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
+                    draft: spoonCookLogDraft(viewModel),
+                    actionDidPlan: performSpoonCookLogAction,
+                    draftDidChange: { draft in
+                        recordSpoonCookLogDraft(draft, viewModel.id)
+                    },
+                    conflictDidRequestReview: discardSpoonCookLogConflict
+                )
+                .id(viewModel.id)
                 cookbookSave
                 ownerTools
             }
@@ -306,39 +391,6 @@ struct RecipeDetailView: View {
                         .font(KitchenTableTheme.bodyNote)
                 }
                 .padding(.vertical, 8)
-            }
-        }
-    }
-
-    private var spoonSummary: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recent Spoons")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
-            if viewModel.spoonSummary.rows.isEmpty {
-                Text("No recent cooks yet.")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(viewModel.spoonSummary.rows) { spoon in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label(spoon.chefLine, systemImage: "fork.knife")
-                            .font(.headline)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
-                        if let note = spoon.note {
-                            Text(note)
-                                .font(KitchenTableTheme.bodyNote)
-                                .foregroundStyle(.secondary)
-                        }
-                        if let nextTime = spoon.nextTime {
-                            Text(nextTime)
-                                .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(KitchenTableTheme.brass)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
             }
         }
     }
@@ -609,6 +661,30 @@ struct RecipeDetailView: View {
         case .saveToCookbook, .removeFromCookbook:
             false
         }
+    }
+}
+
+private extension Recipe {
+    func replacingRecentSpoons(_ recentSpoons: [RecipeDetailRecentSpoon]) -> Recipe {
+        Recipe(
+            id: id,
+            title: title,
+            description: description,
+            servings: servings,
+            chef: chef,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: attribution,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            steps: steps,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons
+        )
     }
 }
 

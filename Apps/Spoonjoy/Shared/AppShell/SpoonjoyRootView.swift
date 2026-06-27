@@ -124,6 +124,7 @@ struct SpoonjoyRootView: View {
             },
             recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
+            recordSpoonCookLogDraft: liveStore.recordSpoonCookLogDraft,
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator
         )
     }
@@ -207,7 +208,13 @@ struct SpoonjoyRootView: View {
         let cacheStore = NativeDurableCacheStore(
             fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
         )
-        let syncStore = Self.defaultSyncStore(appDirectory: appDirectory)
+        let stagedMediaDirectory = NativeStagedMediaDirectory(
+            directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
+        )
+        let syncStore = Self.defaultSyncStore(
+            appDirectory: appDirectory,
+            mediaResolver: stagedMediaDirectory
+        )
         let syncEngine = NativeSyncEngine(store: syncStore, transport: URLSessionNativeSyncTransport())
         let syncTriggerCoordinator = NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration)
         return NativeLiveAppStoreDependencies(
@@ -221,17 +228,19 @@ struct SpoonjoyRootView: View {
             },
             configuration: configuration,
             cacheEnvironment: .production,
+            stagedMediaDirectory: stagedMediaDirectory,
             now: Date.init
         )
     }
 
-    private static func defaultSyncStore(appDirectory: URL) -> any NativeSyncStore {
+    private static func defaultSyncStore(
+        appDirectory: URL,
+        mediaResolver: NativeStagedMediaDirectory
+    ) -> any NativeSyncStore {
         do {
             return try FileBackedNativeSyncStore(
                 fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-                mediaResolver: NativeStagedMediaDirectory(
-                    directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-                )
+                mediaResolver: mediaResolver
             )
         } catch {
             return UnavailableNativeSyncStore(message: "Could not open Spoonjoy sync store: \(error)")

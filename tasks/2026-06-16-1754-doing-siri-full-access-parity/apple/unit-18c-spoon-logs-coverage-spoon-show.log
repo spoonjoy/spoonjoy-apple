@@ -1,0 +1,495 @@
+    1|       |import Foundation
+    2|       |
+    3|       |public protocol SpoonCookLogRepository: Sendable {
+    4|       |    func fetchCookLog(recipeID: String, cursor: PaginationCursor?, limit: Int) async throws -> SpoonCookLogListData
+    5|       |}
+    6|       |
+    7|       |public struct LiveSpoonCookLogRepository: SpoonCookLogRepository {
+    8|       |    private let transport: any SpoonjoyAPITransport
+    9|       |    private let configuration: APIClientConfiguration
+   10|       |
+   11|       |    public init(
+   12|       |        transport: any SpoonjoyAPITransport = URLSessionAPITransport(),
+   13|       |        configuration: APIClientConfiguration
+   14|      1|    ) {
+   15|      1|        self.transport = transport
+   16|      1|        self.configuration = configuration
+   17|      1|    }
+   18|       |
+   19|      1|    public func fetchCookLog(recipeID: String, cursor: PaginationCursor?, limit: Int) async throws -> SpoonCookLogListData {
+   20|      1|        let envelope = try await transport.send(
+   21|      1|            RecipeSpoonRequests.listSpoons(recipeID: recipeID, cursor: cursor, limit: limit),
+   22|      1|            configuration: configuration,
+   23|      1|            decode: SpoonCookLogListData.self
+   24|      1|        )
+   25|      1|        return envelope.data
+   26|      1|    }
+   27|       |}
+   28|       |
+   29|       |public enum SpoonCookLogConnectivity: Equatable, Sendable {
+   30|       |    case online
+   31|       |    case offline
+   32|       |}
+   33|       |
+   34|       |public struct SpoonCookLogData: Decodable, Equatable, Sendable {
+   35|       |    public let spoons: [RecipeDetailRecentSpoon]
+   36|       |
+   37|      9|    public init(spoons: [RecipeDetailRecentSpoon]) {
+   38|      9|        self.spoons = spoons
+   39|      9|    }
+   40|       |
+   41|      1|    public init(summary: RecipeDetailSpoonSummary) {
+   42|      1|        self.spoons = summary.rows.map(\.spoon)
+   43|      1|    }
+   44|       |}
+   45|       |
+   46|       |public struct SpoonCookLogListData: Decodable, Equatable, Sendable {
+   47|       |    public let spoons: [RecipeDetailRecentSpoon]
+   48|       |    public let nextCursor: PaginationCursor?
+   49|       |    public let hasMore: Bool
+   50|       |
+   51|      1|    public init(spoons: [RecipeDetailRecentSpoon], nextCursor: PaginationCursor?, hasMore: Bool) {
+   52|      1|        self.spoons = spoons
+   53|      1|        self.nextCursor = nextCursor
+   54|      1|        self.hasMore = hasMore
+   55|      1|    }
+   56|       |
+   57|       |    private enum CodingKeys: String, CodingKey {
+   58|       |        case spoons
+   59|       |        case nextCursor
+   60|       |        case hasMore
+   61|       |    }
+   62|       |
+   63|      2|    public init(from decoder: Decoder) throws {
+   64|      2|        let container = try decoder.container(keyedBy: CodingKeys.self)
+   65|      2|        spoons = try container.decodeIfPresent([RecipeDetailRecentSpoon].self, forKey: .spoons) ?? []
+                                                                                                                 ^1
+   66|      2|        nextCursor = try container.decodeIfPresent(PaginationCursor.self, forKey: .nextCursor)
+   67|      2|        hasMore = try container.decodeIfPresent(Bool.self, forKey: .hasMore) ?? false
+   68|      2|    }
+   69|       |}
+   70|       |
+   71|       |public struct SpoonCookLogEmptyState: Equatable, Sendable {
+   72|       |    public let title: String
+   73|       |    public let message: String
+   74|       |    public let systemImage: String
+   75|       |
+   76|      2|    public init(title: String, message: String, systemImage: String) {
+   77|      2|        self.title = title
+   78|      2|        self.message = message
+   79|      2|        self.systemImage = systemImage
+   80|      2|    }
+   81|       |}
+   82|       |
+   83|       |public struct SpoonCookLogConflictBanner: Equatable, Sendable {
+   84|       |    public let localClientMutationID: String
+   85|       |    public let message: String
+   86|       |    public let actionTitle: String
+   87|       |
+   88|      5|    public init(localClientMutationID: String, message: String, actionTitle: String) {
+   89|      5|        self.localClientMutationID = localClientMutationID
+   90|      5|        self.message = message
+   91|      5|        self.actionTitle = actionTitle
+   92|      5|    }
+   93|       |}
+   94|       |
+   95|       |public struct SpoonCookLogPhotoAttachment: Equatable, Sendable {
+   96|       |    public let localStageID: String
+   97|       |    public let fileName: String
+   98|       |    public let contentType: String
+   99|       |    public let data: Data
+  100|       |
+  101|      2|    public init(localStageID: String, fileName: String, contentType: String, data: Data) {
+  102|      2|        self.localStageID = localStageID
+  103|      2|        self.fileName = fileName
+  104|      2|        self.contentType = contentType
+  105|      2|        self.data = data
+  106|      2|    }
+  107|       |
+  108|      1|    var uploadFile: UploadFile {
+  109|      1|        UploadFile(fileName: fileName, contentType: contentType, data: data)
+  110|      1|    }
+  111|       |
+  112|      2|    public var stagedMedia: NativeStagedMediaUpload {
+  113|      2|        NativeStagedMediaUpload(localStageID: localStageID, fileName: fileName, contentType: contentType, data: data)
+  114|      2|    }
+  115|       |}
+  116|       |
+  117|       |public struct SpoonCookLogDraftState: Codable, Equatable, Sendable {
+  118|       |    public let recipeID: String
+  119|       |    public let note: String?
+  120|       |    public let nextTime: String?
+  121|       |    public let stagedPhoto: NativeStagedMediaUpload?
+  122|       |    public let useAsRecipeCover: Bool
+  123|       |    public let updatedAt: String
+  124|       |
+  125|       |    public init(
+  126|       |        recipeID: String,
+  127|       |        note: String?,
+  128|       |        nextTime: String?,
+  129|       |        stagedPhoto: NativeStagedMediaUpload?,
+  130|       |        useAsRecipeCover: Bool,
+  131|       |        updatedAt: String
+  132|      5|    ) {
+  133|      5|        self.recipeID = Self.clean(recipeID) ?? recipeID
+                                                              ^0
+  134|      5|        self.note = Self.clean(note)
+  135|      5|        self.nextTime = Self.clean(nextTime)
+  136|      5|        self.stagedPhoto = stagedPhoto
+  137|      5|        self.useAsRecipeCover = stagedPhoto != nil && useAsRecipeCover
+                                                                    ^2
+  138|      5|        self.updatedAt = updatedAt
+  139|      5|    }
+  140|       |
+  141|      9|    public var hasContent: Bool {
+  142|      9|        note != nil || nextTime != nil || stagedPhoto != nil
+                                     ^2                 ^2
+  143|      9|    }
+  144|       |
+  145|      7|    public var persistable: SpoonCookLogDraftState? {
+  146|      7|        hasContent ? self : nil
+                                   ^6     ^1
+  147|      7|    }
+  148|       |
+  149|     15|    private static func clean(_ value: String?) -> String? {
+  150|     15|        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+  151|     15|        return trimmed?.isEmpty == false ? trimmed : nil
+                                                         ^11       ^4
+  152|     15|    }
+  153|       |}
+  154|       |
+  155|       |public enum SpoonCookLogAction: Equatable, Sendable {
+  156|       |    case create(note: String?, nextTime: String?, cookedAt: String?, photo: SpoonCookLogPhotoAttachment?, photoURL: String?, useAsRecipeCover: Bool, clientMutationID: String)
+  157|       |    case update(spoonID: String, note: String?, nextTime: String?, cookedAt: String?, photoURL: String?, clientMutationID: String)
+  158|       |    case delete(spoonID: String, clientMutationID: String)
+  159|       |
+  160|      3|    public var successMessage: String {
+  161|      3|        switch self {
+  162|      3|        case .create:
+  163|      1|            "Cook logged."
+  164|      3|        case .update:
+  165|      1|            "Cook log updated."
+  166|      3|        case .delete:
+  167|      1|            "Cook log deleted."
+  168|      3|        }
+  169|      3|    }
+  170|       |}
+  171|       |
+  172|       |public struct SpoonCookLogMutationPlan: Equatable {
+  173|       |    public let remoteRequestBuilder: APIRequestBuilder?
+  174|       |    public let queuedMutation: NativeQueuedMutation?
+  175|       |    public let offlineFallbackMutation: NativeQueuedMutation?
+  176|       |    public let blockedReason: String?
+  177|       |
+  178|       |    public init(
+  179|       |        remoteRequestBuilder: APIRequestBuilder? = nil,
+  180|       |        queuedMutation: NativeQueuedMutation? = nil,
+  181|       |        offlineFallbackMutation: NativeQueuedMutation? = nil,
+  182|       |        blockedReason: String? = nil
+  183|      9|    ) {
+  184|      9|        self.remoteRequestBuilder = remoteRequestBuilder
+  185|      9|        self.queuedMutation = queuedMutation
+  186|      9|        self.offlineFallbackMutation = offlineFallbackMutation
+  187|      9|        self.blockedReason = blockedReason
+  188|      9|    }
+  189|       |}
+  190|       |
+  191|       |public struct SpoonCookLogRow: Identifiable, Equatable, Sendable {
+  192|       |    public let id: String
+  193|       |    public let spoon: RecipeDetailRecentSpoon
+  194|       |    public let chefLine: String
+  195|       |    public let note: String?
+  196|       |    public let nextTime: String?
+  197|       |    public let photoURL: URL?
+  198|       |    public let cookedAtLabel: String
+  199|       |    public let isOwnedByCurrentChef: Bool
+  200|       |    public let canEdit: Bool
+  201|       |    public let canDelete: Bool
+  202|       |
+  203|     26|    public init(spoon: RecipeDetailRecentSpoon, currentChefID: String?) {
+  204|     26|        id = spoon.id
+  205|     26|        self.spoon = spoon
+  206|     26|        chefLine = "\(spoon.chef.username) cooked this"
+  207|     26|        note = Self.clean(spoon.note)
+  208|     26|        nextTime = Self.clean(spoon.nextTime)
+  209|     26|        photoURL = spoon.photoURL
+  210|     26|        cookedAtLabel = spoon.cookedAt.map(RecipeCoverCandidate.dateLabel) ?? RecipeCoverCandidate.dateLabel(spoon.createdAt)
+                                                                                            ^0
+  211|     26|        isOwnedByCurrentChef = currentChefID == spoon.chefID
+  212|     26|        canEdit = isOwnedByCurrentChef && spoon.deletedAt == nil
+                                                        ^14
+  213|     26|        canDelete = canEdit
+  214|     26|    }
+  215|       |
+  216|     52|    private static func clean(_ value: String?) -> String? {
+  217|     52|        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+  218|     52|        return trimmed?.isEmpty == false ? trimmed : nil
+                                                         ^35       ^17
+  219|     52|    }
+  220|       |}
+  221|       |
+  222|       |public struct SpoonCookLogViewModel: Equatable, Sendable {
+  223|       |    public let recipeID: String
+  224|       |    public let data: SpoonCookLogData
+  225|       |    public let currentChefID: String?
+  226|       |    public let queuedMutations: [NativeQueuedMutation]
+  227|       |    public let conflicts: [NativeSyncConflict]
+  228|       |    public let connectivity: SpoonCookLogConnectivity
+  229|       |    private let now: @Sendable () -> String
+  230|       |
+  231|       |    public init(
+  232|       |        recipeID: String,
+  233|       |        data: SpoonCookLogData,
+  234|       |        currentChefID: String?,
+  235|       |        queuedMutations: [NativeQueuedMutation],
+  236|       |        conflicts: [NativeSyncConflict],
+  237|       |        connectivity: SpoonCookLogConnectivity,
+  238|       |        now: @escaping @Sendable () -> String
+  239|     12|    ) {
+  240|     12|        self.recipeID = recipeID
+  241|     12|        self.data = data
+  242|     12|        self.currentChefID = currentChefID
+  243|     12|        self.queuedMutations = queuedMutations
+  244|     12|        self.conflicts = conflicts
+  245|     12|        self.connectivity = connectivity
+  246|     12|        self.now = now
+  247|     12|    }
+  248|       |
+  249|      2|    public static func == (lhs: SpoonCookLogViewModel, rhs: SpoonCookLogViewModel) -> Bool {
+  250|      2|        lhs.recipeID == rhs.recipeID &&
+  251|      2|            lhs.data == rhs.data &&
+                          ^1
+  252|      2|            lhs.currentChefID == rhs.currentChefID &&
+                          ^1
+  253|      2|            lhs.queuedMutations == rhs.queuedMutations &&
+                          ^1
+  254|      2|            lhs.conflicts == rhs.conflicts &&
+                          ^1
+  255|      2|            lhs.connectivity == rhs.connectivity
+                          ^1
+  256|      2|    }
+  257|       |
+  258|     15|    public var rows: [SpoonCookLogRow] {
+  259|     15|        data.spoons
+  260|     35|            .filter { $0.deletedAt == nil }
+  261|     26|            .map { SpoonCookLogRow(spoon: $0, currentChefID: currentChefID) }
+  262|     15|    }
+  263|       |
+  264|      2|    public var emptyState: SpoonCookLogEmptyState? {
+  265|      2|        guard rows.isEmpty else { return nil }
+                                              ^1
+  266|      1|        return SpoonCookLogEmptyState(
+  267|      1|            title: "No cooks logged yet",
+  268|      1|            message: "Log what changed in the kitchen so the next cook starts smarter.",
+  269|      1|            systemImage: "fork.knife"
+  270|      1|        )
+  271|      2|    }
+  272|       |
+  273|      1|    public var queuedWorkSummary: String? {
+  274|      1|        let count = spoonQueuedMutations.count
+  275|      1|        guard count > 0 else { return nil }
+                                           ^0
+  276|      1|        return "\(count) cook-log \(count == 1 ? "change" : "changes") waiting to sync"
+                                                                          ^0
+  277|      1|    }
+  278|       |
+  279|      7|    public var conflictBanner: SpoonCookLogConflictBanner? {
+  280|      7|        for conflict in conflicts {
+  281|      6|            guard spoonQueuedMutations.contains(where: { $0.clientMutationID == conflict.clientMutationID }) else {
+  282|      2|                continue
+  283|      4|            }
+  284|      4|            return SpoonCookLogConflictBanner(
+  285|      4|                localClientMutationID: conflict.clientMutationID,
+  286|      4|                message: conflict.message,
+  287|      4|                actionTitle: "Review cook-log conflict"
+  288|      4|            )
+  289|      6|        }
+  290|      3|        return nil
+  291|      7|    }
+  292|       |
+  293|      5|    public var offlineIndicator: OfflineIndicatorState {
+  294|      5|        if let conflictBanner {
+  295|      2|            return OfflineIndicatorState(
+  296|      2|                display: .conflict(recordID: conflictBanner.localClientMutationID, mutationID: conflictBanner.localClientMutationID),
+  297|      2|                dismissal: nil
+  298|      2|            )
+  299|      3|        }
+  300|      3|        switch connectivity {
+  301|      3|        case .offline:
+  302|      1|            return OfflineIndicatorState(display: .offline, dismissal: nil)
+  303|      3|        case .online:
+  304|      2|            if let firstMutation = spoonQueuedMutations.first {
+  305|      1|                return OfflineIndicatorState(
+  306|      1|                    display: .queuedWork(count: spoonQueuedMutations.count, oldestClientMutationID: firstMutation.clientMutationID),
+  307|      1|                    dismissal: nil
+  308|      1|                )
+  309|      1|            }
+  310|      1|            return OfflineIndicatorState(display: .synced, dismissal: nil)
+  311|      3|        }
+  312|      3|    }
+  313|       |
+  314|      9|    public func plan(_ action: SpoonCookLogAction) throws -> SpoonCookLogMutationPlan {
+  315|      9|        switch action {
+  316|      9|        case .create(let note, let nextTime, let cookedAt, let photo, let photoURL, let useAsRecipeCover, let clientMutationID):
+  317|      4|            let draft = SpoonCookLogDraft(
+  318|      4|                note: note,
+  319|      4|                nextTime: nextTime,
+  320|      4|                cookedAt: cookedAt,
+  321|      4|                photoURL: photoURL
+  322|      4|            )
+  323|      4|            guard draft.hasContent || photo != nil else {
+                                                    ^1
+  324|      1|                return SpoonCookLogMutationPlan(blockedReason: "Add a note, next-time thought, or photo before logging this cook.")
+  325|      3|            }
+  326|      3|            if let photo {
+  327|      2|                let queuedPhotoMutation = NativeQueuedMutation.spoonCreatePhoto(
+  328|      2|                    recipeID: recipeID,
+  329|      2|                    photo: photo.stagedMedia,
+  330|      2|                    clientMutationID: clientMutationID,
+  331|      2|                    note: draft.note,
+  332|      2|                    nextTime: draft.nextTime,
+  333|      2|                    cookedAt: draft.cookedAt,
+  334|      2|                    useAsRecipeCover: useAsRecipeCover,
+  335|      2|                    createdAt: now()
+  336|      2|                )
+  337|      2|                if photo.data.isEmpty {
+  338|      1|                    return SpoonCookLogMutationPlan(queuedMutation: queuedPhotoMutation)
+  339|      1|                }
+  340|      1|                return try mutationPlan(
+  341|      1|                    online: RecipeSpoonRequests.createSpoon(
+  342|      1|                        recipeID: recipeID,
+  343|      1|                        photo: photo.uploadFile,
+  344|      1|                        clientMutationID: clientMutationID,
+  345|      1|                        note: draft.note,
+  346|      1|                        nextTime: draft.nextTime,
+  347|      1|                        cookedAt: draft.cookedAt,
+  348|      1|                        useAsRecipeCover: useAsRecipeCover
+  349|      1|                    ),
+  350|      1|                    offline: queuedPhotoMutation
+  351|      1|                )
+  352|      2|            }
+  353|      1|            return try mutationPlan(
+  354|      1|                online: RecipeSpoonRequests.createSpoon(
+  355|      1|                    recipeID: recipeID,
+  356|      1|                    clientMutationID: clientMutationID,
+  357|      1|                    note: draft.note,
+  358|      1|                    nextTime: draft.nextTime,
+  359|      1|                    cookedAt: draft.cookedAt,
+  360|      1|                    photoURL: draft.photoURL,
+  361|      1|                    useAsRecipeCover: useAsRecipeCover
+  362|      1|                ),
+  363|      1|                offline: NativeQueuedMutation.spoonCreate(
+  364|      1|                    recipeID: recipeID,
+  365|      1|                    clientMutationID: clientMutationID,
+  366|      1|                    note: draft.note,
+  367|      1|                    nextTime: draft.nextTime,
+  368|      1|                    cookedAt: draft.cookedAt,
+  369|      1|                    photoURL: draft.photoURL,
+  370|      1|                    useAsRecipeCover: useAsRecipeCover,
+  371|      1|                    createdAt: now()
+  372|      1|                )
+  373|      1|            )
+  374|      9|        case .update(let spoonID, let note, let nextTime, let cookedAt, let photoURL, let clientMutationID):
+  375|      3|            guard row(id: spoonID)?.canEdit == true else {
+  376|      1|                return SpoonCookLogMutationPlan(blockedReason: "Only the cook who logged this can edit it.")
+  377|      2|            }
+  378|      2|            let draft = SpoonCookLogDraft(
+  379|      2|                note: note,
+  380|      2|                nextTime: nextTime,
+  381|      2|                cookedAt: cookedAt,
+  382|      2|                photoURL: photoURL
+  383|      2|            )
+  384|      2|            guard draft.hasContent else {
+  385|      1|                return SpoonCookLogMutationPlan(blockedReason: "A cook log needs a note, next-time thought, or photo.")
+  386|      1|            }
+  387|      1|            return try mutationPlan(
+  388|      1|                online: RecipeSpoonRequests.updateSpoon(
+  389|      1|                    recipeID: recipeID,
+  390|      1|                    spoonID: spoonID,
+  391|      1|                    clientMutationID: clientMutationID,
+  392|      1|                    note: draft.note,
+  393|      1|                    nextTime: draft.nextTime,
+  394|      1|                    cookedAt: draft.cookedAt,
+  395|      1|                    photoURL: draft.photoURL
+  396|      1|                ),
+  397|      1|                offline: NativeQueuedMutation.spoonUpdate(
+  398|      1|                    recipeID: recipeID,
+  399|      1|                    spoonID: spoonID,
+  400|      1|                    clientMutationID: clientMutationID,
+  401|      1|                    note: draft.note,
+  402|      1|                    nextTime: draft.nextTime,
+  403|      1|                    cookedAt: draft.cookedAt,
+  404|      1|                    photoURL: draft.photoURL,
+  405|      1|                    createdAt: now()
+  406|      1|                )
+  407|      1|            )
+  408|      9|        case .delete(let spoonID, let clientMutationID):
+  409|      2|            guard row(id: spoonID)?.canDelete == true else {
+  410|      1|                return SpoonCookLogMutationPlan(blockedReason: "Only the cook who logged this can delete it.")
+  411|      1|            }
+  412|      1|            return mutationPlan(
+  413|      1|                online: try RecipeSpoonRequests.deleteSpoon(
+  414|      1|                    recipeID: recipeID,
+  415|      1|                    spoonID: spoonID,
+  416|      1|                    clientMutationID: clientMutationID,
+  417|      1|                    idempotency: .header
+  418|      1|                ),
+  419|      1|                offline: NativeQueuedMutation.spoonDelete(
+  420|      1|                    recipeID: recipeID,
+  421|      1|                    spoonID: spoonID,
+  422|      1|                    clientMutationID: clientMutationID,
+  423|      1|                    createdAt: now()
+  424|      1|                )
+  425|      1|            )
+  426|      9|        }
+  427|      9|    }
+  428|       |
+  429|     10|    private var spoonQueuedMutations: [NativeQueuedMutation] {
+  430|     12|        queuedMutations.filter { mutation in
+  431|     12|            mutation.recipeID == recipeID && [
+  432|      9|                .spoonCreate,
+  433|      9|                .spoonCreatePhoto,
+  434|      9|                .spoonUpdate,
+  435|      9|                .spoonDelete
+  436|      9|            ].contains(mutation.queueableKind)
+  437|     12|        }
+  438|     10|    }
+  439|       |
+  440|      5|    private func row(id: String) -> SpoonCookLogRow? {
+  441|      7|        rows.first { $0.id == id }
+  442|      5|    }
+  443|       |
+  444|      4|    private func mutationPlan(online: APIRequestBuilder, offline: NativeQueuedMutation) -> SpoonCookLogMutationPlan {
+  445|      4|        switch connectivity {
+  446|      4|        case .online:
+  447|      3|            SpoonCookLogMutationPlan(remoteRequestBuilder: online, offlineFallbackMutation: offline)
+  448|      4|        case .offline:
+  449|      1|            SpoonCookLogMutationPlan(queuedMutation: offline)
+  450|      4|        }
+  451|      4|    }
+  452|       |}
+  453|       |
+  454|       |private struct SpoonCookLogDraft {
+  455|       |    let note: String?
+  456|       |    let nextTime: String?
+  457|       |    let cookedAt: String?
+  458|       |    let photoURL: String?
+  459|       |
+  460|      6|    init(note: String?, nextTime: String?, cookedAt: String?, photoURL: String?) {
+  461|      6|        self.note = Self.clean(note)
+  462|      6|        self.nextTime = Self.clean(nextTime)
+  463|      6|        self.cookedAt = Self.clean(cookedAt)
+  464|      6|        self.photoURL = Self.clean(photoURL)
+  465|      6|    }
+  466|       |
+  467|      6|    var hasContent: Bool {
+  468|      6|        note != nil || nextTime != nil || photoURL != nil
+                                     ^3                 ^2
+  469|      6|    }
+  470|       |
+  471|     24|    private static func clean(_ value: String?) -> String? {
+  472|     24|        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+  473|     24|        return trimmed?.isEmpty == false ? trimmed : nil
+                                                         ^6        ^18
+  474|     24|    }
+  475|       |}

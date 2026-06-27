@@ -414,7 +414,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     }
 
     public func loadSnapshot() -> NativeSyncSnapshot {
-        NativeSyncSnapshot(
+        return NativeSyncSnapshot(
             accountID: accountID,
             environment: environment,
             checkpoint: checkpoint,
@@ -588,7 +588,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         )
     }
 
-    public func loadSnapshot() -> NativeSyncSnapshot {
+    public func loadSnapshot() throws -> NativeSyncSnapshot {
         snapshot()
     }
 
@@ -597,7 +597,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
     }
 
     private func snapshot() -> NativeSyncSnapshot {
-        NativeSyncSnapshot(
+        return NativeSyncSnapshot(
             accountID: accountID,
             environment: environment,
             checkpoint: checkpoint,
@@ -678,12 +678,24 @@ public struct NativeStagedMediaUpload: Codable, Equatable, Sendable {
     public let localStageID: String
     public let fileName: String
     public let contentType: String
+    public let byteCount: Int
     public let data: Data
 
     public init(localStageID: String, fileName: String, contentType: String, data: Data) {
+        self.init(
+            localStageID: localStageID,
+            fileName: fileName,
+            contentType: contentType,
+            byteCount: data.count,
+            data: data
+        )
+    }
+
+    public init(localStageID: String, fileName: String, contentType: String, byteCount: Int, data: Data = Data()) {
         self.localStageID = localStageID
         self.fileName = fileName
         self.contentType = contentType
+        self.byteCount = max(byteCount, data.count)
         self.data = data
     }
 
@@ -697,6 +709,7 @@ public struct NativeStagedMediaUpload: Codable, Equatable, Sendable {
         case localStageID = "localStageId"
         case fileName
         case contentType
+        case byteCount
     }
 
     public init(from decoder: Decoder) throws {
@@ -704,6 +717,7 @@ public struct NativeStagedMediaUpload: Codable, Equatable, Sendable {
         localStageID = try container.decode(String.self, forKey: .localStageID)
         fileName = try container.decode(String.self, forKey: .fileName)
         contentType = try container.decode(String.self, forKey: .contentType)
+        byteCount = try container.decodeIfPresent(Int.self, forKey: .byteCount) ?? 0
         data = Data()
     }
 
@@ -712,6 +726,7 @@ public struct NativeStagedMediaUpload: Codable, Equatable, Sendable {
         try container.encode(localStageID, forKey: .localStageID)
         try container.encode(fileName, forKey: .fileName)
         try container.encode(contentType, forKey: .contentType)
+        try container.encode(byteCount, forKey: .byteCount)
     }
 
     public func replacingData(_ data: Data) -> NativeStagedMediaUpload {
@@ -743,6 +758,18 @@ public struct NativeStagedMediaDirectory: NativeStagedMediaResolving {
     public func save(_ upload: NativeStagedMediaUpload) throws {
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         try upload.data.write(to: fileURL(for: upload.localStageID), options: .atomic)
+    }
+
+    public func delete(_ upload: NativeStagedMediaUpload) throws {
+        try delete(localStageID: upload.localStageID)
+    }
+
+    public func delete(localStageID: String) throws {
+        let url = fileURL(for: localStageID)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return
+        }
+        try FileManager.default.removeItem(at: url)
     }
 
     public func data(for upload: NativeStagedMediaUpload) throws -> Data {
@@ -893,12 +920,33 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
 
     public var idempotencyKey: String { clientMutationID }
 
+    public var stagedMediaUploadCount: Int { media.count }
+
+    public var stagedMediaUploadByteCount: Int {
+        media.values.reduce(0) { $0 + $1.byteCount }
+    }
+
+    public var stagedMediaUploadStageIDs: Set<String> {
+        Set(media.values.map(\.localStageID))
+    }
+
     public var recipeID: String? {
         stringValue("recipeId")
     }
 
     public var optimisticRecipeID: String? {
         queueableKind == .recipeCreate ? "recipe_local_\(clientMutationID)" : recipeID
+    }
+
+    public var optimisticSpoonID: String? {
+        switch queueableKind {
+        case .spoonCreate, .spoonCreatePhoto:
+            stringValue("serverSpoonId") ?? "spoon_local_\(clientMutationID)"
+        case .spoonUpdate, .spoonDelete:
+            stringValue("spoonId")
+        default:
+            nil
+        }
     }
 
     public func applyingOptimisticRecipeMutation(
@@ -1000,6 +1048,37 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
                     }
                     return step.copy(usingSteps: outputUses(inputStepNum: step.stepNum, recipe: recipe))
                 })
+            }
+        case .spoonCreate, .spoonCreatePhoto:
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                recipe.copy(
+                    updatedAt: now,
+                    recentSpoons: recipe.recentSpoons.upsertingRecentSpoon(
+                        optimisticCreatedSpoon(for: recipe, fallbackChef: fallbackChef, now: now)
+                    )
+                )
+            }
+        case .spoonUpdate:
+            guard let spoonID = stringValue("spoonId") else {
+                return recipes
+            }
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                return recipe.copy(
+                    updatedAt: now,
+                    recentSpoons: recipe.recentSpoons.updatingRecentSpoon(id: spoonID) { spoon in
+                        updatedSpoon(spoon, updatedAt: now)
+                    }
+                )
+            }
+        case .spoonDelete:
+            guard let spoonID = stringValue("spoonId") else {
+                return recipes
+            }
+            return applyingToRecipe(in: recipes, updatedAt: now) { recipe in
+                return recipe.copy(
+                    updatedAt: now,
+                    recentSpoons: recipe.recentSpoons.markingRecentSpoonDeleted(id: spoonID, deletedAt: now)
+                )
             }
         case .coverSetNoCover, .coverSetActive:
             return clearingActiveRecipeCover(in: recipes, updatedAt: now)
@@ -1268,6 +1347,8 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             if !serverItemIDs.isEmpty {
                 nextValues["serverItemIds"] = .array(serverItemIDs)
             }
+        case .spoonCreate, .spoonCreatePhoto:
+            nextValues["serverSpoonId"] = replacements["spoon_local_\(clientMutationID)"].map(JSONValue.string)
         default:
             break
         }
@@ -1480,6 +1561,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         "serverStepIngredientIds",
         "serverItemId",
         "serverItemIds",
+        "serverSpoonId",
         "shoppingRecipeIngredients"
     ]
 
@@ -1511,6 +1593,10 @@ extension NativeQueuedMutation {
              .recipeIngredientAdd,
              .recipeIngredientDelete,
              .recipeOutputUsesReplace,
+             .spoonCreate,
+             .spoonCreatePhoto,
+             .spoonUpdate,
+             .spoonDelete,
              .coverSetNoCover,
              .coverSetActive:
             return true
@@ -1540,7 +1626,7 @@ extension NativeQueuedMutation {
     }
 }
 
-private extension NativeQueuedMutation {
+extension NativeQueuedMutation {
     func applyingToRecipe(in recipes: [Recipe], updatedAt: String, update: (Recipe) -> Recipe) -> [Recipe] {
         guard let recipeID else {
             return recipes
@@ -1597,6 +1683,38 @@ private extension NativeQueuedMutation {
                 optimisticStep(from: step, index: index + 1, now: now)
             },
             cookbooks: []
+        )
+    }
+
+    func optimisticCreatedSpoon(for recipe: Recipe, fallbackChef: ChefSummary, now: String) -> RecipeDetailRecentSpoon {
+        RecipeDetailRecentSpoon(
+            id: stringValue("serverSpoonId") ?? "spoon_local_\(clientMutationID)",
+            chefID: fallbackChef.id,
+            recipeID: recipeID ?? recipe.id,
+            cookedAt: optionalStringValue("cookedAt") ?? now,
+            photoURL: optionalURLValue("photoUrl"),
+            note: optionalStringValue("note"),
+            nextTime: optionalStringValue("nextTime"),
+            deletedAt: nil,
+            createdAt: createdAt,
+            updatedAt: now,
+            chef: fallbackChef
+        )
+    }
+
+    func updatedSpoon(_ spoon: RecipeDetailRecentSpoon, updatedAt: String) -> RecipeDetailRecentSpoon {
+        RecipeDetailRecentSpoon(
+            id: spoon.id,
+            chefID: spoon.chefID,
+            recipeID: spoon.recipeID,
+            cookedAt: containsValue("cookedAt") ? optionalStringValue("cookedAt") : spoon.cookedAt,
+            photoURL: containsValue("photoUrl") ? optionalURLValue("photoUrl") : spoon.photoURL,
+            note: containsValue("note") ? optionalStringValue("note") : spoon.note,
+            nextTime: containsValue("nextTime") ? optionalStringValue("nextTime") : spoon.nextTime,
+            deletedAt: spoon.deletedAt,
+            createdAt: spoon.createdAt,
+            updatedAt: updatedAt,
+            chef: spoon.chef
         )
     }
 
@@ -1686,6 +1804,14 @@ private extension NativeQueuedMutation {
 
     func optionalStringValue(_ key: String) -> String? {
         optionalStringValue(key, in: values)
+    }
+
+    func optionalURLValue(_ key: String) -> URL? {
+        optionalStringValue(key).flatMap(URL.init(string:))
+    }
+
+    func containsValue(_ key: String) -> Bool {
+        values[key] != nil
     }
 
     func optionalStringValue(_ key: String, in object: [String: JSONValue]) -> String? {
@@ -1938,6 +2064,14 @@ private extension NativeQueuedMutation {
                     to: &remaps
                 )
             }
+            return remaps
+        case .spoonCreate, .spoonCreatePhoto:
+            var remaps = [NativeSyncIDRemap]()
+            appendRemap(
+                localID: "spoon_local_\(clientMutationID)",
+                serverID: responseData.objectValue("spoon")?.stringValue("id") ?? responseData.objectStringValue("spoonId"),
+                to: &remaps
+            )
             return remaps
         default:
             return []
@@ -2234,7 +2368,8 @@ private extension Recipe {
         coverSourceType: RecipeCoverSourceType?? = nil,
         coverVariant: RecipeCoverVariant?? = nil,
         updatedAt: String,
-        steps: [RecipeStep]? = nil
+        steps: [RecipeStep]? = nil,
+        recentSpoons: [RecipeDetailRecentSpoon]? = nil
     ) -> Recipe {
         Recipe(
             id: id,
@@ -2253,8 +2388,45 @@ private extension Recipe {
             updatedAt: updatedAt,
             steps: steps ?? self.steps,
             cookbooks: cookbooks,
-            recentSpoons: recentSpoons
+            recentSpoons: recentSpoons ?? self.recentSpoons
         )
+    }
+}
+
+private extension Array where Element == RecipeDetailRecentSpoon {
+    func upsertingRecentSpoon(_ spoon: RecipeDetailRecentSpoon) -> [RecipeDetailRecentSpoon] {
+        var remaining = filter { $0.id != spoon.id }
+        remaining.insert(spoon, at: 0)
+        return remaining.sorted {
+            ($0.cookedAt ?? $0.createdAt) > ($1.cookedAt ?? $1.createdAt)
+        }
+    }
+
+    func updatingRecentSpoon(
+        id: String,
+        update: (RecipeDetailRecentSpoon) -> RecipeDetailRecentSpoon
+    ) -> [RecipeDetailRecentSpoon] {
+        map { spoon in
+            spoon.id == id ? update(spoon) : spoon
+        }
+    }
+
+    func markingRecentSpoonDeleted(id: String, deletedAt: String) -> [RecipeDetailRecentSpoon] {
+        updatingRecentSpoon(id: id) { spoon in
+            RecipeDetailRecentSpoon(
+                id: spoon.id,
+                chefID: spoon.chefID,
+                recipeID: spoon.recipeID,
+                cookedAt: spoon.cookedAt,
+                photoURL: spoon.photoURL,
+                note: spoon.note,
+                nextTime: spoon.nextTime,
+                deletedAt: deletedAt,
+                createdAt: spoon.createdAt,
+                updatedAt: deletedAt,
+                chef: spoon.chef
+            )
+        }
     }
 }
 
@@ -2579,16 +2751,16 @@ public extension NativeQueuedMutation {
         }
     }
 
-    static func spoonCreate(recipeID: String, clientMutationID: String, note: String?, nextTime: String?, cookedAt: String?, photoURL: String, useAsRecipeCover: Bool, createdAt: String) -> NativeQueuedMutation {
-        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .spoonCreate, values: ["recipeId": .string(recipeID), "note": stringOrNull(note), "nextTime": stringOrNull(nextTime), "cookedAt": stringOrNull(cookedAt), "photoUrl": .string(photoURL), "useAsRecipeCover": .bool(useAsRecipeCover)])
+    static func spoonCreate(recipeID: String, clientMutationID: String, note: String?, nextTime: String?, cookedAt: String?, photoURL: String?, useAsRecipeCover: Bool, createdAt: String) -> NativeQueuedMutation {
+        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .spoonCreate, values: ["recipeId": .string(recipeID), "note": stringOrNull(note), "nextTime": stringOrNull(nextTime), "cookedAt": stringOrNull(cookedAt), "photoUrl": stringOrNull(photoURL), "useAsRecipeCover": .bool(useAsRecipeCover)])
     }
 
     static func spoonCreatePhoto(recipeID: String, photo: NativeStagedMediaUpload, clientMutationID: String, note: String?, nextTime: String?, cookedAt: String?, useAsRecipeCover: Bool, createdAt: String) -> NativeQueuedMutation {
         NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .spoonCreatePhoto, values: ["recipeId": .string(recipeID), "note": stringOrNull(note), "nextTime": stringOrNull(nextTime), "cookedAt": stringOrNull(cookedAt), "useAsRecipeCover": .bool(useAsRecipeCover)], media: ["photo": photo])
     }
 
-    static func spoonUpdate(recipeID: String, spoonID: String, clientMutationID: String, note: String?, nextTime: String?, cookedAt: String?, photoURL: String, createdAt: String) -> NativeQueuedMutation {
-        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .spoonUpdate, values: ["recipeId": .string(recipeID), "spoonId": .string(spoonID), "note": stringOrNull(note), "nextTime": stringOrNull(nextTime), "cookedAt": stringOrNull(cookedAt), "photoUrl": .string(photoURL)])
+    static func spoonUpdate(recipeID: String, spoonID: String, clientMutationID: String, note: String?, nextTime: String?, cookedAt: String?, photoURL: String?, createdAt: String) -> NativeQueuedMutation {
+        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .spoonUpdate, values: ["recipeId": .string(recipeID), "spoonId": .string(spoonID), "note": stringOrNull(note), "nextTime": stringOrNull(nextTime), "cookedAt": stringOrNull(cookedAt), "photoUrl": stringOrNull(photoURL)])
     }
 
     static func spoonDelete(recipeID: String, spoonID: String, clientMutationID: String, createdAt: String) -> NativeQueuedMutation {
@@ -2851,6 +3023,15 @@ extension NativeQueuedMutation {
             values: values,
             media: resolvedMedia
         )
+    }
+
+    func saveStagedMedia(to directory: NativeStagedMediaDirectory?) throws {
+        guard let directory else {
+            return
+        }
+        for upload in media.values where !upload.data.isEmpty {
+            try directory.save(upload)
+        }
     }
 }
 

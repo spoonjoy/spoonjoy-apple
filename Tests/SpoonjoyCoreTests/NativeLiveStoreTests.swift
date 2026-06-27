@@ -311,6 +311,142 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store restores queued spoon mutations as optimistic recipe detail")
+    func liveStoreRestoresQueuedSpoonMutationsAsOptimisticRecipeDetail() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let mediaDirectory = NativeStagedMediaDirectory(
+                directoryURL: directory.appendingPathComponent("native-staged-media", isDirectory: true)
+            )
+            let chef = ChefSummary(id: "chef_ari", username: "ari")
+            let existingSpoon = RecipeDetailRecentSpoon(
+                id: "spoon_existing_live",
+                chefID: chef.id,
+                recipeID: "recipe_offline_spoons",
+                cookedAt: Self.isoString(Self.now.addingTimeInterval(-60)),
+                photoURL: URL(string: "/photos/spoons/existing.jpg"),
+                note: "Needs more lemon.",
+                nextTime: nil,
+                deletedAt: nil,
+                createdAt: Self.isoString(Self.now.addingTimeInterval(-60)),
+                updatedAt: Self.isoString(Self.now.addingTimeInterval(-60)),
+                chef: chef
+            )
+            let recipe = Self.sampleRecipe(
+                id: "recipe_offline_spoons",
+                title: "Offline Spoon Pasta",
+                recentSpoons: [existingSpoon]
+            )
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_spoon_salt", name: "salt"),
+                accountID: "chef_ari"
+            )
+            let syncStoreURL = directory.appendingPathComponent("sync.json")
+            let syncStore = try FileBackedNativeSyncStore(fileURL: syncStoreURL, mediaResolver: mediaDirectory)
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                stagedMediaDirectory: mediaDirectory
+            )
+            let stagedPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_spoon_live_photo",
+                fileName: "spoon.webp",
+                contentType: "image/webp",
+                data: Data([0x01, 0x02, 0x03])
+            )
+
+            await liveStore.bootstrap()
+            try await liveStore.queueMutations([
+                NativeQueuedMutation.spoonCreatePhoto(
+                    recipeID: recipe.id,
+                    photo: stagedPhoto,
+                    clientMutationID: "cm_spoon_live_photo",
+                    note: "Photo proof.",
+                    nextTime: "Less salt.",
+                    cookedAt: Self.isoString(Self.now),
+                    useAsRecipeCover: false,
+                    createdAt: Self.isoString(Self.now)
+                ),
+                NativeQueuedMutation.spoonUpdate(
+                    recipeID: recipe.id,
+                    spoonID: existingSpoon.id,
+                    clientMutationID: "cm_spoon_live_update",
+                    note: nil,
+                    nextTime: "Use less salt.",
+                    cookedAt: Self.isoString(Self.now.addingTimeInterval(10)),
+                    photoURL: nil,
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(10))
+                ),
+                NativeQueuedMutation.spoonDelete(
+                    recipeID: recipe.id,
+                    spoonID: existingSpoon.id,
+                    clientMutationID: "cm_spoon_live_delete",
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(20))
+                )
+            ])
+
+            guard case .queuedWork(let queuedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected queued spoon work; got \(liveStore.bootstrapState)")
+                return
+            }
+            let queuedRecipe = try #require(queuedContent.recipe(id: recipe.id))
+            let queuedPhotoSpoon = try #require(queuedRecipe.recentSpoons.first { $0.id == "spoon_local_cm_spoon_live_photo" })
+            let queuedDeletedSpoon = try #require(queuedRecipe.recentSpoons.first { $0.id == existingSpoon.id })
+            #expect(queuedPhotoSpoon.note == "Photo proof.")
+            #expect(queuedPhotoSpoon.nextTime == "Less salt.")
+            #expect(queuedDeletedSpoon.note == nil)
+            #expect(queuedDeletedSpoon.nextTime == "Use less salt.")
+            #expect(queuedDeletedSpoon.deletedAt == Self.isoString(Self.now))
+            #expect(queuedContent.queuedMutations.map(\.clientMutationID) == [
+                "cm_spoon_live_photo",
+                "cm_spoon_live_update",
+                "cm_spoon_live_delete"
+            ])
+            #expect(queuedContent.queuedMutations.first?.stagedMediaUploadByteCount == 3)
+            #expect(try mediaDirectory.data(for: stagedPhoto) == stagedPhoto.data)
+
+            let offlineError = APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            )
+            let restoredSyncStore = try FileBackedNativeSyncStore(fileURL: syncStoreURL, mediaResolver: mediaDirectory)
+            let restoredLiveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: restoredSyncStore,
+                transport: ThrowingLiveStoreSyncTransport(error: offlineError),
+                stagedMediaDirectory: mediaDirectory
+            )
+
+            await restoredLiveStore.bootstrap()
+            guard case .offlineStale(let restoredContent) = restoredLiveStore.bootstrapState else {
+                Issue.record("Expected offline restore with queued spoon overlays; got \(restoredLiveStore.bootstrapState)")
+                return
+            }
+            let restoredRecipe = try #require(restoredContent.recipe(id: recipe.id))
+            let restoredPhotoSpoon = try #require(restoredRecipe.recentSpoons.first { $0.id == "spoon_local_cm_spoon_live_photo" })
+            let restoredPhotoMutation = try #require(restoredContent.queuedMutations.first { $0.clientMutationID == "cm_spoon_live_photo" })
+            let restoredPhotoRequest = try restoredPhotoMutation.requestBuilder().urlRequest(configuration: .spoonjoyProduction)
+
+            #expect(restoredPhotoSpoon.note == "Photo proof.")
+            #expect(restoredRecipe.recentSpoons.first { $0.id == existingSpoon.id }?.deletedAt == Self.isoString(Self.now.addingTimeInterval(20)))
+            #expect(restoredPhotoMutation.stagedMediaUploadByteCount == 3)
+            #expect(restoredPhotoRequest.body?.range(of: stagedPhoto.data) != nil)
+            #expect(restoredContent.queuedMutations.map(\.clientMutationID) == [
+                "cm_spoon_live_photo",
+                "cm_spoon_live_update",
+                "cm_spoon_live_delete"
+            ])
+        }
+    }
+
+    @MainActor
     @Test("live store keeps drained recipe editor mutations visible after immediate online drain")
     func liveStoreKeepsDrainedRecipeEditorMutationsVisibleAfterImmediateOnlineDrain() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -1152,7 +1288,7 @@ struct NativeLiveStoreTests {
 
             await liveStore.bootstrap()
             try await liveStore.queueMutation(currentMutation)
-            let snapshot = await syncStore.loadSnapshot()
+            let snapshot = try await syncStore.loadSnapshot()
 
             #expect(snapshot.accountID == "chef_current")
             #expect(snapshot.environment == .production)
@@ -1533,6 +1669,9 @@ struct NativeLiveStoreTests {
                 dismissedIndicators: []
             ))
             let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let mediaDirectory = NativeStagedMediaDirectory(
+                directoryURL: directory.appendingPathComponent("native-staged-media", isDirectory: true)
+            )
             try appStateStore.save(
                 NativeAppSnapshot.bootstrap(
                     shoppingList: nil,
@@ -1561,7 +1700,8 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 transport: transport,
                 configuration: configuration,
-                appStateStoreProvider: { appStateStore }
+                appStateStoreProvider: { appStateStore },
+                stagedMediaDirectory: mediaDirectory
             )
 
             await liveStore.bootstrap()
@@ -1652,6 +1792,78 @@ struct NativeLiveStoreTests {
             #expect(savedShoppingList.shoppingList == manualShoppingList)
             #expect(liveStore.bootstrapState.contentState.shoppingList == manualShoppingList)
 
+            let spoonDraft = SpoonCookLogDraftState(
+                recipeID: "recipe_cached",
+                note: "Try more lemon.",
+                nextTime: "Less salt.",
+                stagedPhoto: nil,
+                useAsRecipeCover: false,
+                updatedAt: Self.isoString(Self.now)
+            )
+            liveStore.recordSpoonCookLogDraft(spoonDraft, forRecipeID: "recipe_cached")
+            let savedSpoonDraft = try appStateStore.loadOrCreate(
+                fallback: NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "signed-out",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+            ).value
+            #expect(savedSpoonDraft.spoonCookLogDraft(for: "recipe_cached") == spoonDraft)
+            #expect(liveStore.bootstrapState.contentState.spoonCookLogDraft(recipeID: "recipe_cached") == spoonDraft)
+
+            let stagedPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_spoon_recipe_cached",
+                fileName: "spoon.jpg",
+                contentType: "image/jpeg",
+                data: Data([0xFF, 0xD8])
+            )
+            let photoDraft = SpoonCookLogDraftState(
+                recipeID: "recipe_cached",
+                note: "Photo proof.",
+                nextTime: nil,
+                stagedPhoto: stagedPhoto,
+                useAsRecipeCover: true,
+                updatedAt: Self.isoString(Self.now)
+            )
+            liveStore.recordSpoonCookLogDraft(photoDraft, forRecipeID: "recipe_cached")
+            #expect(try mediaDirectory.data(for: stagedPhoto) == Data([0xFF, 0xD8]))
+            let savedPhotoDraft = try appStateStore.loadOrCreate(
+                fallback: NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "signed-out",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+            ).value.spoonCookLogDraft(for: "recipe_cached")
+            #expect(savedPhotoDraft?.stagedPhoto?.data.isEmpty == true)
+
+            let restoredDraftStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { appStateStore },
+                stagedMediaDirectory: mediaDirectory
+            )
+            await restoredDraftStore.bootstrap()
+            guard case .signedOut(let restoredDraftContent) = restoredDraftStore.bootstrapState else {
+                Issue.record("Expected signed-out restore after spoon draft save; got \(restoredDraftStore.bootstrapState)")
+                return
+            }
+            #expect(restoredDraftContent.spoonCookLogDraft(recipeID: "recipe_cached") == savedPhotoDraft)
+
+            liveStore.recordSpoonCookLogDraft(nil, forRecipeID: "recipe_cached")
+            let clearedSpoonDraft = try appStateStore.loadOrCreate(
+                fallback: NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "signed-out",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+            ).value
+            #expect(clearedSpoonDraft.spoonCookLogDraft(for: "recipe_cached") == nil)
+
             let nilStore = Self.liveStore(
                 directory: directory,
                 vault: vault,
@@ -1687,6 +1899,262 @@ struct NativeLiveStoreTests {
             #expect(localContent.environment == .local)
             #expect(localContent.recipes.isEmpty)
             #expect(localContent.settingsViewModel.settings.environment == .local(baseURL: configuration.baseURL))
+
+            let legacySnapshotJSON = """
+            {
+              "schemaVersion": 1,
+              "accountID": "signed-out",
+              "environment": "production",
+              "hasCompletedFirstRun": false,
+              "cookProgressByRecipeID": {},
+              "shoppingList": null,
+              "captureDraft": null,
+              "pendingMutations": { "mutations": [] },
+              "lastOpenedRoute": null,
+              "savedAt": "\(Self.isoString(Self.now))"
+            }
+            """
+            let legacySnapshot = try JSONDecoder().decode(
+                NativeAppSnapshot.self,
+                from: Data(legacySnapshotJSON.utf8)
+            )
+            #expect(legacySnapshot.spoonCookLogDraftsByRecipeID.isEmpty)
+
+            let blankRecipeDraftSnapshot = legacySnapshot.updatingSpoonCookLogDraft(
+                spoonDraft,
+                forRecipeID: "   ",
+                savedAt: "2026-06-27T16:05:00.000Z"
+            )
+            #expect(blankRecipeDraftSnapshot.spoonCookLogDraftsByRecipeID.isEmpty)
+            #expect(blankRecipeDraftSnapshot.savedAt == "2026-06-27T16:05:00.000Z")
+        }
+    }
+
+    @MainActor
+    @Test("live store deletes superseded spoon draft media unless queued")
+    func liveStoreDeletesSupersededSpoonDraftMediaUnlessQueued() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_draft_media", title: "Draft Media Pasta")
+            let mediaDirectory = NativeStagedMediaDirectory(
+                directoryURL: directory.appendingPathComponent("native-staged-media", isDirectory: true)
+            )
+            let appStateURL = directory.appendingPathComponent("app-state.json")
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                    recipe: recipe,
+                    shoppingItem: nil,
+                    accountID: "chef_ari"
+                ))),
+                appStateStoreProvider: { NativeAppStateStore(fileURL: appStateURL) },
+                stagedMediaDirectory: mediaDirectory
+            )
+            let firstPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_draft_first",
+                fileName: "first.webp",
+                contentType: "image/webp",
+                data: Data([0x01])
+            )
+            let queuedPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_draft_queued",
+                fileName: "queued.webp",
+                contentType: "image/webp",
+                data: Data([0x02, 0x03])
+            )
+            let unqueuedPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_draft_unqueued",
+                fileName: "unqueued.webp",
+                contentType: "image/webp",
+                data: Data([0x04])
+            )
+
+            await liveStore.bootstrap()
+            liveStore.recordSpoonCookLogDraft(SpoonCookLogDraftState(
+                recipeID: recipe.id,
+                note: "First.",
+                nextTime: nil,
+                stagedPhoto: firstPhoto,
+                useAsRecipeCover: true,
+                updatedAt: Self.isoString(Self.now)
+            ), forRecipeID: recipe.id)
+            #expect(try mediaDirectory.data(for: firstPhoto) == firstPhoto.data)
+
+            liveStore.recordSpoonCookLogDraft(SpoonCookLogDraftState(
+                recipeID: recipe.id,
+                note: "Queued.",
+                nextTime: nil,
+                stagedPhoto: queuedPhoto,
+                useAsRecipeCover: true,
+                updatedAt: Self.isoString(Self.now.addingTimeInterval(1))
+            ), forRecipeID: recipe.id)
+            #expect(throws: NativeStagedMediaDirectoryError.missingStage(firstPhoto.localStageID)) {
+                _ = try mediaDirectory.data(for: firstPhoto)
+            }
+            #expect(try mediaDirectory.data(for: queuedPhoto) == queuedPhoto.data)
+
+            try await liveStore.queueMutations([
+                NativeQueuedMutation.spoonCreatePhoto(
+                    recipeID: recipe.id,
+                    photo: queuedPhoto,
+                    clientMutationID: "cm_draft_media_queued",
+                    note: "Queued.",
+                    nextTime: nil,
+                    cookedAt: nil,
+                    useAsRecipeCover: true,
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(2))
+                )
+            ])
+            liveStore.recordSpoonCookLogDraft(nil, forRecipeID: recipe.id)
+            #expect(try mediaDirectory.data(for: queuedPhoto) == queuedPhoto.data)
+
+            liveStore.recordSpoonCookLogDraft(SpoonCookLogDraftState(
+                recipeID: recipe.id,
+                note: "Unqueued.",
+                nextTime: nil,
+                stagedPhoto: unqueuedPhoto,
+                useAsRecipeCover: false,
+                updatedAt: Self.isoString(Self.now.addingTimeInterval(3))
+            ), forRecipeID: recipe.id)
+            #expect(try mediaDirectory.data(for: unqueuedPhoto) == unqueuedPhoto.data)
+
+            liveStore.recordSpoonCookLogDraft(nil, forRecipeID: recipe.id)
+            #expect(throws: NativeStagedMediaDirectoryError.missingStage(unqueuedPhoto.localStageID)) {
+                _ = try mediaDirectory.data(for: unqueuedPhoto)
+            }
+            #expect(try mediaDirectory.data(for: queuedPhoto) == queuedPhoto.data)
+
+            let brokenAppStateURL = directory.appendingPathComponent("broken-draft-state.json", isDirectory: true)
+            try FileManager.default.createDirectory(at: brokenAppStateURL, withIntermediateDirectories: true)
+            let failedPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_draft_failed_save",
+                fileName: "failed.webp",
+                contentType: "image/webp",
+                data: Data([0x05])
+            )
+            let brokenDraftStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { NativeAppStateStore(fileURL: brokenAppStateURL) },
+                stagedMediaDirectory: mediaDirectory
+            )
+            brokenDraftStore.recordSpoonCookLogDraft(SpoonCookLogDraftState(
+                recipeID: recipe.id,
+                note: "This save will fail.",
+                nextTime: nil,
+                stagedPhoto: failedPhoto,
+                useAsRecipeCover: false,
+                updatedAt: Self.isoString(Self.now.addingTimeInterval(4))
+            ), forRecipeID: recipe.id)
+            guard case .syncFailed = brokenDraftStore.bootstrapState else {
+                Issue.record("Expected failed spoon draft save; got \(brokenDraftStore.bootstrapState)")
+                return
+            }
+            #expect(throws: NativeStagedMediaDirectoryError.missingStage(failedPhoto.localStageID)) {
+                _ = try mediaDirectory.data(for: failedPhoto)
+            }
+        }
+    }
+
+    @MainActor
+    @Test("live store resets mismatched app snapshots before recording local state")
+    func liveStoreResetsMismatchedAppSnapshotsBeforeRecordingLocalState() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            func mismatchedStore(_ name: String) throws -> NativeAppStateStore {
+                let store = NativeAppStateStore(fileURL: directory.appendingPathComponent("\(name).json"))
+                try store.save(NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "other-account",
+                    environment: .local,
+                    savedAt: Self.isoString(Self.now.addingTimeInterval(-60))
+                ))
+                return store
+            }
+
+            let routeStore = try mismatchedStore("route")
+            let routeLiveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { routeStore }
+            )
+            routeLiveStore.recordingOpenedRoute(.settings)
+            #expect(try routeStore.loadOrCreate(fallback: .bootstrap(
+                shoppingList: nil,
+                accountID: "signed-out",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )).value.isScoped(accountID: "signed-out", environment: .production))
+
+            let progressStore = try mismatchedStore("progress")
+            let progressLiveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { progressStore }
+            )
+            progressLiveStore.recordCookProgress(CookModeProgress(
+                recipeID: "recipe_progress_reset",
+                stepIDs: ["step_1"],
+                startedAt: Self.isoString(Self.now)
+            ))
+            #expect(try progressStore.loadOrCreate(fallback: .bootstrap(
+                shoppingList: nil,
+                accountID: "signed-out",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )).value.isScoped(accountID: "signed-out", environment: .production))
+
+            let shoppingStore = try mismatchedStore("shopping")
+            let shoppingLiveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { shoppingStore }
+            )
+            shoppingLiveStore.recordShoppingList(ShoppingListState(
+                id: "shopping_reset",
+                chef: ChefSummary(id: "signed-out", username: "Spoonjoy"),
+                items: [],
+                nextCursor: "",
+                updatedAt: Self.isoString(Self.now)
+            ))
+            #expect(try shoppingStore.loadOrCreate(fallback: .bootstrap(
+                shoppingList: nil,
+                accountID: "signed-out",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )).value.isScoped(accountID: "signed-out", environment: .production))
+
+            let draftStore = try mismatchedStore("draft")
+            let draftLiveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { draftStore }
+            )
+            draftLiveStore.recordSpoonCookLogDraft(SpoonCookLogDraftState(
+                recipeID: "recipe_draft_reset",
+                note: "Scoped fresh.",
+                nextTime: nil,
+                stagedPhoto: nil,
+                useAsRecipeCover: false,
+                updatedAt: Self.isoString(Self.now)
+            ), forRecipeID: "recipe_draft_reset")
+            #expect(try draftStore.loadOrCreate(fallback: .bootstrap(
+                shoppingList: nil,
+                accountID: "signed-out",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )).value.isScoped(accountID: "signed-out", environment: .production))
         }
     }
 
@@ -1798,6 +2266,25 @@ struct NativeLiveStoreTests {
                 nextCursor: "",
                 updatedAt: Self.isoString(Self.now)
             ))
+            let brokenDraft = SpoonCookLogDraftState(
+                recipeID: "recipe_broken_store",
+                note: "Still visible.",
+                nextTime: nil,
+                stagedPhoto: nil,
+                useAsRecipeCover: false,
+                updatedAt: Self.isoString(Self.now)
+            )
+            brokenRouteStore.recordSpoonCookLogDraft(brokenDraft, forRecipeID: "recipe_broken_store")
+            guard case .syncFailed(let brokenDraftContent, let brokenDraftMessage) = brokenRouteStore.bootstrapState else {
+                Issue.record("Expected spoon draft persistence failure; got \(brokenRouteStore.bootstrapState)")
+                return
+            }
+            #expect(brokenDraftMessage == "Cook log draft could not be saved offline.")
+            #expect(brokenDraftContent.offlineIndicatorState.display == .syncFailure(errorID: "spoon-draft", retryAfter: nil))
+            #expect(brokenDraftContent.spoonCookLogDraft(recipeID: "recipe_broken_store") == nil)
+            let draftsBeforeBlankID = brokenDraftContent.spoonCookLogDraftsByRecipeID
+            brokenRouteStore.recordSpoonCookLogDraft(brokenDraft, forRecipeID: "   ")
+            #expect(brokenRouteStore.bootstrapState.contentState.spoonCookLogDraftsByRecipeID == draftsBeforeBlankID)
         }
     }
 
@@ -2161,6 +2648,169 @@ struct NativeLiveStoreTests {
             offlineIndicatorState: .synced(lastSyncedAt: Self.now)
         )
         #expect(imageOnlyContent.captureDraft == nil)
+    }
+
+    @Test("shell content folds synced spoon records and tombstones into restored recipes")
+    func shellContentFoldsSyncedSpoonRecordsAndTombstonesIntoRestoredRecipes() throws {
+        let oldSummarySpoon = RecipeDetailRecentSpoon(
+            id: "spoon_summary_replace",
+            chefID: "chef_ari",
+            recipeID: "recipe_synced_spoons",
+            cookedAt: Self.isoString(Self.now.addingTimeInterval(-60)),
+            photoURL: nil,
+            note: "Old summary note.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.isoString(Self.now.addingTimeInterval(-60)),
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(-60)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let tombstonedSummarySpoon = RecipeDetailRecentSpoon(
+            id: "spoon_summary_deleted",
+            chefID: "chef_ari",
+            recipeID: "recipe_synced_spoons",
+            cookedAt: Self.isoString(Self.now.addingTimeInterval(-50)),
+            photoURL: nil,
+            note: "Delete me.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.isoString(Self.now.addingTimeInterval(-50)),
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(-50)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let recipe = Self.sampleRecipe(
+            id: "recipe_synced_spoons",
+            title: "Synced Spoon Pasta",
+            recentSpoons: [oldSummarySpoon, tombstonedSummarySpoon]
+        )
+        let unchangedSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_summary_unchanged",
+            chefID: "chef_ari",
+            recipeID: "recipe_unchanged_spoons",
+            cookedAt: Self.isoString(Self.now.addingTimeInterval(-10)),
+            photoURL: nil,
+            note: "Already current.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.isoString(Self.now.addingTimeInterval(-10)),
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(-10)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let unchangedRecipe = Self.sampleRecipe(
+            id: "recipe_unchanged_spoons",
+            title: "Unchanged Spoon Pasta",
+            recentSpoons: [unchangedSpoon]
+        )
+        let syncedReplacement = RecipeDetailRecentSpoon(
+            id: oldSummarySpoon.id,
+            chefID: "chef_ari",
+            recipeID: recipe.id,
+            cookedAt: Self.isoString(Self.now.addingTimeInterval(10)),
+            photoURL: URL(string: "https://spoonjoy.app/photos/spoons/synced-replacement.jpg"),
+            note: "Synced replacement note.",
+            nextTime: "Use less salt.",
+            deletedAt: nil,
+            createdAt: oldSummarySpoon.createdAt,
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(10)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let syncedNewSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_synced_new",
+            chefID: "chef_ari",
+            recipeID: recipe.id,
+            cookedAt: Self.isoString(Self.now.addingTimeInterval(30)),
+            photoURL: nil,
+            note: "Other-device cook.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.isoString(Self.now.addingTimeInterval(30)),
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(30)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let syncedUndatedNewerSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_synced_undated_newer",
+            chefID: "chef_ari",
+            recipeID: recipe.id,
+            cookedAt: nil,
+            photoURL: nil,
+            note: "Undated newer cook.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.isoString(Self.now.addingTimeInterval(5)),
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(5)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let syncedUndatedOlderSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_synced_undated_older",
+            chefID: "chef_ari",
+            recipeID: recipe.id,
+            cookedAt: nil,
+            photoURL: nil,
+            note: "Undated older cook.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.isoString(Self.now.addingTimeInterval(4)),
+            updatedAt: Self.isoString(Self.now.addingTimeInterval(4)),
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
+        let content = NativeShellContentState.restored(
+            cacheSnapshot: try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_ari",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            ),
+            syncSnapshot: NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt)),
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: unchangedRecipe.id, payload: try Self.jsonValue(unchangedRecipe), serverRevision: .updatedAt(unchangedRecipe.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: syncedReplacement.id, payload: try Self.jsonValue(syncedReplacement), serverRevision: .updatedAt(syncedReplacement.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: syncedNewSpoon.id, payload: try Self.jsonValue(syncedNewSpoon), serverRevision: .updatedAt(syncedNewSpoon.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: syncedUndatedNewerSpoon.id, payload: try Self.jsonValue(syncedUndatedNewerSpoon), serverRevision: .updatedAt(syncedUndatedNewerSpoon.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: syncedUndatedOlderSpoon.id, payload: try Self.jsonValue(syncedUndatedOlderSpoon), serverRevision: .updatedAt(syncedUndatedOlderSpoon.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: unchangedSpoon.id, payload: try Self.jsonValue(unchangedSpoon), serverRevision: .updatedAt(unchangedSpoon.updatedAt))
+                ],
+                tombstones: [
+                    NativeSyncTombstone(
+                        resourceType: .spoon,
+                        resourceID: tombstonedSummarySpoon.id,
+                        parentResourceID: recipe.id,
+                        title: nil,
+                        deletedAt: Self.isoString(Self.now.addingTimeInterval(20)),
+                        updatedAt: Self.isoString(Self.now.addingTimeInterval(20))
+                    ),
+                    NativeSyncTombstone(
+                        resourceType: .recipe,
+                        resourceID: "recipe_not_a_spoon_tombstone",
+                        parentResourceID: nil,
+                        title: nil,
+                        deletedAt: Self.isoString(Self.now.addingTimeInterval(25)),
+                        updatedAt: Self.isoString(Self.now.addingTimeInterval(25))
+                    )
+                ]
+            ),
+            appSnapshot: nil,
+            authSessionState: .signedOut,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+        )
+        let restoredRecipe = try #require(content.recipe(id: recipe.id))
+
+        #expect(restoredRecipe.recentSpoons.map(\.id) == [
+            "spoon_synced_new",
+            "spoon_summary_replace",
+            "spoon_synced_undated_newer",
+            "spoon_synced_undated_older"
+        ])
+        #expect(restoredRecipe.recentSpoons.first { $0.id == oldSummarySpoon.id }?.note == "Synced replacement note.")
+        #expect(restoredRecipe.recentSpoons.first { $0.id == tombstonedSummarySpoon.id } == nil)
+        #expect(content.recipe(id: unchangedRecipe.id)?.recentSpoons == unchangedRecipe.recentSpoons)
     }
 
     @MainActor
@@ -2815,7 +3465,8 @@ private extension NativeLiveStoreTests {
         fixtureFallbackPolicy: NativeFixtureFallbackPolicy = .disabledInProduction,
         recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
             URLSessionAPITransport(authenticationRefresher: refresher)
-        }
+        },
+        stagedMediaDirectory: NativeStagedMediaDirectory? = nil
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
@@ -2829,6 +3480,7 @@ private extension NativeLiveStoreTests {
             cacheEnvironment: cacheEnvironment,
             fixtureFallbackPolicy: fixtureFallbackPolicy,
             recipeEditorAPITransport: recipeEditorAPITransport,
+            stagedMediaDirectory: stagedMediaDirectory,
             now: { Self.now }
         ))
     }
@@ -2948,7 +3600,12 @@ private extension NativeLiveStoreTests {
         )
     }
 
-    static func sampleRecipe(id: String, title: String, ingredients: [RecipeIngredient] = []) -> Recipe {
+    static func sampleRecipe(
+        id: String,
+        title: String,
+        ingredients: [RecipeIngredient] = [],
+        recentSpoons: [RecipeDetailRecentSpoon] = []
+    ) -> Recipe {
         let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
         let chef = ChefSummary(id: "chef_ari", username: "ari")
         return Recipe(
@@ -2982,7 +3639,8 @@ private extension NativeLiveStoreTests {
                     ingredients: ingredients
                 )
             ],
-            cookbooks: []
+            cookbooks: [],
+            recentSpoons: recentSpoons
         )
     }
 

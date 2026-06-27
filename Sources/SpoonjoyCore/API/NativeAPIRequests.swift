@@ -703,7 +703,7 @@ public enum RecipeSpoonRequests {
         note: String?,
         nextTime: String?,
         cookedAt: String?,
-        photoURL: String,
+        photoURL: String?,
         useAsRecipeCover: Bool
     ) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSON(
@@ -714,7 +714,7 @@ public enum RecipeSpoonRequests {
                 "note": note ?? NSNull(),
                 "nextTime": nextTime ?? NSNull(),
                 "cookedAt": cookedAt ?? NSNull(),
-                "photoUrl": photoURL,
+                "photoUrl": photoURL ?? NSNull(),
                 "useAsRecipeCover": useAsRecipeCover
             ]
         )
@@ -759,7 +759,7 @@ public enum RecipeSpoonRequests {
         note: String?,
         nextTime: String?,
         cookedAt: String?,
-        photoURL: String
+        photoURL: String?
     ) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSON(
             method: .patch,
@@ -769,7 +769,7 @@ public enum RecipeSpoonRequests {
                 "note": note ?? NSNull(),
                 "nextTime": nextTime ?? NSNull(),
                 "cookedAt": cookedAt ?? NSNull(),
-                "photoUrl": photoURL
+                "photoUrl": photoURL ?? NSNull()
             ]
         )
     }

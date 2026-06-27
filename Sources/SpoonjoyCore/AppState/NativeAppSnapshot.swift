@@ -10,6 +10,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
     public let environment: NativeCacheEnvironment?
     public let hasCompletedFirstRun: Bool
     public let cookProgressByRecipeID: [String: CookModeProgress]
+    public let spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
     public let pendingMutations: MutationQueue
@@ -22,6 +23,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
         environment: NativeCacheEnvironment? = nil,
         hasCompletedFirstRun: Bool,
         cookProgressByRecipeID: [String: CookModeProgress],
+        spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState] = [:],
         shoppingList: ShoppingListState?,
         captureDraft: CaptureDraft?,
         pendingMutations: MutationQueue,
@@ -33,6 +35,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
         self.environment = environment
         self.hasCompletedFirstRun = hasCompletedFirstRun
         self.cookProgressByRecipeID = cookProgressByRecipeID
+        self.spoonCookLogDraftsByRecipeID = spoonCookLogDraftsByRecipeID
         self.shoppingList = shoppingList
         self.captureDraft = captureDraft
         self.pendingMutations = pendingMutations
@@ -52,6 +55,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
             environment: environment,
             hasCompletedFirstRun: false,
             cookProgressByRecipeID: [:],
+            spoonCookLogDraftsByRecipeID: [:],
             shoppingList: shoppingList,
             captureDraft: nil,
             pendingMutations: MutationQueue(),
@@ -82,6 +86,10 @@ public struct NativeAppSnapshot: Codable, Equatable {
         cookProgressByRecipeID[recipeID]
     }
 
+    public func spoonCookLogDraft(for recipeID: String) -> SpoonCookLogDraftState? {
+        spoonCookLogDraftsByRecipeID[recipeID]
+    }
+
     public func isScoped(accountID: String?, environment: NativeCacheEnvironment?) -> Bool {
         self.accountID == accountID && self.environment == environment
     }
@@ -95,6 +103,25 @@ public struct NativeAppSnapshot: Codable, Equatable {
         nextProgress[progress.recipeID] = progress
 
         return copy(cookProgressByRecipeID: nextProgress, savedAt: savedAt)
+    }
+
+    public func updatingSpoonCookLogDraft(
+        _ draft: SpoonCookLogDraftState?,
+        forRecipeID recipeID: String,
+        savedAt: String
+    ) -> NativeAppSnapshot {
+        let trimmedRecipeID = recipeID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRecipeID.isEmpty else {
+            return copy(savedAt: savedAt)
+        }
+
+        var nextDrafts = spoonCookLogDraftsByRecipeID
+        if let draft = draft?.persistable {
+            nextDrafts[draft.recipeID] = draft
+        } else {
+            nextDrafts.removeValue(forKey: trimmedRecipeID)
+        }
+        return copy(spoonCookLogDraftsByRecipeID: nextDrafts, savedAt: savedAt)
     }
 
     public func updatingShoppingList(
@@ -131,6 +158,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
     private func copy(
         hasCompletedFirstRun: Bool? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
+        spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]? = nil,
         shoppingList: ShoppingListState?? = nil,
         captureDraft: CaptureDraft?? = nil,
         pendingMutations: MutationQueue? = nil,
@@ -143,11 +171,45 @@ public struct NativeAppSnapshot: Codable, Equatable {
             environment: environment,
             hasCompletedFirstRun: hasCompletedFirstRun ?? self.hasCompletedFirstRun,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
+            spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID ?? self.spoonCookLogDraftsByRecipeID,
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
             pendingMutations: pendingMutations ?? self.pendingMutations,
             lastOpenedRoute: lastOpenedRoute ?? self.lastOpenedRoute,
             savedAt: savedAt
+        )
+    }
+}
+
+extension NativeAppSnapshot {
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case accountID
+        case environment
+        case hasCompletedFirstRun
+        case cookProgressByRecipeID
+        case spoonCookLogDraftsByRecipeID
+        case shoppingList
+        case captureDraft
+        case pendingMutations
+        case lastOpenedRoute
+        case savedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            schemaVersion: try container.decode(Int.self, forKey: .schemaVersion),
+            accountID: try container.decodeIfPresent(String.self, forKey: .accountID),
+            environment: try container.decodeIfPresent(NativeCacheEnvironment.self, forKey: .environment),
+            hasCompletedFirstRun: try container.decode(Bool.self, forKey: .hasCompletedFirstRun),
+            cookProgressByRecipeID: try container.decode([String: CookModeProgress].self, forKey: .cookProgressByRecipeID),
+            spoonCookLogDraftsByRecipeID: try container.decodeIfPresent([String: SpoonCookLogDraftState].self, forKey: .spoonCookLogDraftsByRecipeID) ?? [:],
+            shoppingList: try container.decodeIfPresent(ShoppingListState.self, forKey: .shoppingList),
+            captureDraft: try container.decodeIfPresent(CaptureDraft.self, forKey: .captureDraft),
+            pendingMutations: try container.decode(MutationQueue.self, forKey: .pendingMutations),
+            lastOpenedRoute: try container.decodeIfPresent(String.self, forKey: .lastOpenedRoute),
+            savedAt: try container.decode(String.self, forKey: .savedAt)
         )
     }
 }

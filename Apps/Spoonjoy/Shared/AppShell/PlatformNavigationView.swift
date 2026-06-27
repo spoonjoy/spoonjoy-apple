@@ -14,6 +14,7 @@ struct PlatformNavigationView: View {
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
     private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
+    private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
@@ -28,6 +29,7 @@ struct PlatformNavigationView: View {
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
         recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
+        recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
@@ -41,6 +43,7 @@ struct PlatformNavigationView: View {
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
         self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
+        self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
 
@@ -121,6 +124,7 @@ struct PlatformNavigationView: View {
             RecipeDetailRouteView(
                 recipeID: id,
                 repository: recipeCatalogRepository,
+                spoonRepository: spoonCookLogRepository,
                 initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
                 actionConnectivity: recipeActionConnectivity,
                 shoppingViewModel: shoppingViewModel,
@@ -128,8 +132,13 @@ struct PlatformNavigationView: View {
                 actionPlanner: { viewModel, context in
                     recipeActionsViewModel(for: viewModel, context: context)
                 },
+                spoonCookLogViewModel: spoonCookLogViewModel(for:summary:),
+                spoonCookLogDraft: spoonCookLogDraft(for:),
                 openRoute: openRoute,
                 performRecipeAction: performRecipeAction,
+                performSpoonCookLogAction: performSpoonCookLogAction,
+                recordSpoonCookLogDraft: recordSpoonCookLogDraft(_:forRecipeID:),
+                discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
                 performShoppingAction: performShoppingAction
             )
         case .recipeDetail(let id, .cook):
@@ -356,6 +365,10 @@ struct PlatformNavigationView: View {
         return FallbackRecipeCatalogRepository(primary: liveRepository, fallback: snapshotRepository)
     }
 
+    private var spoonCookLogRepository: any SpoonCookLogRepository {
+        LiveSpoonCookLogRepository(configuration: contentState.configuration)
+    }
+
     private var recipeCatalogViewModel: RecipeCatalogViewModel {
         let viewModel = RecipeCatalogViewModel(repository: recipeCatalogRepository)
         viewModel.apply(page: contentState.recipeCatalog)
@@ -377,6 +390,30 @@ struct PlatformNavigationView: View {
             connectivity: recipeActionConnectivity,
             now: { plannedAt }
         )
+    }
+
+    private func spoonCookLogViewModel(
+        for viewModel: RecipeDetailScreenViewModel,
+        summary: RecipeDetailSpoonSummary
+    ) -> SpoonCookLogViewModel {
+        SpoonCookLogViewModel(
+            recipeID: viewModel.id,
+            data: SpoonCookLogData(summary: summary),
+            currentChefID: currentChefID,
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: spoonCookLogConnectivity,
+            draftMediaUsage: SpoonCookLogStagedMediaUsage(drafts: Array(contentState.spoonCookLogDraftsByRecipeID.values)),
+            now: { ISO8601DateFormatter().string(from: Date()) }
+        )
+    }
+
+    private func spoonCookLogDraft(for viewModel: RecipeDetailScreenViewModel) -> SpoonCookLogDraftState? {
+        contentState.spoonCookLogDraft(recipeID: viewModel.id)
+    }
+
+    private func recordSpoonCookLogDraft(_ draft: SpoonCookLogDraftState?, forRecipeID recipeID: String) {
+        recordSpoonCookLogDraftHandler(draft, recipeID)
     }
 
     private func recipeDetailContext(for recipe: Recipe) -> RecipeDetailContext {
@@ -442,6 +479,14 @@ struct PlatformNavigationView: View {
     }
 
     private var recipeCoverControlsConnectivity: RecipeCoverControlsConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var spoonCookLogConnectivity: SpoonCookLogConnectivity {
         if offlineIndicatorState.display == .offline {
             return .offline
         }
@@ -536,6 +581,35 @@ struct PlatformNavigationView: View {
                 throw error
             }
         }
+    }
+
+    private func performSpoonCookLogAction(_ plan: SpoonCookLogMutationPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    @MainActor private func discardSpoonCookLogConflict(clientMutationID: String) async throws {
+        try await discardQueuedMutation(clientMutationID)
     }
 
     private func hasQueuedMutation(withDependencyKey dependencyKey: String) -> Bool {
