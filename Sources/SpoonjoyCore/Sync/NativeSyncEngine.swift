@@ -816,6 +816,7 @@ public enum NativeQueuedMutationKind: String, Codable, CaseIterable, Equatable, 
     case spoonDelete = "spoon.delete"
     case coverUpload = "cover.upload"
     case coverSetActive = "cover.setActive"
+    case coverSetNoCover = "cover.setNoCover"
     case coverArchive = "cover.archive"
     case coverRegenerate = "cover.regenerate"
     case coverFromSpoon = "cover.fromSpoon"
@@ -861,6 +862,7 @@ public enum NativeQueuedMutationKind: String, Codable, CaseIterable, Equatable, 
         .spoonDelete,
         .coverUpload,
         .coverSetActive,
+        .coverSetNoCover,
         .coverArchive,
         .coverRegenerate,
         .coverFromSpoon,
@@ -1098,7 +1100,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         switch queueableKind {
         case .recipeCreate:
             "recipe:new:\(clientMutationID)"
-        case .recipeUpdate, .recipeDelete, .recipeFork, .recipeStepCreate, .recipeStepUpdate, .recipeStepDelete, .recipeStepReorder, .recipeIngredientAdd, .recipeIngredientDelete, .recipeOutputUsesReplace, .spoonCreate, .spoonCreatePhoto, .spoonUpdate, .spoonDelete, .coverUpload, .coverSetActive, .coverArchive, .coverRegenerate, .coverFromSpoon:
+        case .recipeUpdate, .recipeDelete, .recipeFork, .recipeStepCreate, .recipeStepUpdate, .recipeStepDelete, .recipeStepReorder, .recipeIngredientAdd, .recipeIngredientDelete, .recipeOutputUsesReplace, .spoonCreate, .spoonCreatePhoto, .spoonUpdate, .spoonDelete, .coverUpload, .coverSetActive, .coverSetNoCover, .coverArchive, .coverRegenerate, .coverFromSpoon:
             "recipe:\(stringValue("recipeId") ?? "")"
         case .cookbookCreate:
             "cookbook:new:\(clientMutationID)"
@@ -1325,6 +1327,8 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             return try multipart(.post, ["api", "v1", "recipes", requiredString("recipeId"), "image"], fileField: "image", mediaKey: "image")
         case .coverSetActive:
             return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")], excluding: ["recipeId", "coverId"])
+        case .coverSetNoCover:
+            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "covers"], excluding: ["recipeId"])
         case .coverArchive:
             return try queryDeleteWithBody(["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")], excluding: ["recipeId", "coverId"])
         case .coverRegenerate:
@@ -2556,6 +2560,10 @@ public extension NativeQueuedMutation {
 
     static func coverSetActive(recipeID: String, coverID: String, clientMutationID: String, variant: RecipeCoverVariant, createdAt: String) -> NativeQueuedMutation {
         NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverSetActive, values: ["recipeId": .string(recipeID), "coverId": .string(coverID), "variant": .string(variant.rawValue)])
+    }
+
+    static func coverSetNoCover(recipeID: String, clientMutationID: String, confirmNoCover: Bool, createdAt: String) -> NativeQueuedMutation {
+        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverSetNoCover, values: ["recipeId": .string(recipeID), "confirmNoCover": .bool(confirmNoCover)])
     }
 
     static func coverArchive(recipeID: String, coverID: String, clientMutationID: String, replacementCoverID: String?, replacementVariant: RecipeCoverVariant?, confirmNoCover: Bool, deleteSafeObjects: Bool, createdAt: String) -> NativeQueuedMutation {

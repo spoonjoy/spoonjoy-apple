@@ -80,6 +80,34 @@ struct RecipeActionParityTests {
         #expect(viewModel.ownerTools.deleteConfirmation == nil)
     }
 
+    @Test("platform navigation renders native cover controls instead of a placeholder")
+    func platformNavigationRendersNativeCoverControls() throws {
+        let navigationSource = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+        #expect(navigationSource.contains("RecipeCoverControlsRouteView("))
+        #expect(navigationSource.contains("connectivity: recipeCoverControlsConnectivity"))
+        #expect(navigationSource.contains("performCoverAction: performCoverAction"))
+        #expect(navigationSource.contains("private func performCoverAction(_ plan: RecipeCoverControlsMutationPlan) async throws"))
+        #expect(navigationSource.contains("hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey)"))
+        #expect(navigationSource.contains("queueMutations([offlineFallbackMutation], true)"))
+        #expect(!navigationSource.contains("case .recipeCoverControls(let id):\n            ShellPlaceholderView"))
+
+        let coverControlsSource = try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+        let coverControlsCoreSource = try readRepoFile("Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift")
+        #expect(coverControlsCoreSource.contains("RecipeCoverRequests.listCovers"))
+        #expect(coverControlsCoreSource.contains("includeArchived: true"))
+        #expect(coverControlsCoreSource.contains("spoonImages: envelope.data.spoonImages"))
+        #expect(coverControlsSource.contains("RecipeCoverControlsData.live"))
+        #expect(coverControlsSource.contains("Archive And Replace"))
+        #expect(coverControlsSource.contains("replacementOptions(for: cover)"))
+        #expect(coverControlsSource.contains("replacementCoverID: option.coverID"))
+        #expect(coverControlsSource.contains("confirmNoCover: false"))
+        #expect(coverControlsSource.contains("activateWhenReady: false"))
+        #expect(coverControlsSource.contains("activate: false"))
+        #expect(!coverControlsSource.contains("activateWhenReady: cover.isActive"))
+        #expect(!coverControlsCoreSource.contains("activateWhenReady: cover.isActive"))
+        #expect(!coverControlsSource.contains("RecipeSpoonRequests.listSpoons"))
+    }
+
     @Test("online recipe actions plan exact REST mutations with offline fallbacks")
     func onlineRecipeActionsPlanExactRESTMutationsWithOfflineFallbacks() throws {
         let recipe = try Self.recipeDetail()
@@ -392,6 +420,23 @@ private func assertNoBodyRequest(
 private func jsonBody(from request: APIRequest) throws -> [String: Any] {
     let body = try #require(request.body)
     return try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+}
+
+private func readRepoFile(_ relativePath: String) throws -> String {
+    let url = repoRootURL().appendingPathComponent(relativePath)
+    return try String(contentsOf: url, encoding: .utf8)
+}
+
+private func repoRootURL() -> URL {
+    var candidate = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    while candidate.path != "/" {
+        if FileManager.default.fileExists(atPath: candidate.appendingPathComponent("Package.swift").path) {
+            return candidate
+        }
+        candidate.deleteLastPathComponent()
+    }
+
+    return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 }
 
 private struct RecipeActionParityTestFailure: Error, CustomStringConvertible {

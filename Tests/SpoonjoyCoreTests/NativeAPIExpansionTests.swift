@@ -569,6 +569,12 @@ struct NativeAPIExpansionTests {
             variant: RecipeCoverAPIVariant.stylized
         )
         .urlRequest(configuration: Self.privateConfiguration)
+        let noCover = try RecipeCoverRequests.setNoCover(
+            recipeID: "recipe/one",
+            clientMutationID: "cover-none-1",
+            confirmNoCover: true
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
         let archiveCover = try RecipeCoverRequests.archive(
             recipeID: "recipe/one",
             coverID: "cover/raw",
@@ -674,6 +680,10 @@ struct NativeAPIExpansionTests {
         assertJSONRequest(activateCover, method: .patch, path: "/api/v1/recipes/recipe%2Fone/covers/cover%2Fraw", expected: [
             "clientMutationId": "cover-activate-1",
             "variant": "stylized"
+        ])
+        assertJSONRequest(noCover, method: .patch, path: "/api/v1/recipes/recipe%2Fone/covers", expected: [
+            "clientMutationId": "cover-none-1",
+            "confirmNoCover": true
         ])
         assertRequest(
             archiveCover,
@@ -1200,8 +1210,8 @@ struct NativeAPIExpansionTests {
             recipeID: "recipe/pantry",
             coverID: "cover/old",
             clientMutationID: "cover-archive-body",
-            replacementCoverID: "cover/new",
-            replacementVariant: .image,
+            replacementCoverID: nil,
+            replacementVariant: nil,
             confirmNoCover: false,
             deleteSafeObjects: true,
             idempotency: .body
@@ -1209,8 +1219,8 @@ struct NativeAPIExpansionTests {
         .urlRequest(configuration: Self.privateConfiguration)
         assertJSONRequest(archiveBody, method: .delete, path: "/api/v1/recipes/recipe%2Fpantry/covers/cover%2Fold", expected: [
             "clientMutationId": "cover-archive-body",
-            "replacementCoverId": "cover/new",
-            "replacementVariant": "image",
+            "replacementCoverId": NSNull(),
+            "replacementVariant": NSNull(),
             "confirmNoCover": false,
             "deleteSafeObjects": true
         ])

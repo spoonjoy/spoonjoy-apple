@@ -309,10 +309,15 @@ struct NativeAuthSessionTests {
                 "handleOAuthCallback",
                 "cancel()",
                 "OAuthState",
-                "preferredWindowScene",
+                "SpoonjoyAuthenticationPresentationContextProvider.make()",
+                "SpoonjoyUnavailableWebAuthenticationSession",
+                "activeSession = didStart ? session : nil",
+                "preferredPresentationAnchor",
+                "NSApplication.shared.keyWindow",
                 "ASPresentationAnchor(windowScene: windowScene)"
             ],
             forbids: [
+                "preconditionFailure",
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
@@ -1430,6 +1435,24 @@ struct WebAuthenticationSessionAdapterContract {
         adapter.cancel()
         #expect(session.cancelCount == 1)
     }
+
+    @Test("adapter clears active session when system start fails")
+    func adapterClearsActiveSessionWhenSystemStartFails() throws {
+        let factory = FakeSessionFactory(startResult: false)
+        let adapter = SpoonjoyWebAuthenticationSession(
+            sessionFactory: factory.makeSession,
+            callbackHandler: { _ in }
+        )
+        let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
+        let state = try #require(OAuthState(rawValue: "state_123"))
+
+        #expect(try !adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        let session = try #require(factory.sessions.first)
+        #expect(session.startCount == 1)
+
+        adapter.cancel()
+        #expect(session.cancelCount == 0)
+    }
 }
 
 private struct FakeSessionRequest: Equatable {
@@ -1442,6 +1465,11 @@ private final class FakeSessionFactory {
     private(set) var requests: [FakeSessionRequest] = []
     private(set) var sessions: [FakeWebAuthenticationSession] = []
     private var completionHandler: (@MainActor (URL?, Error?) -> Void)?
+    private let startResult: Bool
+
+    init(startResult: Bool = true) {
+        self.startResult = startResult
+    }
 
     func makeSession(
         authorizationURL: URL,
@@ -1450,7 +1478,7 @@ private final class FakeSessionFactory {
     ) -> any SpoonjoyWebAuthenticationSessionProtocol {
         requests.append(FakeSessionRequest(authorizationURL: authorizationURL, callback: callback))
         self.completionHandler = completionHandler
-        let session = FakeWebAuthenticationSession()
+        let session = FakeWebAuthenticationSession(startResult: startResult)
         sessions.append(session)
         return session
     }
@@ -1465,10 +1493,15 @@ private final class FakeWebAuthenticationSession: SpoonjoyWebAuthenticationSessi
     var prefersEphemeralWebBrowserSession = false
     private(set) var startCount = 0
     private(set) var cancelCount = 0
+    private let startResult: Bool
+
+    init(startResult: Bool = true) {
+        self.startResult = startResult
+    }
 
     func start() -> Bool {
         startCount += 1
-        return true
+        return startResult
     }
 
     func cancel() {

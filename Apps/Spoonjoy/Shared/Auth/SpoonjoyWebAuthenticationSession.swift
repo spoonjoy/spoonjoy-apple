@@ -2,6 +2,10 @@ import AuthenticationServices
 import Foundation
 import SpoonjoyCore
 
+#if os(macOS)
+import AppKit
+#endif
+
 #if os(iOS) || os(tvOS) || os(visionOS)
 import UIKit
 #endif
@@ -42,7 +46,10 @@ final class SpoonjoyWebAuthenticationSession {
 
     convenience init(callbackHandler: @escaping @MainActor (URL) -> Void) {
         self.init(
-            sessionFactory: { [presentationContextProvider = SpoonjoyAuthenticationPresentationContextProvider()] authorizationURL, _, completionHandler in
+            sessionFactory: { authorizationURL, _, completionHandler in
+                guard let presentationContextProvider = SpoonjoyAuthenticationPresentationContextProvider.make() else {
+                    return SpoonjoyUnavailableWebAuthenticationSession()
+                }
                 let callback = ASWebAuthenticationSession.Callback.https(host: "spoonjoy.app", path: "/oauth/callback")
                 let session = ASWebAuthenticationSession(url: authorizationURL, callback: callback) { url, error in
                     Task { @MainActor in
@@ -69,8 +76,9 @@ final class SpoonjoyWebAuthenticationSession {
             self?.handleOAuthCallback(callbackURL)
         }
         session.prefersEphemeralWebBrowserSession = true
-        activeSession = session
-        return session.start()
+        let didStart = session.start()
+        activeSession = didStart ? session : nil
+        return didStart
     }
 
     func handleOAuthCallback(_ callbackURL: URL) {
@@ -84,29 +92,56 @@ final class SpoonjoyWebAuthenticationSession {
 }
 
 private final class SpoonjoyAuthenticationPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private let anchor: ASPresentationAnchor
+
+    @MainActor
+    static func make() -> SpoonjoyAuthenticationPresentationContextProvider? {
+        guard let anchor = Self.preferredPresentationAnchor else {
+            return nil
+        }
+        return SpoonjoyAuthenticationPresentationContextProvider(anchor: anchor)
+    }
+
+    private init(anchor: ASPresentationAnchor) {
+        self.anchor = anchor
+        super.init()
+    }
+
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        anchor
+    }
+
+    @MainActor
+    private static var preferredPresentationAnchor: ASPresentationAnchor? {
         #if os(iOS) || os(tvOS) || os(visionOS)
-        let windowScene = MainActor.assumeIsolated {
-            Self.preferredWindowScene
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let keyWindow = scenes.flatMap(\.windows).first(where: \.isKeyWindow) {
+            return keyWindow
         }
-        guard let windowScene else {
-            preconditionFailure("Spoonjoy requires an active window scene before starting web authentication.")
+        if let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first {
+            return ASPresentationAnchor(windowScene: windowScene)
         }
-        return ASPresentationAnchor(windowScene: windowScene)
+        return nil
+        #elseif os(macOS)
+        return NSApplication.shared.keyWindow
+            ?? NSApplication.shared.mainWindow
+            ?? NSApplication.shared.windows.first(where: \.isVisible)
+            ?? NSApplication.shared.windows.first
         #else
         return ASPresentationAnchor()
         #endif
     }
+}
 
-    #if os(iOS) || os(tvOS) || os(visionOS)
-    @MainActor
-    private static var preferredWindowScene: UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first { scene in
-            scene.activationState == .foregroundActive && scene.windows.contains { $0.isKeyWindow }
-        } ?? scenes.first { scene in
-            scene.activationState == .foregroundActive
-        } ?? scenes.first
+@MainActor
+private final class SpoonjoyUnavailableWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
+    var prefersEphemeralWebBrowserSession = false
+
+    func start() -> Bool {
+        false
     }
-    #endif
+
+    func cancel() {
+        // No active system session was created.
+    }
 }

@@ -433,6 +433,7 @@ struct NativeSyncEngineTests {
             "spoon.delete": ["recipeId", "spoonId"],
             "cover.upload": ["recipeId", "image", "activate", "generateEditorial"],
             "cover.setActive": ["recipeId", "coverId", "variant"],
+            "cover.setNoCover": ["recipeId", "confirmNoCover"],
             "cover.archive": ["recipeId", "coverId", "replacementCoverId", "replacementVariant", "confirmNoCover", "deleteSafeObjects"],
             "cover.regenerate": ["recipeId", "coverId", "activateWhenReady"],
             "cover.fromSpoon": ["recipeId", "spoonId", "activate", "generateEditorial"],
@@ -1233,6 +1234,10 @@ struct NativeSyncEngineTests {
             .json(.coverSetActive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: Self.createdAt(27)), .patch, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw", [
                 "clientMutationId": "cm_cover_active",
                 "variant": "stylized"
+            ]),
+            .json(.coverSetNoCover(recipeID: "recipe/lemon", clientMutationID: "cm_cover_none", confirmNoCover: true, createdAt: Self.createdAt(28)), .patch, "/api/v1/recipes/recipe%2Flemon/covers", [
+                "clientMutationId": "cm_cover_none",
+                "confirmNoCover": true
             ]),
             .json(.coverArchive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover/replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: Self.createdAt(28)), .delete, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw", [
                 "replacementCoverId": "cover/replacement",
@@ -3215,6 +3220,7 @@ struct NativeSyncEngineTests {
         let cover: [NativeQueuedMutation] = [
             .coverUpload(recipeID: "recipe_lemon", image: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: createdAt(26)),
             .coverSetActive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: createdAt(27)),
+            .coverSetNoCover(recipeID: "recipe_lemon", clientMutationID: "cm_cover_none", confirmNoCover: true, createdAt: createdAt(28)),
             .coverArchive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover_replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: createdAt(28)),
             .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_editorial", activateWhenReady: true, clientMutationID: "cm_cover_regen", createdAt: createdAt(29)),
             .coverFromSpoon(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: createdAt(30))

@@ -158,7 +158,17 @@ struct PlatformNavigationView: View {
                 ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "Recipe unavailable.")
             }
         case .recipeCoverControls(let id):
-            ShellPlaceholderView(title: "Recipe Covers", systemImage: "photo.on.rectangle", detail: id)
+            RecipeCoverControlsRouteView(
+                recipeID: id,
+                initialRecipe: recipe(id: id),
+                recipeRepository: recipeCatalogRepository,
+                configuration: contentState.configuration,
+                connectivity: recipeCoverControlsConnectivity,
+                performCoverAction: performCoverAction,
+                close: {
+                    openRecipe(id)
+                }
+            )
         case .cookbooks:
             CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
         case .cookbookDetail(let id):
@@ -431,6 +441,14 @@ struct PlatformNavigationView: View {
         return .online
     }
 
+    private var recipeCoverControlsConnectivity: RecipeCoverControlsConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
     private var shoppingSurfaceConnectivity: ShoppingSurfaceConnectivity {
         if offlineIndicatorState.display == .offline {
             return .offline
@@ -492,6 +510,37 @@ struct PlatformNavigationView: View {
                 }
                 throw error
             }
+        }
+    }
+
+    private func performCoverAction(_ plan: RecipeCoverControlsMutationPlan) async throws {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return
+        }
+
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func hasQueuedMutation(withDependencyKey dependencyKey: String) -> Bool {
+        contentState.queuedMutations.contains { mutation in
+            mutation.dependencyKey == dependencyKey
         }
     }
 

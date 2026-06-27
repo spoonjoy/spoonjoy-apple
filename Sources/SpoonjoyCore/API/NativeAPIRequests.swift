@@ -606,12 +606,27 @@ public enum RecipeCoverRequests {
         )
     }
 
+    public static func setNoCover(
+        recipeID: String,
+        clientMutationID: String,
+        confirmNoCover: Bool
+    ) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSON(
+            method: .patch,
+            pathComponents: ["api", "v1", "recipes", recipeID, "covers"],
+            body: [
+                "clientMutationId": clientMutationID,
+                "confirmNoCover": confirmNoCover
+            ]
+        )
+    }
+
     public static func archive(
         recipeID: String,
         coverID: String,
         clientMutationID: String,
-        replacementCoverID: String,
-        replacementVariant: RecipeCoverAPIVariant,
+        replacementCoverID: String?,
+        replacementVariant: RecipeCoverAPIVariant?,
         confirmNoCover: Bool,
         deleteSafeObjects: Bool,
         idempotency: MutationIdempotency
@@ -621,8 +636,8 @@ public enum RecipeCoverRequests {
             clientMutationID: clientMutationID,
             idempotency: idempotency,
             body: [
-                "replacementCoverId": replacementCoverID,
-                "replacementVariant": replacementVariant.rawValue,
+                "replacementCoverId": replacementCoverID ?? NSNull(),
+                "replacementVariant": replacementVariant?.rawValue ?? NSNull(),
                 "confirmNoCover": confirmNoCover,
                 "deleteSafeObjects": deleteSafeObjects
             ]

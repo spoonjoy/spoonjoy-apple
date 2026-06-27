@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-06-27T06:08:12-07:00",
+  "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
+  "httpsNoRedirectExpected": true,
+  "redirected": false,
+  "requiredAppIDs": [
+    "TEAMID.app.spoonjoy.Spoonjoy",
+    "TEAMID.app.spoonjoy.Spoonjoy.mac"
+  ],
+  "expectedRoutes": [
+    "https://spoonjoy.app/",
+    "https://spoonjoy.app/recipes",
+    "https://spoonjoy.app/recipes/{id}",
+    "https://spoonjoy.app/recipes/{id}/edit",
+    "https://spoonjoy.app/recipes/{id}#cook",
+    "https://spoonjoy.app/recipes/{id}?mode=cook",
+    "https://spoonjoy.app/cookbooks",
+    "https://spoonjoy.app/cookbooks/{id}",
+    "https://spoonjoy.app/shopping-list",
+    "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+    "https://spoonjoy.app/recipes/new",
+    "https://spoonjoy.app/account/settings"
+  ],
+  "expectedComponents": [
+    {
+      "/": "/"
+    },
+    {
+      "/": "/recipes"
+    },
+    {
+      "/": "/recipes/*"
+    },
+    {
+      "/": "/cookbooks"
+    },
+    {
+      "/": "/cookbooks/*"
+    },
+    {
+      "/": "/shopping-list"
+    },
+    {
+      "/": "/search",
+      "?": {
+        "*": "*"
+      }
+    },
+    {
+      "/": "/recipes/new"
+    },
+    {
+      "/": "/account/settings"
+    }
+  ],
+  "fetched": {
+    "status": 404,
+    "contentType": "text/html",
+    "location": null,
+    "bodySHA256": "b4c10efd3282e6725c16d8c2f1cc709068b98017cfe9769cd1fbcd4dbea6b52f",
+    "bodyBytes": 14841
+  },
+  "validJSON": false,
+  "discoveredAppIDs": [
+
+  ],
+  "ok": false,
+  "blocked": true,
+  "capability": "AASAProductionValidation",
+  "reason": "AASA endpoint did not return valid JSON.",
+  "blockerReason": "AASA endpoint did not return valid JSON."
+}
