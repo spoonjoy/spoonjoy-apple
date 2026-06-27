@@ -13,6 +13,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
     public let spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
+    public let pendingCaptureImport: NativeQueuedMutation?
+    public let captureImportProviderBlocker: String?
     public let pendingMutations: MutationQueue
     public let lastOpenedRoute: String?
     public let savedAt: String
@@ -26,6 +28,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState] = [:],
         shoppingList: ShoppingListState?,
         captureDraft: CaptureDraft?,
+        pendingCaptureImport: NativeQueuedMutation? = nil,
+        captureImportProviderBlocker: String? = nil,
         pendingMutations: MutationQueue,
         lastOpenedRoute: String?,
         savedAt: String
@@ -38,6 +42,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
         self.spoonCookLogDraftsByRecipeID = spoonCookLogDraftsByRecipeID
         self.shoppingList = shoppingList
         self.captureDraft = captureDraft
+        self.pendingCaptureImport = pendingCaptureImport
+        self.captureImportProviderBlocker = captureImportProviderBlocker
         self.pendingMutations = pendingMutations
         self.lastOpenedRoute = lastOpenedRoute
         self.savedAt = savedAt
@@ -58,6 +64,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
             spoonCookLogDraftsByRecipeID: [:],
             shoppingList: shoppingList,
             captureDraft: nil,
+            pendingCaptureImport: nil,
+            captureImportProviderBlocker: nil,
             pendingMutations: MutationQueue(),
             lastOpenedRoute: nil,
             savedAt: savedAt
@@ -144,7 +152,59 @@ public struct NativeAppSnapshot: Codable, Equatable {
     }
 
     public func updatingCaptureDraft(_ captureDraft: CaptureDraft, savedAt: String) -> NativeAppSnapshot {
-        copy(captureDraft: captureDraft, savedAt: savedAt)
+        recordingCaptureDraft(captureDraft, savedAt: savedAt)
+    }
+
+    public func recordingCaptureDraft(_ captureDraft: CaptureDraft, savedAt: String) -> NativeAppSnapshot {
+        let draftImportSource = try? captureDraft.importSource()
+        let pendingImportMatchesDraft = draftImportSource.map { pendingCaptureImport?.recipeImportSource == $0 } ?? false
+        let shouldClearPendingImport = pendingCaptureImport != nil && !pendingImportMatchesDraft
+        let shouldClearProviderBlocker = captureImportProviderBlocker != nil && self.captureDraft != captureDraft
+
+        return copy(
+            captureDraft: captureDraft,
+            pendingCaptureImport: shouldClearPendingImport ? .some(nil) : nil,
+            captureImportProviderBlocker: (shouldClearPendingImport || shouldClearProviderBlocker) ? .some(nil) : nil,
+            savedAt: savedAt
+        )
+    }
+
+    public func discardingCaptureDraft(id: String, savedAt: String) -> NativeAppSnapshot {
+        guard captureDraft?.id == id else {
+            return copy(savedAt: savedAt)
+        }
+        return copy(
+            captureDraft: .some(nil),
+            pendingCaptureImport: .some(nil),
+            captureImportProviderBlocker: .some(nil),
+            savedAt: savedAt
+        )
+    }
+
+    public func recordingCaptureImportRetry(_ mutation: NativeQueuedMutation, savedAt: String) -> NativeAppSnapshot {
+        copy(pendingCaptureImport: mutation, captureImportProviderBlocker: .some(nil), savedAt: savedAt)
+    }
+
+    public func recordingCaptureImportProviderBlocker(resourceID: String, savedAt: String) -> NativeAppSnapshot {
+        let trimmed = resourceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return copy(
+            pendingCaptureImport: .some(nil),
+            captureImportProviderBlocker: trimmed.isEmpty ? "recipe-import" : trimmed,
+            savedAt: savedAt
+        )
+    }
+
+    public func clearingDrainedCaptureImport(clientMutationIDs: Set<String>, savedAt: String) -> NativeAppSnapshot {
+        guard let pendingCaptureImport,
+              clientMutationIDs.contains(pendingCaptureImport.clientMutationID) else {
+            return copy(savedAt: savedAt)
+        }
+        return copy(
+            captureDraft: .some(nil),
+            pendingCaptureImport: .some(nil),
+            captureImportProviderBlocker: .some(nil),
+            savedAt: savedAt
+        )
     }
 
     public func recordingOpenedRoute(_ route: AppRoute, savedAt: String) -> NativeAppSnapshot {
@@ -161,6 +221,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]? = nil,
         shoppingList: ShoppingListState?? = nil,
         captureDraft: CaptureDraft?? = nil,
+        pendingCaptureImport: NativeQueuedMutation?? = nil,
+        captureImportProviderBlocker: String?? = nil,
         pendingMutations: MutationQueue? = nil,
         lastOpenedRoute: String?? = nil,
         savedAt: String
@@ -174,6 +236,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
             spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID ?? self.spoonCookLogDraftsByRecipeID,
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
+            pendingCaptureImport: pendingCaptureImport ?? self.pendingCaptureImport,
+            captureImportProviderBlocker: captureImportProviderBlocker ?? self.captureImportProviderBlocker,
             pendingMutations: pendingMutations ?? self.pendingMutations,
             lastOpenedRoute: lastOpenedRoute ?? self.lastOpenedRoute,
             savedAt: savedAt
@@ -191,6 +255,8 @@ extension NativeAppSnapshot {
         case spoonCookLogDraftsByRecipeID
         case shoppingList
         case captureDraft
+        case pendingCaptureImport
+        case captureImportProviderBlocker
         case pendingMutations
         case lastOpenedRoute
         case savedAt
@@ -207,6 +273,8 @@ extension NativeAppSnapshot {
             spoonCookLogDraftsByRecipeID: try container.decodeIfPresent([String: SpoonCookLogDraftState].self, forKey: .spoonCookLogDraftsByRecipeID) ?? [:],
             shoppingList: try container.decodeIfPresent(ShoppingListState.self, forKey: .shoppingList),
             captureDraft: try container.decodeIfPresent(CaptureDraft.self, forKey: .captureDraft),
+            pendingCaptureImport: try container.decodeIfPresent(NativeQueuedMutation.self, forKey: .pendingCaptureImport),
+            captureImportProviderBlocker: try container.decodeIfPresent(String.self, forKey: .captureImportProviderBlocker),
             pendingMutations: try container.decode(MutationQueue.self, forKey: .pendingMutations),
             lastOpenedRoute: try container.decodeIfPresent(String.self, forKey: .lastOpenedRoute),
             savedAt: try container.decode(String.self, forKey: .savedAt)

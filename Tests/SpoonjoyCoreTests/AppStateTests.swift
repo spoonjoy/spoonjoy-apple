@@ -167,7 +167,7 @@ struct AppStateTests {
         #expect(restoredFromEmptyActiveList.shoppingList.item(id: "item_archived")?.sortIndex == 0)
         #expect(capturePreviewLines == draft.previewLines)
         #expect(captureStatus == .localOnly)
-        #expect(!captureCanCreateServerRecipe)
+        #expect(captureCanCreateServerRecipe)
         #expect(settingsRows == settings.statusRows)
         #expect(settingsCanReadShoppingList)
         #expect(settingsCanWriteShoppingList)

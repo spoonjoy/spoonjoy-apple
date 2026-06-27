@@ -2972,6 +2972,48 @@ struct NativeSyncEngineTests {
         #expect(remaining.last?.retryCount == 0)
     }
 
+    @Test("provider-secret blockers retain blocked imports while independent mutations drain")
+    func providerSecretBlockersRetainBlockedImportsWhileIndependentMutationsDrain() async throws {
+        let importMutation = NativeQueuedMutation.recipeImportSubmit(
+            source: .url(URL(string: "https://example.com/provider-blocked")!),
+            clientMutationID: "cm_import_provider_blocked",
+            createdAt: Self.createdAt(0)
+        )
+        let profileMutation = NativeQueuedMutation.profileDisplayUpdate(
+            email: "ari@example.com",
+            username: "ari",
+            clientMutationID: "cm_profile_after_blocked_import",
+            createdAt: Self.createdAt(1)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [importMutation, profileMutation])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .blocked(
+                    .providerSecret(resourceID: "recipe-import"),
+                    message: "ProviderSecret is required before Spoonjoy can finish this import."
+                ),
+                .success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let remaining = try await store.loadQueue().mutations
+
+        #expect(report.pausedReason == nil)
+        #expect(report.blockers == [.providerSecret(resourceID: "recipe-import")])
+        #expect(report.drainedClientMutationIDs == ["cm_profile_after_blocked_import"])
+        #expect(await transport.clientMutationIDs == ["cm_import_provider_blocked", "cm_profile_after_blocked_import"])
+        #expect(remaining.map(\.clientMutationID) == ["cm_import_provider_blocked"])
+        #expect(remaining.first?.lastError == "ProviderSecret is required before Spoonjoy can finish this import.")
+    }
+
     @Test("scheduled retry timestamps are honored before replaying a dependency key")
     func scheduledRetryTimestampsAreHonoredBeforeReplayingADependencyKey() async throws {
         let retrying = NativeQueuedMutation

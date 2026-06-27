@@ -43,11 +43,23 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
         ],
         spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item"],
         searchableScopes: ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
-        shareActions: ["capture-recipe-url", "share-recipe"],
+        shareActions: [
+            "capture-recipe-url",
+            "capture-recipe-text",
+            "capture-recipe-camera",
+            "capture-recipe-photo-library",
+            "capture-recipe-json-ld",
+            "capture-recipe-video-url",
+            "recipe-import-submit",
+            "share-recipe"
+        ],
         offlineFlows: [
             "fixture-offline-restore",
             "shopping-queue-replay",
-            "cook-mode-progress-restore"
+            "cook-mode-progress-restore",
+            "capture-draft-offline",
+            "capture-import-offline-retry",
+            "provider-secret-blocked-import"
         ],
         associatedDomains: DeepLinkManifest.associatedDomains,
         urlSchemes: DeepLinkManifest.urlSchemes,

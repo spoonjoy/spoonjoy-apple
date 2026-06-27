@@ -28,10 +28,28 @@ REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift" => [
     "CaptureDraftView",
     "CaptureDraftViewModel",
+    "CaptureImportViewModel",
     "CaptureDraft",
     "TextEditor",
     "CaptureDraft.localText",
-    "local draft",
+    "CaptureDraft.importURL",
+    "CaptureDraft.videoURL",
+    "CaptureDraft.jsonLD",
+    "CaptureDraft.cameraImage",
+    "CaptureDraft.photoLibraryImage",
+    "PhotosPicker",
+    "CameraCaptureView",
+    "VNRecognizeTextRequest",
+    "onChange(of: inputDraft)",
+    "reconcile(with: inputDraft)",
+    "hasPendingImport",
+    "Recipe URL",
+    "Video URL",
+    "Save JSON-LD",
+    "Camera",
+    "Submit Import",
+    "Discard Draft",
+    "plan.userFacingMessage",
     "canCreateServerRecipe",
     "KitchenTableTheme"
   ],
@@ -62,6 +80,14 @@ REQUIRED_TOKENS = {
   ]
 }.freeze
 
+PLATFORM_NAVIGATION_TOKENS = [
+  "queueCaptureImportRetryIfNeeded",
+  "recipeImportSource == draftImportSource",
+  "pendingCaptureImportMutation?.clientMutationID != mutation.clientMutationID",
+  "recordCaptureImportBlocker",
+  "executeCaptureImportRequest"
+].freeze
+
 FORBIDDEN_TOKENS = [
   "WKWebView",
   "className",
@@ -72,6 +98,8 @@ FORBIDDEN_TOKENS = [
   'Text("Search is next.")',
   'Text("Local draft capture is next.")',
   'Text("Offline, auth, and environment state.")',
+  "draftDidChange: { _ in }",
+  "Promotion requires a separate reviewed flow",
   ".constant(routeSearch)"
 ].freeze
 
@@ -102,6 +130,10 @@ REQUIRED_TOKENS.each do |relative_path, tokens|
   fail_check("#{relative_path} missing required search/capture/settings tokens: #{missing_tokens.join(", ")}") unless missing_tokens.empty?
 end
 
+navigation_content = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read)
+missing_navigation_tokens = PLATFORM_NAVIGATION_TOKENS.reject { |token| navigation_content.include?(token) }
+fail_check("PlatformNavigationView missing capture import retry/blocker tokens: #{missing_navigation_tokens.join(", ")}") unless missing_navigation_tokens.empty?
+
 forbidden_hits = REQUIRED_FILES.flat_map do |relative_path|
   content = uncommented_swift(ROOT.join(relative_path).read)
   tokens = FORBIDDEN_TOKENS + FORBIDDEN_BY_FILE.fetch(relative_path, [])
@@ -114,6 +146,7 @@ platform_navigation = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell
   fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
 end
 fail_check("PlatformNavigationView.swift must not freeze route search with .constant(routeSearch)") if platform_navigation.include?(".constant(routeSearch)")
+fail_check("PlatformNavigationView.swift must not discard provider-blocked imports") if platform_navigation.include?("pendingCaptureImportMutation?.clientMutationID == clientMutationID")
 [
   "defaultSettings",
   "PlatformNavigationView.defaultSettings",
@@ -129,6 +162,12 @@ end
   "openChef: { username in",
   "search.update(query: username, scope: .chefs)",
   "navigation.navigate(to: search.route)",
+  "recordCaptureDraft",
+  "discardCaptureDraft",
+  "recordCaptureImportRetry",
+  "recordCaptureImportBlocker",
+  "executeCaptureImportRequest",
+  "performCaptureImport(draft:",
   "SettingsView(",
   "contentState.settingsViewModel"
 ].each do |token|
@@ -148,7 +187,7 @@ scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swif
 [
   "finalReport",
   "search",
-  "capture draft creation",
+  "capture import submission",
   "settings state",
   "offline status",
   "safe unknown link",

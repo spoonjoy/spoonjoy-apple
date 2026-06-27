@@ -1179,6 +1179,58 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store executes capture import requests and prepends imported recipes")
+    func liveStoreExecutesCaptureImportRequestsAndPrependsImportedRecipes() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let existingRecipe = Self.sampleRecipe(id: "recipe_before_import", title: "Before Import Pasta")
+            let importedRecipe = Self.sampleRecipe(id: "recipe_after_import", title: "After Import Soup")
+            let syncData = try Self.sampleSyncData(
+                recipe: existingRecipe,
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: syncTransport,
+                recipeEditorAPITransport: { _ in
+                    CaptureImportAPITransport(importedRecipe: importedRecipe)
+                }
+            )
+            let draft = try CaptureDraft.importURL(
+                id: "draft_direct_capture_import",
+                url: URL(string: "https://example.com/direct-import")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let request = try NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_direct_capture_import",
+                createdAt: Self.isoString(Self.now)
+            ).requestBuilder()
+
+            await liveStore.bootstrap()
+            let response = try await liveStore.executeCaptureImportRequest(request)
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live sync after direct capture import; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(response.recipe?.id == "recipe_after_import")
+            #expect(content.recipes.map(\.id) == ["recipe_after_import", "recipe_before_import"])
+            #expect(content.recipeCatalog.rows.map(\.id) == ["recipe_after_import", "recipe_before_import"])
+        }
+    }
+
+    @MainActor
     @Test("live store dependencies default recipe editor transport is URLSession-backed")
     func liveStoreDependenciesDefaultRecipeEditorTransportIsURLSessionBacked() throws {
         let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
@@ -1373,6 +1425,341 @@ struct NativeLiveStoreTests {
             #expect(content.captureDraft == draft)
             #expect(content.authSessionState == .authenticated(savedSession))
             #expect(liveStore.restoredRoute == .capture)
+        }
+    }
+
+    @MainActor
+    @Test("live store persists direct capture import provider blocker through successful bootstrap")
+    func liveStorePersistsDirectCaptureImportProviderBlockerThroughSuccessfulBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { appStateStore }
+            )
+
+            await liveStore.bootstrap()
+            liveStore.recordCaptureImportBlocker(.providerSecret(retryAfterSeconds: 30))
+
+            guard case .blocker(let blockedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected direct provider blocker state; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )
+            let savedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+            #expect(blockedContent.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "recipe-import")))
+            #expect(savedSnapshot.captureImportProviderBlocker == "recipe-import")
+
+            let restoredStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { appStateStore }
+            )
+
+            await restoredStore.bootstrap()
+
+            guard case .blocker(let restoredContent) = restoredStore.bootstrapState else {
+                Issue.record("Expected persisted provider blocker after successful bootstrap; got \(restoredStore.bootstrapState)")
+                return
+            }
+            #expect(restoredContent.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "recipe-import")))
+        }
+    }
+
+    @MainActor
+    @Test("live store persists queued capture import blockers while unrelated work drains")
+    func liveStorePersistsQueuedCaptureImportBlockersWhileUnrelatedWorkDrains() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let draft = try CaptureDraft.importURL(
+                id: "draft_queued_provider_blocker",
+                url: URL(string: "https://example.com/provider-blocked-import")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let importMutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_import_provider_blocked",
+                createdAt: Self.isoString(Self.now)
+            )
+            let profileMutation = NativeQueuedMutation.profileDisplayUpdate(
+                email: "ari@example.com",
+                username: "ari",
+                clientMutationID: "cm_profile_after_import_blocker",
+                createdAt: Self.isoString(Self.now)
+            )
+            try appStateStore.save(
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "chef_ari",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+                .recordingCaptureDraft(draft, savedAt: Self.isoString(Self.now))
+                .recordingCaptureImportRetry(importMutation, savedAt: Self.isoString(Self.now))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [importMutation, profileMutation])
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(sends: [
+                    .blocked(
+                        .providerSecret(resourceID: "recipe-import"),
+                        message: "ProviderSecret is required before Spoonjoy can finish this import."
+                    ),
+                    .success(serverRevision: .updatedAt(Self.isoString(Self.now)))
+                ]),
+                appStateStoreProvider: { appStateStore }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .blocker(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected provider blocker state after queued import drain; got \(liveStore.bootstrapState)")
+                return
+            }
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )
+            let savedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+
+            #expect(content.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "recipe-import")))
+            #expect(content.queuedMutations.map(\.clientMutationID) == ["cm_import_provider_blocked"])
+            #expect(savedSnapshot.captureDraft == draft)
+            #expect(savedSnapshot.captureImportProviderBlocker == "recipe-import")
+            #expect(try await syncStore.loadQueue().mutations.map(\.clientMutationID) == ["cm_import_provider_blocked"])
+        }
+    }
+
+    @MainActor
+    @Test("live store handles capture import blockers without durable app state")
+    func liveStoreHandlesCaptureImportBlockersWithoutDurableAppState() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let draft = try CaptureDraft.importURL(
+                id: "draft_provider_blocker_no_app_state",
+                url: URL(string: "https://example.com/no-app-state-provider-blocker")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let importMutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_import_provider_blocked_no_app_state",
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [importMutation])
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(sends: [
+                    .blocked(
+                        .providerSecret(resourceID: "recipe-import"),
+                        message: "ProviderSecret is required before Spoonjoy can finish this import."
+                    )
+                ]),
+                appStateStoreProvider: { nil }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .blocker(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected provider blocker without app-state store; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "recipe-import")))
+            #expect(content.queuedMutations.map(\.clientMutationID) == ["cm_import_provider_blocked_no_app_state"])
+        }
+    }
+
+    @MainActor
+    @Test("live store clears capture draft and pending import after queued import drains")
+    func liveStoreClearsCaptureDraftAndPendingImportAfterQueuedImportDrains() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let draft = try CaptureDraft.importURL(
+                id: "draft_drained_import",
+                url: URL(string: "https://example.com/drained-import")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let mutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_drained_import",
+                createdAt: Self.isoString(Self.now)
+            )
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "chef_ari",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now)
+                )
+                .recordingCaptureDraft(draft, savedAt: Self.isoString(Self.now))
+                .recordingCaptureImportRetry(mutation, savedAt: Self.isoString(Self.now))
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [mutation])
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { appStateStore }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected drained import to reach live synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )
+            let savedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+            #expect(content.captureDraft == nil)
+            #expect(content.queuedMutations.isEmpty)
+            #expect(savedSnapshot.captureDraft == nil)
+            #expect(savedSnapshot.pendingCaptureImport == nil)
+
+            let brokenAppStateURL = directory.appendingPathComponent("broken-clear-drained-import-state.json", isDirectory: true)
+            try FileManager.default.createDirectory(at: brokenAppStateURL, withIntermediateDirectories: true)
+            let brokenClearMutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_drained_import_broken_app_state",
+                createdAt: Self.isoString(Self.now)
+            )
+            let brokenClearSyncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [brokenClearMutation])
+            )
+            let brokenClearStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: brokenClearSyncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { NativeAppStateStore(fileURL: brokenAppStateURL) }
+            )
+
+            await brokenClearStore.bootstrap()
+
+            guard case .liveSynced(let brokenClearContent) = brokenClearStore.bootstrapState else {
+                Issue.record("Expected drained import to stay live even when app-state cleanup fails; got \(brokenClearStore.bootstrapState)")
+                return
+            }
+            #expect(brokenClearContent.queuedMutations.isEmpty)
+            #expect(try await brokenClearSyncStore.loadQueue().mutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("live store records capture drafts retries and discard through durable app state")
+    func liveStoreRecordsCaptureDraftsRetriesAndDiscardThroughDurableAppState() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { appStateStore }
+            )
+            let draft = try CaptureDraft.importURL(
+                id: "draft_live_store_record",
+                url: URL(string: "https://example.com/live-store-record")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let retry = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_live_store_record",
+                createdAt: Self.isoString(Self.now)
+            )
+            let fallback = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )
+
+            await liveStore.bootstrap()
+            liveStore.recordCaptureDraft(draft)
+
+            guard case .liveSynced(let recordedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected capture draft record to preserve live synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(recordedContent.captureDraft == draft)
+            #expect(try appStateStore.loadOrCreate(fallback: fallback).value.captureDraft == draft)
+
+            liveStore.recordCaptureImportRetry(retry)
+            #expect(try appStateStore.loadOrCreate(fallback: fallback).value.pendingCaptureImport == retry)
+
+            liveStore.discardCaptureDraft(id: "draft_not_visible")
+            guard case .liveSynced(let unchangedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected wrong draft discard to preserve live synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(unchangedContent.captureDraft == draft)
+            #expect(try appStateStore.loadOrCreate(fallback: fallback).value.captureDraft == draft)
+
+            liveStore.discardCaptureDraft(id: draft.id)
+            guard case .liveSynced(let discardedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected visible draft discard to preserve live synced state; got \(liveStore.bootstrapState)")
+                return
+            }
+            let savedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+            #expect(discardedContent.captureDraft == nil)
+            #expect(savedSnapshot.captureDraft == nil)
+            #expect(savedSnapshot.pendingCaptureImport == nil)
+            #expect(savedSnapshot.captureImportProviderBlocker == nil)
         }
     }
 
@@ -2282,6 +2669,41 @@ struct NativeLiveStoreTests {
             #expect(brokenDraftMessage == "Cook log draft could not be saved offline.")
             #expect(brokenDraftContent.offlineIndicatorState.display == .syncFailure(errorID: "spoon-draft", retryAfter: nil))
             #expect(brokenDraftContent.spoonCookLogDraft(recipeID: "recipe_broken_store") == nil)
+            let brokenCaptureDraft = try CaptureDraft.importURL(
+                id: "draft_broken_capture_store",
+                url: URL(string: "https://example.com/broken-capture-store")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let brokenCaptureRetry = NativeQueuedMutation.recipeImportSubmit(
+                source: try brokenCaptureDraft.importSource(),
+                clientMutationID: "cm_broken_capture_retry",
+                createdAt: Self.isoString(Self.now)
+            )
+
+            brokenRouteStore.recordCaptureDraft(brokenCaptureDraft)
+            guard case .syncFailed(let brokenCaptureContent, let brokenCaptureMessage) = brokenRouteStore.bootstrapState else {
+                Issue.record("Expected capture draft persistence failure; got \(brokenRouteStore.bootstrapState)")
+                return
+            }
+            #expect(brokenCaptureMessage == "Capture draft could not be saved offline.")
+            #expect(brokenCaptureContent.offlineIndicatorState.display == .syncFailure(errorID: "capture-draft", retryAfter: nil))
+
+            brokenRouteStore.discardCaptureDraft(id: brokenCaptureDraft.id)
+            brokenRouteStore.recordCaptureImportRetry(brokenCaptureRetry)
+            brokenRouteStore.recordCaptureImportRetry(NativeQueuedMutation.profileDisplayUpdate(
+                email: "ari@example.com",
+                username: "ari",
+                clientMutationID: "cm_broken_capture_non_import",
+                createdAt: Self.isoString(Self.now)
+            ))
+            brokenRouteStore.recordCaptureImportBlocker(.providerSecret(retryAfterSeconds: nil))
+            guard case .syncFailed(let brokenBlockerContent, let brokenBlockerMessage) = brokenRouteStore.bootstrapState else {
+                Issue.record("Expected capture blocker persistence failure; got \(brokenRouteStore.bootstrapState)")
+                return
+            }
+            #expect(brokenBlockerMessage == "Capture import blocker could not be saved offline.")
+            #expect(brokenBlockerContent.offlineIndicatorState.display == .syncFailure(errorID: "capture-import-blocker", retryAfter: nil))
+
             let draftsBeforeBlankID = brokenDraftContent.spoonCookLogDraftsByRecipeID
             brokenRouteStore.recordSpoonCookLogDraft(brokenDraft, forRecipeID: "   ")
             #expect(brokenRouteStore.bootstrapState.contentState.spoonCookLogDraftsByRecipeID == draftsBeforeBlankID)
@@ -2970,6 +3392,9 @@ struct NativeLiveStoreTests {
                 "queueMutation",
                 "queueMutations",
                 "discardQueuedMutation",
+                "let pendingImportClientMutationIDs = contentState.queuedMutations",
+                "$0.recipeImportSource == draftImportSource",
+                "try await discardQueuedMutation(pendingImportClientMutationID)",
                 "executeRecipeEditorRequest",
                 "syncTriggerCoordinator",
                 "OfflineStatusView(display:",
@@ -3408,6 +3833,32 @@ private struct RefreshingRecipeEditorAPITransport: SpoonjoyAPITransport {
         }
         return APIEnvelope(requestID: "recipe-editor-ok", data: data)
     }
+}
+
+private struct CaptureImportAPITransport: SpoonjoyAPITransport {
+    let importedRecipe: Recipe
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        guard request.method == .post,
+              request.pathComponents == ["api", "v1", "recipes", "import"] else {
+            throw NativeLiveStoreTestError.unexpectedRequest
+        }
+        guard configuration.bearerToken == "sj_access_current" else {
+            throw NativeLiveStoreTestError.unexpectedBearerToken(configuration.bearerToken)
+        }
+
+        let responseData = try JSONEncoder().encode(RecipeImportTestResponse(recipe: importedRecipe))
+        let response = try JSONDecoder().decode(Value.self, from: responseData)
+        return APIEnvelope(requestID: "capture-import-ok", data: response)
+    }
+}
+
+private struct RecipeImportTestResponse: Encodable {
+    let recipe: Recipe
 }
 
 private struct NoopRecipeEditorAPIRefresher: APIAuthenticationRefresher {
