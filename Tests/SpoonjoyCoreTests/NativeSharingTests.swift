@@ -10,13 +10,13 @@ struct NativeSharingTests {
         let cookbookURL = try url("https://spoonjoy.app/cookbooks/cookbook_weeknight")
 
         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
-        #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
 
         let privateOrNativeOnlyRoutes: [AppRoute] = [
             .kitchen,
             .recipes,
             .cookbooks,
+            .recipeDetail(id: "recipe_lemon", presentation: .cook),
             .recipeEditor(id: "recipe_lemon"),
             .recipeEditor(id: nil),
             .recipeCoverControls(id: "recipe_lemon"),
@@ -28,7 +28,7 @@ struct NativeSharingTests {
             .unknownLink
         ]
         for route in privateOrNativeOnlyRoutes {
-            #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil, "\(route)")
+            #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil)
         }
 
         let unsafeObjectRoutes: [AppRoute] = [
@@ -38,7 +38,7 @@ struct NativeSharingTests {
             .cookbookDetail(id: "  cookbook_weeknight  ")
         ]
         for route in unsafeObjectRoutes {
-            #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil, "\(route)")
+            #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil)
         }
     }
 
@@ -67,6 +67,42 @@ struct NativeSharingTests {
         #expect(cookbookPayload.nativeTransfer == .publicURL(cookbook.canonicalURL))
     }
 
+    @Test("public payload builders reject non-object and non-spoonjoy canonical URLs")
+    func publicPayloadBuildersRejectNonObjectAndNonSpoonjoyCanonicalURLs() throws {
+        let invalidRecipeURLs = [
+            "http://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+            "https://evil.example/recipes/recipe_lemon_pantry_pasta",
+            "https://spoonjoy.app/account/settings",
+            "https://spoonjoy.app/recipes",
+            "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta/edit",
+            "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta/covers",
+            "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta?mode=cook",
+            "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta#cook",
+            "https://spoonjoy.app/shopping-list"
+        ]
+        for rawURL in invalidRecipeURLs {
+            let recipe = try Self.recipeFixture(canonicalURL: try url(rawURL))
+            #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)) {
+                try NativeSharePayload.publicRecipe(recipe)
+            }
+        }
+
+        let invalidCookbookURLs = [
+            "http://spoonjoy.app/cookbooks/cookbook_weeknight",
+            "https://evil.example/cookbooks/cookbook_weeknight",
+            "https://spoonjoy.app/cookbooks",
+            "https://spoonjoy.app/account/settings",
+            "https://spoonjoy.app/cookbooks/cookbook_weeknight/edit",
+            "https://spoonjoy.app/search?q=weeknight&scope=cookbooks"
+        ]
+        for rawURL in invalidCookbookURLs {
+            let cookbook = try Self.cookbookFixture(canonicalURL: try url(rawURL))
+            #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)) {
+                try NativeSharePayload.publicCookbook(cookbook)
+            }
+        }
+    }
+
     @Test("private product values use native transfers without fake public URLs")
     func privateProductValuesUseNativeTransfersWithoutFakePublicURLs() throws {
         let recipe = try RecipeFixtureCatalog.decodeFromBundle().recipes[0]
@@ -88,13 +124,13 @@ struct NativeSharingTests {
 
         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
         for payload in privatePayloads {
-            #expect(payload.kind == .privateTransfer, "\(payload.domain)")
-            #expect(payload.publicURL == nil, "\(payload.domain)")
-            #expect(payload.route == nil, "\(payload.domain)")
-            #expect(payload.nativeTransfer != nil, "\(payload.domain)")
-            #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"), "\(payload.domain)")
-            #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"), "\(payload.domain)")
-            #expect(!payload.serializedTransferValue.contains("spoonjoy.app/recipes/new"), "\(payload.domain)")
+            #expect(payload.kind == .privateTransfer)
+            #expect(payload.publicURL == nil)
+            #expect(payload.route == nil)
+            #expect(payload.nativeTransfer != nil)
+            #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"))
+            #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"))
+            #expect(!payload.serializedTransferValue.contains("spoonjoy.app/recipes/new"))
         }
     }
 
@@ -114,6 +150,14 @@ struct NativeSharingTests {
         ]
 
         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
+        #expect(catalog.publicURLRouteTemplates == [
+            "https://spoonjoy.app/recipes/{id}",
+            "https://spoonjoy.app/cookbooks/{id}"
+        ])
+        #expect(Set(catalog.publicURLRouteTemplates).isSubset(of: Set(DeepLinkManifest.routes)))
+        #expect(!catalog.publicURLRouteTemplates.contains("https://spoonjoy.app/recipes/{id}/edit"))
+        #expect(!catalog.publicURLRouteTemplates.contains("https://spoonjoy.app/recipes/{id}#cook"))
+        #expect(!catalog.publicURLRouteTemplates.contains("https://spoonjoy.app/shopping-list"))
         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
             .shoppingList,
             .shoppingItem,

@@ -6,9 +6,58 @@ require "pathname"
 ROOT = Pathname.new(__dir__).join("..").expand_path
 
 def uncommented_swift(content)
-  content
-    .gsub(%r{/\*.*?\*/}m, "")
-    .gsub(%r{//.*$}, "")
+  output = +""
+  index = 0
+  state = :code
+
+  while index < content.length
+    char = content[index]
+    next_char = content[index + 1]
+
+    case state
+    when :code
+      if char == "/" && next_char == "/"
+        state = :line_comment
+        index += 2
+      elsif char == "/" && next_char == "*"
+        state = :block_comment
+        index += 2
+      elsif char == "\""
+        output << char
+        state = :string
+        index += 1
+      else
+        output << char
+        index += 1
+      end
+    when :string
+      output << char
+      if char == "\\"
+        output << next_char if next_char
+        index += 2
+      elsif char == "\""
+        state = :code
+        index += 1
+      else
+        index += 1
+      end
+    when :line_comment
+      if char == "\n"
+        output << char
+        state = :code
+      end
+      index += 1
+    when :block_comment
+      if char == "*" && next_char == "/"
+        state = :code
+        index += 2
+      else
+        index += 1
+      end
+    end
+  end
+
+  output
 end
 
 def read_relative(path)

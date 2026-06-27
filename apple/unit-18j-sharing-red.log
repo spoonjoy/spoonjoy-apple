@@ -1,117 +1,92 @@
-[0/1] Planning build
 Building for debugging...
 [0/6] Write sources
 [1/6] Write swift-version--58304C5D6DBC2206.txt
-[3/8] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[3/8] Emitting module SpoonjoyCoreTests
 [4/8] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
-[5/8] Emitting module SpoonjoyCoreTests
+[5/8] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
 [6/8] Compiling SpoonjoyCoreTests NativeSharingTests.swift
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:12:17: error: cannot find 'NativePublicShareRoutePolicy' in scope
  10 |         let cookbookURL = try url("https://spoonjoy.app/cookbooks/cookbook_weeknight")
- 11 | 
+ 11 |
  12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
     |                 `- error: cannot find 'NativePublicShareRoutePolicy' in scope
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 14 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:12:62: error: cannot infer contextual base in reference to member 'recipeDetail'
  10 |         let cookbookURL = try url("https://spoonjoy.app/cookbooks/cookbook_weeknight")
- 11 | 
+ 11 |
  12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
     |                                                              `- error: cannot infer contextual base in reference to member 'recipeDetail'
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 14 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:12:110: error: cannot infer contextual base in reference to member 'detail'
  10 |         let cookbookURL = try url("https://spoonjoy.app/cookbooks/cookbook_weeknight")
- 11 | 
+ 11 |
  12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
     |                                                                                                              `- error: cannot infer contextual base in reference to member 'detail'
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 14 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:13:17: error: cannot find 'NativePublicShareRoutePolicy' in scope
- 11 | 
+ 11 |
  12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
+ 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
     |                 `- error: cannot find 'NativePublicShareRoutePolicy' in scope
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
- 15 | 
+ 14 |
+ 15 |         let privateOrNativeOnlyRoutes: [AppRoute] = [
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:13:62: error: cannot infer contextual base in reference to member 'recipeDetail'
- 11 | 
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:13:62: error: cannot infer contextual base in reference to member 'cookbookDetail'
+ 11 |
  12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
-    |                                                              `- error: cannot infer contextual base in reference to member 'recipeDetail'
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
- 15 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:13:110: error: cannot infer contextual base in reference to member 'cook'
- 11 | 
- 12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
-    |                                                                                                              `- error: cannot infer contextual base in reference to member 'cook'
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
- 15 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:14:17: error: cannot find 'NativePublicShareRoutePolicy' in scope
- 12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
-    |                 `- error: cannot find 'NativePublicShareRoutePolicy' in scope
- 15 | 
- 16 |         let privateOrNativeOnlyRoutes: [AppRoute] = [
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:14:62: error: cannot infer contextual base in reference to member 'cookbookDetail'
- 12 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .detail)) == recipeURL)
- 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .recipeDetail(id: "recipe_lemon", presentation: .cook)) == recipeURL)
- 14 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
+ 13 |         #expect(NativePublicShareRoutePolicy.publicURL(for: .cookbookDetail(id: "cookbook_weeknight")) == cookbookURL)
     |                                                              `- error: cannot infer contextual base in reference to member 'cookbookDetail'
- 15 | 
- 16 |         let privateOrNativeOnlyRoutes: [AppRoute] = [
+ 14 |
+ 15 |         let privateOrNativeOnlyRoutes: [AppRoute] = [
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:31:21: error: cannot find 'NativePublicShareRoutePolicy' in scope
  29 |         ]
  30 |         for route in privateOrNativeOnlyRoutes {
- 31 |             #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil, "\(route)")
+ 31 |             #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil)
     |                     `- error: cannot find 'NativePublicShareRoutePolicy' in scope
  32 |         }
- 33 | 
+ 33 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:41:21: error: cannot find 'NativePublicShareRoutePolicy' in scope
  39 |         ]
  40 |         for route in unsafeObjectRoutes {
- 41 |             #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil, "\(route)")
+ 41 |             #expect(NativePublicShareRoutePolicy.publicURL(for: route) == nil)
     |                     `- error: cannot find 'NativePublicShareRoutePolicy' in scope
  42 |         }
  43 |     }
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:50:33: error: cannot find 'NativeSharePayload' in scope
  48 |         let cookbook = try Self.cookbookFixture(canonicalURL: try url("https://spoonjoy.app/cookbooks/canonical-cookbook"))
- 49 | 
+ 49 |
  50 |         let recipePayload = try NativeSharePayload.publicRecipe(recipe)
     |                                 `- error: cannot find 'NativeSharePayload' in scope
  51 |         let cookbookPayload = try NativeSharePayload.publicCookbook(cookbook)
- 52 | 
+ 52 |
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:51:35: error: cannot find 'NativeSharePayload' in scope
- 49 | 
+ 49 |
  50 |         let recipePayload = try NativeSharePayload.publicRecipe(recipe)
  51 |         let cookbookPayload = try NativeSharePayload.publicCookbook(cookbook)
     |                                   `- error: cannot find 'NativeSharePayload' in scope
- 52 | 
+ 52 |
  53 |         #expect(recipePayload.domain == .recipe)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:53:42: error: cannot infer contextual base in reference to member 'recipe'
  51 |         let cookbookPayload = try NativeSharePayload.publicCookbook(cookbook)
- 52 | 
+ 52 |
  53 |         #expect(recipePayload.domain == .recipe)
     |                                          `- error: cannot infer contextual base in reference to member 'recipe'
  54 |         #expect(recipePayload.kind == .publicURL)
  55 |         #expect(recipePayload.publicURL == recipe.canonicalURL)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:54:40: error: cannot infer contextual base in reference to member 'publicURL'
- 52 | 
+ 52 |
  53 |         #expect(recipePayload.domain == .recipe)
  54 |         #expect(recipePayload.kind == .publicURL)
     |                                        `- error: cannot infer contextual base in reference to member 'publicURL'
@@ -139,19 +114,19 @@ Building for debugging...
  58 |         #expect(recipePayload.subtitle.contains(recipe.chef.username))
  59 |         #expect(recipePayload.nativeTransfer == .publicURL(recipe.canonicalURL))
     |                                                  `- error: cannot infer contextual base in reference to member 'publicURL'
- 60 | 
+ 60 |
  61 |         #expect(cookbookPayload.domain == .cookbook)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:61:44: error: cannot infer contextual base in reference to member 'cookbook'
  59 |         #expect(recipePayload.nativeTransfer == .publicURL(recipe.canonicalURL))
- 60 | 
+ 60 |
  61 |         #expect(cookbookPayload.domain == .cookbook)
     |                                            `- error: cannot infer contextual base in reference to member 'cookbook'
  62 |         #expect(cookbookPayload.kind == .publicURL)
  63 |         #expect(cookbookPayload.publicURL == cookbook.canonicalURL)
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:62:42: error: cannot infer contextual base in reference to member 'publicURL'
- 60 | 
+ 60 |
  61 |         #expect(cookbookPayload.domain == .cookbook)
  62 |         #expect(cookbookPayload.kind == .publicURL)
     |                                          `- error: cannot infer contextual base in reference to member 'publicURL'
@@ -172,279 +147,215 @@ Building for debugging...
  67 |         #expect(cookbookPayload.nativeTransfer == .publicURL(cookbook.canonicalURL))
     |                                                    `- error: cannot infer contextual base in reference to member 'publicURL'
  68 |     }
- 69 | 
+ 69 |
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:83:13: error: cannot find 'NativeSharePayload' in scope
- 81 | 
- 82 |         let privatePayloads = [
- 83 |             NativeSharePayload.privateShoppingList(shoppingList),
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:85:29: error: cannot find 'NativeSharePayloadError' in scope
+ 83 |         for rawURL in invalidRecipeURLs {
+ 84 |             let recipe = try Self.recipeFixture(canonicalURL: try url(rawURL))
+ 85 |             #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)) {
+    |                             `- error: cannot find 'NativeSharePayloadError' in scope
+ 86 |                 try NativeSharePayload.publicRecipe(recipe)
+ 87 |             }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:86:21: error: cannot find 'NativeSharePayload' in scope
+ 84 |             let recipe = try Self.recipeFixture(canonicalURL: try url(rawURL))
+ 85 |             #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)) {
+ 86 |                 try NativeSharePayload.publicRecipe(recipe)
+    |                     `- error: cannot find 'NativeSharePayload' in scope
+ 87 |             }
+ 88 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:85:79: error: cannot infer contextual base in reference to member 'recipe'
+ 83 |         for rawURL in invalidRecipeURLs {
+ 84 |             let recipe = try Self.recipeFixture(canonicalURL: try url(rawURL))
+ 85 |             #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .recipe, url: recipe.canonicalURL)) {
+    |                                                                               `- error: cannot infer contextual base in reference to member 'recipe'
+ 86 |                 try NativeSharePayload.publicRecipe(recipe)
+ 87 |             }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:100:29: error: cannot find 'NativeSharePayloadError' in scope
+ 98 |         for rawURL in invalidCookbookURLs {
+ 99 |             let cookbook = try Self.cookbookFixture(canonicalURL: try url(rawURL))
+100 |             #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)) {
+    |                             `- error: cannot find 'NativeSharePayloadError' in scope
+101 |                 try NativeSharePayload.publicCookbook(cookbook)
+102 |             }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:101:21: error: cannot find 'NativeSharePayload' in scope
+ 99 |             let cookbook = try Self.cookbookFixture(canonicalURL: try url(rawURL))
+100 |             #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)) {
+101 |                 try NativeSharePayload.publicCookbook(cookbook)
+    |                     `- error: cannot find 'NativeSharePayload' in scope
+102 |             }
+103 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:100:79: error: cannot infer contextual base in reference to member 'cookbook'
+ 98 |         for rawURL in invalidCookbookURLs {
+ 99 |             let cookbook = try Self.cookbookFixture(canonicalURL: try url(rawURL))
+100 |             #expect(throws: NativeSharePayloadError.invalidPublicURL(domain: .cookbook, url: cookbook.canonicalURL)) {
+    |                                                                               `- error: cannot infer contextual base in reference to member 'cookbook'
+101 |                 try NativeSharePayload.publicCookbook(cookbook)
+102 |             }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:119:13: error: cannot find 'NativeSharePayload' in scope
+117 |
+118 |         let privatePayloads = [
+119 |             NativeSharePayload.privateShoppingList(shoppingList),
     |             `- error: cannot find 'NativeSharePayload' in scope
- 84 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
- 85 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
+120 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
+121 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:84:13: error: cannot find 'NativeSharePayload' in scope
- 82 |         let privatePayloads = [
- 83 |             NativeSharePayload.privateShoppingList(shoppingList),
- 84 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:120:13: error: cannot find 'NativeSharePayload' in scope
+118 |         let privatePayloads = [
+119 |             NativeSharePayload.privateShoppingList(shoppingList),
+120 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
     |             `- error: cannot find 'NativeSharePayload' in scope
- 85 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
- 86 |             NativeSharePayload.privateCaptureDraft(draft)
+121 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
+122 |             NativeSharePayload.privateCaptureDraft(draft)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:85:13: error: cannot find 'NativeSharePayload' in scope
- 83 |             NativeSharePayload.privateShoppingList(shoppingList),
- 84 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
- 85 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:121:13: error: cannot find 'NativeSharePayload' in scope
+119 |             NativeSharePayload.privateShoppingList(shoppingList),
+120 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
+121 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
     |             `- error: cannot find 'NativeSharePayload' in scope
- 86 |             NativeSharePayload.privateCaptureDraft(draft)
- 87 |         ]
+122 |             NativeSharePayload.privateCaptureDraft(draft)
+123 |         ]
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:86:13: error: cannot find 'NativeSharePayload' in scope
- 84 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
- 85 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
- 86 |             NativeSharePayload.privateCaptureDraft(draft)
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:122:13: error: cannot find 'NativeSharePayload' in scope
+120 |             NativeSharePayload.privateShoppingItem(shoppingItem, listID: shoppingList.id),
+121 |             NativeSharePayload.privateSpoon(spoon, recipeTitle: recipe.title),
+122 |             NativeSharePayload.privateCaptureDraft(draft)
     |             `- error: cannot find 'NativeSharePayload' in scope
- 87 |         ]
- 88 | 
+123 |         ]
+124 |
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:89:37: error: cannot infer key path type from context; consider explicitly specifying a root type
- 87 |         ]
- 88 | 
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:125:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+123 |         ]
+124 |
+125 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
     |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
+126 |         for payload in privatePayloads {
+127 |             #expect(payload.kind == .privateTransfer)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:89:52: error: reference to member 'shoppingList' cannot be resolved without a contextual type
- 87 |         ]
- 88 | 
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:125:52: error: reference to member 'shoppingList' cannot be resolved without a contextual type
+123 |         ]
+124 |
+125 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
     |                                                    `- error: reference to member 'shoppingList' cannot be resolved without a contextual type
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
+126 |         for payload in privatePayloads {
+127 |             #expect(payload.kind == .privateTransfer)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:89:67: error: reference to member 'shoppingItem' cannot be resolved without a contextual type
- 87 |         ]
- 88 | 
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:125:67: error: reference to member 'shoppingItem' cannot be resolved without a contextual type
+123 |         ]
+124 |
+125 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
     |                                                                   `- error: reference to member 'shoppingItem' cannot be resolved without a contextual type
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
+126 |         for payload in privatePayloads {
+127 |             #expect(payload.kind == .privateTransfer)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:89:82: error: reference to member 'spoon' cannot be resolved without a contextual type
- 87 |         ]
- 88 | 
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:125:82: error: reference to member 'spoon' cannot be resolved without a contextual type
+123 |         ]
+124 |
+125 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
     |                                                                                  `- error: reference to member 'spoon' cannot be resolved without a contextual type
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
+126 |         for payload in privatePayloads {
+127 |             #expect(payload.kind == .privateTransfer)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:89:90: error: reference to member 'captureDraft' cannot be resolved without a contextual type
- 87 |         ]
- 88 | 
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:125:90: error: reference to member 'captureDraft' cannot be resolved without a contextual type
+123 |         ]
+124 |
+125 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
     |                                                                                          `- error: reference to member 'captureDraft' cannot be resolved without a contextual type
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
+126 |         for payload in privatePayloads {
+127 |             #expect(payload.kind == .privateTransfer)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:91:38: error: cannot infer contextual base in reference to member 'privateTransfer'
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:127:38: error: cannot infer contextual base in reference to member 'privateTransfer'
+125 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
+126 |         for payload in privatePayloads {
+127 |             #expect(payload.kind == .privateTransfer)
     |                                      `- error: cannot infer contextual base in reference to member 'privateTransfer'
- 92 |             #expect(payload.publicURL == nil, "\(payload.domain)")
- 93 |             #expect(payload.route == nil, "\(payload.domain)")
+128 |             #expect(payload.publicURL == nil)
+129 |             #expect(payload.route == nil)
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:91:57: error: generic parameter 'some StringProtocol' could not be inferred
- 89 |         #expect(privatePayloads.map(\.domain) == [.shoppingList, .shoppingItem, .spoon, .captureDraft])
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
-    |                                                         `- error: generic parameter 'some StringProtocol' could not be inferred
- 92 |             #expect(payload.publicURL == nil, "\(payload.domain)")
- 93 |             #expect(payload.route == nil, "\(payload.domain)")
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:92:49: error: generic parameter 'some StringProtocol' could not be inferred
- 90 |         for payload in privatePayloads {
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
- 92 |             #expect(payload.publicURL == nil, "\(payload.domain)")
-    |                                                 `- error: generic parameter 'some StringProtocol' could not be inferred
- 93 |             #expect(payload.route == nil, "\(payload.domain)")
- 94 |             #expect(payload.nativeTransfer != nil, "\(payload.domain)")
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:93:45: error: generic parameter 'some StringProtocol' could not be inferred
- 91 |             #expect(payload.kind == .privateTransfer, "\(payload.domain)")
- 92 |             #expect(payload.publicURL == nil, "\(payload.domain)")
- 93 |             #expect(payload.route == nil, "\(payload.domain)")
-    |                                             `- error: generic parameter 'some StringProtocol' could not be inferred
- 94 |             #expect(payload.nativeTransfer != nil, "\(payload.domain)")
- 95 |             #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"), "\(payload.domain)")
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:94:54: error: generic parameter 'some StringProtocol' could not be inferred
- 92 |             #expect(payload.publicURL == nil, "\(payload.domain)")
- 93 |             #expect(payload.route == nil, "\(payload.domain)")
- 94 |             #expect(payload.nativeTransfer != nil, "\(payload.domain)")
-    |                                                      `- error: generic parameter 'some StringProtocol' could not be inferred
- 95 |             #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"), "\(payload.domain)")
- 96 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"), "\(payload.domain)")
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:95:91: error: generic parameter 'some StringProtocol' could not be inferred
- 93 |             #expect(payload.route == nil, "\(payload.domain)")
- 94 |             #expect(payload.nativeTransfer != nil, "\(payload.domain)")
- 95 |             #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"), "\(payload.domain)")
-    |                                                                                           `- error: generic parameter 'some StringProtocol' could not be inferred
- 96 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"), "\(payload.domain)")
- 97 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/recipes/new"), "\(payload.domain)")
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:96:96: error: generic parameter 'some StringProtocol' could not be inferred
- 94 |             #expect(payload.nativeTransfer != nil, "\(payload.domain)")
- 95 |             #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"), "\(payload.domain)")
- 96 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"), "\(payload.domain)")
-    |                                                                                                `- error: generic parameter 'some StringProtocol' could not be inferred
- 97 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/recipes/new"), "\(payload.domain)")
- 98 |         }
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:97:94: error: generic parameter 'some StringProtocol' could not be inferred
- 95 |             #expect(!payload.serializedTransferValue.contains("https://spoonjoy.app/"), "\(payload.domain)")
- 96 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/shopping-list"), "\(payload.domain)")
- 97 |             #expect(!payload.serializedTransferValue.contains("spoonjoy.app/recipes/new"), "\(payload.domain)")
-    |                                                                                              `- error: generic parameter 'some StringProtocol' could not be inferred
- 98 |         }
- 99 |     }
-
-Testing.Comment.StringInterpolation.appendInterpolation:3:33: note: in call to function 'appendInterpolation'
-1 | struct Comment {
-2 |   struct StringInterpolation {
-3 | @inlinable public mutating func appendInterpolation(_ value: (some StringProtocol)?)  }
-  |                                 `- note: in call to function 'appendInterpolation'
-4 | }
-5 | 
-
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:103:23: error: cannot find 'NativeShareSurfaceCatalog' in scope
-101 |     @Test("sharing catalog stays system-share only and does not invent social surfaces")
-102 |     func sharingCatalogStaysSystemShareOnlyAndDoesNotInventSocialSurfaces() {
-103 |         let catalog = NativeShareSurfaceCatalog.spoonjoy
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:139:23: error: cannot find 'NativeShareSurfaceCatalog' in scope
+137 |     @Test("sharing catalog stays system-share only and does not invent social surfaces")
+138 |     func sharingCatalogStaysSystemShareOnlyAndDoesNotInventSocialSurfaces() {
+139 |         let catalog = NativeShareSurfaceCatalog.spoonjoy
     |                       `- error: cannot find 'NativeShareSurfaceCatalog' in scope
-104 |         let forbiddenFragments = [
-105 |             "comment",
+140 |         let forbiddenFragments = [
+141 |             "comment",
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:116:47: error: reference to member 'recipe' cannot be resolved without a contextual type
-114 |         ]
-115 | 
-116 |         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:152:47: error: reference to member 'recipe' cannot be resolved without a contextual type
+150 |         ]
+151 |
+152 |         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
     |                                               `- error: reference to member 'recipe' cannot be resolved without a contextual type
-117 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
-118 |             .shoppingList,
+153 |         #expect(catalog.publicURLRouteTemplates == [
+154 |             "https://spoonjoy.app/recipes/{id}",
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:116:56: error: reference to member 'cookbook' cannot be resolved without a contextual type
-114 |         ]
-115 | 
-116 |         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:152:56: error: reference to member 'cookbook' cannot be resolved without a contextual type
+150 |         ]
+151 |
+152 |         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
     |                                                        `- error: reference to member 'cookbook' cannot be resolved without a contextual type
-117 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
-118 |             .shoppingList,
+153 |         #expect(catalog.publicURLRouteTemplates == [
+154 |             "https://spoonjoy.app/recipes/{id}",
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:117:60: error: cannot find type 'NativeShareDomain' in scope
-115 | 
-116 |         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
-117 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:161:60: error: cannot find type 'NativeShareDomain' in scope
+159 |         #expect(!catalog.publicURLRouteTemplates.contains("https://spoonjoy.app/recipes/{id}#cook"))
+160 |         #expect(!catalog.publicURLRouteTemplates.contains("https://spoonjoy.app/shopping-list"))
+161 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
     |                                                            `- error: cannot find type 'NativeShareDomain' in scope
-118 |             .shoppingList,
-119 |             .shoppingItem,
+162 |             .shoppingList,
+163 |             .shoppingItem,
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:118:14: error: reference to member 'shoppingList' cannot be resolved without a contextual type
-116 |         #expect(catalog.publicURLDomains == [.recipe, .cookbook])
-117 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
-118 |             .shoppingList,
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:162:14: error: reference to member 'shoppingList' cannot be resolved without a contextual type
+160 |         #expect(!catalog.publicURLRouteTemplates.contains("https://spoonjoy.app/shopping-list"))
+161 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
+162 |             .shoppingList,
     |              `- error: reference to member 'shoppingList' cannot be resolved without a contextual type
-119 |             .shoppingItem,
-120 |             .spoon,
+163 |             .shoppingItem,
+164 |             .spoon,
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:119:14: error: reference to member 'shoppingItem' cannot be resolved without a contextual type
-117 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
-118 |             .shoppingList,
-119 |             .shoppingItem,
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:163:14: error: reference to member 'shoppingItem' cannot be resolved without a contextual type
+161 |         #expect(Set(catalog.privateTransferDomains) == Set<NativeShareDomain>([
+162 |             .shoppingList,
+163 |             .shoppingItem,
     |              `- error: reference to member 'shoppingItem' cannot be resolved without a contextual type
-120 |             .spoon,
-121 |             .captureDraft
+164 |             .spoon,
+165 |             .captureDraft
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:120:14: error: reference to member 'spoon' cannot be resolved without a contextual type
-118 |             .shoppingList,
-119 |             .shoppingItem,
-120 |             .spoon,
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:164:14: error: reference to member 'spoon' cannot be resolved without a contextual type
+162 |             .shoppingList,
+163 |             .shoppingItem,
+164 |             .spoon,
     |              `- error: reference to member 'spoon' cannot be resolved without a contextual type
-121 |             .captureDraft
-122 |         ]))
+165 |             .captureDraft
+166 |         ]))
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:121:14: error: reference to member 'captureDraft' cannot be resolved without a contextual type
-119 |             .shoppingItem,
-120 |             .spoon,
-121 |             .captureDraft
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:165:14: error: reference to member 'captureDraft' cannot be resolved without a contextual type
+163 |             .shoppingItem,
+164 |             .spoon,
+165 |             .captureDraft
     |              `- error: reference to member 'captureDraft' cannot be resolved without a contextual type
-122 |         ]))
-123 |         #expect(catalog.systemDestinations == [.shareSheet])
+166 |         ]))
+167 |         #expect(catalog.systemDestinations == [.shareSheet])
 
-/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:123:49: error: reference to member 'shareSheet' cannot be resolved without a contextual type
-121 |             .captureDraft
-122 |         ]))
-123 |         #expect(catalog.systemDestinations == [.shareSheet])
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NativeSharingTests.swift:167:49: error: reference to member 'shareSheet' cannot be resolved without a contextual type
+165 |             .captureDraft
+166 |         ]))
+167 |         #expect(catalog.systemDestinations == [.shareSheet])
     |                                                 `- error: reference to member 'shareSheet' cannot be resolved without a contextual type
-124 |         #expect(catalog.productDestinations.isEmpty)
-125 | 
+168 |         #expect(catalog.productDestinations.isEmpty)
+169 |
 [7/16] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
-[8/16] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[8/16] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
 [9/16] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
-[10/16] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
-[11/16] Compiling SpoonjoyCoreTests CookModeParityTests.swift
-[12/16] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[10/16] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[11/16] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[12/16] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
 [13/16] Compiling SpoonjoyCoreTests AppStateTests.swift
-[14/16] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[14/16] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
 error: fatalError
 FAIL: missing Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift
 FAIL: Apps/Spoonjoy/Shared/AppShell/ShareActions.swift must delegate to NativeSharePayload/NativePublicShareRoutePolicy instead of synthesizing HTTPS URLs locally
