@@ -1214,6 +1214,7 @@ struct PlatformNavigationView: View {
 
     private var spotlightIndexIdentity: String {
         [
+            contentState.spotlightIndexScope?.identifierPrefix ?? "signed-out",
             contentState.recipes.map(\.id).joined(separator: ","),
             contentState.cookbooks.map(\.id).joined(separator: ","),
             contentState.searchResultsByScope[search.scope]?.joined(separator: ",") ?? "search-unavailable",
@@ -1222,14 +1223,16 @@ struct PlatformNavigationView: View {
     }
 
     private var spotlightIndexDocuments: [SpotlightIndexDocument] {
-        guard let shoppingList = contentState.shoppingList else {
+        guard let shoppingList = contentState.shoppingList,
+              let scope = contentState.spotlightIndexScope else {
             return []
         }
 
         return SpotlightIndexPlan.documents(
             recipes: contentState.recipes,
             cookbooks: contentState.cookbooks,
-            shoppingList: shoppingList
+            shoppingList: shoppingList,
+            scope: scope
         )
     }
 
@@ -1329,8 +1332,8 @@ struct PlatformNavigationView: View {
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *), !documents.isEmpty {
-            try? await SpoonjoySpotlightIndexer().index(documents: documents)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().replaceAll(documents: documents)
         }
 #endif
     }

@@ -253,18 +253,20 @@ struct NativeScenarioTests {
         let recipes = try RecipeFixtureCatalog.decodeFromBundle().recipes
         let cookbooks = try CookbookFixtureCatalog.decodeFromBundle().cookbooks
         let shoppingList = try ShoppingListState.decodeFromBundle()
+        let scope = SpotlightIndexScope(accountID: "chef_ari", environment: .production)
         let documents = SpotlightIndexPlan.documents(
             recipes: recipes,
             cookbooks: cookbooks,
-            shoppingList: shoppingList
+            shoppingList: shoppingList,
+            scope: scope
         )
-        let recipe = try #require(documents.first { $0.uniqueIdentifier == "recipe:recipe_lemon_pantry_pasta" })
-        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "cookbook:cookbook_weeknights" })
-        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "shopping-list-item:item_lemons" })
+        let recipe = try #require(documents.first { $0.uniqueIdentifier == "production|chef_ari|recipe|recipe_lemon_pantry_pasta" })
+        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "production|chef_ari|cookbook|cookbook_weeknights" })
+        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "production|chef_ari|shopping-list-item|item_lemons" })
 
         #expect(documents.count == recipes.count + cookbooks.count + shoppingList.activeItems.count)
         #expect(recipe.type == .recipe)
-        #expect(recipe.domainIdentifier == "app.spoonjoy.recipe")
+        #expect(recipe.domainIdentifier == "app.spoonjoy.production.chef_ari.recipe")
         #expect(recipe.title == "Lemon Pantry Pasta")
         #expect(recipe.contentDescription.contains("ari"))
         #expect(recipe.keywords.contains("Spoonjoy"))
@@ -273,20 +275,22 @@ struct NativeScenarioTests {
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: recipe.uniqueIdentifier) == recipe.route)
         #expect(DeepLinkURLBuilder.url(for: recipe.route) == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
         #expect(cookbook.type == .cookbook)
-        #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+        #expect(cookbook.domainIdentifier == "app.spoonjoy.production.chef_ari.cookbook")
         #expect(cookbook.contentDescription.contains("2 recipes"))
         #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: cookbook.uniqueIdentifier) == cookbook.route)
         #expect(DeepLinkURLBuilder.url(for: cookbook.route) == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
         #expect(shoppingItem.type == .shoppingListItem)
-        #expect(shoppingItem.domainIdentifier == "app.spoonjoy.shopping-list-item")
+        #expect(shoppingItem.domainIdentifier == "app.spoonjoy.production.chef_ari.shopping-list-item")
         #expect(shoppingItem.title == "lemons")
         #expect(shoppingItem.contentDescription.contains("Shopping list"))
         #expect(shoppingItem.route == .shoppingList)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: shoppingItem.uniqueIdentifier) == .shoppingList)
         #expect(DeepLinkURLBuilder.url(for: shoppingItem.route) == URL(string: "spoonjoy://shopping-list"))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "recipe:recipe_lemon_pantry_pasta") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "recipe:../secret") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "cookbook:../secret") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|chef_ari|shopping-list-item|../secret") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "unknown:item") == .unknownLink)
     }
 
@@ -384,15 +388,48 @@ struct NativeScenarioTests {
             updatedAt: "2026-06-16T14:08:00.000Z"
         )
 
-        let servingsDocument = SpotlightIndexPlan.document(recipe: servingRecipe)
-        let readyDocument = SpotlightIndexPlan.document(recipe: readyRecipe)
-        let cookbookDocument = SpotlightIndexPlan.document(cookbook: cookbook)
-        let shoppingDocument = SpotlightIndexPlan.document(shoppingListItem: shoppingItem)
+        let scope = SpotlightIndexScope(accountID: "chef fallback@example.com", environment: .local)
+        let servingsDocument = SpotlightIndexPlan.document(recipe: servingRecipe, scope: scope)
+        let readyDocument = SpotlightIndexPlan.document(recipe: readyRecipe, scope: scope)
+        let cookbookDocument = SpotlightIndexPlan.document(cookbook: cookbook, scope: scope)
+        let shoppingDocument = SpotlightIndexPlan.document(shoppingListItem: shoppingItem, scope: scope)
 
         #expect(servingsDocument.contentDescription.contains("1 bowl"))
+        #expect(servingsDocument.uniqueIdentifier == "local|chef-fallback-example-com|recipe|recipe_spotlight_servings")
+        #expect(servingsDocument.domainIdentifier == "app.spoonjoy.local.chef-fallback-example-com.recipe")
         #expect(readyDocument.contentDescription.contains("Ready to cook in Spoonjoy."))
         #expect(cookbookDocument.contentDescription.contains("1 recipe"))
         #expect(shoppingDocument.keywords.contains("shopping"))
+    }
+
+    @Test("shell content exposes spotlight scope only for bound signed in accounts")
+    func shellContentExposesSpotlightScopeOnlyForBoundSignedInAccounts() throws {
+        let signedOut = NativeShellContentState.empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        let session = try AuthSession(
+            clientID: "client_spotlight_scope",
+            accessToken: "sj_access_spotlight_scope",
+            refreshToken: "sj_refresh_spotlight_scope",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        )
+        let signedIn = NativeShellContentState.empty(
+            authSessionState: .authenticated(session),
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        let scope = try #require(signedIn.spotlightIndexScope)
+
+        #expect(signedOut.spotlightIndexScope == nil)
+        #expect(scope.identifierPrefix == "production|chef_ari")
+        #expect(scope.domainPrefix == "app.spoonjoy.production.chef_ari")
     }
 
     @Test("surfaces report proves kitchen recipe cook and shopping slices")
@@ -795,6 +832,7 @@ struct NativeScenarioTests {
             "indexSearchableItems",
             "SpotlightIndexPlan",
             "SpotlightIndexDocument",
+            "SpotlightIndexScope",
             "SpotlightIndexType",
             "shoppingListItem"
         ] {
@@ -806,6 +844,8 @@ struct NativeScenarioTests {
         #expect(spotlightSource.contains("import CoreSpotlight"))
         #expect(spotlightSource.contains("import SpoonjoyCore"))
         #expect(spotlightSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
+        #expect(spotlightSource.contains("deleteAllSearchableItems"))
+        #expect(spotlightSource.contains("replaceAll(documents:"))
         #expect(rootViewSource.contains("import CoreSpotlight"))
         #expect(rootViewSource.contains("onContinueUserActivity(CSSearchableItemActionType)"))
         #expect(rootViewSource.contains("CSSearchableItemActivityIdentifier"))
@@ -814,7 +854,8 @@ struct NativeScenarioTests {
         #expect(rootViewSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(!rootViewSource.contains("native-app-snapshot.json"))
         #expect(platformNavigationSource.contains(".task(id: spotlightIndexIdentity)"))
-        #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().index("))
+        #expect(platformNavigationSource.contains("contentState.spotlightIndexScope"))
+        #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
         try assertSwiftSourceTypechecks(appIntentsPath)

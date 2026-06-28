@@ -19,6 +19,7 @@ public struct SpotlightIndexDocument: Equatable, Sendable {
     public init(
         type: SpotlightIndexType,
         id: String,
+        scope: SpotlightIndexScope,
         title: String,
         contentDescription: String,
         keywords: [String],
@@ -26,8 +27,8 @@ public struct SpotlightIndexDocument: Equatable, Sendable {
     ) {
         self.type = type
         self.id = id
-        uniqueIdentifier = "\(type.rawValue):\(id)"
-        domainIdentifier = "app.spoonjoy.\(type.rawValue)"
+        uniqueIdentifier = "\(scope.identifierPrefix)|\(type.rawValue)|\(id)"
+        domainIdentifier = "\(scope.domainPrefix).\(type.rawValue)"
         self.title = title
         self.contentDescription = contentDescription
         self.keywords = Self.keywords(type: type, title: title, keywords: keywords)
@@ -46,21 +47,48 @@ public struct SpotlightIndexDocument: Equatable, Sendable {
     }
 }
 
+public struct SpotlightIndexScope: Equatable, Sendable {
+    public let accountID: String
+    public let environment: NativeCacheEnvironment
+
+    public init(accountID: String, environment: NativeCacheEnvironment) {
+        self.accountID = accountID
+        self.environment = environment
+    }
+
+    public var identifierPrefix: String {
+        "\(environment.rawValue)|\(Self.safeComponent(accountID))"
+    }
+
+    public var domainPrefix: String {
+        "app.spoonjoy.\(environment.rawValue).\(Self.safeComponent(accountID))"
+    }
+
+    private static func safeComponent(_ value: String) -> String {
+        let filtered = value.map { character in
+            character.isLetter || character.isNumber || character == "_" || character == "-" ? String(character) : "-"
+        }.joined()
+        return filtered.isEmpty ? "unbound" : filtered
+    }
+}
+
 public enum SpotlightIndexPlan {
     public static func documents(
         recipes: [Recipe],
         cookbooks: [Cookbook],
-        shoppingList: ShoppingListState
+        shoppingList: ShoppingListState,
+        scope: SpotlightIndexScope
     ) -> [SpotlightIndexDocument] {
-        recipes.map(document(recipe:)) +
-            cookbooks.map(document(cookbook:)) +
-            shoppingList.activeItems.map(document(shoppingListItem:))
+        recipes.map { document(recipe: $0, scope: scope) } +
+            cookbooks.map { document(cookbook: $0, scope: scope) } +
+            shoppingList.activeItems.map { document(shoppingListItem: $0, scope: scope) }
     }
 
-    public static func document(recipe: Recipe) -> SpotlightIndexDocument {
+    public static func document(recipe: Recipe, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
         SpotlightIndexDocument(
             type: .recipe,
             id: recipe.id,
+            scope: scope,
             title: recipe.title,
             contentDescription: "Recipe by \(recipe.chef.username). \(recipe.description ?? recipe.servings ?? "Ready to cook in Spoonjoy.")",
             keywords: [recipe.chef.username] + recipe.steps.flatMap { step in
@@ -70,10 +98,11 @@ public enum SpotlightIndexPlan {
         )
     }
 
-    public static func document(cookbook: Cookbook) -> SpotlightIndexDocument {
+    public static func document(cookbook: Cookbook, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
         SpotlightIndexDocument(
             type: .cookbook,
             id: cookbook.id,
+            scope: scope,
             title: cookbook.title,
             contentDescription: "Cookbook by \(cookbook.chef.username) with \(cookbook.recipeCount) \(recipeCountLabel(cookbook.recipeCount)).",
             keywords: [cookbook.chef.username] + cookbook.recipes.map(\.title),
@@ -81,10 +110,11 @@ public enum SpotlightIndexPlan {
         )
     }
 
-    public static func document(shoppingListItem item: ShoppingListItem) -> SpotlightIndexDocument {
+    public static func document(shoppingListItem item: ShoppingListItem, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
         SpotlightIndexDocument(
             type: .shoppingListItem,
             id: item.id,
+            scope: scope,
             title: item.name,
             contentDescription: "Shopping list item in Spoonjoy. \(item.displayQuantity)",
             keywords: [item.name, item.categoryKey ?? "shopping"],
@@ -93,12 +123,15 @@ public enum SpotlightIndexPlan {
     }
 
     public static func route(uniqueIdentifier: String) -> AppRoute {
-        let parts = uniqueIdentifier.split(separator: ":", maxSplits: 1).map(String.init)
-        guard parts.count == 2, let type = SpotlightIndexType(rawValue: parts[0]) else {
+        let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 4,
+              NativeCacheEnvironment(rawValue: parts[0]) != nil,
+              isSafeObjectID(parts[1]),
+              let type = SpotlightIndexType(rawValue: parts[2]) else {
             return .unknownLink
         }
 
-        let id = parts[1]
+        let id = parts[3]
         switch type {
         case .recipe:
             guard isSafeObjectID(id) else { return .unknownLink }
@@ -107,6 +140,7 @@ public enum SpotlightIndexPlan {
             guard isSafeObjectID(id) else { return .unknownLink }
             return .cookbookDetail(id: id)
         case .shoppingListItem:
+            guard isSafeObjectID(id) else { return .unknownLink }
             return .shoppingList
         }
     }

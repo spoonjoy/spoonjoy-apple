@@ -283,6 +283,10 @@ public struct NativeShellContentState {
         "\(environment.rawValue)|\(searchSurfaceAccountID)|\(searchSurfaceContext.isAuthenticated)|\(searchSurfaceContext.canReadShoppingList)|\(searchSurfaceSeverityIdentity)"
     }
 
+    public var spotlightIndexScope: SpotlightIndexScope? {
+        trustedAccountID.map { SpotlightIndexScope(accountID: $0, environment: environment) }
+    }
+
     public var profileGraphRepository: (any ProfileChefGraphSurfaceRepository)? {
         guard let profileResult = firstProfileSurfaceResult else {
             return nil
