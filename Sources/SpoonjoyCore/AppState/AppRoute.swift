@@ -31,6 +31,8 @@ public enum AppRoute: Hashable, Sendable {
     case recipeCoverControls(id: String)
     case cookbooks
     case cookbookDetail(id: String)
+    case profile(identifier: String)
+    case profileGraph(identifier: String, direction: ProfileGraphDirection, page: Int)
     case shoppingList
     case search(query: String, scope: SearchScope)
     case capture
@@ -45,6 +47,8 @@ public enum AppRoute: Hashable, Sendable {
             .recipes
         case .cookbooks, .cookbookDetail:
             .cookbooks
+        case .profile, .profileGraph:
+            .search
         case .shoppingList:
             .shoppingList
         case .search:
@@ -96,6 +100,10 @@ public enum AppRoute: Hashable, Sendable {
             "cookbooks"
         case .cookbookDetail(let id):
             "cookbook:\(id)"
+        case .profile(let identifier):
+            "profile:\(identifier)"
+        case .profileGraph(let identifier, let direction, let page):
+            "profile-graph:\(identifier):\(direction.rawValue):\(page)"
         case .shoppingList:
             "shopping-list"
         case .search(let query, let scope):
@@ -129,6 +137,15 @@ public enum AppRoute: Hashable, Sendable {
             self = .cookbooks
         } else if parts.count == 2, parts[0] == "cookbook", Self.isSafeID(parts[1]) {
             self = .cookbookDetail(id: parts[1])
+        } else if parts.count == 2, parts[0] == "profile", Self.isSafeID(parts[1]) {
+            self = .profile(identifier: parts[1])
+        } else if parts.count == 4,
+                  parts[0] == "profile-graph",
+                  Self.isSafeID(parts[1]),
+                  let direction = ProfileGraphDirection(rawValue: parts[2]),
+                  let page = Int(parts[3]),
+                  page > 0 {
+            self = .profileGraph(identifier: parts[1], direction: direction, page: page)
         } else if parts == ["shopping-list"] {
             self = .shoppingList
         } else if parts.count >= 3, parts[0] == "search" {

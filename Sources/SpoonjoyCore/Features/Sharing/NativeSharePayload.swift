@@ -354,6 +354,8 @@ public enum NativePublicShareRoutePolicy {
              .recipeEditor,
              .recipeCoverControls,
              .cookbooks,
+             .profile,
+             .profileGraph,
              .shoppingList,
              .search,
              .capture,

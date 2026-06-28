@@ -154,6 +154,9 @@ public enum ScenarioVerifier {
                 cookbookDeleteCheck(),
                 cookbookAddRecipeCheck(),
                 cookbookRemoveRecipeCheck(),
+                profileDetailCheck(),
+                profileGraphCheck(direction: .fellowChefs),
+                profileGraphCheck(direction: .kitchenVisitors),
                 sourceCheck(
                     name: "kitchen surface source",
                     detail: "Kitchen surface includes lead object, recipe index, and cookbook shelf.",
@@ -202,6 +205,13 @@ public enum ScenarioVerifier {
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
                     tokens: ["KitchenView(", "RecipesView(", "RecipeDetailRouteView(", "CookModeRouteView(", "LiveRecipeCatalogRepository", "FallbackRecipeCatalogRepository", "ShoppingListView(", "CookbooksView("]
+                ),
+                sourceCheck(
+                    name: "profile surface source",
+                    detail: "ProfileView.swift renders profile detail, profile graph, fellow chefs, and kitchen visitors without comments or feeds.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/ProfileView.swift",
+                    tokens: ["ProfileRouteView", "ProfileView", "ProfileGraphRouteView", "ProfileHero", "ProfileRecipeShelf", "ProfileCookbookShelf", "RecentSpoonsSection", "FellowChefsSection", "KitchenVisitorsSection"]
                 ),
                 sourceCheck(
                     name: "search surface source",
@@ -391,8 +401,7 @@ public enum ScenarioVerifier {
                         "search: $search",
                         "search.apply(route: .search(query: query, scope: scope))",
                         "openChef: { username in",
-                        "search.update(query: username, scope: .chefs)",
-                        "navigation.navigate(to: search.route)",
+                        "openProfileRoute(AppRoute.profile(identifier: username))",
                         "CaptureDraftView(",
                         "recordCaptureDraft",
                         "discardCaptureDraft",
@@ -1107,6 +1116,102 @@ public enum ScenarioVerifier {
             connectivity: connectivity,
             now: { Date(timeIntervalSince1970: 1_780_120_000) },
             timestamp: { "2026-06-16T12:11:00.000Z" }
+        )
+    }
+
+    static func profileDetailCheck() -> ScenarioCheck {
+        let profile = scenarioProfileData()
+        let viewModel = ProfileViewModel(
+            result: ProfileSurfaceResult(
+                data: profile,
+                source: .live(requestID: "scenario-profile", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
+            ),
+            context: ProfileSurfaceContext(currentChefID: profile.profile.id),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Date(timeIntervalSince1970: 1_780_120_000) },
+            timestamp: { "2026-06-16T12:12:00.000Z" }
+        )
+        let status: ScenarioCheckStatus = viewModel.openRoute == .profile(identifier: profile.profile.username) &&
+            viewModel.ownerActions.editProfileRoute == .settings &&
+            viewModel.sectionIDs == [.recipes, .cookbooks, .recentSpoons, .fellowChefs, .kitchenVisitors] &&
+            viewModel.unsupportedSocialSurfaces.isEmpty ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "profile detail",
+            status: status,
+            detail: "Profile detail exposes recipes, cookbooks, recent spoons, fellow chefs, and kitchen visitors without adding comments or feeds."
+        )
+    }
+
+    static func profileGraphCheck(direction: ProfileGraphDirection) -> ScenarioCheck {
+        let profile = scenarioProfileData()
+        let page = ProfileGraphPage(
+            profile: ProfileGraphProfile(
+                id: profile.profile.id,
+                username: profile.profile.username,
+                href: profile.profile.href,
+                canonicalURL: profile.profile.canonicalURL
+            ),
+            direction: direction,
+            page: 1,
+            pageSize: 50,
+            total: 1,
+            nextCursor: nil,
+            rows: [
+                ProfileGraphRow(
+                    chefID: "chef_jules",
+                    username: "jules",
+                    photoURL: nil,
+                    href: "/users/jules",
+                    canonicalURL: URL(string: "https://spoonjoy.app/users/jules")!,
+                    interactionCounts: ProfileGraphInteractionCounts(spoons: 1, forks: 1, cookbookSaves: 1),
+                    latestInteractionAt: "2026-06-04T10:00:00.000Z"
+                )
+            ],
+            source: .live(requestID: "scenario-profile-graph", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
+        )
+        let viewModel = ProfileGraphViewModel(page: page)
+        let status: ScenarioCheckStatus = viewModel.rows.first?.openRoute == .profile(identifier: "jules") &&
+            viewModel.rows.first?.interactionSummary == "1 spoon, 1 fork, 1 cookbook save" ? .pass : .fail
+
+        return ScenarioCheck(
+            name: direction == .fellowChefs ? "fellow chefs" : "kitchen visitors",
+            status: status,
+            detail: "Profile graph routes native chef rows from the profile graph without follows/followers."
+        )
+    }
+
+    private static func scenarioProfileData() -> ProfileSurfaceData {
+        let recipe = scenarioRecipe(ingredients: [])
+        let canonicalProfileURL = URL(string: "https://spoonjoy.app/users/ari")!
+        return ProfileSurfaceData(
+            profile: ProfileSummary(
+                id: "chef_ari",
+                username: "ari",
+                photoURL: nil,
+                joinedLabel: "Joined Jun 2026",
+                href: "/users/ari",
+                canonicalURL: canonicalProfileURL
+            ),
+            isOwner: true,
+            recipes: [
+                ProfileRecipeSummary(
+                    id: recipe.id,
+                    title: recipe.title,
+                    description: recipe.description,
+                    servings: recipe.servings,
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel,
+                    href: recipe.href,
+                    canonicalURL: recipe.canonicalURL
+                )
+            ],
+            cookbooks: [],
+            recentSpoons: [],
+            fellowChefsCount: 1,
+            kitchenVisitorsCount: 1
         )
     }
 

@@ -206,6 +206,20 @@ struct PlatformNavigationView: View {
                 openRoute: openRoute,
                 performCookbookAction: performCookbookAction
             )
+        case AppRoute.profile(let identifier):
+            ProfileRouteView(
+                identifier: identifier,
+                viewModel: profileSurfaceViewModel(identifier: identifier),
+                openRoute: openRoute
+            )
+        case AppRoute.profileGraph(let identifier, let direction, let page):
+            ProfileGraphRouteView(
+                identifier: identifier,
+                direction: direction,
+                page: page,
+                viewModel: profileSurfaceViewModel(identifier: identifier),
+                openRoute: openRoute
+            )
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
@@ -223,8 +237,7 @@ struct PlatformNavigationView: View {
                     navigation.navigate(to: .shoppingList)
                 },
                 openChef: { username in
-                    search.update(query: username, scope: .chefs)
-                    navigation.navigate(to: search.route)
+                    openProfileRoute(AppRoute.profile(identifier: username))
                 }
             )
             .onAppear {
@@ -309,6 +322,10 @@ struct PlatformNavigationView: View {
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
+        case .profile:
+            "Profile"
+        case .profileGraph(_, let direction, _):
+            direction == .fellowChefs ? "Fellow Chefs" : "Kitchen Visitors"
         case .shoppingList:
             "Shopping"
         case .search:
@@ -354,6 +371,10 @@ struct PlatformNavigationView: View {
     }
 
     private func openRoute(_ route: AppRoute) {
+        navigation.navigate(to: route)
+    }
+
+    private func openProfileRoute(_ route: AppRoute) {
         navigation.navigate(to: route)
     }
 
@@ -430,6 +451,193 @@ struct PlatformNavigationView: View {
         return viewModel
     }
 
+    private func profileGraphRepository(identifier: String) -> any ProfileChefGraphSurfaceRepository {
+        let snapshotRepository = SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: profileSurfaceResult(identifier: identifier),
+            graphPages: profileGraphPages(identifier: identifier)
+        )
+        let liveRepository = LiveProfileChefGraphSurfaceRepository(configuration: contentState.configuration)
+        return FallbackProfileChefGraphSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
+    }
+
+    private func profileSurfaceViewModel(identifier: String) -> ProfileChefGraphSurfaceViewModel {
+        ProfileChefGraphSurfaceViewModel(
+            repository: profileGraphRepository(identifier: identifier),
+            context: ProfileSurfaceContext(currentChefID: currentChefID),
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: profileSurfaceConnectivity,
+            now: Date.init,
+            timestamp: { ISO8601DateFormatter().string(from: Date()) }
+        )
+    }
+
+    private func profileSurfaceResult(identifier: String) -> ProfileSurfaceResult {
+        let chef = profileChef(identifier: identifier) ?? currentChefSummary ?? ChefSummary(id: identifier, username: identifier)
+        let recipes = contentState.recipes.filter { $0.chef.id == chef.id }
+        let cookbooks = contentState.cookbooks.filter { $0.chef.id == chef.id }
+        let recentSpoons = profileRecentSpoons(chefID: chef.id)
+        let data = ProfileSurfaceData(
+            profile: profileSummary(chef: chef),
+            isOwner: currentChefID == chef.id,
+            recipes: recipes.map(profileRecipeSummary),
+            cookbooks: cookbooks.map(profileCookbookSummary),
+            recentSpoons: recentSpoons,
+            fellowChefsCount: fellowChefRows(chefID: chef.id).count,
+            kitchenVisitorsCount: kitchenVisitorRows(chefID: chef.id).count
+        )
+        return ProfileSurfaceResult(data: data, source: profileSurfaceDataSource)
+    }
+
+    private func profileSummary(chef: ChefSummary) -> ProfileSummary {
+        ProfileSummary(
+            id: chef.id,
+            username: chef.username,
+            photoURL: chef.photoURL,
+            joinedLabel: "Joined Spoonjoy",
+            href: "/users/\(chef.username)",
+            canonicalURL: URL(string: "https://spoonjoy.app/users/\(chef.username)")!
+        )
+    }
+
+    private func profileRecipeSummary(recipe: Recipe) -> ProfileRecipeSummary {
+        ProfileRecipeSummary(
+            id: recipe.id,
+            title: recipe.title,
+            description: recipe.description,
+            servings: recipe.servings,
+            coverImageURL: recipe.coverImageURL,
+            coverProvenanceLabel: recipe.coverProvenanceLabel,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL
+        )
+    }
+
+    private func profileCookbookSummary(cookbook: Cookbook) -> ProfileCookbookSummary {
+        ProfileCookbookSummary(
+            id: cookbook.id,
+            title: cookbook.title,
+            recipeCount: cookbook.recipeCount,
+            recipePreviews: cookbook.recipes.prefix(4).map { recipe in
+                ProfileCookbookRecipePreview(
+                    id: recipe.id,
+                    title: recipe.title,
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel,
+                    href: recipe.href,
+                    canonicalURL: recipe.canonicalURL
+                )
+            },
+            href: cookbook.href,
+            canonicalURL: cookbook.canonicalURL
+        )
+    }
+
+    private func profileRecentSpoons(chefID: String) -> [ProfileRecentSpoon] {
+        contentState.recipes.flatMap { recipe in
+            recipe.recentSpoons.compactMap { spoon -> ProfileRecentSpoon? in
+                guard spoon.chef.id == chefID else {
+                    return nil
+                }
+                return ProfileRecentSpoon(
+                    id: spoon.id,
+                    cookedAt: spoon.cookedAt,
+                    photoURL: spoon.photoURL,
+                    note: spoon.note,
+                    nextTime: spoon.nextTime,
+                    chef: spoon.chef,
+                    recipe: ProfileRecentSpoonRecipe(id: recipe.id, title: recipe.title, chefID: recipe.chef.id),
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel
+                )
+            }
+        }
+    }
+
+    private func profileGraphPages(identifier: String) -> [ProfileGraphPage] {
+        let result = profileSurfaceResult(identifier: identifier)
+        let profile = ProfileGraphProfile(
+            id: result.data.profile.id,
+            username: result.data.profile.username,
+            href: result.data.profile.href,
+            canonicalURL: result.data.profile.canonicalURL
+        )
+        return [
+            ProfileGraphPage(
+                profile: profile,
+                direction: .fellowChefs,
+                page: 1,
+                pageSize: 50,
+                total: fellowChefRows(chefID: result.data.profile.id).count,
+                nextCursor: nil,
+                rows: fellowChefRows(chefID: result.data.profile.id),
+                source: profileSurfaceDataSource,
+                emptyState: fellowChefRows(chefID: result.data.profile.id).isEmpty ? ProfileGraphPage.emptyState(for: .fellowChefs) : nil
+            ),
+            ProfileGraphPage(
+                profile: profile,
+                direction: .kitchenVisitors,
+                page: 1,
+                pageSize: 50,
+                total: kitchenVisitorRows(chefID: result.data.profile.id).count,
+                nextCursor: nil,
+                rows: kitchenVisitorRows(chefID: result.data.profile.id),
+                source: profileSurfaceDataSource,
+                emptyState: kitchenVisitorRows(chefID: result.data.profile.id).isEmpty ? ProfileGraphPage.emptyState(for: .kitchenVisitors) : nil
+            )
+        ]
+    }
+
+    private func fellowChefRows(chefID: String) -> [ProfileGraphRow] {
+        let rows = contentState.recipes.compactMap { recipe -> ProfileGraphRow? in
+            guard recipe.chef.id != chefID,
+                  recipe.recentSpoons.contains(where: { $0.chef.id == chefID }) else {
+                return nil
+            }
+            return profileGraphRow(chef: recipe.chef, spoons: 1)
+        }
+        return rows.deduplicatedByChefID()
+    }
+
+    private func kitchenVisitorRows(chefID: String) -> [ProfileGraphRow] {
+        let rows = contentState.recipes
+            .filter { $0.chef.id == chefID }
+            .flatMap(\.recentSpoons)
+            .compactMap { spoon -> ProfileGraphRow? in
+                guard spoon.chef.id != chefID else {
+                    return nil
+                }
+                return profileGraphRow(chef: spoon.chef, spoons: 1)
+            }
+        return rows.deduplicatedByChefID()
+    }
+
+    private func profileGraphRow(chef: ChefSummary, spoons: Int) -> ProfileGraphRow {
+        ProfileGraphRow(
+            chefID: chef.id,
+            username: chef.username,
+            photoURL: chef.photoURL,
+            href: "/users/\(chef.username)",
+            canonicalURL: URL(string: "https://spoonjoy.app/users/\(chef.username)")!,
+            interactionCounts: ProfileGraphInteractionCounts(spoons: spoons, forks: 0, cookbookSaves: 0),
+            latestInteractionAt: nil
+        )
+    }
+
+    private func profileChef(identifier: String) -> ChefSummary? {
+        let chefs = contentState.recipes.map(\.chef) + contentState.cookbooks.map(\.chef)
+        return chefs.first { $0.id == identifier || $0.username == identifier }
+    }
+
+    private var profileSurfaceDataSource: ProfileSurfaceDataSource {
+        switch offlineIndicatorState.display {
+        case .synced:
+            .live(requestID: "native-shell", validatedAt: Date())
+        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            .cache(serverRevision: latestRecipeRevision, lastValidatedAt: .distantPast)
+        }
+    }
+
     private func cookbookSurfacePage(source: CookbookSurfaceDataSource) -> CookbookSurfacePage {
         CookbookSurfacePage(
             query: nil,
@@ -449,6 +657,13 @@ struct PlatformNavigationView: View {
         case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             .cache(serverRevision: latestCookbookRevision, lastValidatedAt: .distantPast)
         }
+    }
+
+    private var latestRecipeRevision: NativeCacheServerRevision? {
+        contentState.recipes
+            .map(\.updatedAt)
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
     }
 
     private var latestCookbookRevision: NativeCacheServerRevision? {
@@ -583,6 +798,14 @@ struct PlatformNavigationView: View {
     }
 
     private var cookbookSurfaceConnectivity: CookbookSurfaceConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var profileSurfaceConnectivity: ProfileSurfaceConnectivity {
         if offlineIndicatorState.display == .offline {
             return .offline
         }
@@ -928,6 +1151,15 @@ struct PlatformNavigationView: View {
         value.map { character in
             character.isLetter || character.isNumber ? String(character) : "-"
         }.joined()
+    }
+}
+
+private extension Array where Element == ProfileGraphRow {
+    func deduplicatedByChefID() -> [ProfileGraphRow] {
+        var seen = Set<String>()
+        return filter { row in
+            seen.insert(row.chefID).inserted
+        }
     }
 }
 

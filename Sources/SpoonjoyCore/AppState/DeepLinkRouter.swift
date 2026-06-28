@@ -81,6 +81,22 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .cookbookDetail(id: id)
         }
 
+        if segments.count == 2, segments[0] == "users" {
+            let identifier = segments[1]
+            guard safeID(identifier) else {
+                return .unknownLink
+            }
+            return .profile(identifier: identifier)
+        }
+
+        if segments.count == 3, segments[0] == "users" {
+            let identifier = segments[1]
+            guard safeID(identifier), let direction = ProfileGraphDirection(rawValue: segments[2]) else {
+                return .unknownLink
+            }
+            return .profileGraph(identifier: identifier, direction: direction, page: graphPage(components))
+        }
+
         if segments == ["shopping-list"] {
             return .shoppingList
         }
@@ -161,6 +177,22 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .cookbookDetail(id: id)
         }
 
+        if segments.count == 2, segments[0] == "users" {
+            let identifier = segments[1]
+            guard safeID(identifier) else {
+                return .unknownLink
+            }
+            return .profile(identifier: identifier)
+        }
+
+        if segments.count == 3, segments[0] == "users" {
+            let identifier = segments[1]
+            guard safeID(identifier), let direction = ProfileGraphDirection(rawValue: segments[2]) else {
+                return .unknownLink
+            }
+            return .profileGraph(identifier: identifier, direction: direction, page: graphPage(components))
+        }
+
         if segments == ["shopping-list"] {
             return .shoppingList
         }
@@ -203,6 +235,15 @@ public struct DeepLinkRouter: Equatable, Sendable {
         }
 
         return .search(query: rawQuery, scope: scope)
+    }
+
+    private func graphPage(_ components: URLComponents) -> Int {
+        guard let rawPage = components.queryItems?.first(where: { $0.name == "page" })?.value,
+              let page = Int(rawPage),
+              page > 0 else {
+            return 1
+        }
+        return page
     }
 
     func decodedSegments(_ percentEncodedPath: String) -> [String] {

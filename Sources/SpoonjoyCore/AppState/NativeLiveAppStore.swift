@@ -154,6 +154,52 @@ public struct NativeShellContentState {
         )
     }
 
+    public var profileGraphRepository: (any ProfileChefGraphSurfaceRepository)? {
+        guard let profileResult = firstProfileSurfaceResult else {
+            return nil
+        }
+        let graphProfile = ProfileGraphProfile(
+            id: profileResult.data.profile.id,
+            username: profileResult.data.profile.username,
+            href: profileResult.data.profile.href,
+            canonicalURL: profileResult.data.profile.canonicalURL
+        )
+        return SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: profileResult,
+            graphPages: [
+                ProfileGraphPage.empty(
+                    profile: graphProfile,
+                    direction: .fellowChefs,
+                    page: 1,
+                    pageSize: 50,
+                    source: profileResult.source
+                ),
+                ProfileGraphPage.empty(
+                    profile: graphProfile,
+                    direction: .kitchenVisitors,
+                    page: 1,
+                    pageSize: 50,
+                    source: profileResult.source
+                )
+            ]
+        )
+    }
+
+    public var profileSurfaceViewModel: ProfileViewModel? {
+        guard let profileResult = firstProfileSurfaceResult else {
+            return nil
+        }
+        return ProfileViewModel(
+            result: profileResult,
+            context: ProfileSurfaceContext(currentChefID: trustedAccountID),
+            queuedMutations: queuedMutations,
+            conflicts: syncConflicts,
+            connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+            now: Date.init,
+            timestamp: { NativeLiveAppStoreClock.isoString(Date()) }
+        )
+    }
+
     public var recipeCatalog: RecipeCatalogPage {
         RecipeCatalogPage(
             query: nil,
@@ -164,6 +210,98 @@ public struct NativeShellContentState {
             rows: recipes.map(RecipeSummary.init(recipe:)),
             source: recipeCatalogSource
         )
+    }
+
+    private var firstProfileSurfaceResult: ProfileSurfaceResult? {
+        guard let chef = firstProfileChef else {
+            return nil
+        }
+        let chefRecipes = recipes.filter { $0.chef.id == chef.id }
+        let chefCookbooks = cookbooks.filter { $0.chef.id == chef.id }
+        return ProfileSurfaceResult(
+            data: ProfileSurfaceData(
+                profile: ProfileSummary(
+                    id: chef.id,
+                    username: chef.username,
+                    photoURL: chef.photoURL,
+                    joinedLabel: "Joined Spoonjoy",
+                    href: "/users/\(chef.username)",
+                    canonicalURL: URL(string: "https://spoonjoy.app/users/\(chef.username)")!
+                ),
+                isOwner: trustedAccountID == chef.id,
+                recipes: chefRecipes.map { recipe in
+                    ProfileRecipeSummary(
+                        id: recipe.id,
+                        title: recipe.title,
+                        description: recipe.description,
+                        servings: recipe.servings,
+                        coverImageURL: recipe.coverImageURL,
+                        coverProvenanceLabel: recipe.coverProvenanceLabel,
+                        href: recipe.href,
+                        canonicalURL: recipe.canonicalURL
+                    )
+                },
+                cookbooks: chefCookbooks.map { cookbook in
+                    ProfileCookbookSummary(
+                        id: cookbook.id,
+                        title: cookbook.title,
+                        recipeCount: cookbook.recipeCount,
+                        recipePreviews: cookbook.recipes.prefix(4).map { recipe in
+                            ProfileCookbookRecipePreview(
+                                id: recipe.id,
+                                title: recipe.title,
+                                coverImageURL: recipe.coverImageURL,
+                                coverProvenanceLabel: recipe.coverProvenanceLabel,
+                                href: recipe.href,
+                                canonicalURL: recipe.canonicalURL
+                            )
+                        },
+                        href: cookbook.href,
+                        canonicalURL: cookbook.canonicalURL
+                    )
+                },
+                recentSpoons: chefRecipes.flatMap { recipe in
+                    recipe.recentSpoons.map { spoon in
+                        ProfileRecentSpoon(
+                            id: spoon.id,
+                            cookedAt: spoon.cookedAt,
+                            photoURL: spoon.photoURL,
+                            note: spoon.note,
+                            nextTime: spoon.nextTime,
+                            chef: spoon.chef,
+                            recipe: ProfileRecentSpoonRecipe(id: recipe.id, title: recipe.title, chefID: recipe.chef.id),
+                            coverImageURL: recipe.coverImageURL,
+                            coverProvenanceLabel: recipe.coverProvenanceLabel
+                        )
+                    }
+                },
+                fellowChefsCount: 0,
+                kitchenVisitorsCount: 0
+            ),
+            source: profileSurfaceSource
+        )
+    }
+
+    private var firstProfileChef: ChefSummary? {
+        recipes.first?.chef ?? cookbooks.first?.chef
+    }
+
+    private var trustedAccountID: String? {
+        switch authSessionState {
+        case .authenticated(let session), .refreshRequired(let session):
+            session.accountID
+        case .signedOut:
+            nil
+        }
+    }
+
+    private var profileSurfaceSource: ProfileSurfaceDataSource {
+        switch offlineIndicatorState.display {
+        case .synced:
+            .live(requestID: "native-shell", validatedAt: Date())
+        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            .cache(serverRevision: latestRecipeRevision, lastValidatedAt: .distantPast)
+        }
     }
 
     public func cookProgress(for recipeID: String) -> CookModeProgress? {

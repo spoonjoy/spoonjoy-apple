@@ -1,0 +1,30 @@
+== xcodebuild list ==
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -list -project Spoonjoy.xcodeproj
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  SpoonjoyApple: /Users/arimendelow/Projects/spoonjoy-apple @ local
+
+Information about project "Spoonjoy":
+    Targets:
+        Spoonjoy iOS
+        Spoonjoy macOS
+
+    Build Configurations:
+        BootstrapDebug
+        Debug
+        Release
+
+    If no build configuration is specified and -scheme is not passed then "Release" is used.
+
+    Schemes:
+        Spoonjoy iOS
+        Spoonjoy macOS
+        SpoonjoyCore
+        SpoonjoyScenarioVerifier
+
+== runtimes ==
+== Runtimes ==

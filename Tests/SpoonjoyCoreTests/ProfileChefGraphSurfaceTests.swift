@@ -15,9 +15,9 @@ struct ProfileChefGraphSurfaceTests {
     @Test("profile repository loads live profile and derived graph pages from public API v1")
     @MainActor
     func profileRepositoryLoadsLiveProfileAndDerivedGraphPages() async throws {
-        let profileEnvelope = APIEnvelope(requestID: "req_profile", data: Self.profileData())
-        let fellowChefsEnvelope = APIEnvelope(requestID: "req_fellow_chefs", data: Self.graphPage(direction: .fellowChefs))
-        let kitchenVisitorsEnvelope = APIEnvelope(requestID: "req_kitchen_visitors", data: Self.graphPage(direction: .kitchenVisitors))
+        let profileEnvelope = try APIEnvelope(requestID: "req_profile", data: Self.profileData())
+        let fellowChefsEnvelope = try APIEnvelope(requestID: "req_fellow_chefs", data: Self.graphPage(direction: .fellowChefs))
+        let kitchenVisitorsEnvelope = try APIEnvelope(requestID: "req_kitchen_visitors", data: Self.graphPage(direction: .kitchenVisitors))
         let transport = RecordingProfileAPITransport(
             profileEnvelope: profileEnvelope,
             fellowChefsEnvelope: fellowChefsEnvelope,
@@ -84,7 +84,7 @@ struct ProfileChefGraphSurfaceTests {
 
         let owner = ProfileViewModel(
             result: ProfileSurfaceResult(
-                data: Self.profileData(),
+                data: try Self.profileData(),
                 source: .cache(serverRevision: .updatedAt("2026-06-27T22:45:00.000Z"), lastValidatedAt: Self.staleValidatedAt)
             ),
             context: ProfileSurfaceContext(currentChefID: "chef_ari"),
@@ -96,7 +96,7 @@ struct ProfileChefGraphSurfaceTests {
         )
         let visitor = ProfileViewModel(
             result: ProfileSurfaceResult(
-                data: Self.profileData(isOwner: false),
+                data: try Self.profileData(isOwner: false),
                 source: .live(requestID: "req_profile_visitor", validatedAt: Self.now)
             ),
             context: ProfileSurfaceContext(currentChefID: "chef_jules"),
@@ -135,12 +135,12 @@ struct ProfileChefGraphSurfaceTests {
     func snapshotRepositoryRestoresPublicProfileCacheAndGraphPaginationHonestly() async throws {
         let repository = SnapshotProfileChefGraphSurfaceRepository(
             profileResult: ProfileSurfaceResult(
-                data: Self.profileData(),
+                data: try Self.profileData(),
                 source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
             ),
             graphPages: [
-                Self.graphPage(direction: .fellowChefs, page: 1, nextCursor: "2"),
-                Self.graphPage(direction: .kitchenVisitors)
+                try Self.graphPage(direction: .fellowChefs, page: 1, nextCursor: "2"),
+                try Self.graphPage(direction: .kitchenVisitors)
             ]
         )
 
