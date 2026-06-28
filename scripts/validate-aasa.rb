@@ -32,8 +32,10 @@ end
 
 def expected_components(routes)
   routes.map do |route|
-    path = URI(route.gsub("{id}", "placeholder").gsub("{query}", "placeholder").gsub("{all|recipes|cookbooks|chefs|shopping-list}", "all")).path
-    if route.include?("{id}")
+    has_path_template = route.split("?", 2).first.include?("{")
+    normalized_route = route.gsub(/\{[^}]+\}/, "placeholder")
+    path = URI(normalized_route).path
+    if has_path_template
       { "/" => path.sub(%r{/placeholder.*\z}, "/*") }
     elsif route.include?("?")
       { "/" => path, "?" => { "*" => "*" } }

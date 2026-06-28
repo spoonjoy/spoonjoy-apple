@@ -286,6 +286,7 @@ struct NativeScenarioTests {
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: shoppingItem.uniqueIdentifier) == .shoppingList)
         #expect(DeepLinkURLBuilder.url(for: shoppingItem.route) == URL(string: "spoonjoy://shopping-list"))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "recipe:../secret") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "cookbook:../secret") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "unknown:item") == .unknownLink)
     }
 

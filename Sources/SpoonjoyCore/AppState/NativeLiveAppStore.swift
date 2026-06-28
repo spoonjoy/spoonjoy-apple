@@ -248,8 +248,7 @@ public struct NativeShellContentState {
             page: page,
             state: state,
             context: searchSurfaceContext,
-            offlineIndicator: searchSurfaceSevereOfflineIndicator ?? page.offlineIndicator(now: Date()),
-            now: Date.init
+            offlineIndicator: searchSurfaceSevereOfflineIndicator ?? page.offlineIndicator(now: Date())
         )
     }
 
@@ -261,8 +260,7 @@ public struct NativeShellContentState {
             page: page,
             state: state,
             context: searchSurfaceContext,
-            offlineIndicator: searchSurfaceSevereOfflineIndicator ?? page.offlineIndicator(now: Date()),
-            now: Date.init
+            offlineIndicator: searchSurfaceSevereOfflineIndicator ?? page.offlineIndicator(now: Date())
         )
     }
 
@@ -422,9 +420,10 @@ public struct NativeShellContentState {
             return SearchSurfaceContext(isAuthenticated: false, canReadShoppingList: false)
         case .authenticated(let session), .refreshRequired(let session):
             let scopes = Set(session.scope.split(separator: " ").map(String.init))
+            let shoppingReadScopes: Set<String> = ["shopping_list:read", "kitchen:read"]
             return SearchSurfaceContext(
                 isAuthenticated: true,
-                canReadShoppingList: scopes.contains("shopping_list:read") || scopes.contains("kitchen:read")
+                canReadShoppingList: !scopes.isDisjoint(with: shoppingReadScopes)
             )
         }
     }

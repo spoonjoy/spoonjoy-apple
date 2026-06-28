@@ -3044,6 +3044,172 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("signed in search recording persists scoped cache and filters private rows")
+    func signedInSearchRecordingPersistsScopedCacheAndFiltersPrivateRows() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_search_cache", title: "Search Cache Pasta")
+            let cookbook = Self.sampleCookbook(id: "cookbook_search_cache", title: "Search Cache Suppers")
+            let shoppingItem = Self.sampleShoppingItem(id: "item_search_cache", name: "tomatoes")
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                    recipe: recipe,
+                    cookbook: cookbook,
+                    shoppingItem: shoppingItem,
+                    accountID: "chef_ari"
+                )))
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live store to bootstrap signed-in search cache content; got \(liveStore.bootstrapState)")
+                return
+            }
+            let defaultSearch = content.searchSurfaceViewModel
+            #expect(defaultSearch.sections.flatMap(\.rows).map(\.title).contains("Search Cache Pasta"))
+            #expect(defaultSearch.sections.flatMap(\.rows).map(\.title).contains("Search Cache Suppers"))
+            #expect(defaultSearch.sections.flatMap(\.rows).map(\.title).contains("ari"))
+            #expect(defaultSearch.sections.flatMap(\.rows).map(\.title).contains("tomatoes"))
+
+            let repository = liveStore.searchSurfaceRepository(context: content.searchSurfaceContext)
+            #expect(try await repository.recentSearches(limit: 1).isEmpty)
+
+            let ownShoppingResult = SearchSurfaceResult(
+                type: .shoppingListItem,
+                id: "item_own_search",
+                ownerID: "chef_ari",
+                ownerUsername: "ari",
+                title: "tomatoes",
+                subtitle: "3 each",
+                snippet: "produce",
+                href: "/shopping-list",
+                canonicalURL: URL(string: "https://spoonjoy.app/shopping-list")!,
+                imageURL: nil,
+                score: -0.5,
+                metadata: ["checked": .bool(false)]
+            )
+            let otherShoppingResult = SearchSurfaceResult(
+                type: .shoppingListItem,
+                id: "item_other_search",
+                ownerID: "chef_other",
+                ownerUsername: "other",
+                title: "secret shallots",
+                subtitle: "1 each",
+                snippet: "produce",
+                href: "/shopping-list",
+                canonicalURL: URL(string: "https://spoonjoy.app/shopping-list")!,
+                imageURL: nil,
+                score: -0.4,
+                metadata: ["checked": .bool(false)]
+            )
+            let page = SearchSurfacePage(
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: true,
+                results: [
+                    SearchSurfaceResult(
+                        type: .recipe,
+                        id: "recipe_public_search",
+                        ownerID: "chef_ari",
+                        ownerUsername: "ari",
+                        title: "Public Tomato Toast",
+                        subtitle: "Recipe by ari",
+                        snippet: "tomato toast",
+                        href: "/recipes/recipe_public_search",
+                        canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_public_search")!,
+                        imageURL: nil,
+                        score: -0.1,
+                        metadata: [:]
+                    ),
+                    ownShoppingResult,
+                    otherShoppingResult
+                ],
+                source: .cache(serverRevision: .cursor("search-cache-v2"), lastValidatedAt: Self.now)
+            )
+
+            try liveStore.recordSearchSurfacePage(page, expectedIdentity: "stale-search-identity")
+            try liveStore.recordSearchSurfacePage(page, expectedIdentity: liveStore.currentSearchSurfaceIdentity)
+
+            let fallback = try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_ari",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            )
+            let persisted = try cacheStore.loadOrRecover(fallback: fallback).value
+            let persistedSearchSnapshot = try #require(persisted.records.compactMap { record -> SearchSurfaceCacheSnapshot? in
+                if case .searchResults(let snapshot) = record.payload {
+                    return snapshot
+                }
+                return nil
+            }.first)
+
+            #expect(persisted.accountID == "chef_ari")
+            #expect(persistedSearchSnapshot.results.map(\.id) == ["recipe_public_search", "item_own_search"])
+            #expect(persistedSearchSnapshot.recentSearches.map(\.query) == ["tomato"])
+            #expect(persistedSearchSnapshot.serverRevision == .cursor("search-cache-v2"))
+
+            let restored = liveStore.bootstrapState.contentState.performSearch(SearchState(query: "tomato", scope: .all))
+            #expect(restored.sections.flatMap(\.rows).map(\.result.id) == ["recipe_public_search", "item_own_search"])
+
+            let replacementPage = SearchSurfacePage(
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: true,
+                results: [
+                    SearchSurfaceResult(
+                        type: .recipe,
+                        id: "recipe_replacement_search",
+                        ownerID: "chef_ari",
+                        ownerUsername: "ari",
+                        title: "Replacement Tomato Toast",
+                        subtitle: "Recipe by ari",
+                        snippet: "tomato toast",
+                        href: "/recipes/recipe_replacement_search",
+                        canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_replacement_search")!,
+                        imageURL: nil,
+                        score: -0.1,
+                        metadata: [:]
+                    )
+                ],
+                source: .live(requestID: "req_search_replacement", validatedAt: Self.now.addingTimeInterval(5))
+            )
+            try liveStore.recordSearchSurfacePage(replacementPage, expectedIdentity: liveStore.currentSearchSurfaceIdentity)
+
+            let replacementRestored = liveStore.bootstrapState.contentState.performSearch(SearchState(query: "tomato", scope: .all))
+            #expect(replacementRestored.sections.flatMap(\.rows).map(\.result.id) == ["recipe_replacement_search"])
+
+            let blankPage = SearchSurfacePage(
+                query: "",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: true,
+                results: [ownShoppingResult],
+                source: .cache(serverRevision: .cursor("search-blank"), lastValidatedAt: Self.now.addingTimeInterval(10))
+            )
+            try liveStore.recordSearchSurfacePage(blankPage, expectedIdentity: liveStore.currentSearchSurfaceIdentity)
+            let persistedAfterBlank = try cacheStore.loadOrRecover(fallback: fallback).value
+            let blankSnapshot = try #require(persistedAfterBlank.records.compactMap { record -> SearchSurfaceCacheSnapshot? in
+                if case .searchResults(let snapshot) = record.payload, snapshot.query.isEmpty {
+                    return snapshot
+                }
+                return nil
+            }.first)
+            #expect(blankSnapshot.recentSearches.isEmpty)
+        }
+    }
+
+    @MainActor
     @Test("live store deletes superseded spoon draft media unless queued")
     func liveStoreDeletesSupersededSpoonDraftMediaUnlessQueued() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

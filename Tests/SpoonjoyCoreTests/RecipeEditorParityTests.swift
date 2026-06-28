@@ -404,15 +404,20 @@ struct RecipeEditorParityTests {
         draft.steps[0].ingredients = [
             RecipeEditorIngredientDraft(id: "ingredient_too_small", name: "salt", quantity: 0.0009, unit: "tsp"),
             RecipeEditorIngredientDraft(id: "ingredient_too_big", name: "flour", quantity: 100_000, unit: "g"),
-            RecipeEditorIngredientDraft(id: "ingredient_invalid", name: "water", quantity: .infinity, unit: "ml")
+            RecipeEditorIngredientDraft(id: "ingredient_invalid", name: "water", quantity: .infinity, unit: "ml"),
+            RecipeEditorIngredientDraft(id: "ingredient_blank_invalid", name: " ", quantity: .infinity, unit: "ml")
         ]
+        draft.description = "   "
         draft.steps[0].description = "Mix."
         draft.steps[0].outputStepNums = []
         #expect(RecipeEditorValidator.validate(draft).map(\.message) == [
+            "Name every ingredient.",
             "Use a quantity between 0.001 and 99,999 for salt.",
             "Use a quantity between 0.001 and 99,999 for flour.",
-            "Use a valid quantity for water."
+            "Use a valid quantity for water.",
+            "Use a valid quantity for ingredient."
         ])
+        #expect(draft.descriptionForRequest == nil)
     }
 
     @Test("edge states block unsafe editor actions and expose queued recipe work")

@@ -1250,7 +1250,7 @@ public enum ScenarioVerifier {
             serverRevision: .cursor("scenario-search"),
             lastValidatedAt: Date(timeIntervalSince1970: 1_780_140_000)
         )
-        guard let session = try? AuthSession(
+        let session = try! AuthSession(
             clientID: "scenario-client",
             accessToken: "scenario-access",
             refreshToken: "scenario-refresh",
@@ -1258,9 +1258,7 @@ public enum ScenarioVerifier {
             expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
             scope: NativeAuthSession.defaultScope,
             accountID: "chef_ari"
-        ) else {
-            return ScenarioCheck(name: "search", status: .fail, detail: "SearchSurfaceRequest scenario auth could not initialize.")
-        }
+        )
         let state = SearchState(query: request.query, scope: request.scope)
         let contentState = NativeShellContentState.empty(
             authSessionState: .authenticated(session),
