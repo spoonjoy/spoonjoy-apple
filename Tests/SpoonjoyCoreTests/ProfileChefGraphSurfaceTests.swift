@@ -28,12 +28,23 @@ struct ProfileChefGraphSurfaceTests {
             configuration: Self.configuration,
             now: { Self.now }
         )
+        let defaultNowTransport = RecordingProfileAPITransport(
+            profileEnvelope: profileEnvelope,
+            fellowChefsEnvelope: fellowChefsEnvelope,
+            kitchenVisitorsEnvelope: kitchenVisitorsEnvelope
+        )
+        let defaultNowRepository = LiveProfileChefGraphSurfaceRepository(
+            transport: defaultNowTransport,
+            configuration: Self.configuration
+        )
 
         let profile = try await repository.profile(identifier: "ari")
+        let defaultNowProfile = try await defaultNowRepository.profile(identifier: "ari")
         let fellowChefs = try await repository.graph(identifier: "ari", direction: .fellowChefs, page: 1, limit: 50)
         let kitchenVisitors = try await repository.graph(identifier: "ari", direction: .kitchenVisitors, page: 1, limit: 50)
 
         #expect(profile.source == .live(requestID: "req_profile", validatedAt: Self.now))
+        #expect(defaultNowProfile.data.profile.id == "chef_ari")
         #expect(profile.data.profile.username == "ari")
         #expect(profile.data.profile.href == "/users/ari")
         #expect(profile.data.profile.canonicalURL == URL(string: "https://spoonjoy.app/users/ari"))
@@ -67,6 +78,80 @@ struct ProfileChefGraphSurfaceTests {
         ])
     }
 
+    @Test("profile repository normalizes server profile links for encoded identifiers")
+    @MainActor
+    func profileRepositoryNormalizesServerProfileLinksForEncodedIdentifiers() async throws {
+        let rawProfile = ProfileSummary(
+            id: "chef_alpha",
+            username: "alpha space",
+            photoURL: nil,
+            joinedLabel: "Joined Jun 2026",
+            href: "/users/alpha space",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/users/alpha%20space"))
+        )
+        let rawGraphProfile = ProfileGraphProfile(
+            id: rawProfile.id,
+            username: rawProfile.username,
+            href: rawProfile.href,
+            canonicalURL: rawProfile.canonicalURL
+        )
+        let rawGraphRow = ProfileGraphRow(
+            chefID: "chef_beta",
+            username: "beta/chef",
+            photoURL: nil,
+            href: "/users/beta/chef",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/users/beta/chef")),
+            interactionCounts: ProfileGraphInteractionCounts(spoons: 1, forks: 0, cookbookSaves: 0),
+            latestInteractionAt: "2026-06-04T10:00:00.000Z"
+        )
+        let profileEnvelope = APIEnvelope(
+            requestID: "req_profile_encoded",
+            data: ProfileSurfaceData(
+                profile: rawProfile,
+                isOwner: false,
+                recipes: [],
+                cookbooks: [],
+                recentSpoons: [],
+                fellowChefsCount: 1,
+                kitchenVisitorsCount: 1
+            )
+        )
+        let graphEnvelope = APIEnvelope(
+            requestID: "req_graph_encoded",
+            data: ProfileGraphPage(
+                profile: rawGraphProfile,
+                direction: .fellowChefs,
+                page: 1,
+                pageSize: 50,
+                total: 1,
+                nextCursor: nil,
+                rows: [rawGraphRow],
+                source: .live(requestID: "server_source", validatedAt: Self.now)
+            )
+        )
+        let repository = LiveProfileChefGraphSurfaceRepository(
+            transport: RecordingProfileAPITransport(
+                profileEnvelope: profileEnvelope,
+                fellowChefsEnvelope: graphEnvelope,
+                kitchenVisitorsEnvelope: graphEnvelope
+            ),
+            configuration: Self.configuration,
+            now: { Self.now }
+        )
+
+        let profile = try await repository.profile(identifier: "alpha space")
+        let graph = try await repository.graph(identifier: "alpha space", direction: .fellowChefs, page: 1, limit: 50)
+        let row = try #require(graph.rows.first)
+
+        #expect(profile.data.profile.href == "/users/alpha%20space")
+        #expect(profile.data.profile.canonicalURL == URL(string: "https://spoonjoy.app/users/alpha%20space"))
+        #expect(graph.profile.href == "/users/alpha%20space")
+        #expect(graph.profile.canonicalURL == URL(string: "https://spoonjoy.app/users/alpha%20space"))
+        #expect(row.href == "/users/beta%2Fchef")
+        #expect(row.canonicalURL == URL(string: "https://spoonjoy.app/users/beta%2Fchef"))
+        #expect(DeepLinkRouter.spoonjoy.route(for: row.canonicalURL) == .profile(identifier: "beta/chef"))
+    }
+
     @Test("profile view models expose current product surfaces and owner personalization without follows")
     func profileViewModelsExposeCurrentProductSurfacesAndOwnerPersonalization() throws {
         let queuedProfileUpdate = NativeQueuedMutation.profileDisplayUpdate(
@@ -91,8 +176,7 @@ struct ProfileChefGraphSurfaceTests {
             queuedMutations: [queuedProfileUpdate],
             conflicts: [conflict],
             connectivity: .offline,
-            now: { Self.now },
-            timestamp: { Self.createdAt }
+            now: { Self.now }
         )
         let visitor = ProfileViewModel(
             result: ProfileSurfaceResult(
@@ -103,8 +187,7 @@ struct ProfileChefGraphSurfaceTests {
             queuedMutations: [],
             conflicts: [],
             connectivity: .online,
-            now: { Self.now },
-            timestamp: { Self.createdAt }
+            now: { Self.now }
         )
 
         #expect(owner.header.username == "ari")
@@ -194,16 +277,199 @@ struct ProfileChefGraphSurfaceTests {
         #expect(graphDidThrow)
     }
 
-    private static func profileData(isOwner: Bool = true) throws -> ProfileSurfaceData {
-        ProfileSurfaceData(
-            profile: ProfileSummary(
-                id: "chef_ari",
-                username: "ari",
-                photoURL: URL(string: "https://spoonjoy.app/photos/profiles/chef_ari/avatar.gif"),
-                joinedLabel: "Joined Jun 2026",
-                href: "/users/ari",
-                canonicalURL: try #require(URL(string: "https://spoonjoy.app/users/ari"))
+    @Test("profile coverage edges keep filtered and empty product states honest")
+    func profileCoverageEdgesKeepFilteredAndEmptyProductStatesHonest() throws {
+        let profile = try Self.profileData()
+        let freshCache = ProfileSurfaceResult(
+            data: profile,
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.now.addingTimeInterval(-60))
+        )
+        let live = ProfileSurfaceResult(
+            data: profile,
+            source: .live(requestID: "req_profile_fresh", validatedAt: Self.now)
+        )
+        let zeroInteractionRow = ProfileGraphRow(
+            chefID: "chef_quiet",
+            username: "quiet",
+            photoURL: nil,
+            href: "/users/quiet",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/users/quiet")),
+            interactionCounts: ProfileGraphInteractionCounts(spoons: 0, forks: 0, cookbookSaves: 0),
+            latestInteractionAt: nil
+        )
+        let pluralCookbook = ProfileCookbookSummary(
+            id: "cookbook_plural",
+            title: "Plural",
+            recipeCount: 2,
+            recipePreviews: [],
+            href: "/cookbooks/cookbook_plural",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/cookbooks/cookbook_plural"))
+        )
+        let decodedGraph = try JSONDecoder().decode(ProfileGraphPage.self, from: Data(
+            """
+            {
+              "profile": {
+                "id": "chef_ari",
+                "username": "ari",
+                "href": "/users/ari",
+                "canonicalUrl": "https://spoonjoy.app/users/ari"
+              },
+              "page": 2,
+              "pageSize": 25,
+              "total": 0,
+              "nextCursor": null,
+              "rows": []
+            }
+            """.utf8
+        ))
+        let filteredEmptyProfile = ProfileViewModel(
+            result: ProfileSurfaceResult(
+                data: try Self.profileData(recipes: [], cookbooks: [], recentSpoons: [], fellowChefsCount: 0, kitchenVisitorsCount: 0),
+                source: .live(requestID: "req_filtered_profile", validatedAt: Self.now)
             ),
+            context: ProfileSurfaceContext(currentChefID: "chef_other"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now }
+        )
+
+        #expect(ProfileSurfaceRequest(identifier: "  ari \n").identifier == "ari")
+        #expect(live.offlineIndicator.display == .synced)
+        #expect(freshCache.offlineIndicator(now: Self.now).display == .synced)
+        #expect(ProfileSurfaceResult.offlineIndicator(
+            domain: .profile(id: "chef_ari"),
+            payload: .profile(id: "chef_other", username: "other"),
+            accountID: "chef_ari",
+            sourceEndpoint: "/api/v1/users/ari",
+            serverRevision: nil,
+            lastValidatedAt: Self.now,
+            now: Self.now,
+            freshnessPolicy: .offlineProductContract
+        ).display == .stale(domain: .profile(id: "chef_ari")))
+        #expect(profile.cookbooks.first?.openRoute == .cookbookDetail(id: "cookbook_profile_weeknights"))
+        #expect(profile.cookbooks.first?.recipePreviews.first?.openRoute == .recipeDetail(id: "recipe_profile_tart", presentation: .detail))
+        #expect(pluralCookbook.recipeCountLabel == "2 recipes")
+        #expect(zeroInteractionRow.id == "chef_quiet")
+        #expect(zeroInteractionRow.interactionSummary == "No interactions yet")
+        #expect(ProfileGraphPage.emptyState(for: .kitchenVisitors) == ProfileSurfaceEmptyState(
+            title: "No kitchen visitors yet",
+            message: "Kitchen visitors appear after other chefs cook, fork, or save this chef's recipes.",
+            systemImage: "person.crop.circle.badge.clock"
+        ))
+        #expect(decodedGraph.direction == .fellowChefs)
+        #expect(decodedGraph.source == .cache(serverRevision: nil, lastValidatedAt: .distantPast))
+        #expect(decodedGraph.emptyState == nil)
+        #expect(decodedGraph.with(direction: .kitchenVisitors, source: freshCache.source).emptyState == ProfileSurfaceEmptyState(
+            title: "No kitchen visitors yet",
+            message: "Kitchen visitors appear after other chefs cook, fork, or save this chef's recipes.",
+            systemImage: "person.crop.circle.badge.clock"
+        ))
+        #expect(String(describing: ProfileSurfaceSnapshotError.profileNotCached(identifier: "missing")) == "No cached profile exists for missing.")
+        #expect(filteredEmptyProfile.recipes.isEmpty)
+        #expect(filteredEmptyProfile.cookbooks.isEmpty)
+        #expect(filteredEmptyProfile.recentSpoons.isEmpty)
+        #expect(filteredEmptyProfile.graphLinks.map(\.count) == [0, 0])
+        #expect(filteredEmptyProfile.unsupportedSocialSurfaces.isEmpty)
+    }
+
+    @Test("profile view model loader covers queued offline cached and unavailable states")
+    @MainActor
+    func profileViewModelLoaderCoversQueuedOfflineCachedAndUnavailableStates() async throws {
+        let profileResult = ProfileSurfaceResult(
+            data: try Self.profileData(),
+            source: .cache(serverRevision: .updatedAt("2026-06-27T22:45:00.000Z"), lastValidatedAt: Self.staleValidatedAt)
+        )
+        let repository = SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: profileResult,
+            graphPages: [
+                ProfileGraphPage.empty(
+                    profile: ProfileGraphProfile(
+                        id: "chef_ari",
+                        username: "ari",
+                        href: "/users/ari",
+                        canonicalURL: try #require(URL(string: "https://spoonjoy.app/users/ari"))
+                    ),
+                    direction: .kitchenVisitors,
+                    page: 1,
+                    pageSize: 50,
+                    source: profileResult.source
+                )
+            ]
+        )
+        let queuedProfilePhoto = NativeQueuedMutation.profilePhotoRemove(
+            clientMutationID: "cm_profile_photo_remove",
+            createdAt: Self.createdAt
+        )
+        let queuedShopping = NativeQueuedMutation.shoppingAddItem(
+            name: "lemons",
+            quantity: nil,
+            unit: nil,
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_not_profile",
+            createdAt: Self.createdAt
+        )
+        let queuedViewModel = ProfileViewModel(
+            result: profileResult,
+            context: ProfileSurfaceContext(currentChefID: nil),
+            queuedMutations: [queuedProfilePhoto, queuedShopping],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now }
+        )
+        let offlineViewModel = ProfileViewModel(
+            result: ProfileSurfaceResult(data: try Self.profileData(), source: .live(requestID: "req_offline_profile", validatedAt: Self.now)),
+            context: ProfileSurfaceContext(currentChefID: nil),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            now: { Self.now }
+        )
+        let loader = ProfileChefGraphSurfaceViewModel(
+            repository: repository,
+            context: ProfileSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online
+        )
+        let unavailable = UnavailableProfileChefGraphSurfaceRepository()
+
+        try await loader.loadProfile(identifier: "ari")
+        try await loader.loadGraph(identifier: "ari", direction: .kitchenVisitors)
+
+        #expect(queuedViewModel.offlineIndicator.display == .queuedWork(count: 1, oldestClientMutationID: "cm_profile_photo_remove"))
+        #expect(offlineViewModel.offlineIndicator.display == .offline)
+        #expect(ProfileViewModel.queueableProfileSurfaceKinds(createdAt: Self.createdAt) == [
+            .profileDisplayUpdate,
+            .profilePhotoUpload,
+            .profilePhotoRemove
+        ])
+        #expect(loader.profile?.header.username == "ari")
+        #expect(loader.graph?.title == "Kitchen visitors")
+        #expect(loader.graph?.offlineIndicator.display == .stale(domain: .profile(id: "chef_ari")))
+
+        var unavailableProfileDidThrow = false
+        do {
+            _ = try await unavailable.profile(identifier: "  missing  ")
+        } catch let error as ProfileSurfaceSnapshotError {
+            unavailableProfileDidThrow = true
+            #expect(error == .profileNotCached(identifier: "missing"))
+        }
+        #expect(unavailableProfileDidThrow)
+
+        var unavailableGraphDidThrow = false
+        do {
+            _ = try await unavailable.graph(identifier: "missing", direction: .kitchenVisitors, page: 1, limit: 50)
+        } catch let error as ProfileSurfaceSnapshotError {
+            unavailableGraphDidThrow = true
+            #expect(error == .profileNotCached(identifier: "missing"))
+        }
+        #expect(unavailableGraphDidThrow)
+    }
+
+    private static func profileData(isOwner: Bool = true) throws -> ProfileSurfaceData {
+        try profileData(
             isOwner: isOwner,
             recipes: [
                 ProfileRecipeSummary(
@@ -251,6 +517,32 @@ struct ProfileChefGraphSurfaceTests {
             ],
             fellowChefsCount: 1,
             kitchenVisitorsCount: 1
+        )
+    }
+
+    private static func profileData(
+        isOwner: Bool = true,
+        recipes: [ProfileRecipeSummary],
+        cookbooks: [ProfileCookbookSummary],
+        recentSpoons: [ProfileRecentSpoon],
+        fellowChefsCount: Int,
+        kitchenVisitorsCount: Int
+    ) throws -> ProfileSurfaceData {
+        ProfileSurfaceData(
+            profile: ProfileSummary(
+                id: "chef_ari",
+                username: "ari",
+                photoURL: URL(string: "https://spoonjoy.app/photos/profiles/chef_ari/avatar.gif"),
+                joinedLabel: "Joined Jun 2026",
+                href: "/users/ari",
+                canonicalURL: try #require(URL(string: "https://spoonjoy.app/users/ari"))
+            ),
+            isOwner: isOwner,
+            recipes: recipes,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons,
+            fellowChefsCount: fellowChefsCount,
+            kitchenVisitorsCount: kitchenVisitorsCount
         )
     }
 

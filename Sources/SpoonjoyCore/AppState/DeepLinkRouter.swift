@@ -40,6 +40,7 @@ public struct DeepLinkRouter: Equatable, Sendable {
         }
 
         let segments = decodedSegments(path)
+        let rawSegments = encodedSegments(path)
 
         if segments.isEmpty {
             return .kitchen
@@ -82,16 +83,15 @@ public struct DeepLinkRouter: Equatable, Sendable {
         }
 
         if segments.count == 2, segments[0] == "users" {
-            let identifier = segments[1]
-            guard safeID(identifier) else {
+            guard let identifier = AppRoute.decodedProfileIdentifier(rawSegments[1]) else {
                 return .unknownLink
             }
             return .profile(identifier: identifier)
         }
 
         if segments.count == 3, segments[0] == "users" {
-            let identifier = segments[1]
-            guard safeID(identifier), let direction = ProfileGraphDirection(rawValue: segments[2]) else {
+            guard let identifier = AppRoute.decodedProfileIdentifier(rawSegments[1]),
+                  let direction = ProfileGraphDirection(rawValue: segments[2]) else {
                 return .unknownLink
             }
             return .profileGraph(identifier: identifier, direction: direction, page: graphPage(components))
@@ -121,6 +121,7 @@ public struct DeepLinkRouter: Equatable, Sendable {
         }
 
         let segments = [host] + decodedSegments(components.percentEncodedPath)
+        let rawSegments = [host] + encodedSegments(components.percentEncodedPath)
 
         if segments == ["kitchen"] {
             return .kitchen
@@ -178,16 +179,15 @@ public struct DeepLinkRouter: Equatable, Sendable {
         }
 
         if segments.count == 2, segments[0] == "users" {
-            let identifier = segments[1]
-            guard safeID(identifier) else {
+            guard let identifier = AppRoute.decodedProfileIdentifier(rawSegments[1]) else {
                 return .unknownLink
             }
             return .profile(identifier: identifier)
         }
 
         if segments.count == 3, segments[0] == "users" {
-            let identifier = segments[1]
-            guard safeID(identifier), let direction = ProfileGraphDirection(rawValue: segments[2]) else {
+            guard let identifier = AppRoute.decodedProfileIdentifier(rawSegments[1]),
+                  let direction = ProfileGraphDirection(rawValue: segments[2]) else {
                 return .unknownLink
             }
             return .profileGraph(identifier: identifier, direction: direction, page: graphPage(components))
@@ -247,10 +247,14 @@ public struct DeepLinkRouter: Equatable, Sendable {
     }
 
     func decodedSegments(_ percentEncodedPath: String) -> [String] {
+        encodedSegments(percentEncodedPath)
+            .map { $0.removingPercentEncoding ?? $0 }
+    }
+
+    private func encodedSegments(_ percentEncodedPath: String) -> [String] {
         percentEncodedPath
             .split(separator: "/", omittingEmptySubsequences: true)
             .map(String.init)
-            .map { $0.removingPercentEncoding ?? $0 }
     }
 
     private func safeID(_ id: String) -> Bool {

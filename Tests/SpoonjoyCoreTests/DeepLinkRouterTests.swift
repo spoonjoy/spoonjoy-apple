@@ -15,6 +15,12 @@ struct DeepLinkRouterTests {
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta?mode=cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
             ("https://spoonjoy.app/cookbooks", .cookbooks),
             ("https://spoonjoy.app/cookbooks/cookbook_weeknight", .cookbookDetail(id: "cookbook_weeknight")),
+            ("https://spoonjoy.app/users/ari", .profile(identifier: "ari")),
+            ("https://spoonjoy.app/users/ari%2Fspace", .profile(identifier: "ari/space")),
+            ("https://spoonjoy.app/users/ari%20space", .profile(identifier: "ari space")),
+            ("https://spoonjoy.app/users/ari/fellow-chefs?page=2", .profileGraph(identifier: "ari", direction: .fellowChefs, page: 2)),
+            ("https://spoonjoy.app/users/ari%2Fspace/fellow-chefs?page=2", .profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 2)),
+            ("https://spoonjoy.app/users/ari/kitchen-visitors?page=0", .profileGraph(identifier: "ari", direction: .kitchenVisitors, page: 1)),
             ("https://spoonjoy.app/shopping-list", .shoppingList),
             ("https://spoonjoy.app/search?q=lemon%20pasta&scope=all", .search(query: "lemon pasta", scope: .all)),
             ("https://spoonjoy.app/search?q=lemon%20pasta&scope=recipes", .search(query: "lemon pasta", scope: .recipes)),
@@ -32,6 +38,12 @@ struct DeepLinkRouterTests {
             ("spoonjoy://recipes/new/edit", .recipeEditor(id: nil)),
             ("spoonjoy://cookbooks", .cookbooks),
             ("spoonjoy://cookbooks/cookbook_weeknight", .cookbookDetail(id: "cookbook_weeknight")),
+            ("spoonjoy://users/ari", .profile(identifier: "ari")),
+            ("spoonjoy://users/ari%2Fspace", .profile(identifier: "ari/space")),
+            ("spoonjoy://users/ari%20space", .profile(identifier: "ari space")),
+            ("spoonjoy://users/ari/fellow-chefs?page=3", .profileGraph(identifier: "ari", direction: .fellowChefs, page: 3)),
+            ("spoonjoy://users/ari%2Fspace/fellow-chefs?page=3", .profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 3)),
+            ("spoonjoy://users/ari/kitchen-visitors", .profileGraph(identifier: "ari", direction: .kitchenVisitors, page: 1)),
             ("spoonjoy://shopping-list", .shoppingList),
             ("spoonjoy://search?q=lemon%20pasta&scope=shopping-list", .search(query: "lemon pasta", scope: .shoppingList)),
             ("spoonjoy://capture", .capture),
@@ -55,6 +67,11 @@ struct DeepLinkRouterTests {
             "https://spoonjoy.app/recipes/%2E%2E%2Fsecret/edit",
             "https://spoonjoy.app/recipes/%2E%2E%2Fsecret",
             "https://spoonjoy.app/cookbooks/%2E%2E%2Fsecret",
+            "https://spoonjoy.app/users/%2E%2E",
+            "https://spoonjoy.app/users/%20%20",
+            "https://spoonjoy.app/users/%2E%2E%2Fsecret",
+            "https://spoonjoy.app/users/ari/space",
+            "https://spoonjoy.app/users/ari/followers",
             "https://spoonjoy.app/search?q=lemon%20pasta&scope=shopping",
             "https://spoonjoy.app/search?scope=recipes",
             "https://spoonjoy.app/search?q=%20%20&scope=recipes",
@@ -67,6 +84,11 @@ struct DeepLinkRouterTests {
             "spoonjoy://recipes/%2E%2E%2Fsecret/covers",
             "spoonjoy://recipes/new/covers",
             "spoonjoy://cookbooks/%2E%2E%2Fsecret",
+            "spoonjoy://users/%2E%2E",
+            "spoonjoy://users/%20%20",
+            "spoonjoy://users/%2E%2E%2Fsecret",
+            "spoonjoy://users/ari/space",
+            "spoonjoy://users/ari/followers",
             "spoonjoy://search?q=lemon&scope=bad-scope",
             "spoonjoy://unknown"
         ]
@@ -109,6 +131,8 @@ struct DeepLinkRouterTests {
         #expect(AppRoute.cookbookDetail(id: "cookbook_weeknight").section == .cookbooks)
         #expect(AppRoute.recipeEditor(id: "recipe_lemon").section == .recipes)
         #expect(AppRoute.recipeCoverControls(id: "recipe_lemon").section == .recipes)
+        #expect(AppRoute.profile(identifier: "ari").section == .search)
+        #expect(AppRoute.profileGraph(identifier: "ari", direction: .fellowChefs, page: 1).section == .search)
         #expect(AppRoute.search(query: "rice", scope: .all).section == .search)
         #expect(AppRoute.capture.section == .capture)
         #expect(AppRoute.settings.section == .settings)

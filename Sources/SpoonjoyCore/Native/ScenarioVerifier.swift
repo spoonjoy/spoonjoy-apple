@@ -208,7 +208,7 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "profile surface source",
-                    detail: "ProfileView.swift renders profile detail, profile graph, fellow chefs, and kitchen visitors without comments or feeds.",
+                    detail: "ProfileView.swift renders profile detail, profile graph, fellow chefs, and kitchen visitors without future discussion or feed surfaces.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/ProfileView.swift",
                     tokens: ["ProfileRouteView", "ProfileView", "ProfileGraphRouteView", "ProfileHero", "ProfileRecipeShelf", "ProfileCookbookShelf", "RecentSpoonsSection", "FellowChefsSection", "KitchenVisitorsSection"]
@@ -1130,8 +1130,7 @@ public enum ScenarioVerifier {
             queuedMutations: [],
             conflicts: [],
             connectivity: .online,
-            now: { Date(timeIntervalSince1970: 1_780_120_000) },
-            timestamp: { "2026-06-16T12:12:00.000Z" }
+            now: { Date(timeIntervalSince1970: 1_780_120_000) }
         )
         let status: ScenarioCheckStatus = viewModel.openRoute == .profile(identifier: profile.profile.username) &&
             viewModel.ownerActions.editProfileRoute == .settings &&
@@ -1141,7 +1140,7 @@ public enum ScenarioVerifier {
         return ScenarioCheck(
             name: "profile detail",
             status: status,
-            detail: "Profile detail exposes recipes, cookbooks, recent spoons, fellow chefs, and kitchen visitors without adding comments or feeds."
+            detail: "Profile detail exposes recipes, cookbooks, recent spoons, fellow chefs, and kitchen visitors without adding future discussion or feed surfaces."
         )
     }
 

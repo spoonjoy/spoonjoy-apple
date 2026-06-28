@@ -1723,6 +1723,54 @@ struct NativeLiveStoreTests {
             #expect(savedSnapshot.captureDraft == nil)
             #expect(savedSnapshot.pendingCaptureImport == nil)
 
+            let staleClearAppStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("stale-clear-drained-import-state.json"))
+            let staleClearMutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_drained_import_stale_app_state",
+                createdAt: Self.isoString(Self.now)
+            )
+            try staleClearAppStateStore.save(
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: nil,
+                    accountID: "chef_previous",
+                    environment: .production,
+                    savedAt: Self.isoString(Self.now.addingTimeInterval(-120))
+                )
+                .recordingOpenedRoute(.settings, savedAt: Self.isoString(Self.now.addingTimeInterval(-120)))
+                .recordingCaptureImportRetry(staleClearMutation, savedAt: Self.isoString(Self.now.addingTimeInterval(-120)))
+            )
+            let staleClearSyncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [staleClearMutation])
+            )
+            let staleClearStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: staleClearSyncStore,
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { staleClearAppStateStore }
+            )
+
+            await staleClearStore.bootstrap()
+
+            guard case .liveSynced(let staleClearContent) = staleClearStore.bootstrapState else {
+                Issue.record("Expected drained import to reset stale app-state cleanup; got \(staleClearStore.bootstrapState)")
+                return
+            }
+            let staleClearFallback = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )
+            let staleClearSavedSnapshot = try staleClearAppStateStore.loadOrCreate(fallback: staleClearFallback).value
+            #expect(staleClearContent.queuedMutations.isEmpty)
+            #expect(staleClearSavedSnapshot.accountID == "chef_ari")
+            #expect(staleClearSavedSnapshot.lastOpenedRoute == nil)
+            #expect(staleClearSavedSnapshot.pendingCaptureImport == nil)
+
             let brokenAppStateURL = directory.appendingPathComponent("broken-clear-drained-import-state.json", isDirectory: true)
             try FileManager.default.createDirectory(at: brokenAppStateURL, withIntermediateDirectories: true)
             let brokenClearMutation = NativeQueuedMutation.recipeImportSubmit(
@@ -1790,28 +1838,53 @@ struct NativeLiveStoreTests {
                 environment: .production,
                 savedAt: Self.isoString(Self.now)
             )
+            let staleSnapshot = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_previous",
+                environment: .production,
+                savedAt: Self.isoString(Self.now.addingTimeInterval(-60))
+            )
 
             await liveStore.bootstrap()
+            try appStateStore.save(staleSnapshot.recordingOpenedRoute(.settings, savedAt: staleSnapshot.savedAt))
             liveStore.recordCaptureDraft(draft)
 
             guard case .liveSynced(let recordedContent) = liveStore.bootstrapState else {
                 Issue.record("Expected capture draft record to preserve live synced state; got \(liveStore.bootstrapState)")
                 return
             }
+            let recordedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
             #expect(recordedContent.captureDraft == draft)
+            #expect(recordedSnapshot.accountID == "chef_ari")
+            #expect(recordedSnapshot.lastOpenedRoute == nil)
+            #expect(recordedSnapshot.captureDraft == draft)
+
+            liveStore.recordCaptureDraft(draft)
             #expect(try appStateStore.loadOrCreate(fallback: fallback).value.captureDraft == draft)
+
+            try appStateStore.save(staleSnapshot.recordingOpenedRoute(.settings, savedAt: staleSnapshot.savedAt))
+            liveStore.recordCaptureImportRetry(retry)
+            let retrySnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+            #expect(retrySnapshot.accountID == "chef_ari")
+            #expect(retrySnapshot.lastOpenedRoute == nil)
+            #expect(retrySnapshot.pendingCaptureImport == retry)
 
             liveStore.recordCaptureImportRetry(retry)
             #expect(try appStateStore.loadOrCreate(fallback: fallback).value.pendingCaptureImport == retry)
 
+            try appStateStore.save(staleSnapshot.recordingOpenedRoute(.settings, savedAt: staleSnapshot.savedAt))
             liveStore.discardCaptureDraft(id: "draft_not_visible")
             guard case .liveSynced(let unchangedContent) = liveStore.bootstrapState else {
                 Issue.record("Expected wrong draft discard to preserve live synced state; got \(liveStore.bootstrapState)")
                 return
             }
+            let unchangedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
             #expect(unchangedContent.captureDraft == draft)
-            #expect(try appStateStore.loadOrCreate(fallback: fallback).value.captureDraft == draft)
+            #expect(unchangedSnapshot.accountID == "chef_previous")
+            #expect(unchangedSnapshot.lastOpenedRoute == AppRoute.settings.stateIdentifier)
+            #expect(unchangedSnapshot.captureDraft == nil)
 
+            try appStateStore.save(staleSnapshot.recordingOpenedRoute(.settings, savedAt: staleSnapshot.savedAt))
             liveStore.discardCaptureDraft(id: draft.id)
             guard case .liveSynced(let discardedContent) = liveStore.bootstrapState else {
                 Issue.record("Expected visible draft discard to preserve live synced state; got \(liveStore.bootstrapState)")
@@ -1819,9 +1892,49 @@ struct NativeLiveStoreTests {
             }
             let savedSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
             #expect(discardedContent.captureDraft == nil)
+            #expect(savedSnapshot.accountID == "chef_ari")
+            #expect(savedSnapshot.lastOpenedRoute == nil)
             #expect(savedSnapshot.captureDraft == nil)
             #expect(savedSnapshot.pendingCaptureImport == nil)
             #expect(savedSnapshot.captureImportProviderBlocker == nil)
+
+            try appStateStore.save(staleSnapshot.recordingOpenedRoute(.settings, savedAt: staleSnapshot.savedAt))
+            liveStore.recordCaptureImportBlocker(.providerSecret(retryAfterSeconds: nil))
+            guard case .blocker = liveStore.bootstrapState else {
+                Issue.record("Expected capture import blocker to preserve blocker state; got \(liveStore.bootstrapState)")
+                return
+            }
+            let blockerSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+            #expect(blockerSnapshot.accountID == "chef_ari")
+            #expect(blockerSnapshot.lastOpenedRoute == nil)
+            #expect(blockerSnapshot.captureImportProviderBlocker == "recipe-import")
+
+            let brokenDiscardURL = directory.appendingPathComponent("broken-discard-capture-state.json")
+            let brokenDiscardStore = NativeAppStateStore(fileURL: brokenDiscardURL)
+            let brokenDiscardLiveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: NativeMutationQueue()
+                ),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { brokenDiscardStore }
+            )
+
+            await brokenDiscardLiveStore.bootstrap()
+            brokenDiscardLiveStore.recordCaptureDraft(draft)
+            try FileManager.default.removeItem(at: brokenDiscardURL)
+            try FileManager.default.createDirectory(at: brokenDiscardURL, withIntermediateDirectories: true)
+            brokenDiscardLiveStore.discardCaptureDraft(id: draft.id)
+
+            guard case .liveSynced(let brokenDiscardContent) = brokenDiscardLiveStore.bootstrapState else {
+                Issue.record("Expected failed draft discard persistence to keep live synced state; got \(brokenDiscardLiveStore.bootstrapState)")
+                return
+            }
+            #expect(brokenDiscardContent.captureDraft == draft)
         }
     }
 
@@ -3211,6 +3324,19 @@ struct NativeLiveStoreTests {
             updatedAt: Self.isoString(Self.now.addingTimeInterval(30)),
             chef: ChefSummary(id: "chef_ari", username: "ari")
         )
+        let syncedNewTieSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_synced_new_z",
+            chefID: "chef_ari",
+            recipeID: recipe.id,
+            cookedAt: syncedNewSpoon.cookedAt,
+            photoURL: nil,
+            note: "Other-device cook with matching timestamp.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: syncedNewSpoon.createdAt,
+            updatedAt: syncedNewSpoon.updatedAt,
+            chef: ChefSummary(id: "chef_ari", username: "ari")
+        )
         let syncedUndatedNewerSpoon = RecipeDetailRecentSpoon(
             id: "spoon_synced_undated_newer",
             chefID: "chef_ari",
@@ -3256,6 +3382,7 @@ struct NativeLiveStoreTests {
                     NativeSyncCachedRecord(kind: .recipe, resourceID: unchangedRecipe.id, payload: try Self.jsonValue(unchangedRecipe), serverRevision: .updatedAt(unchangedRecipe.updatedAt)),
                     NativeSyncCachedRecord(kind: .spoon, resourceID: syncedReplacement.id, payload: try Self.jsonValue(syncedReplacement), serverRevision: .updatedAt(syncedReplacement.updatedAt)),
                     NativeSyncCachedRecord(kind: .spoon, resourceID: syncedNewSpoon.id, payload: try Self.jsonValue(syncedNewSpoon), serverRevision: .updatedAt(syncedNewSpoon.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: syncedNewTieSpoon.id, payload: try Self.jsonValue(syncedNewTieSpoon), serverRevision: .updatedAt(syncedNewTieSpoon.updatedAt)),
                     NativeSyncCachedRecord(kind: .spoon, resourceID: syncedUndatedNewerSpoon.id, payload: try Self.jsonValue(syncedUndatedNewerSpoon), serverRevision: .updatedAt(syncedUndatedNewerSpoon.updatedAt)),
                     NativeSyncCachedRecord(kind: .spoon, resourceID: syncedUndatedOlderSpoon.id, payload: try Self.jsonValue(syncedUndatedOlderSpoon), serverRevision: .updatedAt(syncedUndatedOlderSpoon.updatedAt)),
                     NativeSyncCachedRecord(kind: .spoon, resourceID: unchangedSpoon.id, payload: try Self.jsonValue(unchangedSpoon), serverRevision: .updatedAt(unchangedSpoon.updatedAt))
@@ -3287,6 +3414,7 @@ struct NativeLiveStoreTests {
         let restoredRecipe = try #require(content.recipe(id: recipe.id))
 
         #expect(restoredRecipe.recentSpoons.map(\.id) == [
+            "spoon_synced_new_z",
             "spoon_synced_new",
             "spoon_summary_replace",
             "spoon_synced_undated_newer",

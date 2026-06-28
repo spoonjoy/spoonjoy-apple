@@ -96,7 +96,6 @@ public struct ProfileViewModel: Sendable {
     public let conflictBanner: ProfileSurfaceConflictBanner?
 
     private let now: @Sendable () -> Date
-    private let timestamp: @Sendable () -> String
 
     public init(
         result: ProfileSurfaceResult,
@@ -104,8 +103,7 @@ public struct ProfileViewModel: Sendable {
         queuedMutations: [NativeQueuedMutation],
         conflicts: [NativeSyncConflict],
         connectivity: ProfileSurfaceConnectivity,
-        now: @escaping @Sendable () -> Date,
-        timestamp: @escaping @Sendable () -> String
+        now: @escaping @Sendable () -> Date
     ) {
         self.result = result
         self.context = context
@@ -113,7 +111,6 @@ public struct ProfileViewModel: Sendable {
         self.conflicts = conflicts
         self.connectivity = connectivity
         self.now = now
-        self.timestamp = timestamp
         header = ProfileSurfaceHeader(profile: result.data.profile)
         openRoute = .profile(identifier: result.data.profile.username)
         let isOwner = result.data.isOwner || context.currentChefID == result.data.profile.id
@@ -166,7 +163,6 @@ public struct ProfileViewModel: Sendable {
         } else {
             offlineIndicator = result.offlineIndicator(now: now())
         }
-        _ = timestamp
     }
 
     private static func profileMutations(_ mutations: [NativeQueuedMutation]) -> [NativeQueuedMutation] {
@@ -242,7 +238,6 @@ public struct ProfileGraphViewModel: Equatable, Sendable {
     private let conflicts: [NativeSyncConflict]
     private let connectivity: ProfileSurfaceConnectivity
     private let now: @Sendable () -> Date
-    private let timestamp: @Sendable () -> String
 
     public private(set) var profile: ProfileViewModel?
     public private(set) var graph: ProfileGraphViewModel?
@@ -253,8 +248,7 @@ public struct ProfileGraphViewModel: Equatable, Sendable {
         queuedMutations: [NativeQueuedMutation],
         conflicts: [NativeSyncConflict],
         connectivity: ProfileSurfaceConnectivity,
-        now: @escaping @Sendable () -> Date = Date.init,
-        timestamp: @escaping @Sendable () -> String
+        now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.repository = repository
         self.context = context
@@ -262,7 +256,6 @@ public struct ProfileGraphViewModel: Equatable, Sendable {
         self.conflicts = conflicts
         self.connectivity = connectivity
         self.now = now
-        self.timestamp = timestamp
     }
 
     public func loadProfile(identifier: String) async throws {
@@ -273,8 +266,7 @@ public struct ProfileGraphViewModel: Equatable, Sendable {
             queuedMutations: queuedMutations,
             conflicts: conflicts,
             connectivity: connectivity,
-            now: now,
-            timestamp: timestamp
+            now: now
         )
     }
 

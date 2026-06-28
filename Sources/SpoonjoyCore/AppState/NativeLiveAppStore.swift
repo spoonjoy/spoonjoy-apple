@@ -116,9 +116,20 @@ public enum NativeAppBootstrapState {
     }
 }
 
+public struct NativeCachedProfile: Equatable, Sendable {
+    public let profile: ProfileSummary
+    public let source: ProfileSurfaceDataSource
+
+    public init(profile: ProfileSummary, source: ProfileSurfaceDataSource) {
+        self.profile = profile
+        self.source = source
+    }
+}
+
 public struct NativeShellContentState {
     public let recipes: [Recipe]
     public let cookbooks: [Cookbook]
+    public let cachedProfiles: [NativeCachedProfile]
     public let kitchen: KitchenFixtureState
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
@@ -158,30 +169,97 @@ public struct NativeShellContentState {
         guard let profileResult = firstProfileSurfaceResult else {
             return nil
         }
-        let graphProfile = ProfileGraphProfile(
-            id: profileResult.data.profile.id,
-            username: profileResult.data.profile.username,
-            href: profileResult.data.profile.href,
-            canonicalURL: profileResult.data.profile.canonicalURL
-        )
         return SnapshotProfileChefGraphSurfaceRepository(
             profileResult: profileResult,
-            graphPages: [
-                ProfileGraphPage.empty(
-                    profile: graphProfile,
-                    direction: .fellowChefs,
-                    page: 1,
-                    pageSize: 50,
-                    source: profileResult.source
-                ),
-                ProfileGraphPage.empty(
-                    profile: graphProfile,
-                    direction: .kitchenVisitors,
-                    page: 1,
-                    pageSize: 50,
-                    source: profileResult.source
-                )
-            ]
+            graphPages: profileGraphPages(profileResult: profileResult)
+        )
+    }
+
+    public func profileGraphPages(profileResult result: ProfileSurfaceResult) -> [ProfileGraphPage] {
+        let graphProfile = ProfileGraphProfile(
+            id: result.data.profile.id,
+            username: result.data.profile.username,
+            href: result.data.profile.href,
+            canonicalURL: result.data.profile.canonicalURL
+        )
+        let fellowChefs = fellowChefRows(chefID: result.data.profile.id)
+        let kitchenVisitors = kitchenVisitorRows(chefID: result.data.profile.id)
+        return [
+            ProfileGraphPage(
+                profile: graphProfile,
+                direction: .fellowChefs,
+                page: 1,
+                pageSize: 50,
+                total: fellowChefs.count,
+                nextCursor: nil,
+                rows: fellowChefs,
+                source: result.source,
+                emptyState: fellowChefs.isEmpty ? ProfileGraphPage.emptyState(for: .fellowChefs) : nil
+            ),
+            ProfileGraphPage(
+                profile: graphProfile,
+                direction: .kitchenVisitors,
+                page: 1,
+                pageSize: 50,
+                total: kitchenVisitors.count,
+                nextCursor: nil,
+                rows: kitchenVisitors,
+                source: result.source,
+                emptyState: kitchenVisitors.isEmpty ? ProfileGraphPage.emptyState(for: .kitchenVisitors) : nil
+            )
+        ]
+    }
+
+    private func fellowChefRows(chefID: String) -> [ProfileGraphRow] {
+        let aggregates = recipes.reduce(into: [String: NativeProfileGraphAggregate]()) { partial, recipe in
+            guard recipe.chef.id != chefID else {
+                return
+            }
+            recipe.recentSpoons.forEach { spoon in
+                guard spoon.chef.id == chefID, spoon.deletedAt == nil else {
+                    return
+                }
+                partial.recordSpoon(for: recipe.chef, at: Self.profileRecentSpoonSortKey(spoon))
+            }
+        }
+        return graphRows(from: aggregates)
+    }
+
+    private func kitchenVisitorRows(chefID: String) -> [ProfileGraphRow] {
+        let aggregates = recipes
+            .filter { $0.chef.id == chefID }
+            .reduce(into: [String: NativeProfileGraphAggregate]()) { partial, recipe in
+                recipe.recentSpoons.forEach { spoon in
+                    guard spoon.chef.id != chefID, spoon.deletedAt == nil else {
+                        return
+                    }
+                    partial.recordSpoon(for: spoon.chef, at: Self.profileRecentSpoonSortKey(spoon))
+                }
+            }
+        return graphRows(from: aggregates)
+    }
+
+    private func graphRows(from aggregates: [String: NativeProfileGraphAggregate]) -> [ProfileGraphRow] {
+        aggregates.values
+            .sorted { lhs, rhs in
+                if lhs.latestInteractionAt != rhs.latestInteractionAt {
+                    return lhs.latestInteractionAt > rhs.latestInteractionAt
+                }
+                return lhs.chef.id > rhs.chef.id
+            }
+            .map(profileGraphRow)
+    }
+
+    private func profileGraphRow(aggregate: NativeProfileGraphAggregate) -> ProfileGraphRow {
+        let link = Self.profileLink(username: aggregate.chef.username)
+        return ProfileGraphRow(
+            chefID: aggregate.chef.id,
+            username: aggregate.chef.username,
+            photoURL: aggregate.chef.photoURL,
+            href: link.href,
+            canonicalURL: link.canonicalURL,
+            interactionCounts: ProfileGraphInteractionCounts(spoons: aggregate.spoons, forks: 0, cookbookSaves: 0),
+            latestInteractionAt: aggregate.latestInteractionAt
         )
     }
 
@@ -195,8 +273,7 @@ public struct NativeShellContentState {
             queuedMutations: queuedMutations,
             conflicts: syncConflicts,
             connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
-            now: Date.init,
-            timestamp: { NativeLiveAppStoreClock.isoString(Date()) }
+            now: Date.init
         )
     }
 
@@ -213,77 +290,171 @@ public struct NativeShellContentState {
     }
 
     private var firstProfileSurfaceResult: ProfileSurfaceResult? {
-        guard let chef = firstProfileChef else {
+        guard let profile = firstProfileCandidate else {
             return nil
         }
-        let chefRecipes = recipes.filter { $0.chef.id == chef.id }
-        let chefCookbooks = cookbooks.filter { $0.chef.id == chef.id }
+        return profileSurfaceResult(identifier: profile.profile.id)
+    }
+
+    public func profileSurfaceResult(identifier: String) -> ProfileSurfaceResult? {
+        guard let profile = profileCandidate(identifier: identifier) else {
+            return nil
+        }
+        let chefID = profile.profile.id
+        let chefRecipes = recipes.filter { $0.chef.id == chefID }
+        let chefCookbooks = cookbooks.filter { $0.chef.id == chefID }
+        let fellowChefs = fellowChefRows(chefID: chefID)
+        let kitchenVisitors = kitchenVisitorRows(chefID: chefID)
         return ProfileSurfaceResult(
             data: ProfileSurfaceData(
-                profile: ProfileSummary(
-                    id: chef.id,
-                    username: chef.username,
-                    photoURL: chef.photoURL,
-                    joinedLabel: "Joined Spoonjoy",
-                    href: "/users/\(chef.username)",
-                    canonicalURL: URL(string: "https://spoonjoy.app/users/\(chef.username)")!
-                ),
-                isOwner: trustedAccountID == chef.id,
-                recipes: chefRecipes.map { recipe in
-                    ProfileRecipeSummary(
-                        id: recipe.id,
-                        title: recipe.title,
-                        description: recipe.description,
-                        servings: recipe.servings,
-                        coverImageURL: recipe.coverImageURL,
-                        coverProvenanceLabel: recipe.coverProvenanceLabel,
-                        href: recipe.href,
-                        canonicalURL: recipe.canonicalURL
-                    )
-                },
-                cookbooks: chefCookbooks.map { cookbook in
-                    ProfileCookbookSummary(
-                        id: cookbook.id,
-                        title: cookbook.title,
-                        recipeCount: cookbook.recipeCount,
-                        recipePreviews: cookbook.recipes.prefix(4).map { recipe in
-                            ProfileCookbookRecipePreview(
-                                id: recipe.id,
-                                title: recipe.title,
-                                coverImageURL: recipe.coverImageURL,
-                                coverProvenanceLabel: recipe.coverProvenanceLabel,
-                                href: recipe.href,
-                                canonicalURL: recipe.canonicalURL
-                            )
-                        },
-                        href: cookbook.href,
-                        canonicalURL: cookbook.canonicalURL
-                    )
-                },
-                recentSpoons: chefRecipes.flatMap { recipe in
-                    recipe.recentSpoons.map { spoon in
-                        ProfileRecentSpoon(
-                            id: spoon.id,
-                            cookedAt: spoon.cookedAt,
-                            photoURL: spoon.photoURL,
-                            note: spoon.note,
-                            nextTime: spoon.nextTime,
-                            chef: spoon.chef,
-                            recipe: ProfileRecentSpoonRecipe(id: recipe.id, title: recipe.title, chefID: recipe.chef.id),
-                            coverImageURL: recipe.coverImageURL,
-                            coverProvenanceLabel: recipe.coverProvenanceLabel
-                        )
-                    }
-                },
-                fellowChefsCount: 0,
-                kitchenVisitorsCount: 0
+                profile: profile.profile,
+                isOwner: trustedAccountID == chefID,
+                recipes: chefRecipes.map(profileRecipeSummary),
+                cookbooks: chefCookbooks.map(profileCookbookSummary),
+                recentSpoons: profileRecentSpoons(chefID: chefID),
+                fellowChefsCount: fellowChefs.count,
+                kitchenVisitorsCount: kitchenVisitors.count
             ),
+            source: profile.source
+        )
+    }
+
+    public func profileRecentSpoons(chefID: String) -> [ProfileRecentSpoon] {
+        let matches: [(recipe: Recipe, spoon: RecipeDetailRecentSpoon)] = recipes.flatMap { recipe in
+            recipe.recentSpoons.compactMap { spoon -> (recipe: Recipe, spoon: RecipeDetailRecentSpoon)? in
+                guard spoon.chef.id == chefID, spoon.deletedAt == nil else {
+                    return nil
+                }
+                return (recipe, spoon)
+            }
+        }
+        return matches
+            .sorted { lhs, rhs in
+                let lhsKey = Self.profileRecentSpoonSortKey(lhs.spoon)
+                let rhsKey = Self.profileRecentSpoonSortKey(rhs.spoon)
+                if lhsKey != rhsKey {
+                    return lhsKey > rhsKey
+                }
+                return lhs.spoon.id > rhs.spoon.id
+            }
+            .prefix(Self.profileRecentSpoonLimit)
+            .map { recipe, spoon in
+                ProfileRecentSpoon(
+                    id: spoon.id,
+                    cookedAt: spoon.cookedAt,
+                    photoURL: spoon.photoURL,
+                    note: spoon.note,
+                    nextTime: spoon.nextTime,
+                    chef: spoon.chef,
+                    recipe: ProfileRecentSpoonRecipe(id: recipe.id, title: recipe.title, chefID: recipe.chef.id),
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel
+                )
+            }
+    }
+
+    private static let profileRecentSpoonLimit = 10
+
+    private static func profileRecentSpoonSortKey(_ spoon: RecipeDetailRecentSpoon) -> String {
+        if let cookedAt = spoon.cookedAt {
+            return cookedAt
+        }
+        return spoon.createdAt
+    }
+
+    private var firstProfileCandidate: NativeCachedProfile? {
+        if let trustedAccountID,
+           let profile = profileCandidate(identifier: trustedAccountID) {
+            return profile
+        }
+        return cachedProfiles.first ?? (recipes.first?.chef ?? cookbooks.first?.chef).map(profileCandidate(chef:))
+    }
+
+    private func profileCandidate(identifier: String) -> NativeCachedProfile? {
+        let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        if let profile = cachedProfiles.first(where: { $0.profile.id == trimmed || $0.profile.username == trimmed }) {
+            return profile
+        }
+        if let chef = profileChef(identifier: trimmed) {
+            return profileCandidate(chef: chef)
+        }
+        return nil
+    }
+
+    private func profileCandidate(chef: ChefSummary) -> NativeCachedProfile {
+        NativeCachedProfile(
+            profile: Self.profileSummary(chef: chef),
             source: profileSurfaceSource
         )
     }
 
-    private var firstProfileChef: ChefSummary? {
-        recipes.first?.chef ?? cookbooks.first?.chef
+    private func profileChef(identifier: String) -> ChefSummary? {
+        let chefs = recipes.map(\.chef) + cookbooks.map(\.chef)
+        return chefs.first { $0.id == identifier || $0.username == identifier }
+    }
+
+    private func profileRecipeSummary(recipe: Recipe) -> ProfileRecipeSummary {
+        ProfileRecipeSummary(
+            id: recipe.id,
+            title: recipe.title,
+            description: recipe.description,
+            servings: recipe.servings,
+            coverImageURL: recipe.coverImageURL,
+            coverProvenanceLabel: recipe.coverProvenanceLabel,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL
+        )
+    }
+
+    private func profileCookbookSummary(cookbook: Cookbook) -> ProfileCookbookSummary {
+        ProfileCookbookSummary(
+            id: cookbook.id,
+            title: cookbook.title,
+            recipeCount: cookbook.recipeCount,
+            recipePreviews: cookbook.recipes.prefix(4).map { recipe in
+                ProfileCookbookRecipePreview(
+                    id: recipe.id,
+                    title: recipe.title,
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel,
+                    href: recipe.href,
+                    canonicalURL: recipe.canonicalURL
+                )
+            },
+            href: cookbook.href,
+            canonicalURL: cookbook.canonicalURL
+        )
+    }
+
+    private static func profileSummary(chef: ChefSummary) -> ProfileSummary {
+        let link = profileLink(username: chef.username)
+        return ProfileSummary(
+            id: chef.id,
+            username: chef.username,
+            photoURL: chef.photoURL,
+            joinedLabel: "Joined Spoonjoy",
+            href: link.href,
+            canonicalURL: link.canonicalURL
+        )
+    }
+
+    private static func profileSummary(id: String, username: String, photoURL: URL? = nil, joinedLabel: String = "Joined Spoonjoy") -> ProfileSummary {
+        let link = profileLink(username: username)
+        return ProfileSummary(
+            id: id,
+            username: username,
+            photoURL: photoURL,
+            joinedLabel: joinedLabel,
+            href: link.href,
+            canonicalURL: link.canonicalURL
+        )
+    }
+
+    private static func profileLink(username: String) -> (href: String, canonicalURL: URL) {
+        ProfileSurfaceLinks.link(username: username)
     }
 
     private var trustedAccountID: String? {
@@ -296,12 +467,13 @@ public struct NativeShellContentState {
     }
 
     private var profileSurfaceSource: ProfileSurfaceDataSource {
-        switch offlineIndicatorState.display {
-        case .synced:
-            .live(requestID: "native-shell", validatedAt: Date())
-        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
-            .cache(serverRevision: latestRecipeRevision, lastValidatedAt: .distantPast)
-        }
+        .cache(serverRevision: latestProfileRevision, lastValidatedAt: .distantPast)
+    }
+
+    private var latestProfileRevision: NativeCacheServerRevision? {
+        (recipes.map(\.updatedAt) + cookbooks.map(\.updatedAt))
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
     }
 
     public func cookProgress(for recipeID: String) -> CookModeProgress? {
@@ -315,6 +487,7 @@ public struct NativeShellContentState {
     func copy(
         recipes: [Recipe]? = nil,
         cookbooks: [Cookbook]? = nil,
+        cachedProfiles: [NativeCachedProfile]? = nil,
         shoppingList: ShoppingListState? = nil,
         captureDraft: CaptureDraft?? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
@@ -328,6 +501,7 @@ public struct NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
             cookbooks: cookbooks ?? self.cookbooks,
+            cachedProfiles: cachedProfiles ?? self.cachedProfiles,
             kitchen: kitchen,
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
@@ -351,6 +525,7 @@ public struct NativeShellContentState {
         NativeShellContentState(
             recipes: [],
             cookbooks: [],
+            cachedProfiles: [],
             kitchen: KitchenFixtureState(
                 status: .bootstrap,
                 leadObject: .recipe(id: "live-empty", title: "Spoonjoy"),
@@ -393,6 +568,7 @@ public struct NativeShellContentState {
             recipes: recipes,
             authSessionState: authSessionState
         )
+        let cachedProfiles = restoredProfiles(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
         let shoppingList = restoredShoppingList(
             cacheSnapshot: cacheSnapshot,
             syncSnapshot: syncSnapshot,
@@ -407,6 +583,7 @@ public struct NativeShellContentState {
         return NativeShellContentState(
             recipes: recipes,
             cookbooks: cookbooks,
+            cachedProfiles: cachedProfiles,
             kitchen: restoredKitchen(
                 cacheSnapshot: cacheSnapshot,
                 recipes: recipes,
@@ -501,6 +678,103 @@ public struct NativeShellContentState {
             return placeholderCookbook(id: id, title: title, date: record.metadata.lastValidatedAt)
         }
         return (decoded + placeholders).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private static func restoredProfiles(
+        cacheSnapshot: NativeDurableCacheSnapshot,
+        syncSnapshot: NativeSyncSnapshot
+    ) -> [NativeCachedProfile] {
+        var profilesByID = [String: NativeCachedProfile]()
+        cacheSnapshot.records
+            .compactMap(restoredProfile(cacheRecord:))
+            .forEach { profilesByID[$0.profile.id] = $0 }
+        syncSnapshot.cachedRecords
+            .filter { $0.kind == .profile }
+            .compactMap { restoredProfile(syncRecord: $0, checkpoint: syncSnapshot.checkpoint) }
+            .forEach { profilesByID[$0.profile.id] = $0 }
+        return profilesByID.values.sorted {
+            $0.profile.username.localizedCaseInsensitiveCompare($1.profile.username) == .orderedAscending
+        }
+    }
+
+    private static func restoredProfile(cacheRecord record: NativeCacheRecord) -> NativeCachedProfile? {
+        guard case .profile(let id, let username) = record.payload,
+              !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return NativeCachedProfile(
+            profile: profileSummary(id: id, username: username),
+            source: .cache(
+                serverRevision: record.metadata.serverRevision,
+                lastValidatedAt: record.metadata.lastValidatedAt
+            )
+        )
+    }
+
+    private static func restoredProfile(syncRecord record: NativeSyncCachedRecord, checkpoint: NativeSyncCheckpoint?) -> NativeCachedProfile? {
+        let profile = (decodedPayload(ProfileSurfaceResult.self, from: record.payload)?.data.profile
+            ?? decodedPayload(ProfileSurfaceData.self, from: record.payload)?.profile
+            ?? decodedPayload(ProfileSummary.self, from: record.payload)
+            ?? profileSummary(resourceID: record.resourceID, payload: record.payload))?
+            .withNormalizedProfileLink()
+        guard let profile else {
+            return nil
+        }
+        return NativeCachedProfile(
+            profile: profile,
+            source: .cache(
+                serverRevision: cacheServerRevision(from: record.serverRevision),
+                lastValidatedAt: date(from: checkpoint?.updatedAt) ?? .distantPast
+            )
+        )
+    }
+
+    private static func profileSummary(resourceID: String, payload: JSONValue) -> ProfileSummary? {
+        guard case .object(let fields) = payload,
+              case .string(let username)? = fields["username"],
+              !resourceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        let photoURL: URL?
+        if case .string(let photoURLRaw)? = fields["photoUrl"] {
+            photoURL = URL(string: photoURLRaw)
+        } else {
+            photoURL = nil
+        }
+        let joinedLabel: String
+        if case .string(let rawJoinedLabel)? = fields["joinedLabel"], !rawJoinedLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            joinedLabel = rawJoinedLabel
+        } else {
+            joinedLabel = "Joined Spoonjoy"
+        }
+        return profileSummary(id: resourceID, username: username, photoURL: photoURL, joinedLabel: joinedLabel)
+    }
+
+    private static func cacheServerRevision(from revision: NativeServerRevision?) -> NativeCacheServerRevision? {
+        switch revision {
+        case .updatedAt(let value):
+            return .updatedAt(value)
+        case .etag(let value):
+            return .etag(value)
+        case .tombstone(let value):
+            return .localRevision(value)
+        case nil:
+            return nil
+        }
+    }
+
+    private static func date(from isoString: String?) -> Date? {
+        guard let isoString else {
+            return nil
+        }
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractionalFormatter.date(from: isoString) {
+            return date
+        }
+        return ISO8601DateFormatter().date(from: isoString)
     }
 
     private static func cookbooksByApplyingQueuedCookbookMutations(
@@ -757,6 +1031,7 @@ public struct NativeShellContentState {
     private init(
         recipes: [Recipe],
         cookbooks: [Cookbook],
+        cachedProfiles: [NativeCachedProfile],
         kitchen: KitchenFixtureState,
         shoppingList: ShoppingListState?,
         captureDraft: CaptureDraft?,
@@ -771,6 +1046,7 @@ public struct NativeShellContentState {
     ) {
         self.recipes = recipes
         self.cookbooks = cookbooks
+        self.cachedProfiles = cachedProfiles
         self.kitchen = kitchen
         self.shoppingList = shoppingList
         self.captureDraft = captureDraft
@@ -1303,6 +1579,10 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func discardCaptureDraft(id draftID: String) {
+        guard currentContentState.captureDraft?.id == draftID else {
+            return
+        }
+
         let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
         if let appStateStore = dependencies.appStateStoreProvider() {
             do {
@@ -1326,9 +1606,6 @@ public final class NativeLiveAppStore: ObservableObject {
             }
         }
 
-        guard currentContentState.captureDraft?.id == draftID else {
-            return
-        }
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(nil))))
     }
 
@@ -1806,7 +2083,43 @@ private extension Array where Element == RecipeDetailRecentSpoon {
         var remaining = filter { $0.id != spoon.id }
         remaining.insert(spoon, at: 0)
         return remaining.sorted {
-            ($0.cookedAt ?? $0.createdAt) > ($1.cookedAt ?? $1.createdAt)
+            let lhsKey = $0.cookedAt ?? $0.createdAt
+            let rhsKey = $1.cookedAt ?? $1.createdAt
+            if lhsKey != rhsKey {
+                return lhsKey > rhsKey
+            }
+            return $0.id > $1.id
+        }
+    }
+}
+
+private struct NativeProfileGraphAggregate: Equatable {
+    var chef: ChefSummary
+    var spoons: Int
+    var latestInteractionAt: String
+
+    init(chef: ChefSummary, latestInteractionAt: String) {
+        self.chef = chef
+        self.spoons = 1
+        self.latestInteractionAt = latestInteractionAt
+    }
+
+    mutating func recordSpoon(chef: ChefSummary, at interactionAt: String) {
+        spoons += 1
+        if interactionAt > latestInteractionAt {
+            self.chef = chef
+            latestInteractionAt = interactionAt
+        }
+    }
+}
+
+private extension Dictionary where Key == String, Value == NativeProfileGraphAggregate {
+    mutating func recordSpoon(for chef: ChefSummary, at interactionAt: String) {
+        if var aggregate = self[chef.id] {
+            aggregate.recordSpoon(chef: chef, at: interactionAt)
+            self[chef.id] = aggregate
+        } else {
+            self[chef.id] = NativeProfileGraphAggregate(chef: chef, latestInteractionAt: interactionAt)
         }
     }
 }

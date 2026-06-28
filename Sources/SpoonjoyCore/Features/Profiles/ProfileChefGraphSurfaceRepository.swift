@@ -18,6 +18,14 @@ public enum ProfileSurfaceDataSource: Codable, Equatable, Sendable {
     case cache(serverRevision: NativeCacheServerRevision?, lastValidatedAt: Date)
 }
 
+enum ProfileSurfaceLinks {
+    static func link(username: String) -> (href: String, canonicalURL: URL) {
+        let encodedUsername = AppRoute.encodedProfileIdentifier(username)
+        let href = "/users/\(encodedUsername)"
+        return (href, URL(string: "https://spoonjoy.app\(href)")!)
+    }
+}
+
 public struct ProfileSummary: Codable, Equatable, Sendable {
     public let id: String
     public let username: String
@@ -33,6 +41,18 @@ public struct ProfileSummary: Codable, Equatable, Sendable {
         self.joinedLabel = joinedLabel
         self.href = href
         self.canonicalURL = canonicalURL
+    }
+
+    public func withNormalizedProfileLink() -> ProfileSummary {
+        let link = ProfileSurfaceLinks.link(username: username)
+        return ProfileSummary(
+            id: id,
+            username: username,
+            photoURL: photoURL,
+            joinedLabel: joinedLabel,
+            href: link.href,
+            canonicalURL: link.canonicalURL
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -265,6 +285,18 @@ public struct ProfileSurfaceData: Codable, Equatable, Sendable {
         self.fellowChefsCount = fellowChefsCount
         self.kitchenVisitorsCount = kitchenVisitorsCount
     }
+
+    public func withNormalizedProfileLinks() -> ProfileSurfaceData {
+        ProfileSurfaceData(
+            profile: profile.withNormalizedProfileLink(),
+            isOwner: isOwner,
+            recipes: recipes,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons,
+            fellowChefsCount: fellowChefsCount,
+            kitchenVisitorsCount: kitchenVisitorsCount
+        )
+    }
 }
 
 public struct ProfileSurfaceResult: Codable, Equatable, Sendable {
@@ -289,30 +321,53 @@ public struct ProfileSurfaceResult: Codable, Equatable, Sendable {
             return OfflineIndicatorState(display: .synced, dismissal: nil)
         case .cache(let serverRevision, let lastValidatedAt):
             let domain = NativeCacheDomain.profile(id: data.profile.id)
-            let payload = NativeCachePayload.profile(id: data.profile.id, username: data.profile.username)
-            let record = try? NativeCacheRecord(
-                id: domain.stableRecordID,
-                metadata: NativeCacheRecordMetadata(
-                    accountID: data.profile.id,
-                    environment: .production,
-                    schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
-                    domain: domain,
-                    fetchedAt: lastValidatedAt,
-                    lastValidatedAt: lastValidatedAt,
-                    sourceEndpoint: "/api/v1/users/\(data.profile.username)",
-                    serverRevision: serverRevision
-                ),
-                payload: payload
+            return Self.offlineIndicator(
+                domain: domain,
+                payload: NativeCachePayload.profile(id: data.profile.id, username: data.profile.username),
+                accountID: data.profile.id,
+                sourceEndpoint: "/api/v1/users/\(data.profile.username)",
+                serverRevision: serverRevision,
+                lastValidatedAt: lastValidatedAt,
+                now: now,
+                freshnessPolicy: freshnessPolicy
             )
-            guard let record else {
-                return OfflineIndicatorState(display: .stale(domain: domain), dismissal: nil)
-            }
-            switch freshnessPolicy.freshness(for: record, now: now) {
-            case .fresh, .locallyAuthoritative:
-                return OfflineIndicatorState(display: .synced, dismissal: nil)
-            case .stale:
-                return OfflineIndicatorState(display: .stale(domain: domain), dismissal: nil)
-            }
+        }
+    }
+
+    static func offlineIndicator(
+        domain: NativeCacheDomain,
+        payload: NativeCachePayload,
+        accountID: String,
+        sourceEndpoint: String,
+        serverRevision: NativeCacheServerRevision?,
+        lastValidatedAt: Date,
+        now: Date,
+        freshnessPolicy: NativeCacheFreshnessPolicy
+    ) -> OfflineIndicatorState {
+        let record = try? NativeCacheRecord(
+            id: domain.stableRecordID,
+            metadata: NativeCacheRecordMetadata(
+                accountID: accountID,
+                environment: .production,
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                domain: domain,
+                fetchedAt: lastValidatedAt,
+                lastValidatedAt: lastValidatedAt,
+                sourceEndpoint: sourceEndpoint,
+                serverRevision: serverRevision
+            ),
+            payload: payload
+        )
+
+        guard let record else {
+            return OfflineIndicatorState(display: .stale(domain: domain), dismissal: nil)
+        }
+
+        switch freshnessPolicy.freshness(for: record, now: now) {
+        case .fresh, .locallyAuthoritative:
+            return OfflineIndicatorState(display: .synced, dismissal: nil)
+        case .stale:
+            return OfflineIndicatorState(display: .stale(domain: domain), dismissal: nil)
         }
     }
 }
@@ -328,6 +383,11 @@ public struct ProfileGraphProfile: Codable, Equatable, Sendable {
         self.username = username
         self.href = href
         self.canonicalURL = canonicalURL
+    }
+
+    public func withNormalizedProfileLink() -> ProfileGraphProfile {
+        let link = ProfileSurfaceLinks.link(username: username)
+        return ProfileGraphProfile(id: id, username: username, href: link.href, canonicalURL: link.canonicalURL)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -390,6 +450,19 @@ public struct ProfileGraphRow: Codable, Identifiable, Equatable, Sendable {
         self.canonicalURL = canonicalURL
         self.interactionCounts = interactionCounts
         self.latestInteractionAt = latestInteractionAt
+    }
+
+    public func withNormalizedProfileLink() -> ProfileGraphRow {
+        let link = ProfileSurfaceLinks.link(username: username)
+        return ProfileGraphRow(
+            chefID: chefID,
+            username: username,
+            photoURL: photoURL,
+            href: link.href,
+            canonicalURL: link.canonicalURL,
+            interactionCounts: interactionCounts,
+            latestInteractionAt: latestInteractionAt
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -457,15 +530,29 @@ public struct ProfileGraphPage: Codable, Equatable, Sendable {
 
     public func with(direction: ProfileGraphDirection, source: ProfileSurfaceDataSource) -> ProfileGraphPage {
         ProfileGraphPage(
-            profile: profile,
+            profile: profile.withNormalizedProfileLink(),
             direction: direction,
             page: page,
             pageSize: pageSize,
             total: total,
             nextCursor: nextCursor,
-            rows: rows,
+            rows: rows.map { $0.withNormalizedProfileLink() },
             source: source,
             emptyState: rows.isEmpty ? Self.emptyState(for: direction) : emptyState
+        )
+    }
+
+    public func withNormalizedProfileLinks() -> ProfileGraphPage {
+        ProfileGraphPage(
+            profile: profile.withNormalizedProfileLink(),
+            direction: direction,
+            page: page,
+            pageSize: pageSize,
+            total: total,
+            nextCursor: nextCursor,
+            rows: rows.map { $0.withNormalizedProfileLink() },
+            source: source,
+            emptyState: emptyState
         )
     }
 
@@ -570,7 +657,7 @@ public struct LiveProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepo
             decode: ProfileSurfaceData.self
         )
         return ProfileSurfaceResult(
-            data: envelope.data,
+            data: envelope.data.withNormalizedProfileLinks(),
             source: .live(requestID: envelope.requestID, validatedAt: now())
         )
     }
@@ -591,7 +678,7 @@ public struct LiveProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepo
         return envelope.data.with(
             direction: direction,
             source: .live(requestID: envelope.requestID, validatedAt: now())
-        )
+        ).withNormalizedProfileLinks()
     }
 }
 

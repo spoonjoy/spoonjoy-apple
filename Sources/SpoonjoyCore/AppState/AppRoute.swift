@@ -101,9 +101,9 @@ public enum AppRoute: Hashable, Sendable {
         case .cookbookDetail(let id):
             "cookbook:\(id)"
         case .profile(let identifier):
-            "profile:\(identifier)"
+            "profile:\(Self.encodedProfileIdentifier(identifier))"
         case .profileGraph(let identifier, let direction, let page):
-            "profile-graph:\(identifier):\(direction.rawValue):\(page)"
+            "profile-graph:\(Self.encodedProfileIdentifier(identifier)):\(direction.rawValue):\(page)"
         case .shoppingList:
             "shopping-list"
         case .search(let query, let scope):
@@ -137,15 +137,16 @@ public enum AppRoute: Hashable, Sendable {
             self = .cookbooks
         } else if parts.count == 2, parts[0] == "cookbook", Self.isSafeID(parts[1]) {
             self = .cookbookDetail(id: parts[1])
-        } else if parts.count == 2, parts[0] == "profile", Self.isSafeID(parts[1]) {
-            self = .profile(identifier: parts[1])
+        } else if parts.count == 2, parts[0] == "profile",
+                  let identifier = Self.decodedProfileIdentifier(parts[1]) {
+            self = .profile(identifier: identifier)
         } else if parts.count == 4,
                   parts[0] == "profile-graph",
-                  Self.isSafeID(parts[1]),
+                  let identifier = Self.decodedProfileIdentifier(parts[1]),
                   let direction = ProfileGraphDirection(rawValue: parts[2]),
                   let page = Int(parts[3]),
                   page > 0 {
-            self = .profileGraph(identifier: parts[1], direction: direction, page: page)
+            self = .profileGraph(identifier: identifier, direction: direction, page: page)
         } else if parts == ["shopping-list"] {
             self = .shoppingList
         } else if parts.count >= 3, parts[0] == "search" {
@@ -178,4 +179,28 @@ public enum AppRoute: Hashable, Sendable {
         }
         return id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
     }
+
+    public static func encodedProfileIdentifier(_ identifier: String) -> String {
+        identifier.addingPercentEncoding(withAllowedCharacters: profileIdentifierAllowedCharacters)!
+    }
+
+    public static func decodedProfileIdentifier(_ encodedIdentifier: String) -> String? {
+        guard let identifier = encodedIdentifier.removingPercentEncoding,
+              isSafeProfileIdentifier(identifier) else {
+            return nil
+        }
+        return identifier
+    }
+
+    public static func isSafeProfileIdentifier(_ identifier: String) -> Bool {
+        guard identifier.trimmingCharacters(in: .whitespacesAndNewlines) == identifier, !identifier.isEmpty else {
+            return false
+        }
+        guard !identifier.contains("\\"), !identifier.contains(".."), identifier != ".", identifier != ".." else {
+            return false
+        }
+        return true
+    }
+
+    private static let profileIdentifierAllowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~"))
 }

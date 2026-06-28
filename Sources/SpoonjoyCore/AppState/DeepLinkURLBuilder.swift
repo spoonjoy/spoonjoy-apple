@@ -32,10 +32,10 @@ public enum DeepLinkURLBuilder {
             components.path = "/\(id)"
         case .profile(let identifier):
             components.host = "users"
-            components.path = "/\(identifier)"
+            components.percentEncodedPath = "/\(AppRoute.encodedProfileIdentifier(identifier))"
         case .profileGraph(let identifier, let direction, let page):
             components.host = "users"
-            components.path = "/\(identifier)/\(direction.rawValue)"
+            components.percentEncodedPath = "/\(AppRoute.encodedProfileIdentifier(identifier))/\(direction.rawValue)"
             components.queryItems = [
                 URLQueryItem(name: "page", value: String(page))
             ]
