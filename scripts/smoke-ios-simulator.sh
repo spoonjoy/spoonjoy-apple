@@ -179,6 +179,8 @@ if [[ "$boot_status" -ne 0 ]]; then
 fi
 
 {
+  printf 'Uninstalling stale app before fresh install: %s app.spoonjoy.Spoonjoy\n' "$udid"
+  xcrun simctl uninstall "$udid" app.spoonjoy.Spoonjoy || true
   printf 'Installing app: %s\n' "$app_path"
   set +e
   run_with_timeout "xcrun simctl install $udid '$app_path'"

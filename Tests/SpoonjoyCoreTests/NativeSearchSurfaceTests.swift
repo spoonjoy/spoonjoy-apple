@@ -68,8 +68,16 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceSection",
                     "SearchSurfaceRow",
                     "OfflineStatusView",
+                    ".navigationTitle(\"Search\")",
                     "searchTask",
-                    "debounce"
+                    "debounce",
+                    "SPOONJOY_SCREENSHOT_PROOF_PATH",
+                    "SPOONJOY_SCREENSHOT_ACCOUNT_ID",
+                    "writeScreenshotProofIfNeeded",
+                    "\"source\": \"SearchView\"",
+                    "\"routeIdentifier\"",
+                    "\"searchScopes\"",
+                    "ISO8601DateFormatter"
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
                     "@FocusState private var isSearchFieldFocused",
@@ -78,6 +86,8 @@ struct NativeSearchSurfaceTests {
                     "SearchView(",
                     ".searchFocused($isSearchFieldFocused)",
                     "isSearchFieldFocused = true",
+                    "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
+                    "shouldAutoFocusSearchField",
                     "search.apply(route: routeSearch.route)",
                     "ActiveSearchSurfaceState",
                     "recordSearchSurfacePageHandler(page, identity)",

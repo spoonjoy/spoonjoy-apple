@@ -49,6 +49,7 @@ struct NativeScenarioTests {
         "https://spoonjoy.app/users/{identifier}/fellow-chefs?page={page}",
         "https://spoonjoy.app/users/{identifier}/kitchen-visitors?page={page}",
         "https://spoonjoy.app/shopping-list",
+        "https://spoonjoy.app/search",
         "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
         "https://spoonjoy.app/recipes/new",
         "https://spoonjoy.app/account/settings",
@@ -65,6 +66,7 @@ struct NativeScenarioTests {
         "spoonjoy://users/{identifier}/fellow-chefs?page={page}",
         "spoonjoy://users/{identifier}/kitchen-visitors?page={page}",
         "spoonjoy://shopping-list",
+        "spoonjoy://search",
         "spoonjoy://search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
         "spoonjoy://capture",
         "spoonjoy://settings"
@@ -876,10 +878,10 @@ struct NativeScenarioTests {
             let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
 
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: completeFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
             """.write(to: missingComponentFixture, atomically: true, encoding: .utf8)
 
             let valid = try runProcess(

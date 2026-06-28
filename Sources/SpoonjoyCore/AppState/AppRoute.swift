@@ -152,7 +152,7 @@ public enum AppRoute: Hashable, Sendable {
         } else if parts.count >= 3, parts[0] == "search" {
             let rawScope = parts[1]
             let query = parts.dropFirst(2).joined(separator: ":")
-            guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard query.isEmpty || !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return nil
             }
             guard let scope = SearchScope(rawValue: rawScope) else {

@@ -203,9 +203,14 @@ struct NativeAuthSessionTests {
         let urlTypes = try #require(infoPlist["CFBundleURLTypes"] as? [[String: Any]])
         let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
         let associatedDomains = try #require(entitlements["com.apple.developer.associated-domains"] as? [String])
+        let launchScreen = try #require(infoPlist["UILaunchScreen"] as? [String: Any])
+        let launchBackground = repoRoot()
+            .appendingPathComponent("Apps/Spoonjoy/Shared/Assets.xcassets/LaunchBackground.colorset/Contents.json")
 
         #expect(schemes == ["spoonjoy"])
         #expect(associatedDomains.contains("applinks:spoonjoy.app"))
+        #expect(launchScreen["UIColorName"] as? String == "LaunchBackground")
+        #expect(FileManager.default.fileExists(atPath: launchBackground.path))
         #expect(!schemes.contains("spoonjoy://oauth/callback"))
         #expect(!associatedDomains.contains("applinks:oauth/callback"))
     }

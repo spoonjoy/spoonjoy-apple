@@ -17,6 +17,7 @@ public enum DeepLinkManifest {
         "https://spoonjoy.app/users/{identifier}/fellow-chefs?page={page}",
         "https://spoonjoy.app/users/{identifier}/kitchen-visitors?page={page}",
         "https://spoonjoy.app/shopping-list",
+        "https://spoonjoy.app/search",
         "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
         "https://spoonjoy.app/recipes/new",
         "https://spoonjoy.app/account/settings",
@@ -33,6 +34,7 @@ public enum DeepLinkManifest {
         "spoonjoy://users/{identifier}/fellow-chefs?page={page}",
         "spoonjoy://users/{identifier}/kitchen-visitors?page={page}",
         "spoonjoy://shopping-list",
+        "spoonjoy://search",
         "spoonjoy://search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
         "spoonjoy://capture",
         "spoonjoy://settings"

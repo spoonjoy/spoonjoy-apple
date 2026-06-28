@@ -16,7 +16,8 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "settings"].freeze
+VALID_ROUTES = ["kitchen", "search", "settings"].freeze
+EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -41,6 +42,26 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
                       end
   missing_sections = required_sections.reject { |section| sections.include?(section) }
   fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+end
+
+def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id)
+  fail_check("#{manifest_path} searchSurfaceProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
+  proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
+  fail_check("#{manifest_path} missing search screenshot proof artifact #{proof_relative_path}") unless proof_path.file?
+  proof = JSON.parse(proof_path.read)
+  fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
+  fail_check("#{proof_path} route must be search") unless proof["route"] == "search"
+  fail_check("#{proof_path} routeIdentifier must be search:all:") unless proof["routeIdentifier"] == "search:all:"
+  fail_check("#{proof_path} query must be blank") unless proof["query"] == ""
+  fail_check("#{proof_path} scope must be all") unless proof["scope"] == "all"
+  fail_check("#{proof_path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless proof["searchScopes"] == EXPECTED_SEARCH_SCOPES
+  fail_check("#{proof_path} accountID must be #{seed_account_id}") unless proof["accountID"] == seed_account_id
+  fail_check("#{proof_path} source must be SearchView") unless proof["source"] == "SearchView"
+  sections = proof["visibleSections"]
+  fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
+  required_sections = ["Recipes", "Chefs"]
+  missing_sections = required_sections.reject { |section| sections.include?(section) }
+  fail_check("#{proof_path} visibleSections missing required search sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
 end
 
 path = Pathname.new(ARGV.fetch(0) { fail_check("usage: validate-design-review.rb <design-review.json>") })
@@ -72,6 +93,20 @@ when "kitchen"
   fail_check("#{path} kitchenSignedInSurface must be true for kitchen captures") unless manifest["kitchenSignedInSurface"] == true
   seed_account_id = manifest["kitchenSeedAccountID"]
   fail_check("#{path} kitchenSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "search"
+  fail_check("#{path} searchNativeSurface must be true for search captures") unless manifest["searchNativeSurface"] == true
+  seed_account_id = manifest["searchSeedAccountID"]
+  fail_check("#{path} searchSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+  search_scopes = manifest["searchScopes"]
+  fail_check("#{path} searchScopes must be an array") unless search_scopes.is_a?(Array)
+  fail_check("#{path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless search_scopes == EXPECTED_SEARCH_SCOPES
+  proof_artifacts = manifest["searchSurfaceProofArtifacts"]
+  fail_check("#{path} searchSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
+  fail_check("#{path} searchSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
+  proof_artifacts.each do |proof_relative_path|
+    fail_check("#{path} searchSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
+    validate_search_proof!(path, proof_relative_path, seed_account_id)
+  end
 when "settings"
   fail_check("#{path} settingsSignedInSurface must be true for settings captures") unless manifest["settingsSignedInSurface"] == true
   seed_account_id = manifest["settingsSeedAccountID"]

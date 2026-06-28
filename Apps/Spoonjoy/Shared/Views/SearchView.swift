@@ -1,7 +1,11 @@
 import SpoonjoyCore
+import Foundation
 import SwiftUI
 
 struct SearchView: View {
+    private static let screenshotAccountIDEnvironmentKey = "SPOONJOY_SCREENSHOT_ACCOUNT_ID"
+    private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
+
     @Binding private var search: SearchState
     @State private var inFlightRequest: SearchSurfaceRequest?
 
@@ -59,11 +63,16 @@ struct SearchView: View {
 #endif
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
+        .navigationTitle("Search")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
         .tint(KitchenTableTheme.herb)
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
         .task(id: search.route.stateIdentifier) {
+            await writeScreenshotProofIfNeeded()
             await debounceSearch()
         }
     }
@@ -100,6 +109,42 @@ struct SearchView: View {
         }
 
         await searchTask(SearchState(query: scheduledRequest.query, scope: scheduledRequest.scope))
+    }
+
+    @MainActor
+    private func writeScreenshotProofIfNeeded() async {
+#if DEBUG
+        guard let rawPath = ProcessInfo.processInfo.environment[Self.screenshotProofPathEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawPath.isEmpty else {
+            return
+        }
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        guard !Task.isCancelled else {
+            return
+        }
+        let accountID = ProcessInfo.processInfo.environment[Self.screenshotAccountIDEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let outputURL = URL(fileURLWithPath: rawPath)
+        let payload: [String: Any] = [
+            "route": "search",
+            "routeIdentifier": search.route.stateIdentifier,
+            "query": search.query,
+            "scope": search.scope.rawValue,
+            "searchScopes": searchableScopeOrder.map(\.rawValue),
+            "accountID": accountID,
+            "visibleSections": viewModel.sections.map(\.title),
+            "source": "SearchView",
+            "writtenAt": ISO8601DateFormatter().string(from: Date())
+        ]
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
+            return
+        }
+        try? FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? data.write(to: outputURL, options: [.atomic])
+#endif
     }
 }
 
