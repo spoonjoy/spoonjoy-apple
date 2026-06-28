@@ -1,0 +1,4 @@
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006000-000210690A62801E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006000-000210690A62801E, name:My Mac }
+/Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj: warning: The macOS deployment target 'MACOSX_DEPLOYMENT_TARGET' is set to 27.0, but the range of supported deployment target versions is 10.13 to 26.5.99. (in target 'Spoonjoy macOS' from project 'Spoonjoy')

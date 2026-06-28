@@ -87,8 +87,14 @@ struct RecipeActionParityTests {
         #expect(navigationSource.contains("connectivity: recipeCoverControlsConnectivity"))
         #expect(navigationSource.contains("performCoverAction: performCoverAction"))
         #expect(navigationSource.contains("private func performCoverAction(_ plan: RecipeCoverControlsMutationPlan) async throws"))
+        #expect(navigationSource.contains("private func performRecipeAction(_ plan: RecipeActionPlan) async throws"))
         #expect(navigationSource.contains("hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey)"))
         #expect(navigationSource.contains("queueMutations([offlineFallbackMutation], true)"))
+        let recipeActionStart = try #require(navigationSource.range(of: "private func performRecipeAction(_ plan: RecipeActionPlan) async throws"))
+        let recipeActionEnd = try #require(navigationSource[recipeActionStart.upperBound...].range(of: "private func performCookbookAction"))
+        let recipeActionBody = navigationSource[recipeActionStart.lowerBound..<recipeActionEnd.lowerBound]
+        #expect(recipeActionBody.contains("hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey)"))
+        #expect(recipeActionBody.contains("queueMutations([offlineFallbackMutation], true)"))
         #expect(!navigationSource.contains("case .recipeCoverControls(let id):\n            ShellPlaceholderView"))
 
         let coverControlsSource = try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
@@ -216,6 +222,26 @@ struct RecipeActionParityTests {
         #expect(unavailableRemove.remoteRequestBuilder == nil)
         #expect(unavailableRemove.queuedMutation == nil)
 
+        let localCookbookPlanner = RecipeActionsViewModel(
+            recipe: recipe,
+            context: Self.detailContext(
+                currentChefID: "chef_ari",
+                savedInCookbookIDs: [],
+                availableCookbooks: [
+                    RecipeCookbookSaveOption(id: "cookbook_local_cm_local_create", title: "Offline Binder")
+                ]
+            ),
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        let localCookbookSave = try localCookbookPlanner.plan(.saveToCookbook(
+            cookbookID: "cookbook_local_cm_local_create",
+            clientMutationID: "cm_save_local_cookbook"
+        ))
+        #expect(localCookbookSave.remoteRequestBuilder != nil)
+        #expect(localCookbookSave.queuedMutation == nil)
+        #expect(localCookbookSave.offlineFallbackMutation?.dependencyKey == "cookbook:cookbook_local_cm_local_create")
+
         let staleSavedCookbookPlanner = RecipeActionsViewModel(
             recipe: recipe,
             context: Self.detailContext(currentChefID: "chef_ari", savedInCookbookIDs: ["cookbook_foreign"]),
@@ -288,14 +314,15 @@ struct RecipeActionParityTests {
 
     private static func detailContext(
         currentChefID: String?,
-        savedInCookbookIDs: Set<String> = ["cookbook_weeknights"]
+        savedInCookbookIDs: Set<String> = ["cookbook_weeknights"],
+        availableCookbooks: [RecipeCookbookSaveOption] = [
+            RecipeCookbookSaveOption(id: "cookbook_weeknights", title: "Weeknights"),
+            RecipeCookbookSaveOption(id: "cookbook_pantry", title: "Pantry")
+        ]
     ) -> RecipeDetailContext {
         RecipeDetailContext(
             currentChefID: currentChefID,
-            availableCookbooks: [
-                RecipeCookbookSaveOption(id: "cookbook_weeknights", title: "Weeknights"),
-                RecipeCookbookSaveOption(id: "cookbook_pantry", title: "Pantry")
-            ],
+            availableCookbooks: availableCookbooks,
             savedInCookbookIDs: savedInCookbookIDs,
             hasIngredientsInShoppingList: true,
             now: Self.now

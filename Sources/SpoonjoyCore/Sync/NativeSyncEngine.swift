@@ -1068,6 +1068,10 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         queueableKind == .recipeCreate ? "recipe_local_\(clientMutationID)" : recipeID
     }
 
+    public var optimisticCookbookID: String? {
+        queueableKind == .cookbookCreate ? stringValue("serverCookbookId") ?? "cookbook_local_\(clientMutationID)" : stringValue("cookbookId")
+    }
+
     public var optimisticSpoonID: String? {
         switch queueableKind {
         case .spoonCreate, .spoonCreatePhoto:
@@ -1076,6 +1080,73 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             stringValue("spoonId")
         default:
             nil
+        }
+    }
+
+    public func blocksDependencyKey(_ dependencyKey: String) -> Bool {
+        self.dependencyKey == dependencyKey || dependentDependencyKeysBlockedWithThisMutation.contains(dependencyKey)
+    }
+
+    public func applyingOptimisticCookbookMutation(
+        to cookbooks: [Cookbook],
+        fallbackChef: ChefSummary,
+        recipes: [Recipe],
+        now: String
+    ) -> [Cookbook] {
+        switch queueableKind {
+        case .cookbookCreate:
+            return upsertingCookbook(optimisticCreatedCookbook(fallbackChef: fallbackChef, now: now), into: cookbooks)
+        case .cookbookUpdate:
+            guard let cookbookID = stringValue("cookbookId") else {
+                return cookbooks
+            }
+            return cookbooks.map { cookbook in
+                guard cookbook.id == cookbookID else {
+                    return cookbook
+                }
+                return cookbook.copy(
+                    title: stringValue("title") ?? cookbook.title,
+                    updatedAt: now
+                )
+            }
+        case .cookbookDelete:
+            guard let cookbookID = stringValue("cookbookId") else {
+                return cookbooks
+            }
+            return cookbooks.filter { $0.id != cookbookID }
+        case .cookbookAddRecipe:
+            guard let cookbookID = stringValue("cookbookId"),
+                  let recipeID = stringValue("recipeId"),
+                  let recipe = recipes.first(where: { $0.id == recipeID }) else {
+                return cookbooks
+            }
+            let summary = RecipeSummary(recipe: recipe)
+            return cookbooks.map { cookbook in
+                guard cookbook.id == cookbookID,
+                      !cookbook.recipes.contains(where: { $0.id == recipeID }) else {
+                    return cookbook
+                }
+                return cookbook.copy(
+                    updatedAt: now,
+                    recipes: cookbook.recipes + [summary]
+                )
+            }
+        case .cookbookRemoveRecipe:
+            guard let cookbookID = stringValue("cookbookId"),
+                  let recipeID = stringValue("recipeId") else {
+                return cookbooks
+            }
+            return cookbooks.map { cookbook in
+                guard cookbook.id == cookbookID else {
+                    return cookbook
+                }
+                return cookbook.copy(
+                    updatedAt: now,
+                    recipes: cookbook.recipes.filter { $0.id != recipeID }
+                )
+            }
+        default:
+            return cookbooks
         }
     }
 
@@ -1351,6 +1422,8 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         switch queueableKind {
         case .recipeCreate:
             ["recipe:recipe_local_\(clientMutationID)"]
+        case .cookbookCreate:
+            ["cookbook:cookbook_local_\(clientMutationID)"]
         default:
             []
         }
@@ -1477,6 +1550,8 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             if !serverItemIDs.isEmpty {
                 nextValues["serverItemIds"] = .array(serverItemIDs)
             }
+        case .cookbookCreate:
+            nextValues["serverCookbookId"] = replacements["cookbook_local_\(clientMutationID)"].map(JSONValue.string)
         case .spoonCreate, .spoonCreatePhoto:
             nextValues["serverSpoonId"] = replacements["spoon_local_\(clientMutationID)"].map(JSONValue.string)
         default:
@@ -1691,6 +1766,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         "serverStepIngredientIds",
         "serverItemId",
         "serverItemIds",
+        "serverCookbookId",
         "serverSpoonId",
         "shoppingRecipeIngredients"
     ]
@@ -1749,6 +1825,19 @@ extension NativeQueuedMutation {
              .shoppingAddFromRecipe,
              .shoppingClearCompleted,
              .shoppingClearAll:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var mutatesCookbookCache: Bool {
+        switch queueableKind {
+        case .cookbookCreate,
+             .cookbookUpdate,
+             .cookbookDelete,
+             .cookbookAddRecipe,
+             .cookbookRemoveRecipe:
             return true
         default:
             return false
@@ -1813,6 +1902,35 @@ extension NativeQueuedMutation {
                 optimisticStep(from: step, index: index + 1, now: now)
             },
             cookbooks: []
+        )
+    }
+
+    func upsertingCookbook(_ cookbook: Cookbook, into cookbooks: [Cookbook]) -> [Cookbook] {
+        guard cookbooks.contains(where: { $0.id == cookbook.id }) else {
+            return (cookbooks + [cookbook]).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        }
+        return cookbooks.map { $0.id == cookbook.id ? cookbook : $0 }
+    }
+
+    func optimisticCreatedCookbook(fallbackChef: ChefSummary, now: String) -> Cookbook {
+        let id = optimisticCookbookID ?? "cookbook_local_\(clientMutationID)"
+        let title = stringValue("title") ?? "Untitled Cookbook"
+        let canonicalURL = URL(string: "https://spoonjoy.app/cookbooks/\(id)")!
+        return Cookbook(
+            id: id,
+            title: title,
+            chef: fallbackChef,
+            recipeCount: 0,
+            cover: CookbookCover(imageURLs: []),
+            href: "/cookbooks/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: CookbookAttribution(
+                creditText: "\(title) by \(fallbackChef.username) on Spoonjoy",
+                canonicalURL: canonicalURL
+            ),
+            createdAt: createdAt,
+            updatedAt: now,
+            recipes: []
         )
     }
 
@@ -2195,6 +2313,14 @@ extension NativeQueuedMutation {
                 )
             }
             return remaps
+        case .cookbookCreate:
+            var remaps = [NativeSyncIDRemap]()
+            appendRemap(
+                localID: "cookbook_local_\(clientMutationID)",
+                serverID: responseData.objectValue("cookbook")?.stringValue("id") ?? responseData.objectStringValue("cookbookId"),
+                to: &remaps
+            )
+            return remaps
         case .spoonCreate, .spoonCreatePhoto:
             var remaps = [NativeSyncIDRemap]()
             appendRemap(
@@ -2519,6 +2645,30 @@ private extension Recipe {
             steps: steps ?? self.steps,
             cookbooks: cookbooks,
             recentSpoons: recentSpoons ?? self.recentSpoons
+        )
+    }
+}
+
+private extension Cookbook {
+    func copy(title: String? = nil, updatedAt: String, recipes: [RecipeSummary]? = nil) -> Cookbook {
+        let nextRecipes = recipes ?? self.recipes
+        let nextTitle = title ?? self.title
+        let nextCover = recipes.map { CookbookCover(imageURLs: $0.map(\.coverImageURL)) } ?? cover
+        return Cookbook(
+            id: id,
+            title: nextTitle,
+            chef: chef,
+            recipeCount: nextRecipes.count,
+            cover: nextCover,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: CookbookAttribution(
+                creditText: "\(nextTitle) by \(chef.username) on Spoonjoy",
+                canonicalURL: canonicalURL
+            ),
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            recipes: nextRecipes
         )
     }
 }
@@ -3723,8 +3873,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
 
         let drainedRecipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
         let drainedShoppingMutations = drainedMutations.filter(\.mutatesShoppingCache)
+        let drainedCookbookMutations = drainedMutations.filter(\.mutatesCookbookCache)
         var cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) = ([], [])
-        if !drainedRecipeMutations.isEmpty || !drainedShoppingMutations.isEmpty {
+        if !drainedRecipeMutations.isEmpty || !drainedShoppingMutations.isEmpty || !drainedCookbookMutations.isEmpty {
             let snapshot = try await store.loadSnapshot()
             if !drainedRecipeMutations.isEmpty {
                 let cachePatchAccountID = queueAccountID!
@@ -3745,6 +3896,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 )
                 cachePatch.upserting.append(contentsOf: shoppingPatch.upserting)
                 cachePatch.deletingCacheKeys.formUnion(shoppingPatch.deletingCacheKeys)
+            }
+            if !drainedCookbookMutations.isEmpty {
+                let cachePatchAccountID = queueAccountID!
+                let cookbookPatch = try Self.drainedCookbookCachePatch(
+                    drainedMutations: drainedCookbookMutations,
+                    snapshot: snapshot,
+                    accountID: cachePatchAccountID
+                )
+                cachePatch.upserting.append(contentsOf: cookbookPatch.upserting)
+                cachePatch.deletingCacheKeys.formUnion(cookbookPatch.deletingCacheKeys)
             }
         }
         try await store.saveQueue(
@@ -3843,6 +4004,38 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 resourceID: item.id,
                 payload: try JSONValue.encoded(item),
                 serverRevision: .updatedAt(item.updatedAt)
+            )
+        }
+        return (upserts, deletedCacheKeys)
+    }
+
+    private static func drainedCookbookCachePatch(
+        drainedMutations: [NativeQueuedMutation],
+        snapshot: NativeSyncSnapshot,
+        accountID: String
+    ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
+        let cachedCookbooks = try snapshot.cachedRecords
+            .filter { $0.kind == .cookbook }
+            .map { try $0.payload.decoded(Cookbook.self) }
+        let cachedRecipes = try snapshot.cachedRecords
+            .filter { $0.kind == .recipe }
+            .map { try $0.payload.decoded(Recipe.self) }
+        let fallbackChef = cachedRecipes.first?.chef ?? cachedCookbooks.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+        let updatedCookbooks = drainedMutations.reduce(cachedCookbooks) { cookbooks, mutation in
+            mutation.applyingOptimisticCookbookMutation(
+                to: cookbooks,
+                fallbackChef: fallbackChef,
+                recipes: cachedRecipes,
+                now: mutation.createdAt
+            )
+        }
+        let deletedCacheKeys = Set(Set(cachedCookbooks.map(\.id)).subtracting(updatedCookbooks.map(\.id)).map { "\(NativeSyncEntryKind.cookbook.rawValue):\($0)" })
+        let upserts = try updatedCookbooks.map { cookbook in
+            NativeSyncCachedRecord(
+                kind: .cookbook,
+                resourceID: cookbook.id,
+                payload: try JSONValue.encoded(cookbook),
+                serverRevision: .updatedAt(cookbook.updatedAt)
             )
         }
         return (upserts, deletedCacheKeys)

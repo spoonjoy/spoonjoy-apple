@@ -147,6 +147,13 @@ public enum ScenarioVerifier {
                 shoppingAddRecipeIngredientsCheck(),
                 shoppingRecipeCoverageCheck(),
                 shoppingClearConfirmationCheck(),
+                cookbookDetailCheck(),
+                cookbookOwnerToolsCheck(),
+                cookbookCreateCheck(rootURL: rootURL),
+                cookbookRenameCheck(),
+                cookbookDeleteCheck(),
+                cookbookAddRecipeCheck(),
+                cookbookRemoveRecipeCheck(),
                 sourceCheck(
                     name: "kitchen surface source",
                     detail: "Kitchen surface includes lead object, recipe index, and cookbook shelf.",
@@ -862,6 +869,218 @@ public enum ScenarioVerifier {
         )
     }
 
+    static func cookbookDetailCheck() -> ScenarioCheck {
+        do {
+            let cookbook = try scenarioCookbook()
+            let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
+            let status: ScenarioCheckStatus = viewModel.id == cookbook.id &&
+                viewModel.title == cookbook.title &&
+                viewModel.recipes.map(\.id) == cookbook.recipes.map(\.id) &&
+                viewModel.sharePayload.publicURL == cookbook.canonicalURL ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook detail",
+                status: status,
+                detail: "Cookbook detail exposes recipe rows, native share payloads, and deep-link routes."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook detail", status: .fail, detail: "Cookbook detail failed: \(error)")
+        }
+    }
+
+    static func cookbookOwnerToolsCheck() -> ScenarioCheck {
+        do {
+            let cookbook = try scenarioCookbook()
+            let viewModel = scenarioCookbookDetailViewModel(
+                cookbook: cookbook,
+                availableRecipes: [scenarioAvailableRecipe()]
+            )
+            let visitor = scenarioCookbookDetailViewModel(
+                cookbook: cookbook,
+                availableRecipes: [scenarioAvailableRecipe()],
+                currentChefID: "chef_visitor"
+            )
+            let status: ScenarioCheckStatus = viewModel.ownerTools.isVisible &&
+                viewModel.availableActionIDs == [.share, .editTitle, .addRecipe, .removeRecipe, .deleteCookbook] &&
+                viewModel.ownerTools.availableRecipes.map(\.id) == ["scenario-shopping-recipe"] &&
+                !visitor.ownerTools.isVisible &&
+                visitor.availableActionIDs == [.share] ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook owner tools",
+                status: status,
+                detail: "Cookbook owner tools are visible only to the owning chef and include edit, add, remove, and delete actions."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook owner tools", status: .fail, detail: "Cookbook owner tools failed: \(error)")
+        }
+    }
+
+    static func cookbookCreateCheck(rootURL: URL) -> ScenarioCheck {
+        do {
+            let plan = try CookbookCreatePlanner(
+                currentChefID: "chef_ari",
+                queuedMutations: [],
+                connectivity: .online,
+                timestamp: { "2026-06-16T12:11:00.000Z" }
+            ).planCreate(title: " Scenario Suppers ", clientMutationID: "scenario-cookbook-create")
+            let source = sourceCheck(
+                name: "cookbook create surface source",
+                detail: "Cookbook list exposes the native create sheet and list-level action planner.",
+                rootURL: rootURL,
+                relativePath: "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
+                tokens: ["CookbookCreateSheet", "planCreate", "performCookbookAction"]
+            )
+            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .cookbookCreate &&
+                plan.successRoute == .cookbooks &&
+                source.status == .pass ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook create",
+                status: status,
+                detail: "Cookbook list create plans a live REST write with a durable offline fallback."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook create", status: .fail, detail: "Cookbook create failed: \(error)")
+        }
+    }
+
+    static func cookbookRenameCheck() -> ScenarioCheck {
+        do {
+            let plan = try scenarioCookbookDetailViewModel(cookbook: try scenarioCookbook())
+                .plan(.rename(title: " Scenario Dinner Parties ", clientMutationID: "scenario-cookbook-rename"))
+            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .cookbookUpdate &&
+                plan.updatedCookbook?.title == "Scenario Dinner Parties" ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook rename",
+                status: status,
+                detail: "Cookbook rename trims titles, previews the optimistic cookbook, and keeps an offline fallback."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook rename", status: .fail, detail: "Cookbook rename failed: \(error)")
+        }
+    }
+
+    static func cookbookDeleteCheck() -> ScenarioCheck {
+        do {
+            let viewModel = scenarioCookbookDetailViewModel(cookbook: try scenarioCookbook())
+            let prompt = try viewModel.plan(.deleteCookbook(
+                clientMutationID: "scenario-cookbook-delete",
+                confirmation: .required
+            ))
+            let confirmed = try viewModel.plan(.deleteCookbook(
+                clientMutationID: "scenario-cookbook-delete-confirmed",
+                confirmation: .confirmed
+            ))
+            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+                prompt.remoteRequestBuilder == nil &&
+                confirmed.offlineFallbackMutation?.queueableKind == .cookbookDelete &&
+                confirmed.successRoute == .cookbooks ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook delete",
+                status: status,
+                detail: "Cookbook delete requires native confirmation before producing a destructive mutation."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook delete", status: .fail, detail: "Cookbook delete failed: \(error)")
+        }
+    }
+
+    static func cookbookAddRecipeCheck() -> ScenarioCheck {
+        do {
+            let recipe = scenarioAvailableRecipe()
+            let plan = try scenarioCookbookDetailViewModel(
+                cookbook: try scenarioCookbook(),
+                availableRecipes: [recipe]
+            ).plan(.addRecipe(
+                recipeID: recipe.id,
+                clientMutationID: "scenario-cookbook-add-recipe"
+            ))
+            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .cookbookAddRecipe &&
+                plan.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == true ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook add recipe",
+                status: status,
+                detail: "Cookbook add recipe plans live and offline association writes from native owner tools."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook add recipe", status: .fail, detail: "Cookbook add recipe failed: \(error)")
+        }
+    }
+
+    static func cookbookRemoveRecipeCheck() -> ScenarioCheck {
+        do {
+            let cookbook = try scenarioCookbook()
+            guard let recipe = cookbook.recipes.first else {
+                return ScenarioCheck(name: "cookbook remove recipe", status: .fail, detail: "Cookbook fixture has no removable recipe.")
+            }
+            let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
+            let prompt = try viewModel.plan(.removeRecipe(
+                recipeID: recipe.id,
+                clientMutationID: "scenario-cookbook-remove-recipe",
+                confirmation: .required
+            ))
+            let confirmed = try viewModel.plan(.removeRecipe(
+                recipeID: recipe.id,
+                clientMutationID: "scenario-cookbook-remove-recipe-confirmed",
+                confirmation: .confirmed
+            ))
+            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+                confirmed.remoteRequestBuilder != nil &&
+                confirmed.offlineFallbackMutation?.queueableKind == .cookbookRemoveRecipe &&
+                confirmed.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == false ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook remove recipe",
+                status: status,
+                detail: "Cookbook remove recipe confirms before removing the association and queues safely offline."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook remove recipe", status: .fail, detail: "Cookbook remove recipe failed: \(error)")
+        }
+    }
+
+    private static func scenarioCookbook() throws -> Cookbook {
+        let cookbooks = try CookbookFixtureCatalog.decodeFromBundle().cookbooks
+        guard let cookbook = cookbooks.first else {
+            throw ScenarioVerifierError.missingFixture("cookbook")
+        }
+        return cookbook
+    }
+
+    private static func scenarioAvailableRecipe() -> RecipeSummary {
+        RecipeSummary(recipe: scenarioRecipe(ingredients: []))
+    }
+
+    private static func scenarioCookbookDetailViewModel(
+        cookbook: Cookbook,
+        availableRecipes: [RecipeSummary] = [],
+        currentChefID: String? = nil,
+        queuedMutations: [NativeQueuedMutation] = [],
+        conflicts: [NativeSyncConflict] = [],
+        connectivity: CookbookSurfaceConnectivity = .online
+    ) -> CookbookDetailViewModel {
+        CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .live(requestID: "scenario-cookbook-detail", validatedAt: Date(timeIntervalSince1970: 1_780_120_000)),
+                availableRecipes: availableRecipes
+            ),
+            context: CookbookSurfaceContext(currentChefID: currentChefID ?? cookbook.chef.id),
+            queuedMutations: queuedMutations,
+            conflicts: conflicts,
+            connectivity: connectivity,
+            now: { Date(timeIntervalSince1970: 1_780_120_000) },
+            timestamp: { "2026-06-16T12:11:00.000Z" }
+        )
+    }
+
     private static func searchCheck() -> ScenarioCheck {
         var search = SearchState(query: "  lemon  ", scope: .recipes)
         search.update(query: " lemon pasta ", scope: .all)
@@ -1088,6 +1307,17 @@ public enum ScenarioVerifier {
         }
 
         return ScenarioCheck(name: name, status: .pass, detail: detail)
+    }
+}
+
+private enum ScenarioVerifierError: Error, CustomStringConvertible {
+    case missingFixture(String)
+
+    var description: String {
+        switch self {
+        case .missingFixture(let name):
+            "Missing \(name) fixture."
+        }
     }
 }
 

@@ -212,6 +212,68 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store queueMutation optimistically reflects queued cookbook edits")
+    func liveStoreQueueMutationOptimisticallyReflectsQueuedCookbookEdits() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_flatbread", title: "Skillet Flatbread")
+            let cookbook = Self.sampleCookbook(id: "cookbook_weeknights", title: "Weeknights")
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                cookbook: cookbook,
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            )
+
+            await liveStore.bootstrap()
+            try await liveStore.queueMutations([
+                NativeQueuedMutation.cookbookUpdate(
+                    cookbookID: cookbook.id,
+                    title: "Dinner Parties",
+                    clientMutationID: "cm_cookbook_rename_live",
+                    createdAt: Self.isoString(Self.now)
+                ),
+                NativeQueuedMutation.cookbookAddRecipe(
+                    cookbookID: cookbook.id,
+                    recipeID: recipe.id,
+                    clientMutationID: "cm_cookbook_add_live",
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(1))
+                ),
+                NativeQueuedMutation.cookbookCreate(
+                    clientMutationID: "cm_cookbook_create_live",
+                    title: "Picnic Plans",
+                    createdAt: Self.isoString(Self.now.addingTimeInterval(2))
+                )
+            ])
+
+            guard case .queuedWork(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected queued cookbook work; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            let cookbooksByID = Dictionary(uniqueKeysWithValues: content.cookbooks.map { ($0.id, $0) })
+            #expect(content.queuedMutations.map(\.clientMutationID) == [
+                "cm_cookbook_rename_live",
+                "cm_cookbook_add_live",
+                "cm_cookbook_create_live"
+            ])
+            #expect(cookbooksByID[cookbook.id]?.title == "Dinner Parties")
+            #expect(cookbooksByID[cookbook.id]?.recipes.map(\.id) == [recipe.id])
+            #expect(cookbooksByID["cookbook_local_cm_cookbook_create_live"]?.title == "Picnic Plans")
+            #expect(cookbooksByID["cookbook_local_cm_cookbook_create_live"]?.chef.username == "ari")
+            #expect(content.searchResultsByScope[.cookbooks]?.contains("cookbook_local_cm_cookbook_create_live") == true)
+            #expect(content.offlineIndicatorState.display == .queuedWork(count: 3, oldestClientMutationID: "cm_cookbook_rename_live"))
+        }
+    }
+
+    @MainActor
     @Test("live store queueMutation optimistically reflects queued recipe edits")
     func liveStoreQueueMutationOptimisticallyReflectsQueuedRecipeEdits() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -4012,6 +4074,7 @@ private extension NativeLiveStoreTests {
 
     static func sampleSyncData(
         recipe: Recipe,
+        cookbook: Cookbook? = nil,
         shoppingItem: ShoppingListItem?,
         accountID: String = "client_live",
         environment: NativeCacheEnvironment = .production
@@ -4026,6 +4089,16 @@ private extension NativeLiveStoreTests {
                 tombstone: nil
             )
         ]
+        if let cookbook {
+            entries.append(NativeSyncEntry(
+                action: .upsert,
+                kind: .cookbook,
+                resourceID: cookbook.id,
+                updatedAt: cookbook.updatedAt,
+                payload: try jsonValue(cookbook),
+                tombstone: nil
+            ))
+        }
         if let shoppingItem {
             entries.append(NativeSyncEntry(
                 action: .upsert,

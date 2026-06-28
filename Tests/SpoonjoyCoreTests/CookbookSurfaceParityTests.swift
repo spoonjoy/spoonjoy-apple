@@ -43,6 +43,22 @@ struct CookbookSurfaceParityTests {
             timestamp: { Self.createdAt }
         )
 
+        #expect(viewModel.canCreateCookbook)
+        let listCreate = try viewModel.planCreate(title: "  Spring Lunches  ", clientMutationID: "cm_list_cookbook_create")
+        #expect(listCreate.updatedCookbook?.id == "cookbook_local_cm_list_cookbook_create")
+        #expect(listCreate.updatedCookbook?.title == "Spring Lunches")
+        #expect(listCreate.updatedCookbook?.chef.username == "Spoonjoy")
+        try assertCookbookJSONRequest(
+            try cookbookRemoteRequest(from: listCreate),
+            method: .post,
+            path: "/api/v1/cookbooks",
+            expected: [
+                "clientMutationId": "cm_list_cookbook_create",
+                "title": "Spring Lunches"
+            ]
+        )
+        #expect(listCreate.offlineFallbackMutation?.queueableKind == .cookbookCreate)
+
         try await viewModel.loadList(query: "  weeknight  ", limit: 20)
         let list = viewModel.list
         #expect(list.query == "weeknight")
@@ -52,7 +68,7 @@ struct CookbookSurfaceParityTests {
         #expect(list.resultCountLabel == "1 cookbook")
         #expect(list.emptyState == nil)
         #expect(list.rows.map(\.id) == ["cookbook_weeknights"])
-        #expect(list.rows.first?.title == "Weeknight Brights")
+        #expect(list.rows.first?.title == "Weeknights")
         #expect(list.rows.first?.chefLine == "By ari")
         #expect(list.rows.first?.recipeCountLabel == "2 recipes")
         #expect(list.rows.first?.cover.primaryImageURL?.absoluteString == "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg")
@@ -67,14 +83,14 @@ struct CookbookSurfaceParityTests {
         try await viewModel.loadDetail(id: "cookbook_weeknights")
         let detail = try #require(viewModel.detail)
         #expect(detail.id == "cookbook_weeknights")
-        #expect(detail.title == "Weeknight Brights")
+        #expect(detail.title == "Weeknights")
         #expect(detail.chefLine == "By ari")
         #expect(detail.recipeCountLabel == "2 recipes")
         #expect(detail.sharePayload.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_weeknights")
-        #expect(detail.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_soup"])
+        #expect(detail.recipes.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_toast"])
         #expect(detail.recipes.map(\.openRoute) == [
             .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail),
-            .recipeDetail(id: "recipe_tomato_soup", presentation: .detail)
+            .recipeDetail(id: "recipe_tomato_toast", presentation: .detail)
         ])
         #expect(detail.recipes.first?.servingsLabel == "Serves 4")
         #expect(detail.recipes.first?.coverProvenanceLabel == "Chef photo")
@@ -83,7 +99,7 @@ struct CookbookSurfaceParityTests {
         #expect(detail.ownerTools.editTitleActionTitle == "Edit title")
         #expect(detail.ownerTools.addRecipeActionTitle == "Add recipe")
         #expect(detail.ownerTools.deleteConfirmation == CookbookActionConfirmationPrompt(
-            title: "Delete Weeknight Brights?",
+            title: "Delete Weeknights?",
             message: "This permanently deletes the cookbook and removes its recipe associations. Recipes stay in your kitchen.",
             confirmButtonTitle: "Delete Cookbook",
             isDestructive: true
@@ -236,6 +252,8 @@ struct CookbookSurfaceParityTests {
             ]
         )
         #expect(rename.updatedCookbook?.title == "Dinner Parties")
+        let renamedDetail = viewModel.applying(updatedCookbook: try #require(rename.updatedCookbook))
+        #expect(renamedDetail.title == "Dinner Parties")
         let renameFallback = try requireCookbookMutation(rename.offlineFallbackMutation, "rename fallback")
         assertCookbookMutationMetadata(
             renameFallback,
@@ -248,7 +266,7 @@ struct CookbookSurfaceParityTests {
         #expect(deletePrompt.remoteRequestBuilder == nil)
         #expect(deletePrompt.queuedMutation == nil)
         #expect(deletePrompt.confirmationPrompt == CookbookActionConfirmationPrompt(
-            title: "Delete Weeknight Brights?",
+            title: "Delete Weeknights?",
             message: "This permanently deletes the cookbook and removes its recipe associations. Recipes stay in your kitchen.",
             confirmButtonTitle: "Delete Cookbook",
             isDestructive: true
@@ -277,6 +295,9 @@ struct CookbookSurfaceParityTests {
             expected: ["clientMutationId": "cm_cookbook_add"]
         )
         #expect(add.updatedCookbook?.recipes.map(\.id).contains("recipe_unsaved_flatbread") == true)
+        let addedDetail = viewModel.applying(updatedCookbook: try #require(add.updatedCookbook))
+        #expect(addedDetail.recipes.map(\.id).contains("recipe_unsaved_flatbread"))
+        #expect(!addedDetail.ownerTools.availableRecipes.map(\.id).contains("recipe_unsaved_flatbread"))
         let addFallback = try requireCookbookMutation(add.offlineFallbackMutation, "add fallback")
         assertCookbookMutationMetadata(
             addFallback,
@@ -299,7 +320,10 @@ struct CookbookSurfaceParityTests {
             path: "/api/v1/cookbooks/cookbook_weeknights/recipes/recipe_lemon_pantry_pasta",
             expected: ["clientMutationId": "cm_cookbook_remove"]
         )
-        #expect(remove.updatedCookbook?.recipes.map(\.id) == ["recipe_tomato_soup"])
+        #expect(remove.updatedCookbook?.recipes.map(\.id) == ["recipe_tomato_toast"])
+        let removedDetail = viewModel.applying(updatedCookbook: try #require(remove.updatedCookbook))
+        #expect(removedDetail.recipes.map(\.id) == ["recipe_tomato_toast"])
+        #expect(removedDetail.ownerTools.availableRecipes.map(\.id).contains("recipe_lemon_pantry_pasta"))
         let removeFallback = try requireCookbookMutation(remove.offlineFallbackMutation, "remove fallback")
         assertCookbookMutationMetadata(
             removeFallback,
@@ -362,6 +386,96 @@ struct CookbookSurfaceParityTests {
             clientMutationID: "cm_queued_rename",
             createdAt: Self.createdAt
         )
+        let queuedApplied = owner.applying(
+            updatedCookbook: try #require(queuedRename.updatedCookbook),
+            queuedMutation: queuedMutation
+        )
+        #expect(queuedApplied.title == "Queued Behind Existing Work")
+        #expect(queuedApplied.queuedWorkSummary == "2 cookbook changes waiting to sync")
+        #expect(queuedApplied.offlineIndicator.display == .queuedWork(count: 2, oldestClientMutationID: "cm_pending_rename"))
+
+        let unrelatedQueued = NativeQueuedMutation.cookbookUpdate(
+            cookbookID: "cookbook_other",
+            title: "Other Queued Title",
+            clientMutationID: "cm_other_rename",
+            createdAt: Self.createdAt
+        )
+        let unrelatedConflict = NativeSyncConflict(
+            clientMutationID: "cm_other_rename",
+            kind: .validation,
+            serverRevision: .updatedAt("2026-06-27T21:59:00.000Z"),
+            message: "Other cookbook changed elsewhere."
+        )
+        let scopedOwner = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .live(requestID: "req_owner_scoped", validatedAt: Self.now),
+                availableRecipes: []
+            ),
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [unrelatedQueued],
+            conflicts: [unrelatedConflict],
+            connectivity: .online,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        #expect(scopedOwner.queuedWorkSummary == nil)
+        #expect(scopedOwner.conflictBanner == nil)
+        #expect(scopedOwner.offlineIndicator.display == .synced)
+        let scopedRename = try scopedOwner.plan(.rename(title: "Independent Title", clientMutationID: "cm_scoped_rename"))
+        #expect(scopedRename.remoteRequestBuilder != nil)
+        #expect(scopedRename.queuedMutation == nil)
+
+        let localCreate = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_local_create",
+            title: "Offline Binder",
+            createdAt: Self.createdAt
+        )
+        let localCookbook = Cookbook(
+            id: "cookbook_local_cm_local_create",
+            title: "Offline Binder",
+            chef: cookbook.chef,
+            recipeCount: 0,
+            cover: CookbookCover(imageURLs: []),
+            href: "/cookbooks/cookbook_local_cm_local_create",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/cookbooks/cookbook_local_cm_local_create")),
+            attribution: CookbookAttribution(
+                creditText: "Offline Binder by ari on Spoonjoy",
+                canonicalURL: try #require(URL(string: "https://spoonjoy.app/cookbooks/cookbook_local_cm_local_create"))
+            ),
+            createdAt: Self.createdAt,
+            updatedAt: Self.createdAt,
+            recipes: []
+        )
+        let localOwner = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: localCookbook,
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt),
+                availableRecipes: []
+            ),
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [localCreate],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        let localRename = try localOwner.plan(.rename(title: "Offline Binder Edited", clientMutationID: "cm_local_rename"))
+        #expect(localOwner.queuedWorkSummary == "1 cookbook change waiting to sync")
+        #expect(localOwner.offlineIndicator.display == .queuedWork(count: 1, oldestClientMutationID: "cm_local_create"))
+        #expect(localRename.remoteRequestBuilder == nil)
+        #expect(localRename.queuedMutation?.dependencyKey == "cookbook:cookbook_local_cm_local_create")
+
+        let independentCreate = try CookbookCreatePlanner(
+            currentChefID: "chef_ari",
+            currentChef: ChefSummary(id: "chef_ari", username: "ari"),
+            queuedMutations: [unrelatedQueued],
+            connectivity: .online,
+            timestamp: { Self.createdAt }
+        ).planCreate(title: "Independent Cookbook", clientMutationID: "cm_independent_create")
+        #expect(independentCreate.remoteRequestBuilder != nil)
+        #expect(independentCreate.queuedMutation == nil)
+        #expect(independentCreate.updatedCookbook?.chef.username == "ari")
     }
 
     private static func cookbook() throws -> Cookbook {

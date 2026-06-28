@@ -9,6 +9,8 @@ WEB_REPO = Pathname.new(ENV.fetch("SPOONJOY_WEB_REPO", ROOT.dirname.join("spoonj
 REQUIRED_FILES = [
   "Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift",
   "Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift",
+  "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+  "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",
   "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
   "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
   "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
@@ -32,6 +34,7 @@ REQUIRED_TOKENS = {
     "CookbookSurfaceViewModel",
     "CookbookSurfaceListViewModel",
     "CookbookDetailViewModel",
+    "CookbookCreatePlanner",
     "CookbookSurfaceContext",
     "CookbookSurfaceAction",
     "CookbookSurfaceActionPlan",
@@ -50,10 +53,26 @@ REQUIRED_TOKENS = {
     "NativeQueuedMutation.cookbookAddRecipe",
     "NativeQueuedMutation.cookbookRemoveRecipe",
     "NativeSharePayload.publicCookbook",
-    "OfflineIndicatorState"
+    "OfflineIndicatorState",
+    "applying(updatedCookbook:",
+    "dependencyKey"
+  ],
+  "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift" => [
+    "cookbooksByApplyingQueuedCookbookMutations",
+    "applyingOptimisticCookbookMutation",
+    "optimisticCookbooks",
+    "cookbooks: optimisticCookbooks"
+  ],
+  "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift" => [
+    "optimisticCookbookID",
+    "applyingOptimisticCookbookMutation",
+    "mutatesCookbookCache",
+    "drainedCookbookCachePatch",
+    "cookbookCreate(clientMutationID"
   ],
   "Apps/Spoonjoy/Shared/Views/CookbooksView.swift" => [
     "CookbooksView",
+    "CookbookCreateSheet",
     "CookbookShelf",
     "CookbookCover",
     "CookbookSurfaceViewModel",
@@ -62,6 +81,8 @@ REQUIRED_TOKENS = {
     "ShareLink",
     "ownerTools",
     "confirmationDialog",
+    "planCreate",
+    "performAndApplyCookbookAction",
     "RecipeCoverImage(",
     "KitchenTableTheme"
   ],
@@ -78,6 +99,7 @@ REQUIRED_TOKENS = {
     "cookbook detail",
     "cookbook owner tools",
     "cookbook create",
+    "CookbookCreatePlanner",
     "cookbook rename",
     "cookbook delete",
     "cookbook add recipe",
@@ -112,7 +134,7 @@ end
 
 def swift_contract_source(content)
   uncommented_swift(content)
-    .gsub(/"(?:\\.|[^"\\])*"/m, "\"\"")
+    .gsub(/"(?:\\.|[^"\\\r\n])*"/, "\"\"")
 end
 
 def required_token_source(relative_path, content)

@@ -1,0 +1,8 @@
+{
+  "capability": "XcodePlatform",
+  "blocked": true,
+  "command": "xcodebuild -quiet -project Spoonjoy.xcodeproj -scheme \"Spoonjoy iOS\" -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO build",
+  "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-19b-cookbooks-xcodebuild-ios.log",
+  "reason": "Local Xcode cannot find an eligible iOS simulator destination because no simulator devices are available and iOS 26.5 is not installed.",
+  "ownerAction": "Install the required iOS platform/runtime in Xcode Settings > Components and rerun iOS app bundle validation."
+}

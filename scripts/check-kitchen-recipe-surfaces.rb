@@ -26,6 +26,8 @@ REQUIRED_FILES = [
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift",
   "Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift",
   "Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift",
+  "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+  "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",
   "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
   "Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/Contents.json",
   "Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png",
@@ -105,6 +107,7 @@ REQUIRED_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/Views/CookbooksView.swift" => [
     "CookbooksView",
+    "CookbookCreateSheet",
     "CookbookShelf",
     "CookbookCover",
     "CookbookSurfaceViewModel",
@@ -113,6 +116,8 @@ REQUIRED_TOKENS = {
     "ShareLink",
     "ownerTools",
     "confirmationDialog",
+    "planCreate",
+    "performAndApplyCookbookAction",
     "ScrollView",
     "Button",
     "RecipeCoverImage(",
@@ -135,6 +140,7 @@ REQUIRED_TOKENS = {
     "CookbookSurfaceViewModel",
     "CookbookSurfaceListViewModel",
     "CookbookDetailViewModel",
+    "CookbookCreatePlanner",
     "CookbookSurfaceContext",
     "CookbookSurfaceAction",
     "CookbookSurfaceActionPlan",
@@ -153,12 +159,28 @@ REQUIRED_TOKENS = {
     "NativeQueuedMutation.cookbookAddRecipe",
     "NativeQueuedMutation.cookbookRemoveRecipe",
     "NativeSharePayload.publicCookbook",
-    "OfflineIndicatorState"
+    "OfflineIndicatorState",
+    "applying(updatedCookbook:",
+    "dependencyKey"
+  ],
+  "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift" => [
+    "cookbooksByApplyingQueuedCookbookMutations",
+    "applyingOptimisticCookbookMutation",
+    "optimisticCookbooks",
+    "cookbooks: optimisticCookbooks"
+  ],
+  "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift" => [
+    "optimisticCookbookID",
+    "applyingOptimisticCookbookMutation",
+    "mutatesCookbookCache",
+    "drainedCookbookCachePatch",
+    "cookbookCreate(clientMutationID"
   ],
   "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift" => [
     "cookbook detail",
     "cookbook owner tools",
     "cookbook create",
+    "CookbookCreatePlanner",
     "cookbook rename",
     "cookbook delete",
     "cookbook add recipe",

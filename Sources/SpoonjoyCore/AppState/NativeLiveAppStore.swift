@@ -176,6 +176,7 @@ public struct NativeShellContentState {
 
     func copy(
         recipes: [Recipe]? = nil,
+        cookbooks: [Cookbook]? = nil,
         shoppingList: ShoppingListState? = nil,
         captureDraft: CaptureDraft?? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
@@ -188,7 +189,7 @@ public struct NativeShellContentState {
     ) -> NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
-            cookbooks: cookbooks,
+            cookbooks: cookbooks ?? self.cookbooks,
             kitchen: kitchen,
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
@@ -247,7 +248,13 @@ public struct NativeShellContentState {
             to: cachedRecipes,
             authSessionState: authSessionState
         )
-        let cookbooks = restoredCookbooks(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
+        let cachedCookbooks = restoredCookbooks(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
+        let cookbooks = cookbooksByApplyingQueuedCookbookMutations(
+            optimisticMutations + syncSnapshot.queue.mutations,
+            to: cachedCookbooks,
+            recipes: recipes,
+            authSessionState: authSessionState
+        )
         let shoppingList = restoredShoppingList(
             cacheSnapshot: cacheSnapshot,
             syncSnapshot: syncSnapshot,
@@ -338,16 +345,7 @@ public struct NativeShellContentState {
     }
 
     private static func optimisticRecipeChef(authSessionState: NativeAuthSessionState, recipes: [Recipe]) -> ChefSummary {
-        if let chef = recipes.first?.chef {
-            return chef
-        }
-
-        switch authSessionState {
-        case .authenticated(let session), .refreshRequired(let session):
-            return ChefSummary(id: session.accountID ?? "signed-out", username: "Spoonjoy")
-        case .signedOut:
-            return ChefSummary(id: "signed-out", username: "Spoonjoy")
-        }
+        optimisticChef(authSessionState: authSessionState, recipes: recipes, cookbooks: [])
     }
 
     private static func restoredCookbooks(
@@ -365,6 +363,40 @@ public struct NativeShellContentState {
             return placeholderCookbook(id: id, title: title, date: record.metadata.lastValidatedAt)
         }
         return (decoded + placeholders).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private static func cookbooksByApplyingQueuedCookbookMutations(
+        _ mutations: [NativeQueuedMutation],
+        to cookbooks: [Cookbook],
+        recipes: [Recipe],
+        authSessionState: NativeAuthSessionState
+    ) -> [Cookbook] {
+        let fallbackChef = optimisticChef(authSessionState: authSessionState, recipes: recipes, cookbooks: cookbooks)
+        return mutations.reduce(cookbooks) { currentCookbooks, mutation in
+            mutation.applyingOptimisticCookbookMutation(
+                to: currentCookbooks,
+                fallbackChef: fallbackChef,
+                recipes: recipes,
+                now: mutation.createdAt
+            )
+        }
+    }
+
+    private static func optimisticChef(
+        authSessionState: NativeAuthSessionState,
+        recipes: [Recipe],
+        cookbooks: [Cookbook]
+    ) -> ChefSummary {
+        if let chef = recipes.first?.chef ?? cookbooks.first?.chef {
+            return chef
+        }
+
+        switch authSessionState {
+        case .authenticated(let session), .refreshRequired(let session):
+            return ChefSummary(id: session.accountID ?? "signed-out", username: "Spoonjoy")
+        case .signedOut:
+            return ChefSummary(id: "signed-out", username: "Spoonjoy")
+        }
     }
 
     private static func restoredShoppingList(
@@ -849,8 +881,17 @@ public final class NativeLiveAppStore: ObservableObject {
                     now: mutation.createdAt
                 )
             }
+            let optimisticCookbooks = mutations.reduce(currentContentState.cookbooks) { cookbooks, mutation in
+                mutation.applyingOptimisticCookbookMutation(
+                    to: cookbooks,
+                    fallbackChef: fallbackChef,
+                    recipes: optimisticRecipes,
+                    now: mutation.createdAt
+                )
+            }
             apply(.queuedWork(currentContentState.copy(
                 recipes: optimisticRecipes,
+                cookbooks: optimisticCookbooks,
                 shoppingList: optimisticShoppingList,
                 queuedMutations: nextQueue.mutations,
                 offlineIndicatorState: indicator
@@ -971,7 +1012,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private var optimisticRecipeChef: ChefSummary {
-        currentContentState.recipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+        currentContentState.recipes.first?.chef ?? currentContentState.cookbooks.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
     }
 
     private static func clientMutationIDsToDiscard(

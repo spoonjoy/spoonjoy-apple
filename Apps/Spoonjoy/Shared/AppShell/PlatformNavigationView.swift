@@ -194,13 +194,18 @@ struct PlatformNavigationView: View {
                 }
             )
         case .cookbooks:
-            CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
+            CookbooksView(
+                viewModel: cookbookSurfaceViewModel,
+                openRoute: openRoute,
+                performCookbookAction: performCookbookAction
+            )
         case .cookbookDetail(let id):
-            if let cookbook = cookbook(id: id) {
-                CookbookDetailPlaceholder(cookbook: cookbook)
-            } else {
-                ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
-            }
+            CookbookDetailRouteView(
+                cookbookID: id,
+                viewModel: cookbookSurfaceViewModel,
+                openRoute: openRoute,
+                performCookbookAction: performCookbookAction
+            )
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
@@ -392,6 +397,74 @@ struct PlatformNavigationView: View {
         return viewModel
     }
 
+    private var cookbookSurfaceRepository: any CookbookSurfaceRepository {
+        let page = cookbookSurfacePage(source: cookbookSurfaceDataSource)
+        let snapshotRepository = SnapshotCookbookSurfaceRepository(
+            page: page,
+            details: contentState.cookbooks.map { cookbook in
+                CookbookSurfaceDetailResult(
+                    cookbook: cookbook,
+                    source: cookbookSurfaceDataSource,
+                    availableRecipes: availableCookbookRecipes(for: cookbook)
+                )
+            }
+        )
+        let liveRepository = LiveCookbookSurfaceRepository(
+            configuration: contentState.configuration,
+            availableRecipes: contentState.recipes.map(RecipeSummary.init(recipe:))
+        )
+        return FallbackCookbookSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
+    }
+
+    private var cookbookSurfaceViewModel: CookbookSurfaceViewModel {
+        let viewModel = CookbookSurfaceViewModel(
+            repository: cookbookSurfaceRepository,
+            context: CookbookSurfaceContext(currentChefID: currentChefID, currentChef: currentChefSummary),
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: cookbookSurfaceConnectivity,
+            now: Date.init,
+            timestamp: { ISO8601DateFormatter().string(from: Date()) }
+        )
+        viewModel.apply(page: cookbookSurfacePage(source: cookbookSurfaceDataSource))
+        return viewModel
+    }
+
+    private func cookbookSurfacePage(source: CookbookSurfaceDataSource) -> CookbookSurfacePage {
+        CookbookSurfacePage(
+            query: nil,
+            limit: max(20, contentState.cookbooks.count),
+            cursor: nil,
+            nextCursor: nil,
+            hasMore: false,
+            rows: contentState.cookbooks.map(CookbookSummary.init(cookbook:)),
+            source: source
+        )
+    }
+
+    private var cookbookSurfaceDataSource: CookbookSurfaceDataSource {
+        switch offlineIndicatorState.display {
+        case .synced:
+            .live(requestID: "native-shell", validatedAt: Date())
+        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            .cache(serverRevision: latestCookbookRevision, lastValidatedAt: .distantPast)
+        }
+    }
+
+    private var latestCookbookRevision: NativeCacheServerRevision? {
+        contentState.cookbooks
+            .map(\.updatedAt)
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
+    }
+
+    private func availableCookbookRecipes(for cookbook: Cookbook) -> [RecipeSummary] {
+        let savedRecipeIDs = Set(cookbook.recipes.map(\.id))
+        return contentState.recipes
+            .filter { !savedRecipeIDs.contains($0.id) }
+            .map(RecipeSummary.init(recipe:))
+    }
+
     private func recipeDetailScreenViewModel(for recipe: Recipe) -> RecipeDetailScreenViewModel {
         RecipeDetailScreenViewModel(
             result: RecipeCatalogDetailResult(recipe: recipe, source: contentState.recipeCatalog.source),
@@ -454,6 +527,12 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private var currentChefSummary: ChefSummary? {
+        contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
+            ChefSummary(id: $0, username: "Spoonjoy")
+        }
+    }
+
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
         let chefID = currentChefID ?? "signed-out"
         switch id {
@@ -496,6 +575,14 @@ struct PlatformNavigationView: View {
     }
 
     private var recipeCoverControlsConnectivity: RecipeCoverControlsConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var cookbookSurfaceConnectivity: CookbookSurfaceConnectivity {
         if offlineIndicatorState.display == .offline {
             return .offline
         }
@@ -563,6 +650,12 @@ struct PlatformNavigationView: View {
             return
         }
 
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
         if let requestBuilder = plan.remoteRequestBuilder {
             do {
                 try await executeRecipeEditorRequest(requestBuilder)
@@ -582,6 +675,12 @@ struct PlatformNavigationView: View {
             return
         }
 
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
         if let requestBuilder = plan.remoteRequestBuilder {
             do {
                 try await executeRecipeEditorRequest(requestBuilder)
@@ -593,6 +692,32 @@ struct PlatformNavigationView: View {
                 throw error
             }
         }
+    }
+
+    private func performCookbookAction(_ plan: CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation? {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return queuedMutation
+        }
+
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return offlineFallbackMutation
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return offlineFallbackMutation
+                }
+                throw error
+            }
+        }
+        return nil
     }
 
     private func performCoverAction(_ plan: RecipeCoverControlsMutationPlan) async throws {
@@ -651,7 +776,7 @@ struct PlatformNavigationView: View {
 
     private func hasQueuedMutation(withDependencyKey dependencyKey: String) -> Bool {
         contentState.queuedMutations.contains { mutation in
-            mutation.dependencyKey == dependencyKey
+            mutation.blocksDependencyKey(dependencyKey)
         }
     }
 
@@ -820,24 +945,5 @@ private struct ShellPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
-    }
-}
-
-private struct CookbookDetailPlaceholder: View {
-    let cookbook: Cookbook
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(cookbook.title)
-                .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-            Text(cookbook.attribution.creditText)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(.secondary)
-            CookbookShelf(cookbooks: [cookbook]) { _ in }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(KitchenTableTheme.bone)
     }
 }

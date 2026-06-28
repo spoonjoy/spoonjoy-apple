@@ -391,6 +391,7 @@ struct NativeSyncEngineTests {
         #expect(dependencies["cm_recipe_update"] == "recipe:recipe_lemon")
         #expect(dependencies["cm_step_create"] == "recipe:recipe_lemon")
         #expect(dependencies["cm_ingredient_delete"] == "recipe:recipe_lemon")
+        #expect(dependencies["cm_cookbook_create"] == "cookbook:new:cm_cookbook_create")
         #expect(dependencies["cm_cookbook_add"] == "cookbook:cookbook_weeknight")
         #expect(dependencies["cm_shopping_clear_all"] == "shopping-list")
         #expect(dependencies["cm_spoon_photo"] == "recipe:recipe_lemon")
@@ -400,6 +401,7 @@ struct NativeSyncEngineTests {
         #expect(dependencies["cm_apns_register"] == "apns:device_ios")
         #expect(dependencies["cm_capture_create"] == "capture:capture_draft_1")
         #expect(dependencies["cm_import_submit"] == "import:cm_import_submit")
+        #expect(try #require(queue.mutations.first { $0.clientMutationID == "cm_cookbook_create" }).blocksDependencyKey("cookbook:cookbook_local_cm_cookbook_create"))
         for type in NativeQueuedMutationKind.allOfflineProductKinds.map(\.type) {
             #expect(json.contains(#""type":"\#(type)""#))
         }
@@ -1680,6 +1682,63 @@ struct NativeSyncEngineTests {
         #expect(persistedRecipe.steps.first?.ingredients.map(\.id) == ["ingredient_server_apple"])
     }
 
+    @Test("sync engine rewrites local optimistic cookbook ids after create responses")
+    func syncEngineRewritesLocalOptimisticCookbookIDsAfterCreateResponses() async throws {
+        let create = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_cookbook_create_local",
+            title: "Offline Cookbooks",
+            createdAt: Self.createdAt(0)
+        )
+        let update = NativeQueuedMutation.cookbookUpdate(
+            cookbookID: "cookbook_local_cm_cookbook_create_local",
+            title: "Offline Cookbooks Edited",
+            clientMutationID: "cm_cookbook_update_local",
+            createdAt: Self.createdAt(1)
+        )
+        let responseRemaps = create.idRemaps(from: .object([
+            "cookbook": .object([
+                "id": .string("cookbook_server_created")
+            ])
+        ]))
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [create, update])
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .success(serverRevision: nil, idRemaps: responseRemaps),
+                .success(serverRevision: .updatedAt(Self.createdAt(2)))
+            ]
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let drainedCreate = try #require(report.drainedMutations.first)
+        let optimisticCreated = drainedCreate.applyingOptimisticCookbookMutation(
+            to: [],
+            fallbackChef: ChefSummary(id: "chef_ari", username: "ari"),
+            recipes: [],
+            now: Self.createdAt(2)
+        )
+        let persistedRecord = try #require(await store.cachedRecord(kind: .cookbook, resourceID: "cookbook_server_created"))
+        let persistedCookbook = try Self.cookbook(from: persistedRecord.payload)
+
+        #expect(report.drainedClientMutationIDs == ["cm_cookbook_create_local", "cm_cookbook_update_local"])
+        #expect(await transport.requestPaths == [
+            "/api/v1/me/sync",
+            "/api/v1/cookbooks",
+            "/api/v1/cookbooks/cookbook_server_created"
+        ])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(optimisticCreated.map(\.id) == ["cookbook_server_created"])
+        #expect(persistedCookbook.id == "cookbook_server_created")
+        #expect(persistedCookbook.title == "Offline Cookbooks Edited")
+        #expect(try await store.cachedRecord(kind: .cookbook, resourceID: "cookbook_local_cm_cookbook_create_local") == nil)
+    }
+
     @Test("drained recipe mutations persist to file backed cache for restart")
     func drainedRecipeMutationsPersistToFileBackedCacheForRestart() async throws {
         try await withTemporaryDirectory { directory in
@@ -2555,6 +2614,21 @@ struct NativeSyncEngineTests {
         #expect(addRecipeJSON.contains("serverItemIds") == true)
         #expect(addRecipeRequestBody.contains("serverItemIds") == false)
         #expect(addRecipeRequestBody.contains("item_server_lemon") == false)
+
+        let recordedCookbook = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_cookbook_remap",
+            title: "Server Cookbook",
+            createdAt: Self.createdAt(10)
+        ).recordingIDRemaps([
+            NativeSyncIDRemap(localID: "cookbook_local_cm_cookbook_remap", serverID: "cookbook_server_remap")
+        ])
+        let recordedCookbookJSON = try #require(String(data: JSONEncoder().encode(NativeMutationQueue(mutations: [recordedCookbook])), encoding: .utf8))
+        let recordedCookbookRequestBody = try #require(
+            try recordedCookbook.requestBuilder().urlRequest(configuration: configuration).body.flatMap { String(data: $0, encoding: .utf8) }
+        )
+        #expect(recordedCookbook.optimisticCookbookID == "cookbook_server_remap")
+        #expect(recordedCookbookJSON.contains("serverCookbookId") == true)
+        #expect(recordedCookbookRequestBody.contains("serverCookbookId") == false)
     }
 
     @Test("stale shopping check mutations preserve the current list")
@@ -2852,6 +2926,64 @@ struct NativeSyncEngineTests {
         #expect(await transport.clientMutationIDs == ["cm_recipe_create_blocked"])
         #expect(remainingQueue.mutations.map(\.clientMutationID) == ["cm_recipe_create_blocked", "cm_recipe_update_blocked"])
         #expect(remainingQueue.mutations[0].lastError == "Recipe create still in progress.")
+    }
+
+    @Test("sync engine blocks local cookbook dependent replay when create has not drained")
+    func syncEngineBlocksLocalCookbookDependentReplayWhenCreateHasNotDrained() async throws {
+        let create = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_cookbook_create_blocked",
+            title: "Offline Binder",
+            createdAt: Self.createdAt(0)
+        )
+        let update = NativeQueuedMutation.cookbookUpdate(
+            cookbookID: "cookbook_local_cm_cookbook_create_blocked",
+            title: "Offline Binder Edited",
+            clientMutationID: "cm_cookbook_update_blocked",
+            createdAt: Self.createdAt(1)
+        )
+        let retryStore = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [create, update])
+        )
+        let retryTransport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [.retry(afterSeconds: 7, message: "Cookbook create still in progress.")]
+        )
+        let retryEngine = NativeSyncEngine(store: retryStore, transport: retryTransport, clock: { now })
+
+        let retryReport = try await retryEngine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let retryRemainingQueue = try await retryStore.loadQueue()
+
+        #expect(retryReport.drainedClientMutationIDs.isEmpty)
+        #expect(retryReport.retryAfterSeconds == 7)
+        #expect(await retryTransport.clientMutationIDs == ["cm_cookbook_create_blocked"])
+        #expect(retryRemainingQueue.mutations.map(\.clientMutationID) == ["cm_cookbook_create_blocked", "cm_cookbook_update_blocked"])
+        #expect(retryRemainingQueue.mutations[0].lastError == "Cookbook create still in progress.")
+
+        let conflictStore = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [create, update])
+        )
+        let conflictTransport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [
+                .conflict(kind: .validation, serverRevision: .etag("\"cookbook-create-v1\""), message: "Cookbook title was taken.")
+            ]
+        )
+        let conflictEngine = NativeSyncEngine(store: conflictStore, transport: conflictTransport, clock: { now })
+
+        let conflictReport = try await conflictEngine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: boundScope)
+        let conflictRemainingQueue = try await conflictStore.loadQueue()
+
+        #expect(conflictReport.drainedClientMutationIDs.isEmpty)
+        #expect(conflictReport.conflicts.map(\.clientMutationID) == ["cm_cookbook_create_blocked"])
+        #expect(await conflictTransport.clientMutationIDs == ["cm_cookbook_create_blocked"])
+        #expect(conflictRemainingQueue.mutations.map(\.clientMutationID) == ["cm_cookbook_create_blocked", "cm_cookbook_update_blocked"])
+        #expect(conflictRemainingQueue.mutations[0].lastError == "Cookbook title was taken.")
     }
 
     @Test("sync engine rewrites remaining local ids when auth failure pauses after create success")
@@ -3905,6 +4037,10 @@ struct NativeSyncEngineTests {
 
     private static func recipe(from payload: JSONValue) throws -> Recipe {
         try JSONDecoder().decode(Recipe.self, from: JSONEncoder().encode(payload))
+    }
+
+    private static func cookbook(from payload: JSONValue) throws -> Cookbook {
+        try JSONDecoder().decode(Cookbook.self, from: JSONEncoder().encode(payload))
     }
 
     private static func shoppingItem(from payload: JSONValue) throws -> ShoppingListItem {
