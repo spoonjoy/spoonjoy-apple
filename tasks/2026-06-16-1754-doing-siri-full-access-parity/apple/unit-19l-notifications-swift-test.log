@@ -1,0 +1,38 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (10.81s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native notification preferences and APNs surface parity" started.
+◇ Test "production APNs registration is blocked until Apple Developer Program capability exists" started.
+◇ Test "APNs register and revoke request builders use exact native REST contracts" started.
+◇ Test "live and fallback notification APNs repositories restore server preferences" started.
+◇ Test "offline cached notification preferences and APNs status restore into the native surface" started.
+◇ Test "production APNs delivery is represented only by the Apple Developer Program blocker" started.
+◇ Test "snapshot notification APNs repository restores legacy defaults and invalid status edges" started.
+◇ Test "notification APNs view model renders queued live cache stale and synced states" started.
+◇ Test "notification APNs surface exists as a first-class native feature" started.
+◇ Test "notification APNs data restores from settings surface sources" started.
+◇ Test "APNs action boundary queues only after a system device token exists" started.
+◇ Test "notification APNs planner covers queued online only and error decisions" started.
+◇ Test "source scanners strip comments and preserve strings only for string-allowed checks" started.
+✔ Test "live and fallback notification APNs repositories restore server preferences" passed after 0.001 seconds.
+✔ Test "notification APNs data restores from settings surface sources" passed after 0.001 seconds.
+✔ Test "snapshot notification APNs repository restores legacy defaults and invalid status edges" passed after 0.001 seconds.
+✔ Test "offline cached notification preferences and APNs status restore into the native surface" passed after 0.001 seconds.
+✔ Test "source scanners strip comments and preserve strings only for string-allowed checks" passed after 0.001 seconds.
+✔ Test "production APNs registration is blocked until Apple Developer Program capability exists" passed after 0.004 seconds.
+✔ Test "APNs action boundary queues only after a system device token exists" passed after 0.005 seconds.
+✔ Test "APNs register and revoke request builders use exact native REST contracts" passed after 0.005 seconds.
+✔ Test "notification APNs view model renders queued live cache stale and synced states" passed after 0.005 seconds.
+✔ Test "notification APNs planner covers queued online only and error decisions" passed after 0.005 seconds.
+✔ Test "notification APNs surface exists as a first-class native feature" passed after 0.364 seconds.
+✔ Test "production APNs delivery is represented only by the Apple Developer Program blocker" passed after 0.908 seconds.
+✔ Suite "Native notification preferences and APNs surface parity" passed after 0.908 seconds.
+✔ Test run with 12 tests in 1 suite passed after 0.908 seconds.

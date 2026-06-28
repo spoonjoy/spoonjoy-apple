@@ -1,0 +1,140 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/78] Compiling SpoonjoyCore NativeAPIRequests.swift
+[4/78] Compiling SpoonjoyCore PaginationCursor.swift
+[5/78] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[6/78] Compiling SpoonjoyCore ShoppingListAPI.swift
+[7/78] Compiling SpoonjoyCore ShoppingListRequests.swift
+[8/78] Compiling SpoonjoyCore AppNavigationState.swift
+[9/78] Compiling SpoonjoyCore AppRoute.swift
+[10/78] Compiling SpoonjoyCore DeepLinkRouter.swift
+[11/85] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[12/85] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[13/85] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[14/85] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[15/85] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[16/85] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[17/85] Compiling SpoonjoyCore NativeSharePayload.swift
+[18/85] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[19/85] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[20/85] Compiling SpoonjoyCore NativeIntentAction.swift
+[21/85] Compiling SpoonjoyCore ScenarioCommand.swift
+[22/85] Compiling SpoonjoyCore ScenarioReport.swift
+[23/85] Compiling SpoonjoyCore ScenarioVerifier.swift
+[24/85] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[25/85] Compiling SpoonjoyCore JSONFileStore.swift
+[26/85] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[27/85] Compiling SpoonjoyCore CaptureDraft.swift
+[28/85] Compiling SpoonjoyCore CookModeProgress.swift
+[29/85] Compiling SpoonjoyCore KitchenFixtureState.swift
+[30/85] Compiling SpoonjoyCore SettingsState.swift
+[31/85] Compiling SpoonjoyCore ShoppingListState.swift
+[32/85] Compiling SpoonjoyCore DeepLinkManifest.swift
+[33/85] Compiling SpoonjoyCore KeychainTokenVault.swift
+[34/85] Compiling SpoonjoyCore NativeAuthSession.swift
+[35/85] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[36/85] Compiling SpoonjoyCore OAuthPKCE.swift
+[37/85] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[38/85] Compiling SpoonjoyCore OAuthRequests.swift
+[39/85] Compiling SpoonjoyCore OAuthResponses.swift
+[40/85] Compiling SpoonjoyCore RefreshCoordinator.swift
+[41/85] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[42/85] Compiling SpoonjoyCore TokenVault.swift
+[43/85] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[44/85] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[45/85] Compiling SpoonjoyCore NativeDurableCache.swift
+[46/85] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[47/85] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[48/85] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[49/85] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[50/85] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[51/85] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[52/85] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[53/85] Compiling SpoonjoyCore ScreenViewModels.swift
+[54/85] Compiling SpoonjoyCore SearchState.swift
+[55/85] Compiling SpoonjoyCore AuthSessionState.swift
+[56/85] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[57/85] Emitting module SpoonjoyCore
+[58/85] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[59/85] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[60/85] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[61/85] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[62/85] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[63/85] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[64/85] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[65/85] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[66/85] Compiling SpoonjoyCore APIClient.swift
+[67/85] Compiling SpoonjoyCore APIEnvelope.swift
+[68/85] Compiling SpoonjoyCore APIError.swift
+[69/85] Compiling SpoonjoyCore APIRequestBuilder.swift
+[70/85] Compiling SpoonjoyCore APIRequestSupport.swift
+[71/85] Compiling SpoonjoyCore APIRetryPolicy.swift
+[72/85] Compiling SpoonjoyCore APITransport.swift
+[73/85] Compiling SpoonjoyCore JSONValue.swift
+[74/85] Compiling SpoonjoyCore MutationQueue.swift
+[75/85] Compiling SpoonjoyCore OfflineSnapshot.swift
+[76/85] Compiling SpoonjoyCore SyncCheckpoint.swift
+[77/85] Compiling SpoonjoyCore RecipeCookbook.swift
+[78/85] Compiling SpoonjoyCore SpoonjoyCore.swift
+[79/85] Compiling SpoonjoyCore NativeSyncEngine.swift
+[80/85] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[81/115] Compiling SpoonjoyScenarioVerifier main.swift
+[82/115] Emitting module SpoonjoyScenarioVerifier
+[83/115] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[83/115] Write Objects.LinkFileList
+[84/115] Linking SpoonjoyScenarioVerifier
+[85/115] Applying SpoonjoyScenarioVerifier
+[87/115] Emitting module SpoonjoyCoreTests
+[88/117] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[89/117] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[90/117] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[91/117] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[92/117] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[93/117] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[94/117] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[95/117] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[96/117] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[97/117] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[98/117] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[99/117] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[100/117] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[101/117] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[102/117] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[103/117] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[104/117] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[105/117] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[106/117] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[107/117] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[108/117] Compiling SpoonjoyCoreTests APITransportTests.swift
+[109/117] Compiling SpoonjoyCoreTests AppStateTests.swift
+[110/117] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[111/117] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[112/117] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[113/117] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[114/117] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[115/117] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[116/119] Compiling SpoonjoyApplePackageTests runner.swift
+[117/119] Emitting module SpoonjoyApplePackageTests
+[117/119] Write Objects.LinkFileList
+[118/119] Linking SpoonjoyApplePackageTests
+Build complete! (19.72s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native profile and chef graph surface parity" started.
+◇ Test "fallback profile repository refuses to invent unknown cached profiles" started.
+◇ Test "profile view model loader covers queued offline cached and unavailable states" started.
+◇ Test "profile repository loads live profile and derived graph pages from public API v1" started.
+◇ Test "profile coverage edges keep filtered and empty product states honest" started.
+◇ Test "snapshot repository restores public profile cache and graph pagination honestly" started.
+◇ Test "profile view models expose current product surfaces and owner personalization without follows" started.
+✔ Test "profile view models expose current product surfaces and owner personalization without follows" passed after 0.001 seconds.
+✔ Test "fallback profile repository refuses to invent unknown cached profiles" passed after 0.001 seconds.
+✔ Test "profile coverage edges keep filtered and empty product states honest" passed after 0.001 seconds.
+✔ Test "snapshot repository restores public profile cache and graph pagination honestly" passed after 0.001 seconds.
+✔ Test "profile view model loader covers queued offline cached and unavailable states" passed after 0.001 seconds.
+✔ Test "profile repository loads live profile and derived graph pages from public API v1" passed after 0.001 seconds.
+✔ Suite "Native profile and chef graph surface parity" passed after 0.002 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.002 seconds.

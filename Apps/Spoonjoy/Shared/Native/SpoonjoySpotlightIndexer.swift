@@ -11,12 +11,14 @@ struct SpoonjoySpotlightIndexer {
     func documents(
         recipes: [Recipe],
         cookbooks: [Cookbook],
-        shoppingList: ShoppingListState
+        shoppingList: ShoppingListState,
+        scope: SpotlightIndexScope
     ) -> [SpotlightIndexDocument] {
         SpotlightIndexPlan.documents(
             recipes: recipes,
             cookbooks: cookbooks,
-            shoppingList: shoppingList
+            shoppingList: shoppingList,
+            scope: scope
         )
     }
 
@@ -47,15 +49,32 @@ struct SpoonjoySpotlightIndexer {
         }
     }
 
+    func replaceAll(documents: [SpotlightIndexDocument]) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            CSSearchableIndex.default().deleteAllSearchableItems { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+        if !documents.isEmpty {
+            try await index(documents: documents)
+        }
+    }
+
     func index(
         recipes: [Recipe],
         cookbooks: [Cookbook],
-        shoppingList: ShoppingListState
+        shoppingList: ShoppingListState,
+        scope: SpotlightIndexScope
     ) async throws {
         try await index(documents: documents(
             recipes: recipes,
             cookbooks: cookbooks,
-            shoppingList: shoppingList
+            shoppingList: shoppingList,
+            scope: scope
         ))
     }
 }

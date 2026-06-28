@@ -5,6 +5,11 @@ struct PlatformNavigationView: View {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
 
+    @Environment(\.openURL) private var openURL
+    @FocusState private var isSearchFieldFocused: Bool
+    @State private var activeSearch: ActiveSearchSurfaceState?
+    @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
+
     private let contentState: NativeShellContentState
     private let offlineIndicatorState: OfflineIndicatorState
     private let dismissOfflineIndicator: @MainActor @Sendable () -> Void
@@ -12,7 +17,13 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
+    private let performSettingsSessionOperation: @MainActor @Sendable (SettingsSessionOperation) async throws -> Void
+    private let requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState
+    private let requestDeviceRegistrationAction: @MainActor @Sendable (String) async throws -> NotificationAPNsAction
+    private let openNotificationSettings: @MainActor @Sendable () -> Void
+    private let recordNotificationAPNsBlockerHandler: @MainActor @Sendable (AppleDeveloperProgramBlocker) -> Void
     private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
     private let recordCaptureDraftHandler: @MainActor @Sendable (CaptureDraft) -> Void
@@ -20,6 +31,8 @@ struct PlatformNavigationView: View {
     private let recordCaptureImportRetryHandler: @MainActor @Sendable (NativeQueuedMutation) -> Void
     private let recordCaptureImportBlockerHandler: @MainActor @Sendable (CaptureImportBlocker) -> Void
     private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
+    private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
+    private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
@@ -32,7 +45,13 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
+        performSettingsSessionOperation: @escaping @MainActor @Sendable (SettingsSessionOperation) async throws -> Void,
+        requestNotificationPermission: @escaping @MainActor @Sendable () async throws -> APNsPermissionState,
+        requestDeviceRegistrationAction: @escaping @MainActor @Sendable (String) async throws -> NotificationAPNsAction,
+        openNotificationSettings: @escaping @MainActor @Sendable () -> Void,
+        recordNotificationAPNsBlocker: @escaping @MainActor @Sendable (AppleDeveloperProgramBlocker) -> Void,
         recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
         recordCaptureDraft: @escaping @MainActor @Sendable (CaptureDraft) -> Void,
@@ -40,6 +59,8 @@ struct PlatformNavigationView: View {
         recordCaptureImportRetry: @escaping @MainActor @Sendable (NativeQueuedMutation) -> Void,
         recordCaptureImportBlocker: @escaping @MainActor @Sendable (CaptureImportBlocker) -> Void,
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
+        recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
+        searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
@@ -51,7 +72,13 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
+        self.performSettingsSessionOperation = performSettingsSessionOperation
+        self.requestNotificationPermission = requestNotificationPermission
+        self.requestDeviceRegistrationAction = requestDeviceRegistrationAction
+        self.openNotificationSettings = openNotificationSettings
+        self.recordNotificationAPNsBlockerHandler = recordNotificationAPNsBlocker
         self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
         self.recordCaptureDraftHandler = recordCaptureDraft
@@ -59,6 +86,8 @@ struct PlatformNavigationView: View {
         self.recordCaptureImportRetryHandler = recordCaptureImportRetry
         self.recordCaptureImportBlockerHandler = recordCaptureImportBlocker
         self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
+        self.recordSearchSurfacePageHandler = recordSearchSurfacePage
+        self.searchSurfaceRepositoryHandler = searchSurfaceRepository
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
 
@@ -70,6 +99,7 @@ struct PlatformNavigationView: View {
         } detail: {
             NavigationStack {
                 detailContent
+                    .safeAreaPadding(.bottom, shellOfflineStatusContentReserve)
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
                     .navigationBarTitleDisplayMode(.large)
@@ -79,20 +109,25 @@ struct PlatformNavigationView: View {
                 destinationContent(for: route)
             }
             .searchable(text: searchText, prompt: "Search Spoonjoy")
+            .searchFocused($isSearchFieldFocused)
             .searchScopes(searchScope) {
-                ForEach(SearchScope.allCases, id: \.rawValue) { scope in
+                ForEach(availableSearchScopes, id: \.rawValue) { scope in
                     Text(label(for: scope)).tag(scope)
                 }
             }
             .onSubmit(of: .search) {
-                navigation.navigate(to: search.route)
+                Task {
+                    await performSearch(search)
+                }
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
             .safeAreaInset(edge: .bottom) {
-                OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .background(KitchenTableTheme.bone.opacity(0.94))
+                if shouldShowShellOfflineStatus {
+                    OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .background(KitchenTableTheme.bone.opacity(0.94))
+                }
             }
             .task(id: spotlightIndexIdentity) {
                 await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
@@ -100,10 +135,60 @@ struct PlatformNavigationView: View {
             .task(id: contentState.environment.rawValue) {
                 _ = try? await syncTriggerCoordinator.handle(.foreground)
             }
+            .onChange(of: navigation.route) { _, route in
+                if !routeKeepsSearchFocus(route) {
+                    isSearchFieldFocused = false
+                }
+                if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
+                    liveSearchRequestMarker = nil
+                }
+            }
         }
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
 #endif
+    }
+
+    private var shellOfflineStatusContentReserve: CGFloat {
+        guard shouldShowShellOfflineStatus else {
+            return 0
+        }
+        switch offlineIndicatorState.display {
+        case .dismissed:
+            return 0
+        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            return 96
+        }
+    }
+
+    private var shouldShowShellOfflineStatus: Bool {
+        guard !routeOwnsOfflineStatus(navigation.route) else {
+            return false
+        }
+        switch offlineIndicatorState.display {
+        case .dismissed:
+            return false
+        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            return true
+        }
+    }
+
+    private func routeOwnsOfflineStatus(_ route: AppRoute) -> Bool {
+        switch route {
+        case .recipeDetail(_, .detail),
+             .recipeEditor,
+             .recipeCoverControls,
+             .cookbooks,
+             .cookbookDetail,
+             .profile,
+             .profileGraph,
+             .shoppingList,
+             .search,
+             .settings:
+            true
+        case .kitchen, .recipes, .recipeDetail(_, .cook), .capture, .unknownLink:
+            false
+        }
     }
 
     private var sidebar: some View {
@@ -194,36 +279,54 @@ struct PlatformNavigationView: View {
                 }
             )
         case .cookbooks:
-            CookbooksView(cookbooks: contentState.cookbooks, openCookbook: openCookbook)
+            CookbooksView(
+                viewModel: cookbookSurfaceViewModel,
+                openRoute: openRoute,
+                performCookbookAction: performCookbookAction
+            )
         case .cookbookDetail(let id):
-            if let cookbook = cookbook(id: id) {
-                CookbookDetailPlaceholder(cookbook: cookbook)
-            } else {
-                ShellPlaceholderView(title: "Cookbook", systemImage: "book", detail: id)
-            }
+            CookbookDetailRouteView(
+                cookbookID: id,
+                viewModel: cookbookSurfaceViewModel,
+                openRoute: openRoute,
+                performCookbookAction: performCookbookAction
+            )
+        case AppRoute.profile(let identifier):
+            ProfileRouteView(
+                identifier: identifier,
+                viewModel: profileSurfaceViewModel(identifier: identifier),
+                openRoute: openRoute
+            )
+        case AppRoute.profileGraph(let identifier, let direction, let page):
+            ProfileGraphRouteView(
+                identifier: identifier,
+                direction: direction,
+                page: page,
+                viewModel: profileSurfaceViewModel(identifier: identifier),
+                openRoute: openRoute
+            )
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
                 actionDidPlan: performShoppingAction
             )
         case .search(let query, let scope):
+            let routeSearch = normalizedSearch(SearchState(query: query, scope: scope))
             SearchView(
                 search: $search,
-                recipes: contentState.recipes,
-                cookbooks: contentState.cookbooks,
-                shoppingList: contentState.shoppingList,
-                openRecipe: openRecipe,
-                openCookbook: openCookbook,
-                openShoppingItem: { _ in
-                    navigation.navigate(to: .shoppingList)
-                },
-                openChef: { username in
-                    search.update(query: username, scope: .chefs)
-                    navigation.navigate(to: search.route)
-                }
+                viewModel: searchViewModel(for: routeSearch),
+                openRoute: openRoute,
+                searchTask: performSearch
             )
             .onAppear {
-                search.apply(route: .search(query: query, scope: scope))
+                search.apply(route: routeSearch.route)
+                if routeSearch.route != navigation.route {
+                    navigation.navigate(to: routeSearch.route)
+                }
+                isSearchFieldFocused = true
+            }
+            .task(id: liveSearchTaskIdentity(for: routeSearch)) {
+                await refreshRouteSearchIfNeeded(routeSearch)
             }
         case .capture:
             CaptureDraftView(
@@ -236,6 +339,15 @@ struct PlatformNavigationView: View {
         case .settings:
             SettingsView(
                 viewModel: contentState.settingsViewModel,
+                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                notificationAPNsSurfaceViewModel: contentState.notificationAPNsSurfaceViewModel,
+                performSettingsAction: performSettingsAction,
+                performNotificationAPNsAction: performNotificationAPNsAction,
+                requestNotificationPermission: requestNotificationPermission,
+                requestDeviceRegistrationAction: requestDeviceRegistrationAction,
+                openNotificationSettings: openNotificationSettings,
+                notificationAPNsSettingsContent: { AnyView(notificationAPNsSettingsView($0)) },
+                shellOfflineIndicatorState: offlineIndicatorState,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:
@@ -247,18 +359,36 @@ struct PlatformNavigationView: View {
         Binding(
             get: { search.query },
             set: { value in
-                search.update(query: value, scope: search.scope)
+                let nextSearch = normalizedSearch(SearchState(query: value, scope: search.scope))
+                search.update(query: nextSearch.query, scope: nextSearch.scope)
+                if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Task {
+                        await performSearch(nextSearch)
+                    }
+                }
             }
         )
     }
 
     private var searchScope: Binding<SearchScope> {
         Binding(
-            get: { search.scope },
+            get: {
+                normalizedSearch(search).scope
+            },
             set: { scope in
-                search.update(query: search.query, scope: scope)
+                let nextSearch = normalizedSearch(SearchState(query: search.query, scope: scope))
+                search.update(query: nextSearch.query, scope: nextSearch.scope)
+                if !nextSearch.hasQuery {
+                    Task {
+                        await performSearch(nextSearch)
+                    }
+                }
             }
         )
+    }
+
+    private var availableSearchScopes: [SearchScope] {
+        contentState.searchSurfaceViewModel.searchableScopes
     }
 
     private var sidebarSelection: Binding<AppSection?> {
@@ -277,6 +407,9 @@ struct PlatformNavigationView: View {
     }
 
     private func navigateToSidebar(_ section: AppSection) {
+        if section != .search {
+            isSearchFieldFocused = false
+        }
         switch section {
         case .kitchen:
             navigation.navigate(to: .kitchen)
@@ -287,8 +420,9 @@ struct PlatformNavigationView: View {
         case .shoppingList:
             navigation.navigate(to: .shoppingList)
         case .search:
-            search.apply(route: search.route)
-            navigation.navigate(to: search.route)
+            Task {
+                await performSearch(search)
+            }
         case .capture:
             navigation.navigate(to: .capture)
         case .settings:
@@ -304,6 +438,10 @@ struct PlatformNavigationView: View {
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
+        case .profile:
+            "Profile"
+        case .profileGraph(_, let direction, _):
+            direction == .fellowChefs ? "Fellow Chefs" : "Kitchen Visitors"
         case .shoppingList:
             "Shopping"
         case .search:
@@ -345,18 +483,165 @@ struct PlatformNavigationView: View {
     }
 
     private func openRecipe(_ id: String) {
+        isSearchFieldFocused = false
         navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
     }
 
     private func openRoute(_ route: AppRoute) {
+        if !routeKeepsSearchFocus(route) {
+            isSearchFieldFocused = false
+        }
+        navigation.navigate(to: route)
+    }
+
+    @MainActor
+    private func performSearch(_ nextSearch: SearchState) async {
+        let nextSearch = normalizedSearch(nextSearch)
+        let identity = contentState.searchSurfaceIdentity
+        search.apply(route: .search(query: nextSearch.query, scope: nextSearch.scope))
+        navigation.navigate(to: search.route)
+        let requestMarker = LiveSearchRequestMarker(identity: identity, routeIdentifier: nextSearch.route.stateIdentifier)
+
+        guard nextSearch.hasQuery else {
+            liveSearchRequestMarker = nil
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(nextSearch)
+            )
+            return
+        }
+        guard liveSearchRequestMarker != requestMarker else {
+            return
+        }
+        liveSearchRequestMarker = requestMarker
+        defer {
+            clearLiveSearchRequestMarker(requestMarker)
+        }
+
+        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
+        let context = contentState.searchSurfaceContext
+        let repository = searchSurfaceRepositoryHandler(context)
+        do {
+            let page = try await repository.search(
+                request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
+            )
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
+            try? await recordSearchSurfacePageHandler(page, identity)
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(
+                    page: page,
+                    state: nextSearch
+                )
+            )
+        } catch SearchSurfaceRepositoryError.cancelled {
+            clearLiveSearchRequestMarker(requestMarker)
+            return
+        } catch let error as SearchSurfaceRepositoryError {
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(
+                    error: error,
+                    state: nextSearch,
+                    cachedPage: cachedPage
+                )
+            )
+        } catch {
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(
+                    error: .searchFailed(message: String(describing: error)),
+                    state: nextSearch,
+                    cachedPage: cachedPage
+                )
+            )
+        }
+    }
+
+    private func liveSearchRequestMarker(for state: SearchState) -> LiveSearchRequestMarker {
+        LiveSearchRequestMarker(identity: contentState.searchSurfaceIdentity, routeIdentifier: state.route.stateIdentifier)
+    }
+
+    private func liveSearchTaskIdentity(for state: SearchState) -> String {
+        "\(contentState.searchSurfaceIdentity)|\(state.route.stateIdentifier)"
+    }
+
+    @MainActor
+    private func refreshRouteSearchIfNeeded(_ routeSearch: SearchState) async {
+        guard routeSearch.hasQuery,
+              !hasActiveSearch(for: routeSearch),
+              liveSearchRequestMarker != liveSearchRequestMarker(for: routeSearch) else {
+            return
+        }
+        await performSearch(routeSearch)
+    }
+
+    private func clearLiveSearchRequestMarker(_ marker: LiveSearchRequestMarker) {
+        if liveSearchRequestMarker == marker {
+            liveSearchRequestMarker = nil
+        }
+    }
+
+    private func hasActiveSearch(for routeSearch: SearchState) -> Bool {
+        guard let activeSearch else {
+            return false
+        }
+        return activeSearch.identity == contentState.searchSurfaceIdentity &&
+            activeSearch.viewModel.state == routeSearch
+    }
+
+    private func searchViewModel(for routeSearch: SearchState) -> SearchSurfaceViewModel {
+        if hasActiveSearch(for: routeSearch), let activeSearch {
+            return activeSearch.viewModel
+        }
+        if routeSearch.query.isEmpty && routeSearch.scope == .all {
+            return contentState.searchSurfaceViewModel
+        }
+        return contentState.performSearch(routeSearch)
+    }
+
+    private func normalizedSearch(_ candidate: SearchState) -> SearchState {
+        availableSearchScopes.contains(candidate.scope)
+            ? candidate
+            : SearchState(query: candidate.query, scope: .all)
+    }
+
+    private func canApplySearchResult(identity: String, state: SearchState) -> Bool {
+        contentState.searchSurfaceIdentity == identity &&
+            search == state &&
+            navigation.route == state.route &&
+            !Task.isCancelled
+    }
+
+    private func routeKeepsSearchFocus(_ route: AppRoute) -> Bool {
+        if case .search = route {
+            return true
+        }
+        return false
+    }
+
+    private func openProfileRoute(_ route: AppRoute) {
         navigation.navigate(to: route)
     }
 
     private func startCooking(_ id: String) {
+        isSearchFieldFocused = false
         navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
     }
 
     private func openCookbook(_ id: String) {
+        isSearchFieldFocused = false
         navigation.navigate(to: .cookbookDetail(id: id))
     }
 
@@ -374,8 +659,8 @@ struct PlatformNavigationView: View {
         let catalog = contentState.recipeCatalog
         let snapshotRepository = SnapshotRecipeCatalogRepository(
             page: catalog,
-            details: contentState.recipes.map { recipe in
-                RecipeCatalogDetailResult(recipe: recipe, source: catalog.source)
+            details: contentState.recipes.map { entry in
+                RecipeCatalogDetailResult(recipe: entry, source: catalog.source)
             }
         )
         let liveRepository = LiveRecipeCatalogRepository(configuration: contentState.configuration)
@@ -390,6 +675,107 @@ struct PlatformNavigationView: View {
         let viewModel = RecipeCatalogViewModel(repository: recipeCatalogRepository)
         viewModel.apply(page: contentState.recipeCatalog)
         return viewModel
+    }
+
+    private var cookbookSurfaceRepository: any CookbookSurfaceRepository {
+        let page = cookbookSurfacePage(source: cookbookSurfaceDataSource)
+        let snapshotRepository = SnapshotCookbookSurfaceRepository(
+            page: page,
+            details: contentState.cookbooks.map { cookbook in
+                CookbookSurfaceDetailResult(
+                    cookbook: cookbook,
+                    source: cookbookSurfaceDataSource,
+                    availableRecipes: availableCookbookRecipes(for: cookbook)
+                )
+            }
+        )
+        let liveRepository = LiveCookbookSurfaceRepository(
+            configuration: contentState.configuration,
+            availableRecipes: contentState.recipes.map(RecipeSummary.init(recipe:))
+        )
+        return FallbackCookbookSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
+    }
+
+    private var cookbookSurfaceViewModel: CookbookSurfaceViewModel {
+        let viewModel = CookbookSurfaceViewModel(
+            repository: cookbookSurfaceRepository,
+            context: CookbookSurfaceContext(currentChefID: currentChefID, currentChef: currentChefSummary),
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: cookbookSurfaceConnectivity,
+            now: Date.init,
+            timestamp: { ISO8601DateFormatter().string(from: Date()) }
+        )
+        viewModel.apply(page: cookbookSurfacePage(source: cookbookSurfaceDataSource))
+        return viewModel
+    }
+
+    private func profileGraphRepository(identifier: String) -> any ProfileChefGraphSurfaceRepository {
+        let liveRepository = LiveProfileChefGraphSurfaceRepository(configuration: contentState.configuration)
+        guard let profileResult = contentState.profileSurfaceResult(identifier: identifier) else {
+            return FallbackProfileChefGraphSurfaceRepository(
+                primary: liveRepository,
+                fallback: UnavailableProfileChefGraphSurfaceRepository()
+            )
+        }
+        let snapshotRepository = SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: profileResult,
+            graphPages: contentState.profileGraphPages(profileResult: profileResult)
+        )
+        return FallbackProfileChefGraphSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
+    }
+
+    private func profileSurfaceViewModel(identifier: String) -> ProfileChefGraphSurfaceViewModel {
+        ProfileChefGraphSurfaceViewModel(
+            repository: profileGraphRepository(identifier: identifier),
+            context: ProfileSurfaceContext(currentChefID: currentChefID),
+            queuedMutations: contentState.queuedMutations,
+            conflicts: contentState.syncConflicts,
+            connectivity: profileSurfaceConnectivity,
+            now: Date.init
+        )
+    }
+
+    private func cookbookSurfacePage(source: CookbookSurfaceDataSource) -> CookbookSurfacePage {
+        CookbookSurfacePage(
+            query: nil,
+            limit: max(20, contentState.cookbooks.count),
+            cursor: nil,
+            nextCursor: nil,
+            hasMore: false,
+            rows: contentState.cookbooks.map(CookbookSummary.init(cookbook:)),
+            source: source
+        )
+    }
+
+    private var cookbookSurfaceDataSource: CookbookSurfaceDataSource {
+        switch offlineIndicatorState.display {
+        case .synced:
+            .live(requestID: "native-shell", validatedAt: Date())
+        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            .cache(serverRevision: latestCookbookRevision, lastValidatedAt: .distantPast)
+        }
+    }
+
+    private var latestRecipeRevision: NativeCacheServerRevision? {
+        contentState.recipes
+            .map(\.updatedAt)
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
+    }
+
+    private var latestCookbookRevision: NativeCacheServerRevision? {
+        contentState.cookbooks
+            .map(\.updatedAt)
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
+    }
+
+    private func availableCookbookRecipes(for cookbook: Cookbook) -> [RecipeSummary] {
+        let savedRecipeIDs = Set(cookbook.recipes.map(\.id))
+        return contentState.recipes
+            .filter { !savedRecipeIDs.contains($0.id) }
+            .map(RecipeSummary.init(recipe:))
     }
 
     private func recipeDetailScreenViewModel(for recipe: Recipe) -> RecipeDetailScreenViewModel {
@@ -454,6 +840,12 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private var currentChefSummary: ChefSummary? {
+        contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
+            ChefSummary(id: $0, username: "Spoonjoy")
+        }
+    }
+
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
         let chefID = currentChefID ?? "signed-out"
         switch id {
@@ -496,6 +888,30 @@ struct PlatformNavigationView: View {
     }
 
     private var recipeCoverControlsConnectivity: RecipeCoverControlsConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var cookbookSurfaceConnectivity: CookbookSurfaceConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var profileSurfaceConnectivity: ProfileSurfaceConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
+    private var settingsSurfaceConnectivity: SettingsSurfaceConnectivity {
         if offlineIndicatorState.display == .offline {
             return .offline
         }
@@ -563,6 +979,12 @@ struct PlatformNavigationView: View {
             return
         }
 
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
         if let requestBuilder = plan.remoteRequestBuilder {
             do {
                 try await executeRecipeEditorRequest(requestBuilder)
@@ -582,6 +1004,12 @@ struct PlatformNavigationView: View {
             return
         }
 
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return
+        }
+
         if let requestBuilder = plan.remoteRequestBuilder {
             do {
                 try await executeRecipeEditorRequest(requestBuilder)
@@ -593,6 +1021,32 @@ struct PlatformNavigationView: View {
                 throw error
             }
         }
+    }
+
+    private func performCookbookAction(_ plan: CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation? {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueMutation(queuedMutation)
+            return queuedMutation
+        }
+
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return offlineFallbackMutation
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                try await executeRecipeEditorRequest(requestBuilder)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueMutation(offlineFallbackMutation)
+                    return offlineFallbackMutation
+                }
+                throw error
+            }
+        }
+        return nil
     }
 
     private func performCoverAction(_ plan: RecipeCoverControlsMutationPlan) async throws {
@@ -645,13 +1099,99 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private func performSettingsAction(_ plan: SettingsActionPlan) async throws -> SettingsActionOutcome? {
+        if let preflight = plan.queuePreflightDecision(queuedMutations: contentState.queuedMutations) {
+            switch preflight {
+            case .queueMutation(let mutation, drainImmediately: false):
+                try await queueSettingsMutationIfNeeded(mutation)
+            case .queueMutation(let mutation, drainImmediately: true):
+                _ = try await queueMutations([mutation], true)
+            }
+            return nil
+        }
+
+        var outcome: SettingsActionOutcome?
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                outcome = try await executeSettingsActionRequest(requestBuilder, plan.responseHandling)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueSettingsMutationIfNeeded(offlineFallbackMutation)
+                    return nil
+                }
+                throw error
+            }
+        }
+
+        if let sessionOperation = plan.sessionOperation {
+            try await performSettingsSessionOperation(sessionOperation)
+        }
+
+        if let handoff = plan.secureHandoff {
+            openURL(handoff.url)
+        }
+
+        return outcome
+    }
+
+    private func queueSettingsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {
+        try await queueMutation(mutation)
+    }
+
+    private func notificationAPNsSettingsView(_ viewModel: NotificationAPNsSurfaceViewModel) -> some View {
+        NotificationAPNsSettingsView(
+            viewModel: viewModel,
+            performNotificationAPNsAction: performNotificationAPNsAction,
+            requestNotificationPermission: requestNotificationPermission,
+            requestDeviceRegistrationAction: requestDeviceRegistrationAction,
+            openNotificationSettings: openNotificationSettings
+        )
+    }
+
+    private func performNotificationAPNsAction(_ plan: NotificationAPNsActionPlan) async throws {
+        if let blocker = plan.deliveryBlocker {
+            recordNotificationAPNsBlocker(blocker)
+            return
+        }
+
+        if let preflight = plan.queuePreflightDecision(queuedMutations: contentState.queuedMutations) {
+            switch preflight {
+            case .queueMutation(let mutation, drainImmediately: false):
+                try await queueNotificationAPNsMutationIfNeeded(mutation)
+            case .queueMutation(let mutation, drainImmediately: true):
+                _ = try await queueMutations([mutation], true)
+            }
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                _ = try await executeSettingsActionRequest(requestBuilder, .refreshOnly)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueNotificationAPNsMutationIfNeeded(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func queueNotificationAPNsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {
+        try await queueMutation(mutation)
+    }
+
+    private func recordNotificationAPNsBlocker(_ blocker: AppleDeveloperProgramBlocker) {
+        recordNotificationAPNsBlockerHandler(blocker)
+    }
+
     @MainActor private func discardSpoonCookLogConflict(clientMutationID: String) async throws {
         try await discardQueuedMutation(clientMutationID)
     }
 
     private func hasQueuedMutation(withDependencyKey dependencyKey: String) -> Bool {
         contentState.queuedMutations.contains { mutation in
-            mutation.dependencyKey == dependencyKey
+            mutation.blocksDependencyKey(dependencyKey)
         }
     }
 
@@ -673,23 +1213,32 @@ struct PlatformNavigationView: View {
     }
 
     private var spotlightIndexIdentity: String {
-        [
-            contentState.recipes.map(\.id).joined(separator: ","),
-            contentState.cookbooks.map(\.id).joined(separator: ","),
-            contentState.searchResultsByScope[search.scope]?.joined(separator: ",") ?? "search-unavailable",
-            contentState.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
-        ].joined(separator: "|")
+        Self.spotlightIdentityComponent(
+            [contentState.spotlightIndexScope?.identifierPrefix ?? "signed-out"] +
+                spotlightIndexDocuments.map { document in
+                    Self.spotlightIdentityComponent([
+                        document.uniqueIdentifier,
+                        document.domainIdentifier,
+                        document.title,
+                        document.contentDescription,
+                        document.keywords.joined(separator: ","),
+                        document.route.stateIdentifier
+                    ])
+                }
+        )
     }
 
     private var spotlightIndexDocuments: [SpotlightIndexDocument] {
-        guard let shoppingList = contentState.shoppingList else {
+        guard let shoppingList = contentState.shoppingList,
+              let scope = contentState.spotlightIndexScope else {
             return []
         }
 
         return SpotlightIndexPlan.documents(
             recipes: contentState.recipes,
             cookbooks: contentState.cookbooks,
-            shoppingList: shoppingList
+            shoppingList: shoppingList,
+            scope: scope
         )
     }
 
@@ -789,10 +1338,14 @@ struct PlatformNavigationView: View {
 
     private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *), !documents.isEmpty {
-            try? await SpoonjoySpotlightIndexer().index(documents: documents)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().replaceAll(documents: documents)
         }
 #endif
+    }
+
+    private static func spotlightIdentityComponent(_ values: [String]) -> String {
+        values.map { "\($0.count):\($0)" }.joined(separator: "")
     }
 
     private func timestamp() -> String {
@@ -804,6 +1357,16 @@ struct PlatformNavigationView: View {
             character.isLetter || character.isNumber ? String(character) : "-"
         }.joined()
     }
+}
+
+private struct ActiveSearchSurfaceState: Equatable {
+    let identity: String
+    let viewModel: SearchSurfaceViewModel
+}
+
+private struct LiveSearchRequestMarker: Equatable {
+    let identity: String
+    let routeIdentifier: String
 }
 
 private struct ShellPlaceholderView: View {
@@ -820,24 +1383,5 @@ private struct ShellPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
-    }
-}
-
-private struct CookbookDetailPlaceholder: View {
-    let cookbook: Cookbook
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(cookbook.title)
-                .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-            Text(cookbook.attribution.creditText)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(.secondary)
-            CookbookShelf(cookbooks: [cookbook]) { _ in }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(KitchenTableTheme.bone)
     }
 }

@@ -186,7 +186,7 @@ public struct RecipeDetailOwnerTools: Equatable, Sendable {
 public struct RecipeDetailActions: Equatable, Sendable {
     public let availableActionIDs: [RecipeDetailActionID]
     public let startCookingRoute: AppRoute
-    public let shareURL: URL
+    public let sharePayload: NativeSharePayload?
     public let chefProfilePath: String
     public let cookbookOptions: [RecipeCookbookSaveOption]
     public let savedCookbookIDs: Set<String>
@@ -253,6 +253,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         hasIngredientsInShoppingList = context.hasIngredientsInShoppingList
         actionContext = context
         let isOwner = context.currentChefID == recipe.chef.id
+        let sharePayload = try? NativeSharePayload.publicRecipe(recipe)
         let deleteConfirmation = RecipeActionConfirmationPrompt(
             title: "Delete \(recipe.title)?",
             message: "This removes the recipe from your kitchen and syncs the deletion across your devices.",
@@ -267,9 +268,9 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
             deleteConfirmation: isOwner ? deleteConfirmation : nil
         )
         actions = RecipeDetailActions(
-            availableActionIDs: Self.actionIDs(isOwner: isOwner),
+            availableActionIDs: Self.actionIDs(isOwner: isOwner, canShare: sharePayload != nil),
             startCookingRoute: .recipeDetail(id: recipe.id, presentation: .cook),
-            shareURL: recipe.canonicalURL,
+            sharePayload: sharePayload,
             chefProfilePath: "/users/\(recipe.chef.username)",
             cookbookOptions: context.availableCookbooks,
             savedCookbookIDs: context.savedInCookbookIDs,
@@ -323,26 +324,27 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         return "Serves \(servings)"
     }
 
-    private static func actionIDs(isOwner: Bool) -> [RecipeDetailActionID] {
+    private static func actionIDs(isOwner: Bool, canShare: Bool) -> [RecipeDetailActionID] {
+        var actions: [RecipeDetailActionID] = [
+            .startCooking,
+            .saveToCookbook,
+            .addToShoppingList
+        ]
+        if canShare {
+            actions.append(.share)
+        }
+
         if isOwner {
-            return [
-                .startCooking,
-                .saveToCookbook,
-                .addToShoppingList,
-                .share,
+            actions.append(contentsOf: [
                 .makeVariation,
                 .edit,
                 .manageCovers,
                 .deleteRecipe
-            ]
+            ])
+            return actions
         }
 
-        return [
-            .startCooking,
-            .saveToCookbook,
-            .addToShoppingList,
-            .share,
-            .fork
-        ]
+        actions.append(.fork)
+        return actions
     }
 }

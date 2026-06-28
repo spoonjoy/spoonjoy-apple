@@ -95,7 +95,34 @@ SCRIPT_CONTRACTS = {
       "pkill -x Spoonjoy",
       "Retrying Spoonjoy window capture after relaunch",
       "Spoonjoy window not found for macOS screenshot capture",
-      "spoonjoy://kitchen",
+      'screenshot_route="kitchen"',
+      'notification',
+      'apns',
+      "spoonjoy://$screenshot_route",
+      "validate_ios_screenshot",
+      "get_app_container",
+      "native-durable-cache.json",
+      "SPOONJOY_SCREENSHOT_AUTH",
+      "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY",
+      "SPOONJOY_SCREENSHOT_ACCOUNT_ID",
+      "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS",
+      "SPOONJOY_SCREENSHOT_PROOF_PATH",
+      "validate_screenshot_surface_proof",
+      "settingsSignedInSurface",
+      "settingsVisualFocus",
+      "settingsProfileSurface",
+      "settingsNotificationAPNsSurface",
+      "settingsSurfaceProofArtifacts",
+      "visibleSections",
+      "settingsSeedAccountID",
+      "chef_settings_capture",
+      "kitchenSignedInSurface",
+      "kitchenSeedAccountID",
+      "chef_kitchen_capture",
+      "apns-status",
+      "device_apns_capture",
+      "screenshot-proof-ios.json",
+      "screenshot-proof-macos.json",
       "lastOpenedRoute",
       "hasCompletedFirstRun",
       "native-app-state.json",
@@ -131,7 +158,17 @@ SCRIPT_CONTRACTS = {
     syntax: ["ruby", "-c"],
     tokens: [
       "JSON.parse",
-      *REQUIRED_REVIEW_FIELDS
+      *REQUIRED_REVIEW_FIELDS,
+      "screenshotRoute",
+      "kitchenSignedInSurface",
+      "settingsVisualFocus",
+      "settingsProfileSurface",
+      "settingsNotificationAPNsSurface",
+      "settingsSurfaceProofArtifacts",
+      "visibleSections",
+      "SettingsView",
+      "APNs Delivery",
+      "Notification Sync"
     ]
   },
   "scripts/validate-design-review-blocker.rb" => {
@@ -152,6 +189,19 @@ SCRIPT_CONTRACTS = {
       "screenshots-xcode-platform-blocker.json",
       "screenshots-core-simulator-blocker.json",
       "screenshots-macos-launch-blocker.json"
+    ]
+  },
+  "scripts/fail-on-warning.rb" => {
+    syntax: ["ruby", "-c"],
+    tokens: [
+      "warning:",
+      "error:",
+      "An error was encountered processing the command",
+      "Underlying error",
+      "failed to",
+      "fatal error:",
+      "uncaught exception",
+      "warnings or error diagnostics found"
     ]
   }
 }.freeze
@@ -230,9 +280,40 @@ blocker_validator = ROOT.join("scripts/validate-design-review-blocker.rb")
 
 Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   temp_root = Pathname.new(directory)
-  valid_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge("blockers" => [])
+  valid_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+    "blockers" => [],
+    "screenshotRoute" => "kitchen",
+    "kitchenSignedInSurface" => true,
+    "kitchenSeedAccountID" => "chef_kitchen_capture"
+  )
+  valid_settings_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+    "blockers" => [],
+    "screenshotRoute" => "settings",
+    "settingsSignedInSurface" => true,
+    "settingsVisualFocus" => "notifications",
+    "settingsNotificationAPNsSurface" => true,
+    "settingsSeedAccountID" => "chef_settings_capture",
+    "settingsSections" => ["Profile", "Security", "Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"],
+    "settingsSurfaceProofArtifacts" => ["apple/proof-ios.json", "apple/proof-macos.json"]
+  )
+  valid_profile_settings_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+    "blockers" => [],
+    "screenshotRoute" => "settings",
+    "settingsSignedInSurface" => true,
+    "settingsVisualFocus" => "profile",
+    "settingsProfileSurface" => true,
+    "settingsSeedAccountID" => "chef_settings_capture",
+    "settingsSections" => ["Profile", "Security", "Notifications"],
+    "settingsSurfaceProofArtifacts" => ["apple/profile-proof-ios.json", "apple/profile-proof-macos.json"]
+  )
   missing_manifest = valid_manifest.reject { |field, _| field == "mobileScreenshot" }
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
+  missing_route_manifest = valid_manifest.reject { |field, _| field == "screenshotRoute" }
+  signed_out_kitchen_manifest = valid_manifest.merge("kitchenSignedInSurface" => false)
+  missing_apns_settings_manifest = valid_settings_manifest.merge(
+    "settingsNotificationAPNsSurface" => false,
+    "settingsSections" => ["Profile", "Security", "Notifications"]
+  )
   false_with_blocker = false_without_blocker.merge(
     "blockers" => [
       {
@@ -267,7 +348,12 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
 
   {
     "valid.json" => [valid_manifest, true, "valid design review"],
+    "valid-settings.json" => [valid_settings_manifest, true, "valid settings design review"],
+    "valid-profile-settings.json" => [valid_profile_settings_manifest, true, "valid profile settings design review"],
     "missing.json" => [missing_manifest, false, "missing design review field"],
+    "missing-route.json" => [missing_route_manifest, false, "missing screenshot route"],
+    "signed-out-kitchen.json" => [signed_out_kitchen_manifest, false, "signed-out kitchen route artifact"],
+    "missing-apns-settings.json" => [missing_apns_settings_manifest, false, "settings APNs route artifact"],
     "false-without-blocker.json" => [false_without_blocker, false, "false field without blocker"],
     "false-with-blocker.json" => [false_with_blocker, false, "legacy inline screenshot blocker"],
     "desktop-false-with-ios-blocker.json" => [desktop_false_with_only_ios_blocker, false, "desktop false field with unrelated iOS blocker"],
@@ -275,6 +361,18 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   }.each do |filename, (manifest, expected_success, label)|
     path = temp_root.join(filename)
     path.write(JSON.pretty_generate(manifest))
+    if (proof_artifacts = manifest["settingsSurfaceProofArtifacts"])
+      proof_artifacts.each do |proof_relative_path|
+        proof_path = temp_root.join(proof_relative_path)
+        proof_path.dirname.mkpath
+        proof_path.write(JSON.pretty_generate(
+          "route" => "settings",
+          "visualFocus" => manifest.fetch("settingsVisualFocus"),
+          "visibleSections" => manifest.fetch("settingsSections", []),
+          "source" => "SettingsView"
+        ) + "\n")
+      end
+    end
     assert_status(expected_success, ["ruby", validator, path], label)
   end
 
@@ -563,16 +661,79 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       esac
     done
     mkdir -p "$(dirname "$log")"
-    printf ok > "$log"
+    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
   SH
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
   write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
   write_executable(bin_dir.join("xcrun"), <<~'SH')
     #!/usr/bin/env bash
     set -euo pipefail
-    out="${@: -1}"
-    mkdir -p "$(dirname "$out")"
-    printf ios-image > "$out"
+    case "$*" in
+      simctl\ get_app_container\ *)
+        mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
+        printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ launch\ *)
+        if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH:-}" ]]; then
+          mkdir -p "$(dirname "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH")"
+          focus="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS:-profile}"
+          route="settings"
+          source="SettingsView"
+          sections='["Profile","Security"]'
+          if [[ "${SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF:-}" == "1" ]]; then
+            route="kitchen"
+            focus="profile"
+            source="WrongView"
+            sections='["Kitchen"]'
+          elif [[ "$focus" == "notifications" ]]; then
+            sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+          fi
+          printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
+        fi
+        printf 'app.spoonjoy.Spoonjoy: 12345\n'
+        ;;
+      simctl\ terminate\ *)
+        exit 0
+        ;;
+      simctl\ spawn\ *\ log\ show*)
+        printf 'Front display did change: <SBApplication; app.spoonjoy.Spoonjoy>\n'
+        ;;
+      simctl\ io\ *\ screenshot\ *)
+        out="${@: -1}"
+        mkdir -p "$(dirname "$out")"
+        python3 - "$out" <<'PY'
+import binascii
+import struct
+import sys
+import zlib
+
+path = sys.argv[1]
+width, height = 400, 800
+rows = []
+for y in range(height):
+    row = bytearray()
+    for _ in range(width):
+        if 150 <= y <= 700:
+            row.extend((246, 239, 225))
+        else:
+            row.extend((0, 0, 0))
+    rows.append(b"\x00" + bytes(row))
+
+def chunk(kind, payload):
+    return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", binascii.crc32(kind + payload) & 0xffffffff)
+
+png = b"\x89PNG\r\n\x1a\n"
+png += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+png += chunk(b"IDAT", zlib.compress(b"".join(rows)))
+png += chunk(b"IEND", b"")
+with open(path, "wb") as handle:
+    handle.write(png)
+PY
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
   SH
   write_executable(bin_dir.join("osascript"), <<~'SH')
     #!/usr/bin/env bash
@@ -581,10 +742,49 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     if [[ "$script" == *"open location"* ]]; then
       state="$HOME/Library/Application Support/Spoonjoy/native-app-state.json"
       mkdir -p "$(dirname "$state")"
-      printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"kitchen"}\n' > "$state"
+      route="kitchen"
+      if [[ "$script" == *"spoonjoy://settings"* ]]; then
+        route="settings"
+      fi
+      printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"%s"}\n' "$route" > "$state"
     fi
   SH
-  write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("open"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    proof_path=""
+    focus="profile"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --env)
+          env_pair="$2"
+          case "$env_pair" in
+            SPOONJOY_SCREENSHOT_PROOF_PATH=*) proof_path="${env_pair#SPOONJOY_SCREENSHOT_PROOF_PATH=}" ;;
+            SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=*) focus="${env_pair#SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=}" ;;
+          esac
+          shift 2
+          ;;
+        *)
+          shift
+          ;;
+      esac
+    done
+    if [[ -n "$proof_path" ]]; then
+      mkdir -p "$(dirname "$proof_path")"
+      route="settings"
+      source="SettingsView"
+      sections='["Profile","Security"]'
+      if [[ "${SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF:-}" == "1" ]]; then
+        route="kitchen"
+        focus="profile"
+        source="WrongView"
+        sections='["Kitchen"]'
+      elif [[ "$focus" == "notifications" ]]; then
+        sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+      fi
+      printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
+    fi
+  SH
   write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
   write_executable(bin_dir.join("swift"), "#!/usr/bin/env bash\nprintf '67890\\n'\n")
   write_executable(bin_dir.join("screencapture"), <<~'SH')
@@ -614,6 +814,97 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   assert_missing(artifact_root.join("design-review-blocked.json"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/macos-desktop.png"), "screenshot success lane")
+  kitchen_review = assert_json(artifact_root.join("design-review.json"), "kitchen screenshot success lane")
+  record_failure("kitchen screenshot route mismatch") unless kitchen_review["screenshotRoute"] == "kitchen"
+  record_failure("kitchen screenshot missing signed-in surface flag") unless kitchen_review["kitchenSignedInSurface"] == true
+  record_failure("kitchen screenshot account seed mismatch") unless kitchen_review["kitchenSeedAccountID"] == "chef_kitchen_capture"
+  kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
+  record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
+  record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      artifact_root,
+      "--unit-slug",
+      "unit-contract-settings"
+    ],
+    "settings screenshot success lane",
+    env: { "HOME" => script_root.join("home").to_s, "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    chdir: script_root
+  )
+  settings_review = assert_json(artifact_root.join("design-review.json"), "settings screenshot success lane")
+  record_failure("settings screenshot route mismatch") unless settings_review["screenshotRoute"] == "settings"
+  record_failure("settings screenshot missing signed-in surface flag") unless settings_review["settingsSignedInSurface"] == true
+  record_failure("settings screenshot focus mismatch") unless settings_review["settingsVisualFocus"] == "profile"
+  record_failure("settings screenshot missing profile surface flag") unless settings_review["settingsProfileSurface"] == true
+  record_failure("settings screenshot account seed mismatch") unless settings_review["settingsSeedAccountID"] == "chef_settings_capture"
+  record_failure("settings screenshot missing proof artifacts") unless settings_review.fetch("settingsSurfaceProofArtifacts", []).length >= 2
+  settings_review.fetch("settingsSurfaceProofArtifacts", []).each do |relative_path|
+    proof = assert_json(artifact_root.join(relative_path), "settings screenshot proof artifact")
+    record_failure("settings screenshot proof route mismatch") unless proof["route"] == "settings"
+    record_failure("settings screenshot proof focus mismatch") unless proof["visualFocus"] == "profile"
+    record_failure("settings screenshot proof source mismatch") unless proof["source"] == "SettingsView"
+  end
+  cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "settings iOS cache seed")
+  record_failure("settings cache seed account mismatch") unless cache_json["accountID"] == "chef_settings_capture"
+  record_failure("settings cache seed missing token metadata") unless cache_json.fetch("records", []).any? { |record| record["id"] == "token-metadata" }
+  record_failure("settings cache seed missing APNs status") unless cache_json.fetch("records", []).any? { |record| record["id"] == "apns-status" }
+
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      artifact_root,
+      "--unit-slug",
+      "unit-contract-notifications"
+    ],
+    "notification screenshot success lane",
+    env: { "HOME" => script_root.join("home").to_s, "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    chdir: script_root
+  )
+  notification_review = assert_json(artifact_root.join("design-review.json"), "notification screenshot success lane")
+  record_failure("notification screenshot route mismatch") unless notification_review["screenshotRoute"] == "settings"
+  record_failure("notification screenshot focus mismatch") unless notification_review["settingsVisualFocus"] == "notifications"
+  record_failure("notification screenshot missing APNs surface flag") unless notification_review["settingsNotificationAPNsSurface"] == true
+  record_failure("notification screenshot missing APNs delivery section") unless notification_review.fetch("settingsSections", []).include?("APNs Delivery")
+  record_failure("notification screenshot missing proof artifacts") unless notification_review.fetch("settingsSurfaceProofArtifacts", []).length >= 2
+  notification_review.fetch("settingsSurfaceProofArtifacts", []).each do |relative_path|
+    proof = assert_json(artifact_root.join(relative_path), "notification screenshot proof artifact")
+    record_failure("notification screenshot proof route mismatch") unless proof["route"] == "settings"
+    record_failure("notification screenshot proof focus mismatch") unless proof["visualFocus"] == "notifications"
+    record_failure("notification screenshot proof missing APNs delivery") unless proof.fetch("visibleSections", []).include?("APNs Delivery")
+    record_failure("notification screenshot proof source mismatch") unless proof["source"] == "SettingsView"
+  end
+
+  wrong_proof_root = temp_root.join("wrong-proof-artifacts")
+  wrong_proof_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      wrong_proof_root,
+      "--unit-slug",
+      "unit-contract-notifications"
+    ],
+    "notification screenshot wrong proof lane",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF" => "1"
+    },
+    chdir: script_root
+  )
+  assert_missing(wrong_proof_root.join("design-review.json"), "notification screenshot wrong proof lane")
+  wrong_blocked_review = assert_json(wrong_proof_root.join("design-review-blocked.json"), "notification screenshot wrong proof lane")
+  record_failure("wrong proof lane did not block screenshot success") unless wrong_blocked_review["blocked"] == true
 end
 
 if DESIGN_REVIEW.file?

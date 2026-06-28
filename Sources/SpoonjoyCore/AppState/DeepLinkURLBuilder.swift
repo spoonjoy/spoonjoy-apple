@@ -30,6 +30,15 @@ public enum DeepLinkURLBuilder {
         case .cookbookDetail(let id):
             components.host = "cookbooks"
             components.path = "/\(id)"
+        case .profile(let identifier):
+            components.host = "users"
+            components.percentEncodedPath = "/\(AppRoute.encodedProfileIdentifier(identifier))"
+        case .profileGraph(let identifier, let direction, let page):
+            components.host = "users"
+            components.percentEncodedPath = "/\(AppRoute.encodedProfileIdentifier(identifier))/\(direction.rawValue)"
+            components.queryItems = [
+                URLQueryItem(name: "page", value: String(page))
+            ]
         case .shoppingList:
             components.host = "shopping-list"
         case .search(let query, let scope):

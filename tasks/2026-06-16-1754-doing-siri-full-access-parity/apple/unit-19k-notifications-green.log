@@ -1,0 +1,117 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write swift-version--58304C5D6DBC2206.txt
+[2/79] Compiling SpoonjoyCore PaginationCursor.swift
+[3/79] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[4/79] Compiling SpoonjoyCore ShoppingListAPI.swift
+[5/79] Compiling SpoonjoyCore ShoppingListRequests.swift
+[6/79] Compiling SpoonjoyCore AppNavigationState.swift
+[7/79] Compiling SpoonjoyCore AppRoute.swift
+[8/79] Compiling SpoonjoyCore DeepLinkRouter.swift
+[9/79] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[10/87] Compiling SpoonjoyCore TokenVault.swift
+[11/87] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[12/87] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[13/87] Compiling SpoonjoyCore NativeDurableCache.swift
+[14/87] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[15/87] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[16/87] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[17/87] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[18/87] Compiling SpoonjoyCore NativeAuthSession.swift
+[19/87] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[20/87] Compiling SpoonjoyCore OAuthPKCE.swift
+[21/87] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[22/87] Compiling SpoonjoyCore OAuthRequests.swift
+[23/87] Compiling SpoonjoyCore OAuthResponses.swift
+[24/87] Compiling SpoonjoyCore RefreshCoordinator.swift
+[25/87] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[26/87] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[27/87] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[28/87] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[29/87] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[30/87] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[31/87] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[32/87] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[33/87] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[34/87] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[35/87] Compiling SpoonjoyCore NativeSharePayload.swift
+[36/87] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[37/87] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[38/87] Compiling SpoonjoyCore CaptureDraft.swift
+[39/87] Compiling SpoonjoyCore CookModeProgress.swift
+[40/87] Compiling SpoonjoyCore KitchenFixtureState.swift
+[41/87] Compiling SpoonjoyCore SettingsState.swift
+[42/87] Compiling SpoonjoyCore ShoppingListState.swift
+[43/87] Compiling SpoonjoyCore DeepLinkManifest.swift
+[44/87] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[45/87] Compiling SpoonjoyCore NativeIntentAction.swift
+[46/87] Compiling SpoonjoyCore ScenarioCommand.swift
+[47/87] Compiling SpoonjoyCore ScenarioReport.swift
+[48/87] Compiling SpoonjoyCore ScenarioVerifier.swift
+[49/87] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[50/87] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[51/87] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[52/87] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[53/87] Compiling SpoonjoyCore ScreenViewModels.swift
+[54/87] Compiling SpoonjoyCore SearchState.swift
+[55/87] Compiling SpoonjoyCore AuthSessionState.swift
+[56/87] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[57/87] Compiling SpoonjoyCore KeychainTokenVault.swift
+[58/87] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[59/87] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[60/87] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[61/87] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[62/87] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[63/87] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[64/87] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[65/87] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[66/87] Compiling SpoonjoyCore APIClient.swift
+[67/87] Compiling SpoonjoyCore APIEnvelope.swift
+[68/87] Compiling SpoonjoyCore APIError.swift
+[69/87] Compiling SpoonjoyCore APIRequestBuilder.swift
+[70/87] Compiling SpoonjoyCore APIRequestSupport.swift
+[71/87] Compiling SpoonjoyCore APIRetryPolicy.swift
+[72/87] Compiling SpoonjoyCore APITransport.swift
+[73/87] Compiling SpoonjoyCore JSONValue.swift
+[74/87] Compiling SpoonjoyCore NativeAPIRequests.swift
+[75/87] Emitting module SpoonjoyCore
+[76/87] Compiling SpoonjoyCore JSONFileStore.swift
+[77/87] Compiling SpoonjoyCore MutationQueue.swift
+[78/87] Compiling SpoonjoyCore OfflineSnapshot.swift
+[79/87] Compiling SpoonjoyCore SyncCheckpoint.swift
+[80/87] Compiling SpoonjoyCore RecipeCookbook.swift
+[81/87] Compiling SpoonjoyCore SpoonjoyCore.swift
+[82/87] Compiling SpoonjoyCore NativeSyncEngine.swift
+[83/87] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[84/89] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[85/89] Emitting module SpoonjoyScenarioVerifier
+[86/89] Compiling SpoonjoyScenarioVerifier main.swift
+[86/88] Linking SpoonjoyScenarioVerifier
+[87/88] Applying SpoonjoyScenarioVerifier
+Build complete! (3.99s)
+Test Suite 'Selected tests' started at 2026-06-28 04:22:41.892.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-06-28 04:22:41.893.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-06-28 04:22:41.893.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-06-28 04:22:41.893.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native notification preferences and APNs surface parity" started.
+◇ Test "source scanners strip comments and preserve strings only for string-allowed checks" started.
+◇ Test "notification APNs surface exists as a first-class native feature" started.
+◇ Test "production APNs registration is blocked until Apple Developer Program capability exists" started.
+◇ Test "APNs action boundary queues only after a system device token exists" started.
+◇ Test "production APNs delivery is represented only by the Apple Developer Program blocker" started.
+◇ Test "offline cached notification preferences and APNs status restore into the native surface" started.
+◇ Test "APNs register and revoke request builders use exact native REST contracts" started.
+✔ Test "offline cached notification preferences and APNs status restore into the native surface" passed after 0.001 seconds.
+✔ Test "source scanners strip comments and preserve strings only for string-allowed checks" passed after 0.001 seconds.
+✔ Test "production APNs registration is blocked until Apple Developer Program capability exists" passed after 0.003 seconds.
+✔ Test "APNs action boundary queues only after a system device token exists" passed after 0.003 seconds.
+✔ Test "APNs register and revoke request builders use exact native REST contracts" passed after 0.003 seconds.
+✔ Test "notification APNs surface exists as a first-class native feature" passed after 0.367 seconds.
+✔ Test "production APNs delivery is represented only by the Apple Developer Program blocker" passed after 0.899 seconds.
+✔ Suite "Native notification preferences and APNs surface parity" passed after 0.899 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.899 seconds.

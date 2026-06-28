@@ -25,7 +25,9 @@ public enum NativeAuthSession {
         "kitchen:read",
         "kitchen:write",
         "shopping_list:read",
-        "shopping_list:write"
+        "shopping_list:write",
+        "account:read",
+        "account:write"
     ]
     public static let defaultScope = defaultScopes.joined(separator: " ")
     public static let lifecycleOperations = ["startSignIn", "handleOAuthCallback", "restoreState", "revokeAndLogout"]

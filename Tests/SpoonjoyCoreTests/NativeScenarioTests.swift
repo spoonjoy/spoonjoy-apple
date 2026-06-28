@@ -23,7 +23,8 @@ struct NativeScenarioTests {
         "capture-recipe-json-ld",
         "capture-recipe-video-url",
         "recipe-import-submit",
-        "share-recipe"
+        "share-recipe",
+        "share-cookbook"
     ]
     private let expectedOfflineFlows = [
         "fixture-offline-restore",
@@ -44,6 +45,9 @@ struct NativeScenarioTests {
         "https://spoonjoy.app/recipes/{id}?mode=cook",
         "https://spoonjoy.app/cookbooks",
         "https://spoonjoy.app/cookbooks/{id}",
+        "https://spoonjoy.app/users/{identifier}",
+        "https://spoonjoy.app/users/{identifier}/fellow-chefs?page={page}",
+        "https://spoonjoy.app/users/{identifier}/kitchen-visitors?page={page}",
         "https://spoonjoy.app/shopping-list",
         "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
         "https://spoonjoy.app/recipes/new",
@@ -57,6 +61,9 @@ struct NativeScenarioTests {
         "spoonjoy://recipes/new/edit",
         "spoonjoy://cookbooks",
         "spoonjoy://cookbooks/{id}",
+        "spoonjoy://users/{identifier}",
+        "spoonjoy://users/{identifier}/fellow-chefs?page={page}",
+        "spoonjoy://users/{identifier}/kitchen-visitors?page={page}",
         "spoonjoy://shopping-list",
         "spoonjoy://search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
         "spoonjoy://capture",
@@ -246,18 +253,20 @@ struct NativeScenarioTests {
         let recipes = try RecipeFixtureCatalog.decodeFromBundle().recipes
         let cookbooks = try CookbookFixtureCatalog.decodeFromBundle().cookbooks
         let shoppingList = try ShoppingListState.decodeFromBundle()
+        let scope = SpotlightIndexScope(accountID: "chef_ari", environment: .production)
         let documents = SpotlightIndexPlan.documents(
             recipes: recipes,
             cookbooks: cookbooks,
-            shoppingList: shoppingList
+            shoppingList: shoppingList,
+            scope: scope
         )
-        let recipe = try #require(documents.first { $0.uniqueIdentifier == "recipe:recipe_lemon_pantry_pasta" })
-        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "cookbook:cookbook_weeknights" })
-        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "shopping-list-item:item_lemons" })
+        let recipe = try #require(documents.first { $0.uniqueIdentifier == "production|chef_ari|recipe|recipe_lemon_pantry_pasta" })
+        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "production|chef_ari|cookbook|cookbook_weeknights" })
+        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "production|chef_ari|shopping-list-item|item_lemons" })
 
         #expect(documents.count == recipes.count + cookbooks.count + shoppingList.activeItems.count)
         #expect(recipe.type == .recipe)
-        #expect(recipe.domainIdentifier == "app.spoonjoy.recipe")
+        #expect(recipe.domainIdentifier == "app.spoonjoy.production.chef_ari.recipe")
         #expect(recipe.title == "Lemon Pantry Pasta")
         #expect(recipe.contentDescription.contains("ari"))
         #expect(recipe.keywords.contains("Spoonjoy"))
@@ -266,19 +275,22 @@ struct NativeScenarioTests {
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: recipe.uniqueIdentifier) == recipe.route)
         #expect(DeepLinkURLBuilder.url(for: recipe.route) == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
         #expect(cookbook.type == .cookbook)
-        #expect(cookbook.domainIdentifier == "app.spoonjoy.cookbook")
+        #expect(cookbook.domainIdentifier == "app.spoonjoy.production.chef_ari.cookbook")
         #expect(cookbook.contentDescription.contains("2 recipes"))
         #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: cookbook.uniqueIdentifier) == cookbook.route)
         #expect(DeepLinkURLBuilder.url(for: cookbook.route) == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
         #expect(shoppingItem.type == .shoppingListItem)
-        #expect(shoppingItem.domainIdentifier == "app.spoonjoy.shopping-list-item")
+        #expect(shoppingItem.domainIdentifier == "app.spoonjoy.production.chef_ari.shopping-list-item")
         #expect(shoppingItem.title == "lemons")
         #expect(shoppingItem.contentDescription.contains("Shopping list"))
         #expect(shoppingItem.route == .shoppingList)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: shoppingItem.uniqueIdentifier) == .shoppingList)
         #expect(DeepLinkURLBuilder.url(for: shoppingItem.route) == URL(string: "spoonjoy://shopping-list"))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "recipe:recipe_lemon_pantry_pasta") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "recipe:../secret") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "cookbook:../secret") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|chef_ari|shopping-list-item|../secret") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "unknown:item") == .unknownLink)
     }
 
@@ -376,15 +388,48 @@ struct NativeScenarioTests {
             updatedAt: "2026-06-16T14:08:00.000Z"
         )
 
-        let servingsDocument = SpotlightIndexPlan.document(recipe: servingRecipe)
-        let readyDocument = SpotlightIndexPlan.document(recipe: readyRecipe)
-        let cookbookDocument = SpotlightIndexPlan.document(cookbook: cookbook)
-        let shoppingDocument = SpotlightIndexPlan.document(shoppingListItem: shoppingItem)
+        let scope = SpotlightIndexScope(accountID: "chef fallback@example.com", environment: .local)
+        let servingsDocument = SpotlightIndexPlan.document(recipe: servingRecipe, scope: scope)
+        let readyDocument = SpotlightIndexPlan.document(recipe: readyRecipe, scope: scope)
+        let cookbookDocument = SpotlightIndexPlan.document(cookbook: cookbook, scope: scope)
+        let shoppingDocument = SpotlightIndexPlan.document(shoppingListItem: shoppingItem, scope: scope)
 
         #expect(servingsDocument.contentDescription.contains("1 bowl"))
+        #expect(servingsDocument.uniqueIdentifier == "local|chef-fallback-example-com|recipe|recipe_spotlight_servings")
+        #expect(servingsDocument.domainIdentifier == "app.spoonjoy.local.chef-fallback-example-com.recipe")
         #expect(readyDocument.contentDescription.contains("Ready to cook in Spoonjoy."))
         #expect(cookbookDocument.contentDescription.contains("1 recipe"))
         #expect(shoppingDocument.keywords.contains("shopping"))
+    }
+
+    @Test("shell content exposes spotlight scope only for bound signed in accounts")
+    func shellContentExposesSpotlightScopeOnlyForBoundSignedInAccounts() throws {
+        let signedOut = NativeShellContentState.empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        let session = try AuthSession(
+            clientID: "client_spotlight_scope",
+            accessToken: "sj_access_spotlight_scope",
+            refreshToken: "sj_refresh_spotlight_scope",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 1_800_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        )
+        let signedIn = NativeShellContentState.empty(
+            authSessionState: .authenticated(session),
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        let scope = try #require(signedIn.spotlightIndexScope)
+
+        #expect(signedOut.spotlightIndexScope == nil)
+        #expect(scope.identifierPrefix == "production|chef_ari")
+        #expect(scope.domainPrefix == "app.spoonjoy.production.chef_ari")
     }
 
     @Test("surfaces report proves kitchen recipe cook and shopping slices")
@@ -462,7 +507,7 @@ struct NativeScenarioTests {
     }
 
     @Test("surface behavioral checks fail closed for missing or throwing fixture data")
-    func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() {
+    func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() throws {
         let defaultRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck()
         let defaultShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck()
         let staleShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(selectedItemID: "item_missing")
@@ -507,6 +552,69 @@ struct NativeScenarioTests {
         let throwingShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(loadShoppingList: {
             throw FixtureLoadError.unavailable
         })
+        let throwingCookbookDetailCheck = ScenarioVerifier.cookbookDetailCheck(loadCookbook: {
+            throw FixtureLoadError.unavailable
+        })
+        let missingCookbookDetailCheck = ScenarioVerifier.cookbookDetailCheck(loadCookbook: {
+            try ScenarioVerifier.scenarioCookbook(from: [])
+        })
+        let throwingCookbookOwnerToolsCheck = ScenarioVerifier.cookbookOwnerToolsCheck(loadCookbook: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookCreateCheck = ScenarioVerifier.cookbookCreateCheck(rootURL: URL(fileURLWithPath: FileManager.default.currentDirectoryPath), planBuilder: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookRenameCheck = ScenarioVerifier.cookbookRenameCheck(viewModel: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookDeleteCheck = ScenarioVerifier.cookbookDeleteCheck(viewModel: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookAddRecipeCheck = ScenarioVerifier.cookbookAddRecipeCheck(viewModel: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsProfileCheck = ScenarioVerifier.settingsProfileUpdateCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsTokenCheck = ScenarioVerifier.settingsTokenCreateOnlineOnlyCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsConnectionCheck = ScenarioVerifier.settingsConnectionDisconnectOnlineOnlyCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsHandoffCheck = ScenarioVerifier.settingsSecureHandoffCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let weakSettingsProfileCheck = ScenarioVerifier.settingsProfileUpdateCheck(planBuilder: { _ in
+            SettingsActionPlan()
+        })
+        let weakSettingsTokenCheck = ScenarioVerifier.settingsTokenCreateOnlineOnlyCheck(planBuilder: { _ in
+            SettingsActionPlan()
+        })
+        let weakSettingsConnectionCheck = ScenarioVerifier.settingsConnectionDisconnectOnlineOnlyCheck(planBuilder: { _ in
+            SettingsActionPlan()
+        })
+        let weakSettingsHandoffCheck = ScenarioVerifier.settingsSecureHandoffCheck(planBuilder: { _ in
+            (nil, nil)
+        })
+        let baseCookbook = try #require(CookbookFixtureCatalog.decodeFromBundle().cookbooks.first)
+        let emptyCookbook = Cookbook(
+            id: baseCookbook.id,
+            title: baseCookbook.title,
+            chef: baseCookbook.chef,
+            recipeCount: 0,
+            cover: baseCookbook.cover,
+            href: baseCookbook.href,
+            canonicalURL: baseCookbook.canonicalURL,
+            attribution: baseCookbook.attribution,
+            createdAt: baseCookbook.createdAt,
+            updatedAt: baseCookbook.updatedAt,
+            recipes: []
+        )
+        let emptyCookbookRemoveCheck = ScenarioVerifier.cookbookRemoveRecipeCheck(loadCookbook: { emptyCookbook })
+        let throwingCookbookRemoveCheck = ScenarioVerifier.cookbookRemoveRecipeCheck(loadCookbook: {
+            throw FixtureLoadError.unavailable
+        })
 
         #expect(defaultRecipeCheck.status == .pass)
         #expect(defaultShoppingCheck.status == .pass)
@@ -528,6 +636,36 @@ struct NativeScenarioTests {
         #expect(missingShoppingCheck.detail.contains("no active checkoff items"))
         #expect(throwingShoppingCheck.status == .fail)
         #expect(throwingShoppingCheck.detail.contains("failed"))
+        #expect(throwingCookbookDetailCheck.status == .fail)
+        #expect(throwingCookbookDetailCheck.detail.contains("Cookbook detail failed"))
+        #expect(missingCookbookDetailCheck.status == .fail)
+        #expect(missingCookbookDetailCheck.detail.contains("Cookbook detail failed"))
+        #expect(throwingCookbookOwnerToolsCheck.status == .fail)
+        #expect(throwingCookbookOwnerToolsCheck.detail.contains("Cookbook owner tools failed"))
+        #expect(throwingCookbookCreateCheck.status == .fail)
+        #expect(throwingCookbookCreateCheck.detail.contains("Cookbook create failed"))
+        #expect(throwingCookbookRenameCheck.status == .fail)
+        #expect(throwingCookbookRenameCheck.detail.contains("Cookbook rename failed"))
+        #expect(throwingCookbookDeleteCheck.status == .fail)
+        #expect(throwingCookbookDeleteCheck.detail.contains("Cookbook delete failed"))
+        #expect(throwingCookbookAddRecipeCheck.status == .fail)
+        #expect(throwingCookbookAddRecipeCheck.detail.contains("Cookbook add recipe failed"))
+        #expect(throwingSettingsProfileCheck.status == .fail)
+        #expect(throwingSettingsProfileCheck.detail.contains("Settings profile update failed"))
+        #expect(throwingSettingsTokenCheck.status == .fail)
+        #expect(throwingSettingsTokenCheck.detail.contains("Settings token create failed"))
+        #expect(throwingSettingsConnectionCheck.status == .fail)
+        #expect(throwingSettingsConnectionCheck.detail.contains("Settings connection disconnect failed"))
+        #expect(throwingSettingsHandoffCheck.status == .fail)
+        #expect(throwingSettingsHandoffCheck.detail.contains("Settings secure handoff failed"))
+        #expect(weakSettingsProfileCheck.status == .fail)
+        #expect(weakSettingsTokenCheck.status == .fail)
+        #expect(weakSettingsConnectionCheck.status == .fail)
+        #expect(weakSettingsHandoffCheck.status == .fail)
+        #expect(emptyCookbookRemoveCheck.status == .fail)
+        #expect(emptyCookbookRemoveCheck.detail.contains("no removable recipe"))
+        #expect(throwingCookbookRemoveCheck.status == .fail)
+        #expect(throwingCookbookRemoveCheck.detail.contains("Cookbook remove recipe failed"))
     }
 
     @Test("final behavioral checks fail closed for weak settings offline and link safety")
@@ -694,6 +832,7 @@ struct NativeScenarioTests {
             "indexSearchableItems",
             "SpotlightIndexPlan",
             "SpotlightIndexDocument",
+            "SpotlightIndexScope",
             "SpotlightIndexType",
             "shoppingListItem"
         ] {
@@ -705,6 +844,8 @@ struct NativeScenarioTests {
         #expect(spotlightSource.contains("import CoreSpotlight"))
         #expect(spotlightSource.contains("import SpoonjoyCore"))
         #expect(spotlightSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
+        #expect(spotlightSource.contains("deleteAllSearchableItems"))
+        #expect(spotlightSource.contains("replaceAll(documents:"))
         #expect(rootViewSource.contains("import CoreSpotlight"))
         #expect(rootViewSource.contains("onContinueUserActivity(CSSearchableItemActionType)"))
         #expect(rootViewSource.contains("CSSearchableItemActivityIdentifier"))
@@ -713,11 +854,80 @@ struct NativeScenarioTests {
         #expect(rootViewSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(!rootViewSource.contains("native-app-snapshot.json"))
         #expect(platformNavigationSource.contains(".task(id: spotlightIndexIdentity)"))
-        #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().index("))
+        #expect(platformNavigationSource.contains("contentState.spotlightIndexScope"))
+        #expect(platformNavigationSource.contains("document.contentDescription"))
+        #expect(platformNavigationSource.contains("document.keywords"))
+        #expect(platformNavigationSource.contains("spotlightIdentityComponent"))
+        #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
         try assertSwiftSourceTypechecks(appIntentsPath)
         try assertSwiftSourceTypechecks(spotlightPath)
+    }
+
+    @Test("AASA validation requires app IDs and every deep link route component")
+    func aasaValidationRequiresAppIDsAndEveryDeepLinkRouteComponent() throws {
+        try withTemporaryDirectory { directory in
+            let completeFixture = directory.appendingPathComponent("complete-aasa.json")
+            let missingComponentFixture = directory.appendingPathComponent("missing-component-aasa.json")
+            let validRoot = directory.appendingPathComponent("valid", isDirectory: true)
+            let missingRoot = directory.appendingPathComponent("missing", isDirectory: true)
+            let nonSuccessfulRoot = directory.appendingPathComponent("non-successful", isDirectory: true)
+            let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
+
+            try """
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            """.write(to: completeFixture, atomically: true, encoding: .utf8)
+            try """
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
+            """.write(to: missingComponentFixture, atomically: true, encoding: .utf8)
+
+            let valid = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", validRoot.path],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": completeFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let missing = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", missingRoot.path],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": missingComponentFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let nonSuccessful = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", nonSuccessfulRoot.path],
+                environment: [
+                    "SPOONJOY_AASA_FIXTURE_PATH": completeFixture.path,
+                    "SPOONJOY_AASA_FIXTURE_STATUS": "404"
+                ],
+                currentDirectoryURL: repoURL
+            )
+            let missingBlocker = try String(
+                contentsOf: missingRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+            let nonSuccessfulBlocker = try String(
+                contentsOf: nonSuccessfulRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+
+            #expect(valid.exitCode == 0)
+            #expect(valid.output.contains("aasa validation ok"))
+            #expect(FileManager.default.fileExists(atPath: validRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(!FileManager.default.fileExists(atPath: validRoot.appendingPathComponent("aasa-production-blocker.json").path))
+            #expect(missing.exitCode == 0)
+            #expect(missing.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: missingRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(missingBlocker.contains(#""capability": "AASAProductionValidation""#))
+            #expect(missingBlocker.contains("AASA endpoint is missing required route components."))
+            #expect(missingBlocker.contains(#""/": "/account/settings""#))
+            #expect(nonSuccessful.exitCode == 0)
+            #expect(nonSuccessful.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: nonSuccessfulRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(nonSuccessfulBlocker.contains("AASA endpoint returned HTTP 404"))
+            #expect(nonSuccessfulBlocker.contains(#""successfulStatus": false"#))
+        }
     }
 
     @Test("verify native scenarios script gates native metadata behavior")

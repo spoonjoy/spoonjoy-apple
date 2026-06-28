@@ -20,20 +20,30 @@ end
 
 fail_check("at least one --log is required") if options[:logs].empty?
 
-warning_lines = []
+diagnostic_lines = []
+diagnostic_patterns = [
+  /\bwarning:/i,
+  /\berror:/i,
+  /\bFAIL:/,
+  /An error was encountered processing the command/i,
+  /Underlying error/i,
+  /\bfailed to\b/i,
+  /\bfatal error:/i,
+  /\buncaught exception\b/i
+].freeze
 
 options[:logs].each do |log_path|
   path = Pathname.new(log_path)
   fail_check("warning log is missing: #{path}") unless path.file?
 
   path.each_line.with_index(1) do |line, number|
-    warning_lines << "#{path}:#{number}: #{line.chomp}" if line.match?(/\bwarning:/i)
+    diagnostic_lines << "#{path}:#{number}: #{line.chomp}" if diagnostic_patterns.any? { |pattern| line.match?(pattern) }
   end
 end
 
-if warning_lines.any?
-  warn "FAIL: warnings found"
-  warning_lines.each { |line| warn line }
+if diagnostic_lines.any?
+  warn "FAIL: warnings or error diagnostics found"
+  diagnostic_lines.each { |line| warn line }
   exit 1
 end
 

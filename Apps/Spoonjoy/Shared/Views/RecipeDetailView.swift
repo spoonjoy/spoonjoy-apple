@@ -298,8 +298,8 @@ struct RecipeDetailView: View {
                     }
                     .buttonStyle(.bordered)
                 }
-                if hasAction(.share) {
-                    ShareLink(item: viewModel.actions.shareURL) {
+                if hasAction(.share), let shareURL = viewModel.actions.sharePayload?.publicURL {
+                    ShareLink(item: shareURL) {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
                 }

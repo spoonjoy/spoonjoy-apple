@@ -125,13 +125,14 @@ fi
 
 udid="${destination##*,id=}"
 app_path="$derived_data_path/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
-build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination '$destination' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
+build_destination="generic/platform=iOS Simulator"
+build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination '$build_destination' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
 build_command=(
   xcodebuild
   -project Spoonjoy.xcodeproj
   -scheme "Spoonjoy iOS"
   -configuration BootstrapDebug
-  -destination "$destination"
+  -destination "$build_destination"
   -derivedDataPath "$derived_data_path"
   CODE_SIGNING_ALLOWED=NO
   GCC_TREAT_WARNINGS_AS_ERRORS=YES
@@ -152,14 +153,19 @@ if [[ "$build_status" -ne 0 ]]; then
   exit "$build_status"
 fi
 
-{
-  printf 'Booting simulator: %s %s\n' "$boot_command" "$udid"
-  set +e
-  run_with_timeout "$boot_command $udid || xcrun simctl bootstatus $udid -b"
-  boot_status=$?
-  set -e
-  printf 'simulator boot exit code: %s\n' "$boot_status"
-} >> "$log_path" 2>&1
+boot_log="$(mktemp)"
+printf 'Booting simulator: %s %s\n' "$boot_command" "$udid" >> "$log_path"
+set +e
+run_with_timeout "$boot_command $udid || xcrun simctl bootstatus $udid -b" > "$boot_log" 2>&1
+boot_status=$?
+set -e
+if [[ "$boot_status" -ne 0 ]] || ! grep -q "Unable to boot device in current state: Booted" "$boot_log"; then
+  cat "$boot_log" >> "$log_path"
+else
+  printf 'Simulator was already booted; suppressed benign CoreSimulator boot diagnostic.\n' >> "$log_path"
+fi
+printf 'simulator boot exit code: %s\n' "$boot_status" >> "$log_path"
+rm -f "$boot_log"
 
 if [[ "$boot_status" -ne 0 ]]; then
   write_blocker \

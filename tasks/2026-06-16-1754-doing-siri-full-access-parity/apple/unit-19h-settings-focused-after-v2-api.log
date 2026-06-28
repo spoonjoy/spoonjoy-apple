@@ -1,0 +1,20 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native settings profile tokens and connections parity" started.
+◇ Test "profile and notification actions plan exact REST requests with offline queue fallbacks" started.
+◇ Test "settings UI and scenario verifier expose native sections instead of web handoff placeholders" started.
+◇ Test "settings surface exposes signed-in account state, signed-out handoff, tokens, connections, and conflicts" started.
+◇ Test "profile photo staging follows web allowlist and preserves existing draft on rejected replacement" started.
+◇ Test "tokens connections logout and credential handoffs are online-only while offline" started.
+◇ Test "live and snapshot repositories read the same account settings API surface" started.
+◇ Test "account settings decoder accepts legacy passkeys without created timestamps" started.
+✔ Test "profile photo staging follows web allowlist and preserves existing draft on rejected replacement" passed after 0.001 seconds.
+✔ Test "account settings decoder accepts legacy passkeys without created timestamps" passed after 0.001 seconds.
+✔ Test "settings surface exposes signed-in account state, signed-out handoff, tokens, connections, and conflicts" passed after 0.001 seconds.
+✔ Test "live and snapshot repositories read the same account settings API surface" passed after 0.001 seconds.
+✔ Test "tokens connections logout and credential handoffs are online-only while offline" passed after 0.003 seconds.
+✔ Test "profile and notification actions plan exact REST requests with offline queue fallbacks" passed after 0.003 seconds.
+✔ Test "settings UI and scenario verifier expose native sections instead of web handoff placeholders" passed after 0.016 seconds.
+✔ Suite "Native settings profile tokens and connections parity" passed after 0.016 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.016 seconds.

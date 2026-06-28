@@ -64,8 +64,11 @@ struct NativeCacheFreshnessTests {
         #expect(emptyRecord.metadata.domain == .settings)
         #expect(emptyRecord.payload == .empty)
         #expect(snapshot.record(for: .recipeDetail(id: "recipe_lemon_pantry_pasta"))?.metadata.serverRevision == .etag("\"recipe-detail-v7\""))
+        #expect(snapshot.record(for: .searchResults(query: "lemon", scope: .all))?.payload == .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: validatedAt)))
+        #expect(snapshot.record(for: .searchResults(query: "lemon", scope: .recipes))?.payload == .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: validatedAt, scope: .recipes)))
         #expect(NativeDurableCacheSnapshot.recordLookupSignature == "record(for:")
         #expect(!NativeDurableCacheSnapshot.offlineProductContractEndpoints.isEmpty)
+        #expect(NativeDurableCacheSnapshot.offlineProductContractEndpoints.contains("/api/v1/search"))
 
         let allDomains: [NativeCacheDomain] = [
             .accountBootstrap,
@@ -84,10 +87,12 @@ struct NativeCacheFreshnessTests {
             .apnsStatus,
             .spoonList(recipeID: "recipe_lemon_pantry_pasta"),
             .cookModeBackingData(recipeID: "recipe_lemon_pantry_pasta"),
-            .searchResults(query: "lemon"),
+            .searchResults(query: "lemon", scope: .all),
+            .searchResults(query: "lemon", scope: .recipes),
             .stagedMedia(id: "stage_photo_1")
         ]
         #expect(Set(allDomains.map(\.stableRecordID)).count == allDomains.count)
+        #expect(NativeCacheDomain.searchResults(query: "lemon", scope: .all).stableRecordID != NativeCacheDomain.searchResults(query: "lemon", scope: .recipes).stableRecordID)
 
         let queue = try MutationQueue().appending(
             QueuedMutation(
@@ -783,7 +788,9 @@ private func directProductContractRecords(fetchedAt: Date, lastValidatedAt: Date
         try directRecord(domain: .notificationPreferences, sourceEndpoint: "/api/v1/me/notification-preferences", serverRevision: .etag("\"notification-preferences-v1\""), payload: .notificationPreferences(marketingEnabled: false, cookingRemindersEnabled: true), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try directRecord(domain: .tokenMetadata, sourceEndpoint: "/api/v1/tokens", serverRevision: .etag("\"token-metadata-v2\""), payload: .tokenMetadata(credentials: [NativeTokenMetadata(id: "cred_1", name: "Kitchen iPad", scopes: ["recipes:read"])]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try directRecord(domain: .connectionStatus, sourceEndpoint: "/api/v1/me/connections", serverRevision: .etag("\"connections-v1\""), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_google", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
-        try directRecord(domain: .apnsStatus, sourceEndpoint: "/api/v1/me/apns-devices", serverRevision: .etag("\"apns-v1\""), payload: .apnsStatus(deviceID: "device_ios_1", registrationState: .registered), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+        try directRecord(domain: .apnsStatus, sourceEndpoint: "/api/v1/me/apns-devices", serverRevision: .etag("\"apns-v1\""), payload: .apnsStatus(deviceID: "device_ios_1", registrationState: .registered), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .searchResults(query: "lemon", scope: .all), sourceEndpoint: "/api/v1/search", serverRevision: .cursor("search-v1"), payload: .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try directRecord(domain: .searchResults(query: "lemon", scope: .recipes), sourceEndpoint: "/api/v1/search", serverRevision: .cursor("search-recipes-v1"), payload: .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt, scope: .recipes)), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
     ]
 }
 
@@ -830,6 +837,37 @@ private func directRecord(
             lastValidatedAt: lastValidatedAt
         ),
         payload: payload
+    )
+}
+
+private func searchSurfaceSnapshot(fetchedAt: Date, lastValidatedAt: Date, scope: SearchScope = .all) -> SearchSurfaceCacheSnapshot {
+    SearchSurfaceCacheSnapshot(
+        accountID: "chef_ari",
+        environment: .production,
+        query: "lemon",
+        scope: scope,
+        limit: 20,
+        results: [
+            SearchSurfaceResult(
+                type: .recipe,
+                id: "recipe_lemon_pantry_pasta",
+                ownerID: "chef_ari",
+                ownerUsername: "ari",
+                title: "Lemon Pantry Pasta",
+                subtitle: "Recipe by ari",
+                snippet: "cached search results",
+                href: "/recipes/recipe_lemon_pantry_pasta",
+                canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")!,
+                imageURL: nil,
+                score: 0.9,
+                metadata: ["updatedAt": .string("2026-06-16T11:58:00.000Z")]
+            )
+        ],
+        recentSearches: [
+            SearchSurfaceRecentQuery(query: "lemon", scope: .all, lastSearchedAt: fetchedAt)
+        ],
+        serverRevision: .cursor("search-v1"),
+        lastValidatedAt: lastValidatedAt
     )
 }
 
@@ -887,8 +925,12 @@ struct NativeCacheBehaviorContract {
         #expect(restored.accountID == "chef_ari")
         #expect(restored.environment == .production)
         #expect(restored.records.map(\.metadata.domain) == expectedDomains)
+        #expect(NativeCacheDomain.searchResults(query: "lemon", scope: .all).stableRecordID != NativeCacheDomain.searchResults(query: "lemon", scope: .recipes).stableRecordID)
         #expect(restored.record(for: .recipeDetail(id: "recipe_lemon_pantry_pasta"))?.metadata.serverRevision == .etag("\"recipe-detail-v7\""))
         #expect(restored.record(for: .shoppingList)?.metadata.serverRevision == .cursor("shopping-sync-cursor-v3"))
+        #expect(restored.record(for: .searchResults(query: "lemon", scope: .all))?.payload == .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)))
+        #expect(restored.record(for: .searchResults(query: "lemon", scope: .recipes))?.payload == .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt, scope: .recipes)))
+        #expect(NativeDurableCacheSnapshot.offlineProductContractEndpoints.contains("/api/v1/search"))
         for record in restored.records {
             #expect(record.metadata.accountID == "chef_ari")
             #expect(record.metadata.environment == .production)
@@ -980,7 +1022,7 @@ struct NativeCacheBehaviorContract {
         #expect(policy.threshold(for: .profile(id: "chef_ari")) == .hours(6))
         #expect(policy.threshold(for: .cookModeBackingData(recipeID: "recipe_lemon_pantry_pasta")) == .hours(6))
         #expect(policy.threshold(for: .recipeCatalog) == .hours(24))
-        #expect(policy.threshold(for: .searchResults(query: "lemon")) == .hours(24))
+        #expect(policy.threshold(for: .searchResults(query: "lemon", scope: .all)) == .hours(24))
         #expect(policy.threshold(for: .cookProgress(recipeID: "recipe_lemon_pantry_pasta")) == .locallyAuthoritative)
         #expect(policy.threshold(for: .captureDraft(id: "capture_1")) == .locallyAuthoritative)
         #expect(policy.threshold(for: .stagedMedia(id: "stage_photo_1")) == .locallyAuthoritative)
@@ -1166,7 +1208,9 @@ private let expectedDomains: [NativeCacheDomain] = [
     .notificationPreferences,
     .tokenMetadata,
     .connectionStatus,
-    .apnsStatus
+    .apnsStatus,
+    .searchResults(query: "lemon", scope: .all),
+    .searchResults(query: "lemon", scope: .recipes)
 ]
 
 private func productContractRecords(fetchedAt: Date, lastValidatedAt: Date) throws -> [NativeCacheRecord] {
@@ -1182,7 +1226,9 @@ private func productContractRecords(fetchedAt: Date, lastValidatedAt: Date) thro
         try record(domain: .notificationPreferences, sourceEndpoint: "/api/v1/me/notification-preferences", serverRevision: .etag("\"notification-preferences-v1\""), payload: .notificationPreferences(marketingEnabled: false, cookingRemindersEnabled: true), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try record(domain: .tokenMetadata, sourceEndpoint: "/api/v1/tokens", serverRevision: .etag("\"token-metadata-v2\""), payload: .tokenMetadata(credentials: [NativeTokenMetadata(id: "cred_1", name: "Kitchen iPad", scopes: ["recipes:read"])]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
         try record(domain: .connectionStatus, sourceEndpoint: "/api/v1/me/connections", serverRevision: .etag("\"connections-v1\""), payload: .connectionStatus(connections: [NativeConnectionStatus(id: "conn_google", provider: "google", status: .connected)]), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
-        try record(domain: .apnsStatus, sourceEndpoint: "/api/v1/me/apns-devices", serverRevision: .etag("\"apns-v1\""), payload: .apnsStatus(deviceID: "device_ios_1", registrationState: .registered), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
+        try record(domain: .apnsStatus, sourceEndpoint: "/api/v1/me/apns-devices", serverRevision: .etag("\"apns-v1\""), payload: .apnsStatus(deviceID: "device_ios_1", registrationState: .registered), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .searchResults(query: "lemon", scope: .all), sourceEndpoint: "/api/v1/search", serverRevision: .cursor("search-v1"), payload: .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt),
+        try record(domain: .searchResults(query: "lemon", scope: .recipes), sourceEndpoint: "/api/v1/search", serverRevision: .cursor("search-recipes-v1"), payload: .searchResults(searchSurfaceSnapshot(fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt, scope: .recipes)), fetchedAt: fetchedAt, lastValidatedAt: lastValidatedAt)
     ]
 }
 
@@ -1229,6 +1275,37 @@ private func record(
             lastValidatedAt: lastValidatedAt
         ),
         payload: payload
+    )
+}
+
+private func searchSurfaceSnapshot(fetchedAt: Date, lastValidatedAt: Date, scope: SearchScope = .all) -> SearchSurfaceCacheSnapshot {
+    SearchSurfaceCacheSnapshot(
+        accountID: "chef_ari",
+        environment: .production,
+        query: "lemon",
+        scope: scope,
+        limit: 20,
+        results: [
+            SearchSurfaceResult(
+                type: .recipe,
+                id: "recipe_lemon_pantry_pasta",
+                ownerID: "chef_ari",
+                ownerUsername: "ari",
+                title: "Lemon Pantry Pasta",
+                subtitle: "Recipe by ari",
+                snippet: "cached search results",
+                href: "/recipes/recipe_lemon_pantry_pasta",
+                canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")!,
+                imageURL: nil,
+                score: 0.9,
+                metadata: ["updatedAt": .string("2026-06-16T11:58:00.000Z")]
+            )
+        ],
+        recentSearches: [
+            SearchSurfaceRecentQuery(query: "lemon", scope: .all, lastSearchedAt: fetchedAt)
+        ],
+        serverRevision: .cursor("search-v1"),
+        lastValidatedAt: lastValidatedAt
     )
 }
 

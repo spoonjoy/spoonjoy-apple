@@ -62,7 +62,9 @@ struct NativeAuthSessionTests {
             "kitchen:read",
             "kitchen:write",
             "shopping_list:read",
-            "shopping_list:write"
+            "shopping_list:write",
+            "account:read",
+            "account:write"
         ]))
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
@@ -397,6 +399,10 @@ struct NativeAuthSessionTests {
         await expectKeychainStatus(errSecInteractionNotAllowed) {
             _ = try await vault.loadClientID()
         }
+        keychain.nextCopyStatus = errSecMissingEntitlement
+        await expectKeychainStatus(errSecMissingEntitlement) {
+            _ = try await vault.loadClientID()
+        }
 
         keychain.nextUpdateStatus = errSecAuthFailed
         await expectKeychainStatus(errSecAuthFailed) {
@@ -412,6 +418,24 @@ struct NativeAuthSessionTests {
         await expectKeychainStatus(errSecAuthFailed) {
             try await vault.clearClientID()
         }
+        keychain.nextDeleteStatus = errSecMissingEntitlement
+        await expectKeychainStatus(errSecMissingEntitlement) {
+            try await vault.clearClientID()
+        }
+
+        let unsignedLocalVault = KeychainTokenVault(
+            accessGroup: "group.spoonjoy.tests",
+            keychain: keychain,
+            allowsUnsignedLocalFallback: true
+        )
+        keychain.nextCopyStatus = errSecMissingEntitlement
+        #expect(try await unsignedLocalVault.loadClientID() == nil)
+        keychain.nextDeleteStatus = errSecMissingEntitlement
+        try await unsignedLocalVault.clearClientID()
+        keychain.nextUpdateStatus = errSecMissingEntitlement
+        await expectKeychainStatus(errSecMissingEntitlement) {
+            try await unsignedLocalVault.saveClientID("blocked-unsigned-update")
+        }
 
         let systemClient = SystemKeychainTokenVaultClient()
         var result: CFTypeRef?
@@ -420,6 +444,7 @@ struct NativeAuthSessionTests {
         #expect(systemClient.add([:]) != errSecSuccess)
         #expect(systemClient.delete([:]) != errSecSuccess)
         _ = KeychainTokenVault()
+        _ = KeychainTokenVault(allowsUnsignedLocalFallback: true)
     }
 
     @Test("refresh rotation revoke logout and restoration persist through native repository")
@@ -1131,7 +1156,7 @@ private func coverageTokenResponse(accessToken: String, refreshToken: String, ex
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write"
+          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
         }
         """#.utf8
     )
@@ -1532,7 +1557,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write",
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write",
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1574,7 +1599,7 @@ struct NativeAuthBehaviorContract {
             refreshToken: "ort_refresh_initial",
             tokenType: "Bearer",
             expiresAt: now.addingTimeInterval(-1),
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write"
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
         )
         try await vault.saveSession(expired)
         #expect(try await repository.restoreState() == .refreshRequired(expired))
@@ -1609,7 +1634,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write",
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write",
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1743,7 +1768,7 @@ private func tokenResponse(accessToken: String, refreshToken: String, expiresIn:
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write"
+          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
         }
         """#.utf8
     )

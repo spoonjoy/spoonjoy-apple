@@ -62,15 +62,8 @@ struct SpoonjoyRootView: View {
             platformNavigation(contentState: contentState)
         case .destructiveConfirmation(let contentState):
             platformNavigation(contentState: contentState)
-        case .syncFailed(let contentState, let message):
+        case .syncFailed(let contentState, _):
             platformNavigation(contentState: contentState)
-                .safeAreaInset(edge: .bottom) {
-                    Text(message)
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.tomato)
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                }
         }
     }
 
@@ -78,14 +71,12 @@ struct SpoonjoyRootView: View {
         if navigation.route == .settings {
             SettingsView(
                 viewModel: contentState.settingsViewModel,
+                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                shellOfflineIndicatorState: contentState.offlineIndicatorState,
                 onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
             )
-            .safeAreaInset(edge: .bottom) {
-                OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .background(KitchenTableTheme.bone.opacity(0.94))
-            }
+        } else if signedOutRouteUsesNativeShell(navigation.route) {
+            platformNavigation(contentState: contentState)
         } else {
             SignedOutSetupView(
                 authRepository: liveStore.authSessionRepository,
@@ -122,9 +113,25 @@ struct SpoonjoyRootView: View {
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },
+            executeSettingsActionRequest: { request, responseHandling in
+                try await liveStore.executeSettingsActionRequest(request, responseHandling: responseHandling)
+            },
             executeCaptureImportRequest: { request in
                 try await liveStore.executeCaptureImportRequest(request)
             },
+            performSettingsSessionOperation: { operation in
+                try await liveStore.performSettingsSessionOperation(operation)
+            },
+            requestNotificationPermission: {
+                try await NotificationAPNsDeviceBridge.shared.requestPermission()
+            },
+            requestDeviceRegistrationAction: { clientMutationID in
+                try await NotificationAPNsDeviceBridge.shared.registrationAction(clientMutationID: clientMutationID)
+            },
+            openNotificationSettings: {
+                NotificationAPNsDeviceBridge.shared.openNotificationSettings()
+            },
+            recordNotificationAPNsBlocker: liveStore.recordNotificationAPNsBlocker,
             recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
             recordCaptureDraft: liveStore.recordCaptureDraft,
@@ -132,8 +139,35 @@ struct SpoonjoyRootView: View {
             recordCaptureImportRetry: liveStore.recordCaptureImportRetry,
             recordCaptureImportBlocker: liveStore.recordCaptureImportBlocker,
             recordSpoonCookLogDraft: liveStore.recordSpoonCookLogDraft,
+            recordSearchSurfacePage: { page, identity in
+                try liveStore.recordSearchSurfacePage(page, expectedIdentity: identity)
+            },
+            searchSurfaceRepository: { context in
+                liveStore.searchSurfaceRepository(context: context)
+            },
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator
         )
+    }
+
+    private func signedOutRouteUsesNativeShell(_ route: AppRoute) -> Bool {
+        switch route {
+        case .recipes,
+             .recipeDetail,
+             .cookbooks,
+             .cookbookDetail,
+             .profile,
+             .profileGraph,
+             .search:
+            true
+        case .kitchen,
+             .recipeEditor,
+             .recipeCoverControls,
+             .shoppingList,
+             .capture,
+             .settings,
+             .unknownLink:
+            false
+        }
     }
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {
@@ -176,7 +210,16 @@ struct SpoonjoyRootView: View {
 
     private static func defaultDependencies() -> NativeLiveAppStoreDependencies {
         let configuration = APIClientConfiguration.spoonjoyProduction
-        let vault = KeychainTokenVault()
+        let environment = ProcessInfo.processInfo.environment
+#if DEBUG
+        let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? KeychainTokenVault()
+        let bootstrapMode: NativeLiveAppBootstrapMode = screenshotRestoreCacheOnlyEnabled(environment: environment)
+            ? .restoreCacheOnly
+            : .liveFirst
+#else
+        let vault: any TokenVault = KeychainTokenVault()
+        let bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
+#endif
         let authRepository = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple",
@@ -235,10 +278,54 @@ struct SpoonjoyRootView: View {
             },
             configuration: configuration,
             cacheEnvironment: .production,
+            settingsSurfaceFetch: { accountID, environment, configuration, cache in
+                try await LiveSettingsSurfaceRepository(
+                    cache: cache,
+                    configuration: configuration
+                ).fetchSettingsSurface(accountID: accountID, environment: environment)
+            },
             stagedMediaDirectory: stagedMediaDirectory,
+            bootstrapMode: bootstrapMode,
             now: Date.init
         )
     }
+
+#if DEBUG
+    private static func screenshotValidationTokenVault(environment: [String: String]) -> (any TokenVault)? {
+        guard truthy("SPOONJOY_SCREENSHOT_AUTH", in: environment) else {
+            return nil
+        }
+        let accountID = environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "chef_settings_capture"
+        guard let session = try? AuthSession(
+            clientID: "cm_screenshot_validation",
+            accessToken: "screenshot_access_token",
+            refreshToken: "screenshot_refresh_token",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: accountID
+        ) else {
+            return nil
+        }
+        return SpoonjoyScreenshotValidationTokenVault(
+            clientID: "cm_screenshot_validation",
+            session: session
+        )
+    }
+
+    private static func screenshotRestoreCacheOnlyEnabled(environment: [String: String]) -> Bool {
+        truthy("SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY", in: environment)
+    }
+
+    private static func truthy(_ key: String, in environment: [String: String]) -> Bool {
+        switch environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "1", "true", "yes":
+            true
+        default:
+            false
+        }
+    }
+#endif
 
     private static func defaultSyncStore(
         appDirectory: URL,
@@ -254,6 +341,42 @@ struct SpoonjoyRootView: View {
         }
     }
 }
+
+#if DEBUG
+private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
+    private var clientID: String?
+    private var session: AuthSession?
+
+    init(clientID: String, session: AuthSession) {
+        self.clientID = clientID
+        self.session = session
+    }
+
+    func loadClientID() async throws -> String? {
+        clientID
+    }
+
+    func saveClientID(_ clientID: String) async throws {
+        self.clientID = clientID
+    }
+
+    func clearClientID() async throws {
+        clientID = nil
+    }
+
+    func loadSession() async throws -> AuthSession? {
+        session
+    }
+
+    func saveSession(_ session: AuthSession) async throws {
+        self.session = session
+    }
+
+    func clearSession() async throws {
+        session = nil
+    }
+}
+#endif
 
 private enum OAuthURLSessionSupport {
     static func sendDecoded<Value: Decodable & Equatable>(

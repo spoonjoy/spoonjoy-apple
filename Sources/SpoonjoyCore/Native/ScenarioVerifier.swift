@@ -147,6 +147,17 @@ public enum ScenarioVerifier {
                 shoppingAddRecipeIngredientsCheck(),
                 shoppingRecipeCoverageCheck(),
                 shoppingClearConfirmationCheck(),
+                cookbookDetailCheck(),
+                cookbookOwnerToolsCheck(),
+                cookbookCreateCheck(rootURL: rootURL),
+                cookbookRenameCheck(),
+                cookbookDeleteCheck(),
+                cookbookAddRecipeCheck(),
+                cookbookRemoveRecipeCheck(),
+                profileDetailCheck(),
+                profileGraphCheck(direction: .fellowChefs),
+                profileGraphCheck(direction: .kitchenVisitors),
+                notificationAPNsSurfaceCheck(rootURL: rootURL),
                 sourceCheck(
                     name: "kitchen surface source",
                     detail: "Kitchen surface includes lead object, recipe index, and cookbook shelf.",
@@ -197,11 +208,18 @@ public enum ScenarioVerifier {
                     tokens: ["KitchenView(", "RecipesView(", "RecipeDetailRouteView(", "CookModeRouteView(", "LiveRecipeCatalogRepository", "FallbackRecipeCatalogRepository", "ShoppingListView(", "CookbooksView("]
                 ),
                 sourceCheck(
+                    name: "profile surface source",
+                    detail: "ProfileView.swift renders profile detail, profile graph, fellow chefs, and kitchen visitors without future discussion or feed surfaces.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Views/ProfileView.swift",
+                    tokens: ["ProfileRouteView", "ProfileView", "ProfileGraphRouteView", "ProfileHero", "ProfileRecipeShelf", "ProfileCookbookShelf", "RecentSpoonsSection", "FellowChefsSection", "KitchenVisitorsSection"]
+                ),
+                sourceCheck(
                     name: "search surface source",
-                    detail: "Search surface includes native searchable scopes and typed result rows.",
+                    detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows", "openChef(chef.username)"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
                     forbiddenTokens: [".searchable(", ".searchScopes("]
                 ),
                 sourceCheck(
@@ -307,6 +325,12 @@ public enum ScenarioVerifier {
                 searchCheck(),
                 captureDraftCreationCheck(),
                 settingsStateCheck(),
+                settingsTokenConnectionSurfaceCheck(),
+                settingsProfileUpdateCheck(),
+                settingsTokenCreateOnlineOnlyCheck(),
+                settingsConnectionDisconnectOnlineOnlyCheck(),
+                settingsSecureHandoffCheck(),
+                notificationAPNsSurfaceCheck(rootURL: rootURL),
                 offlineStatusCheck(),
                 safeUnknownLinkCheck(),
                 sourceCheck(
@@ -325,10 +349,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "search surface source",
-                    detail: "Search surface includes native searchable scopes and typed result rows.",
+                    detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows", "openChef(chef.username)"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
                     forbiddenTokens: [".searchable(", ".searchScopes("]
                 ),
                 sourceCheck(
@@ -382,10 +406,9 @@ public enum ScenarioVerifier {
                     tokens: [
                         "SearchView(",
                         "search: $search",
-                        "search.apply(route: .search(query: query, scope: scope))",
-                        "openChef: { username in",
-                        "search.update(query: username, scope: .chefs)",
-                        "navigation.navigate(to: search.route)",
+                        "search.apply(route: routeSearch.route)",
+                        "contentState.searchSurfaceViewModel",
+                        "performSearch(",
                         "CaptureDraftView(",
                         "recordCaptureDraft",
                         "discardCaptureDraft",
@@ -862,15 +885,399 @@ public enum ScenarioVerifier {
         )
     }
 
+    static func cookbookDetailCheck(loadCookbook: () throws -> Cookbook = scenarioCookbook) -> ScenarioCheck {
+        do {
+            let cookbook = try loadCookbook()
+            let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
+            let status: ScenarioCheckStatus = viewModel.id == cookbook.id &&
+                viewModel.title == cookbook.title &&
+                viewModel.recipes.map(\.id) == cookbook.recipes.map(\.id) &&
+                viewModel.sharePayload.publicURL == cookbook.canonicalURL ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook detail",
+                status: status,
+                detail: "Cookbook detail exposes recipe rows, native share payloads, and deep-link routes."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook detail", status: .fail, detail: "Cookbook detail failed: \(error)")
+        }
+    }
+
+    static func cookbookOwnerToolsCheck(
+        loadCookbook: () throws -> Cookbook = scenarioCookbook,
+        availableRecipe: () -> RecipeSummary = scenarioAvailableRecipe
+    ) -> ScenarioCheck {
+        do {
+            let cookbook = try loadCookbook()
+            let viewModel = scenarioCookbookDetailViewModel(
+                cookbook: cookbook,
+                availableRecipes: [availableRecipe()]
+            )
+            let visitor = scenarioCookbookDetailViewModel(
+                cookbook: cookbook,
+                availableRecipes: [availableRecipe()],
+                currentChefID: "chef_visitor"
+            )
+            let status: ScenarioCheckStatus = viewModel.ownerTools.isVisible &&
+                viewModel.availableActionIDs == [.share, .editTitle, .addRecipe, .removeRecipe, .deleteCookbook] &&
+                viewModel.ownerTools.availableRecipes.map(\.id) == ["scenario-shopping-recipe"] &&
+                !visitor.ownerTools.isVisible &&
+                visitor.availableActionIDs == [.share] ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook owner tools",
+                status: status,
+                detail: "Cookbook owner tools are visible only to the owning chef and include edit, add, remove, and delete actions."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook owner tools", status: .fail, detail: "Cookbook owner tools failed: \(error)")
+        }
+    }
+
+    static func cookbookCreateCheck(
+        rootURL: URL,
+        planBuilder: () throws -> CookbookSurfaceActionPlan = {
+            try CookbookCreatePlanner(
+                currentChefID: "chef_ari",
+                queuedMutations: [],
+                connectivity: .online,
+                timestamp: { "2026-06-16T12:11:00.000Z" }
+            ).planCreate(title: " Scenario Suppers ", clientMutationID: "scenario-cookbook-create")
+        }
+    ) -> ScenarioCheck {
+        do {
+            let plan = try planBuilder()
+            let source = sourceCheck(
+                name: "cookbook create surface source",
+                detail: "Cookbook list exposes the native create sheet and list-level action planner.",
+                rootURL: rootURL,
+                relativePath: "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
+                tokens: ["CookbookCreateSheet", "planCreate", "performCookbookAction"]
+            )
+            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .cookbookCreate &&
+                plan.successRoute == .cookbooks &&
+                source.status == .pass ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook create",
+                status: status,
+                detail: "Cookbook list create plans a live REST write with a durable offline fallback."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook create", status: .fail, detail: "Cookbook create failed: \(error)")
+        }
+    }
+
+    static func cookbookRenameCheck(
+        viewModel: () throws -> CookbookDetailViewModel = {
+            try scenarioCookbookDetailViewModel(cookbook: scenarioCookbook())
+        }
+    ) -> ScenarioCheck {
+        do {
+            let plan = try viewModel()
+                .plan(.rename(title: " Scenario Dinner Parties ", clientMutationID: "scenario-cookbook-rename"))
+            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .cookbookUpdate &&
+                plan.updatedCookbook?.title == "Scenario Dinner Parties" ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook rename",
+                status: status,
+                detail: "Cookbook rename trims titles, previews the optimistic cookbook, and keeps an offline fallback."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook rename", status: .fail, detail: "Cookbook rename failed: \(error)")
+        }
+    }
+
+    static func cookbookDeleteCheck(
+        viewModel: () throws -> CookbookDetailViewModel = {
+            try scenarioCookbookDetailViewModel(cookbook: scenarioCookbook())
+        }
+    ) -> ScenarioCheck {
+        do {
+            let detailViewModel = try viewModel()
+            let prompt = try detailViewModel.plan(.deleteCookbook(
+                clientMutationID: "scenario-cookbook-delete",
+                confirmation: .required
+            ))
+            let confirmed = try detailViewModel.plan(.deleteCookbook(
+                clientMutationID: "scenario-cookbook-delete-confirmed",
+                confirmation: .confirmed
+            ))
+            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+                prompt.remoteRequestBuilder == nil &&
+                confirmed.offlineFallbackMutation?.queueableKind == .cookbookDelete &&
+                confirmed.successRoute == .cookbooks ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook delete",
+                status: status,
+                detail: "Cookbook delete requires native confirmation before producing a destructive mutation."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook delete", status: .fail, detail: "Cookbook delete failed: \(error)")
+        }
+    }
+
+    static func cookbookAddRecipeCheck(
+        availableRecipe: () -> RecipeSummary = scenarioAvailableRecipe,
+        viewModel: (RecipeSummary) throws -> CookbookDetailViewModel = { recipe in
+            try scenarioCookbookDetailViewModel(
+                cookbook: scenarioCookbook(),
+                availableRecipes: [recipe]
+            )
+        }
+    ) -> ScenarioCheck {
+        do {
+            let recipe = availableRecipe()
+            let plan = try viewModel(recipe).plan(.addRecipe(
+                recipeID: recipe.id,
+                clientMutationID: "scenario-cookbook-add-recipe"
+            ))
+            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .cookbookAddRecipe &&
+                plan.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == true ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook add recipe",
+                status: status,
+                detail: "Cookbook add recipe plans live and offline association writes from native owner tools."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook add recipe", status: .fail, detail: "Cookbook add recipe failed: \(error)")
+        }
+    }
+
+    static func cookbookRemoveRecipeCheck(
+        loadCookbook: () throws -> Cookbook = scenarioCookbook,
+        viewModel: (Cookbook) -> CookbookDetailViewModel = { cookbook in
+            scenarioCookbookDetailViewModel(cookbook: cookbook)
+        }
+    ) -> ScenarioCheck {
+        do {
+            let cookbook = try loadCookbook()
+            guard let recipe = cookbook.recipes.first else {
+                return ScenarioCheck(name: "cookbook remove recipe", status: .fail, detail: "Cookbook fixture has no removable recipe.")
+            }
+            let detailViewModel = viewModel(cookbook)
+            let prompt = try detailViewModel.plan(.removeRecipe(
+                recipeID: recipe.id,
+                clientMutationID: "scenario-cookbook-remove-recipe",
+                confirmation: .required
+            ))
+            let confirmed = try detailViewModel.plan(.removeRecipe(
+                recipeID: recipe.id,
+                clientMutationID: "scenario-cookbook-remove-recipe-confirmed",
+                confirmation: .confirmed
+            ))
+            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+                confirmed.remoteRequestBuilder != nil &&
+                confirmed.offlineFallbackMutation?.queueableKind == .cookbookRemoveRecipe &&
+                confirmed.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == false ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "cookbook remove recipe",
+                status: status,
+                detail: "Cookbook remove recipe confirms before removing the association and queues safely offline."
+            )
+        } catch {
+            return ScenarioCheck(name: "cookbook remove recipe", status: .fail, detail: "Cookbook remove recipe failed: \(error)")
+        }
+    }
+
+    private static func scenarioCookbook() throws -> Cookbook {
+        try scenarioCookbook(from: CookbookFixtureCatalog.decodeFromBundle().cookbooks)
+    }
+
+    static func scenarioCookbook(from cookbooks: [Cookbook]) throws -> Cookbook {
+        guard let cookbook = cookbooks.first else {
+            throw ScenarioVerifierError.missingFixture("cookbook")
+        }
+        return cookbook
+    }
+
+    private static func scenarioAvailableRecipe() -> RecipeSummary {
+        RecipeSummary(recipe: scenarioRecipe(ingredients: []))
+    }
+
+    private static func scenarioCookbookDetailViewModel(
+        cookbook: Cookbook,
+        availableRecipes: [RecipeSummary] = [],
+        currentChefID: String? = nil,
+        queuedMutations: [NativeQueuedMutation] = [],
+        conflicts: [NativeSyncConflict] = [],
+        connectivity: CookbookSurfaceConnectivity = .online
+    ) -> CookbookDetailViewModel {
+        CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .live(requestID: "scenario-cookbook-detail", validatedAt: Date(timeIntervalSince1970: 1_780_120_000)),
+                availableRecipes: availableRecipes
+            ),
+            context: CookbookSurfaceContext(currentChefID: currentChefID ?? cookbook.chef.id),
+            queuedMutations: queuedMutations,
+            conflicts: conflicts,
+            connectivity: connectivity,
+            now: { Date(timeIntervalSince1970: 1_780_120_000) },
+            timestamp: { "2026-06-16T12:11:00.000Z" }
+        )
+    }
+
+    static func profileDetailCheck() -> ScenarioCheck {
+        let profile = scenarioProfileData()
+        let viewModel = ProfileViewModel(
+            result: ProfileSurfaceResult(
+                data: profile,
+                source: .live(requestID: "scenario-profile", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
+            ),
+            context: ProfileSurfaceContext(currentChefID: profile.profile.id),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Date(timeIntervalSince1970: 1_780_120_000) }
+        )
+        let status: ScenarioCheckStatus = viewModel.openRoute == .profile(identifier: profile.profile.username) &&
+            viewModel.ownerActions.editProfileRoute == .settings &&
+            viewModel.sectionIDs == [.recipes, .cookbooks, .recentSpoons, .fellowChefs, .kitchenVisitors] &&
+            viewModel.unsupportedSocialSurfaces.isEmpty ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "profile detail",
+            status: status,
+            detail: "Profile detail exposes recipes, cookbooks, recent spoons, fellow chefs, and kitchen visitors without adding future discussion or feed surfaces."
+        )
+    }
+
+    static func profileGraphCheck(direction: ProfileGraphDirection) -> ScenarioCheck {
+        let profile = scenarioProfileData()
+        let page = ProfileGraphPage(
+            profile: ProfileGraphProfile(
+                id: profile.profile.id,
+                username: profile.profile.username,
+                href: profile.profile.href,
+                canonicalURL: profile.profile.canonicalURL
+            ),
+            direction: direction,
+            page: 1,
+            pageSize: 50,
+            total: 1,
+            nextCursor: nil,
+            rows: [
+                ProfileGraphRow(
+                    chefID: "chef_jules",
+                    username: "jules",
+                    photoURL: nil,
+                    href: "/users/jules",
+                    canonicalURL: URL(string: "https://spoonjoy.app/users/jules")!,
+                    interactionCounts: ProfileGraphInteractionCounts(spoons: 1, forks: 1, cookbookSaves: 1),
+                    latestInteractionAt: "2026-06-04T10:00:00.000Z"
+                )
+            ],
+            source: .live(requestID: "scenario-profile-graph", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
+        )
+        let viewModel = ProfileGraphViewModel(page: page)
+        let status: ScenarioCheckStatus = viewModel.rows.first?.openRoute == .profile(identifier: "jules") &&
+            viewModel.rows.first?.interactionSummary == "1 spoon, 1 fork, 1 cookbook save" ? .pass : .fail
+
+        return ScenarioCheck(
+            name: direction == .fellowChefs ? "fellow chefs" : "kitchen visitors",
+            status: status,
+            detail: "Profile graph routes native chef rows from the profile graph without follows/followers."
+        )
+    }
+
+    private static func scenarioProfileData() -> ProfileSurfaceData {
+        let recipe = scenarioRecipe(ingredients: [])
+        let canonicalProfileURL = URL(string: "https://spoonjoy.app/users/ari")!
+        return ProfileSurfaceData(
+            profile: ProfileSummary(
+                id: "chef_ari",
+                username: "ari",
+                photoURL: nil,
+                joinedLabel: "Joined Jun 2026",
+                href: "/users/ari",
+                canonicalURL: canonicalProfileURL
+            ),
+            isOwner: true,
+            recipes: [
+                ProfileRecipeSummary(
+                    id: recipe.id,
+                    title: recipe.title,
+                    description: recipe.description,
+                    servings: recipe.servings,
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel,
+                    href: recipe.href,
+                    canonicalURL: recipe.canonicalURL
+                )
+            ],
+            cookbooks: [],
+            recentSpoons: [],
+            fellowChefsCount: 1,
+            kitchenVisitorsCount: 1
+        )
+    }
+
     private static func searchCheck() -> ScenarioCheck {
-        var search = SearchState(query: "  lemon  ", scope: .recipes)
-        search.update(query: " lemon pasta ", scope: .all)
-        let status: ScenarioCheckStatus = search.route == .search(query: "lemon pasta", scope: .all) ? .pass : .fail
+        let request = SearchSurfaceRequest(query: " lemon pasta ", scope: .all, limit: 20)
+        let result = SearchSurfaceResult(
+            type: .recipe,
+            id: "recipe_lemon_pasta",
+            ownerID: "chef_ari",
+            ownerUsername: "ari",
+            title: "Lemon Pasta",
+            subtitle: "Recipe by ari",
+            snippet: "cached search results",
+            href: "/recipes/recipe_lemon_pasta",
+            canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pasta")!,
+            imageURL: nil,
+            score: 0,
+            metadata: [:]
+        )
+        let snapshot = SearchSurfaceCacheSnapshot(
+            accountID: "chef_ari",
+            environment: .production,
+            query: request.query,
+            scope: request.scope,
+            limit: request.limit,
+            results: [result],
+            recentSearches: [
+                SearchSurfaceRecentQuery(query: request.query, scope: request.scope, lastSearchedAt: Date(timeIntervalSince1970: 1_780_140_000))
+            ],
+            serverRevision: .cursor("scenario-search"),
+            lastValidatedAt: Date(timeIntervalSince1970: 1_780_140_000)
+        )
+        let session = try! AuthSession(
+            clientID: "scenario-client",
+            accessToken: "scenario-access",
+            refreshToken: "scenario-refresh",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        )
+        let state = SearchState(query: request.query, scope: request.scope)
+        let contentState = NativeShellContentState.empty(
+            authSessionState: .authenticated(session),
+            environment: .production,
+            configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"),
+            offlineIndicatorState: OfflineIndicatorState(display: .stale(domain: .searchResults(query: request.query, scope: request.scope)), dismissal: nil)
+        ).copy(searchSurfaceSnapshots: [snapshot])
+        let page = contentState.searchSurfacePage(for: state)
+        let viewModel = contentState.performSearch(state)
+        let shoppingAuth = SearchSurfaceRepositoryError.authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read")
+        let status: ScenarioCheckStatus = page.results.map(\.id) == ["recipe_lemon_pasta"] &&
+            viewModel.sections.flatMap(\.rows).first?.openRoute == .recipeDetail(id: "recipe_lemon_pasta", presentation: .detail) &&
+            viewModel.offlineIndicator.display == .stale(domain: .searchResults(query: "lemon pasta", scope: .all)) &&
+            shoppingAuth == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read") ? .pass : .fail
 
         return ScenarioCheck(
             name: "search",
             status: status,
-            detail: "Search state trims queries and preserves native searchable scopes."
+            detail: "NativeShellContentState search surface view model restores cached search results and keeps shopping-list search auth explicit."
         )
     }
 
@@ -954,6 +1361,235 @@ public enum ScenarioVerifier {
             status: status,
             detail: "Settings exposes auth, environment, shopping permissions, and cook text size."
         )
+    }
+
+    static func settingsTokenConnectionSurfaceCheck() -> ScenarioCheck {
+        let account = SettingsAccountProfile(
+            id: "chef_ari",
+            email: "ari@example.com",
+            username: "ari",
+            photoURL: nil,
+            hasPassword: true,
+            linkedProviders: [SettingsLinkedProvider(provider: .google, providerUsername: "ari@gmail.com")],
+            passkeys: [SettingsPasskeySummary(id: "passkey_mac", name: "Mac Touch ID", transports: "internal", createdAt: "2026-06-16T12:09:00.000Z")]
+        )
+        let data = SettingsSurfaceData(
+            account: account,
+            notifications: SettingsNotificationPreferences(
+                notifySpoonOnMyRecipe: true,
+                notifyForkOfMyRecipe: true,
+                notifyCookbookSaveOfMine: true,
+                notifyFellowChefOriginCook: true
+            ),
+            apiTokens: [
+                SettingsAPITokenSummary(
+                    id: "cred_cli",
+                    name: "CLI",
+                    tokenPrefix: "sj_live_cli",
+                    scopes: ["recipes:read"],
+                    createdAt: "2026-06-16T12:09:00.000Z",
+                    updatedAt: "2026-06-16T12:09:00.000Z",
+                    lastUsedAt: nil,
+                    revokedAt: nil,
+                    expiresAt: nil
+                )
+            ],
+            oauthConnections: [
+                SettingsOAuthConnectionSummary(
+                    id: "conn_cli",
+                    clientID: "client_cli",
+                    clientName: "CLI",
+                    resource: nil,
+                    scopes: ["recipes:read"],
+                    createdAt: "2026-06-16T12:09:00.000Z",
+                    refreshTokenCount: 1,
+                    accessTokenCount: 1
+                )
+            ],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .live(requestID: "scenario-settings", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
+        )
+        let viewModel = SettingsSurfaceViewModel(
+            data: data,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Date(timeIntervalSince1970: 1_780_120_000) }
+        )
+        let status: ScenarioCheckStatus = viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
+            viewModel.apiTokenRows.first?.tokenPrefix == "sj_live_cli" &&
+            viewModel.oauthConnectionRows.first?.clientID == "client_cli" ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "settings token connection surface",
+            status: status,
+            detail: "Settings renders account profile, notification preferences, API token metadata, OAuth connection state, and native offline status."
+        )
+    }
+
+    static func settingsProfileUpdateCheck(
+        planBuilder: (SettingsActionPlanner) throws -> SettingsActionPlan = {
+            try $0.plan(.updateProfile(email: "ari@example.com", username: "ari", clientMutationID: "scenario-settings-profile"))
+        }
+    ) -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp, now: {
+                settingsScenarioTimestamp()
+            })
+            let plan = try planBuilder(planner)
+            let request = try plan.remoteRequestBuilder?.urlRequest(configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"))
+            let status: ScenarioCheckStatus = request?.method == .patch &&
+                request?.url.path == "/api/v1/me" &&
+                plan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings profile update",
+                status: status,
+                detail: "Settings profile update plans native PATCH /api/v1/me with an offline queue fallback."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings profile update", status: .fail, detail: "Settings profile update failed: \(error)")
+        }
+    }
+
+    static func settingsTokenCreateOnlineOnlyCheck(
+        planBuilder: (SettingsActionPlanner) throws -> SettingsActionPlan = {
+            try $0.plan(.createAPIToken(name: "CLI", scopes: ["recipes:read"]))
+        }
+    ) -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
+            let plan = try planBuilder(planner)
+            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .apiTokenCreate &&
+                plan.queuedMutation == nil &&
+                plan.offlineFallbackMutation == nil ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings token create online-only",
+                status: status,
+                detail: "Settings token create is native REST when online and disabled rather than queued offline."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings token create online-only", status: .fail, detail: "Settings token create failed: \(error)")
+        }
+    }
+
+    static func settingsConnectionDisconnectOnlineOnlyCheck(
+        planBuilder: (SettingsActionPlanner) throws -> SettingsActionPlan = {
+            try $0.plan(.disconnectOAuthConnection(connectionID: "conn_cli"))
+        }
+    ) -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
+            let plan = try planBuilder(planner)
+            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .oauthConnectionDisconnect &&
+                plan.queuedMutation == nil &&
+                plan.offlineFallbackMutation == nil ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings connection disconnect online-only",
+                status: status,
+                detail: "Settings OAuth connection disconnect never enters the offline mutation queue."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings connection disconnect online-only", status: .fail, detail: "Settings connection disconnect failed: \(error)")
+        }
+    }
+
+    static func settingsSecureHandoffCheck(
+        planBuilder: (SettingsActionPlanner) throws -> (provider: SettingsSecureHandoff?, passkeys: SettingsSecureHandoff?) = {
+            (try $0.plan(.linkProvider(.google)).secureHandoff, try $0.plan(.managePasskeys).secureHandoff)
+        }
+    ) -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp)
+            let plans = try planBuilder(planner)
+            let provider = plans.provider
+            let passkeys = plans.passkeys
+            let status: ScenarioCheckStatus = provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
+                passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys" ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings secure handoff",
+                status: status,
+                detail: "Settings credential actions route to secure web handoff URLs while native token/profile actions stay REST-backed."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings secure handoff", status: .fail, detail: "Settings secure handoff failed: \(error)")
+        }
+    }
+
+    static func notificationAPNsSurfaceCheck(rootURL: URL) -> ScenarioCheck {
+        guard FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift").path),
+              FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift").path) else {
+            return ScenarioCheck(
+                name: "notification APNs surface",
+                status: .fail,
+                detail: "Notification APNs SwiftUI surface and native device bridge files must both exist."
+            )
+        }
+
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+        let data = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: APNsRegistrationSummary(
+                deviceID: "scenario-device",
+                platform: .ios,
+                environment: .development,
+                registrationState: .registered,
+                lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000)
+            ),
+            permissionState: .denied(lastCheckedAt: Date(timeIntervalSince1970: 1_782_899_000)),
+            source: .cache(serverRevision: .etag("scenario-apns"), lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000))
+        )
+        let viewModel = NotificationAPNsSurfaceViewModel(
+            data: data,
+            queuedMutations: [],
+            connectivity: .offline,
+            now: { Date(timeIntervalSince1970: 1_782_901_800) }
+        )
+        let localValidationBlocker = AppleDeveloperProgramBlocker.localValidation
+        let planner = NotificationAPNsActionPlanner(connectivity: .online, deliveryCapability: .developmentOnly(blocker: localValidationBlocker))
+        let offlinePlanner = NotificationAPNsActionPlanner(connectivity: .offline)
+        let developmentRegister = try? planner.plan(.registerDevice(
+            deviceID: "scenario-device",
+            platform: .ios,
+            environment: .development,
+            token: "scenario-token",
+            deviceName: "Scenario iPhone",
+            appVersion: "1.0.0",
+            clientMutationID: "cm_scenario_apns_register"
+        ))
+        let productionRegister = try? planner.plan(.registerDevice(
+            deviceID: "scenario-device",
+            platform: .ios,
+            environment: .production,
+            token: "scenario-token",
+            deviceName: "Scenario iPhone",
+            appVersion: "1.0.0",
+            clientMutationID: "cm_scenario_apns_production"
+        ))
+        let tokenAcquisition = try? offlinePlanner.planDeviceTokenAcquisition()
+        let status: ScenarioCheckStatus = viewModel.notificationDraft == preferences &&
+            viewModel.apnsRegistration?.registrationState == .registered &&
+            viewModel.permissionDeniedBanner != nil &&
+            viewModel.productionBlocker?.capability == AppleDeveloperProgramBlocker.capabilityName &&
+            developmentRegister?.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister &&
+            productionRegister?.deliveryBlocker == localValidationBlocker &&
+            tokenAcquisition?.onlineOnlyReason == .deviceTokenAcquisition ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "notification APNs surface",
+            status: status,
+            detail: "Notification APNs behavior restores cached preferences/status, blocks production APNs without AppleDeveloperProgram, and keeps permission/token acquisition online-only."
+        )
+    }
+
+    private static func settingsScenarioTimestamp() -> String {
+        "2026-06-16T12:09:00.000Z"
     }
 
     static func offlineStatusCheck(
@@ -1089,6 +1725,10 @@ public enum ScenarioVerifier {
 
         return ScenarioCheck(name: name, status: .pass, detail: detail)
     }
+}
+
+private enum ScenarioVerifierError: Error {
+    case missingFixture(String)
 }
 
 private extension String {

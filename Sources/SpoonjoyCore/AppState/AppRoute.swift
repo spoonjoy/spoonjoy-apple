@@ -5,7 +5,7 @@ public enum RecipePresentation: Hashable, Sendable {
     case cook
 }
 
-public enum SearchScope: String, CaseIterable, Hashable, Sendable {
+public enum SearchScope: String, Codable, CaseIterable, Hashable, Sendable {
     case all
     case recipes
     case cookbooks
@@ -31,6 +31,8 @@ public enum AppRoute: Hashable, Sendable {
     case recipeCoverControls(id: String)
     case cookbooks
     case cookbookDetail(id: String)
+    case profile(identifier: String)
+    case profileGraph(identifier: String, direction: ProfileGraphDirection, page: Int)
     case shoppingList
     case search(query: String, scope: SearchScope)
     case capture
@@ -45,6 +47,8 @@ public enum AppRoute: Hashable, Sendable {
             .recipes
         case .cookbooks, .cookbookDetail:
             .cookbooks
+        case .profile, .profileGraph:
+            .search
         case .shoppingList:
             .shoppingList
         case .search:
@@ -96,6 +100,10 @@ public enum AppRoute: Hashable, Sendable {
             "cookbooks"
         case .cookbookDetail(let id):
             "cookbook:\(id)"
+        case .profile(let identifier):
+            "profile:\(Self.encodedProfileIdentifier(identifier))"
+        case .profileGraph(let identifier, let direction, let page):
+            "profile-graph:\(Self.encodedProfileIdentifier(identifier)):\(direction.rawValue):\(page)"
         case .shoppingList:
             "shopping-list"
         case .search(let query, let scope):
@@ -129,6 +137,16 @@ public enum AppRoute: Hashable, Sendable {
             self = .cookbooks
         } else if parts.count == 2, parts[0] == "cookbook", Self.isSafeID(parts[1]) {
             self = .cookbookDetail(id: parts[1])
+        } else if parts.count == 2, parts[0] == "profile",
+                  let identifier = Self.decodedProfileIdentifier(parts[1]) {
+            self = .profile(identifier: identifier)
+        } else if parts.count == 4,
+                  parts[0] == "profile-graph",
+                  let identifier = Self.decodedProfileIdentifier(parts[1]),
+                  let direction = ProfileGraphDirection(rawValue: parts[2]),
+                  let page = Int(parts[3]),
+                  page > 0 {
+            self = .profileGraph(identifier: identifier, direction: direction, page: page)
         } else if parts == ["shopping-list"] {
             self = .shoppingList
         } else if parts.count >= 3, parts[0] == "search" {
@@ -161,4 +179,28 @@ public enum AppRoute: Hashable, Sendable {
         }
         return id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
     }
+
+    public static func encodedProfileIdentifier(_ identifier: String) -> String {
+        identifier.addingPercentEncoding(withAllowedCharacters: profileIdentifierAllowedCharacters)!
+    }
+
+    public static func decodedProfileIdentifier(_ encodedIdentifier: String) -> String? {
+        guard let identifier = encodedIdentifier.removingPercentEncoding,
+              isSafeProfileIdentifier(identifier) else {
+            return nil
+        }
+        return identifier
+    }
+
+    public static func isSafeProfileIdentifier(_ identifier: String) -> Bool {
+        guard identifier.trimmingCharacters(in: .whitespacesAndNewlines) == identifier, !identifier.isEmpty else {
+            return false
+        }
+        guard !identifier.contains("\\"), !identifier.contains(".."), identifier != ".", identifier != ".." else {
+            return false
+        }
+        return true
+    }
+
+    private static let profileIdentifierAllowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~"))
 }

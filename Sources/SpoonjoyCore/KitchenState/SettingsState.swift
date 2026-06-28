@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AuthState: Equatable {
+public enum AuthState: Equatable, Sendable {
     case signedIn(username: String, scopes: [String], tokenExpiresAt: String?)
     case signedOut
 
@@ -14,7 +14,7 @@ public enum AuthState: Equatable {
     }
 }
 
-public enum SpoonjoyEnvironment: Equatable {
+public enum SpoonjoyEnvironment: Equatable, Sendable {
     case production(baseURL: URL)
     case local(baseURL: URL)
 
@@ -30,7 +30,7 @@ public enum SpoonjoyEnvironment: Equatable {
     }
 }
 
-public enum OfflineState: Equatable {
+public enum OfflineState: Equatable, Sendable {
     case available(snapshotCount: Int, lastRestoredAt: String?)
     case unavailable
 
@@ -44,18 +44,18 @@ public enum OfflineState: Equatable {
     }
 }
 
-public enum CookModeTextSize: String, Equatable {
+public enum CookModeTextSize: String, Equatable, Sendable {
     case standard
     case large
 }
 
-public struct SettingsStatusRow: Equatable {
+public struct SettingsStatusRow: Equatable, Sendable {
     public let id: String
     public let title: String
     public let value: String
 }
 
-public struct SettingsState: Equatable {
+public struct SettingsState: Equatable, Sendable {
     public let auth: AuthState
     public let environment: SpoonjoyEnvironment
     public let offline: OfflineState

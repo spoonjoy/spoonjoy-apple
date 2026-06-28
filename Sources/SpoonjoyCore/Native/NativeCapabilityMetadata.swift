@@ -51,7 +51,8 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "capture-recipe-json-ld",
             "capture-recipe-video-url",
             "recipe-import-submit",
-            "share-recipe"
+            "share-recipe",
+            "share-cookbook"
         ],
         offlineFlows: [
             "fixture-offline-restore",

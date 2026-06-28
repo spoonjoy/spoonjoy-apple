@@ -187,6 +187,15 @@ struct SignedOutSetupView: View {
             "Opening Cookbooks after sign-in"
         case .cookbookDetail:
             "Opening Cookbook after sign-in"
+        case .profile:
+            "Opening Profile after sign-in"
+        case .profileGraph(_, let direction, _):
+            switch direction {
+            case .fellowChefs:
+                "Opening Fellow Chefs after sign-in"
+            case .kitchenVisitors:
+                "Opening Kitchen Visitors after sign-in"
+            }
         case .shoppingList:
             "Opening Shopping after sign-in"
         case .search:

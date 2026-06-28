@@ -1,6 +1,18 @@
 import Combine
 import Foundation
 
+public typealias NativeSettingsSurfaceFetchOperation = @Sendable (
+    _ accountID: String,
+    _ environment: NativeCacheEnvironment,
+    _ configuration: APIClientConfiguration,
+    _ cache: NativeDurableCache
+) async throws -> SettingsSurfaceResult
+
+public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
+    case liveFirst
+    case restoreCacheOnly
+}
+
 public struct NativeLiveAppStoreDependencies {
     public let authSessionRepository: NativeAuthSessionRepository
     public let cacheStore: NativeDurableCacheStore
@@ -12,7 +24,9 @@ public struct NativeLiveAppStoreDependencies {
     public let cacheEnvironment: NativeCacheEnvironment
     public let fixtureFallbackPolicy: NativeFixtureFallbackPolicy
     public let recipeEditorAPITransport: @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport
+    public let settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
     public let stagedMediaDirectory: NativeStagedMediaDirectory?
+    public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
     public init(
@@ -28,7 +42,9 @@ public struct NativeLiveAppStoreDependencies {
         recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
             URLSessionAPITransport(authenticationRefresher: refresher)
         },
+        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
@@ -41,7 +57,9 @@ public struct NativeLiveAppStoreDependencies {
         self.cacheEnvironment = cacheEnvironment
         self.fixtureFallbackPolicy = fixtureFallbackPolicy
         self.recipeEditorAPITransport = recipeEditorAPITransport
+        self.settingsSurfaceFetch = settingsSurfaceFetch
         self.stagedMediaDirectory = stagedMediaDirectory
+        self.bootstrapMode = bootstrapMode
         self.now = now
     }
 }
@@ -116,9 +134,20 @@ public enum NativeAppBootstrapState {
     }
 }
 
+public struct NativeCachedProfile: Equatable, Sendable {
+    public let profile: ProfileSummary
+    public let source: ProfileSurfaceDataSource
+
+    public init(profile: ProfileSummary, source: ProfileSurfaceDataSource) {
+        self.profile = profile
+        self.source = source
+    }
+}
+
 public struct NativeShellContentState {
     public let recipes: [Recipe]
     public let cookbooks: [Cookbook]
+    public let cachedProfiles: [NativeCachedProfile]
     public let kitchen: KitchenFixtureState
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
@@ -127,10 +156,13 @@ public struct NativeShellContentState {
     public let queuedMutations: [NativeQueuedMutation]
     public let syncConflicts: [NativeSyncConflict]
     public let searchResultsByScope: [SearchScope: [String]]
+    public let searchSurfaceSnapshots: [SearchSurfaceCacheSnapshot]
     public let authSessionState: NativeAuthSessionState
     public let environment: NativeCacheEnvironment
     public let configuration: APIClientConfiguration
     public let offlineIndicatorState: OfflineIndicatorState
+    public let settingsSurfaceData: SettingsSurfaceData?
+    public let notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
 
     public func recipe(id: String) -> Recipe? {
         recipes.first { $0.id == id }
@@ -154,6 +186,219 @@ public struct NativeShellContentState {
         )
     }
 
+    public var settingsSurfaceViewModel: SettingsSurfaceViewModel {
+        if let settingsSurfaceData {
+            return SettingsSurfaceViewModel(
+                data: settingsSurfaceData,
+                queuedMutations: queuedMutations,
+                conflicts: syncConflicts,
+                connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+                secureHandoffRoutes: .spoonjoyApp,
+                now: Date.init
+            )
+        }
+
+        guard trustedAccountID != nil else {
+            return SettingsSurfaceViewModel.signedOut(
+                environment: environment,
+                offline: offlineState,
+                secureHandoffRoutes: .spoonjoyApp
+            )
+        }
+
+        let data = SettingsSurfaceData(
+            account: nil,
+            notifications: nil,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: environment,
+            offline: .unavailable,
+            source: .cache(lastValidatedAt: .distantPast)
+        )
+        return SettingsSurfaceViewModel(
+            data: data,
+            queuedMutations: queuedMutations,
+            conflicts: syncConflicts,
+            connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: Date.init,
+            showsPrimaryAuthActionWhenSignedOut: false
+        )
+    }
+
+    public var notificationAPNsSurfaceViewModel: NotificationAPNsSurfaceViewModel? {
+        guard let data = notificationAPNsSurfaceData else {
+            return nil
+        }
+        return NotificationAPNsSurfaceViewModel(
+            data: data,
+            queuedMutations: queuedMutations,
+            connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+            now: Date.init
+        )
+    }
+
+    public var searchSurfaceViewModel: SearchSurfaceViewModel {
+        performSearch(SearchState())
+    }
+
+    public func performSearch(_ state: SearchState) -> SearchSurfaceViewModel {
+        let page = searchSurfacePage(for: state)
+        return SearchSurfaceViewModel(
+            page: page,
+            state: state,
+            context: searchSurfaceContext,
+            offlineIndicator: searchSurfaceSevereOfflineIndicator ?? page.offlineIndicator(now: Date())
+        )
+    }
+
+    public func performSearch(
+        page: SearchSurfacePage,
+        state: SearchState
+    ) -> SearchSurfaceViewModel {
+        SearchSurfaceViewModel(
+            page: page,
+            state: state,
+            context: searchSurfaceContext,
+            offlineIndicator: searchSurfaceSevereOfflineIndicator ?? page.offlineIndicator(now: Date())
+        )
+    }
+
+    public func performSearch(
+        error: SearchSurfaceRepositoryError,
+        state: SearchState,
+        cachedPage: SearchSurfacePage?
+    ) -> SearchSurfaceViewModel {
+        return SearchSurfaceViewModel(
+            error: error,
+            state: state,
+            cachedPage: cachedPage,
+            context: searchSurfaceContext,
+            offlineIndicator: searchSurfaceSevereOfflineIndicator,
+            now: Date.init
+        )
+    }
+
+    public var searchSurfaceIdentity: String {
+        "\(environment.rawValue)|\(searchSurfaceAccountID)|\(searchSurfaceContext.isAuthenticated)|\(searchSurfaceContext.canReadShoppingList)|\(searchSurfaceSeverityIdentity)"
+    }
+
+    public var spotlightIndexScope: SpotlightIndexScope? {
+        trustedAccountID.map { SpotlightIndexScope(accountID: $0, environment: environment) }
+    }
+
+    public var profileGraphRepository: (any ProfileChefGraphSurfaceRepository)? {
+        guard let profileResult = firstProfileSurfaceResult else {
+            return nil
+        }
+        return SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: profileResult,
+            graphPages: profileGraphPages(profileResult: profileResult)
+        )
+    }
+
+    public func profileGraphPages(profileResult result: ProfileSurfaceResult) -> [ProfileGraphPage] {
+        let graphProfile = ProfileGraphProfile(
+            id: result.data.profile.id,
+            username: result.data.profile.username,
+            href: result.data.profile.href,
+            canonicalURL: result.data.profile.canonicalURL
+        )
+        let fellowChefs = fellowChefRows(chefID: result.data.profile.id)
+        let kitchenVisitors = kitchenVisitorRows(chefID: result.data.profile.id)
+        return [
+            ProfileGraphPage(
+                profile: graphProfile,
+                direction: .fellowChefs,
+                page: 1,
+                pageSize: 50,
+                total: fellowChefs.count,
+                nextCursor: nil,
+                rows: fellowChefs,
+                source: result.source,
+                emptyState: fellowChefs.isEmpty ? ProfileGraphPage.emptyState(for: .fellowChefs) : nil
+            ),
+            ProfileGraphPage(
+                profile: graphProfile,
+                direction: .kitchenVisitors,
+                page: 1,
+                pageSize: 50,
+                total: kitchenVisitors.count,
+                nextCursor: nil,
+                rows: kitchenVisitors,
+                source: result.source,
+                emptyState: kitchenVisitors.isEmpty ? ProfileGraphPage.emptyState(for: .kitchenVisitors) : nil
+            )
+        ]
+    }
+
+    private func fellowChefRows(chefID: String) -> [ProfileGraphRow] {
+        let aggregates = recipes.reduce(into: [String: NativeProfileGraphAggregate]()) { partial, recipe in
+            guard recipe.chef.id != chefID else {
+                return
+            }
+            recipe.recentSpoons.forEach { spoon in
+                guard spoon.chef.id == chefID, spoon.deletedAt == nil else {
+                    return
+                }
+                partial.recordSpoon(for: recipe.chef, at: Self.profileRecentSpoonSortKey(spoon))
+            }
+        }
+        return graphRows(from: aggregates)
+    }
+
+    private func kitchenVisitorRows(chefID: String) -> [ProfileGraphRow] {
+        let aggregates = recipes
+            .filter { $0.chef.id == chefID }
+            .reduce(into: [String: NativeProfileGraphAggregate]()) { partial, recipe in
+                recipe.recentSpoons.forEach { spoon in
+                    guard spoon.chef.id != chefID, spoon.deletedAt == nil else {
+                        return
+                    }
+                    partial.recordSpoon(for: spoon.chef, at: Self.profileRecentSpoonSortKey(spoon))
+                }
+            }
+        return graphRows(from: aggregates)
+    }
+
+    private func graphRows(from aggregates: [String: NativeProfileGraphAggregate]) -> [ProfileGraphRow] {
+        aggregates.values
+            .sorted { lhs, rhs in
+                if lhs.latestInteractionAt != rhs.latestInteractionAt {
+                    return lhs.latestInteractionAt > rhs.latestInteractionAt
+                }
+                return lhs.chef.id > rhs.chef.id
+            }
+            .map(profileGraphRow)
+    }
+
+    private func profileGraphRow(aggregate: NativeProfileGraphAggregate) -> ProfileGraphRow {
+        let link = Self.profileLink(username: aggregate.chef.username)
+        return ProfileGraphRow(
+            chefID: aggregate.chef.id,
+            username: aggregate.chef.username,
+            photoURL: aggregate.chef.photoURL,
+            href: link.href,
+            canonicalURL: link.canonicalURL,
+            interactionCounts: ProfileGraphInteractionCounts(spoons: aggregate.spoons, forks: 0, cookbookSaves: 0),
+            latestInteractionAt: aggregate.latestInteractionAt
+        )
+    }
+
+    public var profileSurfaceViewModel: ProfileViewModel? {
+        guard let profileResult = firstProfileSurfaceResult else {
+            return nil
+        }
+        return ProfileViewModel(
+            result: profileResult,
+            context: ProfileSurfaceContext(currentChefID: trustedAccountID),
+            queuedMutations: queuedMutations,
+            conflicts: syncConflicts,
+            connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+            now: Date.init
+        )
+    }
+
     public var recipeCatalog: RecipeCatalogPage {
         RecipeCatalogPage(
             query: nil,
@@ -166,6 +411,422 @@ public struct NativeShellContentState {
         )
     }
 
+    private var firstProfileSurfaceResult: ProfileSurfaceResult? {
+        guard let profile = firstProfileCandidate else {
+            return nil
+        }
+        return profileSurfaceResult(identifier: profile.profile.id)
+    }
+
+    public var searchSurfaceContext: SearchSurfaceContext {
+        switch authSessionState {
+        case .signedOut:
+            return SearchSurfaceContext(isAuthenticated: false, canReadShoppingList: false)
+        case .authenticated(let session), .refreshRequired(let session):
+            let scopes = Set(session.scope.split(separator: " ").map(String.init))
+            let shoppingReadScopes: Set<String> = ["shopping_list:read", "kitchen:read"]
+            return SearchSurfaceContext(
+                isAuthenticated: true,
+                canReadShoppingList: !scopes.isDisjoint(with: shoppingReadScopes)
+            )
+        }
+    }
+
+    public func searchSurfacePage(for state: SearchState) -> SearchSurfacePage {
+        if let snapshot = restoreSearchSurfaceSnapshot(state: state) {
+            return snapshot.page(
+                context: searchSurfaceContext,
+                currentAccountID: trustedAccountID,
+                source: .cache(serverRevision: snapshot.serverRevision, lastValidatedAt: snapshot.lastValidatedAt)
+            )
+        }
+
+        let snapshot = SearchSurfaceCacheSnapshot(
+            accountID: searchSurfaceAccountID,
+            environment: environment,
+            query: state.query,
+            scope: state.scope,
+            limit: 20,
+            results: searchSurfaceResults(for: state),
+            recentSearches: state.hasQuery ? [SearchSurfaceRecentQuery(query: state.query, scope: state.scope, lastSearchedAt: Date())] : [],
+            serverRevision: latestSearchRevision,
+            lastValidatedAt: Date()
+        )
+        return SearchSurfacePage(
+            query: snapshot.query,
+            scope: snapshot.scope,
+            limit: snapshot.limit,
+            isAuthenticated: searchSurfaceContext.isAuthenticated,
+            results: snapshot.results,
+            source: offlineIndicatorState.display == .synced
+                ? .live(requestID: "native-shell-search", validatedAt: snapshot.lastValidatedAt)
+                : .cache(serverRevision: snapshot.serverRevision, lastValidatedAt: snapshot.lastValidatedAt)
+        )
+    }
+
+    private func restoreSearchSurfaceSnapshot(state: SearchState) -> SearchSurfaceCacheSnapshot? {
+        guard state.hasQuery else {
+            return nil
+        }
+        return searchSurfaceSnapshots.first { snapshot in
+            snapshot.environment == environment &&
+                snapshot.query == state.query &&
+                snapshot.scope == state.scope &&
+                snapshot.accountID == searchSurfaceAccountID
+        }
+    }
+
+    private var searchSurfaceAccountID: String {
+        switch authSessionState {
+        case .signedOut:
+            return "signed-out"
+        case .authenticated(let session), .refreshRequired(let session):
+            return session.accountID ?? "unbound:\(session.clientID)"
+        }
+    }
+
+    private var searchSurfaceSevereOfflineIndicator: OfflineIndicatorState? {
+        switch offlineIndicatorState.display {
+        case .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            return offlineIndicatorState
+        case .synced, .offline, .stale, .dismissed:
+            return nil
+        }
+    }
+
+    private var searchSurfaceSeverityIdentity: String {
+        switch offlineIndicatorState.display {
+        case .queuedWork(let count, let oldestClientMutationID):
+            return "queued:\(count):\(oldestClientMutationID ?? "")"
+        case .syncFailure(let errorID, let retryAfter):
+            return "sync-failure:\(errorID):\(String(describing: retryAfter))"
+        case .conflict(let recordID, let mutationID):
+            return "conflict:\(recordID):\(mutationID)"
+        case .blocker(let blocker):
+            return "blocker:\(String(describing: blocker))"
+        case .destructiveConfirmation(let actionID):
+            return "destructive:\(actionID)"
+        case .synced, .offline, .stale, .dismissed:
+            return "informational"
+        }
+    }
+
+    private var latestSearchRevision: NativeCacheServerRevision? {
+        (recipes.map(\.updatedAt) + cookbooks.map(\.updatedAt) + [shoppingList?.updatedAt].compactMap { $0 })
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
+    }
+
+    private func searchSurfaceResults(for state: SearchState) -> [SearchSurfaceResult] {
+        let chefRows = searchSurfaceChefResults()
+        let shoppingRows = searchSurfaceContext.canReadShoppingList
+            ? (shoppingList?.activeItems ?? []).map { item in Self.searchResult(item: item, chef: shoppingList?.chef) }
+            : []
+        let allRows = recipes.map(Self.searchResult(recipe:)) +
+            cookbooks.map(Self.searchResult(cookbook:)) +
+            chefRows +
+            shoppingRows
+        return allRows.filter { result in
+            Self.searchResult(result, isVisibleIn: state.scope) &&
+                Self.searchResult(result, matches: state.query)
+        }
+    }
+
+    private func searchSurfaceChefResults() -> [SearchSurfaceResult] {
+        let allChefs = recipes.map(\.chef) + cookbooks.map(\.chef) + [shoppingList?.chef].compactMap { $0 }
+        var seenChefIDs = Set<String>()
+        return allChefs.compactMap { chef in
+            guard seenChefIDs.insert(chef.id).inserted else {
+                return nil
+            }
+            return Self.searchResult(chef: chef)
+        }
+    }
+
+    private static func searchResult(recipe: Recipe) -> SearchSurfaceResult {
+        SearchSurfaceResult(
+            type: .recipe,
+            id: recipe.id,
+            ownerID: recipe.chef.id,
+            ownerUsername: recipe.chef.username,
+            title: recipe.title,
+            subtitle: recipe.description ?? "Recipe by \(recipe.chef.username)",
+            snippet: recipe.servings,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL,
+            imageURL: recipe.coverImageURL,
+            score: 0,
+            metadata: [
+                "chefUsername": .string(recipe.chef.username),
+                "updatedAt": .string(recipe.updatedAt)
+            ]
+        )
+    }
+
+    private static func searchResult(cookbook: Cookbook) -> SearchSurfaceResult {
+        SearchSurfaceResult(
+            type: .cookbook,
+            id: cookbook.id,
+            ownerID: cookbook.chef.id,
+            ownerUsername: cookbook.chef.username,
+            title: cookbook.title,
+            subtitle: "\(cookbook.recipeCount) \(cookbook.recipeCount == 1 ? "recipe" : "recipes")",
+            snippet: "Cookbook by \(cookbook.chef.username)",
+            href: cookbook.href,
+            canonicalURL: cookbook.canonicalURL,
+            imageURL: cookbook.cover.primaryImageURL,
+            score: 0,
+            metadata: [
+                "chefUsername": .string(cookbook.chef.username),
+                "recipeCount": .number(Double(cookbook.recipeCount)),
+                "updatedAt": .string(cookbook.updatedAt)
+            ]
+        )
+    }
+
+    private static func searchResult(chef: ChefSummary) -> SearchSurfaceResult {
+        let link = profileLink(username: chef.username)
+        return SearchSurfaceResult(
+            type: .chef,
+            id: chef.id,
+            ownerID: chef.id,
+            ownerUsername: chef.username,
+            title: chef.username,
+            subtitle: "Chef",
+            snippet: nil,
+            href: link.href,
+            canonicalURL: link.canonicalURL,
+            imageURL: chef.photoURL,
+            score: 0,
+            metadata: [:]
+        )
+    }
+
+    private static func searchResult(item: ShoppingListItem, chef: ChefSummary?) -> SearchSurfaceResult {
+        SearchSurfaceResult(
+            type: .shoppingListItem,
+            id: item.id,
+            ownerID: chef?.id,
+            ownerUsername: chef?.username,
+            title: item.name,
+            subtitle: item.displayQuantity.isEmpty ? "Shopping list" : item.displayQuantity,
+            snippet: item.categoryKey,
+            href: "/shopping-list",
+            canonicalURL: URL(string: "https://spoonjoy.app/shopping-list")!,
+            imageURL: nil,
+            score: 0,
+            metadata: [
+                "checked": .bool(item.checked),
+                "categoryKey": item.categoryKey.map(JSONValue.string) ?? .null
+            ]
+        )
+    }
+
+    private static func searchResult(_ result: SearchSurfaceResult, isVisibleIn scope: SearchScope) -> Bool {
+        switch (scope, result.type) {
+        case (.all, _), (.recipes, .recipe), (.cookbooks, .cookbook), (.chefs, .chef), (.shoppingList, .shoppingListItem):
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func searchResult(_ result: SearchSurfaceResult, matches query: String) -> Bool {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return true
+        }
+        let searchableText = [
+            result.title,
+            result.subtitle,
+            result.snippet,
+            result.ownerUsername
+        ]
+            .compactMap { $0 }
+            .joined(separator: " ")
+        return searchableText.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    public func profileSurfaceResult(identifier: String) -> ProfileSurfaceResult? {
+        guard let profile = profileCandidate(identifier: identifier) else {
+            return nil
+        }
+        let chefID = profile.profile.id
+        let chefRecipes = recipes.filter { $0.chef.id == chefID }
+        let chefCookbooks = cookbooks.filter { $0.chef.id == chefID }
+        let fellowChefs = fellowChefRows(chefID: chefID)
+        let kitchenVisitors = kitchenVisitorRows(chefID: chefID)
+        return ProfileSurfaceResult(
+            data: ProfileSurfaceData(
+                profile: profile.profile,
+                isOwner: trustedAccountID == chefID,
+                recipes: chefRecipes.map(profileRecipeSummary),
+                cookbooks: chefCookbooks.map(profileCookbookSummary),
+                recentSpoons: profileRecentSpoons(chefID: chefID),
+                fellowChefsCount: fellowChefs.count,
+                kitchenVisitorsCount: kitchenVisitors.count
+            ),
+            source: profile.source
+        )
+    }
+
+    public func profileRecentSpoons(chefID: String) -> [ProfileRecentSpoon] {
+        let matches: [(recipe: Recipe, spoon: RecipeDetailRecentSpoon)] = recipes.flatMap { recipe in
+            recipe.recentSpoons.compactMap { spoon -> (recipe: Recipe, spoon: RecipeDetailRecentSpoon)? in
+                guard spoon.chef.id == chefID, spoon.deletedAt == nil else {
+                    return nil
+                }
+                return (recipe, spoon)
+            }
+        }
+        return matches
+            .sorted { lhs, rhs in
+                let lhsKey = Self.profileRecentSpoonSortKey(lhs.spoon)
+                let rhsKey = Self.profileRecentSpoonSortKey(rhs.spoon)
+                if lhsKey != rhsKey {
+                    return lhsKey > rhsKey
+                }
+                return lhs.spoon.id > rhs.spoon.id
+            }
+            .prefix(Self.profileRecentSpoonLimit)
+            .map { recipe, spoon in
+                ProfileRecentSpoon(
+                    id: spoon.id,
+                    cookedAt: spoon.cookedAt,
+                    photoURL: spoon.photoURL,
+                    note: spoon.note,
+                    nextTime: spoon.nextTime,
+                    chef: spoon.chef,
+                    recipe: ProfileRecentSpoonRecipe(id: recipe.id, title: recipe.title, chefID: recipe.chef.id),
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel
+                )
+            }
+    }
+
+    private static let profileRecentSpoonLimit = 10
+
+    private static func profileRecentSpoonSortKey(_ spoon: RecipeDetailRecentSpoon) -> String {
+        if let cookedAt = spoon.cookedAt {
+            return cookedAt
+        }
+        return spoon.createdAt
+    }
+
+    private var firstProfileCandidate: NativeCachedProfile? {
+        if let trustedAccountID,
+           let profile = profileCandidate(identifier: trustedAccountID) {
+            return profile
+        }
+        return cachedProfiles.first ?? (recipes.first?.chef ?? cookbooks.first?.chef).map(profileCandidate(chef:))
+    }
+
+    private func profileCandidate(identifier: String) -> NativeCachedProfile? {
+        let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        if let profile = cachedProfiles.first(where: { $0.profile.id == trimmed || $0.profile.username == trimmed }) {
+            return profile
+        }
+        if let chef = profileChef(identifier: trimmed) {
+            return profileCandidate(chef: chef)
+        }
+        return nil
+    }
+
+    private func profileCandidate(chef: ChefSummary) -> NativeCachedProfile {
+        NativeCachedProfile(
+            profile: Self.profileSummary(chef: chef),
+            source: profileSurfaceSource
+        )
+    }
+
+    private func profileChef(identifier: String) -> ChefSummary? {
+        let chefs = recipes.map(\.chef) + cookbooks.map(\.chef)
+        return chefs.first { $0.id == identifier || $0.username == identifier }
+    }
+
+    private func profileRecipeSummary(recipe: Recipe) -> ProfileRecipeSummary {
+        ProfileRecipeSummary(
+            id: recipe.id,
+            title: recipe.title,
+            description: recipe.description,
+            servings: recipe.servings,
+            coverImageURL: recipe.coverImageURL,
+            coverProvenanceLabel: recipe.coverProvenanceLabel,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL
+        )
+    }
+
+    private func profileCookbookSummary(cookbook: Cookbook) -> ProfileCookbookSummary {
+        ProfileCookbookSummary(
+            id: cookbook.id,
+            title: cookbook.title,
+            recipeCount: cookbook.recipeCount,
+            recipePreviews: cookbook.recipes.prefix(4).map { recipe in
+                ProfileCookbookRecipePreview(
+                    id: recipe.id,
+                    title: recipe.title,
+                    coverImageURL: recipe.coverImageURL,
+                    coverProvenanceLabel: recipe.coverProvenanceLabel,
+                    href: recipe.href,
+                    canonicalURL: recipe.canonicalURL
+                )
+            },
+            href: cookbook.href,
+            canonicalURL: cookbook.canonicalURL
+        )
+    }
+
+    private static func profileSummary(chef: ChefSummary) -> ProfileSummary {
+        let link = profileLink(username: chef.username)
+        return ProfileSummary(
+            id: chef.id,
+            username: chef.username,
+            photoURL: chef.photoURL,
+            joinedLabel: "Joined Spoonjoy",
+            href: link.href,
+            canonicalURL: link.canonicalURL
+        )
+    }
+
+    private static func profileSummary(id: String, username: String, photoURL: URL? = nil, joinedLabel: String = "Joined Spoonjoy") -> ProfileSummary {
+        let link = profileLink(username: username)
+        return ProfileSummary(
+            id: id,
+            username: username,
+            photoURL: photoURL,
+            joinedLabel: joinedLabel,
+            href: link.href,
+            canonicalURL: link.canonicalURL
+        )
+    }
+
+    private static func profileLink(username: String) -> (href: String, canonicalURL: URL) {
+        ProfileSurfaceLinks.link(username: username)
+    }
+
+    private var trustedAccountID: String? {
+        switch authSessionState {
+        case .authenticated(let session), .refreshRequired(let session):
+            session.accountID
+        case .signedOut:
+            nil
+        }
+    }
+
+    private var profileSurfaceSource: ProfileSurfaceDataSource {
+        .cache(serverRevision: latestProfileRevision, lastValidatedAt: .distantPast)
+    }
+
+    private var latestProfileRevision: NativeCacheServerRevision? {
+        (recipes.map(\.updatedAt) + cookbooks.map(\.updatedAt))
+            .max()
+            .map(NativeCacheServerRevision.updatedAt)
+    }
+
     public func cookProgress(for recipeID: String) -> CookModeProgress? {
         cookProgressByRecipeID[recipeID]
     }
@@ -176,19 +837,25 @@ public struct NativeShellContentState {
 
     func copy(
         recipes: [Recipe]? = nil,
+        cookbooks: [Cookbook]? = nil,
+        cachedProfiles: [NativeCachedProfile]? = nil,
         shoppingList: ShoppingListState? = nil,
         captureDraft: CaptureDraft?? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]? = nil,
         queuedMutations: [NativeQueuedMutation]? = nil,
         syncConflicts: [NativeSyncConflict]? = nil,
+        searchSurfaceSnapshots: [SearchSurfaceCacheSnapshot]? = nil,
         environment: NativeCacheEnvironment? = nil,
         configuration: APIClientConfiguration? = nil,
-        offlineIndicatorState: OfflineIndicatorState? = nil
+        offlineIndicatorState: OfflineIndicatorState? = nil,
+        settingsSurfaceData: SettingsSurfaceData?? = nil,
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?? = nil
     ) -> NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
-            cookbooks: cookbooks,
+            cookbooks: cookbooks ?? self.cookbooks,
+            cachedProfiles: cachedProfiles ?? self.cachedProfiles,
             kitchen: kitchen,
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
@@ -196,10 +863,13 @@ public struct NativeShellContentState {
             spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID ?? self.spoonCookLogDraftsByRecipeID,
             queuedMutations: queuedMutations ?? self.queuedMutations,
             syncConflicts: syncConflicts ?? self.syncConflicts,
+            searchSurfaceSnapshots: searchSurfaceSnapshots ?? self.searchSurfaceSnapshots,
             authSessionState: authSessionState,
             environment: environment ?? self.environment,
             configuration: configuration ?? self.configuration,
-            offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState
+            offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState,
+            settingsSurfaceData: settingsSurfaceData ?? self.settingsSurfaceData,
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData ?? self.notificationAPNsSurfaceData
         )
     }
 
@@ -212,6 +882,7 @@ public struct NativeShellContentState {
         NativeShellContentState(
             recipes: [],
             cookbooks: [],
+            cachedProfiles: [],
             kitchen: KitchenFixtureState(
                 status: .bootstrap,
                 leadObject: .recipe(id: "live-empty", title: "Spoonjoy"),
@@ -225,10 +896,13 @@ public struct NativeShellContentState {
             spoonCookLogDraftsByRecipeID: [:],
             queuedMutations: [],
             syncConflicts: [],
+            searchSurfaceSnapshots: [],
             authSessionState: authSessionState,
             environment: environment,
             configuration: configuration,
-            offlineIndicatorState: offlineIndicatorState
+            offlineIndicatorState: offlineIndicatorState,
+            settingsSurfaceData: nil,
+            notificationAPNsSurfaceData: nil
         )
     }
 
@@ -247,7 +921,14 @@ public struct NativeShellContentState {
             to: cachedRecipes,
             authSessionState: authSessionState
         )
-        let cookbooks = restoredCookbooks(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
+        let cachedCookbooks = restoredCookbooks(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
+        let cookbooks = cookbooksByApplyingQueuedCookbookMutations(
+            optimisticMutations + syncSnapshot.queue.mutations,
+            to: cachedCookbooks,
+            recipes: recipes,
+            authSessionState: authSessionState
+        )
+        let cachedProfiles = restoredProfiles(cacheSnapshot: cacheSnapshot, syncSnapshot: syncSnapshot)
         let shoppingList = restoredShoppingList(
             cacheSnapshot: cacheSnapshot,
             syncSnapshot: syncSnapshot,
@@ -259,9 +940,13 @@ public struct NativeShellContentState {
         let captureDraft = restoredCaptureDraft(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let cookProgressByRecipeID = restoredCookProgress(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let spoonCookLogDraftsByRecipeID = appSnapshot?.spoonCookLogDraftsByRecipeID ?? [:]
+        let settingsSurfaceData = restoredSettingsSurfaceData(cacheSnapshot: cacheSnapshot)
+        let notificationAPNsSurfaceData = restoreNotificationAPNsSnapshot(cacheSnapshot: cacheSnapshot)
+        let searchSurfaceSnapshots = restoredSearchSurfaceSnapshots(cacheSnapshot: cacheSnapshot)
         return NativeShellContentState(
             recipes: recipes,
             cookbooks: cookbooks,
+            cachedProfiles: cachedProfiles,
             kitchen: restoredKitchen(
                 cacheSnapshot: cacheSnapshot,
                 recipes: recipes,
@@ -274,10 +959,13 @@ public struct NativeShellContentState {
             spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID,
             queuedMutations: syncSnapshot.queue.mutations,
             syncConflicts: [],
+            searchSurfaceSnapshots: searchSurfaceSnapshots,
             authSessionState: authSessionState,
             environment: cacheSnapshot.environment,
             configuration: configuration,
-            offlineIndicatorState: offlineIndicatorState
+            offlineIndicatorState: offlineIndicatorState,
+            settingsSurfaceData: settingsSurfaceData,
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData
         )
     }
 
@@ -338,16 +1026,7 @@ public struct NativeShellContentState {
     }
 
     private static func optimisticRecipeChef(authSessionState: NativeAuthSessionState, recipes: [Recipe]) -> ChefSummary {
-        if let chef = recipes.first?.chef {
-            return chef
-        }
-
-        switch authSessionState {
-        case .authenticated(let session), .refreshRequired(let session):
-            return ChefSummary(id: session.accountID ?? "signed-out", username: "Spoonjoy")
-        case .signedOut:
-            return ChefSummary(id: "signed-out", username: "Spoonjoy")
-        }
+        optimisticChef(authSessionState: authSessionState, recipes: recipes, cookbooks: [])
     }
 
     private static func restoredCookbooks(
@@ -365,6 +1044,137 @@ public struct NativeShellContentState {
             return placeholderCookbook(id: id, title: title, date: record.metadata.lastValidatedAt)
         }
         return (decoded + placeholders).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private static func restoredProfiles(
+        cacheSnapshot: NativeDurableCacheSnapshot,
+        syncSnapshot: NativeSyncSnapshot
+    ) -> [NativeCachedProfile] {
+        var profilesByID = [String: NativeCachedProfile]()
+        cacheSnapshot.records
+            .compactMap(restoredProfile(cacheRecord:))
+            .forEach { profilesByID[$0.profile.id] = $0 }
+        syncSnapshot.cachedRecords
+            .filter { $0.kind == .profile }
+            .compactMap { restoredProfile(syncRecord: $0, checkpoint: syncSnapshot.checkpoint) }
+            .forEach { profilesByID[$0.profile.id] = $0 }
+        return profilesByID.values.sorted {
+            $0.profile.username.localizedCaseInsensitiveCompare($1.profile.username) == .orderedAscending
+        }
+    }
+
+    private static func restoredProfile(cacheRecord record: NativeCacheRecord) -> NativeCachedProfile? {
+        guard case .profile(let id, let username) = record.payload,
+              !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return NativeCachedProfile(
+            profile: profileSummary(id: id, username: username),
+            source: .cache(
+                serverRevision: record.metadata.serverRevision,
+                lastValidatedAt: record.metadata.lastValidatedAt
+            )
+        )
+    }
+
+    private static func restoredProfile(syncRecord record: NativeSyncCachedRecord, checkpoint: NativeSyncCheckpoint?) -> NativeCachedProfile? {
+        let profile = (decodedPayload(ProfileSurfaceResult.self, from: record.payload)?.data.profile
+            ?? decodedPayload(ProfileSurfaceData.self, from: record.payload)?.profile
+            ?? decodedPayload(ProfileSummary.self, from: record.payload)
+            ?? profileSummary(resourceID: record.resourceID, payload: record.payload))?
+            .withNormalizedProfileLink()
+        guard let profile else {
+            return nil
+        }
+        return NativeCachedProfile(
+            profile: profile,
+            source: .cache(
+                serverRevision: cacheServerRevision(from: record.serverRevision),
+                lastValidatedAt: date(from: checkpoint?.updatedAt) ?? .distantPast
+            )
+        )
+    }
+
+    private static func profileSummary(resourceID: String, payload: JSONValue) -> ProfileSummary? {
+        guard case .object(let fields) = payload,
+              case .string(let username)? = fields["username"],
+              !resourceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        let photoURL: URL?
+        if case .string(let photoURLRaw)? = fields["photoUrl"] {
+            photoURL = URL(string: photoURLRaw)
+        } else {
+            photoURL = nil
+        }
+        let joinedLabel: String
+        if case .string(let rawJoinedLabel)? = fields["joinedLabel"], !rawJoinedLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            joinedLabel = rawJoinedLabel
+        } else {
+            joinedLabel = "Joined Spoonjoy"
+        }
+        return profileSummary(id: resourceID, username: username, photoURL: photoURL, joinedLabel: joinedLabel)
+    }
+
+    private static func cacheServerRevision(from revision: NativeServerRevision?) -> NativeCacheServerRevision? {
+        switch revision {
+        case .updatedAt(let value):
+            return .updatedAt(value)
+        case .etag(let value):
+            return .etag(value)
+        case .tombstone(let value):
+            return .localRevision(value)
+        case nil:
+            return nil
+        }
+    }
+
+    private static func date(from isoString: String?) -> Date? {
+        guard let isoString else {
+            return nil
+        }
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractionalFormatter.date(from: isoString) {
+            return date
+        }
+        return ISO8601DateFormatter().date(from: isoString)
+    }
+
+    private static func cookbooksByApplyingQueuedCookbookMutations(
+        _ mutations: [NativeQueuedMutation],
+        to cookbooks: [Cookbook],
+        recipes: [Recipe],
+        authSessionState: NativeAuthSessionState
+    ) -> [Cookbook] {
+        let fallbackChef = optimisticChef(authSessionState: authSessionState, recipes: recipes, cookbooks: cookbooks)
+        return mutations.reduce(cookbooks) { currentCookbooks, mutation in
+            mutation.applyingOptimisticCookbookMutation(
+                to: currentCookbooks,
+                fallbackChef: fallbackChef,
+                recipes: recipes,
+                now: mutation.createdAt
+            )
+        }
+    }
+
+    private static func optimisticChef(
+        authSessionState: NativeAuthSessionState,
+        recipes: [Recipe],
+        cookbooks: [Cookbook]
+    ) -> ChefSummary {
+        if let chef = recipes.first?.chef ?? cookbooks.first?.chef {
+            return chef
+        }
+
+        switch authSessionState {
+        case .authenticated(let session), .refreshRequired(let session):
+            return ChefSummary(id: session.accountID ?? "signed-out", username: "Spoonjoy")
+        case .signedOut:
+            return ChefSummary(id: "signed-out", username: "Spoonjoy")
+        }
     }
 
     private static func restoredShoppingList(
@@ -491,6 +1301,43 @@ public struct NativeShellContentState {
         }
     }
 
+    private static func restoredSettingsSurfaceData(cacheSnapshot: NativeDurableCacheSnapshot) -> SettingsSurfaceData? {
+        let settingsRecords = cacheSnapshot.records.filter { record in
+            switch record.metadata.domain {
+            case .settings, .notificationPreferences, .tokenMetadata, .connectionStatus:
+                return true
+            default:
+                return false
+            }
+        }
+        guard !settingsRecords.isEmpty else {
+            return nil
+        }
+
+        let snapshot = SettingsSurfaceCacheSnapshot(
+            accountID: cacheSnapshot.accountID,
+            environment: cacheSnapshot.environment,
+            records: settingsRecords
+        )
+        return try? SnapshotSettingsSurfaceRepository(snapshot: snapshot).fetchSettingsSurface().data
+    }
+
+    private static func restoreNotificationAPNsSnapshot(cacheSnapshot: NativeDurableCacheSnapshot) -> NotificationAPNsSurfaceData? {
+        NotificationAPNsSurfaceData.restoredFromCacheSnapshot(cacheSnapshot, fallbackValidatedAt: cacheSnapshot.createdAt)
+    }
+
+    private static func restoredSearchSurfaceSnapshots(cacheSnapshot: NativeDurableCacheSnapshot) -> [SearchSurfaceCacheSnapshot] {
+        cacheSnapshot.records.compactMap { record in
+            guard case .searchResults(let snapshot) = record.payload,
+                  snapshot.accountID == cacheSnapshot.accountID,
+                  snapshot.environment == cacheSnapshot.environment,
+                  record.metadata.domain == .searchResults(query: snapshot.query, scope: snapshot.scope) else {
+                return nil
+            }
+            return snapshot
+        }
+    }
+
     private static func restoredKitchen(
         cacheSnapshot: NativeDurableCacheSnapshot,
         recipes: [Recipe],
@@ -587,6 +1434,7 @@ public struct NativeShellContentState {
     private init(
         recipes: [Recipe],
         cookbooks: [Cookbook],
+        cachedProfiles: [NativeCachedProfile],
         kitchen: KitchenFixtureState,
         shoppingList: ShoppingListState?,
         captureDraft: CaptureDraft?,
@@ -594,13 +1442,17 @@ public struct NativeShellContentState {
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState],
         queuedMutations: [NativeQueuedMutation],
         syncConflicts: [NativeSyncConflict],
+        searchSurfaceSnapshots: [SearchSurfaceCacheSnapshot],
         authSessionState: NativeAuthSessionState,
         environment: NativeCacheEnvironment,
         configuration: APIClientConfiguration,
-        offlineIndicatorState: OfflineIndicatorState
+        offlineIndicatorState: OfflineIndicatorState,
+        settingsSurfaceData: SettingsSurfaceData?,
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
     ) {
         self.recipes = recipes
         self.cookbooks = cookbooks
+        self.cachedProfiles = cachedProfiles
         self.kitchen = kitchen
         self.shoppingList = shoppingList
         self.captureDraft = captureDraft
@@ -608,6 +1460,7 @@ public struct NativeShellContentState {
         self.spoonCookLogDraftsByRecipeID = spoonCookLogDraftsByRecipeID
         self.queuedMutations = queuedMutations
         self.syncConflicts = syncConflicts
+        self.searchSurfaceSnapshots = searchSurfaceSnapshots
         self.searchResultsByScope = Self.searchResultsByScope(
             recipes: recipes,
             cookbooks: cookbooks,
@@ -617,6 +1470,8 @@ public struct NativeShellContentState {
         self.environment = environment
         self.configuration = configuration
         self.offlineIndicatorState = offlineIndicatorState
+        self.settingsSurfaceData = settingsSurfaceData
+        self.notificationAPNsSurfaceData = notificationAPNsSurfaceData
     }
 
     private var authState: AuthState {
@@ -738,8 +1593,21 @@ public final class NativeLiveAppStore: ObservableObject {
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
-            let authState = try await authorizedAuthState(from: restoredAuthState)
+            if dependencies.bootstrapMode == .restoreCacheOnly {
+                configureForRestoredAuthState(restoredAuthState)
+                let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
+                let offlineContent = restoredContent.copy(
+                    offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+                )
+                if case .signedOut = restoredAuthState {
+                    apply(.signedOut(offlineContent))
+                } else {
+                    apply(.offlineStale(offlineContent))
+                }
+                return
+            }
 
+            let authState = try await authorizedAuthState(from: restoredAuthState)
             guard case .authenticated(let session) = authState else {
                 let restoringContent = try await restoreFromCache(authSessionState: authState)
                 apply(.signedOut(restoringContent))
@@ -793,6 +1661,68 @@ public final class NativeLiveAppStore: ObservableObject {
             .dismissCurrentIndicator(at: dependencies.now(), cacheFingerprint: cacheFingerprint)
         )
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(offlineIndicatorState: reduced)))
+    }
+
+    public var currentSearchSurfaceIdentity: String {
+        currentContentState.searchSurfaceIdentity
+    }
+
+    public func searchSurfaceRepository(context: SearchSurfaceContext) -> any SearchSurfaceRepository {
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        return LiveSearchSurfaceRepository(
+            transport: dependencies.recipeEditorAPITransport(refresher),
+            configuration: configuration,
+            context: context
+        )
+    }
+
+    public func recordSearchSurfacePage(_ page: SearchSurfacePage, expectedIdentity: String) throws {
+        guard currentSearchSurfaceIdentity == expectedIdentity else {
+            return
+        }
+
+        let snapshot = searchSurfaceCacheSnapshot(from: page)
+        let domain = NativeCacheDomain.searchResults(query: snapshot.query, scope: snapshot.scope)
+        let record = try NativeCacheRecord(
+            id: domain.stableRecordID,
+            metadata: NativeCacheRecordMetadata(
+                accountID: snapshot.accountID,
+                environment: snapshot.environment,
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                domain: domain,
+                fetchedAt: dependencies.now(),
+                lastValidatedAt: snapshot.lastValidatedAt,
+                sourceEndpoint: "/api/v1/search",
+                serverRevision: snapshot.serverRevision
+            ),
+            payload: .searchResults(snapshot)
+        )
+        let fallbackSnapshot = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: snapshot.accountID,
+            environment: snapshot.environment,
+            createdAt: dependencies.now(),
+            records: [],
+            dismissedIndicators: []
+        )
+        let currentSnapshot = try dependencies.cacheStore.loadOrRecover(fallback: fallbackSnapshot)
+        let canSaveDurableSnapshot = currentSnapshot.source != .file ||
+            (currentSnapshot.value.accountID == snapshot.accountID && currentSnapshot.value.environment == snapshot.environment)
+        if canSaveDurableSnapshot {
+            let nextRecords = currentSnapshot.value.records.filter { $0.id != record.id } + [record]
+            try dependencies.cacheStore.save(try currentSnapshot.value.copy(records: nextRecords))
+        }
+
+        let nextSearchSnapshots = currentContentState.searchSurfaceSnapshots.filter { existing in
+            existing.environment != snapshot.environment ||
+                existing.accountID != snapshot.accountID ||
+                existing.query != snapshot.query ||
+                existing.scope != snapshot.scope
+        } + [snapshot]
+        apply(stateMatchingCurrentSeverity(with: currentContentState.copy(searchSurfaceSnapshots: nextSearchSnapshots)))
     }
 
     public func queueMutation(_ mutation: NativeQueuedMutation) async throws {
@@ -849,8 +1779,17 @@ public final class NativeLiveAppStore: ObservableObject {
                     now: mutation.createdAt
                 )
             }
+            let optimisticCookbooks = mutations.reduce(currentContentState.cookbooks) { cookbooks, mutation in
+                mutation.applyingOptimisticCookbookMutation(
+                    to: cookbooks,
+                    fallbackChef: fallbackChef,
+                    recipes: optimisticRecipes,
+                    now: mutation.createdAt
+                )
+            }
             apply(.queuedWork(currentContentState.copy(
                 recipes: optimisticRecipes,
+                cookbooks: optimisticCookbooks,
                 shoppingList: optimisticShoppingList,
                 queuedMutations: nextQueue.mutations,
                 offlineIndicatorState: indicator
@@ -946,6 +1885,41 @@ public final class NativeLiveAppStore: ObservableObject {
         await bootstrap()
     }
 
+    public func executeSettingsActionRequest(
+        _ request: APIRequestBuilder,
+        responseHandling: SettingsActionResponseHandling
+    ) async throws -> SettingsActionOutcome? {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+
+        switch responseHandling {
+        case .refreshOnly:
+            _ = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            await bootstrap()
+            return nil
+        case .captureCreatedAPIToken:
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: SettingsCreatedAPIToken.self
+            )
+            await bootstrap()
+            return .createdAPIToken(envelope.data)
+        }
+    }
+
     public func executeCaptureImportRequest(_ request: APIRequestBuilder) async throws -> RecipeImportResponse {
         let session = try await dependencies.authSessionRepository.validSession()
         configuration = APIClientConfiguration(
@@ -970,8 +1944,16 @@ public final class NativeLiveAppStore: ObservableObject {
         return envelope.data
     }
 
+    public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
+        switch operation {
+        case .logout, .revokeAndLogout:
+            try await dependencies.authSessionRepository.revokeAndLogout()
+        }
+        await bootstrap()
+    }
+
     private var optimisticRecipeChef: ChefSummary {
-        currentContentState.recipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+        currentContentState.recipes.first?.chef ?? currentContentState.cookbooks.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
     }
 
     private static func clientMutationIDsToDiscard(
@@ -1124,6 +2106,10 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func discardCaptureDraft(id draftID: String) {
+        guard currentContentState.captureDraft?.id == draftID else {
+            return
+        }
+
         let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
         if let appStateStore = dependencies.appStateStoreProvider() {
             do {
@@ -1147,9 +2133,6 @@ public final class NativeLiveAppStore: ObservableObject {
             }
         }
 
-        guard currentContentState.captureDraft?.id == draftID else {
-            return
-        }
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(nil))))
     }
 
@@ -1206,6 +2189,13 @@ public final class NativeLiveAppStore: ObservableObject {
 
         apply(.blocker(currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(
             display: .blocker(.providerSecret(resourceID: resourceID)),
+            dismissal: nil
+        ))))
+    }
+
+    public func recordNotificationAPNsBlocker(_ blocker: AppleDeveloperProgramBlocker) {
+        apply(.blocker(currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(
+            display: .blocker(.appleDeveloperProgram(capability: blocker.capability)),
             dismissal: nil
         ))))
     }
@@ -1414,6 +2404,7 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
+        try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
         let drainedOverlayMutations = report.drainedMutations.filter {
             !$0.mutatesRecipeCache && !$0.mutatesShoppingCache
         }
@@ -1462,6 +2453,24 @@ public final class NativeLiveAppStore: ObservableObject {
         } else {
             apply(.liveSynced(content))
         }
+    }
+
+    private func refreshSettingsSurfaceCache(authSessionState: NativeAuthSessionState) async throws {
+        guard let accountID = trustedAccountID(for: authSessionState),
+              let settingsSurfaceFetch = dependencies.settingsSurfaceFetch else {
+            return
+        }
+
+        let currentSnapshot = try loadOrCreateCacheSnapshot(authSessionState: authSessionState).value
+        let result = try await settingsSurfaceFetch(
+            accountID,
+            cacheEnvironment,
+            configuration,
+            NativeDurableCache(records: currentSnapshot.records)
+        )
+        let recordIDs = Set(result.persistedRecords.map(\.id))
+        let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
+        try dependencies.cacheStore.save(try currentSnapshot.copy(records: nextRecords))
     }
 
     private func clearDrainedCaptureImports(_ clientMutationIDs: Set<String>, authSessionState: NativeAuthSessionState) {
@@ -1515,6 +2524,45 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    private func searchSurfaceCacheSnapshot(from page: SearchSurfacePage) -> SearchSurfaceCacheSnapshot {
+        let serverRevision: NativeCacheServerRevision?
+        let lastValidatedAt: Date
+        switch page.source {
+        case .live(let requestID, let validatedAt):
+            serverRevision = .localRevision("search:\(requestID)")
+            lastValidatedAt = validatedAt
+        case .cache(let revision, let validatedAt), .offlineCache(let revision, let validatedAt):
+            serverRevision = revision
+            lastValidatedAt = validatedAt
+        }
+
+        let context = currentContentState.searchSurfaceContext
+        let currentAccountID = trustedAccountID(for: currentContentState.authSessionState)
+        let persistedResults = page.results.filter { result in
+            guard result.type == .shoppingListItem else {
+                return true
+            }
+            return context.isAuthenticated &&
+                context.canReadShoppingList &&
+                currentAccountID != nil &&
+                result.ownerID == currentAccountID
+        }
+
+        return SearchSurfaceCacheSnapshot(
+            accountID: accountID,
+            environment: cacheEnvironment,
+            query: page.query,
+            scope: page.scope,
+            limit: page.limit,
+            results: persistedResults,
+            recentSearches: page.query.isEmpty ? [] : [
+                SearchSurfaceRecentQuery(query: page.query, scope: page.scope, lastSearchedAt: lastValidatedAt)
+            ],
+            serverRevision: serverRevision,
+            lastValidatedAt: lastValidatedAt
+        )
+    }
+
     private func trustedAccountID(for authSessionState: NativeAuthSessionState) -> String? {
         switch authSessionState {
         case .signedOut:
@@ -1542,6 +2590,18 @@ public final class NativeLiveAppStore: ObservableObject {
             bearerToken: boundSession.accessToken
         )
         return .authenticated(boundSession)
+    }
+
+    private func configureForRestoredAuthState(_ restoredAuthState: NativeAuthSessionState) {
+        switch restoredAuthState {
+        case .signedOut:
+            configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        case .authenticated(let session), .refreshRequired(let session):
+            configuration = APIClientConfiguration(
+                baseURL: dependencies.configuration.baseURL,
+                bearerToken: session.accessToken
+            )
+        }
     }
 
     private func authorizedAuthState(from restoredAuthState: NativeAuthSessionState) async throws -> NativeAuthSessionState {
@@ -1627,7 +2687,43 @@ private extension Array where Element == RecipeDetailRecentSpoon {
         var remaining = filter { $0.id != spoon.id }
         remaining.insert(spoon, at: 0)
         return remaining.sorted {
-            ($0.cookedAt ?? $0.createdAt) > ($1.cookedAt ?? $1.createdAt)
+            let lhsKey = $0.cookedAt ?? $0.createdAt
+            let rhsKey = $1.cookedAt ?? $1.createdAt
+            if lhsKey != rhsKey {
+                return lhsKey > rhsKey
+            }
+            return $0.id > $1.id
+        }
+    }
+}
+
+private struct NativeProfileGraphAggregate: Equatable {
+    var chef: ChefSummary
+    var spoons: Int
+    var latestInteractionAt: String
+
+    init(chef: ChefSummary, latestInteractionAt: String) {
+        self.chef = chef
+        self.spoons = 1
+        self.latestInteractionAt = latestInteractionAt
+    }
+
+    mutating func recordSpoon(chef: ChefSummary, at interactionAt: String) {
+        spoons += 1
+        if interactionAt > latestInteractionAt {
+            self.chef = chef
+            latestInteractionAt = interactionAt
+        }
+    }
+}
+
+private extension Dictionary where Key == String, Value == NativeProfileGraphAggregate {
+    mutating func recordSpoon(for chef: ChefSummary, at interactionAt: String) {
+        if var aggregate = self[chef.id] {
+            aggregate.recordSpoon(chef: chef, at: interactionAt)
+            self[chef.id] = aggregate
+        } else {
+            self[chef.id] = NativeProfileGraphAggregate(chef: chef, latestInteractionAt: interactionAt)
         }
     }
 }

@@ -1,0 +1,107 @@
+Another instance of SwiftPM (PID: 81869) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.12s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native sync engine and mutation queue" started.
+◇ Test "sync engine keeps local capture draft mutations out of remote drain" started.
+◇ Test "sync engine pauses on auth failure classifies conflicts and retains the blocked queue" started.
+◇ Test "sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events" started.
+◇ Test "scheduled retry timestamps are honored before replaying a dependency key" started.
+◇ Test "mutation queue and durable decode edge cases fail closed" started.
+◇ Test "drained shopping mutations persist to file backed cache for restart" started.
+◇ Test "offline mutation policy queues allowed writes and refuses online only account security and provider actions" started.
+◇ Test "sync engine records spoon create id remaps without sending internal fields" started.
+◇ Test "sync engine blocks local cookbook dependent replay when create has not drained" started.
+◇ Test "sync engine rewrites dependent shopping item ids after add drains" started.
+◇ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" started.
+◇ Test "provider-secret blockers retain blocked imports while independent mutations drain" started.
+◇ Test "sync tombstones apply to local cache records and checkpoint revisions" started.
+◇ Test "sync engine rewrites local optimistic cookbook ids after create responses" started.
+◇ Test "drained add-from-recipe replays queued ingredient descriptors without cached recipe" started.
+◇ Test "scheduled retry report keeps the shortest independent retry delay" started.
+◇ Test "optimistic recipe mutations cover every recipe branch and malformed payload fallback" started.
+◇ Test "sync apply clears legacy unscoped snapshots before binding current account" started.
+◇ Test "scoped queue save clears previous owner checkpoint records and tombstones" started.
+◇ Test "file backed sync store restores queue checkpoint tombstones and staged media for restart" started.
+◇ Test "drained spoon mutations persist to recipe cache for restart" started.
+◇ Test "stale shopping check mutations preserve the current list" started.
+◇ Test "sync engine rewrites local optimistic recipe and step ids after create responses" started.
+◇ Test "sync engine rewrites remaining local ids when auth failure pauses after create success" started.
+◇ Test "expired retry schedules drain and tombstone revisions preserve resource families" started.
+◇ Test "drained cover mutations clear stale active cover cache for restart" started.
+◇ Test "sync engine rewrites dependent shopping item ids after add-from-recipe drains" started.
+◇ Test "sync apply rebinds account and clears previous owner queue before replay" started.
+◇ Test "bootstrap request and sync envelope use the private /me/sync contract" started.
+◇ Test "sync engine ignores previous owner checkpoint and queue on first scoped bootstrap" started.
+◇ Test "retry schedule uses exact Offline Product Contract backoff with capped jitter" started.
+◇ Test "legacy intent shopping mutations convert into native durable queued mutations" started.
+◇ Test "retry results block the failed dependency key while independent mutations can still drain" started.
+◇ Test "queued mutation resource id replacement targets identifier fields only" started.
+◇ Test "file backed sync store lets scoped bootstrap discard previous owner staged media" started.
+◇ Test "file backed sync store applies records checkpoints and missing staged media errors" started.
+◇ Test "native sync checkpoints validate global and shopping cursors" started.
+◇ Test "sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations" started.
+◇ Test "optimistic shopping mutations fail closed for malformed replay payloads" started.
+◇ Test "optimistic shopping check and clear completed update stale timestamps" started.
+◇ Test "sync engine applies bootstrap sync data before draining queued mutations" started.
+◇ Test "native mutation queue persists every offline product domain with durable replay metadata" started.
+◇ Test "drained shopping cache patch deletes removed cached rows and timestamps from first drained mutation" started.
+◇ Test "sync engine records step and ingredient create id remaps for drained optimistic mutations" started.
+◇ Test "sync stores expose simple queue checkpoint and unavailable errors" started.
+◇ Test "bootstrap tombstones are recorded with checkpoint cursors" started.
+◇ Test "capture draft mutations are durable local cache mutations and never build network requests" started.
+◇ Test "drained recipe mutations persist to file backed cache for restart" started.
+◇ Test "sync engine blocks local recipe dependent replay when create has not drained" started.
+✔ Test "sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events" passed after 0.011 seconds.
+✔ Test "offline mutation policy queues allowed writes and refuses online only account security and provider actions" passed after 0.011 seconds.
+✔ Test "mutation queue and durable decode edge cases fail closed" passed after 0.011 seconds.
+✔ Test "sync tombstones apply to local cache records and checkpoint revisions" passed after 0.011 seconds.
+✔ Test "sync engine keeps local capture draft mutations out of remote drain" passed after 0.011 seconds.
+✔ Test "sync engine pauses on auth failure classifies conflicts and retains the blocked queue" passed after 0.011 seconds.
+✔ Test "sync engine records spoon create id remaps without sending internal fields" passed after 0.011 seconds.
+✔ Test "provider-secret blockers retain blocked imports while independent mutations drain" passed after 0.011 seconds.
+✔ Test "scheduled retry timestamps are honored before replaying a dependency key" passed after 0.011 seconds.
+✔ Test "sync engine rewrites dependent shopping item ids after add drains" passed after 0.011 seconds.
+✔ Test "drained add-from-recipe replays queued ingredient descriptors without cached recipe" passed after 0.011 seconds.
+✔ Test "stale shopping check mutations preserve the current list" passed after 0.011 seconds.
+✔ Test "sync engine rewrites local optimistic cookbook ids after create responses" passed after 0.011 seconds.
+✔ Test "drained shopping mutations persist to file backed cache for restart" passed after 0.011 seconds.
+✔ Test "scoped queue save clears previous owner checkpoint records and tombstones" passed after 0.011 seconds.
+✔ Test "sync engine blocks local cookbook dependent replay when create has not drained" passed after 0.011 seconds.
+✔ Test "sync engine rewrites remaining local ids when auth failure pauses after create success" passed after 0.011 seconds.
+✔ Test "scheduled retry report keeps the shortest independent retry delay" passed after 0.011 seconds.
+✔ Test "bootstrap request and sync envelope use the private /me/sync contract" passed after 0.011 seconds.
+✔ Test "legacy intent shopping mutations convert into native durable queued mutations" passed after 0.011 seconds.
+✔ Test "sync apply clears legacy unscoped snapshots before binding current account" passed after 0.011 seconds.
+✔ Test "sync apply rebinds account and clears previous owner queue before replay" passed after 0.011 seconds.
+✔ Test "file backed sync store restores queue checkpoint tombstones and staged media for restart" passed after 0.011 seconds.
+✔ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" passed after 0.011 seconds.
+✔ Test "retry schedule uses exact Offline Product Contract backoff with capped jitter" passed after 0.011 seconds.
+✔ Test "sync engine rewrites dependent shopping item ids after add-from-recipe drains" passed after 0.011 seconds.
+✔ Test "native sync checkpoints validate global and shopping cursors" passed after 0.011 seconds.
+✔ Test "sync engine ignores previous owner checkpoint and queue on first scoped bootstrap" passed after 0.011 seconds.
+✔ Test "optimistic recipe mutations cover every recipe branch and malformed payload fallback" passed after 0.011 seconds.
+✔ Test "queued mutation resource id replacement targets identifier fields only" passed after 0.011 seconds.
+✔ Test "retry results block the failed dependency key while independent mutations can still drain" passed after 0.011 seconds.
+✔ Test "optimistic shopping check and clear completed update stale timestamps" passed after 0.011 seconds.
+✔ Test "sync engine rewrites local optimistic recipe and step ids after create responses" passed after 0.011 seconds.
+✔ Test "drained shopping cache patch deletes removed cached rows and timestamps from first drained mutation" passed after 0.011 seconds.
+✔ Test "sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations" passed after 0.011 seconds.
+✔ Test "optimistic shopping mutations fail closed for malformed replay payloads" passed after 0.011 seconds.
+✔ Test "sync engine applies bootstrap sync data before draining queued mutations" passed after 0.011 seconds.
+✔ Test "expired retry schedules drain and tombstone revisions preserve resource families" passed after 0.011 seconds.
+✔ Test "bootstrap tombstones are recorded with checkpoint cursors" passed after 0.011 seconds.
+✔ Test "drained cover mutations clear stale active cover cache for restart" passed after 0.011 seconds.
+✔ Test "sync engine records step and ingredient create id remaps for drained optimistic mutations" passed after 0.011 seconds.
+✔ Test "file backed sync store lets scoped bootstrap discard previous owner staged media" passed after 0.011 seconds.
+✔ Test "capture draft mutations are durable local cache mutations and never build network requests" passed after 0.011 seconds.
+✔ Test "sync engine blocks local recipe dependent replay when create has not drained" passed after 0.011 seconds.
+✔ Test "file backed sync store applies records checkpoints and missing staged media errors" passed after 0.011 seconds.
+✔ Test "drained spoon mutations persist to recipe cache for restart" passed after 0.013 seconds.
+✔ Test "sync stores expose simple queue checkpoint and unavailable errors" passed after 0.013 seconds.
+✔ Test "drained recipe mutations persist to file backed cache for restart" passed after 0.014 seconds.
+✔ Test "native mutation queue persists every offline product domain with durable replay metadata" passed after 0.020 seconds.
+✔ Suite "Native sync engine and mutation queue" passed after 0.021 seconds.
+✔ Test run with 49 tests in 1 suite passed after 0.022 seconds.

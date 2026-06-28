@@ -10,8 +10,15 @@ PROJECT_CONTRACT = ROOT.join("scripts/check-xcode-project-contract.rb")
 REQUIRED_FILES = [
   "Apps/Spoonjoy/Shared/Views/SearchView.swift",
   "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
+  "Apps/Spoonjoy/Shared/Views/ProfileView.swift",
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
-  "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift"
+  "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift",
+  "Sources/SpoonjoyCore/Features/Search/SearchSurfaceRepository.swift",
+  "Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift",
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift",
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift",
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift",
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift"
 ].freeze
 
 REQUIRED_TOKENS = {
@@ -19,11 +26,53 @@ REQUIRED_TOKENS = {
     "SearchView",
     "SearchState",
     "SearchScope",
+    "SearchSurfaceViewModel",
+    "SearchSurfaceSection",
+    "SearchSurfaceRow",
     "List",
     "Section",
+    "OfflineStatusView",
+    "searchTask",
+    "debounce",
     "searchable scopes",
     "typed rows",
     "KitchenTableTheme"
+  ],
+  "Sources/SpoonjoyCore/Features/Search/SearchSurfaceRepository.swift" => [
+    "SearchSurfaceRepository",
+    "LiveSearchSurfaceRepository",
+    "SnapshotSearchSurfaceRepository",
+    "FallbackSearchSurfaceRepository",
+    "SearchSurfaceRequest",
+    "SearchSurfacePage",
+    "SearchSurfaceData",
+    "SearchSurfaceResult",
+    "SearchSurfaceResultType",
+    "SearchSurfaceCacheSnapshot",
+    "SearchSurfaceRecentQuery",
+    "SearchSurfaceRepositoryError",
+    "recentSearches",
+    "SearchRequests.search",
+    "NativeCacheDomain.searchResults",
+    "SearchScope.shoppingList",
+    "shopping_list:read"
+  ],
+  "Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift" => [
+    "SearchSurfaceViewModel",
+    "SearchSurfaceContext",
+    "SearchSurfaceSection",
+    "SearchSurfaceRow",
+    "SearchSurfaceEmptyState",
+    "SearchSurfaceErrorState",
+    "SearchSurfaceDebouncePolicy",
+    "SearchSurfaceDebounceDecision",
+    "cancelsInFlightSearch",
+    "OfflineIndicatorState",
+    "SearchScope.allCases",
+    "AppRoute.recipeDetail",
+    "AppRoute.cookbookDetail",
+    "AppRoute.profile",
+    "AppRoute.shoppingList"
   ],
   "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift" => [
     "CaptureDraftView",
@@ -53,10 +102,46 @@ REQUIRED_TOKENS = {
     "canCreateServerRecipe",
     "KitchenTableTheme"
   ],
+  "Apps/Spoonjoy/Shared/Views/ProfileView.swift" => [
+    "ProfileRouteView",
+    "ProfileView",
+    "ProfileGraphRouteView",
+    "ProfileChefGraphSurfaceViewModel",
+    "ProfileGraphViewModel",
+    "ProfileHero",
+    "ProfileRecipeShelf",
+    "ProfileCookbookShelf",
+    "RecentSpoonsSection",
+    "FellowChefsSection",
+    "KitchenVisitorsSection",
+    "RecipeCoverImage(",
+    "OfflineStatusView",
+    "KitchenTableTheme"
+  ],
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
     "SettingsView",
     "SettingsViewModel",
+    "SettingsSurfaceViewModel",
+    "SettingsActionPlanner",
     "SettingsState",
+    "Profile",
+    "Email",
+    "Username",
+    "Upload Photo",
+    "Remove Photo",
+    "Notifications",
+    "API Tokens",
+    "Connections",
+    "Passkeys",
+    "Password",
+    "Sign Out",
+    "SettingsOnlineOnlyReason",
+    "SettingsSecureHandoff",
+    "PendingSettingsDestructiveAction",
+    "confirmationDialog(",
+    "confirmSettingsAction(",
+    "onlineOnlyActionsDisabled(surface)",
+    "cm_settings_remove_photo_",
     "settings.statusRows",
     "Form",
     "Section",
@@ -77,6 +162,82 @@ REQUIRED_TOKENS = {
     "Label",
     "Button",
     "KitchenTableTheme"
+  ],
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift" => [
+    "ProfileChefGraphSurfaceRepository",
+    "ProfileSurfaceRequest",
+    "ProfileSurfaceResult",
+    "ProfileGraphDirection",
+    "ProfileGraphPage",
+    "LiveProfileChefGraphSurfaceRepository",
+    "SnapshotProfileChefGraphSurfaceRepository",
+    "FallbackProfileChefGraphSurfaceRepository",
+    "PublicProfileRequests.profile",
+    "PublicProfileRequests.fellowChefs",
+    "PublicProfileRequests.kitchenVisitors",
+    "NativeCacheDomain.profile",
+    "NativeCachePayload.profile"
+  ],
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift" => [
+    "ProfileChefGraphSurfaceViewModel",
+    "ProfileViewModel",
+    "ProfileGraphViewModel",
+    "ProfileSurfaceContext",
+    "ProfileSurfaceOwnerActions",
+    "ProfileSurfaceGraphLink",
+    "ProfileSurfaceEmptyState",
+    "ProfileSurfaceConflictBanner",
+    "fellowChefsCount",
+    "kitchenVisitorsCount",
+    "recentSpoons",
+    "NativeQueuedMutation.profileDisplayUpdate",
+    "NativeQueuedMutation.profilePhotoUpload",
+    "NativeQueuedMutation.profilePhotoRemove",
+    "OfflineIndicatorState"
+  ],
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift" => [
+    "SettingsSurfaceRepository",
+    "LiveSettingsSurfaceRepository",
+    "SnapshotSettingsSurfaceRepository",
+    "SettingsSurfaceData",
+    "SettingsSurfaceCacheSnapshot",
+    "SettingsAccountProfile",
+    "SettingsNotificationPreferences",
+    "SettingsAPITokenSummary",
+    "SettingsOAuthConnectionSummary",
+    "tokenPrefix",
+    "updatedAt",
+    "revokedAt",
+    "PrivateAccountRequests.currentAccount",
+    "PrivateAccountRequests.notificationPreferences",
+    "TokenCredentialRequests.listTokens",
+    "PrivateAccountRequests.connections",
+    "NativeCacheDomain.settings",
+    "NativeCacheDomain.notificationPreferences",
+    "NativeCacheDomain.tokenMetadata",
+    "NativeCacheDomain.connectionStatus",
+    "NativeCachePayload.tokenMetadata",
+    "NativeCachePayload.connectionStatus"
+  ],
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift" => [
+    "SettingsSurfaceViewModel",
+    "SettingsSurfaceSectionID",
+    "SettingsProfileDraft",
+    "SettingsProfilePhotoStagingPolicy",
+    "SettingsActionPlanner",
+    "SettingsActionPlan",
+    "SettingsOnlineOnlyReason",
+    "SettingsSecureHandoff",
+    "SettingsSurfaceConflictBanner",
+    "NativeQueuedMutation.profileDisplayUpdate",
+    "NativeQueuedMutation.profilePhotoUpload",
+    "NativeQueuedMutation.profilePhotoRemove",
+    "NativeQueuedMutation.notificationPreferenceUpdate",
+    "NativeOfflineMutationPolicy.decision",
+    "TokenCredentialRequests.createToken",
+    "TokenCredentialRequests.revokeToken",
+    "PrivateAccountRequests.disconnectConnection",
+    "SecureAuthWebHandoff.logout"
   ]
 }.freeze
 
@@ -85,7 +246,18 @@ PLATFORM_NAVIGATION_TOKENS = [
   "recipeImportSource == draftImportSource",
   "pendingCaptureImportMutation?.clientMutationID != mutation.clientMutationID",
   "recordCaptureImportBlocker",
-  "executeCaptureImportRequest"
+  "executeCaptureImportRequest",
+  "ProfileRouteView(",
+  "ProfileGraphRouteView(",
+  "LiveProfileChefGraphSurfaceRepository",
+  "FallbackProfileChefGraphSurfaceRepository",
+  "profileGraphRepository",
+  "openProfileRoute",
+  "contentState.settingsSurfaceViewModel",
+  "performSettingsAction",
+  "queueSettingsMutationIfNeeded",
+  "executeSettingsActionRequest",
+  "performSettingsSessionOperation"
 ].freeze
 
 FORBIDDEN_TOKENS = [
@@ -100,7 +272,26 @@ FORBIDDEN_TOKENS = [
   'Text("Offline, auth, and environment state.")',
   "draftDidChange: { _ in }",
   "Promotion requires a separate reviewed flow",
-  ".constant(routeSearch)"
+  ".constant(routeSearch)",
+  "FollowButton",
+  "Followers",
+  "Following",
+  "DirectMessage",
+  "MessageComposer",
+  "MailCompose",
+  "RecipeComments",
+  "SocialFeed",
+  "ActivityFeed",
+  "capture/import scope",
+  "social-feed scope",
+  "comments scope",
+  "tokenHash",
+  "rawToken",
+  "tokenSecret",
+  "accessTokenSecret",
+  "refreshTokenSecret",
+  "accessTokenValue",
+  "refreshTokenValue"
 ].freeze
 
 FORBIDDEN_BY_FILE = {
@@ -122,7 +313,7 @@ def uncommented_swift(content)
 end
 
 missing_files = REQUIRED_FILES.reject { |path| ROOT.join(path).file? }
-fail_check("missing search/capture/settings surface files: #{missing_files.join(", ")}") unless missing_files.empty?
+fail_check("missing search/capture/settings/profile surface files: #{missing_files.join(", ")}") unless missing_files.empty?
 
 REQUIRED_TOKENS.each do |relative_path, tokens|
   content = uncommented_swift(ROOT.join(relative_path).read)
@@ -142,7 +333,7 @@ end
 fail_check("forbidden search/capture/settings surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
 
 platform_navigation = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read)
-["SearchView(", "CaptureDraftView(", "SettingsView("].each do |token|
+["SearchView(", "CaptureDraftView(", "ProfileRouteView(", "ProfileGraphRouteView(", "SettingsView("].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
 end
 fail_check("PlatformNavigationView.swift must not freeze route search with .constant(routeSearch)") if platform_navigation.include?(".constant(routeSearch)")
@@ -157,11 +348,19 @@ end
 [
   ".searchable(text: searchText",
   ".searchScopes(searchScope)",
+  "@FocusState private var isSearchFieldFocused",
+  ".searchFocused($isSearchFieldFocused)",
+  "isSearchFieldFocused = true",
   "search: $search",
-  "search.apply(route: .search(query: query, scope: scope))",
-  "openChef: { username in",
-  "search.update(query: username, scope: .chefs)",
-  "navigation.navigate(to: search.route)",
+  "contentState.searchSurfaceViewModel",
+  "performSearch(",
+  "search.apply(route: routeSearch.route)",
+  "openRoute: openRoute",
+  "AppRoute.profile",
+  "AppRoute.profileGraph",
+  "ProfileRouteView(",
+  "ProfileGraphRouteView(",
+  "ProfileChefGraphSurfaceViewModel",
   "recordCaptureDraft",
   "discardCaptureDraft",
   "recordCaptureImportRetry",
@@ -176,7 +375,14 @@ end
 
 live_store = uncommented_swift(ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift").read)
 [
+  "searchSurfaceViewModel",
+  "SearchSurfaceViewModel",
+  "SearchSurfaceCacheSnapshot",
+  "restoreSearchSurfaceSnapshot",
+  "performSearch(",
   "public var settingsViewModel: SettingsViewModel",
+  "profileGraphRepository",
+  "profileSurfaceViewModel",
   "SettingsState(",
   "offline: offlineState"
 ].each do |token|
@@ -190,9 +396,24 @@ scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swif
   "capture import submission",
   "settings state",
   "offline status",
+  "profile detail",
+  "profile graph",
+  "fellow chefs",
+  "kitchen visitors",
+  "settings token connection surface",
+  "settings profile update",
+  "settings token create online-only",
+  "settings connection disconnect online-only",
+  "settings secure handoff",
+  "search surface view model",
+  "SearchSurfaceViewModel",
+  "shopping-list search auth",
+  "cached search results",
+  "SearchSurfaceRequest",
   "safe unknown link",
   "SearchView.swift",
   "CaptureDraftView.swift",
+  "ProfileView.swift",
   "SettingsView.swift",
   "OfflineStatusView.swift"
 ].each do |token|
