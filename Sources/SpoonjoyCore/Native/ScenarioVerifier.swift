@@ -324,6 +324,11 @@ public enum ScenarioVerifier {
                 searchCheck(),
                 captureDraftCreationCheck(),
                 settingsStateCheck(),
+                settingsTokenConnectionSurfaceCheck(),
+                settingsProfileUpdateCheck(),
+                settingsTokenCreateOnlineOnlyCheck(),
+                settingsConnectionDisconnectOnlineOnlyCheck(),
+                settingsSecureHandoffCheck(),
                 offlineStatusCheck(),
                 safeUnknownLinkCheck(),
                 sourceCheck(
@@ -1306,6 +1311,149 @@ public enum ScenarioVerifier {
             status: status,
             detail: "Settings exposes auth, environment, shopping permissions, and cook text size."
         )
+    }
+
+    static func settingsTokenConnectionSurfaceCheck() -> ScenarioCheck {
+        let account = SettingsAccountProfile(
+            id: "chef_ari",
+            email: "ari@example.com",
+            username: "ari",
+            photoURL: nil,
+            hasPassword: true,
+            linkedProviders: [SettingsLinkedProvider(provider: .google, providerUsername: "ari@gmail.com")],
+            passkeys: [SettingsPasskeySummary(id: "passkey_mac", name: "Mac Touch ID", transports: "internal", createdAt: "2026-06-16T12:09:00.000Z")]
+        )
+        let data = SettingsSurfaceData(
+            account: account,
+            notifications: SettingsNotificationPreferences(
+                notifySpoonOnMyRecipe: true,
+                notifyForkOfMyRecipe: true,
+                notifyCookbookSaveOfMine: true,
+                notifyFellowChefOriginCook: true
+            ),
+            apiTokens: [
+                SettingsAPITokenSummary(
+                    id: "cred_cli",
+                    name: "CLI",
+                    tokenPrefix: "sj_live_cli",
+                    scopes: ["recipes:read"],
+                    createdAt: "2026-06-16T12:09:00.000Z",
+                    updatedAt: "2026-06-16T12:09:00.000Z",
+                    lastUsedAt: nil,
+                    revokedAt: nil,
+                    expiresAt: nil
+                )
+            ],
+            oauthConnections: [
+                SettingsOAuthConnectionSummary(
+                    id: "conn_cli",
+                    clientID: "client_cli",
+                    clientName: "CLI",
+                    resource: nil,
+                    scopes: ["recipes:read"],
+                    createdAt: "2026-06-16T12:09:00.000Z",
+                    refreshTokenCount: 1,
+                    accessTokenCount: 1
+                )
+            ],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .live(requestID: "scenario-settings", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
+        )
+        let viewModel = SettingsSurfaceViewModel(
+            data: data,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Date(timeIntervalSince1970: 1_780_120_000) }
+        )
+        let status: ScenarioCheckStatus = viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
+            viewModel.apiTokenRows.first?.tokenPrefix == "sj_live_cli" &&
+            viewModel.oauthConnectionRows.first?.clientID == "client_cli" ? .pass : .fail
+
+        return ScenarioCheck(
+            name: "settings token connection surface",
+            status: status,
+            detail: "Settings renders account profile, notification preferences, API token metadata, OAuth connection state, and native offline status."
+        )
+    }
+
+    static func settingsProfileUpdateCheck() -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp) {
+                "2026-06-16T12:09:00.000Z"
+            }
+            let plan = try planner.plan(.updateProfile(email: "ari@example.com", username: "ari", clientMutationID: "scenario-settings-profile"))
+            let request = try plan.remoteRequestBuilder?.urlRequest(configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"))
+            let status: ScenarioCheckStatus = request?.method == .patch &&
+                request?.url.path == "/api/v1/me" &&
+                plan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings profile update",
+                status: status,
+                detail: "Settings profile update plans native PATCH /api/v1/me with an offline queue fallback."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings profile update", status: .fail, detail: "Settings profile update failed: \(error)")
+        }
+    }
+
+    static func settingsTokenCreateOnlineOnlyCheck() -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp) {
+                "2026-06-16T12:09:00.000Z"
+            }
+            let plan = try planner.plan(.createAPIToken(name: "CLI", scopes: ["recipes:read"]))
+            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .apiTokenCreate &&
+                plan.queuedMutation == nil &&
+                plan.offlineFallbackMutation == nil ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings token create online-only",
+                status: status,
+                detail: "Settings token create is native REST when online and disabled rather than queued offline."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings token create online-only", status: .fail, detail: "Settings token create failed: \(error)")
+        }
+    }
+
+    static func settingsConnectionDisconnectOnlineOnlyCheck() -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp) {
+                "2026-06-16T12:09:00.000Z"
+            }
+            let plan = try planner.plan(.disconnectOAuthConnection(connectionID: "conn_cli"))
+            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .oauthConnectionDisconnect &&
+                plan.queuedMutation == nil &&
+                plan.offlineFallbackMutation == nil ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings connection disconnect online-only",
+                status: status,
+                detail: "Settings OAuth connection disconnect never enters the offline mutation queue."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings connection disconnect online-only", status: .fail, detail: "Settings connection disconnect failed: \(error)")
+        }
+    }
+
+    static func settingsSecureHandoffCheck() -> ScenarioCheck {
+        do {
+            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp) {
+                "2026-06-16T12:09:00.000Z"
+            }
+            let provider = try planner.plan(.linkProvider(.google)).secureHandoff
+            let passkeys = try planner.plan(.managePasskeys).secureHandoff
+            let status: ScenarioCheckStatus = provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
+                passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys" ? .pass : .fail
+            return ScenarioCheck(
+                name: "settings secure handoff",
+                status: status,
+                detail: "Settings credential actions route to secure web handoff URLs while native token/profile actions stay REST-backed."
+            )
+        } catch {
+            return ScenarioCheck(name: "settings secure handoff", status: .fail, detail: "Settings secure handoff failed: \(error)")
+        }
     }
 
     static func offlineStatusCheck(

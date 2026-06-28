@@ -67,6 +67,18 @@ public enum NativeCacheDomain: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+public struct NativeDurableCache: Equatable, Sendable {
+    public let records: [NativeCacheRecord]
+
+    public init(records: [NativeCacheRecord] = []) {
+        self.records = records
+    }
+
+    public func record(for domain: NativeCacheDomain) -> NativeCacheRecord? {
+        records.first { $0.metadata.domain == domain }
+    }
+}
+
 public enum NativeCacheServerRevision: Codable, Equatable, Hashable, Sendable {
     case etag(String)
     case cursor(String)
@@ -77,12 +89,34 @@ public enum NativeCacheServerRevision: Codable, Equatable, Hashable, Sendable {
 public struct NativeTokenMetadata: Codable, Equatable, Hashable, Sendable {
     public let id: String
     public let name: String
+    public let tokenPrefix: String
     public let scopes: [String]
+    public let createdAt: String?
+    public let updatedAt: String?
+    public let lastUsedAt: String?
+    public let revokedAt: String?
+    public let expiresAt: String?
 
-    public init(id: String, name: String, scopes: [String]) {
+    public init(
+        id: String,
+        name: String,
+        tokenPrefix: String = "",
+        scopes: [String],
+        createdAt: String? = nil,
+        updatedAt: String? = nil,
+        lastUsedAt: String? = nil,
+        revokedAt: String? = nil,
+        expiresAt: String? = nil
+    ) {
         self.id = id
         self.name = name
+        self.tokenPrefix = tokenPrefix
         self.scopes = scopes
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.lastUsedAt = lastUsedAt
+        self.revokedAt = revokedAt
+        self.expiresAt = expiresAt
     }
 }
 
@@ -95,11 +129,36 @@ public struct NativeConnectionStatus: Codable, Equatable, Hashable, Sendable {
     public let id: String
     public let provider: String
     public let status: NativeConnectionStatusValue
+    public let clientID: String
+    public let clientName: String
+    public let resource: String?
+    public let scopes: [String]
+    public let createdAt: String?
+    public let refreshTokenCount: Int
+    public let accessTokenCount: Int
 
-    public init(id: String, provider: String, status: NativeConnectionStatusValue) {
+    public init(
+        id: String,
+        provider: String,
+        status: NativeConnectionStatusValue,
+        clientID: String = "",
+        clientName: String = "",
+        resource: String? = nil,
+        scopes: [String] = [],
+        createdAt: String? = nil,
+        refreshTokenCount: Int = 0,
+        accessTokenCount: Int = 0
+    ) {
         self.id = id
         self.provider = provider
         self.status = status
+        self.clientID = clientID
+        self.clientName = clientName
+        self.resource = resource
+        self.scopes = scopes
+        self.createdAt = createdAt
+        self.refreshTokenCount = refreshTokenCount
+        self.accessTokenCount = accessTokenCount
     }
 }
 
@@ -116,6 +175,7 @@ public enum NativeCaptureDraftCacheSource: Codable, Equatable, Hashable, Sendabl
 
 public enum NativeCachePayload: Codable, Equatable, Hashable, Sendable {
     case empty
+    case settings(account: SettingsAccountProfile)
     case recipeCatalog(recipeIDs: [String])
     case recipeDetail(id: String, title: String)
     case cookbookList(cookbookIDs: [String])
@@ -125,6 +185,7 @@ public enum NativeCachePayload: Codable, Equatable, Hashable, Sendable {
     case captureDraft(id: String, source: NativeCaptureDraftCacheSource)
     case profile(id: String, username: String)
     case notificationPreferences(marketingEnabled: Bool, cookingRemindersEnabled: Bool)
+    case notificationPreferenceState(SettingsNotificationPreferences)
     case tokenMetadata(credentials: [NativeTokenMetadata])
     case connectionStatus(connections: [NativeConnectionStatus])
     case apnsStatus(deviceID: String, registrationState: NativeAPNSRegistrationState)
@@ -204,6 +265,8 @@ private extension NativeCachePayload {
         switch self {
         case .empty:
             nil
+        case .settings:
+            .settings
         case .recipeCatalog:
             .recipeCatalog
         case .recipeDetail(let id, _):
@@ -221,6 +284,8 @@ private extension NativeCachePayload {
         case .profile(let id, _):
             .profile(id: id)
         case .notificationPreferences:
+            .notificationPreferences
+        case .notificationPreferenceState:
             .notificationPreferences
         case .tokenMetadata:
             .tokenMetadata

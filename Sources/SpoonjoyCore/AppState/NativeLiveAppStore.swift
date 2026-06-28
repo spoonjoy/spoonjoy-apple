@@ -1,6 +1,13 @@
 import Combine
 import Foundation
 
+public typealias NativeSettingsSurfaceFetchOperation = @Sendable (
+    _ accountID: String,
+    _ environment: NativeCacheEnvironment,
+    _ configuration: APIClientConfiguration,
+    _ cache: NativeDurableCache
+) async throws -> SettingsSurfaceResult
+
 public struct NativeLiveAppStoreDependencies {
     public let authSessionRepository: NativeAuthSessionRepository
     public let cacheStore: NativeDurableCacheStore
@@ -12,6 +19,7 @@ public struct NativeLiveAppStoreDependencies {
     public let cacheEnvironment: NativeCacheEnvironment
     public let fixtureFallbackPolicy: NativeFixtureFallbackPolicy
     public let recipeEditorAPITransport: @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport
+    public let settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
     public let stagedMediaDirectory: NativeStagedMediaDirectory?
     public let now: @Sendable () -> Date
 
@@ -28,6 +36,7 @@ public struct NativeLiveAppStoreDependencies {
         recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
             URLSessionAPITransport(authenticationRefresher: refresher)
         },
+        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
         now: @escaping @Sendable () -> Date
     ) {
@@ -41,6 +50,7 @@ public struct NativeLiveAppStoreDependencies {
         self.cacheEnvironment = cacheEnvironment
         self.fixtureFallbackPolicy = fixtureFallbackPolicy
         self.recipeEditorAPITransport = recipeEditorAPITransport
+        self.settingsSurfaceFetch = settingsSurfaceFetch
         self.stagedMediaDirectory = stagedMediaDirectory
         self.now = now
     }
@@ -142,6 +152,7 @@ public struct NativeShellContentState {
     public let environment: NativeCacheEnvironment
     public let configuration: APIClientConfiguration
     public let offlineIndicatorState: OfflineIndicatorState
+    public let settingsSurfaceData: SettingsSurfaceData?
 
     public func recipe(id: String) -> Recipe? {
         recipes.first { $0.id == id }
@@ -162,6 +173,46 @@ public struct NativeShellContentState {
                 id: "dismiss-\(environment.rawValue)",
                 title: "Hide offline status"
             )
+        )
+    }
+
+    public var settingsSurfaceViewModel: SettingsSurfaceViewModel {
+        if let settingsSurfaceData {
+            return SettingsSurfaceViewModel(
+                data: settingsSurfaceData,
+                queuedMutations: queuedMutations,
+                conflicts: syncConflicts,
+                connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+                secureHandoffRoutes: .spoonjoyApp,
+                now: Date.init
+            )
+        }
+
+        guard trustedAccountID != nil else {
+            return SettingsSurfaceViewModel.signedOut(
+                environment: environment,
+                offline: offlineState,
+                secureHandoffRoutes: .spoonjoyApp
+            )
+        }
+
+        let data = SettingsSurfaceData(
+            account: nil,
+            notifications: nil,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: environment,
+            offline: .unavailable,
+            source: .cache(lastValidatedAt: .distantPast)
+        )
+        return SettingsSurfaceViewModel(
+            data: data,
+            queuedMutations: queuedMutations,
+            conflicts: syncConflicts,
+            connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: Date.init,
+            showsPrimaryAuthActionWhenSignedOut: false
         )
     }
 
@@ -496,7 +547,8 @@ public struct NativeShellContentState {
         syncConflicts: [NativeSyncConflict]? = nil,
         environment: NativeCacheEnvironment? = nil,
         configuration: APIClientConfiguration? = nil,
-        offlineIndicatorState: OfflineIndicatorState? = nil
+        offlineIndicatorState: OfflineIndicatorState? = nil,
+        settingsSurfaceData: SettingsSurfaceData?? = nil
     ) -> NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
@@ -512,7 +564,8 @@ public struct NativeShellContentState {
             authSessionState: authSessionState,
             environment: environment ?? self.environment,
             configuration: configuration ?? self.configuration,
-            offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState
+            offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState,
+            settingsSurfaceData: settingsSurfaceData ?? self.settingsSurfaceData
         )
     }
 
@@ -542,7 +595,8 @@ public struct NativeShellContentState {
             authSessionState: authSessionState,
             environment: environment,
             configuration: configuration,
-            offlineIndicatorState: offlineIndicatorState
+            offlineIndicatorState: offlineIndicatorState,
+            settingsSurfaceData: nil
         )
     }
 
@@ -580,6 +634,7 @@ public struct NativeShellContentState {
         let captureDraft = restoredCaptureDraft(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let cookProgressByRecipeID = restoredCookProgress(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let spoonCookLogDraftsByRecipeID = appSnapshot?.spoonCookLogDraftsByRecipeID ?? [:]
+        let settingsSurfaceData = restoredSettingsSurfaceData(cacheSnapshot: cacheSnapshot)
         return NativeShellContentState(
             recipes: recipes,
             cookbooks: cookbooks,
@@ -599,7 +654,8 @@ public struct NativeShellContentState {
             authSessionState: authSessionState,
             environment: cacheSnapshot.environment,
             configuration: configuration,
-            offlineIndicatorState: offlineIndicatorState
+            offlineIndicatorState: offlineIndicatorState,
+            settingsSurfaceData: settingsSurfaceData
         )
     }
 
@@ -935,6 +991,27 @@ public struct NativeShellContentState {
         }
     }
 
+    private static func restoredSettingsSurfaceData(cacheSnapshot: NativeDurableCacheSnapshot) -> SettingsSurfaceData? {
+        let settingsRecords = cacheSnapshot.records.filter { record in
+            switch record.metadata.domain {
+            case .settings, .notificationPreferences, .tokenMetadata, .connectionStatus:
+                return true
+            default:
+                return false
+            }
+        }
+        guard !settingsRecords.isEmpty else {
+            return nil
+        }
+
+        let snapshot = SettingsSurfaceCacheSnapshot(
+            accountID: cacheSnapshot.accountID,
+            environment: cacheSnapshot.environment,
+            records: settingsRecords
+        )
+        return try? SnapshotSettingsSurfaceRepository(snapshot: snapshot).fetchSettingsSurface().data
+    }
+
     private static func restoredKitchen(
         cacheSnapshot: NativeDurableCacheSnapshot,
         recipes: [Recipe],
@@ -1042,7 +1119,8 @@ public struct NativeShellContentState {
         authSessionState: NativeAuthSessionState,
         environment: NativeCacheEnvironment,
         configuration: APIClientConfiguration,
-        offlineIndicatorState: OfflineIndicatorState
+        offlineIndicatorState: OfflineIndicatorState,
+        settingsSurfaceData: SettingsSurfaceData?
     ) {
         self.recipes = recipes
         self.cookbooks = cookbooks
@@ -1063,6 +1141,7 @@ public struct NativeShellContentState {
         self.environment = environment
         self.configuration = configuration
         self.offlineIndicatorState = offlineIndicatorState
+        self.settingsSurfaceData = settingsSurfaceData
     }
 
     private var authState: AuthState {
@@ -1401,6 +1480,41 @@ public final class NativeLiveAppStore: ObservableObject {
         await bootstrap()
     }
 
+    public func executeSettingsActionRequest(
+        _ request: APIRequestBuilder,
+        responseHandling: SettingsActionResponseHandling
+    ) async throws -> SettingsActionOutcome? {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+
+        switch responseHandling {
+        case .refreshOnly:
+            _ = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            await bootstrap()
+            return nil
+        case .captureCreatedAPIToken:
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: SettingsCreatedAPIToken.self
+            )
+            await bootstrap()
+            return .createdAPIToken(envelope.data)
+        }
+    }
+
     public func executeCaptureImportRequest(_ request: APIRequestBuilder) async throws -> RecipeImportResponse {
         let session = try await dependencies.authSessionRepository.validSession()
         configuration = APIClientConfiguration(
@@ -1423,6 +1537,14 @@ public final class NativeLiveAppStore: ObservableObject {
             apply(stateMatchingCurrentSeverity(with: currentContentState.copy(recipes: recipes)))
         }
         return envelope.data
+    }
+
+    public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
+        switch operation {
+        case .logout, .revokeAndLogout:
+            try await dependencies.authSessionRepository.revokeAndLogout()
+        }
+        await bootstrap()
     }
 
     private var optimisticRecipeChef: ChefSummary {
@@ -1870,6 +1992,7 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
+        try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
         let drainedOverlayMutations = report.drainedMutations.filter {
             !$0.mutatesRecipeCache && !$0.mutatesShoppingCache
         }
@@ -1918,6 +2041,24 @@ public final class NativeLiveAppStore: ObservableObject {
         } else {
             apply(.liveSynced(content))
         }
+    }
+
+    private func refreshSettingsSurfaceCache(authSessionState: NativeAuthSessionState) async throws {
+        guard let accountID = trustedAccountID(for: authSessionState),
+              let settingsSurfaceFetch = dependencies.settingsSurfaceFetch else {
+            return
+        }
+
+        let currentSnapshot = try loadOrCreateCacheSnapshot(authSessionState: authSessionState).value
+        let result = try await settingsSurfaceFetch(
+            accountID,
+            cacheEnvironment,
+            configuration,
+            NativeDurableCache(records: currentSnapshot.records)
+        )
+        let recordIDs = Set(result.persistedRecords.map(\.id))
+        let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
+        try dependencies.cacheStore.save(try currentSnapshot.copy(records: nextRecords))
     }
 
     private func clearDrainedCaptureImports(_ clientMutationIDs: Set<String>, authSessionState: NativeAuthSessionState) {

@@ -78,6 +78,7 @@ struct SpoonjoyRootView: View {
         if navigation.route == .settings {
             SettingsView(
                 viewModel: contentState.settingsViewModel,
+                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
                 onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
             )
             .safeAreaInset(edge: .bottom) {
@@ -122,8 +123,14 @@ struct SpoonjoyRootView: View {
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },
+            executeSettingsActionRequest: { request, responseHandling in
+                try await liveStore.executeSettingsActionRequest(request, responseHandling: responseHandling)
+            },
             executeCaptureImportRequest: { request in
                 try await liveStore.executeCaptureImportRequest(request)
+            },
+            performSettingsSessionOperation: { operation in
+                try await liveStore.performSettingsSessionOperation(operation)
             },
             recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
@@ -235,6 +242,12 @@ struct SpoonjoyRootView: View {
             },
             configuration: configuration,
             cacheEnvironment: .production,
+            settingsSurfaceFetch: { accountID, environment, configuration, cache in
+                try await LiveSettingsSurfaceRepository(
+                    cache: cache,
+                    configuration: configuration
+                ).fetchSettingsSurface(accountID: accountID, environment: environment)
+            },
             stagedMediaDirectory: stagedMediaDirectory,
             now: Date.init
         )

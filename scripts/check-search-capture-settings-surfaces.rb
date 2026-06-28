@@ -93,6 +93,11 @@ REQUIRED_TOKENS = {
     "Sign Out",
     "SettingsOnlineOnlyReason",
     "SettingsSecureHandoff",
+    "PendingSettingsDestructiveAction",
+    "confirmationDialog(",
+    "confirmSettingsAction(",
+    "onlineOnlyActionsDisabled(surface)",
+    "cm_settings_remove_photo_",
     "settings.statusRows",
     "Form",
     "Section",
@@ -207,8 +212,8 @@ PLATFORM_NAVIGATION_TOKENS = [
   "contentState.settingsSurfaceViewModel",
   "performSettingsAction",
   "queueSettingsMutationIfNeeded",
-  "LiveSettingsSurfaceRepository",
-  "SnapshotSettingsSurfaceRepository"
+  "executeSettingsActionRequest",
+  "performSettingsSessionOperation"
 ].freeze
 
 FORBIDDEN_TOKENS = [

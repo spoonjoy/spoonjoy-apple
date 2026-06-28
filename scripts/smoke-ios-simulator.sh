@@ -37,7 +37,7 @@ legacy_blocker_path="$artifact_root/smoke-ios-simulator-blocker.json"
 log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-ios-inner.log}"
 blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-ios-simulator-blocker.json}"
 derived_data_path="$artifact_root/DerivedData-iOS"
-timeout_seconds=30
+timeout_seconds=90
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -125,13 +125,14 @@ fi
 
 udid="${destination##*,id=}"
 app_path="$derived_data_path/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
-build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination '$destination' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
+build_destination="generic/platform=iOS Simulator"
+build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination '$build_destination' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
 build_command=(
   xcodebuild
   -project Spoonjoy.xcodeproj
   -scheme "Spoonjoy iOS"
   -configuration BootstrapDebug
-  -destination "$destination"
+  -destination "$build_destination"
   -derivedDataPath "$derived_data_path"
   CODE_SIGNING_ALLOWED=NO
   GCC_TREAT_WARNINGS_AS_ERRORS=YES

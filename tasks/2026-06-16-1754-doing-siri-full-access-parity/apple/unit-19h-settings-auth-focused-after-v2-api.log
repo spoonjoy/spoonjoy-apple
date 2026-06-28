@@ -1,0 +1,72 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native auth session contract" started.
+◇ Suite "Native settings profile tokens and connections parity" started.
+◇ Suite "Token vault and refresh coordination" started.
+◇ Test "Keychain token vault persists values and surfaces security statuses" started.
+◇ Test "live and snapshot repositories read the same account settings API surface" started.
+◇ Test "settings UI and scenario verifier expose native sections instead of web handoff placeholders" started.
+◇ Test "account settings decoder accepts legacy passkeys without created timestamps" started.
+◇ Test "refresh rotation revoke logout and restoration persist through native repository" started.
+◇ Test "native auth implementation is covered in process" started.
+◇ Test "auth files are wired into generated app targets and signed out flow" started.
+◇ Test "auth sessions validate, classify state, and rotate token responses" started.
+◇ Test "tokens connections logout and credential handoffs are online-only while offline" started.
+◇ Test "profile photo staging follows web allowlist and preserves existing draft on rejected replacement" started.
+◇ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" started.
+◇ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" started.
+◇ Test "refresh failures preserve prior session and disconnect clears auth state" started.
+◇ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" started.
+◇ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" started.
+◇ Test "settings surface exposes signed-in account state, signed-out handoff, tokens, connections, and conflicts" started.
+◇ Test "web authentication adapter is executable with injected session factory" started.
+◇ Test "token vault persists client id and sessions independently" started.
+◇ Test "local validation matrix delegates xcodebuild classification to wrapper" started.
+◇ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" started.
+◇ Test "native auth session source defines launch callback and restoration contract" started.
+◇ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" started.
+◇ Test "Keychain token vault stores auth material outside general cache" started.
+◇ Test "profile and notification actions plan exact REST requests with offline queue fallbacks" started.
+◇ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" started.
+◇ Test "disconnect cancels in-flight refresh and prevents session resurrection" started.
+◇ Test "secure web handoff URLs are exact and separate from native OAuth redirects" started.
+◇ Test "disconnect invalidates every waiter on a shared in-flight refresh" started.
+◇ Test "missing sessions are invalid refresh state" started.
+◇ Test "OAuth callback contract uses universal links and rejects custom schemes" started.
+◇ Test "refresh coordinator returns valid sessions without network refresh" started.
+✔ Test "account settings decoder accepts legacy passkeys without created timestamps" passed after 0.004 seconds.
+✔ Test "profile photo staging follows web allowlist and preserves existing draft on rejected replacement" passed after 0.004 seconds.
+✔ Test "auth sessions validate, classify state, and rotate token responses" passed after 0.004 seconds.
+✔ Test "live and snapshot repositories read the same account settings API surface" passed after 0.004 seconds.
+✔ Test "settings surface exposes signed-in account state, signed-out handoff, tokens, connections, and conflicts" passed after 0.004 seconds.
+✔ Test "Keychain token vault persists values and surfaces security statuses" passed after 0.004 seconds.
+✔ Test "token vault persists client id and sessions independently" passed after 0.004 seconds.
+✔ Test "refresh rotation revoke logout and restoration persist through native repository" passed after 0.004 seconds.
+✔ Test "app bundle declares associated domains without treating custom scheme as OAuth redirect" passed after 0.004 seconds.
+✔ Test "xcodebuild blocker wrapper classifies only local pre-parse platform faults" passed after 0.004 seconds.
+✔ Test "native auth session source defines launch callback and restoration contract" passed after 0.004 seconds.
+✔ Test "Keychain token vault stores auth material outside general cache" passed after 0.004 seconds.
+✔ Test "secure web handoff URLs are exact and separate from native OAuth redirects" passed after 0.004 seconds.
+✔ Test "missing sessions are invalid refresh state" passed after 0.004 seconds.
+✔ Test "OAuth callback contract uses universal links and rejects custom schemes" passed after 0.005 seconds.
+✔ Test "refresh coordinator returns valid sessions without network refresh" passed after 0.004 seconds.
+✔ Test "ASWebAuthenticationSession adapter launches exact HTTPS callback route" passed after 0.004 seconds.
+✔ Test "local validation matrix delegates xcodebuild classification to wrapper" passed after 0.004 seconds.
+✔ Test "refresh failures preserve prior session and disconnect clears auth state" passed after 0.005 seconds.
+✔ Test "disconnect cancels in-flight refresh and prevents session resurrection" passed after 0.005 seconds.
+✔ Test "profile and notification actions plan exact REST requests with offline queue fallbacks" passed after 0.005 seconds.
+✔ Test "tokens connections logout and credential handoffs are online-only while offline" passed after 0.005 seconds.
+✔ Test "native auth implementation is covered in process" passed after 0.005 seconds.
+✔ Test "disconnect invalidates every waiter on a shared in-flight refresh" passed after 0.012 seconds.
+✔ Test "settings UI and scenario verifier expose native sections instead of web handoff placeholders" passed after 0.017 seconds.
+✔ Suite "Native settings profile tokens and connections parity" passed after 0.018 seconds.
+✔ Test "refresh coordinator shares one concurrent refresh and rotates tokens atomically" passed after 0.038 seconds.
+✔ Suite "Token vault and refresh coordination" passed after 0.039 seconds.
+✔ Test "auth files are wired into generated app targets and signed out flow" passed after 0.409 seconds.
+✔ Test "xcodebuild blocker wrapper behavior is executable with fake xcodebuild" passed after 1.952 seconds.
+✔ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" passed after 8.747 seconds.
+✔ Test "native auth repository behavior persists client id rotates refresh tokens revokes and restores state" passed after 15.053 seconds.
+✔ Test "web authentication adapter is executable with injected session factory" passed after 18.631 seconds.
+✔ Suite "Native auth session contract" passed after 18.631 seconds.
+✔ Test run with 31 tests in 3 suites passed after 18.631 seconds.

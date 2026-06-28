@@ -5,6 +5,8 @@ struct PlatformNavigationView: View {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
 
+    @Environment(\.openURL) private var openURL
+
     private let contentState: NativeShellContentState
     private let offlineIndicatorState: OfflineIndicatorState
     private let dismissOfflineIndicator: @MainActor @Sendable () -> Void
@@ -12,7 +14,9 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
+    private let performSettingsSessionOperation: @MainActor @Sendable (SettingsSessionOperation) async throws -> Void
     private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
     private let recordCaptureDraftHandler: @MainActor @Sendable (CaptureDraft) -> Void
@@ -32,7 +36,9 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
+        performSettingsSessionOperation: @escaping @MainActor @Sendable (SettingsSessionOperation) async throws -> Void,
         recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
         recordCaptureDraft: @escaping @MainActor @Sendable (CaptureDraft) -> Void,
@@ -51,7 +57,9 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
+        self.performSettingsSessionOperation = performSettingsSessionOperation
         self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
         self.recordCaptureDraftHandler = recordCaptureDraft
@@ -254,6 +262,8 @@ struct PlatformNavigationView: View {
         case .settings:
             SettingsView(
                 viewModel: contentState.settingsViewModel,
+                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                performSettingsAction: performSettingsAction,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:
@@ -652,6 +662,14 @@ struct PlatformNavigationView: View {
         return .online
     }
 
+    private var settingsSurfaceConnectivity: SettingsSurfaceConnectivity {
+        if offlineIndicatorState.display == .offline {
+            return .offline
+        }
+
+        return .online
+    }
+
     private var spoonCookLogConnectivity: SpoonCookLogConnectivity {
         if offlineIndicatorState.display == .offline {
             return .offline
@@ -830,6 +848,46 @@ struct PlatformNavigationView: View {
                 throw error
             }
         }
+    }
+
+    private func performSettingsAction(_ plan: SettingsActionPlan) async throws -> SettingsActionOutcome? {
+        if let queuedMutation = plan.queuedMutation {
+            try await queueSettingsMutationIfNeeded(queuedMutation)
+            return nil
+        }
+
+        if let offlineFallbackMutation = plan.offlineFallbackMutation,
+           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
+            _ = try await queueMutations([offlineFallbackMutation], true)
+            return nil
+        }
+
+        var outcome: SettingsActionOutcome?
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                outcome = try await executeSettingsActionRequest(requestBuilder, plan.responseHandling)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueSettingsMutationIfNeeded(offlineFallbackMutation)
+                    return nil
+                }
+                throw error
+            }
+        }
+
+        if let sessionOperation = plan.sessionOperation {
+            try await performSettingsSessionOperation(sessionOperation)
+        }
+
+        if let handoff = plan.secureHandoff {
+            openURL(handoff.url)
+        }
+
+        return outcome
+    }
+
+    private func queueSettingsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {
+        try await queueMutation(mutation)
     }
 
     @MainActor private func discardSpoonCookLogConflict(clientMutationID: String) async throws {

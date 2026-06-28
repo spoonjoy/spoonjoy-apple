@@ -229,6 +229,41 @@ struct SettingsTokenConnectionTests {
         #expect(cached.data.source == .cache(lastValidatedAt: transport.validatedAt))
     }
 
+    @Test("account settings decoder accepts legacy passkeys without created timestamps")
+    func accountSettingsDecoderAcceptsLegacyPasskeyTimestamps() throws {
+        let envelope = try APIEnvelope<SettingsAccountProfile>.decode(Data("""
+        {
+          "ok": true,
+          "requestId": "req_account",
+          "data": {
+            "id": "chef_ari",
+            "email": "ari@example.com",
+            "username": "ari",
+            "photoUrl": null,
+            "hasPassword": true,
+            "oauthAccounts": [],
+            "passkeys": [
+              {
+                "id": "passkey_legacy",
+                "name": "Passkey",
+                "transports": null,
+                "createdAt": null
+              },
+              {
+                "id": "passkey_modern",
+                "name": "Kitchen Mac",
+                "transports": "internal",
+                "createdAt": "2026-06-20T00:00:00.000Z"
+              }
+            ]
+          }
+        }
+        """.utf8))
+
+        #expect(envelope.data.passkeys.map(\.id) == ["passkey_legacy", "passkey_modern"])
+        #expect(envelope.data.passkeys.map(\.createdAt) == [nil, "2026-06-20T00:00:00.000Z"])
+    }
+
     @Test("profile and notification actions plan exact REST requests with offline queue fallbacks")
     func profileAndNotificationActionsPlanRESTAndOfflineFallbacks() throws {
         let planner = SettingsActionPlanner(
@@ -397,8 +432,52 @@ struct SettingsTokenConnectionTests {
             "name": "Kitchen Script",
             "scopes": ["recipes:read", "shopping_list:write"]
         ])
+        #expect(createToken.responseHandling == .captureCreatedAPIToken)
         #expect(createToken.offlineFallbackMutation == nil)
         #expect(createToken.queuedMutation == nil)
+
+        let createdToken = try APIEnvelope<SettingsCreatedAPIToken>.decode(Data("""
+        {
+          "ok": true,
+          "requestId": "req_create_token",
+          "data": {
+            "token": "sj_created_once",
+            "credential": {
+              "id": "cred_created",
+              "name": "Kitchen Script",
+              "tokenPrefix": "sj_created",
+              "scopes": ["recipes:read", "shopping_list:write"],
+              "createdAt": "2026-06-28T00:00:00.000Z",
+              "updatedAt": "2026-06-28T00:00:00.000Z",
+              "lastUsedAt": null,
+              "revokedAt": null,
+              "expiresAt": null
+            }
+          }
+        }
+        """.utf8))
+        #expect(createdToken.data.token == "sj_created_once")
+        #expect(createdToken.data.credential.revealedSecret == nil)
+        #expect(createdToken.data.credential.tokenPrefix == "sj_created")
+
+        let currentTokenList = try JSONDecoder().decode(SettingsAPITokenListResponse.self, from: Data("""
+        {
+          "credentials": [
+            {
+              "id": "cred_current",
+              "name": "Current response",
+              "tokenPrefix": "sj_current",
+              "createdAt": "2026-06-28T00:00:00.000Z",
+              "updatedAt": "2026-06-28T00:00:00.000Z",
+              "lastUsedAt": null,
+              "revokedAt": null,
+              "expiresAt": null
+            }
+          ]
+        }
+        """.utf8))
+        #expect(currentTokenList.tokens.map(\.id) == ["cred_current"])
+        #expect(currentTokenList.tokens.map(\.scopes) == [[]])
 
         let revokeToken = try onlinePlanner.plan(.revokeAPIToken(credentialID: "cred/with spaces"))
         assertNoBodyRequest(
@@ -542,7 +621,12 @@ struct SettingsTokenConnectionTests {
             "Password",
             "Sign Out",
             "SettingsOnlineOnlyReason",
-            "SettingsSecureHandoff"
+            "SettingsSecureHandoff",
+            "PendingSettingsDestructiveAction",
+            "confirmationDialog(",
+            "confirmSettingsAction(",
+            "onlineOnlyActionsDisabled(surface)",
+            "cm_settings_remove_photo_"
         ] {
             #expect(settingsView.contains(token), "SettingsView.swift missing \(token)")
         }
@@ -555,8 +639,8 @@ struct SettingsTokenConnectionTests {
             "contentState.settingsSurfaceViewModel",
             "performSettingsAction",
             "queueSettingsMutationIfNeeded",
-            "LiveSettingsSurfaceRepository",
-            "SnapshotSettingsSurfaceRepository"
+            "executeSettingsActionRequest",
+            "performSettingsSessionOperation"
         ] {
             #expect(navigation.contains(token), "PlatformNavigationView.swift missing \(token)")
         }

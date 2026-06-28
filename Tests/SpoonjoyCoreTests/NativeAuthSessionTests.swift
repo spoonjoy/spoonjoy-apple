@@ -62,7 +62,9 @@ struct NativeAuthSessionTests {
             "kitchen:read",
             "kitchen:write",
             "shopping_list:read",
-            "shopping_list:write"
+            "shopping_list:write",
+            "account:read",
+            "account:write"
         ]))
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
@@ -1131,7 +1133,7 @@ private func coverageTokenResponse(accessToken: String, refreshToken: String, ex
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write"
+          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
         }
         """#.utf8
     )
@@ -1532,7 +1534,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write",
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write",
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1574,7 +1576,7 @@ struct NativeAuthBehaviorContract {
             refreshToken: "ort_refresh_initial",
             tokenType: "Bearer",
             expiresAt: now.addingTimeInterval(-1),
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write"
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
         )
         try await vault.saveSession(expired)
         #expect(try await repository.restoreState() == .refreshRequired(expired))
@@ -1609,7 +1611,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write",
+            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write",
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1743,7 +1745,7 @@ private func tokenResponse(accessToken: String, refreshToken: String, expiresIn:
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write"
+          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
         }
         """#.utf8
     )
