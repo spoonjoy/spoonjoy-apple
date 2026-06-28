@@ -11,6 +11,7 @@ REQUIRED_FILES = [
   "Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceRepository.swift",
   "Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift",
   "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift",
+  "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift",
   "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
   "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
   "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
@@ -65,29 +66,38 @@ REQUIRED_TOKENS = {
     "AppleDeveloperProgram",
     "OfflineStatusView",
     "confirmationDialog(",
+    "requestNotificationPermission",
+    "requestDeviceRegistrationAction",
     "KitchenTableTheme"
+  ],
+  "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift" => [
+    "NotificationAPNsDeviceBridge",
+    "UNUserNotificationCenter.current().requestAuthorization",
+    "registerForRemoteNotifications",
+    "didRegisterForRemoteNotifications",
+    "NotificationAPNsAction",
+    "NativeAPNSRuntimeDefaults.currentPlatform"
   ],
   "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift" => [
     "NotificationAPNsSettingsView(",
     "notificationAPNsSurfaceViewModel",
     "performNotificationAPNsAction",
+    "requestNotificationPermission",
+    "requestDeviceRegistrationAction",
     "queueNotificationAPNsMutationIfNeeded",
     "recordNotificationAPNsBlocker"
   ],
   "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift" => [
     "notificationAPNsSurfaceViewModel",
     "NotificationAPNsSurfaceViewModel",
-    "LiveNotificationAPNsSurfaceRepository",
-    "FallbackNotificationAPNsSurfaceRepository",
+    "notificationAPNsSurfaceData",
     "restoreNotificationAPNsSnapshot"
   ],
   "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift" => [
     "notification APNs surface",
-    "notification preferences",
-    "APNs registration",
-    "permission denied",
-    "AppleDeveloperProgram",
-    "NotificationAPNsSettingsView.swift"
+    "NotificationAPNsActionPlanner",
+    ".apnsDeviceRegister",
+    "AppleDeveloperProgramBlocker.localValidation"
   ]
 }.freeze
 
@@ -98,7 +108,8 @@ STRING_ALLOWED_TOKENS = {
   "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift" => [
     "permissionDenied",
     "Notifications are off in System Settings",
-    "Open System Settings"
+    "Open System Settings",
+    "Register This Device"
   ]
 }.freeze
 
@@ -144,7 +155,8 @@ BLOCKER_CONSUMER_TOKENS = {
     "APNsDeliveryBlockerState",
     "ownerAction",
     "blocked",
-    "capability"
+    "capability",
+    "blockerArtifactFileName"
   ]
 }.freeze
 
@@ -153,9 +165,6 @@ BLOCKER_CONSUMER_STRING_TOKENS = {
     "apple-developer-program-blocker-apns.json"
   ],
   "Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift" => [
-    "apple-developer-program-blocker-apns.json"
-  ],
-  "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift" => [
     "apple-developer-program-blocker-apns.json"
   ]
 }.freeze

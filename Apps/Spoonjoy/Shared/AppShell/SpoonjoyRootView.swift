@@ -126,6 +126,16 @@ struct SpoonjoyRootView: View {
             performSettingsSessionOperation: { operation in
                 try await liveStore.performSettingsSessionOperation(operation)
             },
+            requestNotificationPermission: {
+                try await NotificationAPNsDeviceBridge.shared.requestPermission()
+            },
+            requestDeviceRegistrationAction: { clientMutationID in
+                try await NotificationAPNsDeviceBridge.shared.registrationAction(clientMutationID: clientMutationID)
+            },
+            openNotificationSettings: {
+                NotificationAPNsDeviceBridge.shared.openNotificationSettings()
+            },
+            recordNotificationAPNsBlocker: liveStore.recordNotificationAPNsBlocker,
             recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
             recordCaptureDraft: liveStore.recordCaptureDraft,

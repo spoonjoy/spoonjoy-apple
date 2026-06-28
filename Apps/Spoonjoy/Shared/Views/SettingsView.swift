@@ -7,7 +7,13 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     let viewModel: SettingsViewModel
     var settingsSurfaceViewModel: SettingsSurfaceViewModel?
+    var notificationAPNsSurfaceViewModel: NotificationAPNsSurfaceViewModel?
     var performSettingsAction: @MainActor @Sendable (SettingsActionPlan) async throws -> SettingsActionOutcome? = { _ in nil }
+    var performNotificationAPNsAction: @MainActor @Sendable (NotificationAPNsActionPlan) async throws -> Void = { _ in }
+    var requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState = { throw NotificationAPNsNativeBridgeError.unavailable }
+    var requestDeviceRegistrationAction: @MainActor @Sendable (String) async throws -> NotificationAPNsAction = { _ in throw NotificationAPNsNativeBridgeError.unavailable }
+    var openNotificationSettings: @MainActor @Sendable () -> Void = {}
+    var notificationAPNsSettingsContent: (@MainActor @Sendable (NotificationAPNsSurfaceViewModel) -> AnyView)?
     var onDismissOfflineIndicator: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
@@ -141,7 +147,19 @@ struct SettingsView: View {
                 .disabled(onlineOnlyActionsDisabled(surface))
             }
 
-            if let notifications = surface.notificationDraft {
+            if let notificationAPNsSurfaceViewModel {
+                if let notificationAPNsSettingsContent {
+                    notificationAPNsSettingsContent(notificationAPNsSurfaceViewModel)
+                } else {
+                    NotificationAPNsSettingsView(
+                        viewModel: notificationAPNsSurfaceViewModel,
+                        performNotificationAPNsAction: performNotificationAPNsAction,
+                        requestNotificationPermission: requestNotificationPermission,
+                        requestDeviceRegistrationAction: requestDeviceRegistrationAction,
+                        openNotificationSettings: openNotificationSettings
+                    )
+                }
+            } else if let notifications = surface.notificationDraft {
                 Section("Notifications") {
                     Toggle("Spoons", isOn: $notifySpoonOnMyRecipe)
                     Toggle("Forks", isOn: $notifyForkOfMyRecipe)

@@ -3701,6 +3701,83 @@ struct NativeLiveStoreTests {
         )).offlineFallbackMutation?.queueableKind == .profileDisplayUpdate)
     }
 
+    @Test("shell content restores notification APNs status from durable cache")
+    func shellContentRestoresNotificationAPNsStatusFromDurableCache() throws {
+        let validatedAt = Self.now.addingTimeInterval(-600)
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: true
+        )
+        let notificationDomain = NativeCacheDomain.notificationPreferences
+        let apnsDomain = NativeCacheDomain.apnsStatus
+        let cacheSnapshot = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: "chef_ari",
+            environment: .production,
+            createdAt: validatedAt,
+            records: [
+                try NativeCacheRecord(
+                    id: notificationDomain.stableRecordID,
+                    metadata: NativeCacheRecordMetadata(
+                        accountID: "chef_ari",
+                        environment: .production,
+                        schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                        domain: notificationDomain,
+                        fetchedAt: validatedAt,
+                        lastValidatedAt: validatedAt,
+                        sourceEndpoint: "/api/v1/me/notification-preferences",
+                        serverRevision: .etag("\"notification-preferences-v2\"")
+                    ),
+                    payload: .notificationPreferenceState(preferences)
+                ),
+                try NativeCacheRecord(
+                    id: apnsDomain.stableRecordID,
+                    metadata: NativeCacheRecordMetadata(
+                        accountID: "chef_ari",
+                        environment: .production,
+                        schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                        domain: apnsDomain,
+                        fetchedAt: validatedAt,
+                        lastValidatedAt: validatedAt,
+                        sourceEndpoint: "/api/v1/me/apns-devices",
+                        serverRevision: .etag("\"apns-device-v2\"")
+                    ),
+                    payload: .apnsStatus(deviceID: "device_apns_restore", registrationState: .registered)
+                )
+            ],
+            dismissedIndicators: []
+        )
+        let content = NativeShellContentState.restored(
+            cacheSnapshot: cacheSnapshot,
+            syncSnapshot: NativeSyncSnapshot(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [],
+                tombstones: []
+            ),
+            appSnapshot: nil,
+            authSessionState: .signedOut,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+        )
+        let viewModel = try #require(content.notificationAPNsSurfaceViewModel)
+
+        #expect(content.notificationAPNsSurfaceData?.apnsRegistration?.deviceID == "device_apns_restore")
+        #expect(viewModel.notificationDraft == preferences)
+        #expect(viewModel.apnsRegistration == APNsRegistrationSummary(
+            deviceID: "device_apns_restore",
+            platform: NativeAPNSRuntimeDefaults.currentPlatform,
+            environment: NativeAPNSRuntimeDefaults.currentEnvironment,
+            registrationState: .registered,
+            lastValidatedAt: validatedAt
+        ))
+        #expect(viewModel.deliveryBlockerState == .blocked(.localValidation))
+    }
+
     @Test("shell content exposes recipe catalog source for live and offline states")
     func shellContentExposesRecipeCatalogSourceForLiveAndOfflineStates() throws {
         let recipe = Self.sampleRecipe(id: "recipe_catalog_source", title: "Catalog Source")

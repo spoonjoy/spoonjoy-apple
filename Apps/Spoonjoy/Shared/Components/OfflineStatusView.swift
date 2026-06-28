@@ -48,8 +48,13 @@ struct OfflineStatusView: View {
             "Sync needs attention"
         case .conflict:
             "Offline conflict needs review"
-        case .blocker:
-            "Provider secret required"
+        case .blocker(let blocker):
+            switch blocker {
+            case .providerSecret:
+                "Provider secret required"
+            case .appleDeveloperProgram:
+                "Apple Developer Program required"
+            }
         case .destructiveConfirmation:
             "Confirmation required"
         }

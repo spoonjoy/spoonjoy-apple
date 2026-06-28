@@ -161,6 +161,7 @@ public struct NativeShellContentState {
     public let configuration: APIClientConfiguration
     public let offlineIndicatorState: OfflineIndicatorState
     public let settingsSurfaceData: SettingsSurfaceData?
+    public let notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
 
     public func recipe(id: String) -> Recipe? {
         recipes.first { $0.id == id }
@@ -221,6 +222,18 @@ public struct NativeShellContentState {
             secureHandoffRoutes: .spoonjoyApp,
             now: Date.init,
             showsPrimaryAuthActionWhenSignedOut: false
+        )
+    }
+
+    public var notificationAPNsSurfaceViewModel: NotificationAPNsSurfaceViewModel? {
+        guard let data = notificationAPNsSurfaceData else {
+            return nil
+        }
+        return NotificationAPNsSurfaceViewModel(
+            data: data,
+            queuedMutations: queuedMutations,
+            connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
+            now: Date.init
         )
     }
 
@@ -556,7 +569,8 @@ public struct NativeShellContentState {
         environment: NativeCacheEnvironment? = nil,
         configuration: APIClientConfiguration? = nil,
         offlineIndicatorState: OfflineIndicatorState? = nil,
-        settingsSurfaceData: SettingsSurfaceData?? = nil
+        settingsSurfaceData: SettingsSurfaceData?? = nil,
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?? = nil
     ) -> NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
@@ -573,7 +587,8 @@ public struct NativeShellContentState {
             environment: environment ?? self.environment,
             configuration: configuration ?? self.configuration,
             offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState,
-            settingsSurfaceData: settingsSurfaceData ?? self.settingsSurfaceData
+            settingsSurfaceData: settingsSurfaceData ?? self.settingsSurfaceData,
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData ?? self.notificationAPNsSurfaceData
         )
     }
 
@@ -604,7 +619,8 @@ public struct NativeShellContentState {
             environment: environment,
             configuration: configuration,
             offlineIndicatorState: offlineIndicatorState,
-            settingsSurfaceData: nil
+            settingsSurfaceData: nil,
+            notificationAPNsSurfaceData: nil
         )
     }
 
@@ -643,6 +659,7 @@ public struct NativeShellContentState {
         let cookProgressByRecipeID = restoredCookProgress(cacheSnapshot: cacheSnapshot, appSnapshot: appSnapshot)
         let spoonCookLogDraftsByRecipeID = appSnapshot?.spoonCookLogDraftsByRecipeID ?? [:]
         let settingsSurfaceData = restoredSettingsSurfaceData(cacheSnapshot: cacheSnapshot)
+        let notificationAPNsSurfaceData = restoreNotificationAPNsSnapshot(cacheSnapshot: cacheSnapshot)
         return NativeShellContentState(
             recipes: recipes,
             cookbooks: cookbooks,
@@ -663,7 +680,8 @@ public struct NativeShellContentState {
             environment: cacheSnapshot.environment,
             configuration: configuration,
             offlineIndicatorState: offlineIndicatorState,
-            settingsSurfaceData: settingsSurfaceData
+            settingsSurfaceData: settingsSurfaceData,
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData
         )
     }
 
@@ -1020,6 +1038,10 @@ public struct NativeShellContentState {
         return try? SnapshotSettingsSurfaceRepository(snapshot: snapshot).fetchSettingsSurface().data
     }
 
+    private static func restoreNotificationAPNsSnapshot(cacheSnapshot: NativeDurableCacheSnapshot) -> NotificationAPNsSurfaceData? {
+        NotificationAPNsSurfaceData.restoredFromCacheSnapshot(cacheSnapshot)
+    }
+
     private static func restoredKitchen(
         cacheSnapshot: NativeDurableCacheSnapshot,
         recipes: [Recipe],
@@ -1128,7 +1150,8 @@ public struct NativeShellContentState {
         environment: NativeCacheEnvironment,
         configuration: APIClientConfiguration,
         offlineIndicatorState: OfflineIndicatorState,
-        settingsSurfaceData: SettingsSurfaceData?
+        settingsSurfaceData: SettingsSurfaceData?,
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
     ) {
         self.recipes = recipes
         self.cookbooks = cookbooks
@@ -1150,6 +1173,7 @@ public struct NativeShellContentState {
         self.configuration = configuration
         self.offlineIndicatorState = offlineIndicatorState
         self.settingsSurfaceData = settingsSurfaceData
+        self.notificationAPNsSurfaceData = notificationAPNsSurfaceData
     }
 
     private var authState: AuthState {
@@ -1805,6 +1829,13 @@ public final class NativeLiveAppStore: ObservableObject {
 
         apply(.blocker(currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(
             display: .blocker(.providerSecret(resourceID: resourceID)),
+            dismissal: nil
+        ))))
+    }
+
+    public func recordNotificationAPNsBlocker(_ blocker: AppleDeveloperProgramBlocker) {
+        apply(.blocker(currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(
+            display: .blocker(.appleDeveloperProgram(capability: blocker.capability)),
             dismissal: nil
         ))))
     }

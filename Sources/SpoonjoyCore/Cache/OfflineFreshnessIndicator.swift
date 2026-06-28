@@ -6,6 +6,7 @@ public enum OfflineIndicatorRetryAfter: Codable, Equatable, Hashable, Sendable {
 
 public enum OfflineIndicatorBlocker: Codable, Equatable, Hashable, Sendable {
     case providerSecret(resourceID: String)
+    case appleDeveloperProgram(capability: String)
 }
 
 public enum OfflineIndicatorDismissalReason: String, Codable, Equatable, Hashable, Sendable {

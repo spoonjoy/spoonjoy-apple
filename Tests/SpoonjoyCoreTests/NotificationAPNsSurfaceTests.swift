@@ -16,6 +16,7 @@ struct NotificationAPNsSurfaceTests {
                 "Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceRepository.swift",
                 "Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift",
                 "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift",
+                "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift",
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
@@ -69,29 +70,38 @@ struct NotificationAPNsSurfaceTests {
                     "AppleDeveloperProgram",
                     "OfflineStatusView",
                     "confirmationDialog(",
+                    "requestNotificationPermission",
+                    "requestDeviceRegistrationAction",
                     "KitchenTableTheme"
+                ],
+                "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift": [
+                    "NotificationAPNsDeviceBridge",
+                    "UNUserNotificationCenter.current().requestAuthorization",
+                    "registerForRemoteNotifications",
+                    "didRegisterForRemoteNotifications",
+                    "NotificationAPNsAction",
+                    "NativeAPNSRuntimeDefaults.currentPlatform"
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
                     "NotificationAPNsSettingsView(",
                     "notificationAPNsSurfaceViewModel",
                     "performNotificationAPNsAction",
+                    "requestNotificationPermission",
+                    "requestDeviceRegistrationAction",
                     "queueNotificationAPNsMutationIfNeeded",
                     "recordNotificationAPNsBlocker"
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
                     "notificationAPNsSurfaceViewModel",
                     "NotificationAPNsSurfaceViewModel",
-                    "LiveNotificationAPNsSurfaceRepository",
-                    "FallbackNotificationAPNsSurfaceRepository",
+                    "notificationAPNsSurfaceData",
                     "restoreNotificationAPNsSnapshot"
                 ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
                     "notification APNs surface",
-                    "notification preferences",
-                    "APNs registration",
-                    "permission denied",
-                    "AppleDeveloperProgram",
-                    "NotificationAPNsSettingsView.swift"
+                    "NotificationAPNsActionPlanner",
+                    ".apnsDeviceRegister",
+                    "AppleDeveloperProgramBlocker.localValidation"
                 ]
             ],
             forbiddenTokens: [
@@ -111,7 +121,8 @@ struct NotificationAPNsSurfaceTests {
                 "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift": [
                     "permissionDenied",
                     "Notifications are off in System Settings",
-                    "Open System Settings"
+                    "Open System Settings",
+                    "Register This Device"
                 ]
             ]
         )
@@ -244,8 +255,8 @@ struct NotificationAPNsSurfaceTests {
         #expect(data.preferences == preferences)
         #expect(data.apnsRegistration == APNsRegistrationSummary(
             deviceID: "device_ios_1",
-            platform: .ios,
-            environment: .development,
+            platform: NativeAPNSRuntimeDefaults.currentPlatform,
+            environment: NativeAPNSRuntimeDefaults.currentEnvironment,
             registrationState: .registered,
             lastValidatedAt: lastValidatedAt
         ))
@@ -267,8 +278,44 @@ struct NotificationAPNsSurfaceTests {
             message: "Turn on notifications for Spoonjoy in System Settings, then register this device again.",
             actionTitle: "Open System Settings"
         ))
-        #expect(viewModel.offlineIndicator.display == .stale(domain: .notificationPreferences))
+        #expect(viewModel.deliveryBlockerState == .blocked(.localValidation))
+        #expect(viewModel.offlineIndicator.display == .blocker(.appleDeveloperProgram(capability: AppleDeveloperProgramBlocker.capabilityName)))
         #expect(viewModel.lastValidatedAt == lastValidatedAt)
+    }
+
+    @Test("production APNs registration is blocked until Apple Developer Program capability exists")
+    func productionAPNsRegistrationIsBlockedUntilAppleDeveloperProgramCapabilityExists() throws {
+        let planner = NotificationAPNsActionPlanner(
+            connectivity: .online,
+            deliveryCapability: .developmentOnly(blocker: .localValidation)
+        )
+
+        let blockedPlan = try planner.plan(.registerDevice(
+            deviceID: "device_ios_1",
+            platform: .ios,
+            environment: .production,
+            token: "production-token",
+            deviceName: "Ari's iPhone",
+            appVersion: "1.0.0",
+            clientMutationID: "cm_apns_production"
+        ))
+
+        #expect(blockedPlan.remoteRequestBuilder == nil)
+        #expect(blockedPlan.queuedMutation == nil)
+        #expect(blockedPlan.deliveryBlocker == .localValidation)
+        #expect(blockedPlan.userFacingMessage == AppleDeveloperProgramBlocker.localValidation.ownerAction)
+
+        let developmentPlan = try planner.plan(.registerDevice(
+            deviceID: "device_ios_1",
+            platform: .ios,
+            environment: .development,
+            token: "development-token",
+            deviceName: "Ari's iPhone",
+            appVersion: "1.0.0",
+            clientMutationID: "cm_apns_development"
+        ))
+        #expect(developmentPlan.remoteRequestBuilder != nil)
+        #expect(developmentPlan.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister)
     }
 
     @Test("source scanners strip comments and preserve strings only for string-allowed checks")
@@ -324,14 +371,18 @@ struct NotificationAPNsSurfaceTests {
                 "APNsDeliveryBlockerState",
                 "ownerAction",
                 "blocked",
-                "capability"
+                "capability",
+                relativePath.hasSuffix("NotificationAPNsSettingsView.swift") ? "blockerArtifactFileName" : nil
             ].compactMap { token in
-                typedContent.contains(token) ? nil : "\(relativePath) missing typed blocker token \(token)"
-            } + [
+                guard let token else {
+                    return nil
+                }
+                return typedContent.contains(token) ? nil : "\(relativePath) missing typed blocker token \(token)"
+            } + (relativePath.hasSuffix("NotificationAPNsSettingsView.swift") ? [] : [
                 "apple-developer-program-blocker-apns.json"
             ].compactMap { token in
                 stringAllowedContent.contains(token) ? nil : "\(relativePath) missing blocker path token \(token)"
-            }
+            })
         }
 
         let fakeDeliveryTokens = [

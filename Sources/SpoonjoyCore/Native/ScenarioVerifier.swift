@@ -157,6 +157,7 @@ public enum ScenarioVerifier {
                 profileDetailCheck(),
                 profileGraphCheck(direction: .fellowChefs),
                 profileGraphCheck(direction: .kitchenVisitors),
+                notificationAPNsSurfaceCheck(rootURL: rootURL),
                 sourceCheck(
                     name: "kitchen surface source",
                     detail: "Kitchen surface includes lead object, recipe index, and cookbook shelf.",
@@ -329,6 +330,7 @@ public enum ScenarioVerifier {
                 settingsTokenCreateOnlineOnlyCheck(),
                 settingsConnectionDisconnectOnlineOnlyCheck(),
                 settingsSecureHandoffCheck(),
+                notificationAPNsSurfaceCheck(rootURL: rootURL),
                 offlineStatusCheck(),
                 safeUnknownLinkCheck(),
                 sourceCheck(
@@ -1464,6 +1466,81 @@ public enum ScenarioVerifier {
             )
         } catch {
             return ScenarioCheck(name: "settings secure handoff", status: .fail, detail: "Settings secure handoff failed: \(error)")
+        }
+    }
+
+    static func notificationAPNsSurfaceCheck(rootURL: URL) -> ScenarioCheck {
+        guard FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift").path),
+              FileManager.default.fileExists(atPath: rootURL.appendingPathComponent("Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift").path) else {
+            return ScenarioCheck(
+                name: "notification APNs surface",
+                status: .fail,
+                detail: "Notification APNs SwiftUI surface and native device bridge files must both exist."
+            )
+        }
+
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+        let data = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: APNsRegistrationSummary(
+                deviceID: "scenario-device",
+                platform: .ios,
+                environment: .development,
+                registrationState: .registered,
+                lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000)
+            ),
+            permissionState: .denied(lastCheckedAt: Date(timeIntervalSince1970: 1_782_899_000)),
+            source: .cache(serverRevision: .etag("scenario-apns"), lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000))
+        )
+        let viewModel = NotificationAPNsSurfaceViewModel(
+            data: data,
+            queuedMutations: [],
+            connectivity: .offline,
+            now: { Date(timeIntervalSince1970: 1_782_901_800) }
+        )
+        let localValidationBlocker = AppleDeveloperProgramBlocker.localValidation
+        let planner = NotificationAPNsActionPlanner(connectivity: .online, deliveryCapability: .developmentOnly(blocker: localValidationBlocker))
+        let offlinePlanner = NotificationAPNsActionPlanner(connectivity: .offline)
+        do {
+            let developmentRegister = try planner.plan(.registerDevice(
+                deviceID: "scenario-device",
+                platform: .ios,
+                environment: .development,
+                token: "scenario-token",
+                deviceName: "Scenario iPhone",
+                appVersion: "1.0.0",
+                clientMutationID: "cm_scenario_apns_register"
+            ))
+            let productionRegister = try planner.plan(.registerDevice(
+                deviceID: "scenario-device",
+                platform: .ios,
+                environment: .production,
+                token: "scenario-token",
+                deviceName: "Scenario iPhone",
+                appVersion: "1.0.0",
+                clientMutationID: "cm_scenario_apns_production"
+            ))
+            let tokenAcquisition = try offlinePlanner.planDeviceTokenAcquisition()
+            let status: ScenarioCheckStatus = viewModel.notificationDraft == preferences &&
+                viewModel.apnsRegistration?.registrationState == .registered &&
+                viewModel.permissionDeniedBanner != nil &&
+                viewModel.productionBlocker?.capability == AppleDeveloperProgramBlocker.capabilityName &&
+                developmentRegister.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister &&
+                productionRegister.deliveryBlocker == localValidationBlocker &&
+                tokenAcquisition.onlineOnlyReason == .deviceTokenAcquisition ? .pass : .fail
+
+            return ScenarioCheck(
+                name: "notification APNs surface",
+                status: status,
+                detail: "Notification APNs behavior restores cached preferences/status, blocks production APNs without AppleDeveloperProgram, and keeps permission/token acquisition online-only."
+            )
+        } catch {
+            return ScenarioCheck(name: "notification APNs surface", status: .fail, detail: "Notification APNs scenario failed: \(error)")
         }
     }
 

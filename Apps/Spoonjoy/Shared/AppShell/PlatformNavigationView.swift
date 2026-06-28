@@ -17,6 +17,10 @@ struct PlatformNavigationView: View {
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
     private let performSettingsSessionOperation: @MainActor @Sendable (SettingsSessionOperation) async throws -> Void
+    private let requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState
+    private let requestDeviceRegistrationAction: @MainActor @Sendable (String) async throws -> NotificationAPNsAction
+    private let openNotificationSettings: @MainActor @Sendable () -> Void
+    private let recordNotificationAPNsBlockerHandler: @MainActor @Sendable (AppleDeveloperProgramBlocker) -> Void
     private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
     private let recordCaptureDraftHandler: @MainActor @Sendable (CaptureDraft) -> Void
@@ -39,6 +43,10 @@ struct PlatformNavigationView: View {
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
         performSettingsSessionOperation: @escaping @MainActor @Sendable (SettingsSessionOperation) async throws -> Void,
+        requestNotificationPermission: @escaping @MainActor @Sendable () async throws -> APNsPermissionState,
+        requestDeviceRegistrationAction: @escaping @MainActor @Sendable (String) async throws -> NotificationAPNsAction,
+        openNotificationSettings: @escaping @MainActor @Sendable () -> Void,
+        recordNotificationAPNsBlocker: @escaping @MainActor @Sendable (AppleDeveloperProgramBlocker) -> Void,
         recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
         recordCaptureDraft: @escaping @MainActor @Sendable (CaptureDraft) -> Void,
@@ -60,6 +68,10 @@ struct PlatformNavigationView: View {
         self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
         self.performSettingsSessionOperation = performSettingsSessionOperation
+        self.requestNotificationPermission = requestNotificationPermission
+        self.requestDeviceRegistrationAction = requestDeviceRegistrationAction
+        self.openNotificationSettings = openNotificationSettings
+        self.recordNotificationAPNsBlockerHandler = recordNotificationAPNsBlocker
         self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
         self.recordCaptureDraftHandler = recordCaptureDraft
@@ -290,7 +302,13 @@ struct PlatformNavigationView: View {
             SettingsView(
                 viewModel: contentState.settingsViewModel,
                 settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                notificationAPNsSurfaceViewModel: contentState.notificationAPNsSurfaceViewModel,
                 performSettingsAction: performSettingsAction,
+                performNotificationAPNsAction: performNotificationAPNsAction,
+                requestNotificationPermission: requestNotificationPermission,
+                requestDeviceRegistrationAction: requestDeviceRegistrationAction,
+                openNotificationSettings: openNotificationSettings,
+                notificationAPNsSettingsContent: { AnyView(notificationAPNsSettingsView($0)) },
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:
@@ -914,6 +932,53 @@ struct PlatformNavigationView: View {
 
     private func queueSettingsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {
         try await queueMutation(mutation)
+    }
+
+    private func notificationAPNsSettingsView(_ viewModel: NotificationAPNsSurfaceViewModel) -> some View {
+        NotificationAPNsSettingsView(
+            viewModel: viewModel,
+            performNotificationAPNsAction: performNotificationAPNsAction,
+            requestNotificationPermission: requestNotificationPermission,
+            requestDeviceRegistrationAction: requestDeviceRegistrationAction,
+            openNotificationSettings: openNotificationSettings
+        )
+    }
+
+    private func performNotificationAPNsAction(_ plan: NotificationAPNsActionPlan) async throws {
+        if let blocker = plan.deliveryBlocker {
+            recordNotificationAPNsBlocker(blocker)
+            return
+        }
+
+        if let preflight = plan.queuePreflightDecision(queuedMutations: contentState.queuedMutations) {
+            switch preflight {
+            case .queueMutation(let mutation, drainImmediately: false):
+                try await queueNotificationAPNsMutationIfNeeded(mutation)
+            case .queueMutation(let mutation, drainImmediately: true):
+                _ = try await queueMutations([mutation], true)
+            }
+            return
+        }
+
+        if let requestBuilder = plan.remoteRequestBuilder {
+            do {
+                _ = try await executeSettingsActionRequest(requestBuilder, .refreshOnly)
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    try await queueNotificationAPNsMutationIfNeeded(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            }
+        }
+    }
+
+    private func queueNotificationAPNsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {
+        try await queueMutation(mutation)
+    }
+
+    private func recordNotificationAPNsBlocker(_ blocker: AppleDeveloperProgramBlocker) {
+        recordNotificationAPNsBlockerHandler(blocker)
     }
 
     @MainActor private func discardSpoonCookLogConflict(clientMutationID: String) async throws {
