@@ -171,6 +171,8 @@ public enum SettingsActionPlanningError: Error, Equatable, Sendable {
     case offlinePolicyAllowedOnlineOnlyAction(SettingsOnlineOnlyReason)
 }
 
+public typealias SettingsOfflinePolicyDecision = @Sendable (NativeOfflineAction) throws -> NativeOfflineMutationDecision
+
 public struct SettingsActionPlan: Equatable, Sendable {
     public let remoteRequestBuilder: APIRequestBuilder?
     public let queuedMutation: NativeQueuedMutation?
@@ -202,6 +204,25 @@ public struct SettingsActionPlan: Equatable, Sendable {
     }
 }
 
+public enum SettingsActionQueuePreflightDecision: Equatable, Sendable {
+    case queueMutation(NativeQueuedMutation, drainImmediately: Bool)
+}
+
+public extension SettingsActionPlan {
+    func queuePreflightDecision(queuedMutations: [NativeQueuedMutation]) -> SettingsActionQueuePreflightDecision? {
+        if let queuedMutation {
+            return .queueMutation(queuedMutation, drainImmediately: false)
+        }
+
+        guard let offlineFallbackMutation,
+              queuedMutations.contains(where: { $0.blocksDependencyKey(offlineFallbackMutation.dependencyKey) }) else {
+            return nil
+        }
+
+        return .queueMutation(offlineFallbackMutation, drainImmediately: true)
+    }
+}
+
 public enum SettingsActionResponseHandling: Equatable, Sendable {
     case refreshOnly
     case captureCreatedAPIToken
@@ -214,15 +235,18 @@ public enum SettingsActionOutcome: Equatable, Sendable {
 public struct SettingsActionPlanner: Sendable {
     private let connectivity: SettingsSurfaceConnectivity
     private let secureHandoffRoutes: SettingsSecureHandoffRoutes
-    private let now: @Sendable () -> String
+    private let offlinePolicyDecision: SettingsOfflinePolicyDecision
+    private let now: (@Sendable () -> String)?
 
     public init(
         connectivity: SettingsSurfaceConnectivity,
         secureHandoffRoutes: SettingsSecureHandoffRoutes,
-        now: @escaping @Sendable () -> String
+        offlinePolicyDecision: @escaping SettingsOfflinePolicyDecision = NativeOfflineMutationPolicy.decision(for:),
+        now: (@Sendable () -> String)? = nil
     ) {
         self.connectivity = connectivity
         self.secureHandoffRoutes = secureHandoffRoutes
+        self.offlinePolicyDecision = offlinePolicyDecision
         self.now = now
     }
 
@@ -233,7 +257,7 @@ public struct SettingsActionPlanner: Sendable {
                 email: email,
                 username: username,
                 clientMutationID: clientMutationID,
-                createdAt: now()
+                createdAt: timestamp()
             )
             return try queueablePlan(
                 online: PrivateAccountRequests.updateProfile(email: email, username: username),
@@ -243,7 +267,7 @@ public struct SettingsActionPlanner: Sendable {
             let mutation = NativeQueuedMutation.profilePhotoUpload(
                 photo: photo,
                 clientMutationID: clientMutationID,
-                createdAt: now()
+                createdAt: timestamp()
             )
             return try queueablePlan(
                 online: PrivateAccountRequests.uploadProfilePhoto(
@@ -252,7 +276,7 @@ public struct SettingsActionPlanner: Sendable {
                 mutation: mutation
             )
         case .removeProfilePhoto(let clientMutationID):
-            let mutation = NativeQueuedMutation.profilePhotoRemove(clientMutationID: clientMutationID, createdAt: now())
+            let mutation = NativeQueuedMutation.profilePhotoRemove(clientMutationID: clientMutationID, createdAt: timestamp())
             return try queueablePlan(online: PrivateAccountRequests.removeProfilePhoto(), mutation: mutation)
         case .updateNotificationPreferences(let preferences, let clientMutationID):
             let mutation = NativeQueuedMutation.notificationPreferenceUpdate(
@@ -261,7 +285,7 @@ public struct SettingsActionPlanner: Sendable {
                 notifyCookbookSaveOfMine: preferences.notifyCookbookSaveOfMine,
                 notifyFellowChefOriginCook: preferences.notifyFellowChefOriginCook,
                 clientMutationID: clientMutationID,
-                createdAt: now()
+                createdAt: timestamp()
             )
             return try queueablePlan(
                 online: PrivateAccountRequests.updateNotificationPreferences(
@@ -314,7 +338,7 @@ public struct SettingsActionPlanner: Sendable {
     }
 
     private func queueablePlan(online: APIRequestBuilder, mutation: NativeQueuedMutation) throws -> SettingsActionPlan {
-        let policyDecision = try NativeOfflineMutationPolicy.decision(for: .queuedMutation(mutation))
+        let policyDecision = try offlinePolicyDecision(.queuedMutation(mutation))
         guard policyDecision.queueableKind == mutation.queueableKind else {
             throw SettingsActionPlanningError.offlinePolicyRejectedQueueableMutation(mutation.queueableKind)
         }
@@ -325,6 +349,13 @@ public struct SettingsActionPlanner: Sendable {
         case .offline:
             return SettingsActionPlan(queuedMutation: mutation)
         }
+    }
+
+    private func timestamp() -> String {
+        if let now {
+            return now()
+        }
+        return ISO8601DateFormatter().string(from: Date())
     }
 
     private func credentialHandoff(_ target: SettingsSecureHandoffTarget, offlineAction: NativeOfflineAction) throws -> SettingsActionPlan {
@@ -343,7 +374,7 @@ public struct SettingsActionPlanner: Sendable {
         sessionOperation: SettingsSessionOperation? = nil,
         responseHandling: SettingsActionResponseHandling = .refreshOnly
     ) throws -> SettingsActionPlan {
-        let policyDecision = try NativeOfflineMutationPolicy.decision(for: offlineAction)
+        let policyDecision = try offlinePolicyDecision(offlineAction)
         guard policyDecision.queueableKind == nil else {
             throw SettingsActionPlanningError.offlinePolicyAllowedOnlineOnlyAction(reason)
         }

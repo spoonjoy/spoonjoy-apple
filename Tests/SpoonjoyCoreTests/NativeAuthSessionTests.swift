@@ -399,6 +399,10 @@ struct NativeAuthSessionTests {
         await expectKeychainStatus(errSecInteractionNotAllowed) {
             _ = try await vault.loadClientID()
         }
+        keychain.nextCopyStatus = errSecMissingEntitlement
+        await expectKeychainStatus(errSecMissingEntitlement) {
+            _ = try await vault.loadClientID()
+        }
 
         keychain.nextUpdateStatus = errSecAuthFailed
         await expectKeychainStatus(errSecAuthFailed) {
@@ -414,6 +418,24 @@ struct NativeAuthSessionTests {
         await expectKeychainStatus(errSecAuthFailed) {
             try await vault.clearClientID()
         }
+        keychain.nextDeleteStatus = errSecMissingEntitlement
+        await expectKeychainStatus(errSecMissingEntitlement) {
+            try await vault.clearClientID()
+        }
+
+        let unsignedLocalVault = KeychainTokenVault(
+            accessGroup: "group.spoonjoy.tests",
+            keychain: keychain,
+            allowsUnsignedLocalFallback: true
+        )
+        keychain.nextCopyStatus = errSecMissingEntitlement
+        #expect(try await unsignedLocalVault.loadClientID() == nil)
+        keychain.nextDeleteStatus = errSecMissingEntitlement
+        try await unsignedLocalVault.clearClientID()
+        keychain.nextUpdateStatus = errSecMissingEntitlement
+        await expectKeychainStatus(errSecMissingEntitlement) {
+            try await unsignedLocalVault.saveClientID("blocked-unsigned-update")
+        }
 
         let systemClient = SystemKeychainTokenVaultClient()
         var result: CFTypeRef?
@@ -422,6 +444,7 @@ struct NativeAuthSessionTests {
         #expect(systemClient.add([:]) != errSecSuccess)
         #expect(systemClient.delete([:]) != errSecSuccess)
         _ = KeychainTokenVault()
+        _ = KeychainTokenVault(allowsUnsignedLocalFallback: true)
     }
 
     @Test("refresh rotation revoke logout and restoration persist through native repository")

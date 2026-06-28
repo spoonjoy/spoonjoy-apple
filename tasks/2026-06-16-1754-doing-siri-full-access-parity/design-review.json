@@ -1,0 +1,26 @@
+{
+  "mobileScreenshot": true,
+  "desktopScreenshot": true,
+  "screenshotRoute": "settings",
+  "dynamicType": true,
+  "voiceOverLabels": true,
+  "keyboardNavigation": true,
+  "reduceMotion": true,
+  "contrast": true,
+  "kitchenTableHierarchy": true,
+  "noOverlap": true,
+  "blockers": [
+
+  ],
+  "settingsSignedInSurface": true,
+  "settingsSections": [
+    "Profile",
+    "Security",
+    "Notifications",
+    "API Tokens",
+    "Connections",
+    "Environment",
+    "Offline"
+  ],
+  "settingsSeedAccountID": "chef_settings_capture"
+}

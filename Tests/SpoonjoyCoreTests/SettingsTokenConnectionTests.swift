@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Native settings profile tokens and connections parity")
 struct SettingsTokenConnectionTests {
-    private static let createdAt = "2026-06-28T00:00:00.000Z"
+    fileprivate static let createdAt = "2026-06-28T00:00:00.000Z"
     fileprivate static let now = Date(timeIntervalSince1970: 1_782_630_000)
     fileprivate static let configuration = APIClientConfiguration(
         baseURL: URL(string: "https://spoonjoy.app")!,
@@ -142,6 +142,130 @@ struct SettingsTokenConnectionTests {
         ))
     }
 
+    @Test("settings view model covers queued offline signed-in empty and fresh cache states")
+    func settingsViewModelCoversQueuedOfflineSignedInEmptyAndFreshCacheStates() throws {
+        let account = SettingsAccountProfile(
+            id: "chef_queue",
+            email: "queue@example.com",
+            username: "queueari",
+            photoURL: nil,
+            hasPassword: false,
+            linkedProviders: [],
+            passkeys: []
+        )
+        let liveData = SettingsSurfaceData(
+            account: account,
+            notifications: nil,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .live(requestID: "req_queue", validatedAt: Self.now)
+        )
+        let accountMutation = NativeQueuedMutation.profilePhotoRemove(clientMutationID: "cm_remove_photo", createdAt: Self.createdAt)
+        let unrelatedMutation = NativeQueuedMutation.shoppingAddItem(
+            name: "lemons",
+            quantity: 2,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_shopping",
+            createdAt: Self.createdAt
+        )
+        let queued = SettingsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [accountMutation, unrelatedMutation],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now }
+        )
+        #expect(queued.profileDraft == SettingsProfileDraft(email: "queue@example.com", username: "queueari", photo: nil))
+        #expect(queued.queuedWorkSummary == "1 account change waiting to sync")
+        #expect(queued.offlineIndicator.display == .queuedWork(count: 1, oldestClientMutationID: "cm_remove_photo"))
+        let queuedPlan = try queued.actionPlanner.plan(.updateProfile(
+            email: "queued-plan@example.com",
+            username: "queuedplan",
+            clientMutationID: "cm_queued_plan"
+        ))
+        #expect(queuedPlan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate)
+        #expect(queuedPlan.queuePreflightDecision(queuedMutations: [accountMutation, unrelatedMutation]) == .queueMutation(
+            try requireMutation(queuedPlan.offlineFallbackMutation, "queued profile preflight fallback"),
+            drainImmediately: true
+        ))
+        #expect(queuedPlan.queuePreflightDecision(queuedMutations: [unrelatedMutation]) == nil)
+
+        let twoQueued = SettingsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [
+                accountMutation,
+                NativeQueuedMutation.profilePhotoRemove(clientMutationID: "cm_remove_second_photo", createdAt: Self.createdAt)
+            ],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now }
+        )
+        #expect(twoQueued.queuedWorkSummary == "2 account changes waiting to sync")
+
+        let offline = SettingsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now }
+        )
+        #expect(offline.offlineIndicator.display == .offline)
+        let offlinePlan = try offline.actionPlanner.plan(.updateProfile(
+            email: "offline-plan@example.com",
+            username: "offlineplan",
+            clientMutationID: "cm_offline_plan"
+        ))
+        #expect(offlinePlan.queuePreflightDecision(queuedMutations: [accountMutation]) == .queueMutation(
+            try requireMutation(offlinePlan.queuedMutation, "offline queued profile preflight"),
+            drainImmediately: false
+        ))
+
+        let freshCached = SettingsSurfaceViewModel(
+            data: SettingsSurfaceData(
+                account: account,
+                notifications: nil,
+                apiTokens: [],
+                oauthConnections: [],
+                environment: .production,
+                offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+                source: .cache(lastValidatedAt: Self.now)
+            ),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now }
+        )
+        #expect(freshCached.offlineIndicator.display == .synced)
+
+        let signedInEmpty = SettingsSurfaceViewModel(
+            data: SettingsSurfaceData(
+                account: nil,
+                notifications: nil,
+                apiTokens: [],
+                oauthConnections: [],
+                environment: .production,
+                offline: .unavailable,
+                source: .cache(lastValidatedAt: .distantPast)
+            ),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now },
+            showsPrimaryAuthActionWhenSignedOut: false
+        )
+        #expect(signedInEmpty.sections.map(\.id) == [.environment, .offline])
+        #expect(signedInEmpty.primaryAuthAction == nil)
+    }
+
     @Test("live and snapshot repositories read the same account settings API surface")
     func repositoriesReadLiveAndSnapshotSettingsSurface() async throws {
         let transport = RecordingSettingsSurfaceTransport(
@@ -227,6 +351,198 @@ struct SettingsTokenConnectionTests {
         #expect(cached.data.apiTokens.map(\.id) == ["cred_cli"])
         #expect(cached.data.oauthConnections.map(\.id) == ["conn_cli"])
         #expect(cached.data.source == .cache(lastValidatedAt: transport.validatedAt))
+
+        let emptySnapshot = try SnapshotSettingsSurfaceRepository(snapshot: SettingsSurfaceCacheSnapshot(
+            accountID: "chef_empty",
+            environment: .production,
+            records: []
+        )).fetchSettingsSurface()
+        #expect(emptySnapshot.data.account == nil)
+        #expect(emptySnapshot.data.notifications == nil)
+        #expect(emptySnapshot.data.apiTokens.isEmpty)
+        #expect(emptySnapshot.data.oauthConnections.isEmpty)
+        #expect(emptySnapshot.data.source == .cache(lastValidatedAt: .distantPast))
+    }
+
+    @Test("URLSession settings transport builds exact requests and decodes every settings response")
+    func urlSessionSettingsTransportBuildsExactRequestsAndDecodesResponses() async throws {
+        let apiTransport = RecordingSettingsAPITransport(now: Self.now)
+        let transport = URLSessionSettingsSurfaceTransport(transport: apiTransport, now: { Self.now })
+
+        let account = try await transport.fetchAccount(PrivateAccountRequests.currentAccount(), configuration: Self.configuration)
+        let notifications = try await transport.fetchNotificationPreferences(PrivateAccountRequests.notificationPreferences(), configuration: Self.configuration)
+        let tokens = try await transport.fetchAPITokens(TokenCredentialRequests.listTokens(), configuration: Self.configuration)
+        let connections = try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: Self.configuration)
+
+        #expect(account.data.username == "transport")
+        #expect(notifications.data.notifySpoonOnMyRecipe == true)
+        #expect(tokens.data.map(\.id) == ["cred_transport"])
+        #expect(connections.data.map(\.clientID) == ["client_transport"])
+        #expect(account.validatedAt == Self.now)
+        #expect(apiTransport.requests == [
+            RecordedSettingsAPIRequest(method: .get, path: "/api/v1/me", bearerToken: "sj_private_token"),
+            RecordedSettingsAPIRequest(method: .get, path: "/api/v1/me/notification-preferences", bearerToken: "sj_private_token"),
+            RecordedSettingsAPIRequest(method: .get, path: "/api/v1/tokens", bearerToken: "sj_private_token"),
+            RecordedSettingsAPIRequest(method: .get, path: "/api/v1/me/connections", bearerToken: "sj_private_token")
+        ])
+
+        let defaultClockTransport = URLSessionSettingsSurfaceTransport(transport: RecordingSettingsAPITransport(now: Self.now))
+        let defaultClockAccount = try await defaultClockTransport.fetchAccount(PrivateAccountRequests.currentAccount(), configuration: Self.configuration)
+        #expect(defaultClockAccount.data.username == "transport")
+        #expect(defaultClockAccount.validatedAt.timeIntervalSince1970 > 0)
+    }
+
+    @Test("settings response decoders accept current legacy and empty token connection shapes")
+    func settingsResponseDecodersAcceptCurrentLegacyAndEmptyShapes() throws {
+        let tokensPayload = try JSONDecoder().decode(SettingsAPITokenListResponse.self, from: Data("""
+        {
+          "tokens": [
+            {
+              "id": "cred_tokens_key",
+              "name": "Tokens key",
+              "tokenPrefix": "sj_tokens",
+              "scopes": ["recipes:read"],
+              "createdAt": "2026-06-28T00:00:00.000Z",
+              "lastUsedAt": null,
+              "revokedAt": null,
+              "expiresAt": null
+            }
+          ]
+        }
+        """.utf8))
+        #expect(tokensPayload.tokens.map(\.id) == ["cred_tokens_key"])
+        #expect(tokensPayload.tokens.map(\.updatedAt) == ["2026-06-28T00:00:00.000Z"])
+
+        let emptyTokens = try JSONDecoder().decode(SettingsAPITokenListResponse.self, from: Data(#"{}"#.utf8))
+        #expect(emptyTokens.tokens.isEmpty)
+        #expect(SettingsAPITokenListResponse(tokens: tokensPayload.tokens).tokens == tokensPayload.tokens)
+
+        let currentConnections = try JSONDecoder().decode(SettingsOAuthConnectionListResponse.self, from: Data("""
+        {
+          "connections": [
+            {
+              "id": "conn_current",
+              "clientId": "client_current",
+              "clientName": "Current Client",
+              "resource": "https://spoonjoy.app/mcp",
+              "scopes": ["shopping_list:read"],
+              "createdAt": "2026-06-28T00:00:00.000Z",
+              "refreshTokenCount": 2,
+              "accessTokenCount": 3
+            }
+          ]
+        }
+        """.utf8))
+        #expect(currentConnections.connections.map(\.id) == ["conn_current"])
+
+        let legacyConnections = try JSONDecoder().decode(SettingsOAuthConnectionListResponse.self, from: Data("""
+        {
+          "oauthConnections": [
+            {
+              "id": "conn_legacy",
+              "clientId": "client_legacy",
+              "clientName": "Legacy Client",
+              "resource": null,
+              "scopes": [],
+              "createdAt": "2026-06-28T00:00:00.000Z",
+              "refreshTokenCount": 0,
+              "accessTokenCount": 1
+            }
+          ]
+        }
+        """.utf8))
+        #expect(legacyConnections.connections.map(\.clientID) == ["client_legacy"])
+        let emptyConnections = try JSONDecoder().decode(SettingsOAuthConnectionListResponse.self, from: Data(#"{}"#.utf8))
+        #expect(emptyConnections.connections.isEmpty)
+        #expect(SettingsOAuthConnectionListResponse(connections: currentConnections.connections).connections == currentConnections.connections)
+
+        let created = SettingsCreatedAPIToken(token: "sj_created_once", credential: tokensPayload.tokens[0])
+        #expect(created.token == "sj_created_once")
+        #expect(created.credential.tokenPrefix == "sj_tokens")
+    }
+
+    @Test("snapshot settings restore covers legacy notifications and sparse token connection metadata")
+    func snapshotSettingsRestoreCoversLegacyNotificationsAndSparseMetadata() throws {
+        let records = [
+            try settingsCacheRecord(
+                domain: .settings,
+                payload: .settings(account: SettingsAccountProfile(
+                    id: "chef_cache",
+                    email: "cache@example.com",
+                    username: "cacheari",
+                    photoURL: nil,
+                    hasPassword: false,
+                    linkedProviders: [],
+                    passkeys: []
+                ))
+            ),
+            try settingsCacheRecord(
+                domain: .notificationPreferences,
+                payload: .notificationPreferences(marketingEnabled: true, cookingRemindersEnabled: false)
+            ),
+            try settingsCacheRecord(
+                domain: .tokenMetadata,
+                payload: .tokenMetadata(credentials: [
+                    NativeTokenMetadata(
+                        id: "cred_sparse",
+                        name: "Sparse token",
+                        tokenPrefix: "",
+                        scopes: ["recipes:read"]
+                    )
+                ])
+            ),
+            try settingsCacheRecord(
+                domain: .connectionStatus,
+                payload: .connectionStatus(connections: [
+                    NativeConnectionStatus(
+                        id: "conn_sparse",
+                        provider: "github",
+                        status: .connected
+                    )
+                ])
+            )
+        ]
+        let cache = NativeDurableCache(records: records)
+        #expect(cache.record(for: .tokenMetadata)?.id == "token-metadata")
+
+        let restored = try SnapshotSettingsSurfaceRepository(snapshot: SettingsSurfaceCacheSnapshot(
+            accountID: "chef_cache",
+            environment: .production,
+            records: records
+        )).fetchSettingsSurface()
+
+        #expect(restored.data.account?.username == "cacheari")
+        #expect(restored.data.notifications == SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        ))
+        #expect(restored.data.apiTokens == [
+            SettingsAPITokenSummary(
+                id: "cred_sparse",
+                name: "Sparse token",
+                tokenPrefix: "cred_sparse",
+                scopes: ["recipes:read"],
+                createdAt: "",
+                updatedAt: "",
+                lastUsedAt: nil,
+                revokedAt: nil,
+                expiresAt: nil
+            )
+        ])
+        #expect(restored.data.oauthConnections == [
+            SettingsOAuthConnectionSummary(
+                id: "conn_sparse",
+                clientID: "conn_sparse",
+                clientName: "github",
+                resource: nil,
+                scopes: [],
+                createdAt: "",
+                refreshTokenCount: 0,
+                accessTokenCount: 0
+            )
+        ])
     }
 
     @Test("account settings decoder accepts legacy passkeys without created timestamps")
@@ -359,6 +675,19 @@ struct SettingsTokenConnectionTests {
             "username": "queuedari",
             "clientMutationId": "cm_profile_offline"
         ])
+
+        let defaultClockPlanner = SettingsActionPlanner(
+            connectivity: .offline,
+            secureHandoffRoutes: .spoonjoyApp
+        )
+        let defaultClockProfile = try defaultClockPlanner.plan(.updateProfile(
+            email: "clock@example.com",
+            username: "clockari",
+            clientMutationID: "cm_profile_default_clock"
+        ))
+        let defaultClockMutation = try requireMutation(defaultClockProfile.queuedMutation, "default clock profile update")
+        #expect(defaultClockMutation.queueableKind == .profileDisplayUpdate)
+        #expect(defaultClockMutation.createdAt.contains("T"))
 
         let queuedPhotoUpload = try offlinePlanner.plan(.uploadProfilePhoto(photo: photo, clientMutationID: "cm_photo_offline"))
         #expect(queuedPhotoUpload.remoteRequestBuilder == nil)
@@ -552,6 +881,49 @@ struct SettingsTokenConnectionTests {
         }
     }
 
+    @Test("settings action planner fails closed when offline policy mappings regress")
+    func settingsActionPlannerFailsClosedWhenOfflinePolicyMappingsRegress() throws {
+        let queueableRegression = SettingsActionPlanner(
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            offlinePolicyDecision: { action in
+                switch action {
+                case .queuedMutation:
+                    NativeOfflineMutationDecision(queueableKind: .shoppingAddItem, onlineOnlyReason: nil)
+                default:
+                    try NativeOfflineMutationPolicy.decision(for: action)
+                }
+            },
+            now: { Self.createdAt }
+        )
+
+        #expect(throws: SettingsActionPlanningError.offlinePolicyRejectedQueueableMutation(.profileDisplayUpdate)) {
+            _ = try queueableRegression.plan(.updateProfile(
+                email: "regression@example.com",
+                username: "regression",
+                clientMutationID: "cm_policy_regression"
+            ))
+        }
+
+        let onlineOnlyRegression = SettingsActionPlanner(
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            offlinePolicyDecision: { action in
+                switch action {
+                case .apiTokenCreate:
+                    NativeOfflineMutationDecision(queueableKind: .profileDisplayUpdate, onlineOnlyReason: nil)
+                default:
+                    try NativeOfflineMutationPolicy.decision(for: action)
+                }
+            },
+            now: { Self.createdAt }
+        )
+
+        #expect(throws: SettingsActionPlanningError.offlinePolicyAllowedOnlineOnlyAction(.apiTokenCreate)) {
+            _ = try onlineOnlyRegression.plan(.createAPIToken(name: "Bad policy", scopes: ["recipes:read"]))
+        }
+    }
+
     @Test("profile photo staging follows web allowlist and preserves existing draft on rejected replacement")
     func profilePhotoStagingPolicyMatchesWebAndPreservesDrafts() throws {
         let policy = SettingsProfilePhotoStagingPolicy.webProfileParity
@@ -605,6 +977,7 @@ struct SettingsTokenConnectionTests {
     func settingsSourcesExposeNativeSettingsSections() throws {
         let settingsView = try readRepoFile("Apps/Spoonjoy/Shared/Views/SettingsView.swift")
         let navigation = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+        let rootView = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift")
         let scenarioVerifier = try readRepoFile("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
 
         for token in [
@@ -638,12 +1011,34 @@ struct SettingsTokenConnectionTests {
         for token in [
             "contentState.settingsSurfaceViewModel",
             "performSettingsAction",
+            "shouldShowShellOfflineStatus",
+            "navigation.route != .settings",
+            "shellOfflineStatusContentReserve",
+            "safeAreaPadding(.bottom, shellOfflineStatusContentReserve)",
+            "queuePreflightDecision(queuedMutations: contentState.queuedMutations)",
             "queueSettingsMutationIfNeeded",
             "executeSettingsActionRequest",
             "performSettingsSessionOperation"
         ] {
             #expect(navigation.contains(token), "PlatformNavigationView.swift missing \(token)")
         }
+
+        for token in [
+            "private func signedOutContent(contentState:",
+            "if navigation.route == .settings",
+            "onDismissOfflineIndicator: liveStore.dismissOfflineIndicator"
+        ] {
+            #expect(rootView.contains(token), "SpoonjoyRootView.swift missing \(token)")
+        }
+
+        #expect(!rootView.contains("""
+            SettingsView(
+                viewModel: contentState.settingsViewModel,
+                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
+            )
+            .safeAreaInset(edge: .bottom)
+            """))
 
         for token in [
             "settings token connection surface",
@@ -767,6 +1162,111 @@ private func repoRootURL() -> URL {
 
 private struct SettingsTokenConnectionTestFailure: Error, CustomStringConvertible {
     let description: String
+}
+
+private func settingsCacheRecord(
+    domain: NativeCacheDomain,
+    payload: NativeCachePayload,
+    accountID: String = "chef_cache",
+    environment: NativeCacheEnvironment = .production
+) throws -> NativeCacheRecord {
+    try NativeCacheRecord(
+        id: domain.stableRecordID,
+        metadata: NativeCacheRecordMetadata(
+            accountID: accountID,
+            environment: environment,
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            domain: domain,
+            fetchedAt: SettingsTokenConnectionTests.now,
+            lastValidatedAt: SettingsTokenConnectionTests.now,
+            sourceEndpoint: "local://settings-test/\(domain.stableRecordID)",
+            serverRevision: .localRevision("settings-test")
+        ),
+        payload: payload
+    )
+}
+
+private struct RecordedSettingsAPIRequest: Equatable {
+    let method: APIRequestMethod
+    let path: String
+    let bearerToken: String?
+}
+
+private final class RecordingSettingsAPITransport: SpoonjoyAPITransport, @unchecked Sendable {
+    private let now: Date
+    private(set) var requests: [RecordedSettingsAPIRequest] = []
+
+    init(now: Date) {
+        self.now = now
+    }
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let apiRequest = try request.urlRequest(configuration: configuration)
+        requests.append(RecordedSettingsAPIRequest(
+            method: apiRequest.method,
+            path: apiRequest.url.path,
+            bearerToken: configuration.bearerToken
+        ))
+
+        if Value.self == SettingsAccountProfile.self,
+           let data = SettingsAccountProfile(
+            id: "chef_transport",
+            email: "transport@example.com",
+            username: "transport",
+            photoURL: nil,
+            hasPassword: true,
+            linkedProviders: [],
+            passkeys: []
+           ) as? Value {
+            return APIEnvelope(requestID: "req_transport_account", data: data)
+        }
+        if Value.self == SettingsNotificationPreferences.self,
+           let data = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+           ) as? Value {
+            return APIEnvelope(requestID: "req_transport_notifications", data: data)
+        }
+        if Value.self == SettingsAPITokenListResponse.self,
+           let data = SettingsAPITokenListResponse(tokens: [
+            SettingsAPITokenSummary(
+                id: "cred_transport",
+                name: "Transport token",
+                tokenPrefix: "sj_transport",
+                scopes: ["recipes:read"],
+                createdAt: SettingsTokenConnectionTests.createdAt,
+                updatedAt: SettingsTokenConnectionTests.createdAt,
+                lastUsedAt: nil,
+                revokedAt: nil,
+                expiresAt: nil
+            )
+           ]) as? Value {
+            return APIEnvelope(requestID: "req_transport_tokens", data: data)
+        }
+        if Value.self == SettingsOAuthConnectionListResponse.self,
+           let data = SettingsOAuthConnectionListResponse(connections: [
+            SettingsOAuthConnectionSummary(
+                id: "conn_transport",
+                clientID: "client_transport",
+                clientName: "Transport client",
+                resource: nil,
+                scopes: ["shopping_list:read"],
+                createdAt: SettingsTokenConnectionTests.createdAt,
+                refreshTokenCount: 1,
+                accessTokenCount: 2
+            )
+           ]) as? Value {
+            return APIEnvelope(requestID: "req_transport_connections", data: data)
+        }
+
+        throw SettingsTokenConnectionTestFailure(description: "Unexpected settings transport decode type at \(now)")
+    }
 }
 
 private final class RecordingSettingsSurfaceTransport: SettingsSurfaceTransport, @unchecked Sendable {

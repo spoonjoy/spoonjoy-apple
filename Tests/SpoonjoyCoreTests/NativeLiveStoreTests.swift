@@ -1241,6 +1241,476 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store refreshes settings surface cache after sync")
+    func liveStoreRefreshesSettingsSurfaceCacheAfterSync() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_cache", title: "Settings Cache Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            let settingsFetchRecorder = SettingsSurfaceFetchRecorder()
+            let settingsAccount = SettingsAccountProfile(
+                id: "chef_ari",
+                email: "settings@example.com",
+                username: "settingsari",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [],
+                passkeys: []
+            )
+            let settingsData = SettingsSurfaceData(
+                account: settingsAccount,
+                notifications: SettingsNotificationPreferences.disabled,
+                apiTokens: [],
+                oauthConnections: [],
+                environment: .production,
+                offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+                source: .live(requestID: "req_settings_cache", validatedAt: Self.now)
+            )
+            let settingsRecords = [
+                try Self.cacheRecord(
+                    domain: .settings,
+                    payload: .settings(account: settingsAccount),
+                    accountID: "chef_ari"
+                ),
+                try Self.cacheRecord(
+                    domain: .notificationPreferences,
+                    payload: .notificationPreferenceState(.disabled),
+                    accountID: "chef_ari"
+                )
+            ]
+            let preexistingRecipeRecord = try Self.cacheRecord(
+                domain: .recipeDetail(id: "recipe_settings_cache"),
+                payload: .recipeDetail(id: "recipe_settings_cache", title: "Settings Cache Pasta"),
+                accountID: "chef_ari"
+            )
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_ari",
+                environment: .production,
+                createdAt: Self.now,
+                records: [preexistingRecipeRecord],
+                dismissedIndicators: []
+            ))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                cacheStore: cacheStore,
+                syncStore: syncStore,
+                transport: syncTransport,
+                settingsSurfaceFetch: { accountID, environment, configuration, cache in
+                    await settingsFetchRecorder.record(
+                        accountID: accountID,
+                        environment: environment,
+                        bearerToken: configuration.bearerToken,
+                        existingRecordCount: cache.records.count
+                    )
+                    return SettingsSurfaceResult(data: settingsData, persistedRecords: settingsRecords)
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live sync with settings surface data; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.settingsSurfaceData?.account == settingsData.account)
+            #expect(content.settingsSurfaceData?.notifications == settingsData.notifications)
+            #expect(content.settingsSurfaceData?.offline == .available(snapshotCount: 2, lastRestoredAt: nil))
+            #expect(content.settingsSurfaceData?.source == .cache(lastValidatedAt: Self.now))
+            #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingsari")
+            #expect(await settingsFetchRecorder.calls() == [
+                SettingsSurfaceFetchCall(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    bearerToken: "sj_access_current",
+                    existingRecordCount: 1
+                )
+            ])
+
+            let fallback = try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_ari",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            )
+            let persisted = try cacheStore.loadOrRecover(fallback: fallback).value
+            #expect(persisted.records.contains { $0.id == preexistingRecipeRecord.id })
+            #expect(persisted.records.contains { $0.metadata.domain == .settings })
+            #expect(persisted.records.contains { $0.metadata.domain == .notificationPreferences })
+        }
+    }
+
+    @MainActor
+    @Test("restore cache only launch mode renders signed-in settings without live fetch")
+    func restoreCacheOnlyLaunchModeRendersSignedInSettingsWithoutLiveFetch() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_settings_capture"
+            let vault = try await Self.signedInVault(accountID: accountID)
+            let settingsAccount = SettingsAccountProfile(
+                id: accountID,
+                email: "settings-capture@spoonjoy.app",
+                username: "settingscapture",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [SettingsLinkedProvider(provider: .github, providerUsername: "settingscapture")],
+                passkeys: []
+            )
+            let records = [
+                try Self.cacheRecord(
+                    domain: .settings,
+                    payload: .settings(account: settingsAccount),
+                    accountID: accountID
+                ),
+                try Self.cacheRecord(
+                    domain: .notificationPreferences,
+                    payload: .notificationPreferenceState(SettingsNotificationPreferences(
+                        notifySpoonOnMyRecipe: true,
+                        notifyForkOfMyRecipe: false,
+                        notifyCookbookSaveOfMine: true,
+                        notifyFellowChefOriginCook: false
+                    )),
+                    accountID: accountID
+                ),
+                try Self.cacheRecord(
+                    domain: .tokenMetadata,
+                    payload: .tokenMetadata(credentials: [
+                        NativeTokenMetadata(
+                            id: "credential_capture",
+                            name: "Capture validation token",
+                            tokenPrefix: "sj_live_1234",
+                            scopes: ["recipes:read", "shopping_list:read"],
+                            createdAt: Self.isoString(Self.now),
+                            updatedAt: Self.isoString(Self.now)
+                        )
+                    ]),
+                    accountID: accountID
+                ),
+                try Self.cacheRecord(
+                    domain: .connectionStatus,
+                    payload: .connectionStatus(connections: [
+                        NativeConnectionStatus(
+                            id: "connection_capture",
+                            provider: "oauth",
+                            status: .connected,
+                            clientID: "client_capture",
+                            clientName: "Capture OAuth App",
+                            resource: nil,
+                            scopes: ["account:read"],
+                            createdAt: Self.isoString(Self.now),
+                            refreshTokenCount: 1,
+                            accessTokenCount: 1
+                        )
+                    ]),
+                    accountID: accountID
+                )
+            ]
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: accountID,
+                environment: .production,
+                createdAt: Self.now,
+                records: records,
+                dismissedIndicators: []
+            ))
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: nil,
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "settings",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(accountID: accountID, environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: syncTransport,
+                appStateStoreProvider: { appStateStore },
+                settingsSurfaceFetch: { _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .offlineStale(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to render offline signed-in cache; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(liveStore.restoredRoute == .settings)
+            #expect(content.settingsSurfaceViewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline])
+            #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingscapture")
+            #expect(content.settingsSurfaceViewModel.apiTokenRows.map(\.name) == ["Capture validation token"])
+            #expect(content.settingsSurfaceViewModel.oauthConnectionRows.map(\.clientName) == ["Capture OAuth App"])
+            #expect(content.settingsSurfaceViewModel.primaryAuthAction == nil)
+            #expect(content.settingsSurfaceViewModel.connectivity == .offline)
+            #expect(await syncTransport.capturedBearerTokens().isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("restore cache only launch mode preserves expired signed-in cache without refreshing")
+    func restoreCacheOnlyLaunchModePreservesExpiredSignedInCacheWithoutRefreshing() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_settings_capture"
+            let expiredSession = try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_expired_cache",
+                refreshToken: "sj_refresh_expired_cache",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(-60),
+                scope: NativeAuthSession.defaultScope,
+                accountID: accountID
+            )
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(expiredSession)
+            let settingsAccount = SettingsAccountProfile(
+                id: accountID,
+                email: "expired-cache@spoonjoy.app",
+                username: "expiredcache",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [],
+                passkeys: []
+            )
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: accountID,
+                environment: .production,
+                createdAt: Self.now,
+                records: [
+                    try Self.cacheRecord(
+                        domain: .settings,
+                        payload: .settings(account: settingsAccount),
+                        accountID: accountID
+                    )
+                ],
+                dismissedIndicators: []
+            ))
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: nil,
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "settings",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let syncStore = InMemoryNativeSyncStore(accountID: accountID, environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let syncEngine = NativeSyncEngine(store: syncStore, transport: syncTransport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let authRepository = NativeAuthSessionRepository(
+                vault: vault,
+                clientName: "Spoonjoy Apple Tests",
+                registerClient: { _, _ in "client_live" },
+                exchangeCode: { _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                refresh: { _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                revoke: { _, _ in },
+                now: { Self.now }
+            )
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: authRepository,
+                cacheStore: cacheStore,
+                syncStore: syncStore,
+                syncEngine: syncEngine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration),
+                appStateStoreProvider: { appStateStore },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                settingsSurfaceFetch: { _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .offlineStale(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to preserve expired signed-in cache; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(liveStore.restoredRoute == .settings)
+            #expect(content.authSessionState == .refreshRequired(expiredSession))
+            #expect(content.configuration.bearerToken == "sj_access_expired_cache")
+            #expect(content.settingsSurfaceViewModel.profileDraft?.username == "expiredcache")
+            #expect(content.settingsSurfaceViewModel.primaryAuthAction == nil)
+            #expect(await syncTransport.capturedBearerTokens().isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("restore cache only launch mode preserves signed-out shell without live fetch")
+    func restoreCacheOnlyLaunchModePreservesSignedOutShellWithoutLiveFetch() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: "signed-out",
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: nil,
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "settings",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(accountID: "chef_untrusted", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: syncTransport,
+                appStateStoreProvider: { appStateStore },
+                settingsSurfaceFetch: { _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .signedOut(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to preserve signed-out shell; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(liveStore.restoredRoute == .settings)
+            #expect(content.authSessionState == .signedOut)
+            #expect(content.offlineIndicatorState.display == .offline)
+            #expect(content.settingsSurfaceViewModel.profileDraft == nil)
+            #expect(content.settingsSurfaceViewModel.primaryAuthAction != nil)
+            #expect(await syncTransport.capturedBearerTokens().isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("live store executes settings action requests and captures created tokens")
+    func liveStoreExecutesSettingsActionRequestsAndCapturesCreatedTokens() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_expired",
+                refreshToken: "sj_refresh_original",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(-60),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_ari"
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_settings_execute", title: "Settings Execute Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let recorder = SettingsActionAPITransportRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: syncTransport,
+                recipeEditorAPITransport: { refresher in
+                    RecordingSettingsActionAPITransport(refresher: refresher, recorder: recorder)
+                }
+            )
+
+            let refreshOnly = try await liveStore.executeSettingsActionRequest(
+                PrivateAccountRequests.updateProfile(email: "settings@example.com", username: "settingsari"),
+                responseHandling: .refreshOnly
+            )
+            let tokenOutcome = try await liveStore.executeSettingsActionRequest(
+                TokenCredentialRequests.createToken(name: "Kitchen Token", scopes: ["recipes:read"]),
+                responseHandling: .captureCreatedAPIToken
+            )
+
+            #expect(refreshOnly == nil)
+            #expect(tokenOutcome == .createdAPIToken(SettingsCreatedAPIToken(
+                token: "sj_created_settings",
+                credential: SettingsAPITokenSummary(
+                    id: "cred_settings_created",
+                    name: "Kitchen Token",
+                    tokenPrefix: "sj_created",
+                    scopes: ["recipes:read"],
+                    createdAt: "2026-06-28T00:00:00.000Z",
+                    updatedAt: "2026-06-28T00:00:00.000Z",
+                    lastUsedAt: nil,
+                    revokedAt: nil,
+                    expiresAt: nil
+                )
+            )))
+            #expect(await recorder.requests() == [
+                SettingsActionAPIRequest(method: .patch, path: "/api/v1/me", bearerToken: "sj_access_refreshed"),
+                SettingsActionAPIRequest(method: .post, path: "/api/v1/tokens", bearerToken: "sj_access_refreshed")
+            ])
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected settings action execution to refresh live synced content; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.id) == ["recipe_settings_execute"])
+        }
+    }
+
+    @MainActor
+    @Test("live store performs settings session operations and returns to signed out shell")
+    func liveStorePerformsSettingsSessionOperationsAndReturnsToSignedOutShell() async throws {
+        for operation in [SettingsSessionOperation.logout, .revokeAndLogout] {
+            try await withTemporaryLiveStoreDirectory { directory in
+                let vault = try await Self.signedInVault(accountID: "chef_ari")
+                let syncStore = InMemoryNativeSyncStore(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: NativeMutationQueue()
+                )
+                let liveStore = Self.liveStore(
+                    directory: directory,
+                    vault: vault,
+                    syncStore: syncStore,
+                    transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+                )
+
+                try await liveStore.performSettingsSessionOperation(operation)
+
+                #expect((try await liveStore.authSessionRepository.restoreState()) == .signedOut)
+                guard case .signedOut(let content) = liveStore.bootstrapState else {
+                    Issue.record("Expected \(operation) to bootstrap signed out; got \(liveStore.bootstrapState)")
+                    return
+                }
+                #expect(content.authSessionState == .signedOut)
+                #expect(content.settingsViewModel.authSessionState == .signedOut)
+            }
+        }
+    }
+
+    @MainActor
     @Test("live store executes capture import requests and prepends imported recipes")
     func liveStoreExecutesCaptureImportRequestsAndPrependsImportedRecipes() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -3160,6 +3630,77 @@ struct NativeLiveStoreTests {
         }
     }
 
+    @Test("shell content settings surface view model covers signed-out loaded and signed-in unloaded states")
+    func shellContentSettingsSurfaceViewModelCoversSignedOutLoadedAndSignedInUnloadedStates() throws {
+        let signedOut = NativeShellContentState.empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        #expect(signedOut.settingsSurfaceViewModel.sections.map(\.id) == [.session, .environment, .offline])
+        #expect(signedOut.settingsSurfaceViewModel.primaryAuthAction?.target == .login)
+        #expect(try signedOut.settingsSurfaceViewModel.actionPlanner.plan(.updateProfile(
+            email: "signed-out@example.com",
+            username: "signedout",
+            clientMutationID: "cm_signed_out_settings"
+        )).offlineFallbackMutation?.queueableKind == .profileDisplayUpdate)
+
+        let session = try AuthSession(
+            clientID: "client_live",
+            accessToken: "sj_access_current",
+            refreshToken: "sj_refresh_current",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(600),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        )
+        let signedInWithoutSettings = NativeShellContentState.empty(
+            authSessionState: .authenticated(session),
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+        )
+        #expect(signedInWithoutSettings.settingsSurfaceViewModel.sections.map(\.id) == [.environment, .offline])
+        #expect(signedInWithoutSettings.settingsSurfaceViewModel.primaryAuthAction == nil)
+        #expect(signedInWithoutSettings.settingsSurfaceViewModel.offlineIndicator.display == .offline)
+        #expect(try signedInWithoutSettings.settingsSurfaceViewModel.actionPlanner.plan(.updateProfile(
+            email: "signed-in@example.com",
+            username: "signedin",
+            clientMutationID: "cm_signed_in_settings"
+        )).queuedMutation?.queueableKind == .profileDisplayUpdate)
+
+        let settingsData = SettingsSurfaceData(
+            account: SettingsAccountProfile(
+                id: "chef_ari",
+                email: "ari@example.com",
+                username: "ari",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [],
+                passkeys: []
+            ),
+            notifications: .disabled,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .live(requestID: "req_shell_settings", validatedAt: Self.now)
+        )
+        let loadedSettings = signedInWithoutSettings.copy(
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil),
+            settingsSurfaceData: .some(settingsData)
+        )
+        #expect(loadedSettings.settingsSurfaceViewModel.sections.map(\.id).starts(with: [.profile, .security]))
+        #expect(loadedSettings.settingsSurfaceViewModel.profileDraft?.username == "ari")
+        #expect(loadedSettings.settingsSurfaceViewModel.connectivity == .online)
+        #expect(try loadedSettings.settingsSurfaceViewModel.actionPlanner.plan(.updateProfile(
+            email: "loaded@example.com",
+            username: "loaded",
+            clientMutationID: "cm_loaded_settings"
+        )).offlineFallbackMutation?.queueableKind == .profileDisplayUpdate)
+    }
+
     @Test("shell content exposes recipe catalog source for live and offline states")
     func shellContentExposesRecipeCatalogSourceForLiveAndOfflineStates() throws {
         let recipe = Self.sampleRecipe(id: "recipe_catalog_source", title: "Catalog Source")
@@ -4051,6 +4592,89 @@ private struct RecipeImportTestResponse: Encodable {
     let recipe: Recipe
 }
 
+private struct SettingsSurfaceFetchCall: Equatable, Sendable {
+    let accountID: String
+    let environment: NativeCacheEnvironment
+    let bearerToken: String?
+    let existingRecordCount: Int
+}
+
+private actor SettingsSurfaceFetchRecorder {
+    private var recordedCalls: [SettingsSurfaceFetchCall] = []
+
+    func record(accountID: String, environment: NativeCacheEnvironment, bearerToken: String?, existingRecordCount: Int) {
+        recordedCalls.append(SettingsSurfaceFetchCall(
+            accountID: accountID,
+            environment: environment,
+            bearerToken: bearerToken,
+            existingRecordCount: existingRecordCount
+        ))
+    }
+
+    func calls() -> [SettingsSurfaceFetchCall] {
+        recordedCalls
+    }
+}
+
+private struct SettingsActionAPIRequest: Equatable, Sendable {
+    let method: APIRequestMethod
+    let path: String
+    let bearerToken: String?
+}
+
+private actor SettingsActionAPITransportRecorder {
+    private var recordedRequests: [SettingsActionAPIRequest] = []
+
+    func record(method: APIRequestMethod, path: String, bearerToken: String?) {
+        recordedRequests.append(SettingsActionAPIRequest(method: method, path: path, bearerToken: bearerToken))
+    }
+
+    func requests() -> [SettingsActionAPIRequest] {
+        recordedRequests
+    }
+}
+
+private struct RecordingSettingsActionAPITransport: SpoonjoyAPITransport {
+    let recorder: SettingsActionAPITransportRecorder
+
+    init(refresher _: any APIAuthenticationRefresher, recorder: SettingsActionAPITransportRecorder) {
+        self.recorder = recorder
+    }
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let apiRequest = try request.urlRequest(configuration: configuration)
+        await recorder.record(method: apiRequest.method, path: apiRequest.url.path, bearerToken: configuration.bearerToken)
+
+        if Value.self == JSONValue.self,
+           let data = JSONValue.object(["saved": .bool(true)]) as? Value {
+            return APIEnvelope(requestID: "settings-action-ok", data: data)
+        }
+        if Value.self == SettingsCreatedAPIToken.self,
+           let data = SettingsCreatedAPIToken(
+            token: "sj_created_settings",
+            credential: SettingsAPITokenSummary(
+                id: "cred_settings_created",
+                name: "Kitchen Token",
+                tokenPrefix: "sj_created",
+                scopes: ["recipes:read"],
+                createdAt: "2026-06-28T00:00:00.000Z",
+                updatedAt: "2026-06-28T00:00:00.000Z",
+                lastUsedAt: nil,
+                revokedAt: nil,
+                expiresAt: nil
+            )
+           ) as? Value {
+            return APIEnvelope(requestID: "settings-token-created", data: data)
+        }
+
+        throw NativeLiveStoreTestError.unexpectedEnvelopeType
+    }
+}
+
 private struct NoopRecipeEditorAPIRefresher: APIAuthenticationRefresher {
     func refreshedConfiguration(
         after _: APIError,
@@ -4107,7 +4731,9 @@ private extension NativeLiveStoreTests {
         recipeEditorAPITransport: @escaping @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport = { refresher in
             URLSessionAPITransport(authenticationRefresher: refresher)
         },
-        stagedMediaDirectory: NativeStagedMediaDirectory? = nil
+        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
+        stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
@@ -4121,7 +4747,9 @@ private extension NativeLiveStoreTests {
             cacheEnvironment: cacheEnvironment,
             fixtureFallbackPolicy: fixtureFallbackPolicy,
             recipeEditorAPITransport: recipeEditorAPITransport,
+            settingsSurfaceFetch: settingsSurfaceFetch,
             stagedMediaDirectory: stagedMediaDirectory,
+            bootstrapMode: bootstrapMode,
             now: { Self.now }
         ))
     }

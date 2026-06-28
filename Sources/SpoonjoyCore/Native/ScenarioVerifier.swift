@@ -1379,12 +1379,16 @@ public enum ScenarioVerifier {
         )
     }
 
-    static func settingsProfileUpdateCheck() -> ScenarioCheck {
+    static func settingsProfileUpdateCheck(
+        planBuilder: (SettingsActionPlanner) throws -> SettingsActionPlan = {
+            try $0.plan(.updateProfile(email: "ari@example.com", username: "ari", clientMutationID: "scenario-settings-profile"))
+        }
+    ) -> ScenarioCheck {
         do {
-            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp) {
-                "2026-06-16T12:09:00.000Z"
-            }
-            let plan = try planner.plan(.updateProfile(email: "ari@example.com", username: "ari", clientMutationID: "scenario-settings-profile"))
+            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp, now: {
+                settingsScenarioTimestamp()
+            })
+            let plan = try planBuilder(planner)
             let request = try plan.remoteRequestBuilder?.urlRequest(configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"))
             let status: ScenarioCheckStatus = request?.method == .patch &&
                 request?.url.path == "/api/v1/me" &&
@@ -1399,12 +1403,14 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func settingsTokenCreateOnlineOnlyCheck() -> ScenarioCheck {
+    static func settingsTokenCreateOnlineOnlyCheck(
+        planBuilder: (SettingsActionPlanner) throws -> SettingsActionPlan = {
+            try $0.plan(.createAPIToken(name: "CLI", scopes: ["recipes:read"]))
+        }
+    ) -> ScenarioCheck {
         do {
-            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp) {
-                "2026-06-16T12:09:00.000Z"
-            }
-            let plan = try planner.plan(.createAPIToken(name: "CLI", scopes: ["recipes:read"]))
+            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
+            let plan = try planBuilder(planner)
             let status: ScenarioCheckStatus = plan.onlineOnlyReason == .apiTokenCreate &&
                 plan.queuedMutation == nil &&
                 plan.offlineFallbackMutation == nil ? .pass : .fail
@@ -1418,12 +1424,14 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func settingsConnectionDisconnectOnlineOnlyCheck() -> ScenarioCheck {
+    static func settingsConnectionDisconnectOnlineOnlyCheck(
+        planBuilder: (SettingsActionPlanner) throws -> SettingsActionPlan = {
+            try $0.plan(.disconnectOAuthConnection(connectionID: "conn_cli"))
+        }
+    ) -> ScenarioCheck {
         do {
-            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp) {
-                "2026-06-16T12:09:00.000Z"
-            }
-            let plan = try planner.plan(.disconnectOAuthConnection(connectionID: "conn_cli"))
+            let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
+            let plan = try planBuilder(planner)
             let status: ScenarioCheckStatus = plan.onlineOnlyReason == .oauthConnectionDisconnect &&
                 plan.queuedMutation == nil &&
                 plan.offlineFallbackMutation == nil ? .pass : .fail
@@ -1437,13 +1445,16 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func settingsSecureHandoffCheck() -> ScenarioCheck {
+    static func settingsSecureHandoffCheck(
+        planBuilder: (SettingsActionPlanner) throws -> (provider: SettingsSecureHandoff?, passkeys: SettingsSecureHandoff?) = {
+            (try $0.plan(.linkProvider(.google)).secureHandoff, try $0.plan(.managePasskeys).secureHandoff)
+        }
+    ) -> ScenarioCheck {
         do {
-            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp) {
-                "2026-06-16T12:09:00.000Z"
-            }
-            let provider = try planner.plan(.linkProvider(.google)).secureHandoff
-            let passkeys = try planner.plan(.managePasskeys).secureHandoff
+            let planner = SettingsActionPlanner(connectivity: .online, secureHandoffRoutes: .spoonjoyApp)
+            let plans = try planBuilder(planner)
+            let provider = plans.provider
+            let passkeys = plans.passkeys
             let status: ScenarioCheckStatus = provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
                 passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys" ? .pass : .fail
             return ScenarioCheck(
@@ -1454,6 +1465,10 @@ public enum ScenarioVerifier {
         } catch {
             return ScenarioCheck(name: "settings secure handoff", status: .fail, detail: "Settings secure handoff failed: \(error)")
         }
+    }
+
+    private static func settingsScenarioTimestamp() -> String {
+        "2026-06-16T12:09:00.000Z"
     }
 
     static func offlineStatusCheck(

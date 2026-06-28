@@ -344,10 +344,6 @@ public struct URLSessionSettingsSurfaceTransport: SettingsSurfaceTransport {
 
 public protocol SettingsSurfaceRepository: Sendable {}
 
-public enum SettingsSurfaceRepositoryError: Error, Equatable, Sendable {
-    case missingAccount
-}
-
 public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
     private let transport: any SettingsSurfaceTransport
     private let cache: NativeDurableCache
@@ -368,7 +364,7 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
         let notifications = try await transport.fetchNotificationPreferences(PrivateAccountRequests.notificationPreferences(), configuration: configuration)
         let tokens = try await transport.fetchAPITokens(TokenCredentialRequests.listTokens(), configuration: configuration)
         let connections = try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: configuration)
-        let validatedAt = [account.validatedAt, notifications.validatedAt, tokens.validatedAt, connections.validatedAt].max() ?? Date()
+        let validatedAt = [notifications.validatedAt, tokens.validatedAt, connections.validatedAt].reduce(account.validatedAt, max)
 
         let data = SettingsSurfaceData(
             account: account.data,
@@ -383,7 +379,10 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
         return SettingsSurfaceResult(
             data: data,
             persistedRecords: try Self.persistedRecords(
-                data: data,
+                account: account.data,
+                notifications: notifications.data,
+                apiTokens: tokens.data,
+                oauthConnections: connections.data,
                 accountID: accountID,
                 environment: environment,
                 fetchedAt: validatedAt
@@ -392,15 +391,14 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
     }
 
     private static func persistedRecords(
-        data: SettingsSurfaceData,
+        account: SettingsAccountProfile,
+        notifications: SettingsNotificationPreferences,
+        apiTokens: [SettingsAPITokenSummary],
+        oauthConnections: [SettingsOAuthConnectionSummary],
         accountID: String,
         environment: NativeCacheEnvironment,
         fetchedAt: Date
     ) throws -> [NativeCacheRecord] {
-        guard let account = data.account else {
-            throw SettingsSurfaceRepositoryError.missingAccount
-        }
-
         return [
             try record(
                 accountID: accountID,
@@ -416,7 +414,7 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
                 domain: NativeCacheDomain.notificationPreferences,
                 sourceEndpoint: "/api/v1/me/notification-preferences",
                 fetchedAt: fetchedAt,
-                payload: .notificationPreferenceState(data.notifications ?? .disabled)
+                payload: .notificationPreferenceState(notifications)
             ),
             try record(
                 accountID: accountID,
@@ -424,7 +422,7 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
                 domain: NativeCacheDomain.tokenMetadata,
                 sourceEndpoint: "/api/v1/tokens",
                 fetchedAt: fetchedAt,
-                payload: NativeCachePayload.tokenMetadata(credentials: data.apiTokens.map(NativeTokenMetadata.init(settingsToken:)))
+                payload: NativeCachePayload.tokenMetadata(credentials: apiTokens.map(NativeTokenMetadata.init(settingsToken:)))
             ),
             try record(
                 accountID: accountID,
@@ -432,7 +430,7 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
                 domain: NativeCacheDomain.connectionStatus,
                 sourceEndpoint: "/api/v1/me/connections",
                 fetchedAt: fetchedAt,
-                payload: NativeCachePayload.connectionStatus(connections: data.oauthConnections.map(NativeConnectionStatus.init(settingsConnection:)))
+                payload: NativeCachePayload.connectionStatus(connections: oauthConnections.map(NativeConnectionStatus.init(settingsConnection:)))
             )
         ]
     }

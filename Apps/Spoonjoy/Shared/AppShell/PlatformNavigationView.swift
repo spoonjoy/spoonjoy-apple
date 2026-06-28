@@ -78,6 +78,7 @@ struct PlatformNavigationView: View {
         } detail: {
             NavigationStack {
                 detailContent
+                    .safeAreaPadding(.bottom, shellOfflineStatusContentReserve)
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
                     .navigationBarTitleDisplayMode(.large)
@@ -97,10 +98,12 @@ struct PlatformNavigationView: View {
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
             .safeAreaInset(edge: .bottom) {
-                OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .background(KitchenTableTheme.bone.opacity(0.94))
+                if shouldShowShellOfflineStatus {
+                    OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    .background(KitchenTableTheme.bone.opacity(0.94))
+                }
             }
             .task(id: spotlightIndexIdentity) {
                 await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
@@ -112,6 +115,30 @@ struct PlatformNavigationView: View {
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
 #endif
+    }
+
+    private var shellOfflineStatusContentReserve: CGFloat {
+        guard shouldShowShellOfflineStatus else {
+            return 0
+        }
+        switch offlineIndicatorState.display {
+        case .dismissed:
+            return 0
+        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            return 96
+        }
+    }
+
+    private var shouldShowShellOfflineStatus: Bool {
+        guard navigation.route != .settings else {
+            return false
+        }
+        switch offlineIndicatorState.display {
+        case .dismissed:
+            return false
+        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            return true
+        }
     }
 
     private var sidebar: some View {
@@ -851,14 +878,13 @@ struct PlatformNavigationView: View {
     }
 
     private func performSettingsAction(_ plan: SettingsActionPlan) async throws -> SettingsActionOutcome? {
-        if let queuedMutation = plan.queuedMutation {
-            try await queueSettingsMutationIfNeeded(queuedMutation)
-            return nil
-        }
-
-        if let offlineFallbackMutation = plan.offlineFallbackMutation,
-           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
-            _ = try await queueMutations([offlineFallbackMutation], true)
+        if let preflight = plan.queuePreflightDecision(queuedMutations: contentState.queuedMutations) {
+            switch preflight {
+            case .queueMutation(let mutation, drainImmediately: false):
+                try await queueSettingsMutationIfNeeded(mutation)
+            case .queueMutation(let mutation, drainImmediately: true):
+                _ = try await queueMutations([mutation], true)
+            }
             return nil
         }
 

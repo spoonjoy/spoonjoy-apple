@@ -535,6 +535,30 @@ struct NativeScenarioTests {
         let throwingCookbookAddRecipeCheck = ScenarioVerifier.cookbookAddRecipeCheck(viewModel: { _ in
             throw FixtureLoadError.unavailable
         })
+        let throwingSettingsProfileCheck = ScenarioVerifier.settingsProfileUpdateCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsTokenCheck = ScenarioVerifier.settingsTokenCreateOnlineOnlyCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsConnectionCheck = ScenarioVerifier.settingsConnectionDisconnectOnlineOnlyCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let throwingSettingsHandoffCheck = ScenarioVerifier.settingsSecureHandoffCheck(planBuilder: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let weakSettingsProfileCheck = ScenarioVerifier.settingsProfileUpdateCheck(planBuilder: { _ in
+            SettingsActionPlan()
+        })
+        let weakSettingsTokenCheck = ScenarioVerifier.settingsTokenCreateOnlineOnlyCheck(planBuilder: { _ in
+            SettingsActionPlan()
+        })
+        let weakSettingsConnectionCheck = ScenarioVerifier.settingsConnectionDisconnectOnlineOnlyCheck(planBuilder: { _ in
+            SettingsActionPlan()
+        })
+        let weakSettingsHandoffCheck = ScenarioVerifier.settingsSecureHandoffCheck(planBuilder: { _ in
+            (nil, nil)
+        })
         let baseCookbook = try #require(CookbookFixtureCatalog.decodeFromBundle().cookbooks.first)
         let emptyCookbook = Cookbook(
             id: baseCookbook.id,
@@ -588,6 +612,18 @@ struct NativeScenarioTests {
         #expect(throwingCookbookDeleteCheck.detail.contains("Cookbook delete failed"))
         #expect(throwingCookbookAddRecipeCheck.status == .fail)
         #expect(throwingCookbookAddRecipeCheck.detail.contains("Cookbook add recipe failed"))
+        #expect(throwingSettingsProfileCheck.status == .fail)
+        #expect(throwingSettingsProfileCheck.detail.contains("Settings profile update failed"))
+        #expect(throwingSettingsTokenCheck.status == .fail)
+        #expect(throwingSettingsTokenCheck.detail.contains("Settings token create failed"))
+        #expect(throwingSettingsConnectionCheck.status == .fail)
+        #expect(throwingSettingsConnectionCheck.detail.contains("Settings connection disconnect failed"))
+        #expect(throwingSettingsHandoffCheck.status == .fail)
+        #expect(throwingSettingsHandoffCheck.detail.contains("Settings secure handoff failed"))
+        #expect(weakSettingsProfileCheck.status == .fail)
+        #expect(weakSettingsTokenCheck.status == .fail)
+        #expect(weakSettingsConnectionCheck.status == .fail)
+        #expect(weakSettingsHandoffCheck.status == .fail)
         #expect(emptyCookbookRemoveCheck.status == .fail)
         #expect(emptyCookbookRemoveCheck.detail.contains("no removable recipe"))
         #expect(throwingCookbookRemoveCheck.status == .fail)

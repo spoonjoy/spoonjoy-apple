@@ -95,7 +95,18 @@ SCRIPT_CONTRACTS = {
       "pkill -x Spoonjoy",
       "Retrying Spoonjoy window capture after relaunch",
       "Spoonjoy window not found for macOS screenshot capture",
-      "spoonjoy://kitchen",
+      'screenshot_route="kitchen"',
+      "spoonjoy://$screenshot_route",
+      "validate_ios_screenshot",
+      "get_app_container",
+      "native-durable-cache.json",
+      "SPOONJOY_SCREENSHOT_AUTH",
+      "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY",
+      "SPOONJOY_SCREENSHOT_ACCOUNT_ID",
+      "settingsSignedInSurface",
+      "settingsSeedAccountID",
+      "chef_settings_capture",
+      '"accountID" => "signed-out"',
       "lastOpenedRoute",
       "hasCompletedFirstRun",
       "native-app-state.json",
@@ -152,6 +163,19 @@ SCRIPT_CONTRACTS = {
       "screenshots-xcode-platform-blocker.json",
       "screenshots-core-simulator-blocker.json",
       "screenshots-macos-launch-blocker.json"
+    ]
+  },
+  "scripts/fail-on-warning.rb" => {
+    syntax: ["ruby", "-c"],
+    tokens: [
+      "warning:",
+      "error:",
+      "An error was encountered processing the command",
+      "Underlying error",
+      "failed to",
+      "fatal error:",
+      "uncaught exception",
+      "warnings or error diagnostics found"
     ]
   }
 }.freeze
@@ -563,16 +587,63 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       esac
     done
     mkdir -p "$(dirname "$log")"
-    printf ok > "$log"
+    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
   SH
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
   write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
   write_executable(bin_dir.join("xcrun"), <<~'SH')
     #!/usr/bin/env bash
     set -euo pipefail
-    out="${@: -1}"
-    mkdir -p "$(dirname "$out")"
-    printf ios-image > "$out"
+    case "$*" in
+      simctl\ get_app_container\ *)
+        mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
+        printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ launch\ *)
+        printf 'app.spoonjoy.Spoonjoy: 12345\n'
+        ;;
+      simctl\ terminate\ *)
+        exit 0
+        ;;
+      simctl\ spawn\ *\ log\ show*)
+        printf 'Front display did change: <SBApplication; app.spoonjoy.Spoonjoy>\n'
+        ;;
+      simctl\ io\ *\ screenshot\ *)
+        out="${@: -1}"
+        mkdir -p "$(dirname "$out")"
+        python3 - "$out" <<'PY'
+import binascii
+import struct
+import sys
+import zlib
+
+path = sys.argv[1]
+width, height = 400, 800
+rows = []
+for y in range(height):
+    row = bytearray()
+    for _ in range(width):
+        if 150 <= y <= 700:
+            row.extend((246, 239, 225))
+        else:
+            row.extend((0, 0, 0))
+    rows.append(b"\x00" + bytes(row))
+
+def chunk(kind, payload):
+    return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", binascii.crc32(kind + payload) & 0xffffffff)
+
+png = b"\x89PNG\r\n\x1a\n"
+png += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+png += chunk(b"IDAT", zlib.compress(b"".join(rows)))
+png += chunk(b"IEND", b"")
+with open(path, "wb") as handle:
+    handle.write(png)
+PY
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
   SH
   write_executable(bin_dir.join("osascript"), <<~'SH')
     #!/usr/bin/env bash
@@ -581,7 +652,11 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     if [[ "$script" == *"open location"* ]]; then
       state="$HOME/Library/Application Support/Spoonjoy/native-app-state.json"
       mkdir -p "$(dirname "$state")"
-      printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"kitchen"}\n' > "$state"
+      route="kitchen"
+      if [[ "$script" == *"spoonjoy://settings"* ]]; then
+        route="settings"
+      fi
+      printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"%s"}\n' "$route" > "$state"
     fi
   SH
   write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")
@@ -614,6 +689,28 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   assert_missing(artifact_root.join("design-review-blocked.json"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/macos-desktop.png"), "screenshot success lane")
+
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      artifact_root,
+      "--unit-slug",
+      "unit-contract-settings"
+    ],
+    "settings screenshot success lane",
+    env: { "HOME" => script_root.join("home").to_s, "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    chdir: script_root
+  )
+  settings_review = assert_json(artifact_root.join("design-review.json"), "settings screenshot success lane")
+  record_failure("settings screenshot route mismatch") unless settings_review["screenshotRoute"] == "settings"
+  record_failure("settings screenshot missing signed-in surface flag") unless settings_review["settingsSignedInSurface"] == true
+  record_failure("settings screenshot account seed mismatch") unless settings_review["settingsSeedAccountID"] == "chef_settings_capture"
+  cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "settings iOS cache seed")
+  record_failure("settings cache seed account mismatch") unless cache_json["accountID"] == "chef_settings_capture"
+  record_failure("settings cache seed missing token metadata") unless cache_json.fetch("records", []).any? { |record| record["id"] == "token-metadata" }
 end
 
 if DESIGN_REVIEW.file?

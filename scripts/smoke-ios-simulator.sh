@@ -37,7 +37,7 @@ legacy_blocker_path="$artifact_root/smoke-ios-simulator-blocker.json"
 log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-ios-inner.log}"
 blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-ios-simulator-blocker.json}"
 derived_data_path="$artifact_root/DerivedData-iOS"
-timeout_seconds=90
+timeout_seconds=30
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -153,14 +153,19 @@ if [[ "$build_status" -ne 0 ]]; then
   exit "$build_status"
 fi
 
-{
-  printf 'Booting simulator: %s %s\n' "$boot_command" "$udid"
-  set +e
-  run_with_timeout "$boot_command $udid || xcrun simctl bootstatus $udid -b"
-  boot_status=$?
-  set -e
-  printf 'simulator boot exit code: %s\n' "$boot_status"
-} >> "$log_path" 2>&1
+boot_log="$(mktemp)"
+printf 'Booting simulator: %s %s\n' "$boot_command" "$udid" >> "$log_path"
+set +e
+run_with_timeout "$boot_command $udid || xcrun simctl bootstatus $udid -b" > "$boot_log" 2>&1
+boot_status=$?
+set -e
+if [[ "$boot_status" -ne 0 ]] || ! grep -q "Unable to boot device in current state: Booted" "$boot_log"; then
+  cat "$boot_log" >> "$log_path"
+else
+  printf 'Simulator was already booted; suppressed benign CoreSimulator boot diagnostic.\n' >> "$log_path"
+fi
+printf 'simulator boot exit code: %s\n' "$boot_status" >> "$log_path"
+rm -f "$boot_log"
 
 if [[ "$boot_status" -ne 0 ]]; then
   write_blocker \

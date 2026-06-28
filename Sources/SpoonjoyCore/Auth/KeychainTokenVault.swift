@@ -9,6 +9,7 @@ public actor KeychainTokenVault: TokenVault {
 
     private let accessGroup: String?
     private let keychain: KeychainTokenVaultClient
+    private let allowsUnsignedLocalFallback: Bool
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -16,9 +17,22 @@ public actor KeychainTokenVault: TokenVault {
         self.init(accessGroup: accessGroup, keychain: SystemKeychainTokenVaultClient())
     }
 
-    init(accessGroup: String? = nil, keychain: KeychainTokenVaultClient) {
+    public init(accessGroup: String? = nil, allowsUnsignedLocalFallback: Bool) {
+        self.init(
+            accessGroup: accessGroup,
+            keychain: SystemKeychainTokenVaultClient(),
+            allowsUnsignedLocalFallback: allowsUnsignedLocalFallback
+        )
+    }
+
+    init(
+        accessGroup: String? = nil,
+        keychain: KeychainTokenVaultClient,
+        allowsUnsignedLocalFallback: Bool = false
+    ) {
         self.accessGroup = accessGroup
         self.keychain = keychain
+        self.allowsUnsignedLocalFallback = allowsUnsignedLocalFallback
     }
 
     public func loadClientID() async throws -> String? {
@@ -60,7 +74,7 @@ public actor KeychainTokenVault: TokenVault {
 
         var result: CFTypeRef?
         let status = keychain.copyMatching(query, &result)
-        if status == errSecItemNotFound {
+        if status == errSecItemNotFound || isAllowedUnsignedLocalFallback(status) {
             return nil
         }
         guard status == errSecSuccess else {
@@ -90,9 +104,13 @@ public actor KeychainTokenVault: TokenVault {
 
     private func deleteData(for item: Item) throws {
         let status = keychain.delete(baseQuery(for: item))
-        guard status == errSecSuccess || status == errSecItemNotFound else {
+        guard status == errSecSuccess || status == errSecItemNotFound || isAllowedUnsignedLocalFallback(status) else {
             throw KeychainTokenVaultError.unhandledStatus(status)
         }
+    }
+
+    private func isAllowedUnsignedLocalFallback(_ status: OSStatus) -> Bool {
+        allowsUnsignedLocalFallback && status == errSecMissingEntitlement
     }
 
     private func baseQuery(for item: Item) -> [String: Any] {

@@ -1,0 +1,14 @@
+Test Suite 'Selected tests' started at 2026-06-28 03:00:13.253.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-06-28 03:00:13.256.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-06-28 03:00:13.256.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-06-28 03:00:13.256.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "restore cache only launch mode preserves expired signed-in cache without refreshing" started.
+✔ Test "restore cache only launch mode preserves expired signed-in cache without refreshing" passed after 0.007 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.007 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.007 seconds.

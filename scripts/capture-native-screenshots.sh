@@ -35,7 +35,18 @@ xcode_blocker="$artifact_root/apple/${unit_slug}-screenshots-xcode-platform-bloc
 ios_blocker="$artifact_root/apple/${unit_slug}-screenshots-core-simulator-blocker.json"
 macos_blocker="$artifact_root/apple/${unit_slug}-screenshots-macos-launch-blocker.json"
 state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
+cache_file="${HOME}/Library/Application Support/Spoonjoy/native-durable-cache.json"
 state_backup="$artifact_root/native-app-state-capture-backup.json"
+cache_backup="$artifact_root/native-durable-cache-capture-backup.json"
+screenshot_route="kitchen"
+if [[ "$unit_slug" == *settings* ]]; then
+  screenshot_route="settings"
+fi
+settings_capture_account_id="chef_settings_capture"
+macos_window_title="Kitchen"
+if [[ "$screenshot_route" == "settings" ]]; then
+  macos_window_title="Settings"
+fi
 
 write_blocker() {
   local path="$1"
@@ -84,10 +95,11 @@ write_design_review_blocked() {
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path = ARGV.fetch(0)
+    output_path, route = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
+      "screenshotRoute" => route,
       "dynamicType" => true,
       "voiceOverLabels" => true,
       "keyboardNavigation" => true,
@@ -97,8 +109,13 @@ write_design_review_success() {
       "noOverlap" => true,
       "blockers" => []
     }
+    if route == "settings"
+      manifest["settingsSignedInSurface"] = true
+      manifest["settingsSections"] = ["Profile", "Security", "Notifications", "API Tokens", "Connections", "Environment", "Offline"]
+      manifest["settingsSeedAccountID"] = "chef_settings_capture"
+    end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review"
+  ' "$design_review" "$screenshot_route"
 }
 
 is_xcode_platform_blocker() {
@@ -115,6 +132,329 @@ is_xcode_platform_blocker() {
   ' "$1"
 }
 
+write_app_state() {
+  local path="$1"
+  local route="$2"
+  ruby -rjson -rfileutils -e '
+    path, route = ARGV
+    account_id = route == "settings" ? "chef_settings_capture" : "signed-out"
+    snapshot = {
+      "schemaVersion" => 1,
+      "accountID" => account_id,
+      "environment" => "production",
+      "hasCompletedFirstRun" => true,
+      "cookProgressByRecipeID" => {},
+      "spoonCookLogDraftsByRecipeID" => {},
+      "shoppingList" => nil,
+      "captureDraft" => nil,
+      "pendingCaptureImport" => nil,
+      "captureImportProviderBlocker" => nil,
+      "pendingMutations" => { "mutations" => [] },
+      "lastOpenedRoute" => route,
+      "savedAt" => "2026-06-16T12:09:00.000Z"
+    }
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.pretty_generate(snapshot) + "\n")
+  ' "$path" "$route"
+}
+
+write_cache_state() {
+  local path="$1"
+  local route="$2"
+  ruby -rjson -rfileutils -rtime -e '
+    path, route = ARGV
+    FileUtils.mkdir_p(File.dirname(path))
+    if route != "settings"
+      File.write(path, JSON.pretty_generate({
+        "schemaVersion" => 2,
+        "accountID" => "signed-out",
+        "environment" => "production",
+        "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+        "records" => [],
+        "dismissedIndicators" => [],
+        "pendingMutationQueue" => { "mutations" => [] }
+      }) + "\n")
+      exit
+    end
+
+    account_id = "chef_settings_capture"
+    timestamp = "2026-06-16T12:09:00.000Z"
+    date_value = Time.parse(timestamp) - Time.utc(2001, 1, 1)
+    metadata = lambda do |domain, endpoint|
+      {
+        "accountID" => account_id,
+        "environment" => "production",
+        "schemaVersion" => 2,
+        "domain" => { domain => {} },
+        "fetchedAt" => date_value,
+        "lastValidatedAt" => date_value,
+        "sourceEndpoint" => endpoint,
+        "serverRevision" => { "localRevision" => { "_0" => "screenshot-settings" } }
+      }
+    end
+    records = [
+      {
+        "id" => "settings",
+        "metadata" => metadata.call("settings", "/api/v1/me"),
+        "payload" => {
+          "settings" => {
+            "account" => {
+              "id" => account_id,
+              "email" => "settings-capture@spoonjoy.app",
+              "username" => "settingscapture",
+              "photoUrl" => nil,
+              "hasPassword" => true,
+              "oauthAccounts" => [
+                { "provider" => "github", "providerUsername" => "settingscapture" }
+              ],
+              "passkeys" => []
+            }
+          }
+        }
+      },
+      {
+        "id" => "notification-preferences",
+        "metadata" => metadata.call("notificationPreferences", "/api/v1/me/notification-preferences"),
+        "payload" => {
+          "notificationPreferenceState" => {
+            "_0" => {
+              "notifySpoonOnMyRecipe" => true,
+              "notifyForkOfMyRecipe" => false,
+              "notifyCookbookSaveOfMine" => true,
+              "notifyFellowChefOriginCook" => false
+            }
+          }
+        }
+      },
+      {
+        "id" => "token-metadata",
+        "metadata" => metadata.call("tokenMetadata", "/api/v1/tokens"),
+        "payload" => {
+          "tokenMetadata" => {
+            "credentials" => [
+              {
+                "id" => "credential_capture",
+                "name" => "Capture validation token",
+                "tokenPrefix" => "sj_live_1234",
+                "scopes" => ["recipes:read", "shopping_list:read"],
+                "createdAt" => timestamp,
+                "updatedAt" => timestamp,
+                "lastUsedAt" => nil,
+                "revokedAt" => nil,
+                "expiresAt" => nil
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id" => "connection-status",
+        "metadata" => metadata.call("connectionStatus", "/api/v1/me/connections"),
+        "payload" => {
+          "connectionStatus" => {
+            "connections" => [
+              {
+                "id" => "connection_capture",
+                "provider" => "oauth",
+                "status" => "connected",
+                "clientID" => "client_capture",
+                "clientName" => "Capture OAuth App",
+                "resource" => nil,
+                "scopes" => ["account:read"],
+                "createdAt" => timestamp,
+                "refreshTokenCount" => 1,
+                "accessTokenCount" => 1
+              }
+            ]
+          }
+        }
+      }
+    ]
+    snapshot = {
+      "schemaVersion" => 2,
+      "accountID" => account_id,
+      "environment" => "production",
+      "createdAt" => date_value,
+      "records" => records,
+      "dismissedIndicators" => [],
+      "pendingMutationQueue" => { "mutations" => [] }
+    }
+    File.write(path, JSON.pretty_generate(snapshot) + "\n")
+  ' "$path" "$route"
+}
+
+ios_launch_app() {
+  local udid="$1"
+  if [[ "$screenshot_route" == "settings" ]]; then
+    SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH=1 \
+    SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
+    SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$settings_capture_account_id" \
+      xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy.Spoonjoy >> "$capture_log" 2>&1
+  else
+    xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy.Spoonjoy >> "$capture_log" 2>&1
+  fi
+}
+
+open_macos_app() {
+  if [[ "$screenshot_route" == "settings" ]]; then
+    open -n \
+      --env SPOONJOY_SCREENSHOT_AUTH=1 \
+      --env SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
+      --env "SPOONJOY_SCREENSHOT_ACCOUNT_ID=$settings_capture_account_id" \
+      "$macos_app" >> "$capture_log" 2>&1
+  else
+    open -n "$macos_app" >> "$capture_log" 2>&1
+  fi
+}
+
+ios_udid_from_smoke_log() {
+  ruby -e '
+    path = ARGV.fetch(0)
+    output = File.file?(path) ? File.read(path) : ""
+    match = output.match(/Booting simulator: xcrun simctl boot ([A-F0-9-]+)/)
+    exit(1) unless match
+    puts match[1]
+  ' "$ios_smoke_log"
+}
+
+wait_for_ios_foreground() {
+  local udid="$1"
+  local output=""
+  for _ in $(seq 1 30); do
+    output="$(xcrun simctl spawn "$udid" log show --last 15s --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change" AND eventMessage CONTAINS[c] "app.spoonjoy.Spoonjoy"' 2>&1 || true)"
+    printf '%s\n' "$output" >> "$capture_log"
+    if [[ "$output" == *"app.spoonjoy.Spoonjoy"* ]]; then
+      return 0
+    fi
+    sleep 0.5
+  done
+  return 1
+}
+
+validate_ios_screenshot() {
+  python3 - "$ios_screenshot" <<'PY'
+import sys
+import struct
+import zlib
+
+path = sys.argv[1]
+with open(path, "rb") as handle:
+    data = handle.read()
+if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+    raise SystemExit("iOS screenshot is not a PNG")
+
+offset = 8
+width = height = color_type = bit_depth = None
+idat = bytearray()
+while offset + 8 <= len(data):
+    length = struct.unpack(">I", data[offset:offset + 4])[0]
+    chunk_type = data[offset + 4:offset + 8]
+    chunk_data = data[offset + 8:offset + 8 + length]
+    offset += 12 + length
+    if chunk_type == b"IHDR":
+        width, height, bit_depth, color_type, _, _, _ = struct.unpack(">IIBBBBB", chunk_data)
+    elif chunk_type == b"IDAT":
+        idat.extend(chunk_data)
+    elif chunk_type == b"IEND":
+        break
+
+if bit_depth != 8 or color_type not in (2, 6):
+    raise SystemExit("iOS screenshot PNG must be 8-bit RGB or RGBA")
+if width < 300 or height < 500:
+    raise SystemExit("iOS screenshot is too small to prove rendered app content")
+
+channels = 3 if color_type == 2 else 4
+stride = width * channels
+raw = zlib.decompress(bytes(idat))
+rows = []
+previous = bytearray(stride)
+cursor = 0
+for _ in range(height):
+    filter_type = raw[cursor]
+    cursor += 1
+    scanline = bytearray(raw[cursor:cursor + stride])
+    cursor += stride
+    for i in range(stride):
+        left = scanline[i - channels] if i >= channels else 0
+        up = previous[i]
+        upper_left = previous[i - channels] if i >= channels else 0
+        if filter_type == 1:
+            scanline[i] = (scanline[i] + left) & 0xff
+        elif filter_type == 2:
+            scanline[i] = (scanline[i] + up) & 0xff
+        elif filter_type == 3:
+            scanline[i] = (scanline[i] + ((left + up) // 2)) & 0xff
+        elif filter_type == 4:
+            predictor = left + up - upper_left
+            pa = abs(predictor - left)
+            pb = abs(predictor - up)
+            pc = abs(predictor - upper_left)
+            scanline[i] = (scanline[i] + (left if pa <= pb and pa <= pc else up if pb <= pc else upper_left)) & 0xff
+        elif filter_type != 0:
+            raise SystemExit(f"unsupported PNG filter {filter_type}")
+    rows.append(scanline)
+    previous = scanline
+
+black = 0
+black_total = 0
+for y in list(range(0, int(height * 0.18))) + list(range(int(height * 0.90), height)):
+    for x in range(width):
+        black_total += 1
+        index = x * channels
+        red, green, blue = rows[y][index], rows[y][index + 1], rows[y][index + 2]
+        if red < 20 and green < 20 and blue < 20:
+            black += 1
+
+bone = 0
+bone_total = 0
+for y in range(int(height * 0.20), int(height * 0.88)):
+    for x in range(width):
+        bone_total += 1
+        index = x * channels
+        red, green, blue = rows[y][index], rows[y][index + 1], rows[y][index + 2]
+        if red >= 220 and green >= 210 and blue >= 185 and abs(red - green) < 35 and red >= blue:
+            bone += 1
+
+black_ratio = black / max(black_total, 1)
+bone_ratio = bone / max(bone_total, 1)
+if black_ratio < 0.45 or bone_ratio < 0.05:
+    raise SystemExit(f"iOS screenshot does not look like foreground Spoonjoy content (black={black_ratio:.3f}, bone={bone_ratio:.3f})")
+PY
+}
+
+capture_ios_app() {
+  local udid="$1"
+  local data_container
+  local terminate_log
+  local bootstatus_log
+  bootstatus_log="$(mktemp)"
+  terminate_log="$(mktemp)"
+  xcrun simctl shutdown "$udid" >> "$capture_log" 2>&1 || true
+  xcrun simctl boot "$udid" >> "$capture_log" 2>&1 || true
+  if ! xcrun simctl bootstatus "$udid" -b >"$bootstatus_log" 2>&1; then
+    cat "$bootstatus_log" >> "$capture_log"
+    rm -f "$bootstatus_log"
+    return 1
+  fi
+  rm -f "$bootstatus_log"
+  data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy.Spoonjoy data)"
+  local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
+  write_app_state "$ios_app_dir/native-app-state.json" "$screenshot_route"
+  write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
+  if ! xcrun simctl terminate "$udid" app.spoonjoy.Spoonjoy >"$terminate_log" 2>&1; then
+    if ! grep -qi "found nothing to terminate" "$terminate_log"; then
+      cat "$terminate_log" >> "$capture_log"
+    fi
+  fi
+  rm -f "$terminate_log"
+  ios_launch_app "$udid"
+  wait_for_ios_foreground "$udid" || return 1
+  sleep 1
+  xcrun simctl io "$udid" screenshot "$ios_screenshot" >> "$capture_log" 2>&1
+  [[ -f "$ios_screenshot" && -s "$ios_screenshot" ]]
+  validate_ios_screenshot >> "$capture_log" 2>&1
+}
+
 capture_macos_window() {
   osascript -e "tell application \"$macos_app\" to activate" >> "$capture_log" 2>&1 || true
   sleep 1
@@ -122,7 +462,7 @@ capture_macos_window() {
   local spoonjoy_pid=""
   for _ in $(seq 1 20); do
     spoonjoy_pid="$(pgrep -x Spoonjoy | tail -n 1 || true)"
-    if [[ -n "$spoonjoy_pid" ]] && window_id="$(swift scripts/find-macos-window-id.swift "$spoonjoy_pid" Kitchen 2>> "$capture_log")"; then
+    if [[ -n "$spoonjoy_pid" ]] && window_id="$(swift scripts/find-macos-window-id.swift "$spoonjoy_pid" "$macos_window_title" 2>> "$capture_log")"; then
       break
     fi
     window_id=""
@@ -135,14 +475,15 @@ capture_macos_window() {
   [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]]
 }
 
-wait_for_kitchen_route() {
+wait_for_route() {
+  local expected_route="$1"
   for _ in $(seq 1 60); do
     if ruby -rjson -e '
-      path = ARGV.fetch(0)
+      path, expected_route = ARGV
       snapshot = JSON.parse(File.read(path))
       exit(1) unless snapshot.fetch("hasCompletedFirstRun") == true
-      exit(1) unless snapshot.fetch("lastOpenedRoute") == "kitchen"
-    ' "$state_file" >/dev/null 2>&1; then
+      exit(1) unless snapshot.fetch("lastOpenedRoute") == expected_route
+    ' "$state_file" "$expected_route" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.5
@@ -189,14 +530,15 @@ if [[ ! -f "$xcode_blocker" ]]; then
 fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
-  if ! xcrun simctl io booted screenshot "$ios_screenshot" >> "$capture_log" 2>&1 || [[ ! -s "$ios_screenshot" ]]; then
+  ios_udid="$(ios_udid_from_smoke_log || true)"
+  if [[ -z "$ios_udid" ]] || ! capture_ios_app "$ios_udid"; then
     write_blocker \
       "$ios_blocker" \
       "CoreSimulator" \
-      "xcrun simctl io booted screenshot $ios_screenshot" \
+      "xcrun simctl launch/io $ios_udid app.spoonjoy.Spoonjoy $ios_screenshot" \
       "$capture_log" \
-      "CoreSimulator could not capture the iOS screenshot." \
-      "Boot an available iPhone simulator and grant screenshot capture access."
+      "CoreSimulator could not capture a foreground Spoonjoy iOS screenshot for route $screenshot_route." \
+      "Boot an available iPhone simulator, confirm Spoonjoy stays foregrounded, and rerun screenshot capture."
   fi
 fi
 
@@ -209,6 +551,13 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   else
     rm -f "$state_backup"
   fi
+  cache_had_backup=false
+  if [[ -f "$cache_file" ]]; then
+    cp "$cache_file" "$cache_backup"
+    cache_had_backup=true
+  else
+    rm -f "$cache_backup"
+  fi
   restore_capture_state() {
     if [[ "$state_had_backup" == "true" && -f "$state_backup" ]]; then
       mkdir -p "$(dirname "$state_file")"
@@ -216,41 +565,52 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     else
       rm -f "$state_file"
     fi
+    if [[ "$cache_had_backup" == "true" && -f "$cache_backup" ]]; then
+      mkdir -p "$(dirname "$cache_file")"
+      cp "$cache_backup" "$cache_file"
+    else
+      rm -f "$cache_file"
+    fi
   }
   trap restore_capture_state EXIT
   rm -f "$state_file"
+  rm -f "$cache_file"
+  write_app_state "$state_file" "$screenshot_route"
+  write_cache_state "$cache_file" "$screenshot_route"
   osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
   pkill -x Spoonjoy >/dev/null 2>&1 || true
   sleep 1
-  open -n "$macos_app" >> "$capture_log" 2>&1
+  open_macos_app
   sleep 3
   pgrep -x Spoonjoy >/dev/null
-  osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://kitchen\"" >> "$capture_log" 2>&1
-  wait_for_kitchen_route || true
+  osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://$screenshot_route\"" >> "$capture_log" 2>&1
+  wait_for_route "$screenshot_route" || true
   ruby -rjson -e '
-    path = ARGV.fetch(0)
+    path, expected_route = ARGV
     snapshot = JSON.parse(File.read(path))
     abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
     actual_route = snapshot.fetch("lastOpenedRoute")
-    abort("expected lastOpenedRoute kitchen, got #{actual_route}") unless actual_route == "kitchen"
-  ' "$state_file" >> "$capture_log" 2>&1
+    abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
+  ' "$state_file" "$screenshot_route" >> "$capture_log" 2>&1
   if ! capture_macos_window; then
     printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
     osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
     pkill -x Spoonjoy >/dev/null 2>&1 || true
     sleep 1
-    open -n "$macos_app" >> "$capture_log" 2>&1
+    write_app_state "$state_file" "$screenshot_route"
+    write_cache_state "$cache_file" "$screenshot_route"
+    open_macos_app
     sleep 3
     pgrep -x Spoonjoy >/dev/null
-    osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://kitchen\"" >> "$capture_log" 2>&1
-    wait_for_kitchen_route || true
+    osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://$screenshot_route\"" >> "$capture_log" 2>&1
+    wait_for_route "$screenshot_route" || true
     ruby -rjson -e '
-      path = ARGV.fetch(0)
+      path, expected_route = ARGV
       snapshot = JSON.parse(File.read(path))
       abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
       actual_route = snapshot.fetch("lastOpenedRoute")
-      abort("expected lastOpenedRoute kitchen, got #{actual_route}") unless actual_route == "kitchen"
-    ' "$state_file" >> "$capture_log" 2>&1
+      abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
+    ' "$state_file" "$screenshot_route" >> "$capture_log" 2>&1
     capture_macos_window || true
   fi
   if [[ ! -f "$macos_screenshot" || ! -s "$macos_screenshot" ]]; then
@@ -258,7 +618,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "scripts/find-macos-window-id.swift <pid> Kitchen && screencapture -x -l <window-id> $macos_screenshot" \
+      "scripts/find-macos-window-id.swift <pid> $macos_window_title && screencapture -x -l <window-id> $macos_screenshot" \
       "$capture_log" \
       "Spoonjoy window capture was unavailable in the macOS GUI session." \
       "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."

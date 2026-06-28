@@ -8,6 +8,11 @@ public typealias NativeSettingsSurfaceFetchOperation = @Sendable (
     _ cache: NativeDurableCache
 ) async throws -> SettingsSurfaceResult
 
+public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
+    case liveFirst
+    case restoreCacheOnly
+}
+
 public struct NativeLiveAppStoreDependencies {
     public let authSessionRepository: NativeAuthSessionRepository
     public let cacheStore: NativeDurableCacheStore
@@ -21,6 +26,7 @@ public struct NativeLiveAppStoreDependencies {
     public let recipeEditorAPITransport: @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport
     public let settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
     public let stagedMediaDirectory: NativeStagedMediaDirectory?
+    public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
     public init(
@@ -38,6 +44,7 @@ public struct NativeLiveAppStoreDependencies {
         },
         settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
@@ -52,6 +59,7 @@ public struct NativeLiveAppStoreDependencies {
         self.recipeEditorAPITransport = recipeEditorAPITransport
         self.settingsSurfaceFetch = settingsSurfaceFetch
         self.stagedMediaDirectory = stagedMediaDirectory
+        self.bootstrapMode = bootstrapMode
         self.now = now
     }
 }
@@ -1263,8 +1271,21 @@ public final class NativeLiveAppStore: ObservableObject {
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
-            let authState = try await authorizedAuthState(from: restoredAuthState)
+            if dependencies.bootstrapMode == .restoreCacheOnly {
+                configureForRestoredAuthState(restoredAuthState)
+                let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
+                let offlineContent = restoredContent.copy(
+                    offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+                )
+                if case .signedOut = restoredAuthState {
+                    apply(.signedOut(offlineContent))
+                } else {
+                    apply(.offlineStale(offlineContent))
+                }
+                return
+            }
 
+            let authState = try await authorizedAuthState(from: restoredAuthState)
             guard case .authenticated(let session) = authState else {
                 let restoringContent = try await restoreFromCache(authSessionState: authState)
                 apply(.signedOut(restoringContent))
@@ -2139,6 +2160,18 @@ public final class NativeLiveAppStore: ObservableObject {
             bearerToken: boundSession.accessToken
         )
         return .authenticated(boundSession)
+    }
+
+    private func configureForRestoredAuthState(_ restoredAuthState: NativeAuthSessionState) {
+        switch restoredAuthState {
+        case .signedOut:
+            configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        case .authenticated(let session), .refreshRequired(let session):
+            configuration = APIClientConfiguration(
+                baseURL: dependencies.configuration.baseURL,
+                bearerToken: session.accessToken
+            )
+        }
     }
 
     private func authorizedAuthState(from restoredAuthState: NativeAuthSessionState) async throws -> NativeAuthSessionState {
