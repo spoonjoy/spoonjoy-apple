@@ -10,8 +10,11 @@ PROJECT_CONTRACT = ROOT.join("scripts/check-xcode-project-contract.rb")
 REQUIRED_FILES = [
   "Apps/Spoonjoy/Shared/Views/SearchView.swift",
   "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
+  "Apps/Spoonjoy/Shared/Views/ProfileView.swift",
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
-  "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift"
+  "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift",
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift",
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift"
 ].freeze
 
 REQUIRED_TOKENS = {
@@ -53,6 +56,22 @@ REQUIRED_TOKENS = {
     "canCreateServerRecipe",
     "KitchenTableTheme"
   ],
+  "Apps/Spoonjoy/Shared/Views/ProfileView.swift" => [
+    "ProfileRouteView",
+    "ProfileView",
+    "ProfileGraphRouteView",
+    "ProfileChefGraphSurfaceViewModel",
+    "ProfileGraphViewModel",
+    "ProfileHero",
+    "ProfileRecipeShelf",
+    "ProfileCookbookShelf",
+    "RecentSpoonsSection",
+    "FellowChefsSection",
+    "KitchenVisitorsSection",
+    "RecipeCoverImage(",
+    "OfflineStatusView",
+    "KitchenTableTheme"
+  ],
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
     "SettingsView",
     "SettingsViewModel",
@@ -77,6 +96,38 @@ REQUIRED_TOKENS = {
     "Label",
     "Button",
     "KitchenTableTheme"
+  ],
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift" => [
+    "ProfileChefGraphSurfaceRepository",
+    "ProfileSurfaceRequest",
+    "ProfileSurfaceResult",
+    "ProfileGraphDirection",
+    "ProfileGraphPage",
+    "LiveProfileChefGraphSurfaceRepository",
+    "SnapshotProfileChefGraphSurfaceRepository",
+    "FallbackProfileChefGraphSurfaceRepository",
+    "PublicProfileRequests.profile",
+    "PublicProfileRequests.fellowChefs",
+    "PublicProfileRequests.kitchenVisitors",
+    "NativeCacheDomain.profile",
+    "NativeCachePayload.profile"
+  ],
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift" => [
+    "ProfileChefGraphSurfaceViewModel",
+    "ProfileViewModel",
+    "ProfileGraphViewModel",
+    "ProfileSurfaceContext",
+    "ProfileSurfaceOwnerActions",
+    "ProfileSurfaceGraphLink",
+    "ProfileSurfaceEmptyState",
+    "ProfileSurfaceConflictBanner",
+    "fellowChefsCount",
+    "kitchenVisitorsCount",
+    "recentSpoons",
+    "NativeQueuedMutation.profileDisplayUpdate",
+    "NativeQueuedMutation.profilePhotoUpload",
+    "NativeQueuedMutation.profilePhotoRemove",
+    "OfflineIndicatorState"
   ]
 }.freeze
 
@@ -85,7 +136,13 @@ PLATFORM_NAVIGATION_TOKENS = [
   "recipeImportSource == draftImportSource",
   "pendingCaptureImportMutation?.clientMutationID != mutation.clientMutationID",
   "recordCaptureImportBlocker",
-  "executeCaptureImportRequest"
+  "executeCaptureImportRequest",
+  "ProfileRouteView(",
+  "ProfileGraphRouteView(",
+  "LiveProfileChefGraphSurfaceRepository",
+  "FallbackProfileChefGraphSurfaceRepository",
+  "profileGraphRepository",
+  "openProfileRoute"
 ].freeze
 
 FORBIDDEN_TOKENS = [
@@ -100,7 +157,16 @@ FORBIDDEN_TOKENS = [
   'Text("Offline, auth, and environment state.")',
   "draftDidChange: { _ in }",
   "Promotion requires a separate reviewed flow",
-  ".constant(routeSearch)"
+  ".constant(routeSearch)",
+  "FollowButton",
+  "Followers",
+  "Following",
+  "DirectMessage",
+  "MessageComposer",
+  "MailCompose",
+  "RecipeComments",
+  "SocialFeed",
+  "ActivityFeed"
 ].freeze
 
 FORBIDDEN_BY_FILE = {
@@ -122,7 +188,7 @@ def uncommented_swift(content)
 end
 
 missing_files = REQUIRED_FILES.reject { |path| ROOT.join(path).file? }
-fail_check("missing search/capture/settings surface files: #{missing_files.join(", ")}") unless missing_files.empty?
+fail_check("missing search/capture/settings/profile surface files: #{missing_files.join(", ")}") unless missing_files.empty?
 
 REQUIRED_TOKENS.each do |relative_path, tokens|
   content = uncommented_swift(ROOT.join(relative_path).read)
@@ -142,7 +208,7 @@ end
 fail_check("forbidden search/capture/settings surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
 
 platform_navigation = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read)
-["SearchView(", "CaptureDraftView(", "SettingsView("].each do |token|
+["SearchView(", "CaptureDraftView(", "ProfileRouteView(", "ProfileGraphRouteView(", "SettingsView("].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless platform_navigation.include?(token)
 end
 fail_check("PlatformNavigationView.swift must not freeze route search with .constant(routeSearch)") if platform_navigation.include?(".constant(routeSearch)")
@@ -162,6 +228,11 @@ end
   "openChef: { username in",
   "search.update(query: username, scope: .chefs)",
   "navigation.navigate(to: search.route)",
+  "AppRoute.profile",
+  "AppRoute.profileGraph",
+  "ProfileRouteView(",
+  "ProfileGraphRouteView(",
+  "ProfileChefGraphSurfaceViewModel",
   "recordCaptureDraft",
   "discardCaptureDraft",
   "recordCaptureImportRetry",
@@ -177,6 +248,8 @@ end
 live_store = uncommented_swift(ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift").read)
 [
   "public var settingsViewModel: SettingsViewModel",
+  "profileGraphRepository",
+  "profileSurfaceViewModel",
   "SettingsState(",
   "offline: offlineState"
 ].each do |token|
@@ -190,9 +263,14 @@ scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swif
   "capture import submission",
   "settings state",
   "offline status",
+  "profile detail",
+  "profile graph",
+  "fellow chefs",
+  "kitchen visitors",
   "safe unknown link",
   "SearchView.swift",
   "CaptureDraftView.swift",
+  "ProfileView.swift",
   "SettingsView.swift",
   "OfflineStatusView.swift"
 ].each do |token|
