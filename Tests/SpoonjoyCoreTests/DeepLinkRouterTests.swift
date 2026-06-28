@@ -22,6 +22,8 @@ struct DeepLinkRouterTests {
             ("https://spoonjoy.app/users/ari%2Fspace/fellow-chefs?page=2", .profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 2)),
             ("https://spoonjoy.app/users/ari/kitchen-visitors?page=0", .profileGraph(identifier: "ari", direction: .kitchenVisitors, page: 1)),
             ("https://spoonjoy.app/shopping-list", .shoppingList),
+            ("https://spoonjoy.app/search", .search(query: "", scope: .all)),
+            ("https://spoonjoy.app/search?scope=recipes", .search(query: "", scope: .recipes)),
             ("https://spoonjoy.app/search?q=lemon%20pasta&scope=all", .search(query: "lemon pasta", scope: .all)),
             ("https://spoonjoy.app/search?q=lemon%20pasta&scope=recipes", .search(query: "lemon pasta", scope: .recipes)),
             ("https://spoonjoy.app/search?q=lemon%20pasta&scope=cookbooks", .search(query: "lemon pasta", scope: .cookbooks)),
@@ -45,6 +47,8 @@ struct DeepLinkRouterTests {
             ("spoonjoy://users/ari%2Fspace/fellow-chefs?page=3", .profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 3)),
             ("spoonjoy://users/ari/kitchen-visitors", .profileGraph(identifier: "ari", direction: .kitchenVisitors, page: 1)),
             ("spoonjoy://shopping-list", .shoppingList),
+            ("spoonjoy://search", .search(query: "", scope: .all)),
+            ("spoonjoy://search?scope=recipes", .search(query: "", scope: .recipes)),
             ("spoonjoy://search?q=lemon%20pasta&scope=shopping-list", .search(query: "lemon pasta", scope: .shoppingList)),
             ("spoonjoy://capture", .capture),
             ("spoonjoy://settings", .settings)
@@ -73,7 +77,6 @@ struct DeepLinkRouterTests {
             "https://spoonjoy.app/users/ari/space",
             "https://spoonjoy.app/users/ari/followers",
             "https://spoonjoy.app/search?q=lemon%20pasta&scope=shopping",
-            "https://spoonjoy.app/search?scope=recipes",
             "https://spoonjoy.app/search?q=%20%20&scope=recipes",
             "https://spoonjoy.app/unknown",
             "spoonjoy:///recipes/recipe_lemon_pantry_pasta",
@@ -90,6 +93,7 @@ struct DeepLinkRouterTests {
             "spoonjoy://users/ari/space",
             "spoonjoy://users/ari/followers",
             "spoonjoy://search?q=lemon&scope=bad-scope",
+            "spoonjoy://search?scope=bad-scope",
             "spoonjoy://unknown"
         ]
 

@@ -46,22 +46,36 @@ ios_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ios.json"
 macos_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-macos.json"
 screenshot_proof_path=""
 screenshot_route="kitchen"
+if [[ "$unit_slug" == *search* ]]; then
+  screenshot_route="search"
+fi
 if [[ "$unit_slug" == *settings* || "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
   screenshot_route="settings"
 fi
 settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
+search_capture_account_id="chef_search_capture"
 capture_account_id="$kitchen_capture_account_id"
 settings_capture_focus="profile"
+search_capture_disable_focus="0"
 if [[ "$screenshot_route" == "settings" ]]; then
   capture_account_id="$settings_capture_account_id"
   if [[ "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
     settings_capture_focus="notifications"
   fi
+elif [[ "$screenshot_route" == "search" ]]; then
+  capture_account_id="$search_capture_account_id"
+  search_capture_disable_focus="1"
 fi
 macos_window_title="Kitchen"
 if [[ "$screenshot_route" == "settings" ]]; then
   macos_window_title="Settings"
+elif [[ "$screenshot_route" == "search" ]]; then
+  macos_window_title="Search"
+fi
+expected_recorded_route="$screenshot_route"
+if [[ "$screenshot_route" == "search" ]]; then
+  expected_recorded_route="search:all:"
 fi
 
 write_blocker() {
@@ -136,6 +150,11 @@ write_design_review_success() {
       end
       manifest["settingsSections"] = ["Profile", "Security", "Notifications", "Device Notifications", "APNs Delivery", "Notification Sync", "API Tokens", "Connections", "Environment", "Offline"]
       manifest["settingsSeedAccountID"] = "chef_settings_capture"
+    elsif route == "search"
+      manifest["searchNativeSurface"] = true
+      manifest["searchScopes"] = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
+      manifest["searchSeedAccountID"] = "chef_search_capture"
+      manifest["searchSurfaceProofArtifacts"] = [ios_proof, macos_proof]
     else
       manifest["kitchenSignedInSurface"] = true
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
@@ -187,19 +206,19 @@ write_cache_state() {
   local path="$1"
   local route="$2"
   ruby -rjson -rfileutils -rtime -e '
-    path, route = ARGV
+    path, route, account_id = ARGV
     FileUtils.mkdir_p(File.dirname(path))
     if route != "settings"
       File.write(path, JSON.pretty_generate({
         "schemaVersion" => 2,
-        "accountID" => "chef_kitchen_capture",
+        "accountID" => account_id,
         "environment" => "production",
         "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
         "records" => [
           {
             "id" => "recipe-catalog",
             "metadata" => {
-              "accountID" => "chef_kitchen_capture",
+              "accountID" => account_id,
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "recipeCatalog" => {} },
@@ -213,7 +232,7 @@ write_cache_state() {
           {
             "id" => "recipe-detail:recipe_lemon_pantry_pasta",
             "metadata" => {
-              "accountID" => "chef_kitchen_capture",
+              "accountID" => account_id,
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "recipeDetail" => { "id" => "recipe_lemon_pantry_pasta" } },
@@ -349,7 +368,7 @@ write_cache_state() {
       "pendingMutationQueue" => { "mutations" => [] }
     }
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$route"
+  ' "$path" "$route" "$capture_account_id"
 }
 
 ios_launch_app() {
@@ -358,6 +377,7 @@ ios_launch_app() {
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
+  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
     xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy.Spoonjoy >> "$capture_log" 2>&1
 }
@@ -368,6 +388,7 @@ open_macos_app() {
     --env SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
     --env "SPOONJOY_SCREENSHOT_ACCOUNT_ID=$capture_account_id" \
     --env "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=$settings_capture_focus" \
+    --env "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS=$search_capture_disable_focus" \
     --env "SPOONJOY_SCREENSHOT_PROOF_PATH=$screenshot_proof_path" \
     "$macos_app" >> "$capture_log" 2>&1
 }
@@ -482,8 +503,8 @@ for y in range(int(height * 0.20), int(height * 0.88)):
 
 black_ratio = black / max(black_total, 1)
 bone_ratio = bone / max(bone_total, 1)
-if black_ratio < 0.45 or bone_ratio < 0.05:
-    raise SystemExit(f"iOS screenshot does not look like foreground Spoonjoy content (black={black_ratio:.3f}, bone={bone_ratio:.3f})")
+if black_ratio > 0.20 or bone_ratio < 0.30:
+    raise SystemExit(f"iOS screenshot does not look like full-screen foreground Spoonjoy content (black={black_ratio:.3f}, bone={bone_ratio:.3f})")
 PY
 }
 
@@ -496,7 +517,7 @@ wait_for_screenshot_proof() {
       path, expected_route, expected_focus = ARGV
       proof = JSON.parse(File.read(path))
       exit(1) unless proof.fetch("route") == expected_route
-      exit(1) unless proof.fetch("visualFocus") == expected_focus
+      exit(1) if !expected_focus.empty? && proof.fetch("visualFocus") != expected_focus
     ' "$proof_path" "$expected_route" "$expected_focus" >/dev/null 2>&1; then
       return 0
     fi
@@ -509,27 +530,44 @@ validate_screenshot_surface_proof() {
   local proof_path="$1"
   local output_path="$2"
   local platform="$3"
-  if [[ "$screenshot_route" != "settings" ]]; then
+  if [[ "$screenshot_route" != "settings" && "$screenshot_route" != "search" ]]; then
     return 0
   fi
   ruby -rjson -rfileutils -e '
-    path, output_path, platform, expected_focus = ARGV
+    path, output_path, platform, screenshot_route, expected_focus, expected_recorded_route, capture_account_id = ARGV
     proof = JSON.parse(File.read(path))
-    abort("#{platform} screenshot proof route mismatch") unless proof.fetch("route") == "settings"
-    abort("#{platform} screenshot proof focus mismatch") unless proof.fetch("visualFocus") == expected_focus
-    abort("#{platform} screenshot proof source mismatch") unless proof.fetch("source") == "SettingsView"
+    if screenshot_route == "settings"
+      abort("#{platform} screenshot proof route mismatch") unless proof.fetch("route") == "settings"
+      abort("#{platform} screenshot proof focus mismatch") unless proof.fetch("visualFocus") == expected_focus
+      abort("#{platform} screenshot proof source mismatch") unless proof.fetch("source") == "SettingsView"
+    else
+      expected_scopes = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
+      abort("#{platform} screenshot proof route mismatch") unless proof.fetch("route") == "search"
+      abort("#{platform} screenshot proof route identifier mismatch") unless proof.fetch("routeIdentifier") == expected_recorded_route
+      abort("#{platform} screenshot proof source mismatch") unless proof.fetch("source") == "SearchView"
+      abort("#{platform} screenshot proof account mismatch") unless proof.fetch("accountID") == capture_account_id
+      abort("#{platform} screenshot proof scope mismatch") unless proof.fetch("scope") == "all"
+      abort("#{platform} screenshot proof query mismatch") unless proof.fetch("query") == ""
+      abort("#{platform} screenshot proof searchable scopes mismatch") unless proof.fetch("searchScopes") == expected_scopes
+    end
     sections = proof.fetch("visibleSections")
     abort("#{platform} screenshot proof sections must be an array") unless sections.is_a?(Array)
-    required_sections = if expected_focus == "notifications"
-                          ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
-                        else
-                          ["Profile", "Security"]
-                        end
-    missing = required_sections.reject { |section| sections.include?(section) }
-    abort("#{platform} screenshot proof missing sections: #{missing.join(", ")}") unless missing.empty?
+    if screenshot_route == "settings"
+      required_sections = if expected_focus == "notifications"
+                            ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                          else
+                            ["Profile", "Security"]
+                          end
+      missing = required_sections.reject { |section| sections.include?(section) }
+      abort("#{platform} screenshot proof missing sections: #{missing.join(", ")}") unless missing.empty?
+    else
+      required_sections = ["Recipes", "Chefs"]
+      missing = required_sections.reject { |section| sections.include?(section) }
+      abort("#{platform} screenshot proof missing sections: #{missing.join(", ")}") unless missing.empty?
+    end
     FileUtils.mkdir_p(File.dirname(output_path))
     File.write(output_path, JSON.pretty_generate(proof.merge("platform" => platform)) + "\n")
-  ' "$proof_path" "$output_path" "$platform" "$settings_capture_focus"
+  ' "$proof_path" "$output_path" "$platform" "$screenshot_route" "$settings_capture_focus" "$expected_recorded_route" "$capture_account_id"
 }
 
 capture_ios_app() {
@@ -550,7 +588,7 @@ capture_ios_app() {
   data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy.Spoonjoy data)"
   local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
   screenshot_proof_path="$ios_app_dir/native-screenshot-proof.json"
-  write_app_state "$ios_app_dir/native-app-state.json" "$screenshot_route"
+  write_app_state "$ios_app_dir/native-app-state.json" "$expected_recorded_route"
   write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
   rm -f "$screenshot_proof_path"
   if ! xcrun simctl terminate "$udid" app.spoonjoy.Spoonjoy >"$terminate_log" 2>&1; then
@@ -562,8 +600,12 @@ capture_ios_app() {
   ios_launch_app "$udid"
   wait_for_ios_foreground "$udid" || return 1
   sleep 1
-  if [[ "$screenshot_route" == "settings" ]]; then
-    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$settings_capture_focus" || return 1
+  if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
+    local proof_focus="$settings_capture_focus"
+    if [[ "$screenshot_route" == "search" ]]; then
+      proof_focus=""
+    fi
+    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" || return 1
     validate_screenshot_surface_proof "$screenshot_proof_path" "$ios_proof_artifact" "ios" >> "$capture_log" 2>&1 || return 1
   fi
   xcrun simctl io "$udid" screenshot "$ios_screenshot" >> "$capture_log" 2>&1
@@ -707,7 +749,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   rm -f "$cache_file"
   rm -f "$proof_file"
   screenshot_proof_path="$proof_file"
-  write_app_state "$state_file" "$screenshot_route"
+  write_app_state "$state_file" "$expected_recorded_route"
   write_cache_state "$cache_file" "$screenshot_route"
   osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
   pkill -x Spoonjoy >/dev/null 2>&1 || true
@@ -716,16 +758,20 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   sleep 3
   pgrep -x Spoonjoy >/dev/null
   osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://$screenshot_route\"" >> "$capture_log" 2>&1
-  wait_for_route "$screenshot_route" || true
-  if [[ "$screenshot_route" == "settings" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$settings_capture_focus"; then
-    printf 'Spoonjoy did not write the expected macOS screenshot proof for %s/%s\n' "$screenshot_route" "$settings_capture_focus" >> "$capture_log"
+  wait_for_route "$expected_recorded_route" || true
+  proof_focus="$settings_capture_focus"
+  if [[ "$screenshot_route" == "search" ]]; then
+    proof_focus=""
+  fi
+  if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus"; then
+    printf 'Spoonjoy did not write the expected macOS screenshot proof for %s\n' "$screenshot_route" >> "$capture_log"
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
       "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$screenshot_route" \
       "$capture_log" \
-      "Spoonjoy macOS did not prove the expected visible screenshot route/focus." \
-      "Launch the app from an unlocked desktop session and confirm the expected Settings section renders before screenshot capture."
+      "Spoonjoy macOS did not prove the expected visible screenshot route." \
+      "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
   fi
   ruby -rjson -e '
     path, expected_route = ARGV
@@ -733,15 +779,15 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
     actual_route = snapshot.fetch("lastOpenedRoute")
     abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
-  ' "$state_file" "$screenshot_route" >> "$capture_log" 2>&1
+  ' "$state_file" "$expected_recorded_route" >> "$capture_log" 2>&1
   if [[ ! -f "$macos_blocker" ]] && ! validate_screenshot_surface_proof "$proof_file" "$macos_proof_artifact" "macos" >> "$capture_log" 2>&1; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
       "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$screenshot_route" \
       "$capture_log" \
-      "Spoonjoy macOS screenshot proof did not match the expected route/focus." \
-      "Rerun screenshot capture after the expected Settings section is visible."
+      "Spoonjoy macOS screenshot proof did not match the expected route." \
+      "Rerun screenshot capture after the expected route is visible."
   fi
   if [[ ! -f "$macos_blocker" ]] && ! capture_macos_window; then
     printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
@@ -749,22 +795,22 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     pkill -x Spoonjoy >/dev/null 2>&1 || true
     sleep 1
     rm -f "$proof_file"
-    write_app_state "$state_file" "$screenshot_route"
+    write_app_state "$state_file" "$expected_recorded_route"
     write_cache_state "$cache_file" "$screenshot_route"
     open_macos_app
     sleep 3
     pgrep -x Spoonjoy >/dev/null
     osascript -e "tell application \"$macos_app\" to open location \"spoonjoy://$screenshot_route\"" >> "$capture_log" 2>&1
-    wait_for_route "$screenshot_route" || true
-    if [[ "$screenshot_route" == "settings" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$settings_capture_focus"; then
-      printf 'Spoonjoy did not write the expected macOS screenshot proof after relaunch for %s/%s\n' "$screenshot_route" "$settings_capture_focus" >> "$capture_log"
+    wait_for_route "$expected_recorded_route" || true
+    if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus"; then
+      printf 'Spoonjoy did not write the expected macOS screenshot proof after relaunch for %s\n' "$screenshot_route" >> "$capture_log"
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
         "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$screenshot_route" \
         "$capture_log" \
-        "Spoonjoy macOS did not prove the expected visible screenshot route/focus after relaunch." \
-        "Launch the app from an unlocked desktop session and confirm the expected Settings section renders before screenshot capture."
+        "Spoonjoy macOS did not prove the expected visible screenshot route after relaunch." \
+        "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
     fi
     ruby -rjson -e '
       path, expected_route = ARGV
@@ -772,15 +818,15 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
       actual_route = snapshot.fetch("lastOpenedRoute")
       abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
-    ' "$state_file" "$screenshot_route" >> "$capture_log" 2>&1
+    ' "$state_file" "$expected_recorded_route" >> "$capture_log" 2>&1
     if [[ ! -f "$macos_blocker" ]] && ! validate_screenshot_surface_proof "$proof_file" "$macos_proof_artifact" "macos" >> "$capture_log" 2>&1; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
         "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$screenshot_route" \
         "$capture_log" \
-        "Spoonjoy macOS screenshot proof did not match the expected route/focus after relaunch." \
-        "Rerun screenshot capture after the expected Settings section is visible."
+        "Spoonjoy macOS screenshot proof did not match the expected route after relaunch." \
+        "Rerun screenshot capture after the expected route is visible."
     fi
     if [[ ! -f "$macos_blocker" ]]; then
       capture_macos_window || true

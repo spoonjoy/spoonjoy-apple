@@ -63,6 +63,7 @@ SCRIPT_CONTRACTS = {
       "apple/${unit_slug}-smoke-ios-simulator-blocker.json",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
+      "xcrun simctl uninstall",
       "xcrun simctl launch",
       "timeoutSeconds",
       "30",
@@ -96,6 +97,7 @@ SCRIPT_CONTRACTS = {
       "Retrying Spoonjoy window capture after relaunch",
       "Spoonjoy window not found for macOS screenshot capture",
       'screenshot_route="kitchen"',
+      'screenshot_route="search"',
       'notification',
       'apns',
       "spoonjoy://$screenshot_route",
@@ -106,6 +108,7 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY",
       "SPOONJOY_SCREENSHOT_ACCOUNT_ID",
       "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS",
+      "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
       "validate_screenshot_surface_proof",
       "settingsSignedInSurface",
@@ -119,6 +122,15 @@ SCRIPT_CONTRACTS = {
       "kitchenSignedInSurface",
       "kitchenSeedAccountID",
       "chef_kitchen_capture",
+      "searchNativeSurface",
+      "searchScopes",
+      "searchSeedAccountID",
+      "searchSurfaceProofArtifacts",
+      "SearchView",
+      "routeIdentifier",
+      "chef_search_capture",
+      "expected_recorded_route",
+      "search:all:",
       "apns-status",
       "device_apns_capture",
       "screenshot-proof-ios.json",
@@ -161,6 +173,11 @@ SCRIPT_CONTRACTS = {
       *REQUIRED_REVIEW_FIELDS,
       "screenshotRoute",
       "kitchenSignedInSurface",
+      "searchNativeSurface",
+      "searchScopes",
+      "searchSurfaceProofArtifacts",
+      "SearchView",
+      "routeIdentifier",
       "settingsVisualFocus",
       "settingsProfileSurface",
       "settingsNotificationAPNsSurface",
@@ -306,10 +323,22 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "settingsSections" => ["Profile", "Security", "Notifications"],
     "settingsSurfaceProofArtifacts" => ["apple/profile-proof-ios.json", "apple/profile-proof-macos.json"]
   )
+  valid_search_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+    "blockers" => [],
+    "screenshotRoute" => "search",
+    "searchNativeSurface" => true,
+    "searchScopes" => ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
+    "searchSeedAccountID" => "chef_search_capture",
+    "searchSurfaceProofArtifacts" => ["apple/search-proof-ios.json", "apple/search-proof-macos.json"]
+  )
   missing_manifest = valid_manifest.reject { |field, _| field == "mobileScreenshot" }
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
   missing_route_manifest = valid_manifest.reject { |field, _| field == "screenshotRoute" }
   signed_out_kitchen_manifest = valid_manifest.merge("kitchenSignedInSurface" => false)
+  missing_search_scope_manifest = valid_search_manifest.merge("searchScopes" => ["all", "recipes"])
+  missing_search_proof_manifest = valid_search_manifest.reject { |field, _| field == "searchSurfaceProofArtifacts" }
+  stale_search_proof_manifest = valid_search_manifest.merge("searchSurfaceProofArtifacts" => ["apple/stale-search-proof-ios.json", "apple/search-proof-macos.json"])
+  wrong_search_proof_manifest = valid_search_manifest.merge("searchSurfaceProofArtifacts" => ["apple/wrong-search-proof-ios.json", "apple/search-proof-macos.json"])
   missing_apns_settings_manifest = valid_settings_manifest.merge(
     "settingsNotificationAPNsSurface" => false,
     "settingsSections" => ["Profile", "Security", "Notifications"]
@@ -348,11 +377,16 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
 
   {
     "valid.json" => [valid_manifest, true, "valid design review"],
+    "valid-search.json" => [valid_search_manifest, true, "valid search design review"],
     "valid-settings.json" => [valid_settings_manifest, true, "valid settings design review"],
     "valid-profile-settings.json" => [valid_profile_settings_manifest, true, "valid profile settings design review"],
     "missing.json" => [missing_manifest, false, "missing design review field"],
     "missing-route.json" => [missing_route_manifest, false, "missing screenshot route"],
     "signed-out-kitchen.json" => [signed_out_kitchen_manifest, false, "signed-out kitchen route artifact"],
+    "missing-search-scopes.json" => [missing_search_scope_manifest, false, "search route scope artifact"],
+    "missing-search-proof.json" => [missing_search_proof_manifest, false, "search route proof artifacts"],
+    "stale-search-proof.json" => [stale_search_proof_manifest, false, "stale search route proof artifact"],
+    "wrong-search-proof.json" => [wrong_search_proof_manifest, false, "wrong search route proof artifact"],
     "missing-apns-settings.json" => [missing_apns_settings_manifest, false, "settings APNs route artifact"],
     "false-without-blocker.json" => [false_without_blocker, false, "false field without blocker"],
     "false-with-blocker.json" => [false_with_blocker, false, "legacy inline screenshot blocker"],
@@ -371,6 +405,31 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
           "visibleSections" => manifest.fetch("settingsSections", []),
           "source" => "SettingsView"
         ) + "\n")
+      end
+    end
+    if (proof_artifacts = manifest["searchSurfaceProofArtifacts"])
+      proof_artifacts.each do |proof_relative_path|
+        next if proof_relative_path.include?("stale")
+
+        proof_path = temp_root.join(proof_relative_path)
+        proof_path.dirname.mkpath
+        proof_payload = {
+          "route" => "search",
+          "routeIdentifier" => "search:all:",
+          "query" => "",
+          "scope" => "all",
+          "searchScopes" => ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
+          "accountID" => manifest.fetch("searchSeedAccountID", ""),
+          "visibleSections" => ["Recipes", "Chefs"],
+          "source" => "SearchView"
+        }
+        if proof_relative_path.include?("wrong")
+          proof_payload["routeIdentifier"] = "search:recipes:tomato"
+          proof_payload["searchScopes"] = ["all", "recipes"]
+          proof_payload["visibleSections"] = ["Recipes"]
+          proof_payload["source"] = "WrongSearchView"
+        end
+        proof_path.write(JSON.pretty_generate(proof_payload) + "\n")
       end
     end
     assert_status(expected_success, ["ruby", validator, path], label)
@@ -675,20 +734,38 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         ;;
       simctl\ launch\ *)
         if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH:-}" ]]; then
-          mkdir -p "$(dirname "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH")"
-          focus="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS:-profile}"
-          route="settings"
-          source="SettingsView"
-          sections='["Profile","Security"]'
-          if [[ "${SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF:-}" == "1" ]]; then
-            route="kitchen"
-            focus="profile"
-            source="WrongView"
-            sections='["Kitchen"]'
-          elif [[ "$focus" == "notifications" ]]; then
-            sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+          account_id="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
+          if [[ "$account_id" == "chef_search_capture" ]]; then
+            if [[ "${SPOONJOY_CONTRACT_SKIP_SEARCH_PROOF:-}" != "1" ]]; then
+              mkdir -p "$(dirname "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH")"
+              route_identifier="search:all:"
+              source="SearchView"
+              scopes='["all","recipes","cookbooks","chefs","shopping-list"]'
+              sections='["Recipes","Chefs"]'
+              if [[ "${SPOONJOY_CONTRACT_WRONG_SEARCH_PROOF:-}" == "1" ]]; then
+                route_identifier="search:recipes:tomato"
+                source="WrongSearchView"
+                scopes='["all","recipes"]'
+                sections='["Recipes"]'
+              fi
+              printf '{"route":"search","routeIdentifier":"%s","query":"","scope":"all","searchScopes":%s,"accountID":"%s","visibleSections":%s,"source":"%s"}\n' "$route_identifier" "$scopes" "$account_id" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
+            fi
+          else
+            mkdir -p "$(dirname "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH")"
+            focus="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS:-profile}"
+            route="settings"
+            source="SettingsView"
+            sections='["Profile","Security"]'
+            if [[ "${SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF:-}" == "1" ]]; then
+              route="kitchen"
+              focus="profile"
+              source="WrongView"
+              sections='["Kitchen"]'
+            elif [[ "$focus" == "notifications" ]]; then
+              sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+            fi
+            printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
           fi
-          printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
         fi
         printf 'app.spoonjoy.Spoonjoy: 12345\n'
         ;;
@@ -713,10 +790,7 @@ rows = []
 for y in range(height):
     row = bytearray()
     for _ in range(width):
-        if 150 <= y <= 700:
-            row.extend((246, 239, 225))
-        else:
-            row.extend((0, 0, 0))
+        row.extend((246, 239, 225))
     rows.append(b"\x00" + bytes(row))
 
 def chunk(kind, payload):
@@ -745,6 +819,8 @@ PY
       route="kitchen"
       if [[ "$script" == *"spoonjoy://settings"* ]]; then
         route="settings"
+      elif [[ "$script" == *"spoonjoy://search"* ]]; then
+        route="search:all:"
       fi
       printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"%s"}\n' "$route" > "$state"
     fi
@@ -754,11 +830,13 @@ PY
     set -euo pipefail
     proof_path=""
     focus="profile"
+    account_id=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --env)
           env_pair="$2"
           case "$env_pair" in
+            SPOONJOY_SCREENSHOT_ACCOUNT_ID=*) account_id="${env_pair#SPOONJOY_SCREENSHOT_ACCOUNT_ID=}" ;;
             SPOONJOY_SCREENSHOT_PROOF_PATH=*) proof_path="${env_pair#SPOONJOY_SCREENSHOT_PROOF_PATH=}" ;;
             SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=*) focus="${env_pair#SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=}" ;;
           esac
@@ -770,19 +848,36 @@ PY
       esac
     done
     if [[ -n "$proof_path" ]]; then
-      mkdir -p "$(dirname "$proof_path")"
-      route="settings"
-      source="SettingsView"
-      sections='["Profile","Security"]'
-      if [[ "${SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF:-}" == "1" ]]; then
-        route="kitchen"
-        focus="profile"
-        source="WrongView"
-        sections='["Kitchen"]'
-      elif [[ "$focus" == "notifications" ]]; then
-        sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+      if [[ "$account_id" == "chef_search_capture" ]]; then
+        if [[ "${SPOONJOY_CONTRACT_SKIP_SEARCH_PROOF:-}" != "1" ]]; then
+          mkdir -p "$(dirname "$proof_path")"
+          route_identifier="search:all:"
+          source="SearchView"
+          scopes='["all","recipes","cookbooks","chefs","shopping-list"]'
+          sections='["Recipes","Chefs"]'
+          if [[ "${SPOONJOY_CONTRACT_WRONG_SEARCH_PROOF:-}" == "1" ]]; then
+            route_identifier="search:recipes:tomato"
+            source="WrongSearchView"
+            scopes='["all","recipes"]'
+            sections='["Recipes"]'
+          fi
+          printf '{"route":"search","routeIdentifier":"%s","query":"","scope":"all","searchScopes":%s,"accountID":"%s","visibleSections":%s,"source":"%s"}\n' "$route_identifier" "$scopes" "$account_id" "$sections" "$source" > "$proof_path"
+        fi
+      else
+        mkdir -p "$(dirname "$proof_path")"
+        route="settings"
+        source="SettingsView"
+        sections='["Profile","Security"]'
+        if [[ "${SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF:-}" == "1" ]]; then
+          route="kitchen"
+          focus="profile"
+          source="WrongView"
+          sections='["Kitchen"]'
+        elif [[ "$focus" == "notifications" ]]; then
+          sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+        fi
+        printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
       fi
-      printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
     fi
   SH
   write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
@@ -821,6 +916,89 @@ PY
   kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      artifact_root,
+      "--unit-slug",
+      "unit-contract-search"
+    ],
+    "search screenshot success lane",
+    env: { "HOME" => script_root.join("home").to_s, "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    chdir: script_root
+  )
+  search_review = assert_json(artifact_root.join("design-review.json"), "search screenshot success lane")
+  record_failure("search screenshot route mismatch") unless search_review["screenshotRoute"] == "search"
+  record_failure("search screenshot missing native surface flag") unless search_review["searchNativeSurface"] == true
+  record_failure("search screenshot account seed mismatch") unless search_review["searchSeedAccountID"] == "chef_search_capture"
+  record_failure("search screenshot scopes mismatch") unless search_review["searchScopes"] == ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
+  record_failure("search screenshot missing proof artifacts") unless search_review.fetch("searchSurfaceProofArtifacts", []).length >= 2
+  search_review.fetch("searchSurfaceProofArtifacts", []).each do |relative_path|
+    proof = assert_json(artifact_root.join(relative_path), "search screenshot proof artifact")
+    record_failure("search screenshot proof route mismatch") unless proof["route"] == "search"
+    record_failure("search screenshot proof route identifier mismatch") unless proof["routeIdentifier"] == "search:all:"
+    record_failure("search screenshot proof query mismatch") unless proof["query"] == ""
+    record_failure("search screenshot proof scope mismatch") unless proof["scope"] == "all"
+    record_failure("search screenshot proof scopes mismatch") unless proof["searchScopes"] == ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
+    record_failure("search screenshot proof account mismatch") unless proof["accountID"] == "chef_search_capture"
+    record_failure("search screenshot proof missing Recipes") unless proof.fetch("visibleSections", []).include?("Recipes")
+    record_failure("search screenshot proof missing Chefs") unless proof.fetch("visibleSections", []).include?("Chefs")
+    record_failure("search screenshot proof source mismatch") unless proof["source"] == "SearchView"
+  end
+  search_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "search iOS cache seed")
+  record_failure("search cache seed account mismatch") unless search_cache_json["accountID"] == "chef_search_capture"
+
+  wrong_search_proof_root = temp_root.join("wrong-search-proof-artifacts")
+  wrong_search_proof_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      wrong_search_proof_root,
+      "--unit-slug",
+      "unit-contract-search"
+    ],
+    "search screenshot wrong proof lane",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_WRONG_SEARCH_PROOF" => "1"
+    },
+    chdir: script_root
+  )
+  assert_missing(wrong_search_proof_root.join("design-review.json"), "search screenshot wrong proof lane")
+  wrong_search_blocked_review = assert_json(wrong_search_proof_root.join("design-review-blocked.json"), "search screenshot wrong proof lane")
+  record_failure("wrong search proof lane did not block screenshot success") unless wrong_search_blocked_review["blocked"] == true
+
+  missing_search_proof_root = temp_root.join("missing-search-proof-artifacts")
+  missing_search_proof_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      missing_search_proof_root,
+      "--unit-slug",
+      "unit-contract-search"
+    ],
+    "search screenshot missing proof lane",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_SKIP_SEARCH_PROOF" => "1"
+    },
+    chdir: script_root
+  )
+  assert_missing(missing_search_proof_root.join("design-review.json"), "search screenshot missing proof lane")
+  missing_search_blocked_review = assert_json(missing_search_proof_root.join("design-review-blocked.json"), "search screenshot missing proof lane")
+  record_failure("missing search proof lane did not block screenshot success") unless missing_search_blocked_review["blocked"] == true
 
   assert_status(
     true,

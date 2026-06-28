@@ -43,10 +43,18 @@ public enum DeepLinkURLBuilder {
             components.host = "shopping-list"
         case .search(let query, let scope):
             components.host = "search"
-            components.queryItems = [
-                URLQueryItem(name: "q", value: query),
-                URLQueryItem(name: "scope", value: scope.rawValue)
-            ]
+            if query.isEmpty && scope == .all {
+                components.queryItems = nil
+            } else if query.isEmpty {
+                components.queryItems = [
+                    URLQueryItem(name: "scope", value: scope.rawValue)
+                ]
+            } else {
+                components.queryItems = [
+                    URLQueryItem(name: "q", value: query),
+                    URLQueryItem(name: "scope", value: scope.rawValue)
+                ]
+            }
         case .capture:
             components.host = "capture"
         case .settings:

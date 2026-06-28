@@ -1,7 +1,7 @@
 {
   "mobileScreenshot": true,
   "desktopScreenshot": true,
-  "screenshotRoute": "settings",
+  "screenshotRoute": "search",
   "dynamicType": true,
   "voiceOverLabels": true,
   "keyboardNavigation": true,
@@ -12,24 +12,17 @@
   "blockers": [
 
   ],
-  "settingsSignedInSurface": true,
-  "settingsVisualFocus": "notifications",
-  "settingsSurfaceProofArtifacts": [
-    "apple/unit-19l-notifications-screenshot-proof-ios.json",
-    "apple/unit-19l-notifications-screenshot-proof-macos.json"
+  "searchNativeSurface": true,
+  "searchScopes": [
+    "all",
+    "recipes",
+    "cookbooks",
+    "chefs",
+    "shopping-list"
   ],
-  "settingsNotificationAPNsSurface": true,
-  "settingsSections": [
-    "Profile",
-    "Security",
-    "Notifications",
-    "Device Notifications",
-    "APNs Delivery",
-    "Notification Sync",
-    "API Tokens",
-    "Connections",
-    "Environment",
-    "Offline"
-  ],
-  "settingsSeedAccountID": "chef_settings_capture"
+  "searchSeedAccountID": "chef_search_capture",
+  "searchSurfaceProofArtifacts": [
+    "apple/unit-19o-search-surface-screenshot-proof-ios.json",
+    "apple/unit-19o-search-surface-screenshot-proof-macos.json"
+  ]
 }

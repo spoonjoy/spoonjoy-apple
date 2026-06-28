@@ -779,6 +779,8 @@ struct AppStateTests {
             (.profileGraph(identifier: "ari", direction: .fellowChefs, page: 2), "profile-graph:ari:fellow-chefs:2", "spoonjoy://users/ari/fellow-chefs?page=2"),
             (.profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 2), "profile-graph:ari%2Fspace:fellow-chefs:2", "spoonjoy://users/ari%2Fspace/fellow-chefs?page=2"),
             (.shoppingList, "shopping-list", "spoonjoy://shopping-list"),
+            (.search(query: "", scope: .all), "search:all:", "spoonjoy://search"),
+            (.search(query: "", scope: .recipes), "search:recipes:", "spoonjoy://search?scope=recipes"),
             (.search(query: "lemon pasta", scope: .shoppingList), "search:shopping-list:lemon pasta", "spoonjoy://search?q=lemon%20pasta&scope=shopping-list"),
             (.capture, "capture", "spoonjoy://capture"),
             (.settings, "settings", "spoonjoy://settings"),

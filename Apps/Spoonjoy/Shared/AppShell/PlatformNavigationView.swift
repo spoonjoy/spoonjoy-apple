@@ -1,7 +1,10 @@
 import SpoonjoyCore
+import Foundation
 import SwiftUI
 
 struct PlatformNavigationView: View {
+    private static let screenshotDisableSearchFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS"
+
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
 
@@ -323,7 +326,9 @@ struct PlatformNavigationView: View {
                 if routeSearch.route != navigation.route {
                     navigation.navigate(to: routeSearch.route)
                 }
-                isSearchFieldFocused = true
+                if shouldAutoFocusSearchField {
+                    isSearchFieldFocused = true
+                }
             }
             .task(id: liveSearchTaskIdentity(for: routeSearch)) {
                 await refreshRouteSearchIfNeeded(routeSearch)
@@ -389,6 +394,18 @@ struct PlatformNavigationView: View {
 
     private var availableSearchScopes: [SearchScope] {
         contentState.searchSurfaceViewModel.searchableScopes
+    }
+
+    private var shouldAutoFocusSearchField: Bool {
+#if DEBUG
+        guard let rawValue = ProcessInfo.processInfo.environment[Self.screenshotDisableSearchFocusEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawValue.isEmpty else {
+            return true
+        }
+        return !["1", "true", "yes"].contains(rawValue.lowercased())
+#else
+        return true
+#endif
     }
 
     private var sidebarSelection: Binding<AppSection?> {

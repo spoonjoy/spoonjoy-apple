@@ -222,15 +222,13 @@ public struct DeepLinkRouter: Equatable, Sendable {
     }
 
     private func searchRoute(_ components: URLComponents) -> AppRoute {
-        guard
-            let rawQuery = components.queryItems?.first(where: { $0.name == "q" })?.value,
-            !rawQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else {
+        let rawScope = components.queryItems?.first(where: { $0.name == "scope" })?.value ?? SearchScope.all.rawValue
+        guard let scope = SearchScope(rawValue: rawScope) else {
             return .unknownLink
         }
 
-        let rawScope = components.queryItems?.first(where: { $0.name == "scope" })?.value ?? SearchScope.all.rawValue
-        guard let scope = SearchScope(rawValue: rawScope) else {
+        let rawQuery = components.queryItems?.first(where: { $0.name == "q" })?.value ?? ""
+        if !rawQuery.isEmpty && rawQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return .unknownLink
         }
 

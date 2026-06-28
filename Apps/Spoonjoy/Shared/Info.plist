@@ -20,6 +20,11 @@
 	<string>Spoonjoy uses the camera to capture recipes from cookbooks, cards, and kitchen notes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Spoonjoy uses selected photos to create local recipe capture drafts.</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
