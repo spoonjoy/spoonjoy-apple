@@ -855,11 +855,60 @@ struct NativeScenarioTests {
         #expect(!rootViewSource.contains("native-app-snapshot.json"))
         #expect(platformNavigationSource.contains(".task(id: spotlightIndexIdentity)"))
         #expect(platformNavigationSource.contains("contentState.spotlightIndexScope"))
+        #expect(platformNavigationSource.contains("document.contentDescription"))
+        #expect(platformNavigationSource.contains("document.keywords"))
+        #expect(platformNavigationSource.contains("spotlightIdentityComponent"))
         #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
         try assertSwiftSourceTypechecks(appIntentsPath)
         try assertSwiftSourceTypechecks(spotlightPath)
+    }
+
+    @Test("AASA validation requires app IDs and every deep link route component")
+    func aasaValidationRequiresAppIDsAndEveryDeepLinkRouteComponent() throws {
+        try withTemporaryDirectory { directory in
+            let completeFixture = directory.appendingPathComponent("complete-aasa.json")
+            let missingComponentFixture = directory.appendingPathComponent("missing-component-aasa.json")
+            let validRoot = directory.appendingPathComponent("valid", isDirectory: true)
+            let missingRoot = directory.appendingPathComponent("missing", isDirectory: true)
+            let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
+
+            try """
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            """.write(to: completeFixture, atomically: true, encoding: .utf8)
+            try """
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
+            """.write(to: missingComponentFixture, atomically: true, encoding: .utf8)
+
+            let valid = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", validRoot.path],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": completeFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let missing = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", missingRoot.path],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": missingComponentFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let missingBlocker = try String(
+                contentsOf: missingRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+
+            #expect(valid.exitCode == 0)
+            #expect(valid.output.contains("aasa validation ok"))
+            #expect(FileManager.default.fileExists(atPath: validRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(!FileManager.default.fileExists(atPath: validRoot.appendingPathComponent("aasa-production-blocker.json").path))
+            #expect(missing.exitCode == 0)
+            #expect(missing.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: missingRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(missingBlocker.contains(#""capability": "AASAProductionValidation""#))
+            #expect(missingBlocker.contains("AASA endpoint is missing required route components."))
+            #expect(missingBlocker.contains(#""/": "/account/settings""#))
+        }
     }
 
     @Test("verify native scenarios script gates native metadata behavior")

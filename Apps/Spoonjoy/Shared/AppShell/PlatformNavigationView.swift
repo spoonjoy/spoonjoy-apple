@@ -1213,13 +1213,19 @@ struct PlatformNavigationView: View {
     }
 
     private var spotlightIndexIdentity: String {
-        [
-            contentState.spotlightIndexScope?.identifierPrefix ?? "signed-out",
-            contentState.recipes.map(\.id).joined(separator: ","),
-            contentState.cookbooks.map(\.id).joined(separator: ","),
-            contentState.searchResultsByScope[search.scope]?.joined(separator: ",") ?? "search-unavailable",
-            contentState.shoppingList?.activeItems.map(\.id).joined(separator: ",") ?? "shopping-unavailable"
-        ].joined(separator: "|")
+        Self.spotlightIdentityComponent(
+            [contentState.spotlightIndexScope?.identifierPrefix ?? "signed-out"] +
+                spotlightIndexDocuments.map { document in
+                    Self.spotlightIdentityComponent([
+                        document.uniqueIdentifier,
+                        document.domainIdentifier,
+                        document.title,
+                        document.contentDescription,
+                        document.keywords.joined(separator: ","),
+                        document.route.stateIdentifier
+                    ])
+                }
+        )
     }
 
     private var spotlightIndexDocuments: [SpotlightIndexDocument] {
@@ -1336,6 +1342,10 @@ struct PlatformNavigationView: View {
             try? await SpoonjoySpotlightIndexer().replaceAll(documents: documents)
         }
 #endif
+    }
+
+    private static func spotlightIdentityComponent(_ values: [String]) -> String {
+        values.map { "\($0.count):\($0)" }.joined(separator: "")
     }
 
     private func timestamp() -> String {
