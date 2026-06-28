@@ -872,6 +872,7 @@ struct NativeScenarioTests {
             let missingComponentFixture = directory.appendingPathComponent("missing-component-aasa.json")
             let validRoot = directory.appendingPathComponent("valid", isDirectory: true)
             let missingRoot = directory.appendingPathComponent("missing", isDirectory: true)
+            let nonSuccessfulRoot = directory.appendingPathComponent("non-successful", isDirectory: true)
             let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
 
             try """
@@ -893,8 +894,21 @@ struct NativeScenarioTests {
                 environment: ["SPOONJOY_AASA_FIXTURE_PATH": missingComponentFixture.path],
                 currentDirectoryURL: repoURL
             )
+            let nonSuccessful = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", nonSuccessfulRoot.path],
+                environment: [
+                    "SPOONJOY_AASA_FIXTURE_PATH": completeFixture.path,
+                    "SPOONJOY_AASA_FIXTURE_STATUS": "404"
+                ],
+                currentDirectoryURL: repoURL
+            )
             let missingBlocker = try String(
                 contentsOf: missingRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+            let nonSuccessfulBlocker = try String(
+                contentsOf: nonSuccessfulRoot.appendingPathComponent("aasa-production-blocker.json"),
                 encoding: .utf8
             )
 
@@ -908,6 +922,11 @@ struct NativeScenarioTests {
             #expect(missingBlocker.contains(#""capability": "AASAProductionValidation""#))
             #expect(missingBlocker.contains("AASA endpoint is missing required route components."))
             #expect(missingBlocker.contains(#""/": "/account/settings""#))
+            #expect(nonSuccessful.exitCode == 0)
+            #expect(nonSuccessful.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: nonSuccessfulRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(nonSuccessfulBlocker.contains("AASA endpoint returned HTTP 404"))
+            #expect(nonSuccessfulBlocker.contains(#""successfulStatus": false"#))
         }
     }
 

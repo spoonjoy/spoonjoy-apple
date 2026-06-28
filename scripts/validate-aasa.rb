@@ -106,6 +106,9 @@ routes = manifest_routes
 components = expected_components(routes)
 fetched = fetch_aasa
 redirected = fetched.fetch("status", 0).between?(300, 399)
+successful_status = fetched.fetch("status", 0).between?(200, 299)
+content_type = fetched["contentType"].to_s.split(";", 2).first.to_s.strip.downcase
+valid_content_type = ["application/json", "application/pkcs7-mime"].include?(content_type)
 valid_json = fetched["json"].is_a?(Hash)
 app_ids = fetched.dig("json", "applinks", "details").to_a.flat_map do |entry|
   Array(entry["appIDs"]) + Array(entry["appID"])
@@ -126,11 +129,13 @@ base = {
   "discoveredComponents" => route_components,
   "missingComponents" => missing_components,
   "fetched" => fetched.reject { |key, _| key == "json" },
+  "successfulStatus" => successful_status,
+  "validContentType" => valid_content_type,
   "validJSON" => valid_json,
   "discoveredAppIDs" => app_ids
 }
 
-if valid_json && !redirected && missing_app_ids.empty? && missing_components.empty?
+if successful_status && valid_content_type && valid_json && !redirected && missing_app_ids.empty? && missing_components.empty?
   output = artifact_root.join("aasa-validation.json")
   output.write(JSON.pretty_generate(base.merge("ok" => true)) + "\n")
   artifact_root.join("aasa-production-blocker.json").delete if artifact_root.join("aasa-production-blocker.json").file?
@@ -138,6 +143,8 @@ if valid_json && !redirected && missing_app_ids.empty? && missing_components.emp
 else
   reason = "Production universal-link validation is blocked until Apple Developer Team ID and AASA publication are available for Spoonjoy."
   reason = "AASA endpoint redirected; Apple requires HTTPS without redirects." if redirected
+  reason = "AASA endpoint returned HTTP #{fetched["status"]}; Apple requires a successful 2xx response." if !redirected && !successful_status && fetched["status"]
+  reason = "AASA endpoint returned #{fetched["contentType"] || "no content type"}; Apple requires application/json or application/pkcs7-mime." if successful_status && !valid_content_type
   reason = "AASA endpoint is missing required app IDs: #{missing_app_ids.join(", ")}." if valid_json && !missing_app_ids.empty?
   reason = "AASA endpoint is missing required route components." if valid_json && missing_app_ids.empty? && !missing_components.empty?
   reason = "AASA endpoint did not return valid JSON." unless valid_json || fetched["error"]
