@@ -1010,6 +1010,7 @@ struct SettingsTokenConnectionTests {
 
         for token in [
             "contentState.settingsSurfaceViewModel",
+            "shellOfflineIndicatorState: offlineIndicatorState",
             "performSettingsAction",
             "shouldShowShellOfflineStatus",
             "navigation.route != .settings",
@@ -1026,6 +1027,7 @@ struct SettingsTokenConnectionTests {
         for token in [
             "private func signedOutContent(contentState:",
             "if navigation.route == .settings",
+            "shellOfflineIndicatorState: contentState.offlineIndicatorState",
             "onDismissOfflineIndicator: liveStore.dismissOfflineIndicator"
         ] {
             #expect(rootView.contains(token), "SpoonjoyRootView.swift missing \(token)")

@@ -8,5 +8,8 @@
   "contrast": true,
   "kitchenTableHierarchy": true,
   "noOverlap": true,
+  "screenshotRoute": "kitchen",
+  "kitchenSignedInSurface": true,
+  "kitchenSeedAccountID": "chef_kitchen_capture",
   "blockers": []
 }

@@ -3,6 +3,7 @@ import SwiftUI
 
 private let notificationAPNsPermissionDeniedTitle = "Notifications are off in System Settings"
 private let notificationAPNsPermissionDeniedActionTitle = "Open System Settings"
+private let notificationAPNsDeliveryFocusID = "settings-section-notification-apns-delivery"
 
 struct NotificationAPNsSettingsView: View {
     let viewModel: NotificationAPNsSurfaceViewModel
@@ -116,9 +117,13 @@ struct NotificationAPNsSettingsView: View {
 
         Section("APNs Delivery") {
             switch deliveryBlockerState {
-            case .available:
-                Text("APNs registration can sync for this build.")
+            case .developmentOnly(let blocker):
+                Text("Development APNs registration can sync for local validation. Production delivery remains blocked.")
                     .font(KitchenTableTheme.bodyNote)
+                AppleDeveloperProgramBlockerView(
+                    blocker: blocker,
+                    artifactFileName: viewModel.blockerArtifactFileName
+                )
             case .blocked(let blocker):
                 AppleDeveloperProgramBlockerView(
                     blocker: blocker,
@@ -131,6 +136,7 @@ struct NotificationAPNsSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .id(notificationAPNsDeliveryFocusID)
 
         Section("Notification Sync") {
             if let summary = viewModel.queuedWorkSummary {

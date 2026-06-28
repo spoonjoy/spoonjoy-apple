@@ -72,7 +72,8 @@ struct NotificationAPNsSurfaceTests {
                     "confirmationDialog(",
                     "requestNotificationPermission",
                     "requestDeviceRegistrationAction",
-                    "KitchenTableTheme"
+                    "KitchenTableTheme",
+                    "notificationAPNsDeliveryFocusID"
                 ],
                 "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift": [
                     "NotificationAPNsDeviceBridge",
@@ -122,7 +123,8 @@ struct NotificationAPNsSurfaceTests {
                     "permissionDenied",
                     "Notifications are off in System Settings",
                     "Open System Settings",
-                    "Register This Device"
+                    "Register This Device",
+                    "settings-section-notification-apns-delivery"
                 ]
             ]
         )
@@ -182,7 +184,7 @@ struct NotificationAPNsSurfaceTests {
 
     @Test("APNs register and revoke request builders use exact native REST contracts")
     func apnsRegisterAndRevokeRequestBuildersUseExactNativeRESTContracts() throws {
-        let register = try PrivateAccountRequests.registerAPNSDevice(
+        let register = try SnapshotNotificationAPNsSurfaceRepository.registerRequest(
             deviceID: "device/ios 1",
             platform: .ios,
             environment: .production,
@@ -191,7 +193,7 @@ struct NotificationAPNsSurfaceTests {
             appVersion: "2.0.0"
         )
         .urlRequest(configuration: Self.configuration)
-        let revoke = try PrivateAccountRequests.revokeAPNSDevice(deviceID: "device/ios 1")
+        let revoke = try SnapshotNotificationAPNsSurfaceRepository.revokeRequest(deviceID: "device/ios 1")
             .urlRequest(configuration: Self.configuration)
 
         try assertJSONRequest(register, method: .post, path: "/api/v1/me/apns-devices", expected: [
@@ -210,6 +212,59 @@ struct NotificationAPNsSurfaceTests {
             responseCachePolicy: .privateNoStore
         )
         #expect(revoke.body == nil)
+    }
+
+    @Test("live and fallback notification APNs repositories restore server preferences")
+    func liveAndFallbackNotificationAPNsRepositoriesRestoreServerPreferences() async throws {
+        let validatedAt = Date(timeIntervalSince1970: 1_782_901_234)
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: false,
+            notifyFellowChefOriginCook: true
+        )
+        let transport = RecordingNotificationAPNsSettingsTransport(
+            preferences: preferences,
+            validatedAt: validatedAt
+        )
+        let liveRepository = LiveNotificationAPNsSurfaceRepository(
+            transport: transport,
+            configuration: Self.configuration,
+            permissionState: .authorized(lastCheckedAt: validatedAt),
+            deliveryCapability: .developmentOnly(blocker: .localValidation)
+        )
+
+        let liveData = try await liveRepository.restore()
+
+        #expect(transport.requestPaths == ["/api/v1/me/notification-preferences"])
+        #expect(liveData.preferences == preferences)
+        #expect(liveData.apnsRegistration == nil)
+        #expect(liveData.permissionState == .authorized(lastCheckedAt: validatedAt))
+        #expect(liveData.deliveryCapability.blockerState == .developmentOnly(.localValidation))
+        #expect(liveData.deliveryCapability.productionBlocker == .localValidation)
+        #expect(liveData.deliveryCapability.blocker(for: .development) == nil)
+        #expect(liveData.deliveryCapability.blocker(for: .production) == .localValidation)
+        #expect(APNsDeliveryCapability.blocked(.localValidation).blocker(for: .development) == .localValidation)
+        #expect(APNsDeliveryCapability.blocked(.localValidation).blocker(for: .production) == .localValidation)
+        #expect(liveData.source == .live(requestID: "req_notification_apns", validatedAt: validatedAt))
+
+        let primarySuccess = FallbackNotificationAPNsSurfaceRepository(
+            primary: StubNotificationAPNsSurfaceRepository(data: liveData),
+            fallback: StubNotificationAPNsSurfaceRepository(error: NotificationAPNsTestFailure.unexpectedRequest)
+        )
+        #expect(try await primarySuccess.restore() == liveData)
+
+        let fallbackData = NotificationAPNsSurfaceData(
+            preferences: .disabled,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            source: .cache(serverRevision: nil, lastValidatedAt: validatedAt.addingTimeInterval(-60))
+        )
+        let primaryFailure = FallbackNotificationAPNsSurfaceRepository(
+            primary: StubNotificationAPNsSurfaceRepository(error: NotificationAPNsTestFailure.unexpectedRequest),
+            fallback: StubNotificationAPNsSurfaceRepository(data: fallbackData)
+        )
+        #expect(try await primaryFailure.restore() == fallbackData)
     }
 
     @Test("offline cached notification preferences and APNs status restore into the native surface")
@@ -249,7 +304,7 @@ struct NotificationAPNsSurfaceTests {
             cache: cache,
             environment: .production,
             permissionState: .denied(lastCheckedAt: lastValidatedAt),
-            now: { now }
+            fallbackValidatedAt: now
         )
         let data = try await repository.restore()
         #expect(data.preferences == preferences)
@@ -278,9 +333,139 @@ struct NotificationAPNsSurfaceTests {
             message: "Turn on notifications for Spoonjoy in System Settings, then register this device again.",
             actionTitle: "Open System Settings"
         ))
-        #expect(viewModel.deliveryBlockerState == .blocked(.localValidation))
-        #expect(viewModel.offlineIndicator.display == .blocker(.appleDeveloperProgram(capability: AppleDeveloperProgramBlocker.capabilityName)))
+        #expect(viewModel.deliveryBlockerState == .developmentOnly(.localValidation))
+        #expect(viewModel.productionBlocker == .localValidation)
+        #expect(viewModel.offlineIndicator.display == .stale(domain: .notificationPreferences))
         #expect(viewModel.lastValidatedAt == lastValidatedAt)
+    }
+
+    @Test("snapshot notification APNs repository restores legacy defaults and invalid status edges")
+    func snapshotNotificationAPNsRepositoryRestoresLegacyDefaultsAndInvalidStatusEdges() async throws {
+        let now = Date(timeIntervalSince1970: 1_782_902_000)
+        let fetchedAt = Date(timeIntervalSince1970: 1_782_901_000)
+        let lastValidatedAt = Date(timeIntervalSince1970: 1_782_901_500)
+        let legacyRecord = try cacheRecord(
+            domain: .notificationPreferences,
+            sourceEndpoint: "/api/v1/me/notification-preferences",
+            serverRevision: .etag("\"legacy-notifications\""),
+            payload: .notificationPreferences(marketingEnabled: true, cookingRemindersEnabled: false),
+            fetchedAt: fetchedAt,
+            lastValidatedAt: lastValidatedAt
+        )
+        let invalidAPNsRecord = try cacheRecord(
+            domain: .apnsStatus,
+            sourceEndpoint: "/api/v1/me/apns-devices",
+            serverRevision: .etag("\"invalid-apns\""),
+            payload: .empty,
+            fetchedAt: fetchedAt,
+            lastValidatedAt: lastValidatedAt.addingTimeInterval(10)
+        )
+        let emptyPreferenceRecord = try cacheRecord(
+            domain: .notificationPreferences,
+            sourceEndpoint: "/api/v1/me/notification-preferences",
+            serverRevision: .etag("\"empty-notifications\""),
+            payload: .empty,
+            fetchedAt: fetchedAt,
+            lastValidatedAt: lastValidatedAt.addingTimeInterval(20)
+        )
+
+        let legacyData = SnapshotNotificationAPNsSurfaceRepository(
+            cache: NativeDurableCache(records: [legacyRecord]),
+            environment: .production,
+            fallbackValidatedAt: now
+        )
+        .restoreSynchronously()
+
+        #expect(legacyData.preferences == SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        ))
+        #expect(legacyData.apnsRegistration == nil)
+        #expect(legacyData.source == .cache(serverRevision: .etag("\"legacy-notifications\""), lastValidatedAt: lastValidatedAt))
+
+        let invalidStatusData = SnapshotNotificationAPNsSurfaceRepository(
+            cache: NativeDurableCache(records: [invalidAPNsRecord]),
+            environment: .production,
+            fallbackValidatedAt: now
+        )
+        .restoreSynchronously()
+        #expect(invalidStatusData.preferences == .disabled)
+        #expect(invalidStatusData.apnsRegistration == nil)
+        #expect(invalidStatusData.source == .cache(serverRevision: .etag("\"invalid-apns\""), lastValidatedAt: lastValidatedAt.addingTimeInterval(10)))
+
+        let emptyPreferenceData = SnapshotNotificationAPNsSurfaceRepository(
+            cache: NativeDurableCache(records: [emptyPreferenceRecord]),
+            environment: .production,
+            fallbackValidatedAt: now
+        )
+        .restoreSynchronously()
+        #expect(emptyPreferenceData.preferences == .disabled)
+        #expect(emptyPreferenceData.apnsRegistration == nil)
+        #expect(emptyPreferenceData.source == .cache(serverRevision: .etag("\"empty-notifications\""), lastValidatedAt: lastValidatedAt.addingTimeInterval(20)))
+
+        let emptyData = SnapshotNotificationAPNsSurfaceRepository(
+            cache: NativeDurableCache(),
+            environment: .production,
+            fallbackValidatedAt: now
+        )
+        .restoreSynchronously()
+        #expect(emptyData.preferences == .disabled)
+        #expect(emptyData.source == .cache(serverRevision: nil, lastValidatedAt: now))
+    }
+
+    @Test("notification APNs data restores from settings surface sources")
+    func notificationAPNsDataRestoresFromSettingsSurfaceSources() {
+        let validatedAt = Date(timeIntervalSince1970: 1_782_905_000)
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: false,
+            notifyForkOfMyRecipe: true,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+        let liveSettings = SettingsSurfaceData(
+            account: nil,
+            notifications: preferences,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .live(requestID: "req_settings", validatedAt: validatedAt)
+        )
+        let cacheSettings = SettingsSurfaceData(
+            account: nil,
+            notifications: preferences,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .cache(lastValidatedAt: validatedAt.addingTimeInterval(-10))
+        )
+        let missingNotifications = SettingsSurfaceData(
+            account: nil,
+            notifications: nil,
+            apiTokens: [],
+            oauthConnections: [],
+            environment: .production,
+            offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+            source: .live(requestID: "req_missing_notifications", validatedAt: validatedAt)
+        )
+
+        let liveData = NotificationAPNsSurfaceData.restoredFromSettingsSurface(liveSettings, environment: .production)
+        let cacheData = NotificationAPNsSurfaceData.restoredFromSettingsSurface(cacheSettings, environment: .production)
+        let overriddenSource = NotificationAPNsSurfaceData.restoredFromSettingsSurface(
+            liveSettings,
+            environment: .production,
+            source: .live(requestID: "req_override", validatedAt: validatedAt.addingTimeInterval(5))
+        )
+
+        #expect(liveData?.preferences == preferences)
+        #expect(liveData?.source == .cache(serverRevision: nil, lastValidatedAt: validatedAt))
+        #expect(cacheData?.source == .cache(serverRevision: nil, lastValidatedAt: validatedAt.addingTimeInterval(-10)))
+        #expect(overriddenSource?.source == .live(requestID: "req_override", validatedAt: validatedAt.addingTimeInterval(5)))
+        #expect(NotificationAPNsSurfaceData.restoredFromSettingsSurface(nil, environment: .production) == nil)
+        #expect(NotificationAPNsSurfaceData.restoredFromSettingsSurface(missingNotifications, environment: .production) == nil)
     }
 
     @Test("production APNs registration is blocked until Apple Developer Program capability exists")
@@ -316,6 +501,241 @@ struct NotificationAPNsSurfaceTests {
         ))
         #expect(developmentPlan.remoteRequestBuilder != nil)
         #expect(developmentPlan.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister)
+    }
+
+    @Test("notification APNs planner covers queued online only and error decisions")
+    func notificationAPNsPlannerCoversQueuedOnlineOnlyAndErrorDecisions() throws {
+        let now = "2026-06-28T09:00:00.000Z"
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: true,
+            notifyCookbookSaveOfMine: false,
+            notifyFellowChefOriginCook: false
+        )
+        let onlinePlanner = NotificationAPNsActionPlanner(
+            connectivity: .online,
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            now: { now }
+        )
+        let offlinePlanner = NotificationAPNsActionPlanner(
+            connectivity: .offline,
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            now: { now }
+        )
+
+        let onlinePreference = try onlinePlanner.plan(.updatePreferences(preferences, clientMutationID: "cm_notifications_update"))
+        let preferenceFallback = try #require(onlinePreference.offlineFallbackMutation)
+        try assertJSONRequest(try #require(onlinePreference.remoteRequestBuilder).urlRequest(configuration: Self.configuration), method: .patch, path: "/api/v1/me/notification-preferences", expected: [
+            "notifySpoonOnMyRecipe": true,
+            "notifyForkOfMyRecipe": true,
+            "notifyCookbookSaveOfMine": false,
+            "notifyFellowChefOriginCook": false
+        ])
+        #expect(preferenceFallback.queueableKind == .notificationPreferenceUpdate)
+        #expect(onlinePreference.queuePreflightDecision(queuedMutations: []) == nil)
+        #expect(onlinePreference.queuePreflightDecision(queuedMutations: [preferenceFallback]) == .queueMutation(preferenceFallback, drainImmediately: true))
+
+        let offlinePreference = try offlinePlanner.plan(.updatePreferences(preferences, clientMutationID: "cm_notifications_offline"))
+        let queuedPreference = try #require(offlinePreference.queuedMutation)
+        #expect(queuedPreference.queueableKind == .notificationPreferenceUpdate)
+        #expect(offlinePreference.userFacingMessage == "Notification change queued.")
+        #expect(offlinePreference.queuePreflightDecision(queuedMutations: []) == .queueMutation(queuedPreference, drainImmediately: false))
+
+        let defaultedRegister = try onlinePlanner.plan(.registerDevice(
+            deviceID: "device_defaulted",
+            platform: .macos,
+            environment: .development,
+            token: "defaulted-token",
+            deviceName: nil,
+            appVersion: nil,
+            clientMutationID: "cm_defaulted_register"
+        ))
+        try assertJSONRequest(try #require(defaultedRegister.remoteRequestBuilder).urlRequest(configuration: Self.configuration), method: .post, path: "/api/v1/me/apns-devices", expected: [
+            "deviceId": "device_defaulted",
+            "platform": "macos",
+            "environment": "development",
+            "token": "defaulted-token",
+            "deviceName": "Spoonjoy device",
+            "appVersion": "0.0.0"
+        ])
+
+        let offlineRevoke = try offlinePlanner.plan(.revokeDevice(deviceID: "device_defaulted", clientMutationID: "cm_revoke_offline"))
+        #expect(offlineRevoke.queuedMutation?.queueableKind == .apnsDeviceRevoke)
+        #expect(offlineRevoke.userFacingMessage == "Notification change queued.")
+
+        let onlineRevoke = try onlinePlanner.plan(.revokeDevice(deviceID: "device_defaulted", clientMutationID: "cm_revoke_online"))
+        assertRequest(
+            try #require(onlineRevoke.remoteRequestBuilder).urlRequest(configuration: Self.configuration),
+            method: .delete,
+            path: "/api/v1/me/apns-devices/device_defaulted",
+            authorization: "Bearer sj_private_token",
+            responseCachePolicy: .privateNoStore
+        )
+
+        let permissionPrompt = try onlinePlanner.plan(.requestPermission)
+        #expect(permissionPrompt.onlineOnlyReason == .permissionPrompt)
+        #expect(permissionPrompt.userFacingMessage == nil)
+
+        let offlinePermissionPrompt = try offlinePlanner.plan(.requestPermission)
+        #expect(offlinePermissionPrompt.onlineOnlyReason == .permissionPrompt)
+        #expect(offlinePermissionPrompt.userFacingMessage == "Notification permission prompts are online-only and were not queued.")
+
+        let onlineTokenAcquisition = try onlinePlanner.planDeviceTokenAcquisition()
+        #expect(onlineTokenAcquisition.onlineOnlyReason == .deviceTokenAcquisition)
+
+        let rejectedQueuePlanner = NotificationAPNsActionPlanner(
+            connectivity: .online,
+            offlinePolicyDecision: { _ in NativeOfflineMutationDecision(queueableKind: .apnsDeviceRevoke, onlineOnlyReason: nil) },
+            now: { now }
+        )
+        #expect(throws: NotificationAPNsActionPlanningError.offlinePolicyRejectedQueueableMutation(.notificationPreferenceUpdate)) {
+            try rejectedQueuePlanner.plan(.updatePreferences(preferences, clientMutationID: "cm_rejected"))
+        }
+
+        let invalidOnlineOnlyPlanner = NotificationAPNsActionPlanner(
+            connectivity: .online,
+            offlinePolicyDecision: { _ in NativeOfflineMutationDecision(queueableKind: .apnsDeviceRegister, onlineOnlyReason: nil) },
+            now: { now }
+        )
+        #expect(throws: NotificationAPNsActionPlanningError.offlinePolicyAllowedOnlineOnlyAction(.permissionPrompt)) {
+            try invalidOnlineOnlyPlanner.plan(.requestPermission)
+        }
+    }
+
+    @Test("notification APNs view model renders queued live cache stale and synced states")
+    func notificationAPNsViewModelRendersQueuedLiveCacheStaleAndSyncedStates() throws {
+        let now = Date(timeIntervalSince1970: 1_782_910_000)
+        let recent = now.addingTimeInterval(-120)
+        let stale = now.addingTimeInterval(-301)
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+        let liveData = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: nil,
+            permissionState: .authorized(lastCheckedAt: recent),
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            source: .live(requestID: "req_live_notifications", validatedAt: recent)
+        )
+        let queuedPreference = NativeQueuedMutation.notificationPreferenceUpdate(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false,
+            clientMutationID: "cm_queued_notifications",
+            createdAt: "2026-06-28T09:10:00.000Z"
+        )
+        let queuedRevoke = NativeQueuedMutation.apnsDeviceRevoke(
+            deviceID: "device_queued",
+            clientMutationID: "cm_queued_revoke",
+            createdAt: "2026-06-28T09:11:00.000Z"
+        )
+        let unrelatedShopping = NativeQueuedMutation.shoppingAddItem(
+            name: "lemons",
+            quantity: 2,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_unrelated_shopping",
+            createdAt: "2026-06-28T09:12:00.000Z"
+        )
+
+        let queuedViewModel = NotificationAPNsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [queuedPreference, unrelatedShopping, queuedRevoke],
+            connectivity: .online,
+            now: { now }
+        )
+        #expect(queuedViewModel.queuedWorkSummary == "2 notification changes waiting to sync")
+        #expect(queuedViewModel.offlineIndicator.display == .queuedWork(count: 2, oldestClientMutationID: "cm_queued_notifications"))
+        #expect(queuedViewModel.permissionDeniedBanner == nil)
+        #expect(queuedViewModel.deliveryBlockerState == .developmentOnly(.localValidation))
+        #expect(queuedViewModel.productionBlocker == .localValidation)
+        #expect(queuedViewModel.isRegistered == false)
+        #expect(queuedViewModel.lastValidatedAt == recent)
+        #expect(try queuedViewModel.actionPlanner.plan(.requestPermission).onlineOnlyReason == .permissionPrompt)
+        let queuedViewModelUpdate = try queuedViewModel.actionPlanner.plan(.updatePreferences(preferences, clientMutationID: "cm_view_model_update"))
+        #expect(queuedViewModelUpdate.offlineFallbackMutation?.createdAt == ISO8601DateFormatter().string(from: now))
+
+        let singleQueuedViewModel = NotificationAPNsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [queuedPreference],
+            connectivity: .online,
+            now: { now }
+        )
+        #expect(singleQueuedViewModel.queuedWorkSummary == "1 notification change waiting to sync")
+
+        let liveOnline = NotificationAPNsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [],
+            connectivity: .online,
+            now: { now }
+        )
+        #expect(liveOnline.offlineIndicator.display == .synced)
+
+        let liveOffline = NotificationAPNsSurfaceViewModel(
+            data: liveData,
+            queuedMutations: [],
+            connectivity: .offline,
+            now: { now }
+        )
+        #expect(liveOffline.offlineIndicator.display == .offline)
+
+        let freshCacheData = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            source: .cache(serverRevision: nil, lastValidatedAt: recent)
+        )
+        let freshOnline = NotificationAPNsSurfaceViewModel(
+            data: freshCacheData,
+            queuedMutations: [],
+            connectivity: .online,
+            now: { now }
+        )
+        #expect(freshOnline.offlineIndicator.display == .synced)
+
+        let freshOffline = NotificationAPNsSurfaceViewModel(
+            data: freshCacheData,
+            queuedMutations: [],
+            connectivity: .offline,
+            now: { now }
+        )
+        #expect(freshOffline.offlineIndicator.display == .offline)
+
+        let staleCacheData = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            source: .cache(serverRevision: nil, lastValidatedAt: stale)
+        )
+        let staleViewModel = NotificationAPNsSurfaceViewModel(
+            data: staleCacheData,
+            queuedMutations: [],
+            connectivity: .online,
+            now: { now }
+        )
+        #expect(staleViewModel.offlineIndicator.display == .stale(domain: .notificationPreferences))
+
+        let blockedViewModel = NotificationAPNsSurfaceViewModel(
+            data: NotificationAPNsSurfaceData(
+                preferences: preferences,
+                apnsRegistration: nil,
+                permissionState: .notDetermined,
+                deliveryCapability: .blocked(.localValidation),
+                source: .live(requestID: "req_blocked_notifications", validatedAt: recent)
+            ),
+            queuedMutations: [],
+            connectivity: .online,
+            now: { now }
+        )
+        #expect(blockedViewModel.deliveryBlockerState == .blocked(.localValidation))
+        #expect(blockedViewModel.offlineIndicator.display == .blocker(.appleDeveloperProgram(capability: AppleDeveloperProgramBlocker.capabilityName)))
     }
 
     @Test("source scanners strip comments and preserve strings only for string-allowed checks")
@@ -473,6 +893,75 @@ private func cacheRecord(
         ),
         payload: payload
     )
+}
+
+private enum NotificationAPNsTestFailure: Error, CustomStringConvertible {
+    case unexpectedRequest
+
+    var description: String {
+        switch self {
+        case .unexpectedRequest:
+            "Unexpected notification APNs test request."
+        }
+    }
+}
+
+private final class RecordingNotificationAPNsSettingsTransport: SettingsSurfaceTransport, @unchecked Sendable {
+    private let preferences: SettingsNotificationPreferences
+    private let validatedAt: Date
+    private(set) var requestPaths: [String] = []
+
+    init(preferences: SettingsNotificationPreferences, validatedAt: Date) {
+        self.preferences = preferences
+        self.validatedAt = validatedAt
+    }
+
+    func fetchAccount(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsAccountProfile> {
+        requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        throw NotificationAPNsTestFailure.unexpectedRequest
+    }
+
+    func fetchNotificationPreferences(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsNotificationPreferences> {
+        requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        return SettingsTransportEnvelope(
+            requestID: "req_notification_apns",
+            data: preferences,
+            validatedAt: validatedAt
+        )
+    }
+
+    func fetchAPITokens(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsAPITokenSummary]> {
+        requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        throw NotificationAPNsTestFailure.unexpectedRequest
+    }
+
+    func fetchOAuthConnections(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsOAuthConnectionSummary]> {
+        requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        throw NotificationAPNsTestFailure.unexpectedRequest
+    }
+}
+
+private final class StubNotificationAPNsSurfaceRepository: NotificationAPNsSurfaceRepository, @unchecked Sendable {
+    private let data: NotificationAPNsSurfaceData?
+    private let error: Error?
+
+    init(data: NotificationAPNsSurfaceData) {
+        self.data = data
+        error = nil
+    }
+
+    init(error: Error) {
+        data = nil
+        self.error = error
+    }
+
+    func restore() async throws -> NotificationAPNsSurfaceData {
+        if let error {
+            throw error
+        }
+
+        return data!
+    }
 }
 
 private func scenarioLike(_ relativePath: String) -> Bool {

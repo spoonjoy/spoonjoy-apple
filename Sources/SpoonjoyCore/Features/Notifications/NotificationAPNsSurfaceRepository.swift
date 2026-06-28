@@ -71,29 +71,37 @@ public struct AppleDeveloperProgramBlocker: Codable, Equatable, Sendable {
 }
 
 public enum APNsDeliveryBlockerState: Equatable, Sendable {
-    case available
+    case developmentOnly(AppleDeveloperProgramBlocker)
     case blocked(AppleDeveloperProgramBlocker)
 }
 
 public enum APNsDeliveryCapability: Equatable, Sendable {
-    case productionAvailable
     case developmentOnly(blocker: AppleDeveloperProgramBlocker)
     case blocked(AppleDeveloperProgramBlocker)
 
     public var blockerState: APNsDeliveryBlockerState {
         switch self {
-        case .productionAvailable:
-            return .available
-        case .developmentOnly(let blocker), .blocked(let blocker):
+        case .developmentOnly(let blocker):
+            return .developmentOnly(blocker)
+        case .blocked(let blocker):
             return .blocked(blocker)
         }
     }
 
     public var productionBlocker: AppleDeveloperProgramBlocker? {
         switch self {
-        case .productionAvailable:
-            return nil
         case .developmentOnly(let blocker), .blocked(let blocker):
+            return blocker
+        }
+    }
+
+    public func blocker(for environment: APNSEnvironment) -> AppleDeveloperProgramBlocker? {
+        switch (self, environment) {
+        case (.developmentOnly(let blocker), .production):
+            return blocker
+        case (.developmentOnly, .development):
+            return nil
+        case (.blocked(let blocker), _):
             return blocker
         }
     }
@@ -179,7 +187,7 @@ public struct SnapshotNotificationAPNsSurfaceRepository: NotificationAPNsSurface
     private let apnsEnvironment: APNSEnvironment
     private let permissionState: APNsPermissionState
     private let deliveryCapability: APNsDeliveryCapability
-    private let now: @Sendable () -> Date
+    private let fallbackValidatedAt: Date
     private static let notificationPreferenceDomainToken = NativeCacheDomain.notificationPreferences
     private static let apnsStatusDomainToken = NativeCacheDomain.apnsStatus
     private static let notificationPreferencePayloadToken = NativeCachePayload.notificationPreferenceState(.disabled)
@@ -192,7 +200,7 @@ public struct SnapshotNotificationAPNsSurfaceRepository: NotificationAPNsSurface
         apnsEnvironment: APNSEnvironment = NativeAPNSRuntimeDefaults.currentEnvironment,
         permissionState: APNsPermissionState = .notDetermined,
         deliveryCapability: APNsDeliveryCapability = .developmentOnly(blocker: .localValidation),
-        now: @escaping @Sendable () -> Date = Date.init
+        fallbackValidatedAt: Date
     ) {
         self.cache = cache
         self.environment = environment
@@ -200,7 +208,7 @@ public struct SnapshotNotificationAPNsSurfaceRepository: NotificationAPNsSurface
         self.apnsEnvironment = apnsEnvironment
         self.permissionState = permissionState
         self.deliveryCapability = deliveryCapability
-        self.now = now
+        self.fallbackValidatedAt = fallbackValidatedAt
     }
 
     public func restoreSynchronously() -> NotificationAPNsSurfaceData {
@@ -223,7 +231,7 @@ public struct SnapshotNotificationAPNsSurfaceRepository: NotificationAPNsSurface
             deliveryCapability: deliveryCapability,
             source: .cache(
                 serverRevision: sourceRecord?.metadata.serverRevision,
-                lastValidatedAt: sourceRecord?.metadata.lastValidatedAt ?? now()
+                lastValidatedAt: sourceRecord?.metadata.lastValidatedAt ?? fallbackValidatedAt
             )
         )
     }
@@ -315,7 +323,7 @@ public extension NotificationAPNsSurfaceData {
         apnsEnvironment: APNSEnvironment = NativeAPNSRuntimeDefaults.currentEnvironment,
         permissionState: APNsPermissionState = .notDetermined,
         deliveryCapability: APNsDeliveryCapability = .developmentOnly(blocker: .localValidation),
-        now: @escaping @Sendable () -> Date = Date.init
+        fallbackValidatedAt: Date
     ) -> NotificationAPNsSurfaceData? {
         let relevantRecords = snapshot.records.filter { record in
             switch record.metadata.domain {
@@ -335,7 +343,7 @@ public extension NotificationAPNsSurfaceData {
             apnsEnvironment: apnsEnvironment,
             permissionState: permissionState,
             deliveryCapability: deliveryCapability,
-            now: now
+            fallbackValidatedAt: fallbackValidatedAt
         )
         .restoreSynchronously()
     }
@@ -345,17 +353,17 @@ public extension NotificationAPNsSurfaceData {
         environment: NativeCacheEnvironment,
         source: NotificationAPNsSurfaceDataSource? = nil
     ) -> NotificationAPNsSurfaceData? {
-        guard let preferences = settings?.notifications else {
+        _ = environment
+        guard let settings,
+              let preferences = settings.notifications else {
             return nil
         }
         let lastValidatedAt: Date
-        switch settings?.source {
+        switch settings.source {
         case .live(_, let validatedAt):
             lastValidatedAt = validatedAt
         case .cache(let cachedAt):
             lastValidatedAt = cachedAt
-        case nil:
-            lastValidatedAt = .distantPast
         }
         return NotificationAPNsSurfaceData(
             preferences: preferences,

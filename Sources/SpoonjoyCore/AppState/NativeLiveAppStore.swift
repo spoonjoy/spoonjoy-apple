@@ -1039,7 +1039,7 @@ public struct NativeShellContentState {
     }
 
     private static func restoreNotificationAPNsSnapshot(cacheSnapshot: NativeDurableCacheSnapshot) -> NotificationAPNsSurfaceData? {
-        NotificationAPNsSurfaceData.restoredFromCacheSnapshot(cacheSnapshot)
+        NotificationAPNsSurfaceData.restoredFromCacheSnapshot(cacheSnapshot, fallbackValidatedAt: cacheSnapshot.createdAt)
     }
 
     private static func restoredKitchen(

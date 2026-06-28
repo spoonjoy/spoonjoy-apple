@@ -2329,6 +2329,12 @@ struct NativeLiveStoreTests {
             #expect(recordedSnapshot.lastOpenedRoute == nil)
             #expect(recordedSnapshot.captureDraft == draft)
 
+            liveStore.discardCaptureDraft(id: draft.id)
+            let scopedDiscardSnapshot = try appStateStore.loadOrCreate(fallback: fallback).value
+            #expect(scopedDiscardSnapshot.accountID == "chef_ari")
+            #expect(scopedDiscardSnapshot.captureDraft == nil)
+            liveStore.recordCaptureDraft(draft)
+
             liveStore.recordCaptureDraft(draft)
             #expect(try appStateStore.loadOrCreate(fallback: fallback).value.captureDraft == draft)
 
@@ -3640,6 +3646,7 @@ struct NativeLiveStoreTests {
         )
         #expect(signedOut.settingsSurfaceViewModel.sections.map(\.id) == [.session, .environment, .offline])
         #expect(signedOut.settingsSurfaceViewModel.primaryAuthAction?.target == .login)
+        #expect(signedOut.notificationAPNsSurfaceViewModel == nil)
         #expect(try signedOut.settingsSurfaceViewModel.actionPlanner.plan(.updateProfile(
             email: "signed-out@example.com",
             username: "signedout",
@@ -3669,6 +3676,10 @@ struct NativeLiveStoreTests {
             username: "signedin",
             clientMutationID: "cm_signed_in_settings"
         )).queuedMutation?.queueableKind == .profileDisplayUpdate)
+        let signedInOnlineWithoutSettings = signedInWithoutSettings.copy(
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        #expect(signedInOnlineWithoutSettings.settingsSurfaceViewModel.connectivity == .online)
 
         let settingsData = SettingsSurfaceData(
             account: SettingsAccountProfile(
@@ -3775,7 +3786,36 @@ struct NativeLiveStoreTests {
             registrationState: .registered,
             lastValidatedAt: validatedAt
         ))
-        #expect(viewModel.deliveryBlockerState == .blocked(.localValidation))
+        #expect(viewModel.deliveryBlockerState == .developmentOnly(.localValidation))
+        #expect(viewModel.productionBlocker == .localValidation)
+        let onlineContent = content.copy(
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        #expect(onlineContent.notificationAPNsSurfaceViewModel?.connectivity == .online)
+    }
+
+    @MainActor
+    @Test("live store records notification APNs Apple Developer Program blocker")
+    func liveStoreRecordsNotificationAPNsAppleDeveloperProgramBlocker() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            )
+
+            liveStore.recordNotificationAPNsBlocker(.localValidation)
+
+            guard case .blocker(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected notification APNs blocker state; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .blocker(.appleDeveloperProgram(capability: AppleDeveloperProgramBlocker.capabilityName)))
+        }
     }
 
     @Test("shell content exposes recipe catalog source for live and offline states")
@@ -4175,7 +4215,9 @@ struct NativeLiveStoreTests {
                 "ShoppingListState.decodeFromBundle()",
                 "hasCompletedFirstRun",
                 "completeFirstRun(opening:",
-                "openKitchen: { completeFirstRun"
+                "openKitchen: { completeFirstRun",
+                ".safeAreaInset(edge: .bottom)",
+                "Text(message)"
             ]
         )
     }
@@ -4358,7 +4400,18 @@ struct NativeLiveStoreTests {
                 "viewModel.offlineIndicatorDisplay",
                 "viewModel.dismissOfflineIndicator",
                 "viewModel.authSessionState",
-                "viewModel.environmentSwitcher"
+                "viewModel.environmentSwitcher",
+                "ScrollViewReader",
+                "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS",
+                "SPOONJOY_SCREENSHOT_PROOF_PATH",
+                "writeScreenshotProof(",
+                #""source": "SettingsView""#,
+                "settings-section-notification-apns-delivery",
+                "proxy.scrollTo(Self.notificationsFocusID, anchor: .center)",
+                "shellOfflineIndicatorState",
+                "effectiveOfflineIndicator(",
+                "!shellOfflineIndicatorState.display.informationalOnly",
+                "localDisplay.informationalOnly"
             ],
             forbids: [
                 "OfflineStatusView(state:",

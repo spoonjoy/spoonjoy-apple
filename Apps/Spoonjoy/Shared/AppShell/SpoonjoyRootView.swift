@@ -62,15 +62,8 @@ struct SpoonjoyRootView: View {
             platformNavigation(contentState: contentState)
         case .destructiveConfirmation(let contentState):
             platformNavigation(contentState: contentState)
-        case .syncFailed(let contentState, let message):
+        case .syncFailed(let contentState, _):
             platformNavigation(contentState: contentState)
-                .safeAreaInset(edge: .bottom) {
-                    Text(message)
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.tomato)
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                }
         }
     }
 
@@ -79,6 +72,7 @@ struct SpoonjoyRootView: View {
             SettingsView(
                 viewModel: contentState.settingsViewModel,
                 settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                shellOfflineIndicatorState: contentState.offlineIndicatorState,
                 onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
             )
         } else {

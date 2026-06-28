@@ -13,10 +13,19 @@
 
   ],
   "settingsSignedInSurface": true,
+  "settingsVisualFocus": "notifications",
+  "settingsSurfaceProofArtifacts": [
+    "apple/unit-19l-notifications-screenshot-proof-ios.json",
+    "apple/unit-19l-notifications-screenshot-proof-macos.json"
+  ],
+  "settingsNotificationAPNsSurface": true,
   "settingsSections": [
     "Profile",
     "Security",
     "Notifications",
+    "Device Notifications",
+    "APNs Delivery",
+    "Notification Sync",
     "API Tokens",
     "Connections",
     "Environment",

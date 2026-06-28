@@ -158,8 +158,7 @@ public struct NotificationAPNsActionPlanner: Sendable {
         ):
             let normalizedDeviceName = deviceName ?? "Spoonjoy device"
             let normalizedAppVersion = appVersion ?? "0.0.0"
-            if environment == .production,
-               let blocker = deliveryCapability.productionBlocker {
+            if let blocker = deliveryCapability.blocker(for: environment) {
                 return NotificationAPNsActionPlan(
                     deliveryBlocker: blocker,
                     userFacingMessage: blocker.ownerAction
@@ -343,14 +342,14 @@ public struct NotificationAPNsSurfaceViewModel: Sendable {
         }
 
         switch deliveryBlockerState {
+        case .developmentOnly:
+            break
         case .blocked(let blocker):
             _ = blocker.ownerAction
             return OfflineIndicatorState(
                 display: OfflineIndicatorDisplay.blocker(.appleDeveloperProgram(capability: blocker.capability)),
                 dismissal: nil
             )
-        case .available:
-            break
         }
 
         switch source {

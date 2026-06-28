@@ -5,6 +5,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
+    private enum ScreenshotSettingsFocus: String {
+        case profile
+        case notifications
+    }
+
+    private static let screenshotFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"
+    private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
+    private static let notificationsFocusID = "settings-section-notification-apns-delivery"
+
     let viewModel: SettingsViewModel
     var settingsSurfaceViewModel: SettingsSurfaceViewModel?
     var notificationAPNsSurfaceViewModel: NotificationAPNsSurfaceViewModel?
@@ -14,6 +23,7 @@ struct SettingsView: View {
     var requestDeviceRegistrationAction: @MainActor @Sendable (String) async throws -> NotificationAPNsAction = { _ in throw NotificationAPNsNativeBridgeError.unavailable }
     var openNotificationSettings: @MainActor @Sendable () -> Void = {}
     var notificationAPNsSettingsContent: (@MainActor @Sendable (NotificationAPNsSurfaceViewModel) -> AnyView)?
+    var shellOfflineIndicatorState: OfflineIndicatorState?
     var onDismissOfflineIndicator: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
@@ -37,19 +47,37 @@ struct SettingsView: View {
     @State private var tokenCanReadShoppingList = false
     @State private var tokenCanWriteShoppingList = false
     @State private var pendingDestructiveAction: PendingSettingsDestructiveAction?
+    @State private var screenshotSettingsFocus = SettingsView.screenshotSettingsFocus()
 
     var body: some View {
-        Form {
-            if let settingsSurfaceViewModel {
-                nativeSettings(surface: settingsSurfaceViewModel)
-            } else {
-                legacySettings
-            }
+        ScrollViewReader { proxy in
+            settingsForm
+                .task(id: screenshotSettingsFocus) {
+                    guard let screenshotSettingsFocus else {
+                        return
+                    }
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    switch screenshotSettingsFocus {
+                    case .profile:
+                        Self.writeScreenshotProof(
+                            visualFocus: screenshotSettingsFocus,
+                            visibleSections: ["Profile", "Security"]
+                        )
+                    case .notifications:
+                        withAnimation(nil) {
+                            proxy.scrollTo(Self.notificationsFocusID, anchor: .center)
+                        }
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        guard notificationAPNsSurfaceViewModel != nil else {
+                            return
+                        }
+                        Self.writeScreenshotProof(
+                            visualFocus: screenshotSettingsFocus,
+                            visibleSections: ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                        )
+                    }
+                }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
-        .tint(KitchenTableTheme.herb)
         .confirmationDialog(
             pendingDestructiveAction?.title ?? "Confirm account action",
             isPresented: Binding(
@@ -81,6 +109,20 @@ struct SettingsView: View {
                 Text(message)
             }
         }
+    }
+
+    private var settingsForm: some View {
+        Form {
+            if let settingsSurfaceViewModel {
+                nativeSettings(surface: settingsSurfaceViewModel)
+            } else {
+                legacySettings
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(KitchenTableTheme.bone)
+        .tint(KitchenTableTheme.herb)
     }
 
     @ViewBuilder private func nativeSettings(surface: SettingsSurfaceViewModel) -> some View {
@@ -184,6 +226,7 @@ struct SettingsView: View {
                 .task(id: notificationIdentity(notifications)) {
                     hydrateNotificationDraft(notifications)
                 }
+                .id(Self.notificationsFocusID)
             }
 
             Section("API Tokens") {
@@ -278,8 +321,11 @@ struct SettingsView: View {
                 Text(settingsActionError)
                     .foregroundStyle(KitchenTableTheme.tomato)
             }
-            OfflineStatusView(display: surface.offlineIndicator.display) {
-                _ = viewModel.dismissOfflineIndicator
+            let offlineDisplay = effectiveOfflineIndicator(surface.offlineIndicator.display)
+            OfflineStatusView(display: offlineDisplay) {
+                if offlineDisplay == surface.offlineIndicator.display {
+                    _ = viewModel.dismissOfflineIndicator
+                }
                 onDismissOfflineIndicator()
             }
         }
@@ -309,11 +355,20 @@ struct SettingsView: View {
         }
 
         Section("Offline") {
-            OfflineStatusView(display: viewModel.offlineIndicatorDisplay) {
+            OfflineStatusView(display: effectiveOfflineIndicator(viewModel.offlineIndicatorDisplay)) {
                 _ = viewModel.dismissOfflineIndicator
                 onDismissOfflineIndicator()
             }
         }
+    }
+
+    private func effectiveOfflineIndicator(_ localDisplay: OfflineIndicatorDisplay) -> OfflineIndicatorDisplay {
+        guard let shellOfflineIndicatorState,
+              !shellOfflineIndicatorState.display.informationalOnly,
+              localDisplay.informationalOnly else {
+            return localDisplay
+        }
+        return shellOfflineIndicatorState.display
     }
 
     private func planSettingsAction(_ action: SettingsAction, using planner: SettingsActionPlanner) {
@@ -497,6 +552,50 @@ struct SettingsView: View {
         ]
         .map { $0 ? "1" : "0" }
         .joined()
+    }
+
+    private static func screenshotSettingsFocus() -> ScreenshotSettingsFocus? {
+#if DEBUG
+        guard let rawFocus = ProcessInfo.processInfo.environment[screenshotFocusEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawFocus.isEmpty else {
+            return nil
+        }
+        return ScreenshotSettingsFocus(rawValue: rawFocus)
+#else
+        return nil
+#endif
+    }
+
+    private static func writeScreenshotProof(
+        visualFocus: ScreenshotSettingsFocus,
+        visibleSections: [String]
+    ) {
+#if DEBUG
+        guard let rawPath = ProcessInfo.processInfo.environment[screenshotProofPathEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawPath.isEmpty else {
+            return
+        }
+        let outputURL = URL(fileURLWithPath: rawPath)
+        let payload: [String: Any] = [
+            "route": "settings",
+            "visualFocus": visualFocus.rawValue,
+            "visibleSections": visibleSections,
+            "source": "SettingsView",
+            "writtenAt": ISO8601DateFormatter().string(from: Date())
+        ]
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
+            return
+        }
+        try? FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? data.write(to: outputURL, options: [.atomic])
+#else
+        _ = visualFocus
+        _ = visibleSections
+#endif
     }
 
     private func sourceLabel(_ source: SettingsSurfaceDataSource) -> String {

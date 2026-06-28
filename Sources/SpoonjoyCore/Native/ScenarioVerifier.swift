@@ -1506,42 +1506,38 @@ public enum ScenarioVerifier {
         let localValidationBlocker = AppleDeveloperProgramBlocker.localValidation
         let planner = NotificationAPNsActionPlanner(connectivity: .online, deliveryCapability: .developmentOnly(blocker: localValidationBlocker))
         let offlinePlanner = NotificationAPNsActionPlanner(connectivity: .offline)
-        do {
-            let developmentRegister = try planner.plan(.registerDevice(
-                deviceID: "scenario-device",
-                platform: .ios,
-                environment: .development,
-                token: "scenario-token",
-                deviceName: "Scenario iPhone",
-                appVersion: "1.0.0",
-                clientMutationID: "cm_scenario_apns_register"
-            ))
-            let productionRegister = try planner.plan(.registerDevice(
-                deviceID: "scenario-device",
-                platform: .ios,
-                environment: .production,
-                token: "scenario-token",
-                deviceName: "Scenario iPhone",
-                appVersion: "1.0.0",
-                clientMutationID: "cm_scenario_apns_production"
-            ))
-            let tokenAcquisition = try offlinePlanner.planDeviceTokenAcquisition()
-            let status: ScenarioCheckStatus = viewModel.notificationDraft == preferences &&
-                viewModel.apnsRegistration?.registrationState == .registered &&
-                viewModel.permissionDeniedBanner != nil &&
-                viewModel.productionBlocker?.capability == AppleDeveloperProgramBlocker.capabilityName &&
-                developmentRegister.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister &&
-                productionRegister.deliveryBlocker == localValidationBlocker &&
-                tokenAcquisition.onlineOnlyReason == .deviceTokenAcquisition ? .pass : .fail
+        let developmentRegister = try? planner.plan(.registerDevice(
+            deviceID: "scenario-device",
+            platform: .ios,
+            environment: .development,
+            token: "scenario-token",
+            deviceName: "Scenario iPhone",
+            appVersion: "1.0.0",
+            clientMutationID: "cm_scenario_apns_register"
+        ))
+        let productionRegister = try? planner.plan(.registerDevice(
+            deviceID: "scenario-device",
+            platform: .ios,
+            environment: .production,
+            token: "scenario-token",
+            deviceName: "Scenario iPhone",
+            appVersion: "1.0.0",
+            clientMutationID: "cm_scenario_apns_production"
+        ))
+        let tokenAcquisition = try? offlinePlanner.planDeviceTokenAcquisition()
+        let status: ScenarioCheckStatus = viewModel.notificationDraft == preferences &&
+            viewModel.apnsRegistration?.registrationState == .registered &&
+            viewModel.permissionDeniedBanner != nil &&
+            viewModel.productionBlocker?.capability == AppleDeveloperProgramBlocker.capabilityName &&
+            developmentRegister?.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister &&
+            productionRegister?.deliveryBlocker == localValidationBlocker &&
+            tokenAcquisition?.onlineOnlyReason == .deviceTokenAcquisition ? .pass : .fail
 
-            return ScenarioCheck(
-                name: "notification APNs surface",
-                status: status,
-                detail: "Notification APNs behavior restores cached preferences/status, blocks production APNs without AppleDeveloperProgram, and keeps permission/token acquisition online-only."
-            )
-        } catch {
-            return ScenarioCheck(name: "notification APNs surface", status: .fail, detail: "Notification APNs scenario failed: \(error)")
-        }
+        return ScenarioCheck(
+            name: "notification APNs surface",
+            status: status,
+            detail: "Notification APNs behavior restores cached preferences/status, blocks production APNs without AppleDeveloperProgram, and keeps permission/token acquisition online-only."
+        )
     }
 
     private static func settingsScenarioTimestamp() -> String {

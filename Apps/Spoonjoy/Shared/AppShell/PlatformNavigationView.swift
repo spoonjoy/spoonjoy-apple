@@ -309,6 +309,7 @@ struct PlatformNavigationView: View {
                 requestDeviceRegistrationAction: requestDeviceRegistrationAction,
                 openNotificationSettings: openNotificationSettings,
                 notificationAPNsSettingsContent: { AnyView(notificationAPNsSettingsView($0)) },
+                shellOfflineIndicatorState: offlineIndicatorState,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:
