@@ -463,7 +463,7 @@ struct NativeScenarioTests {
     }
 
     @Test("surface behavioral checks fail closed for missing or throwing fixture data")
-    func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() {
+    func surfaceBehavioralChecksFailClosedForMissingOrThrowingFixtureData() throws {
         let defaultRecipeCheck = ScenarioVerifier.cookProgressPersistenceCheck()
         let defaultShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck()
         let staleShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(selectedItemID: "item_missing")
@@ -508,6 +508,45 @@ struct NativeScenarioTests {
         let throwingShoppingCheck = ScenarioVerifier.shoppingCheckoffCheck(loadShoppingList: {
             throw FixtureLoadError.unavailable
         })
+        let throwingCookbookDetailCheck = ScenarioVerifier.cookbookDetailCheck(loadCookbook: {
+            throw FixtureLoadError.unavailable
+        })
+        let missingCookbookDetailCheck = ScenarioVerifier.cookbookDetailCheck(loadCookbook: {
+            try ScenarioVerifier.scenarioCookbook(from: [])
+        })
+        let throwingCookbookOwnerToolsCheck = ScenarioVerifier.cookbookOwnerToolsCheck(loadCookbook: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookCreateCheck = ScenarioVerifier.cookbookCreateCheck(rootURL: URL(fileURLWithPath: FileManager.default.currentDirectoryPath), planBuilder: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookRenameCheck = ScenarioVerifier.cookbookRenameCheck(viewModel: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookDeleteCheck = ScenarioVerifier.cookbookDeleteCheck(viewModel: {
+            throw FixtureLoadError.unavailable
+        })
+        let throwingCookbookAddRecipeCheck = ScenarioVerifier.cookbookAddRecipeCheck(viewModel: { _ in
+            throw FixtureLoadError.unavailable
+        })
+        let baseCookbook = try #require(CookbookFixtureCatalog.decodeFromBundle().cookbooks.first)
+        let emptyCookbook = Cookbook(
+            id: baseCookbook.id,
+            title: baseCookbook.title,
+            chef: baseCookbook.chef,
+            recipeCount: 0,
+            cover: baseCookbook.cover,
+            href: baseCookbook.href,
+            canonicalURL: baseCookbook.canonicalURL,
+            attribution: baseCookbook.attribution,
+            createdAt: baseCookbook.createdAt,
+            updatedAt: baseCookbook.updatedAt,
+            recipes: []
+        )
+        let emptyCookbookRemoveCheck = ScenarioVerifier.cookbookRemoveRecipeCheck(loadCookbook: { emptyCookbook })
+        let throwingCookbookRemoveCheck = ScenarioVerifier.cookbookRemoveRecipeCheck(loadCookbook: {
+            throw FixtureLoadError.unavailable
+        })
 
         #expect(defaultRecipeCheck.status == .pass)
         #expect(defaultShoppingCheck.status == .pass)
@@ -529,6 +568,24 @@ struct NativeScenarioTests {
         #expect(missingShoppingCheck.detail.contains("no active checkoff items"))
         #expect(throwingShoppingCheck.status == .fail)
         #expect(throwingShoppingCheck.detail.contains("failed"))
+        #expect(throwingCookbookDetailCheck.status == .fail)
+        #expect(throwingCookbookDetailCheck.detail.contains("Cookbook detail failed"))
+        #expect(missingCookbookDetailCheck.status == .fail)
+        #expect(missingCookbookDetailCheck.detail.contains("Cookbook detail failed"))
+        #expect(throwingCookbookOwnerToolsCheck.status == .fail)
+        #expect(throwingCookbookOwnerToolsCheck.detail.contains("Cookbook owner tools failed"))
+        #expect(throwingCookbookCreateCheck.status == .fail)
+        #expect(throwingCookbookCreateCheck.detail.contains("Cookbook create failed"))
+        #expect(throwingCookbookRenameCheck.status == .fail)
+        #expect(throwingCookbookRenameCheck.detail.contains("Cookbook rename failed"))
+        #expect(throwingCookbookDeleteCheck.status == .fail)
+        #expect(throwingCookbookDeleteCheck.detail.contains("Cookbook delete failed"))
+        #expect(throwingCookbookAddRecipeCheck.status == .fail)
+        #expect(throwingCookbookAddRecipeCheck.detail.contains("Cookbook add recipe failed"))
+        #expect(emptyCookbookRemoveCheck.status == .fail)
+        #expect(emptyCookbookRemoveCheck.detail.contains("no removable recipe"))
+        #expect(throwingCookbookRemoveCheck.status == .fail)
+        #expect(throwingCookbookRemoveCheck.detail.contains("Cookbook remove recipe failed"))
     }
 
     @Test("final behavioral checks fail closed for weak settings offline and link safety")

@@ -204,6 +204,207 @@ struct CookbookSurfaceParityTests {
             message: "Try another title, chef, or recipe in the collection.",
             systemImage: "magnifyingglass"
         ))
+
+        let freshCachedDetail = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .cache(serverRevision: .updatedAt(cookbook.updatedAt), lastValidatedAt: Self.now),
+                availableRecipes: []
+            ),
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        #expect(freshCachedDetail.offlineIndicator.display == .synced)
+
+        let offlineDetail = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .live(requestID: "req_cookbook_detail", validatedAt: Self.now),
+                availableRecipes: []
+            ),
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        #expect(offlineDetail.offlineIndicator.display == .offline)
+
+        let invalidRecordIndicator = CookbookSurfacePage.offlineIndicator(
+            domain: .cookbookList,
+            payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"]),
+            serverRevision: nil,
+            lastValidatedAt: Self.now,
+            now: Self.now,
+            freshnessPolicy: .offlineProductContract
+        )
+        #expect(invalidRecordIndicator.display == .stale(domain: .cookbookList))
+        let unrelatedDomainIndicator = CookbookSurfacePage.offlineIndicator(
+            domain: .recipeCatalog,
+            payload: .recipeCatalog(recipeIDs: ["recipe_lemon_pantry_pasta"]),
+            serverRevision: nil,
+            lastValidatedAt: Self.now,
+            now: Self.now,
+            freshnessPolicy: .offlineProductContract
+        )
+        #expect(unrelatedDomainIndicator.display == .synced)
+    }
+
+    @Test("cookbook repositories cover live snapshot fallback and list application edges")
+    @MainActor
+    func cookbookRepositoriesCoverLiveSnapshotFallbackAndListApplicationEdges() async throws {
+        let cookbook = try Self.cookbook()
+        let savedRecipe = cookbook.recipes[0]
+        let availableRecipe = try Self.availableRecipe()
+        let secondCookbook = try Self.cookbook(
+            id: "cookbook_brunch",
+            title: "Brunch",
+            recipes: [availableRecipe]
+        )
+        let listEnvelope = APIEnvelope(
+            requestID: "req_live_cookbooks",
+            data: CookbookListData(
+                query: nil,
+                limit: 1,
+                cursor: PaginationCursor(rawValue: "v1.before"),
+                nextCursor: PaginationCursor(rawValue: "v1.after"),
+                hasMore: true,
+                cookbooks: [CookbookSummary(cookbook: cookbook)]
+            )
+        )
+        let detailEnvelope = APIEnvelope(
+            requestID: "req_live_cookbook_detail",
+            data: CookbookDetailData(cookbook: cookbook)
+        )
+        let transport = RecordingCookbookAPITransport(
+            listEnvelope: listEnvelope,
+            detailEnvelope: detailEnvelope
+        )
+        let liveRepository = LiveCookbookSurfaceRepository(
+            transport: transport,
+            configuration: Self.configuration,
+            availableRecipes: [savedRecipe, availableRecipe],
+            now: { Self.now }
+        )
+        let defaultClockRepository = LiveCookbookSurfaceRepository(
+            transport: transport,
+            configuration: Self.configuration
+        )
+
+        let livePage = try await liveRepository.listCookbooks(
+            request: CookbookSurfaceListRequest(
+                query: "   ",
+                limit: 1,
+                cursor: PaginationCursor(rawValue: "v1.before")
+            )
+        )
+        let liveDetail = try await liveRepository.cookbookDetail(id: cookbook.id)
+        #expect(livePage.rows.map(\.id) == [cookbook.id])
+        #expect(livePage.source == .live(requestID: "req_live_cookbooks", validatedAt: Self.now))
+        #expect(liveDetail.availableRecipes.map(\.id) == [availableRecipe.id])
+        let defaultClockPage = try await defaultClockRepository.listCookbooks(
+            request: CookbookSurfaceListRequest(query: nil, limit: 1)
+        )
+        if case .live(let requestID, _) = defaultClockPage.source {
+            #expect(requestID == "req_live_cookbooks")
+        } else {
+            Issue.record("default clock live repository should still return live source")
+        }
+        #expect(transport.requests.map(\.url.path) == [
+            "/api/v1/cookbooks",
+            "/api/v1/cookbooks/\(cookbook.id)",
+            "/api/v1/cookbooks"
+        ])
+        #expect(transport.requests.first?.queryItems == [
+            URLQueryItem(name: "limit", value: "1"),
+            URLQueryItem(name: "cursor", value: "v1.before")
+        ])
+
+        let snapshotRepository = SnapshotCookbookSurfaceRepository(
+            page: CookbookSurfacePage(
+                query: nil,
+                limit: 20,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [CookbookSummary(cookbook: secondCookbook), CookbookSummary(cookbook: cookbook)],
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            ),
+            details: [
+                CookbookSurfaceDetailResult(cookbook: cookbook, source: .live(requestID: "req_snapshot", validatedAt: Self.now), availableRecipes: []),
+                CookbookSurfaceDetailResult(cookbook: secondCookbook, source: .live(requestID: "req_snapshot_2", validatedAt: Self.now), availableRecipes: [])
+            ]
+        )
+        let unfilteredSnapshot = try await snapshotRepository.listCookbooks(
+            request: CookbookSurfaceListRequest(query: nil, limit: 1)
+        )
+        let chefFilteredSnapshot = try await snapshotRepository.listCookbooks(
+            request: CookbookSurfaceListRequest(query: " ARI ", limit: 10)
+        )
+        let titleFilteredSnapshot = try await snapshotRepository.listCookbooks(
+            request: CookbookSurfaceListRequest(query: "brunch", limit: 10)
+        )
+        #expect(unfilteredSnapshot.hasMore)
+        #expect(unfilteredSnapshot.rows.map(\.id) == ["cookbook_brunch"])
+        #expect(chefFilteredSnapshot.rows.map(\.id).sorted() == ["cookbook_brunch", "cookbook_weeknights"])
+        #expect(titleFilteredSnapshot.rows.map(\.id) == ["cookbook_brunch"])
+        #expect(try await snapshotRepository.cookbookDetail(id: "cookbook_brunch").cookbook.title == "Brunch")
+        do {
+            _ = try await snapshotRepository.cookbookDetail(id: "cookbook_missing")
+            Issue.record("missing cookbook detail should throw")
+        } catch CookbookSurfaceRepositoryError.cookbookNotFound(let id) {
+            #expect(id == "cookbook_missing")
+        }
+
+        let fallbackRepository = FallbackCookbookSurfaceRepository(
+            primary: FailingCookbookSurfaceRepository(),
+            fallback: snapshotRepository
+        )
+        #expect(try await fallbackRepository.listCookbooks(request: CookbookSurfaceListRequest(query: "brunch", limit: 10)).rows.map(\.id) == ["cookbook_brunch"])
+        #expect(try await fallbackRepository.cookbookDetail(id: cookbook.id).cookbook.id == cookbook.id)
+
+        let defaultListViewModel = CookbookSurfaceListViewModel(page: unfilteredSnapshot)
+        #expect(defaultListViewModel.list.resultCountLabel == "1 cookbook")
+        let listViewModel = CookbookSurfaceViewModel(
+            repository: snapshotRepository,
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            timestamp: { Self.createdAt }
+        )
+        let twoCookbookPage = CookbookSurfacePage(
+            query: nil,
+            limit: 20,
+            cursor: nil,
+            nextCursor: nil,
+            hasMore: false,
+            rows: [CookbookSummary(cookbook: cookbook), CookbookSummary(cookbook: secondCookbook)],
+            source: .live(requestID: "req_apply", validatedAt: Self.now)
+        )
+        listViewModel.apply(page: twoCookbookPage)
+        #expect(listViewModel.list.resultCountLabel == "2 cookbooks")
+        let queuedCreate = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_created_list",
+            title: "After School",
+            createdAt: Self.createdAt
+        )
+        let appliedList = listViewModel.list.applyingCreatedCookbook(
+            try Self.cookbook(id: "cookbook_after_school", title: "After School"),
+            queuedMutation: queuedCreate
+        )
+        let appliedWithoutQueue = listViewModel.list.applyingCreatedCookbook(
+            try Self.cookbook(id: "cookbook_breakfast", title: "Breakfast"),
+            queuedMutation: nil
+        )
+        #expect(appliedList.rows.map(\.title) == ["After School", "Brunch", "Weeknights"])
+        #expect(appliedList.offlineIndicator.display == .queuedWork(count: 1, oldestClientMutationID: "cm_created_list"))
+        #expect(appliedWithoutQueue.offlineIndicator.display == .synced)
     }
 
     @Test("cookbook actions plan exact REST mutations with offline fallbacks and confirmations")
@@ -476,26 +677,158 @@ struct CookbookSurfaceParityTests {
         #expect(independentCreate.remoteRequestBuilder != nil)
         #expect(independentCreate.queuedMutation == nil)
         #expect(independentCreate.updatedCookbook?.chef.username == "ari")
+
+        let signedOutCreate = try CookbookCreatePlanner(
+            currentChefID: nil,
+            queuedMutations: [],
+            connectivity: .online,
+            timestamp: { Self.createdAt }
+        ).planCreate(title: "New", clientMutationID: "cm_signed_out_create")
+        #expect(signedOutCreate.blockedReason == "Sign in to create a cookbook.")
+        let blankCreate = try CookbookCreatePlanner(
+            currentChefID: "chef_ari",
+            queuedMutations: [],
+            connectivity: .online,
+            timestamp: { Self.createdAt }
+        ).planCreate(title: "   ", clientMutationID: "cm_blank_create")
+        #expect(blankCreate.blockedReason == "Enter a cookbook title.")
+        let pendingCreate = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_pending_create",
+            title: "Pending",
+            createdAt: Self.createdAt
+        )
+        let queuedCreate = try CookbookCreatePlanner(
+            currentChefID: "chef_ari",
+            queuedMutations: [pendingCreate],
+            connectivity: .online,
+            timestamp: { Self.createdAt }
+        ).planCreate(title: "Pending Again", clientMutationID: "cm_pending_create")
+        #expect(queuedCreate.remoteRequestBuilder == nil)
+        #expect(queuedCreate.queuedMutation?.clientMutationID == "cm_pending_create")
+        let offlineCreate = try CookbookCreatePlanner(
+            currentChefID: "chef_ari",
+            queuedMutations: [],
+            connectivity: .offline,
+            timestamp: { Self.createdAt }
+        ).planCreate(title: "Offline New", clientMutationID: "cm_offline_create")
+        #expect(offlineCreate.remoteRequestBuilder == nil)
+        #expect(offlineCreate.queuedMutation?.queueableKind == .cookbookCreate)
+
+        let offlineOwner = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .live(requestID: "req_offline_owner", validatedAt: Self.now),
+                availableRecipes: [try Self.availableRecipe()]
+            ),
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        let offlineRename = try offlineOwner.plan(.rename(title: "Offline Dinner", clientMutationID: "cm_offline_rename"))
+        #expect(offlineRename.remoteRequestBuilder == nil)
+        #expect(offlineRename.queuedMutation?.queueableKind == .cookbookUpdate)
+        #expect(try offlineOwner.plan(.create(title: "New", clientMutationID: "cm_detail_create")).queuedMutation?.queueableKind == .cookbookCreate)
+        #expect(try offlineOwner.plan(.create(title: "   ", clientMutationID: "cm_detail_blank")).blockedReason == "Enter a cookbook title.")
+        #expect(try offlineOwner.plan(.rename(title: "   ", clientMutationID: "cm_blank_rename")).blockedReason == "Enter a cookbook title.")
+        #expect(try offlineOwner.plan(.removeRecipe(recipeID: "recipe_missing", clientMutationID: "cm_missing_remove", confirmation: .confirmed)).blockedReason == "This recipe is not in the cookbook.")
+
+        let signedOutDetail = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: cookbook,
+                source: .live(requestID: "req_signed_out_detail", validatedAt: Self.now),
+                availableRecipes: []
+            ),
+            context: CookbookSurfaceContext(currentChefID: nil),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        #expect(try signedOutDetail.plan(.create(title: "New", clientMutationID: "cm_detail_signed_out")).blockedReason == "Sign in to create a cookbook.")
+
+        let noServingRecipe = try Self.recipeSummary(id: "recipe_no_servings", title: "No Servings", servings: nil)
+        let noServingRow = CookbookRecipeRowViewModel(summary: noServingRecipe)
+        #expect(noServingRow.servingsLabel == nil)
+
+        let offsiteCookbook = Cookbook(
+            id: "cookbook_offsite",
+            title: "Offsite",
+            chef: cookbook.chef,
+            recipeCount: 0,
+            cover: cookbook.cover,
+            href: "/cookbooks/cookbook_offsite",
+            canonicalURL: try #require(URL(string: "https://example.com/cookbooks/cookbook_offsite")),
+            attribution: CookbookAttribution(
+                creditText: "Offsite by ari",
+                canonicalURL: try #require(URL(string: "https://example.com/cookbooks/cookbook_offsite"))
+            ),
+            createdAt: cookbook.createdAt,
+            updatedAt: cookbook.updatedAt,
+            recipes: []
+        )
+        let fallbackShare = CookbookDetailViewModel(
+            result: CookbookSurfaceDetailResult(
+                cookbook: offsiteCookbook,
+                source: .live(requestID: "req_offsite", validatedAt: Self.now),
+                availableRecipes: []
+            ),
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        #expect(fallbackShare.sharePayload.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_offsite")
     }
 
     private static func cookbook() throws -> Cookbook {
         try CookbookFixtureCatalog.decodeFromBundle().cookbooks[0]
     }
 
+    private static func cookbook(id: String, title: String, recipes: [RecipeSummary] = []) throws -> Cookbook {
+        let base = try cookbook()
+        let canonicalURL = try #require(URL(string: "https://spoonjoy.app/cookbooks/\(id)"))
+        return Cookbook(
+            id: id,
+            title: title,
+            chef: base.chef,
+            recipeCount: recipes.count,
+            cover: base.cover,
+            href: "/cookbooks/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: CookbookAttribution(
+                creditText: "\(title) by \(base.chef.username) on Spoonjoy",
+                canonicalURL: canonicalURL
+            ),
+            createdAt: base.createdAt,
+            updatedAt: base.updatedAt,
+            recipes: recipes
+        )
+    }
+
     private static func availableRecipe() throws -> RecipeSummary {
+        try recipeSummary(id: "recipe_unsaved_flatbread", title: nil, servings: nil)
+    }
+
+    private static func recipeSummary(id: String, title: String?, servings: String?) throws -> RecipeSummary {
         var recipe = try RecipeFixtureCatalog.decodeFromBundle().recipes[1]
         recipe = Recipe(
-            id: "recipe_unsaved_flatbread",
-            title: recipe.title,
+            id: id,
+            title: title ?? recipe.title,
             description: recipe.description,
-            servings: recipe.servings,
+            servings: servings,
             chef: recipe.chef,
             coverImageURL: recipe.coverImageURL,
             coverProvenanceLabel: recipe.coverProvenanceLabel,
             coverSourceType: recipe.coverSourceType,
             coverVariant: recipe.coverVariant,
-            href: "/recipes/recipe_unsaved_flatbread",
-            canonicalURL: try #require(URL(string: "https://spoonjoy.app/recipes/recipe_unsaved_flatbread")),
+            href: "/recipes/\(id)",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/recipes/\(id)")),
             attribution: recipe.attribution,
             createdAt: recipe.createdAt,
             updatedAt: recipe.updatedAt,
@@ -504,6 +837,55 @@ struct CookbookSurfaceParityTests {
             recentSpoons: []
         )
         return RecipeSummary(recipe: recipe)
+    }
+}
+
+private struct FailingCookbookSurfaceRepository: CookbookSurfaceRepository {
+    func listCookbooks(request _: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage {
+        throw CookbookSurfaceRepositoryError.cookbookNotFound("list")
+    }
+
+    func cookbookDetail(id: String) async throws -> CookbookSurfaceDetailResult {
+        throw CookbookSurfaceRepositoryError.cookbookNotFound(id)
+    }
+}
+
+private enum RecordingCookbookAPITransportError: Error, Equatable {
+    case unsupportedValueType(String)
+}
+
+private final class RecordingCookbookAPITransport: SpoonjoyAPITransport, @unchecked Sendable {
+    private let listEnvelope: APIEnvelope<CookbookListData>
+    private let detailEnvelope: APIEnvelope<CookbookDetailData>
+    private var sentRequests: [APIRequest] = []
+
+    init(
+        listEnvelope: APIEnvelope<CookbookListData>,
+        detailEnvelope: APIEnvelope<CookbookDetailData>
+    ) {
+        self.listEnvelope = listEnvelope
+        self.detailEnvelope = detailEnvelope
+    }
+
+    var requests: [APIRequest] {
+        sentRequests
+    }
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode valueType: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let builtRequest = try request.urlRequest(configuration: configuration)
+        sentRequests.append(builtRequest)
+
+        if valueType == CookbookListData.self {
+            return listEnvelope as! APIEnvelope<Value>
+        }
+        if valueType == CookbookDetailData.self {
+            return detailEnvelope as! APIEnvelope<Value>
+        }
+        throw RecordingCookbookAPITransportError.unsupportedValueType(String(describing: valueType))
     }
 }
 

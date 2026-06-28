@@ -869,9 +869,9 @@ public enum ScenarioVerifier {
         )
     }
 
-    static func cookbookDetailCheck() -> ScenarioCheck {
+    static func cookbookDetailCheck(loadCookbook: () throws -> Cookbook = scenarioCookbook) -> ScenarioCheck {
         do {
-            let cookbook = try scenarioCookbook()
+            let cookbook = try loadCookbook()
             let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
             let status: ScenarioCheckStatus = viewModel.id == cookbook.id &&
                 viewModel.title == cookbook.title &&
@@ -888,16 +888,19 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func cookbookOwnerToolsCheck() -> ScenarioCheck {
+    static func cookbookOwnerToolsCheck(
+        loadCookbook: () throws -> Cookbook = scenarioCookbook,
+        availableRecipe: () -> RecipeSummary = scenarioAvailableRecipe
+    ) -> ScenarioCheck {
         do {
-            let cookbook = try scenarioCookbook()
+            let cookbook = try loadCookbook()
             let viewModel = scenarioCookbookDetailViewModel(
                 cookbook: cookbook,
-                availableRecipes: [scenarioAvailableRecipe()]
+                availableRecipes: [availableRecipe()]
             )
             let visitor = scenarioCookbookDetailViewModel(
                 cookbook: cookbook,
-                availableRecipes: [scenarioAvailableRecipe()],
+                availableRecipes: [availableRecipe()],
                 currentChefID: "chef_visitor"
             )
             let status: ScenarioCheckStatus = viewModel.ownerTools.isVisible &&
@@ -916,14 +919,19 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func cookbookCreateCheck(rootURL: URL) -> ScenarioCheck {
-        do {
-            let plan = try CookbookCreatePlanner(
+    static func cookbookCreateCheck(
+        rootURL: URL,
+        planBuilder: () throws -> CookbookSurfaceActionPlan = {
+            try CookbookCreatePlanner(
                 currentChefID: "chef_ari",
                 queuedMutations: [],
                 connectivity: .online,
                 timestamp: { "2026-06-16T12:11:00.000Z" }
             ).planCreate(title: " Scenario Suppers ", clientMutationID: "scenario-cookbook-create")
+        }
+    ) -> ScenarioCheck {
+        do {
+            let plan = try planBuilder()
             let source = sourceCheck(
                 name: "cookbook create surface source",
                 detail: "Cookbook list exposes the native create sheet and list-level action planner.",
@@ -946,9 +954,13 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func cookbookRenameCheck() -> ScenarioCheck {
+    static func cookbookRenameCheck(
+        viewModel: () throws -> CookbookDetailViewModel = {
+            try scenarioCookbookDetailViewModel(cookbook: scenarioCookbook())
+        }
+    ) -> ScenarioCheck {
         do {
-            let plan = try scenarioCookbookDetailViewModel(cookbook: try scenarioCookbook())
+            let plan = try viewModel()
                 .plan(.rename(title: " Scenario Dinner Parties ", clientMutationID: "scenario-cookbook-rename"))
             let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookUpdate &&
@@ -964,14 +976,18 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func cookbookDeleteCheck() -> ScenarioCheck {
+    static func cookbookDeleteCheck(
+        viewModel: () throws -> CookbookDetailViewModel = {
+            try scenarioCookbookDetailViewModel(cookbook: scenarioCookbook())
+        }
+    ) -> ScenarioCheck {
         do {
-            let viewModel = scenarioCookbookDetailViewModel(cookbook: try scenarioCookbook())
-            let prompt = try viewModel.plan(.deleteCookbook(
+            let detailViewModel = try viewModel()
+            let prompt = try detailViewModel.plan(.deleteCookbook(
                 clientMutationID: "scenario-cookbook-delete",
                 confirmation: .required
             ))
-            let confirmed = try viewModel.plan(.deleteCookbook(
+            let confirmed = try detailViewModel.plan(.deleteCookbook(
                 clientMutationID: "scenario-cookbook-delete-confirmed",
                 confirmation: .confirmed
             ))
@@ -990,13 +1006,18 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func cookbookAddRecipeCheck() -> ScenarioCheck {
-        do {
-            let recipe = scenarioAvailableRecipe()
-            let plan = try scenarioCookbookDetailViewModel(
-                cookbook: try scenarioCookbook(),
+    static func cookbookAddRecipeCheck(
+        availableRecipe: () -> RecipeSummary = scenarioAvailableRecipe,
+        viewModel: (RecipeSummary) throws -> CookbookDetailViewModel = { recipe in
+            try scenarioCookbookDetailViewModel(
+                cookbook: scenarioCookbook(),
                 availableRecipes: [recipe]
-            ).plan(.addRecipe(
+            )
+        }
+    ) -> ScenarioCheck {
+        do {
+            let recipe = availableRecipe()
+            let plan = try viewModel(recipe).plan(.addRecipe(
                 recipeID: recipe.id,
                 clientMutationID: "scenario-cookbook-add-recipe"
             ))
@@ -1014,19 +1035,24 @@ public enum ScenarioVerifier {
         }
     }
 
-    static func cookbookRemoveRecipeCheck() -> ScenarioCheck {
+    static func cookbookRemoveRecipeCheck(
+        loadCookbook: () throws -> Cookbook = scenarioCookbook,
+        viewModel: (Cookbook) -> CookbookDetailViewModel = { cookbook in
+            scenarioCookbookDetailViewModel(cookbook: cookbook)
+        }
+    ) -> ScenarioCheck {
         do {
-            let cookbook = try scenarioCookbook()
+            let cookbook = try loadCookbook()
             guard let recipe = cookbook.recipes.first else {
                 return ScenarioCheck(name: "cookbook remove recipe", status: .fail, detail: "Cookbook fixture has no removable recipe.")
             }
-            let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
-            let prompt = try viewModel.plan(.removeRecipe(
+            let detailViewModel = viewModel(cookbook)
+            let prompt = try detailViewModel.plan(.removeRecipe(
                 recipeID: recipe.id,
                 clientMutationID: "scenario-cookbook-remove-recipe",
                 confirmation: .required
             ))
-            let confirmed = try viewModel.plan(.removeRecipe(
+            let confirmed = try detailViewModel.plan(.removeRecipe(
                 recipeID: recipe.id,
                 clientMutationID: "scenario-cookbook-remove-recipe-confirmed",
                 confirmation: .confirmed
@@ -1047,7 +1073,10 @@ public enum ScenarioVerifier {
     }
 
     private static func scenarioCookbook() throws -> Cookbook {
-        let cookbooks = try CookbookFixtureCatalog.decodeFromBundle().cookbooks
+        try scenarioCookbook(from: CookbookFixtureCatalog.decodeFromBundle().cookbooks)
+    }
+
+    static func scenarioCookbook(from cookbooks: [Cookbook]) throws -> Cookbook {
         guard let cookbook = cookbooks.first else {
             throw ScenarioVerifierError.missingFixture("cookbook")
         }
@@ -1310,15 +1339,8 @@ public enum ScenarioVerifier {
     }
 }
 
-private enum ScenarioVerifierError: Error, CustomStringConvertible {
+private enum ScenarioVerifierError: Error {
     case missingFixture(String)
-
-    var description: String {
-        switch self {
-        case .missingFixture(let name):
-            "Missing \(name) fixture."
-        }
-    }
 }
 
 private extension String {

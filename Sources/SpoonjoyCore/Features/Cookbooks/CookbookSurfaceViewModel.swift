@@ -100,7 +100,7 @@ public struct CookbookCreatePlanner: Sendable {
     }
 
     public func planCreate(title: String, clientMutationID: String) throws -> CookbookSurfaceActionPlan {
-        guard currentChefID != nil else {
+        guard let currentChefID else {
             return CookbookSurfaceActionPlan(blockedReason: "Sign in to create a cookbook.")
         }
 
@@ -115,9 +115,10 @@ public struct CookbookCreatePlanner: Sendable {
             createdAt: timestamp()
         )
         let optimisticCookbook = Self.optimisticCreatedCookbook(
-            mutation: offline,
+            id: "cookbook_local_\(clientMutationID)",
             title: normalizedTitle,
-            chef: currentChef ?? ChefSummary(id: currentChefID ?? "signed-out", username: "Spoonjoy")
+            chef: currentChef ?? ChefSummary(id: currentChefID, username: "Spoonjoy"),
+            createdAt: offline.createdAt
         )
 
         if queuedMutations.contains(where: { $0.dependencyKey == offline.dependencyKey }) {
@@ -150,11 +151,11 @@ public struct CookbookCreatePlanner: Sendable {
     }
 
     private static func optimisticCreatedCookbook(
-        mutation: NativeQueuedMutation,
+        id: String,
         title: String,
-        chef: ChefSummary
+        chef: ChefSummary,
+        createdAt: String
     ) -> Cookbook {
-        let id = mutation.optimisticCookbookID ?? "cookbook_local_\(mutation.clientMutationID)"
         let canonicalURL = URL(string: "https://spoonjoy.app/cookbooks/\(id)")!
         return Cookbook(
             id: id,
@@ -168,8 +169,8 @@ public struct CookbookCreatePlanner: Sendable {
                 creditText: "\(title) by \(chef.username) on Spoonjoy",
                 canonicalURL: canonicalURL
             ),
-            createdAt: mutation.createdAt,
-            updatedAt: mutation.createdAt,
+            createdAt: createdAt,
+            updatedAt: createdAt,
             recipes: []
         )
     }

@@ -1,7 +1,7 @@
 {
   "blocked": true,
   "capability": "CoreSimulator",
-  "sourceBlockerPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18l-sharing-screenshots-core-simulator-blocker.json",
+  "sourceBlockerPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-19c-cookbooks-screenshots-core-simulator-blocker.json",
   "skippedArtifacts": [
     "screenshots/ios-mobile.png",
     "screenshots/macos-desktop.png",

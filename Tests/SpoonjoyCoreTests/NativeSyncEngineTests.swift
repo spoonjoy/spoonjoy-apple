@@ -1739,6 +1739,161 @@ struct NativeSyncEngineTests {
         #expect(try await store.cachedRecord(kind: .cookbook, resourceID: "cookbook_local_cm_cookbook_create_local") == nil)
     }
 
+    @Test("optimistic cookbook mutations preserve cache for stale and malformed payloads")
+    func optimisticCookbookMutationsPreserveCacheForStaleAndMalformedPayloads() throws {
+        let chef = ChefSummary(id: "chef_ari", username: "ari")
+        let now = Self.createdAt(4)
+        let recipe = Self.optimisticRecipe(id: "recipe_to_add", title: "Pasta for Cookbooks")
+        let summary = RecipeSummary(recipe: recipe)
+        let cookbook = Self.optimisticCookbook(id: "cookbook_weeknight", title: "Weeknight", recipes: [summary])
+        let otherCookbook = Self.optimisticCookbook(id: "cookbook_other", title: "Other")
+
+        let malformedUpdate = try Self.decodedMutation(type: .cookbookUpdate, fields: ["title": "Missing ID"])
+        let titlePreservingUpdate = try Self.decodedMutation(type: .cookbookUpdate, fields: ["cookbookId": cookbook.id])
+        let staleUpdate = NativeQueuedMutation.cookbookUpdate(
+            cookbookID: "cookbook_missing",
+            title: "Missing",
+            clientMutationID: "cm_missing_update",
+            createdAt: Self.createdAt(1)
+        )
+        let malformedDelete = try Self.decodedMutation(type: .cookbookDelete, fields: [:])
+        let delete = NativeQueuedMutation.cookbookDelete(
+            cookbookID: cookbook.id,
+            clientMutationID: "cm_delete",
+            createdAt: Self.createdAt(2)
+        )
+        let malformedAdd = try Self.decodedMutation(type: .cookbookAddRecipe, fields: ["cookbookId": cookbook.id])
+        let addMissingRecipe = NativeQueuedMutation.cookbookAddRecipe(
+            cookbookID: cookbook.id,
+            recipeID: "recipe_missing",
+            clientMutationID: "cm_missing_recipe",
+            createdAt: Self.createdAt(2)
+        )
+        let addOtherCookbook = NativeQueuedMutation.cookbookAddRecipe(
+            cookbookID: otherCookbook.id,
+            recipeID: recipe.id,
+            clientMutationID: "cm_other_add",
+            createdAt: Self.createdAt(3)
+        )
+        let malformedRemove = try Self.decodedMutation(type: .cookbookRemoveRecipe, fields: ["cookbookId": cookbook.id])
+        let removeOtherCookbook = NativeQueuedMutation.cookbookRemoveRecipe(
+            cookbookID: otherCookbook.id,
+            recipeID: recipe.id,
+            clientMutationID: "cm_other_remove",
+            createdAt: Self.createdAt(4)
+        )
+        let remove = NativeQueuedMutation.cookbookRemoveRecipe(
+            cookbookID: cookbook.id,
+            recipeID: recipe.id,
+            clientMutationID: "cm_remove",
+            createdAt: Self.createdAt(5)
+        )
+        let create = NativeQueuedMutation.cookbookCreate(
+            clientMutationID: "cm_existing_create",
+            title: "Server Cookbook",
+            createdAt: Self.createdAt(6)
+        ).recordingIDRemaps([
+            NativeSyncIDRemap(localID: "cookbook_local_cm_existing_create", serverID: cookbook.id)
+        ])
+
+        #expect(malformedUpdate.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(titlePreservingUpdate.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now).first?.title == cookbook.title)
+        #expect(staleUpdate.optimisticCookbookID == "cookbook_missing")
+        #expect(staleUpdate.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(malformedDelete.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(delete.applyingOptimisticCookbookMutation(to: [cookbook, otherCookbook], fallbackChef: chef, recipes: [recipe], now: now).map(\.id) == [otherCookbook.id])
+        #expect(malformedAdd.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(addMissingRecipe.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(addOtherCookbook.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(NativeQueuedMutation.cookbookAddRecipe(
+            cookbookID: cookbook.id,
+            recipeID: recipe.id,
+            clientMutationID: "cm_duplicate_add",
+            createdAt: Self.createdAt(3)
+        ).applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(malformedRemove.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(removeOtherCookbook.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now) == [cookbook])
+        #expect(remove.applyingOptimisticCookbookMutation(to: [cookbook], fallbackChef: chef, recipes: [recipe], now: now).first?.recipes.isEmpty == true)
+
+        let upsertedExisting = create.applyingOptimisticCookbookMutation(
+            to: [cookbook, otherCookbook],
+            fallbackChef: chef,
+            recipes: [recipe],
+            now: now
+        )
+        #expect(upsertedExisting.map(\.id) == [cookbook.id, otherCookbook.id])
+        #expect(upsertedExisting.first?.title == "Server Cookbook")
+        #expect(malformedUpdate.optimisticCreatedCookbook(fallbackChef: chef, now: now).id == "cookbook_local_cm_decode")
+        #expect(try Self.decodedMutation(type: .cookbookCreate, fields: [:]).optimisticCreatedCookbook(fallbackChef: chef, now: now).title == "Untitled Cookbook")
+        #expect(create.idRemaps(from: .object(["cookbookId": .string("cookbook_flat")])) == [
+            NativeSyncIDRemap(localID: "cookbook_local_cm_existing_create", serverID: "cookbook_flat")
+        ])
+    }
+
+    @Test("drained cookbook mutations patch cached cookbook records")
+    func drainedCookbookMutationsPatchCachedCookbookRecords() async throws {
+        let recipe = Self.optimisticRecipe(id: "recipe_cached", title: "Cached Pasta")
+        let cookbook = Self.optimisticCookbook(id: "cookbook_cached", title: "Cached Cookbook")
+        let otherCookbook = Self.optimisticCookbook(id: "cookbook_other_cached", title: "Other Cached Cookbook")
+        let addStore = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [
+                .cookbookAddRecipe(
+                    cookbookID: cookbook.id,
+                    recipeID: recipe.id,
+                    clientMutationID: "cm_cached_add",
+                    createdAt: Self.createdAt(7)
+                )
+            ]),
+            cachedRecords: [
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: cookbook.id, payload: try Self.jsonValue(cookbook), serverRevision: .updatedAt(cookbook.updatedAt)),
+                NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt)),
+                NativeSyncCachedRecord(kind: .profile, resourceID: "chef_ari", payload: .object(["username": .string("ari")]), serverRevision: nil)
+            ]
+        )
+        let addTransport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [.success(serverRevision: .updatedAt(Self.createdAt(8)))]
+        )
+        let addEngine = NativeSyncEngine(store: addStore, transport: addTransport, clock: { now })
+
+        let addReport = try await addEngine.bootstrapAndDrain(configuration: configuration, trigger: NativeCacheRevalidationTrigger.networkRecovered, scope: boundScope)
+        let addedRecord = try #require(await addStore.cachedRecord(kind: NativeSyncEntryKind.cookbook, resourceID: cookbook.id))
+        let addedCookbook = try Self.cookbook(from: addedRecord.payload)
+        #expect(addReport.drainedClientMutationIDs == ["cm_cached_add"])
+        #expect(addedCookbook.recipes.map(\.id) == [recipe.id])
+
+        let deleteStore = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [
+                .cookbookDelete(
+                    cookbookID: cookbook.id,
+                    clientMutationID: "cm_cached_delete",
+                    createdAt: Self.createdAt(9)
+                )
+            ]),
+            cachedRecords: [
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: cookbook.id, payload: try Self.jsonValue(cookbook), serverRevision: .updatedAt(cookbook.updatedAt)),
+                NativeSyncCachedRecord(kind: .cookbook, resourceID: otherCookbook.id, payload: try Self.jsonValue(otherCookbook), serverRevision: .updatedAt(otherCookbook.updatedAt)),
+                NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt))
+            ]
+        )
+        let deleteTransport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: []),
+            mutationResults: [.success(serverRevision: .updatedAt(Self.createdAt(10)))]
+        )
+        let deleteEngine = NativeSyncEngine(store: deleteStore, transport: deleteTransport, clock: { now })
+
+        let deleteReport = try await deleteEngine.bootstrapAndDrain(configuration: configuration, trigger: NativeCacheRevalidationTrigger.networkRecovered, scope: boundScope)
+        #expect(deleteReport.drainedClientMutationIDs == ["cm_cached_delete"])
+        #expect(try await deleteStore.cachedRecord(kind: NativeSyncEntryKind.cookbook, resourceID: cookbook.id) == nil)
+        #expect(try await deleteStore.cachedRecord(kind: NativeSyncEntryKind.cookbook, resourceID: otherCookbook.id) != nil)
+    }
+
     @Test("drained recipe mutations persist to file backed cache for restart")
     func drainedRecipeMutationsPersistToFileBackedCacheForRestart() async throws {
         try await withTemporaryDirectory { directory in
@@ -4041,6 +4196,30 @@ struct NativeSyncEngineTests {
 
     private static func cookbook(from payload: JSONValue) throws -> Cookbook {
         try JSONDecoder().decode(Cookbook.self, from: JSONEncoder().encode(payload))
+    }
+
+    private static func optimisticCookbook(
+        id: String = "cookbook_weeknight",
+        title: String = "Weeknight",
+        recipes: [RecipeSummary] = []
+    ) -> Cookbook {
+        let canonicalURL = URL(string: "https://spoonjoy.app/cookbooks/\(id)")!
+        return Cookbook(
+            id: id,
+            title: title,
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            recipeCount: recipes.count,
+            cover: CookbookCover(imageURLs: []),
+            href: "/cookbooks/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: CookbookAttribution(
+                creditText: "\(title) by ari on Spoonjoy",
+                canonicalURL: canonicalURL
+            ),
+            createdAt: createdAt(0),
+            updatedAt: createdAt(0),
+            recipes: recipes
+        )
     }
 
     private static func shoppingItem(from payload: JSONValue) throws -> ShoppingListItem {
