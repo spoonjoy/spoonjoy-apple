@@ -47,278 +47,21 @@ SwiftDriver SpoonjoyCore normal arm64 com.apple.xcode.tools.swift.compiler (in t
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
     builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SpoonjoyCore -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.0 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -suppress-warnings -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name spoonjoy_apple -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_const_extract_protocols.json -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj -experimental-emit-module-separately -disable-cmo
 
-SwiftCompile normal arm64 Compiling\ JSONValue.swift,\ NativeAPIRequests.swift,\ PaginationCursor.swift,\ PublicCatalogRequests.swift,\ ShoppingListAPI.swift,\ ShoppingListRequests.swift,\ AppNavigationState.swift,\ AppRoute.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/JSONValue.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/NativeAPIRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PaginationCursor.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListAPI.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppNavigationState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/JSONValue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PaginationCursor.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListAPI.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/ShoppingListRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppNavigationState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 Compiling\ RefreshCoordinator.swift,\ SecureAuthWebHandoff.swift,\ TokenVault.swift,\ NativeCacheFreshnessPolicy.swift,\ NativeCachePrefetchPolicy.swift,\ NativeDurableCache.swift,\ NativeDurableCacheStore.swift,\ NativeIndicatorDismissalStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/TokenVault.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/TokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 Compiling\ ShoppingSurfaceViewModel.swift,\ SpoonCookLogViewModel.swift,\ CaptureDraft.swift,\ CookModeProgress.swift,\ KitchenFixtureState.swift,\ SettingsState.swift,\ ShoppingListState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Spoons/SpoonCookLogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/SettingsState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Spoons/SpoonCookLogViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/SettingsState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
 SwiftEmitModule normal arm64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 EmitSwiftModule normal arm64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 Compiling\ resource_bundle_accessor.swift,\ APIClient.swift,\ APIEnvelope.swift,\ APIError.swift,\ APIRequestBuilder.swift,\ APIRequestSupport.swift,\ APIRetryPolicy.swift,\ APITransport.swift /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources/resource_bundle_accessor.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIClient.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIEnvelope.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIError.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestSupport.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRetryPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftCompile normal arm64 /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources/resource_bundle_accessor.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIClient.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIEnvelope.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRequestSupport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/API/APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 Compiling\ InMemoryTokenVault.swift,\ KeychainTokenVault.swift,\ NativeAuthSession.swift,\ NativeAuthSessionRepository.swift,\ OAuthPKCE.swift,\ OAuthRedirectValidator.swift,\ OAuthRequests.swift,\ OAuthResponses.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRequests.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthResponses.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/OAuthResponses.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 Compiling\ NativeMediaStagingPolicy.swift,\ OfflineFreshnessIndicator.swift,\ CaptureImportViewModel.swift,\ CookbookSurfaceRepository.swift,\ CookbookSurfaceViewModel.swift,\ RecipeCoverControlsViewModel.swift,\ ProfileChefGraphSurfaceRepository.swift,\ ProfileChefGraphSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
+SwiftCompile normal arm64 Compiling\ ProfileChefGraphSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+SwiftDriverJobDiscovery normal arm64 Compiling ProfileChefGraphSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-
-SwiftCompile normal arm64 Compiling\ JSONFileStore.swift,\ MutationQueue.swift,\ OfflineSnapshot.swift,\ SyncCheckpoint.swift,\ RecipeCookbook.swift,\ SpoonjoyCore.swift,\ NativeSyncEngine.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/JSONFileStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/MutationQueue.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/SpoonjoyCore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/JSONFileStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/SpoonjoyCore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 Compiling\ DeepLinkManifest.swift,\ NativeCapabilityMetadata.swift,\ NativeIntentAction.swift,\ ScenarioCommand.swift,\ ScenarioReport.swift,\ ScenarioVerifier.swift,\ SpotlightIndexPlan.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/DeepLinkManifest.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioCommand.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioReport.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/DeepLinkManifest.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioReport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 Compiling\ RecipeActionsViewModel.swift,\ RecipeCatalogRepository.swift,\ RecipeCatalogViewModel.swift,\ RecipeDetailScreenViewModel.swift,\ RecipeEditorDraft.swift,\ RecipeEditorDraftChangePlanner.swift,\ RecipeEditorViewModel.swift,\ NativeSharePayload.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraftChangePlanner.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
+SwiftCompile normal arm64 Compiling\ RecipeCatalogViewModel.swift,\ RecipeDetailScreenViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
@@ -327,43 +70,40 @@ SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/Spo
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 Compiling\ SpotlightIndexPlan.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraftChangePlanner.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 Compiling\ CaptureImportViewModel.swift,\ CookbookSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 Compiling\ NativeIntentAction.swift,\ ScenarioVerifier.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 Compiling\ DeepLinkRouter.swift,\ DeepLinkURLBuilder.swift,\ NativeAppSnapshot.swift,\ NativeFixtureFallbackPolicy.swift,\ NativeLiveAppStore.swift,\ ScreenViewModels.swift,\ SearchState.swift,\ AuthSessionState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/SearchState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/AuthSessionState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
+SwiftCompile normal arm64 Compiling\ NativeAppSnapshot.swift,\ NativeLiveAppStore.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
+
+SwiftCompile normal arm64 Compiling\ ScreenViewModels.swift,\ SearchState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/SearchState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
@@ -373,25 +113,61 @@ SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/Spo
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Auth/AuthSessionState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 Compiling\ DeepLinkRouter.swift,\ DeepLinkURLBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
 
-SwiftDriverJobDiscovery normal arm64 Compiling InMemoryTokenVault.swift, KeychainTokenVault.swift, NativeAuthSession.swift, NativeAuthSessionRepository.swift, OAuthPKCE.swift, OAuthRedirectValidator.swift, OAuthRequests.swift, OAuthResponses.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
-SwiftDriverJobDiscovery normal arm64 Compiling resource_bundle_accessor.swift, APIClient.swift, APIEnvelope.swift, APIError.swift, APIRequestBuilder.swift, APIRequestSupport.swift, APIRetryPolicy.swift, APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-SwiftDriverJobDiscovery normal arm64 Compiling JSONValue.swift, NativeAPIRequests.swift, PaginationCursor.swift, PublicCatalogRequests.swift, ShoppingListAPI.swift, ShoppingListRequests.swift, AppNavigationState.swift, AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 Compiling\ RecipeEditorViewModel.swift,\ NativeSharePayload.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-SwiftDriverJobDiscovery normal arm64 Compiling DeepLinkManifest.swift, NativeCapabilityMetadata.swift, NativeIntentAction.swift, ScenarioCommand.swift, ScenarioReport.swift, ScenarioVerifier.swift, SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
 
-SwiftDriverJobDiscovery normal arm64 Compiling RefreshCoordinator.swift, SecureAuthWebHandoff.swift, TokenVault.swift, NativeCacheFreshnessPolicy.swift, NativeCachePrefetchPolicy.swift, NativeDurableCache.swift, NativeDurableCacheStore.swift, NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+
+
+SwiftCompile normal arm64 Compiling\ ProfileChefGraphSurfaceViewModel.swift,\ RecipeActionsViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+
+
+SwiftCompile normal arm64 Compiling\ AppNavigationState.swift,\ AppRoute.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppNavigationState.swift /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppNavigationState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/AppState/AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftDriver\ Compilation\ Requirements SpoonjoyCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
     builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SpoonjoyCore -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.0 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -suppress-warnings -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name spoonjoy_apple -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_const_extract_protocols.json -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftDriverJobDiscovery normal arm64 Compiling SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftsourceinfo (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftsourceinfo /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.swiftmodule/arm64-apple-macos.swiftmodule /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.swiftmodule/arm64-apple-macos.swiftmodule
 
 Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.swiftmodule/arm64-apple-macos.abi.json /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.abi.json (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -401,17 +177,71 @@ SwiftDriver Spoonjoy\ macOS normal arm64 com.apple.xcode.tools.swift.compiler (i
     cd /Users/arimendelow/Projects/spoonjoy-apple
     builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Spoonjoy -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.2 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -warnings-as-errors -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/PackageFrameworks -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-generated-files.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-own-target-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy-561e67053217bb880340d8fba8e33b11-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-project-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple -experimental-emit-module-separately -disable-cmo
 
-SwiftDriverJobDiscovery normal arm64 Compiling RecipeActionsViewModel.swift, RecipeCatalogRepository.swift, RecipeCatalogViewModel.swift, RecipeDetailScreenViewModel.swift, RecipeEditorDraft.swift, RecipeEditorDraftChangePlanner.swift, RecipeEditorViewModel.swift, NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftDriverJobDiscovery normal arm64 Compiling DeepLinkRouter.swift, DeepLinkURLBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-SwiftDriverJobDiscovery normal arm64 Compiling ShoppingSurfaceViewModel.swift, SpoonCookLogViewModel.swift, CaptureDraft.swift, CookModeProgress.swift, KitchenFixtureState.swift, SettingsState.swift, ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftDriverJobDiscovery normal arm64 Compiling ProfileChefGraphSurfaceViewModel.swift, RecipeActionsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-SwiftCompile normal arm64 Compiling\ RecipeCoverControlsView.swift,\ RecipeCoverImage.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftDriverJobDiscovery normal arm64 Compiling ScreenViewModels.swift, SearchState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftDriverJobDiscovery normal arm64 Compiling AppNavigationState.swift, AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RecipeCatalogViewModel.swift, RecipeDetailScreenViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RecipeEditorViewModel.swift, NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftDriverJobDiscovery normal arm64 Compiling CaptureImportViewModel.swift, CookbookSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftDriverJobDiscovery normal arm64 Compiling NativeIntentAction.swift, ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+
+SwiftCompile normal arm64 Compiling\ CaptureDraftView.swift,\ CookbooksView.swift,\ CookModeView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookbooksView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookbooksView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 Compiling\ RecipeEditorView.swift,\ RecipesView.swift,\ SearchView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipesView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SearchView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipesView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SearchView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 Compiling\ SignedOutSetupView.swift,\ SpoonCookLogView.swift,\ SpoonjoyAppIntents.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 Compiling\ SpoonjoyWebAuthenticationSession.swift,\ GeneratedAssetSymbols.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
@@ -421,56 +251,58 @@ EmitSwiftModule normal arm64 (in target 'Spoonjoy macOS' from project 'Spoonjoy'
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 Compiling\ CaptureDraftView.swift,\ CookbooksView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookbooksView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 Compiling\ SettingsView.swift,\ ShareActions.swift,\ ShoppingListView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SettingsView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SettingsView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookbooksView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 Compiling\ CookModeView.swift,\ PlatformNavigationView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 Compiling\ RecipeCoverControlsView.swift,\ RecipeCoverImage.swift,\ RecipeDetailView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 Compiling\ SpoonCookLogView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
-
-SwiftCompile normal arm64 Compiling\ SpoonjoyAppIntents.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SignedOutSetupView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ RecipeDetailView.swift,\ RecipeEditorView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 Compiling\ SpoonjoyMacApp.swift,\ SpoonjoyRootView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftDriverJobDiscovery normal arm64 Compiling NativeMediaStagingPolicy.swift, OfflineFreshnessIndicator.swift, CaptureImportViewModel.swift, CookbookSurfaceRepository.swift, CookbookSurfaceViewModel.swift, RecipeCoverControlsViewModel.swift, ProfileChefGraphSurfaceRepository.swift, ProfileChefGraphSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
 
-SwiftCompile normal arm64 Compiling\ ProfileView.swift,\ ReceiptListView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ProfileView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/ReceiptListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 Compiling\ SpoonjoySpotlightIndexer.swift,\ SpoonjoyToolbar.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftCompile normal arm64 Compiling\ PlatformNavigationView.swift,\ ProfileView.swift,\ ReceiptListView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ProfileView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/ReceiptListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ProfileView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -480,29 +312,69 @@ SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonj
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftDriverJobDiscovery normal arm64 Compiling DeepLinkRouter.swift, DeepLinkURLBuilder.swift, NativeAppSnapshot.swift, NativeFixtureFallbackPolicy.swift, NativeLiveAppStore.swift, ScreenViewModels.swift, SearchState.swift, AuthSessionState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+SwiftDriverJobDiscovery normal arm64 Compiling NativeAppSnapshot.swift, NativeLiveAppStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
-SwiftCompile normal arm64 Compiling\ SearchView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SearchView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftDriver\ Compilation SpoonjoyCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SpoonjoyCore -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.0 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -suppress-warnings -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name spoonjoy_apple -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_const_extract_protocols.json -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj -experimental-emit-module-separately -disable-cmo
 
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SearchView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoySpotlightIndexer.swift, SpoonjoyToolbar.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 Compiling\ KitchenSafeControls.swift,\ KitchenView.swift,\ OfflineStatusView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/KitchenView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
 
-SwiftDriverJobDiscovery normal arm64 Compiling SignedOutSetupView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 Compiling\ RecipesView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipesView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/RecipesView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/KitchenView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
 
+
+SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+
+
+SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyWebAuthenticationSession.swift, GeneratedAssetSymbols.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+Ld /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o normal (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos26.0 -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -O0 -w -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/EagerLinkingTBDs/BootstrapDebug -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-linker-args.resp -o /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o
+
+ExtractAppIntentsMetadata (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name SpoonjoyCore --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk --xcode-version 17F42 --platform-family macOS --deployment-target 26.0 --bundle-identifier spoonjoy-apple.SpoonjoyCore --output /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.appintents --target-triple arm64-apple-macos26.0 --binary-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o --dependency-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_dependency_info.dat --stringsdata-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftFileList --metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/SpoonjoyCore.DependencyMetadataFileList --static-metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/SpoonjoyCore.DependencyStaticMetadataFileList --swift-const-vals-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-06-27 18:26:38.540 appintentsmetadataprocessor[92074:12786357] Starting appintentsmetadataprocessor export
+2026-06-27 18:26:38.593 appintentsmetadataprocessor[92074:12786357] Extracted no relevant App Intents symbols, skipping writing output
+
+SwiftDriverJobDiscovery normal arm64 Compiling SettingsView.swift, ShareActions.swift, ShoppingListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyMacApp.swift, SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    builtin-RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o
+
+SwiftDriverJobDiscovery normal arm64 Compiling KitchenSafeControls.swift, KitchenView.swift, OfflineStatusView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RecipeEditorView.swift, RecipesView.swift, SearchView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SignedOutSetupView.swift, SpoonCookLogView.swift, SpoonjoyAppIntents.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RecipeCoverControlsView.swift, RecipeCoverImage.swift, RecipeDetailView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriverJobDiscovery normal arm64 Compiling CaptureDraftView.swift, CookbooksView.swift, CookModeView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriverJobDiscovery normal arm64 Compiling PlatformNavigationView.swift, ProfileView.swift, ReceiptListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+
+SwiftDriver\ Compilation Spoonjoy\ macOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Spoonjoy -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.2 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -warnings-as-errors -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/PackageFrameworks -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-generated-files.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-own-target-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy-561e67053217bb880340d8fba8e33b11-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-project-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple -experimental-emit-module-separately -disable-cmo
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for Spoonjoy (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 SwiftDriver\ Compilation\ Requirements Spoonjoy\ macOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
     builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Spoonjoy -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.2 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -warnings-as-errors -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/PackageFrameworks -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-generated-files.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-own-target-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy-561e67053217bb880340d8fba8e33b11-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-project-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple -experimental-emit-module-separately -disable-cmo
-
-SwiftDriverJobDiscovery normal arm64 Compiling RecipeCoverControlsView.swift, RecipeCoverImage.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
 
 Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.swiftmodule/arm64-apple-macos.swiftmodule /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftmodule (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -515,139 +387,6 @@ Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyf
 Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftsourceinfo (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
     builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftsourceinfo /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyAppIntents.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling RecipesView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonCookLogView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SearchView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling ProfileView.swift, ReceiptListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling JSONFileStore.swift, MutationQueue.swift, OfflineSnapshot.swift, SyncCheckpoint.swift, RecipeCookbook.swift, SpoonjoyCore.swift, NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-
-SwiftDriver\ Compilation SpoonjoyCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj
-    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SpoonjoyCore -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.0 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -suppress-warnings -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name spoonjoy_apple -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_const_extract_protocols.json -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple/Spoonjoy.xcodeproj -experimental-emit-module-separately -disable-cmo
-
-Ld /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o normal (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos26.0 -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -O0 -w -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/EagerLinkingTBDs/BootstrapDebug -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.swiftmodule @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-linker-args.resp -o /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o
-
-ExtractAppIntentsMetadata (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name SpoonjoyCore --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk --xcode-version 17F42 --platform-family macOS --deployment-target 26.0 --bundle-identifier spoonjoy-apple.SpoonjoyCore --output /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.appintents --target-triple arm64-apple-macos26.0 --binary-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o --dependency-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore_dependency_info.dat --stringsdata-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftFileList --metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/SpoonjoyCore.DependencyMetadataFileList --static-metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/SpoonjoyCore.DependencyStaticMetadataFileList --swift-const-vals-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
-2026-06-27 18:14:28.858 appintentsmetadataprocessor[75522:12745869] Starting appintentsmetadataprocessor export
-2026-06-27 18:14:28.879 appintentsmetadataprocessor[75522:12745869] Extracted no relevant App Intents symbols, skipping writing output
-
-SwiftDriverJobDiscovery normal arm64 Compiling RecipeDetailView.swift, RecipeEditorView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    builtin-RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyCore.o
-
-Ld /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/__preview.dylib normal (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos26.2 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -O0 -L/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/PackageFrameworks -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -install_name @rpath/Spoonjoy.debug.dylib -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy_dependency_info.dat -o /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/__preview.dylib
-
-Copy /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources/SpoonjoyApple_SpoonjoyCore.bundle /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyApple_SpoonjoyCore.bundle (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/SpoonjoyApple_SpoonjoyCore.bundle /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources
-
-SwiftDriverJobDiscovery normal arm64 Compiling CookModeView.swift, PlatformNavigationView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling CaptureDraftView.swift, CookbooksView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 Compiling\ OfflineStatusView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ KitchenSafeControls.swift,\ KitchenView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/KitchenView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/KitchenView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SpoonjoyMacApp.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SettingsView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SettingsView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/SettingsView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SpoonjoySpotlightIndexer.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SpoonjoyToolbar.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ ShareActions.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ ShoppingListView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SpoonjoyWebAuthenticationSession.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-SwiftCompile normal arm64 Compiling\ SpoonjoyRootView.swift /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-
-
-ProcessInfoPlistFile /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Info.plist /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Info.plist (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    builtin-infoPlistUtility /Users/arimendelow/Projects/spoonjoy-apple/Apps/Spoonjoy/Shared/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources/SpoonjoyApple_SpoonjoyCore.bundle -o /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Info.plist
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyMacApp.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling ShareActions.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyToolbar.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoySpotlightIndexer.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SettingsView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling OfflineStatusView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyWebAuthenticationSession.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling KitchenSafeControls.swift, KitchenView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling ShoppingListView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyRootView.swift (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-
-SwiftDriver\ Compilation Spoonjoy\ macOS normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Spoonjoy -Onone @/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftFileList -DDEBUG -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -target arm64-apple-macos26.2 -g -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -warnings-as-errors -index-store-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/PackageFrameworks -F /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx26.5-25F70-e082c4a02f00227109f4ed75e425c832.sdkstatcache -output-file-map /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy\ macOS_const_extract_protocols.json -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-generated-files.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-own-target-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy-561e67053217bb880340d8fba8e33b11-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-project-headers.hmap -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/include -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources-normal/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources/arm64 -Xcc -I/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy-Swift.h -working-directory /Users/arimendelow/Projects/spoonjoy-apple -experimental-emit-module-separately -disable-cmo
 
 Ld /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/Spoonjoy.debug.dylib normal (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
@@ -662,32 +401,16 @@ Ld /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfha
     cd /Users/arimendelow/Projects/spoonjoy-apple
     /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos26.2 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk -O0 -L/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/PackageFrameworks -F/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker @executable_path/../Frameworks -rdynamic -Xlinker -no_deduplicate -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy-ExecutorLinkFileList-normal-arm64.txt /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/Spoonjoy.debug.dylib -o /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/Spoonjoy
 
+ExtractAppIntentsMetadata (in target 'Spoonjoy macOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Spoonjoy --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk --xcode-version 17F42 --platform-family macOS --deployment-target 26.2 --bundle-identifier app.spoonjoy.Spoonjoy.mac --output /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources --target-triple arm64-apple-macos26.2 --binary-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/Spoonjoy --dependency-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy_dependency_info.dat --stringsdata-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftFileList --metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy.DependencyMetadataFileList --static-metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy.DependencyStaticMetadataFileList --swift-const-vals-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-06-27 18:26:40.372 appintentsmetadataprocessor[92091:12786514] Starting appintentsmetadataprocessor export
+2026-06-27 18:26:40.392 appintentsmetadataprocessor[92091:12786514] Writing Metadata.appintents
+2026-06-27 18:26:40.392 appintentsmetadataprocessor[92091:12786514] Metadata root: /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources/Metadata.appintents
+
 CopySwiftLibs /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app (in target 'Spoonjoy macOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple
     builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/Spoonjoy.debug.dylib --scan-folder /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Frameworks --scan-folder /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/PlugIns --scan-folder /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Library/SystemExtensions --scan-folder /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
 Ignoring --strip-bitcode because --sign was not passed
-
-ExtractAppIntentsMetadata (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Spoonjoy --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk --xcode-version 17F42 --platform-family macOS --deployment-target 26.2 --bundle-identifier app.spoonjoy.Spoonjoy.mac --output /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources --target-triple arm64-apple-macos26.2 --binary-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/MacOS/Spoonjoy --dependency-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy_dependency_info.dat --stringsdata-file /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftFileList --metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy.DependencyMetadataFileList --static-metadata-file-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Spoonjoy.DependencyStaticMetadataFileList --swift-const-vals-list /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug/Spoonjoy\ macOS.build/Objects-normal/arm64/Spoonjoy.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
-2026-06-27 18:14:29.783 appintentsmetadataprocessor[75540:12745953] Starting appintentsmetadataprocessor export
-2026-06-27 18:14:29.799 appintentsmetadataprocessor[75540:12745953] Writing Metadata.appintents
-2026-06-27 18:14:29.799 appintentsmetadataprocessor[75540:12745953] Metadata root: /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app/Contents/Resources/Metadata.appintents
-
-RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    builtin-RegisterExecutionPolicyException /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app
-
-Validate /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    builtin-validationUtility /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app -no-validate-extension -infoplist-subpath Contents/Info.plist
-
-Touch /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    /usr/bin/touch -c /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app
-
-RegisterWithLaunchServices /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app (in target 'Spoonjoy macOS' from project 'Spoonjoy')
-    cd /Users/arimendelow/Projects/spoonjoy-apple
-    /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-adbsilixtyfhasewikyduwzxgckv/Build/Products/BootstrapDebug/Spoonjoy.app
 
 ** BUILD SUCCEEDED **

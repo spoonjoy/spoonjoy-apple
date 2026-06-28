@@ -160,6 +160,40 @@ struct ProfileChefGraphSurfaceTests {
         ))
     }
 
+    @Test("fallback profile repository refuses to invent unknown cached profiles")
+    @MainActor
+    func fallbackProfileRepositoryRefusesToInventUnknownCachedProfiles() async throws {
+        let snapshot = SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: ProfileSurfaceResult(
+                data: try Self.profileData(),
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            ),
+            graphPages: [try Self.graphPage(direction: .fellowChefs)]
+        )
+        let repository = FallbackProfileChefGraphSurfaceRepository(
+            primary: ThrowingProfileChefGraphSurfaceRepository(),
+            fallback: snapshot
+        )
+
+        var profileDidThrow = false
+        do {
+            _ = try await repository.profile(identifier: "not-real")
+        } catch let error as ProfileSurfaceSnapshotError {
+            profileDidThrow = true
+            #expect(error == .profileNotCached(identifier: "not-real"))
+        }
+        #expect(profileDidThrow)
+
+        var graphDidThrow = false
+        do {
+            _ = try await repository.graph(identifier: "not-real", direction: .fellowChefs, page: 1, limit: 50)
+        } catch let error as ProfileSurfaceSnapshotError {
+            graphDidThrow = true
+            #expect(error == .profileNotCached(identifier: "not-real"))
+        }
+        #expect(graphDidThrow)
+    }
+
     private static func profileData(isOwner: Bool = true) throws -> ProfileSurfaceData {
         ProfileSurfaceData(
             profile: ProfileSummary(
@@ -257,6 +291,20 @@ struct ProfileChefGraphSurfaceTests {
 
 private enum RecordingProfileAPITransportError: Error, Equatable {
     case unsupportedValueType(String)
+}
+
+private enum ThrowingProfileChefGraphSurfaceRepositoryError: Error {
+    case liveUnavailable
+}
+
+private struct ThrowingProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepository {
+    func profile(identifier _: String) async throws -> ProfileSurfaceResult {
+        throw ThrowingProfileChefGraphSurfaceRepositoryError.liveUnavailable
+    }
+
+    func graph(identifier _: String, direction _: ProfileGraphDirection, page _: Int, limit _: Int) async throws -> ProfileGraphPage {
+        throw ThrowingProfileChefGraphSurfaceRepositoryError.liveUnavailable
+    }
 }
 
 private final class RecordingProfileAPITransport: SpoonjoyAPITransport, @unchecked Sendable {

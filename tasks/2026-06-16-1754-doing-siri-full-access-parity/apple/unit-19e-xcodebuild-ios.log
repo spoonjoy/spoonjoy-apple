@@ -13,7 +13,7 @@ Resolve Package Graph
 Resolved source packages:
   SpoonjoyApple: /Users/arimendelow/Projects/spoonjoy-apple @ local
 
-2026-06-27 18:14:39.491 xcodebuild[75635:12746539] Writing error result bundle to /var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/ResultBundle_2026-27-06_18-14-0039.xcresult
+2026-06-27 18:26:41.968 xcodebuild[92105:12786582] Writing error result bundle to /var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/ResultBundle_2026-27-06_18-26-0041.xcresult
 xcodebuild: error: Unable to find a destination matching the provided destination specifier:
 		{ generic:1, platform:iOS Simulator }
 

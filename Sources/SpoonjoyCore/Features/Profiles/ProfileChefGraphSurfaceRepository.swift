@@ -537,6 +537,17 @@ public protocol ProfileChefGraphSurfaceRepository: Sendable {
     func graph(identifier: String, direction: ProfileGraphDirection, page: Int, limit: Int) async throws -> ProfileGraphPage
 }
 
+public enum ProfileSurfaceSnapshotError: Error, Equatable, Sendable, CustomStringConvertible {
+    case profileNotCached(identifier: String)
+
+    public var description: String {
+        switch self {
+        case .profileNotCached(let identifier):
+            "No cached profile exists for \(identifier)."
+        }
+    }
+}
+
 public struct LiveProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepository {
     private let transport: any SpoonjoyAPITransport
     private let configuration: APIClientConfiguration
@@ -593,11 +604,13 @@ public struct SnapshotProfileChefGraphSurfaceRepository: ProfileChefGraphSurface
         self.graphPages = graphPages
     }
 
-    public func profile(identifier _: String) async throws -> ProfileSurfaceResult {
-        profileResult
+    public func profile(identifier: String) async throws -> ProfileSurfaceResult {
+        try validateCachedProfile(identifier: identifier)
+        return profileResult
     }
 
-    public func graph(identifier _: String, direction: ProfileGraphDirection, page: Int, limit: Int) async throws -> ProfileGraphPage {
+    public func graph(identifier: String, direction: ProfileGraphDirection, page: Int, limit: Int) async throws -> ProfileGraphPage {
+        try validateCachedProfile(identifier: identifier)
         if let graphPage = graphPages.first(where: { $0.direction == direction && $0.page == page }) {
             return graphPage
         }
@@ -613,6 +626,26 @@ public struct SnapshotProfileChefGraphSurfaceRepository: ProfileChefGraphSurface
             pageSize: limit,
             source: profileResult.source
         )
+    }
+
+    private func validateCachedProfile(identifier: String) throws {
+        let requested = ProfileSurfaceRequest(identifier: identifier).identifier
+        guard !requested.isEmpty,
+              requested == profileResult.data.profile.id || requested == profileResult.data.profile.username else {
+            throw ProfileSurfaceSnapshotError.profileNotCached(identifier: requested)
+        }
+    }
+}
+
+public struct UnavailableProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepository {
+    public init() {}
+
+    public func profile(identifier: String) async throws -> ProfileSurfaceResult {
+        throw ProfileSurfaceSnapshotError.profileNotCached(identifier: ProfileSurfaceRequest(identifier: identifier).identifier)
+    }
+
+    public func graph(identifier: String, direction _: ProfileGraphDirection, page _: Int, limit _: Int) async throws -> ProfileGraphPage {
+        throw ProfileSurfaceSnapshotError.profileNotCached(identifier: ProfileSurfaceRequest(identifier: identifier).identifier)
     }
 }
 

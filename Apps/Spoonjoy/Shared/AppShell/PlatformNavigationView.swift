@@ -452,11 +452,17 @@ struct PlatformNavigationView: View {
     }
 
     private func profileGraphRepository(identifier: String) -> any ProfileChefGraphSurfaceRepository {
-        let snapshotRepository = SnapshotProfileChefGraphSurfaceRepository(
-            profileResult: profileSurfaceResult(identifier: identifier),
-            graphPages: profileGraphPages(identifier: identifier)
-        )
         let liveRepository = LiveProfileChefGraphSurfaceRepository(configuration: contentState.configuration)
+        guard let profileResult = profileSurfaceResult(identifier: identifier) else {
+            return FallbackProfileChefGraphSurfaceRepository(
+                primary: liveRepository,
+                fallback: UnavailableProfileChefGraphSurfaceRepository()
+            )
+        }
+        let snapshotRepository = SnapshotProfileChefGraphSurfaceRepository(
+            profileResult: profileResult,
+            graphPages: profileGraphPages(profileResult: profileResult)
+        )
         return FallbackProfileChefGraphSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
     }
 
@@ -472,8 +478,10 @@ struct PlatformNavigationView: View {
         )
     }
 
-    private func profileSurfaceResult(identifier: String) -> ProfileSurfaceResult {
-        let chef = profileChef(identifier: identifier) ?? currentChefSummary ?? ChefSummary(id: identifier, username: identifier)
+    private func profileSurfaceResult(identifier: String) -> ProfileSurfaceResult? {
+        guard let chef = profileChef(identifier: identifier) else {
+            return nil
+        }
         let recipes = contentState.recipes.filter { $0.chef.id == chef.id }
         let cookbooks = contentState.cookbooks.filter { $0.chef.id == chef.id }
         let recentSpoons = profileRecentSpoons(chefID: chef.id)
@@ -554,8 +562,7 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private func profileGraphPages(identifier: String) -> [ProfileGraphPage] {
-        let result = profileSurfaceResult(identifier: identifier)
+    private func profileGraphPages(profileResult result: ProfileSurfaceResult) -> [ProfileGraphPage] {
         let profile = ProfileGraphProfile(
             id: result.data.profile.id,
             username: result.data.profile.username,
