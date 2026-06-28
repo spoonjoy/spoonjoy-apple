@@ -6,6 +6,9 @@ struct PlatformNavigationView: View {
     @Binding var search: SearchState
 
     @Environment(\.openURL) private var openURL
+    @FocusState private var isSearchFieldFocused: Bool
+    @State private var activeSearch: ActiveSearchSurfaceState?
+    @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
 
     private let contentState: NativeShellContentState
     private let offlineIndicatorState: OfflineIndicatorState
@@ -28,6 +31,8 @@ struct PlatformNavigationView: View {
     private let recordCaptureImportRetryHandler: @MainActor @Sendable (NativeQueuedMutation) -> Void
     private let recordCaptureImportBlockerHandler: @MainActor @Sendable (CaptureImportBlocker) -> Void
     private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
+    private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
+    private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
 
     init(
@@ -54,6 +59,8 @@ struct PlatformNavigationView: View {
         recordCaptureImportRetry: @escaping @MainActor @Sendable (NativeQueuedMutation) -> Void,
         recordCaptureImportBlocker: @escaping @MainActor @Sendable (CaptureImportBlocker) -> Void,
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
+        recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
+        searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator
     ) {
         _navigation = navigation
@@ -79,6 +86,8 @@ struct PlatformNavigationView: View {
         self.recordCaptureImportRetryHandler = recordCaptureImportRetry
         self.recordCaptureImportBlockerHandler = recordCaptureImportBlocker
         self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
+        self.recordSearchSurfacePageHandler = recordSearchSurfacePage
+        self.searchSurfaceRepositoryHandler = searchSurfaceRepository
         self.syncTriggerCoordinator = syncTriggerCoordinator
     }
 
@@ -100,13 +109,16 @@ struct PlatformNavigationView: View {
                 destinationContent(for: route)
             }
             .searchable(text: searchText, prompt: "Search Spoonjoy")
+            .searchFocused($isSearchFieldFocused)
             .searchScopes(searchScope) {
-                ForEach(SearchScope.allCases, id: \.rawValue) { scope in
+                ForEach(availableSearchScopes, id: \.rawValue) { scope in
                     Text(label(for: scope)).tag(scope)
                 }
             }
             .onSubmit(of: .search) {
-                navigation.navigate(to: search.route)
+                Task {
+                    await performSearch(search)
+                }
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
             .safeAreaInset(edge: .bottom) {
@@ -122,6 +134,14 @@ struct PlatformNavigationView: View {
             }
             .task(id: contentState.environment.rawValue) {
                 _ = try? await syncTriggerCoordinator.handle(.foreground)
+            }
+            .onChange(of: navigation.route) { _, route in
+                if !routeKeepsSearchFocus(route) {
+                    isSearchFieldFocused = false
+                }
+                if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
+                    liveSearchRequestMarker = nil
+                }
             }
         }
 #if os(macOS)
@@ -142,7 +162,7 @@ struct PlatformNavigationView: View {
     }
 
     private var shouldShowShellOfflineStatus: Bool {
-        guard navigation.route != .settings else {
+        guard !routeOwnsOfflineStatus(navigation.route) else {
             return false
         }
         switch offlineIndicatorState.display {
@@ -150,6 +170,24 @@ struct PlatformNavigationView: View {
             return false
         case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             return true
+        }
+    }
+
+    private func routeOwnsOfflineStatus(_ route: AppRoute) -> Bool {
+        switch route {
+        case .recipeDetail(_, .detail),
+             .recipeEditor,
+             .recipeCoverControls,
+             .cookbooks,
+             .cookbookDetail,
+             .profile,
+             .profileGraph,
+             .shoppingList,
+             .search,
+             .settings:
+            true
+        case .kitchen, .recipes, .recipeDetail(_, .cook), .capture, .unknownLink:
+            false
         }
     }
 
@@ -273,22 +311,22 @@ struct PlatformNavigationView: View {
                 actionDidPlan: performShoppingAction
             )
         case .search(let query, let scope):
+            let routeSearch = normalizedSearch(SearchState(query: query, scope: scope))
             SearchView(
                 search: $search,
-                recipes: contentState.recipes,
-                cookbooks: contentState.cookbooks,
-                shoppingList: contentState.shoppingList,
-                openRecipe: openRecipe,
-                openCookbook: openCookbook,
-                openShoppingItem: { _ in
-                    navigation.navigate(to: .shoppingList)
-                },
-                openChef: { username in
-                    openProfileRoute(AppRoute.profile(identifier: username))
-                }
+                viewModel: searchViewModel(for: routeSearch),
+                openRoute: openRoute,
+                searchTask: performSearch
             )
             .onAppear {
-                search.apply(route: .search(query: query, scope: scope))
+                search.apply(route: routeSearch.route)
+                if routeSearch.route != navigation.route {
+                    navigation.navigate(to: routeSearch.route)
+                }
+                isSearchFieldFocused = true
+            }
+            .task(id: liveSearchTaskIdentity(for: routeSearch)) {
+                await refreshRouteSearchIfNeeded(routeSearch)
             }
         case .capture:
             CaptureDraftView(
@@ -321,18 +359,36 @@ struct PlatformNavigationView: View {
         Binding(
             get: { search.query },
             set: { value in
-                search.update(query: value, scope: search.scope)
+                let nextSearch = normalizedSearch(SearchState(query: value, scope: search.scope))
+                search.update(query: nextSearch.query, scope: nextSearch.scope)
+                if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Task {
+                        await performSearch(nextSearch)
+                    }
+                }
             }
         )
     }
 
     private var searchScope: Binding<SearchScope> {
         Binding(
-            get: { search.scope },
+            get: {
+                normalizedSearch(search).scope
+            },
             set: { scope in
-                search.update(query: search.query, scope: scope)
+                let nextSearch = normalizedSearch(SearchState(query: search.query, scope: scope))
+                search.update(query: nextSearch.query, scope: nextSearch.scope)
+                if !nextSearch.hasQuery {
+                    Task {
+                        await performSearch(nextSearch)
+                    }
+                }
             }
         )
+    }
+
+    private var availableSearchScopes: [SearchScope] {
+        contentState.searchSurfaceViewModel.searchableScopes
     }
 
     private var sidebarSelection: Binding<AppSection?> {
@@ -351,6 +407,9 @@ struct PlatformNavigationView: View {
     }
 
     private func navigateToSidebar(_ section: AppSection) {
+        if section != .search {
+            isSearchFieldFocused = false
+        }
         switch section {
         case .kitchen:
             navigation.navigate(to: .kitchen)
@@ -361,8 +420,9 @@ struct PlatformNavigationView: View {
         case .shoppingList:
             navigation.navigate(to: .shoppingList)
         case .search:
-            search.apply(route: search.route)
-            navigation.navigate(to: search.route)
+            Task {
+                await performSearch(search)
+            }
         case .capture:
             navigation.navigate(to: .capture)
         case .settings:
@@ -423,11 +483,152 @@ struct PlatformNavigationView: View {
     }
 
     private func openRecipe(_ id: String) {
+        isSearchFieldFocused = false
         navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
     }
 
     private func openRoute(_ route: AppRoute) {
+        if !routeKeepsSearchFocus(route) {
+            isSearchFieldFocused = false
+        }
         navigation.navigate(to: route)
+    }
+
+    @MainActor
+    private func performSearch(_ nextSearch: SearchState) async {
+        let nextSearch = normalizedSearch(nextSearch)
+        let identity = contentState.searchSurfaceIdentity
+        search.apply(route: .search(query: nextSearch.query, scope: nextSearch.scope))
+        navigation.navigate(to: search.route)
+        let requestMarker = LiveSearchRequestMarker(identity: identity, routeIdentifier: nextSearch.route.stateIdentifier)
+
+        guard nextSearch.hasQuery else {
+            liveSearchRequestMarker = nil
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(nextSearch)
+            )
+            return
+        }
+        guard liveSearchRequestMarker != requestMarker else {
+            return
+        }
+        liveSearchRequestMarker = requestMarker
+        defer {
+            clearLiveSearchRequestMarker(requestMarker)
+        }
+
+        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
+        let context = contentState.searchSurfaceContext
+        let repository = searchSurfaceRepositoryHandler(context)
+        do {
+            let page = try await repository.search(
+                request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
+            )
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
+            try? await recordSearchSurfacePageHandler(page, identity)
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(
+                    page: page,
+                    state: nextSearch
+                )
+            )
+        } catch SearchSurfaceRepositoryError.cancelled {
+            clearLiveSearchRequestMarker(requestMarker)
+            return
+        } catch let error as SearchSurfaceRepositoryError {
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(
+                    error: error,
+                    state: nextSearch,
+                    cachedPage: cachedPage
+                )
+            )
+        } catch {
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(
+                    error: .searchFailed(message: String(describing: error)),
+                    state: nextSearch,
+                    cachedPage: cachedPage
+                )
+            )
+        }
+    }
+
+    private func liveSearchRequestMarker(for state: SearchState) -> LiveSearchRequestMarker {
+        LiveSearchRequestMarker(identity: contentState.searchSurfaceIdentity, routeIdentifier: state.route.stateIdentifier)
+    }
+
+    private func liveSearchTaskIdentity(for state: SearchState) -> String {
+        "\(contentState.searchSurfaceIdentity)|\(state.route.stateIdentifier)"
+    }
+
+    @MainActor
+    private func refreshRouteSearchIfNeeded(_ routeSearch: SearchState) async {
+        guard routeSearch.hasQuery,
+              !hasActiveSearch(for: routeSearch),
+              liveSearchRequestMarker != liveSearchRequestMarker(for: routeSearch) else {
+            return
+        }
+        await performSearch(routeSearch)
+    }
+
+    private func clearLiveSearchRequestMarker(_ marker: LiveSearchRequestMarker) {
+        if liveSearchRequestMarker == marker {
+            liveSearchRequestMarker = nil
+        }
+    }
+
+    private func hasActiveSearch(for routeSearch: SearchState) -> Bool {
+        guard let activeSearch else {
+            return false
+        }
+        return activeSearch.identity == contentState.searchSurfaceIdentity &&
+            activeSearch.viewModel.state == routeSearch
+    }
+
+    private func searchViewModel(for routeSearch: SearchState) -> SearchSurfaceViewModel {
+        if hasActiveSearch(for: routeSearch), let activeSearch {
+            return activeSearch.viewModel
+        }
+        if routeSearch.query.isEmpty && routeSearch.scope == .all {
+            return contentState.searchSurfaceViewModel
+        }
+        return contentState.performSearch(routeSearch)
+    }
+
+    private func normalizedSearch(_ candidate: SearchState) -> SearchState {
+        availableSearchScopes.contains(candidate.scope)
+            ? candidate
+            : SearchState(query: candidate.query, scope: .all)
+    }
+
+    private func canApplySearchResult(identity: String, state: SearchState) -> Bool {
+        contentState.searchSurfaceIdentity == identity &&
+            search == state &&
+            navigation.route == state.route &&
+            !Task.isCancelled
+    }
+
+    private func routeKeepsSearchFocus(_ route: AppRoute) -> Bool {
+        if case .search = route {
+            return true
+        }
+        return false
     }
 
     private func openProfileRoute(_ route: AppRoute) {
@@ -435,10 +636,12 @@ struct PlatformNavigationView: View {
     }
 
     private func startCooking(_ id: String) {
+        isSearchFieldFocused = false
         navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
     }
 
     private func openCookbook(_ id: String) {
+        isSearchFieldFocused = false
         navigation.navigate(to: .cookbookDetail(id: id))
     }
 
@@ -456,8 +659,8 @@ struct PlatformNavigationView: View {
         let catalog = contentState.recipeCatalog
         let snapshotRepository = SnapshotRecipeCatalogRepository(
             page: catalog,
-            details: contentState.recipes.map { recipe in
-                RecipeCatalogDetailResult(recipe: recipe, source: catalog.source)
+            details: contentState.recipes.map { entry in
+                RecipeCatalogDetailResult(recipe: entry, source: catalog.source)
             }
         )
         let liveRepository = LiveRecipeCatalogRepository(configuration: contentState.configuration)
@@ -1141,6 +1344,16 @@ struct PlatformNavigationView: View {
             character.isLetter || character.isNumber ? String(character) : "-"
         }.joined()
     }
+}
+
+private struct ActiveSearchSurfaceState: Equatable {
+    let identity: String
+    let viewModel: SearchSurfaceViewModel
+}
+
+private struct LiveSearchRequestMarker: Equatable {
+    let identity: String
+    let routeIdentifier: String
 }
 
 private struct ShellPlaceholderView: View {

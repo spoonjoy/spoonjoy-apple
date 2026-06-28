@@ -1,0 +1,88 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.14s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "scenario command parses surfaces stage" started.
+◇ Test "surface behavioral checks fail closed for missing or throwing fixture data" started.
+◇ Test "final behavioral checks fail closed for weak settings offline and link safety" started.
+◇ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" started.
+◇ Test "native metadata report encoding is deterministic" started.
+◇ Test "surfaces report proves kitchen recipe cook and shopping slices" started.
+◇ Test "native metadata command parses stage and output path" started.
+◇ Test "surfaces report fails when surface sources are missing" started.
+◇ Test "final report proves search capture settings and deep link safety" started.
+◇ Test "native intent actions resolve routes local mutations and capture drafts" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "scenario verifier covers root override and failing native metadata checks" started.
+◇ Test "scenario command writes output and supports stdout mode" started.
+◇ Test "app integration sources typecheck and declare expected native types" started.
+◇ Test "spotlight index plan builds route aware searchable documents" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+✔ Test "scenario command parses surfaces stage" passed after 0.005 seconds.
+✔ Test "native metadata command parses stage and output path" passed after 0.005 seconds.
+✔ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" passed after 0.005 seconds.
+✔ Test "native intent actions resolve routes local mutations and capture drafts" passed after 0.005 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.005 seconds.
+✔ Test "scenario verifier covers root override and failing native metadata checks" passed after 0.005 seconds.
+✔ Test "native metadata report encoding is deterministic" passed after 0.005 seconds.
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}
+✔ Test "scenario command writes output and supports stdout mode" passed after 0.005 seconds.
+✔ Test "final behavioral checks fail closed for weak settings offline and link safety" passed after 0.007 seconds.
+✔ Test "spotlight index plan builds route aware searchable documents" passed after 0.007 seconds.
+✔ Test "surface behavioral checks fail closed for missing or throwing fixture data" passed after 0.010 seconds.
+✔ Test "surfaces report fails when surface sources are missing" passed after 0.013 seconds.
+✔ Test "surfaces report proves kitchen recipe cook and shopping slices" passed after 0.038 seconds.
+✔ Test "final report proves search capture settings and deep link safety" passed after 0.054 seconds.
+✔ Test "app integration sources typecheck and declare expected native types" passed after 0.593 seconds.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 13.901 seconds.
+✔ Suite "Native scenario metadata" passed after 13.902 seconds.
+✔ Test run with 16 tests in 1 suite passed after 13.902 seconds.

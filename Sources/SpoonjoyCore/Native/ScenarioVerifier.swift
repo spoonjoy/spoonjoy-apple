@@ -216,10 +216,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "search surface source",
-                    detail: "Search surface includes native searchable scopes and typed result rows.",
+                    detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows", "openChef(chef.username)"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
                     forbiddenTokens: [".searchable(", ".searchScopes("]
                 ),
                 sourceCheck(
@@ -349,10 +349,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "search surface source",
-                    detail: "Search surface includes native searchable scopes and typed result rows.",
+                    detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchState", "SearchScope", "List", "Section", "searchable scopes", "typed rows", "openChef(chef.username)"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
                     forbiddenTokens: [".searchable(", ".searchScopes("]
                 ),
                 sourceCheck(
@@ -406,9 +406,9 @@ public enum ScenarioVerifier {
                     tokens: [
                         "SearchView(",
                         "search: $search",
-                        "search.apply(route: .search(query: query, scope: scope))",
-                        "openChef: { username in",
-                        "openProfileRoute(AppRoute.profile(identifier: username))",
+                        "search.apply(route: routeSearch.route)",
+                        "contentState.searchSurfaceViewModel",
+                        "performSearch(",
                         "CaptureDraftView(",
                         "recordCaptureDraft",
                         "discardCaptureDraft",
@@ -1222,14 +1222,64 @@ public enum ScenarioVerifier {
     }
 
     private static func searchCheck() -> ScenarioCheck {
-        var search = SearchState(query: "  lemon  ", scope: .recipes)
-        search.update(query: " lemon pasta ", scope: .all)
-        let status: ScenarioCheckStatus = search.route == .search(query: "lemon pasta", scope: .all) ? .pass : .fail
+        let request = SearchSurfaceRequest(query: " lemon pasta ", scope: .all, limit: 20)
+        let result = SearchSurfaceResult(
+            type: .recipe,
+            id: "recipe_lemon_pasta",
+            ownerID: "chef_ari",
+            ownerUsername: "ari",
+            title: "Lemon Pasta",
+            subtitle: "Recipe by ari",
+            snippet: "cached search results",
+            href: "/recipes/recipe_lemon_pasta",
+            canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pasta")!,
+            imageURL: nil,
+            score: 0,
+            metadata: [:]
+        )
+        let snapshot = SearchSurfaceCacheSnapshot(
+            accountID: "chef_ari",
+            environment: .production,
+            query: request.query,
+            scope: request.scope,
+            limit: request.limit,
+            results: [result],
+            recentSearches: [
+                SearchSurfaceRecentQuery(query: request.query, scope: request.scope, lastSearchedAt: Date(timeIntervalSince1970: 1_780_140_000))
+            ],
+            serverRevision: .cursor("scenario-search"),
+            lastValidatedAt: Date(timeIntervalSince1970: 1_780_140_000)
+        )
+        guard let session = try? AuthSession(
+            clientID: "scenario-client",
+            accessToken: "scenario-access",
+            refreshToken: "scenario-refresh",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        ) else {
+            return ScenarioCheck(name: "search", status: .fail, detail: "SearchSurfaceRequest scenario auth could not initialize.")
+        }
+        let state = SearchState(query: request.query, scope: request.scope)
+        let contentState = NativeShellContentState.empty(
+            authSessionState: .authenticated(session),
+            environment: .production,
+            configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"),
+            offlineIndicatorState: OfflineIndicatorState(display: .stale(domain: .searchResults(query: request.query, scope: request.scope)), dismissal: nil)
+        ).copy(searchSurfaceSnapshots: [snapshot])
+        let page = contentState.searchSurfacePage(for: state)
+        let viewModel = contentState.performSearch(state)
+        let shoppingAuth = SearchSurfaceRepositoryError.authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read")
+        let status: ScenarioCheckStatus = page.results.map(\.id) == ["recipe_lemon_pasta"] &&
+            viewModel.sections.flatMap(\.rows).first?.openRoute == .recipeDetail(id: "recipe_lemon_pasta", presentation: .detail) &&
+            viewModel.offlineIndicator.display == .stale(domain: .searchResults(query: "lemon pasta", scope: .all)) &&
+            shoppingAuth == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read") ? .pass : .fail
 
         return ScenarioCheck(
             name: "search",
             status: status,
-            detail: "Search state trims queries and preserves native searchable scopes."
+            detail: "NativeShellContentState search surface view model restores cached search results and keeps shopping-list search auth explicit."
         )
     }
 

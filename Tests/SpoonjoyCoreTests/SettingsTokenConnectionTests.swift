@@ -1013,7 +1013,7 @@ struct SettingsTokenConnectionTests {
             "shellOfflineIndicatorState: offlineIndicatorState",
             "performSettingsAction",
             "shouldShowShellOfflineStatus",
-            "navigation.route != .settings",
+            "routeOwnsOfflineStatus(navigation.route)",
             "shellOfflineStatusContentReserve",
             "safeAreaPadding(.bottom, shellOfflineStatusContentReserve)",
             "queuePreflightDecision(queuedMutations: contentState.queuedMutations)",
@@ -1027,6 +1027,7 @@ struct SettingsTokenConnectionTests {
         for token in [
             "private func signedOutContent(contentState:",
             "if navigation.route == .settings",
+            "signedOutRouteUsesNativeShell(navigation.route)",
             "shellOfflineIndicatorState: contentState.offlineIndicatorState",
             "onDismissOfflineIndicator: liveStore.dismissOfflineIndicator"
         ] {

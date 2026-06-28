@@ -2969,6 +2969,81 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("signed out search recording does not overwrite mismatched durable account cache")
+    func signedOutSearchRecordingDoesNotOverwriteMismatchedDurableAccountCache() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            let realAccountRecord = try Self.cacheRecord(
+                domain: .recipeDetail(id: "recipe_real_account"),
+                payload: .recipeDetail(id: "recipe_real_account", title: "Real Account Pasta"),
+                accountID: "chef_real"
+            )
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_real",
+                environment: .production,
+                createdAt: Self.now,
+                records: [realAccountRecord],
+                dismissedIndicators: []
+            ))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport()
+            )
+            let page = SearchSurfacePage(
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: false,
+                results: [
+                    SearchSurfaceResult(
+                        type: .recipe,
+                        id: "recipe_public_search",
+                        ownerID: "chef_public",
+                        ownerUsername: "ari",
+                        title: "Public Tomato Toast",
+                        subtitle: "Recipe by ari",
+                        snippet: "tomato toast",
+                        href: "/recipes/recipe_public_search",
+                        canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_public_search")!,
+                        imageURL: nil,
+                        score: -0.1,
+                        metadata: [:]
+                    )
+                ],
+                source: .live(requestID: "req_search_signed_out", validatedAt: Self.now)
+            )
+
+            try liveStore.recordSearchSurfacePage(page, expectedIdentity: liveStore.currentSearchSurfaceIdentity)
+
+            let fallback = try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_real",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            )
+            let persisted = try cacheStore.loadOrRecover(fallback: fallback).value
+            let persistedSearchRecordCount = persisted.records.filter { record in
+                if case .searchResults = record.payload {
+                    return true
+                }
+                return false
+            }.count
+            #expect(persisted.accountID == "chef_real")
+            #expect(persisted.records.map(\.id) == [realAccountRecord.id])
+            #expect(persistedSearchRecordCount == 0)
+
+            let viewModel = liveStore.bootstrapState.contentState.performSearch(SearchState(query: "tomato", scope: .all))
+            #expect(viewModel.sections.flatMap(\.rows).map(\.title) == ["Public Tomato Toast"])
+        }
+    }
+
+    @MainActor
     @Test("live store deletes superseded spoon draft media unless queued")
     func liveStoreDeletesSupersededSpoonDraftMediaUnlessQueued() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

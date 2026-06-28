@@ -246,7 +246,7 @@ public enum SearchRequests {
             queryItems: [
                 URLQueryItem(name: "q", value: query),
                 URLQueryItem(name: "scope", value: scope.rawValue),
-                URLQueryItem(name: "limit", value: String(limit))
+                URLQueryItem(name: "limit", value: String(SearchSurfaceRequest.normalizedLimit(limit)))
             ]
         )
     }

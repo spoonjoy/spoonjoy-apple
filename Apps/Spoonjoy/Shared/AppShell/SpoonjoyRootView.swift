@@ -75,6 +75,8 @@ struct SpoonjoyRootView: View {
                 shellOfflineIndicatorState: contentState.offlineIndicatorState,
                 onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
             )
+        } else if signedOutRouteUsesNativeShell(navigation.route) {
+            platformNavigation(contentState: contentState)
         } else {
             SignedOutSetupView(
                 authRepository: liveStore.authSessionRepository,
@@ -137,8 +139,35 @@ struct SpoonjoyRootView: View {
             recordCaptureImportRetry: liveStore.recordCaptureImportRetry,
             recordCaptureImportBlocker: liveStore.recordCaptureImportBlocker,
             recordSpoonCookLogDraft: liveStore.recordSpoonCookLogDraft,
+            recordSearchSurfacePage: { page, identity in
+                try liveStore.recordSearchSurfacePage(page, expectedIdentity: identity)
+            },
+            searchSurfaceRepository: { context in
+                liveStore.searchSurfaceRepository(context: context)
+            },
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator
         )
+    }
+
+    private func signedOutRouteUsesNativeShell(_ route: AppRoute) -> Bool {
+        switch route {
+        case .recipes,
+             .recipeDetail,
+             .cookbooks,
+             .cookbookDetail,
+             .profile,
+             .profileGraph,
+             .search:
+            true
+        case .kitchen,
+             .recipeEditor,
+             .recipeCoverControls,
+             .shoppingList,
+             .capture,
+             .settings,
+             .unknownLink:
+            false
+        }
     }
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {

@@ -294,7 +294,7 @@ struct NativeAPIExpansionTests {
         let search = try SearchRequests.search(
             query: "lemon pasta",
             scope: SearchScope.shoppingList,
-            limit: 12
+            limit: 99
         )
         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
 
@@ -329,7 +329,7 @@ struct NativeAPIExpansionTests {
             queryItems: [
                 URLQueryItem(name: "q", value: "lemon pasta"),
                 URLQueryItem(name: "scope", value: "shopping-list"),
-                URLQueryItem(name: "limit", value: "12")
+                URLQueryItem(name: "limit", value: "50")
             ],
             responseCachePolicy: .privateNoStore
         )

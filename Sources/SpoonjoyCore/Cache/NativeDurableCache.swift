@@ -22,7 +22,7 @@ public enum NativeCacheDomain: Codable, Equatable, Hashable, Sendable {
     case apnsStatus
     case spoonList(recipeID: String)
     case cookModeBackingData(recipeID: String)
-    case searchResults(query: String)
+    case searchResults(query: String, scope: SearchScope)
     case stagedMedia(id: String)
 
     public var stableRecordID: String {
@@ -59,8 +59,8 @@ public enum NativeCacheDomain: Codable, Equatable, Hashable, Sendable {
             "spoon-list:\(recipeID)"
         case .cookModeBackingData(let recipeID):
             "cook-mode-backing-data:\(recipeID)"
-        case .searchResults(let query):
-            "search-results:\(query)"
+        case .searchResults(let query, let scope):
+            "search-results:\(scope.rawValue):\(query)"
         case .stagedMedia(let id):
             "staged-media:\(id)"
         }
@@ -189,6 +189,7 @@ public enum NativeCachePayload: Codable, Equatable, Hashable, Sendable {
     case tokenMetadata(credentials: [NativeTokenMetadata])
     case connectionStatus(connections: [NativeConnectionStatus])
     case apnsStatus(deviceID: String, registrationState: NativeAPNSRegistrationState)
+    case searchResults(SearchSurfaceCacheSnapshot)
 }
 
 public struct NativeCacheRecordMetadata: Codable, Equatable, Hashable, Sendable {
@@ -293,6 +294,8 @@ private extension NativeCachePayload {
             .connectionStatus
         case .apnsStatus:
             .apnsStatus
+        case .searchResults(let snapshot):
+            .searchResults(query: snapshot.query, scope: snapshot.scope)
         }
     }
 }
@@ -323,6 +326,7 @@ public struct NativeDurableCacheSnapshot: Codable, Equatable, Sendable {
         "/api/v1/tokens",
         "/api/v1/me/connections",
         "/api/v1/me/apns-devices",
+        "/api/v1/search",
         "local://cook-progress",
         "local://capture-drafts"
     ]

@@ -1,0 +1,11 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "signed out search recording does not overwrite mismatched durable account cache" started.
+✔ Test "signed out search recording does not overwrite mismatched durable account cache" passed after 0.008 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.009 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.009 seconds.

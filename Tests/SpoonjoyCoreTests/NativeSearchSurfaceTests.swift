@@ -19,7 +19,9 @@ struct NativeSearchSurfaceTests {
                 "Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift",
                 "Apps/Spoonjoy/Shared/Views/SearchView.swift",
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+                "Sources/SpoonjoyCore/Cache/NativeDurableCache.swift",
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
             ],
             requiredTokens: [
@@ -36,6 +38,8 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceCacheSnapshot",
                     "SearchSurfaceRecentQuery",
                     "SearchSurfaceRepositoryError",
+                    "normalizedLimit",
+                    "APITransportError",
                     "recentSearches",
                     "SearchRequests.search",
                     "NativeCacheDomain.searchResults",
@@ -51,6 +55,7 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceDebouncePolicy",
                     "SearchSurfaceDebounceDecision",
                     "cancelsInFlightSearch",
+                    "previous != next",
                     "OfflineIndicatorState",
                     "SearchScope.allCases",
                     "AppRoute.recipeDetail",
@@ -73,14 +78,52 @@ struct NativeSearchSurfaceTests {
                     "SearchView(",
                     ".searchFocused($isSearchFieldFocused)",
                     "isSearchFieldFocused = true",
-                    "search.apply(route: .search(query: query, scope: scope))"
+                    "search.apply(route: routeSearch.route)",
+                    "ActiveSearchSurfaceState",
+                    "recordSearchSurfacePageHandler(page, identity)",
+                    "contentState.searchSurfaceIdentity",
+                    "normalizedSearch(",
+                    "canApplySearchResult(identity: identity, state: nextSearch)",
+                    "LiveSearchRequestMarker",
+                    "liveSearchRequestMarker(for: routeSearch)",
+                    "liveSearchTaskIdentity(for: routeSearch)",
+                    "refreshRouteSearchIfNeeded(routeSearch)",
+                    "guard liveSearchRequestMarker != requestMarker else",
+                    "clearLiveSearchRequestMarker(requestMarker)",
+                    "routeOwnsOfflineStatus",
+                    "routeKeepsSearchFocus",
+                    "searchSurfaceRepositoryHandler(context)",
+                    "isSearchFieldFocused = false"
+                ],
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
+                    "recordSearchSurfacePage: { page, identity in",
+                    "recordSearchSurfacePage(page, expectedIdentity: identity)",
+                    "searchSurfaceRepository: { context in",
+                    "liveStore.searchSurfaceRepository(context: context)",
+                    "signedOutRouteUsesNativeShell"
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
                     "searchSurfaceViewModel",
                     "SearchSurfaceViewModel",
                     "SearchSurfaceCacheSnapshot",
                     "restoreSearchSurfaceSnapshot",
-                    "performSearch("
+                    "performSearch(",
+                    "searchSurfaceRepository(context: SearchSurfaceContext)",
+                    "dependencies.recipeEditorAPITransport(refresher)",
+                    "currentSearchSurfaceIdentity",
+                    "searchSurfaceAccountID",
+                    "searchSurfaceSevereOfflineIndicator",
+                    "searchSurfaceSeverityIdentity",
+                    "recordSearchSurfacePage(_ page: SearchSurfacePage, expectedIdentity: String)",
+                    "canSaveDurableSnapshot",
+                    "currentSnapshot.value.accountID == snapshot.accountID",
+                    "sourceEndpoint: \"/api/v1/search\"",
+                    ".searchResults(query: snapshot.query, scope: snapshot.scope)"
+                ],
+                "Sources/SpoonjoyCore/Cache/NativeDurableCache.swift": [
+                    "case searchResults(SearchSurfaceCacheSnapshot)",
+                    "/api/v1/search",
+                    "case searchResults(query: String, scope: SearchScope)"
                 ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
                     "search surface view model",
@@ -230,6 +273,34 @@ struct NativeSearchSurfaceTests {
             #expect(error == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read"))
         }
         #expect(missingScopeTransport.requests.isEmpty)
+
+        let authFailureTransport = ThrowingSearchAPITransport(error: APITransportError(
+            kind: .apiError,
+            requestID: "req_invalid_token",
+            statusCode: 401,
+            apiError: APIError(
+                requestID: "req_invalid_token",
+                code: "invalid_token",
+                message: "Invalid API token",
+                status: 401
+            ),
+            retryDecision: .refreshAuthentication
+        ))
+        let authFailureRepository = LiveSearchSurfaceRepository(
+            transport: authFailureTransport,
+            configuration: Self.configuration,
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        do {
+            _ = try await authFailureRepository.search(
+                request: SearchSurfaceRequest(query: "tomato", scope: .all, limit: 999)
+            )
+            Issue.record("Expected invalid token search to surface authentication state")
+        } catch let error as SearchSurfaceRepositoryError {
+            #expect(error == .authenticationRequired(scope: .all))
+        }
+        #expect(authFailureTransport.requests.map(\.queryItems).first?.contains(URLQueryItem(name: "limit", value: "50")) == true)
     }
 
     @Test("search debounce cancels stale requests and does not schedule blank queries")
@@ -248,6 +319,23 @@ struct NativeSearchSurfaceTests {
             scheduledRequest: SearchSurfaceRequest(query: "tomato", scope: .recipes, limit: 20),
             delayMilliseconds: 350
         ))
+
+        #expect(policy.plan(
+            previous: SearchState(query: "tomato", scope: .recipes),
+            next: SearchState(query: "tomato", scope: .recipes),
+            inFlight: nil
+        ) == SearchSurfaceDebounceDecision(
+            cancelsInFlightSearch: false,
+            scheduledRequest: nil,
+            delayMilliseconds: 0
+        ))
+
+        let cappedPolicy = SearchSurfaceDebouncePolicy(delayMilliseconds: 350, defaultLimit: 999)
+        #expect(cappedPolicy.plan(
+            previous: SearchState(query: "tom", scope: .all),
+            next: SearchState(query: "tomato", scope: .all),
+            inFlight: nil
+        ).scheduledRequest?.limit == 50)
 
         let blank = policy.plan(
             previous: SearchState(query: "tomato", scope: .recipes),
@@ -291,7 +379,7 @@ struct NativeSearchSurfaceTests {
             .profile(identifier: "ari"),
             .shoppingList
         ])
-        #expect(viewModel.offlineIndicator.display == .stale(domain: .searchResults(query: "tomato")))
+        #expect(viewModel.offlineIndicator.display == .stale(domain: .searchResults(query: "tomato", scope: .all)))
         #expect(viewModel.emptyState == nil)
 
         let unauthenticatedShopping = SearchSurfaceViewModel(
@@ -325,7 +413,42 @@ struct NativeSearchSurfaceTests {
             message: "Spoonjoy search is offline.",
             systemImage: "wifi.exclamationmark"
         ))
-        #expect(failedSearch.offlineIndicator.display == .offline(domain: .searchResults(query: "tomato")))
+        #expect(failedSearch.offlineIndicator.display == .syncFailure(errorID: "search-all", retryAfter: nil))
+
+        let offlineSearch = SearchSurfaceViewModel(
+            error: .offline,
+            state: SearchState(query: "tomato", scope: .all),
+            cachedPage: nil,
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(offlineSearch.offlineIndicator.display == .offline)
+
+        let cancelledSearch = SearchSurfaceViewModel(
+            error: .cancelled,
+            state: SearchState(query: "tomato", scope: .all),
+            cachedPage: nil,
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(cancelledSearch.offlineIndicator.display == .synced)
+
+        let liveCachedOfflineSearch = SearchSurfaceViewModel(
+            error: .offline,
+            state: SearchState(query: "tomato", scope: .all),
+            cachedPage: SearchSurfacePage(
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: true,
+                results: [Self.recipeResult()],
+                source: .live(requestID: "req_previous_search", validatedAt: Self.now)
+            ),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(liveCachedOfflineSearch.sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
+        #expect(liveCachedOfflineSearch.offlineIndicator.display == .offline)
     }
 
     @Test("snapshot and fallback search restore cached results without leaking private shopping rows")
@@ -355,7 +478,7 @@ struct NativeSearchSurfaceTests {
 
         #expect(restored.results.map(\.id) == ["recipe_tomato_tart"])
         #expect(restored.results.contains { $0.type == .shoppingListItem } == false)
-        #expect(restored.offlineIndicator(now: Self.now).display == .stale(domain: .searchResults(query: "tomato")))
+        #expect(restored.offlineIndicator(now: Self.now).display == .stale(domain: .searchResults(query: "tomato", scope: .all)))
 
         #expect(try await repository.recentSearches(limit: 5) == [
             SearchSurfaceRecentQuery(query: "tomato", scope: .all, lastSearchedAt: Self.staleValidatedAt)
@@ -367,7 +490,64 @@ struct NativeSearchSurfaceTests {
         )
         let fallbackPage = try await fallback.search(request: SearchSurfaceRequest(query: "tomato", scope: .all, limit: 20))
         #expect(fallbackPage.results.map(\.id) == ["recipe_tomato_tart"])
-        #expect(fallbackPage.offlineIndicator(now: Self.now).display == .offline(domain: .searchResults(query: "tomato")))
+        #expect(fallbackPage.offlineIndicator(now: Self.now).display == .offline)
+    }
+
+    @Test("shell search state preserves severe indicators and unbound session identity")
+    func shellSearchStatePreservesSevereIndicatorsAndUnboundSessionIdentity() throws {
+        let unboundSession = try AuthSession(
+            clientID: "client_unbound_a",
+            accessToken: "sj_access_unbound_a",
+            refreshToken: "sj_refresh_unbound_a",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(600),
+            scope: NativeAuthSession.defaultScope
+        )
+        let otherUnboundSession = try AuthSession(
+            clientID: "client_unbound_b",
+            accessToken: "sj_access_unbound_b",
+            refreshToken: "sj_refresh_unbound_b",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(600),
+            scope: NativeAuthSession.defaultScope
+        )
+        let severeContent = NativeShellContentState.empty(
+            authSessionState: .authenticated(unboundSession),
+            environment: .production,
+            configuration: Self.configuration,
+            offlineIndicatorState: OfflineIndicatorState(
+                display: .queuedWork(count: 1, oldestClientMutationID: "cm_search"),
+                dismissal: nil
+            )
+        ).copy(searchSurfaceSnapshots: [
+            SearchSurfaceCacheSnapshot(
+                accountID: "unbound:client_unbound_a",
+                environment: .production,
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                results: [Self.recipeResult(), Self.shoppingResult()],
+                recentSearches: [],
+                serverRevision: .cursor("search-unbound"),
+                lastValidatedAt: Self.staleValidatedAt
+            )
+        ])
+        let otherContent = NativeShellContentState.empty(
+            authSessionState: .authenticated(otherUnboundSession),
+            environment: .production,
+            configuration: Self.configuration,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        let syncedSameAccount = severeContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil))
+
+        #expect(severeContent.searchSurfaceIdentity.contains("unbound:client_unbound_a"))
+        #expect(otherContent.searchSurfaceIdentity.contains("unbound:client_unbound_b"))
+        #expect(severeContent.searchSurfaceIdentity != otherContent.searchSurfaceIdentity)
+        #expect(severeContent.searchSurfaceIdentity != syncedSameAccount.searchSurfaceIdentity)
+
+        let viewModel = severeContent.performSearch(SearchState(query: "tomato", scope: .all))
+        #expect(viewModel.sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
+        #expect(viewModel.offlineIndicator.display == .queuedWork(count: 1, oldestClientMutationID: "cm_search"))
     }
 
     private static func recipeResult() -> SearchSurfaceResult {
@@ -477,6 +657,32 @@ private final class RecordingSearchAPITransport: SpoonjoyAPITransport, @unchecke
             responseCachePolicy: apiRequest.responseCachePolicy
         ))
         return APIEnvelope(requestID: envelope.requestID, data: try #require(envelope.data as? Value))
+    }
+}
+
+private final class ThrowingSearchAPITransport: SpoonjoyAPITransport, @unchecked Sendable {
+    let error: APITransportError
+    private(set) var requests: [RecordedSearchRequest] = []
+
+    init(error: APITransportError) {
+        self.error = error
+    }
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let apiRequest = try request.urlRequest(configuration: configuration)
+        requests.append(RecordedSearchRequest(
+            method: apiRequest.method,
+            path: apiRequest.url.path,
+            queryItems: apiRequest.url.queryItems,
+            authorizationPolicy: request.defaultAuthorization,
+            authorization: apiRequest.headers["Authorization"],
+            responseCachePolicy: apiRequest.responseCachePolicy
+        ))
+        throw error
     }
 }
 

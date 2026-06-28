@@ -1,0 +1,33 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native expanded REST v1 request builders" started.
+◇ Test "recipe cover and spoon builders cover multipart JSON and optional public list auth" started.
+◇ Test "optional public profile and search requests omit bearer by default but can include it" started.
+◇ Test "recipe write and step builders encode idempotent JSON and delete fallback forms" started.
+◇ Test "multipart builders reject unsafe header values and use unique boundaries" started.
+◇ Test "public catalog reads stay anonymous by default and carry public cache policy" started.
+◇ Test "recipe import builders preserve source variants in idempotent JSON bodies" started.
+◇ Test "coverage edges preserve nullable JSON idempotency multipart and import contracts" started.
+◇ Test "discovery and generated contract requests are anonymous exact GETs" started.
+◇ Test "private account sync token and APNs requests use bearer auth and exact paths" started.
+◇ Test "profile notification token and APNs mutations encode JSON or multipart bodies" started.
+◇ Test "cookbook and shopping parity builders encode idempotent bodies" started.
+◇ Test "API error envelopes preserve structured details for native recovery decisions" started.
+✔ Test "optional public profile and search requests omit bearer by default but can include it" passed after 0.001 seconds.
+✔ Test "private account sync token and APNs requests use bearer auth and exact paths" passed after 0.001 seconds.
+✔ Test "public catalog reads stay anonymous by default and carry public cache policy" passed after 0.001 seconds.
+✔ Test "API error envelopes preserve structured details for native recovery decisions" passed after 0.001 seconds.
+✔ Test "discovery and generated contract requests are anonymous exact GETs" passed after 0.001 seconds.
+✔ Test "multipart builders reject unsafe header values and use unique boundaries" passed after 0.001 seconds.
+✔ Test "recipe import builders preserve source variants in idempotent JSON bodies" passed after 0.004 seconds.
+✔ Test "profile notification token and APNs mutations encode JSON or multipart bodies" passed after 0.004 seconds.
+✔ Test "cookbook and shopping parity builders encode idempotent bodies" passed after 0.004 seconds.
+✔ Test "recipe write and step builders encode idempotent JSON and delete fallback forms" passed after 0.004 seconds.
+✔ Test "recipe cover and spoon builders cover multipart JSON and optional public list auth" passed after 0.004 seconds.
+✔ Test "coverage edges preserve nullable JSON idempotency multipart and import contracts" passed after 0.005 seconds.
+✔ Suite "Native expanded REST v1 request builders" passed after 0.005 seconds.
+✔ Test run with 12 tests in 1 suite passed after 0.005 seconds.

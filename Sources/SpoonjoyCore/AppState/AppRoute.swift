@@ -5,7 +5,7 @@ public enum RecipePresentation: Hashable, Sendable {
     case cook
 }
 
-public enum SearchScope: String, CaseIterable, Hashable, Sendable {
+public enum SearchScope: String, Codable, CaseIterable, Hashable, Sendable {
     case all
     case recipes
     case cookbooks

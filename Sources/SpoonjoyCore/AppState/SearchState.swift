@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SearchState: Equatable {
+public struct SearchState: Equatable, Hashable, Sendable {
     public private(set) var query: String
     public private(set) var scope: SearchScope
 
