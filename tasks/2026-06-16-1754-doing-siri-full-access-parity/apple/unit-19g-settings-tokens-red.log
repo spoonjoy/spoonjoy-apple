@@ -1,0 +1,1394 @@
+== swift settings token connection red ==
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:576:39: error: cannot find type 'SettingsActionPlan' in scope
+574 | }
+575 |
+576 | private func remoteRequest(from plan: SettingsActionPlan) throws -> APIRequest {
+    |                                       `- error: cannot find type 'SettingsActionPlan' in scope
+577 |     guard let builder = plan.remoteRequestBuilder else {
+578 |         throw SettingsTokenConnectionTestFailure(description: "Missing remote settings request")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:688:56: error: cannot find type 'SettingsSurfaceTransport' in scope
+686 | }
+687 |
+688 | private final class RecordingSettingsSurfaceTransport: SettingsSurfaceTransport, @unchecked Sendable {
+    |                                                        `- error: cannot find type 'SettingsSurfaceTransport' in scope
+689 |     let validatedAt = SettingsTokenConnectionTests.now
+690 |     private(set) var requestPaths: [String] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:692:26: error: cannot find type 'SettingsAccountProfile' in scope
+690 |     private(set) var requestPaths: [String] = []
+691 |
+692 |     private let account: SettingsAccountProfile
+    |                          `- error: cannot find type 'SettingsAccountProfile' in scope
+693 |     private let notifications: SettingsNotificationPreferences
+694 |     private let tokens: [SettingsAPITokenSummary]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:693:32: error: cannot find type 'SettingsNotificationPreferences' in scope
+691 |
+692 |     private let account: SettingsAccountProfile
+693 |     private let notifications: SettingsNotificationPreferences
+    |                                `- error: cannot find type 'SettingsNotificationPreferences' in scope
+694 |     private let tokens: [SettingsAPITokenSummary]
+695 |     private let connections: [SettingsOAuthConnectionSummary]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:694:26: error: cannot find type 'SettingsAPITokenSummary' in scope
+692 |     private let account: SettingsAccountProfile
+693 |     private let notifications: SettingsNotificationPreferences
+694 |     private let tokens: [SettingsAPITokenSummary]
+    |                          `- error: cannot find type 'SettingsAPITokenSummary' in scope
+695 |     private let connections: [SettingsOAuthConnectionSummary]
+696 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:695:31: error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+693 |     private let notifications: SettingsNotificationPreferences
+694 |     private let tokens: [SettingsAPITokenSummary]
+695 |     private let connections: [SettingsOAuthConnectionSummary]
+    |                               `- error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+696 |
+697 |     init(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:698:18: error: cannot find type 'SettingsAccountProfile' in scope
+696 |
+697 |     init(
+698 |         account: SettingsAccountProfile,
+    |                  `- error: cannot find type 'SettingsAccountProfile' in scope
+699 |         notifications: SettingsNotificationPreferences,
+700 |         tokens: [SettingsAPITokenSummary],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:699:24: error: cannot find type 'SettingsNotificationPreferences' in scope
+697 |     init(
+698 |         account: SettingsAccountProfile,
+699 |         notifications: SettingsNotificationPreferences,
+    |                        `- error: cannot find type 'SettingsNotificationPreferences' in scope
+700 |         tokens: [SettingsAPITokenSummary],
+701 |         connections: [SettingsOAuthConnectionSummary]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:700:18: error: cannot find type 'SettingsAPITokenSummary' in scope
+698 |         account: SettingsAccountProfile,
+699 |         notifications: SettingsNotificationPreferences,
+700 |         tokens: [SettingsAPITokenSummary],
+    |                  `- error: cannot find type 'SettingsAPITokenSummary' in scope
+701 |         connections: [SettingsOAuthConnectionSummary]
+702 |     ) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:701:23: error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+699 |         notifications: SettingsNotificationPreferences,
+700 |         tokens: [SettingsAPITokenSummary],
+701 |         connections: [SettingsOAuthConnectionSummary]
+    |                       `- error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+702 |     ) {
+703 |         self.account = account
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:709:108: error: cannot find type 'SettingsTransportEnvelope' in scope
+707 |     }
+708 |
+709 |     func fetchAccount(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsAccountProfile> {
+    |                                                                                                            `- error: cannot find type 'SettingsTransportEnvelope' in scope
+710 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+711 |         return SettingsTransportEnvelope(requestID: "req_account", data: account, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:714:124: error: cannot find type 'SettingsTransportEnvelope' in scope
+712 |     }
+713 |
+714 |     func fetchNotificationPreferences(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsNotificationPreferences> {
+    |                                                                                                                            `- error: cannot find type 'SettingsTransportEnvelope' in scope
+715 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+716 |         return SettingsTransportEnvelope(requestID: "req_notifications", data: notifications, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:719:110: error: cannot find type 'SettingsTransportEnvelope' in scope
+717 |     }
+718 |
+719 |     func fetchAPITokens(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsAPITokenSummary]> {
+    |                                                                                                              `- error: cannot find type 'SettingsTransportEnvelope' in scope
+720 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+721 |         return SettingsTransportEnvelope(requestID: "req_tokens", data: tokens, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:724:117: error: cannot find type 'SettingsTransportEnvelope' in scope
+722 |     }
+723 |
+724 |     func fetchOAuthConnections(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsOAuthConnectionSummary]> {
+    |                                                                                                                     `- error: cannot find type 'SettingsTransportEnvelope' in scope
+725 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+726 |         return SettingsTransportEnvelope(requestID: "req_connections", data: connections, validatedAt: validatedAt)
+[4/6] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:576:39: error: cannot find type 'SettingsActionPlan' in scope
+574 | }
+575 |
+576 | private func remoteRequest(from plan: SettingsActionPlan) throws -> APIRequest {
+    |                                       `- error: cannot find type 'SettingsActionPlan' in scope
+577 |     guard let builder = plan.remoteRequestBuilder else {
+578 |         throw SettingsTokenConnectionTestFailure(description: "Missing remote settings request")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:688:56: error: cannot find type 'SettingsSurfaceTransport' in scope
+686 | }
+687 |
+688 | private final class RecordingSettingsSurfaceTransport: SettingsSurfaceTransport, @unchecked Sendable {
+    |                                                        `- error: cannot find type 'SettingsSurfaceTransport' in scope
+689 |     let validatedAt = SettingsTokenConnectionTests.now
+690 |     private(set) var requestPaths: [String] = []
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:692:26: error: cannot find type 'SettingsAccountProfile' in scope
+690 |     private(set) var requestPaths: [String] = []
+691 |
+692 |     private let account: SettingsAccountProfile
+    |                          `- error: cannot find type 'SettingsAccountProfile' in scope
+693 |     private let notifications: SettingsNotificationPreferences
+694 |     private let tokens: [SettingsAPITokenSummary]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:693:32: error: cannot find type 'SettingsNotificationPreferences' in scope
+691 |
+692 |     private let account: SettingsAccountProfile
+693 |     private let notifications: SettingsNotificationPreferences
+    |                                `- error: cannot find type 'SettingsNotificationPreferences' in scope
+694 |     private let tokens: [SettingsAPITokenSummary]
+695 |     private let connections: [SettingsOAuthConnectionSummary]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:694:26: error: cannot find type 'SettingsAPITokenSummary' in scope
+692 |     private let account: SettingsAccountProfile
+693 |     private let notifications: SettingsNotificationPreferences
+694 |     private let tokens: [SettingsAPITokenSummary]
+    |                          `- error: cannot find type 'SettingsAPITokenSummary' in scope
+695 |     private let connections: [SettingsOAuthConnectionSummary]
+696 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:695:31: error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+693 |     private let notifications: SettingsNotificationPreferences
+694 |     private let tokens: [SettingsAPITokenSummary]
+695 |     private let connections: [SettingsOAuthConnectionSummary]
+    |                               `- error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+696 |
+697 |     init(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:698:18: error: cannot find type 'SettingsAccountProfile' in scope
+696 |
+697 |     init(
+698 |         account: SettingsAccountProfile,
+    |                  `- error: cannot find type 'SettingsAccountProfile' in scope
+699 |         notifications: SettingsNotificationPreferences,
+700 |         tokens: [SettingsAPITokenSummary],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:699:24: error: cannot find type 'SettingsNotificationPreferences' in scope
+697 |     init(
+698 |         account: SettingsAccountProfile,
+699 |         notifications: SettingsNotificationPreferences,
+    |                        `- error: cannot find type 'SettingsNotificationPreferences' in scope
+700 |         tokens: [SettingsAPITokenSummary],
+701 |         connections: [SettingsOAuthConnectionSummary]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:700:18: error: cannot find type 'SettingsAPITokenSummary' in scope
+698 |         account: SettingsAccountProfile,
+699 |         notifications: SettingsNotificationPreferences,
+700 |         tokens: [SettingsAPITokenSummary],
+    |                  `- error: cannot find type 'SettingsAPITokenSummary' in scope
+701 |         connections: [SettingsOAuthConnectionSummary]
+702 |     ) {
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:701:23: error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+699 |         notifications: SettingsNotificationPreferences,
+700 |         tokens: [SettingsAPITokenSummary],
+701 |         connections: [SettingsOAuthConnectionSummary]
+    |                       `- error: cannot find type 'SettingsOAuthConnectionSummary' in scope
+702 |     ) {
+703 |         self.account = account
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:709:108: error: cannot find type 'SettingsTransportEnvelope' in scope
+707 |     }
+708 |
+709 |     func fetchAccount(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsAccountProfile> {
+    |                                                                                                            `- error: cannot find type 'SettingsTransportEnvelope' in scope
+710 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+711 |         return SettingsTransportEnvelope(requestID: "req_account", data: account, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:714:124: error: cannot find type 'SettingsTransportEnvelope' in scope
+712 |     }
+713 |
+714 |     func fetchNotificationPreferences(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsNotificationPreferences> {
+    |                                                                                                                            `- error: cannot find type 'SettingsTransportEnvelope' in scope
+715 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+716 |         return SettingsTransportEnvelope(requestID: "req_notifications", data: notifications, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:719:110: error: cannot find type 'SettingsTransportEnvelope' in scope
+717 |     }
+718 |
+719 |     func fetchAPITokens(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsAPITokenSummary]> {
+    |                                                                                                              `- error: cannot find type 'SettingsTransportEnvelope' in scope
+720 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+721 |         return SettingsTransportEnvelope(requestID: "req_tokens", data: tokens, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:724:117: error: cannot find type 'SettingsTransportEnvelope' in scope
+722 |     }
+723 |
+724 |     func fetchOAuthConnections(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsOAuthConnectionSummary]> {
+    |                                                                                                                     `- error: cannot find type 'SettingsTransportEnvelope' in scope
+725 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+726 |         return SettingsTransportEnvelope(requestID: "req_connections", data: connections, validatedAt: validatedAt)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:28:27: error: cannot find 'SettingsSurfaceData' in scope
+ 26 |             message: "Profile changed on another device."
+ 27 |         )
+ 28 |         let surfaceData = SettingsSurfaceData(
+    |                           `- error: cannot find 'SettingsSurfaceData' in scope
+ 29 |             account: SettingsAccountProfile(
+ 30 |                 id: "chef_ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:29:22: error: cannot find 'SettingsAccountProfile' in scope
+ 27 |         )
+ 28 |         let surfaceData = SettingsSurfaceData(
+ 29 |             account: SettingsAccountProfile(
+    |                      `- error: cannot find 'SettingsAccountProfile' in scope
+ 30 |                 id: "chef_ari",
+ 31 |                 email: "ari@example.com",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:36:21: error: cannot find 'SettingsLinkedProvider' in scope
+ 34 |                 hasPassword: true,
+ 35 |                 linkedProviders: [
+ 36 |                     SettingsLinkedProvider(provider: .google, providerUsername: "ari@gmail.com"),
+    |                     `- error: cannot find 'SettingsLinkedProvider' in scope
+ 37 |                     SettingsLinkedProvider(provider: .github, providerUsername: "arimendelow")
+ 38 |                 ],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:37:21: error: cannot find 'SettingsLinkedProvider' in scope
+ 35 |                 linkedProviders: [
+ 36 |                     SettingsLinkedProvider(provider: .google, providerUsername: "ari@gmail.com"),
+ 37 |                     SettingsLinkedProvider(provider: .github, providerUsername: "arimendelow")
+    |                     `- error: cannot find 'SettingsLinkedProvider' in scope
+ 38 |                 ],
+ 39 |                 passkeys: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:40:21: error: cannot find 'SettingsPasskeySummary' in scope
+ 38 |                 ],
+ 39 |                 passkeys: [
+ 40 |                     SettingsPasskeySummary(
+    |                     `- error: cannot find 'SettingsPasskeySummary' in scope
+ 41 |                         id: "passkey_mac",
+ 42 |                         name: "MacBook Touch ID",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:48:28: error: cannot find 'SettingsNotificationPreferences' in scope
+ 46 |                 ]
+ 47 |             ),
+ 48 |             notifications: SettingsNotificationPreferences(
+    |                            `- error: cannot find 'SettingsNotificationPreferences' in scope
+ 49 |                 notifySpoonOnMyRecipe: true,
+ 50 |                 notifyForkOfMyRecipe: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:55:17: error: cannot find 'SettingsAPITokenSummary' in scope
+ 53 |             ),
+ 54 |             apiTokens: [
+ 55 |                 SettingsAPITokenSummary(
+    |                 `- error: cannot find 'SettingsAPITokenSummary' in scope
+ 56 |                     id: "cred_kitchen_ipad",
+ 57 |                     name: "Kitchen iPad",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:68:17: error: cannot find 'SettingsOAuthConnectionSummary' in scope
+ 66 |             ],
+ 67 |             oauthConnections: [
+ 68 |                 SettingsOAuthConnectionSummary(
+    |                 `- error: cannot find 'SettingsOAuthConnectionSummary' in scope
+ 69 |                     id: "conn_mobile_importer",
+ 70 |                     clientID: "cm_mobile_importer",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:36:55: error: cannot infer contextual base in reference to member 'google'
+ 34 |                 hasPassword: true,
+ 35 |                 linkedProviders: [
+ 36 |                     SettingsLinkedProvider(provider: .google, providerUsername: "ari@gmail.com"),
+    |                                                       `- error: cannot infer contextual base in reference to member 'google'
+ 37 |                     SettingsLinkedProvider(provider: .github, providerUsername: "arimendelow")
+ 38 |                 ],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:37:55: error: cannot infer contextual base in reference to member 'github'
+ 35 |                 linkedProviders: [
+ 36 |                     SettingsLinkedProvider(provider: .google, providerUsername: "ari@gmail.com"),
+ 37 |                     SettingsLinkedProvider(provider: .github, providerUsername: "arimendelow")
+    |                                                       `- error: cannot infer contextual base in reference to member 'github'
+ 38 |                 ],
+ 39 |                 passkeys: [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:62:33: error: 'nil' requires a contextual type
+ 60 |                     createdAt: "2026-06-01T00:00:00.000Z",
+ 61 |                     updatedAt: "2026-06-02T00:00:00.000Z",
+ 62 |                     lastUsedAt: nil,
+    |                                 `- error: 'nil' requires a contextual type
+ 63 |                     revokedAt: nil,
+ 64 |                     expiresAt: nil
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:63:32: error: 'nil' requires a contextual type
+ 61 |                     updatedAt: "2026-06-02T00:00:00.000Z",
+ 62 |                     lastUsedAt: nil,
+ 63 |                     revokedAt: nil,
+    |                                `- error: 'nil' requires a contextual type
+ 64 |                     expiresAt: nil
+ 65 |                 )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:64:32: error: 'nil' requires a contextual type
+ 62 |                     lastUsedAt: nil,
+ 63 |                     revokedAt: nil,
+ 64 |                     expiresAt: nil
+    |                                `- error: 'nil' requires a contextual type
+ 65 |                 )
+ 66 |             ],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:72:31: error: 'nil' requires a contextual type
+ 70 |                     clientID: "cm_mobile_importer",
+ 71 |                     clientName: "Mobile Importer",
+ 72 |                     resource: nil,
+    |                               `- error: 'nil' requires a contextual type
+ 73 |                     scopes: ["shopping_list:read", "shopping_list:write"],
+ 74 |                     createdAt: "2026-06-02T00:00:00.000Z",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:79:27: error: cannot infer contextual base in reference to member 'production'
+ 77 |                 )
+ 78 |             ],
+ 79 |             environment: .production,
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+ 80 |             offline: .available(snapshotCount: 7, lastRestoredAt: "2026-06-27T23:00:00.000Z"),
+ 81 |             source: .live(requestID: "req_settings", validatedAt: Self.now)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:80:23: error: cannot infer contextual base in reference to member 'available'
+ 78 |             ],
+ 79 |             environment: .production,
+ 80 |             offline: .available(snapshotCount: 7, lastRestoredAt: "2026-06-27T23:00:00.000Z"),
+    |                       `- error: cannot infer contextual base in reference to member 'available'
+ 81 |             source: .live(requestID: "req_settings", validatedAt: Self.now)
+ 82 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:81:22: error: cannot infer contextual base in reference to member 'live'
+ 79 |             environment: .production,
+ 80 |             offline: .available(snapshotCount: 7, lastRestoredAt: "2026-06-27T23:00:00.000Z"),
+ 81 |             source: .live(requestID: "req_settings", validatedAt: Self.now)
+    |                      `- error: cannot infer contextual base in reference to member 'live'
+ 82 |         )
+ 83 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:84:25: error: cannot find 'SettingsSurfaceViewModel' in scope
+ 82 |         )
+ 83 |
+ 84 |         let viewModel = SettingsSurfaceViewModel(
+    |                         `- error: cannot find 'SettingsSurfaceViewModel' in scope
+ 85 |             data: surfaceData,
+ 86 |             queuedMutations: [queuedProfileUpdate],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:88:28: error: cannot infer contextual base in reference to member 'online'
+ 86 |             queuedMutations: [queuedProfileUpdate],
+ 87 |             conflicts: [conflict],
+ 88 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+ 89 |             secureHandoffRoutes: .spoonjoyApp,
+ 90 |             now: { Self.now }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:89:35: error: cannot infer contextual base in reference to member 'spoonjoyApp'
+ 87 |             conflicts: [conflict],
+ 88 |             connectivity: .online,
+ 89 |             secureHandoffRoutes: .spoonjoyApp,
+    |                                   `- error: cannot infer contextual base in reference to member 'spoonjoyApp'
+ 90 |             now: { Self.now }
+ 91 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:93:40: error: cannot infer key path type from context; consider explicitly specifying a root type
+ 91 |         )
+ 92 |
+ 93 |         #expect(viewModel.sections.map(\.id) == [
+    |                                        `- error: cannot infer key path type from context; consider explicitly specifying a root type
+ 94 |             .profile,
+ 95 |             .security,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:94:14: error: reference to member 'profile' cannot be resolved without a contextual type
+ 92 |
+ 93 |         #expect(viewModel.sections.map(\.id) == [
+ 94 |             .profile,
+    |              `- error: reference to member 'profile' cannot be resolved without a contextual type
+ 95 |             .security,
+ 96 |             .notifications,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:95:14: error: reference to member 'security' cannot be resolved without a contextual type
+ 93 |         #expect(viewModel.sections.map(\.id) == [
+ 94 |             .profile,
+ 95 |             .security,
+    |              `- error: reference to member 'security' cannot be resolved without a contextual type
+ 96 |             .notifications,
+ 97 |             .apiTokens,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:96:14: error: reference to member 'notifications' cannot be resolved without a contextual type
+ 94 |             .profile,
+ 95 |             .security,
+ 96 |             .notifications,
+    |              `- error: reference to member 'notifications' cannot be resolved without a contextual type
+ 97 |             .apiTokens,
+ 98 |             .connections,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:97:14: error: reference to member 'apiTokens' cannot be resolved without a contextual type
+ 95 |             .security,
+ 96 |             .notifications,
+ 97 |             .apiTokens,
+    |              `- error: reference to member 'apiTokens' cannot be resolved without a contextual type
+ 98 |             .connections,
+ 99 |             .environment,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:98:14: error: reference to member 'connections' cannot be resolved without a contextual type
+ 96 |             .notifications,
+ 97 |             .apiTokens,
+ 98 |             .connections,
+    |              `- error: reference to member 'connections' cannot be resolved without a contextual type
+ 99 |             .environment,
+100 |             .offline
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:99:14: error: reference to member 'environment' cannot be resolved without a contextual type
+ 97 |             .apiTokens,
+ 98 |             .connections,
+ 99 |             .environment,
+    |              `- error: reference to member 'environment' cannot be resolved without a contextual type
+100 |             .offline
+101 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:100:14: error: reference to member 'offline' cannot be resolved without a contextual type
+ 98 |             .connections,
+ 99 |             .environment,
+100 |             .offline
+    |              `- error: reference to member 'offline' cannot be resolved without a contextual type
+101 |         ])
+102 |         #expect(viewModel.profileDraft == SettingsProfileDraft(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:102:43: error: cannot find 'SettingsProfileDraft' in scope
+100 |             .offline
+101 |         ])
+102 |         #expect(viewModel.profileDraft == SettingsProfileDraft(
+    |                                           `- error: cannot find 'SettingsProfileDraft' in scope
+103 |             email: "ari@example.com",
+104 |             username: "ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:105:21: error: cannot infer contextual base in reference to member 'remote'
+103 |             email: "ari@example.com",
+104 |             username: "ari",
+105 |             photo: .remote(URL(string: "https://spoonjoy.app/cdn/profiles/ari.jpg")!)
+    |                     `- error: cannot infer contextual base in reference to member 'remote'
+106 |         ))
+107 |         #expect(viewModel.notificationDraft == SettingsNotificationPreferences(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:107:48: error: cannot find 'SettingsNotificationPreferences' in scope
+105 |             photo: .remote(URL(string: "https://spoonjoy.app/cdn/profiles/ari.jpg")!)
+106 |         ))
+107 |         #expect(viewModel.notificationDraft == SettingsNotificationPreferences(
+    |                                                `- error: cannot find 'SettingsNotificationPreferences' in scope
+108 |             notifySpoonOnMyRecipe: true,
+109 |             notifyForkOfMyRecipe: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:113:44: error: cannot infer key path type from context; consider explicitly specifying a root type
+111 |             notifyFellowChefOriginCook: false
+112 |         ))
+113 |         #expect(viewModel.apiTokenRows.map(\.id) == ["cred_kitchen_ipad"])
+    |                                            `- error: cannot infer key path type from context; consider explicitly specifying a root type
+114 |         #expect(viewModel.apiTokenRows.map(\.tokenPrefix) == ["sj_live_abcd"])
+115 |         #expect(viewModel.apiTokenRows.map(\.updatedAt) == ["2026-06-02T00:00:00.000Z"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:114:44: error: cannot infer key path type from context; consider explicitly specifying a root type
+112 |         ))
+113 |         #expect(viewModel.apiTokenRows.map(\.id) == ["cred_kitchen_ipad"])
+114 |         #expect(viewModel.apiTokenRows.map(\.tokenPrefix) == ["sj_live_abcd"])
+    |                                            `- error: cannot infer key path type from context; consider explicitly specifying a root type
+115 |         #expect(viewModel.apiTokenRows.map(\.updatedAt) == ["2026-06-02T00:00:00.000Z"])
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:115:44: error: cannot infer key path type from context; consider explicitly specifying a root type
+113 |         #expect(viewModel.apiTokenRows.map(\.id) == ["cred_kitchen_ipad"])
+114 |         #expect(viewModel.apiTokenRows.map(\.tokenPrefix) == ["sj_live_abcd"])
+115 |         #expect(viewModel.apiTokenRows.map(\.updatedAt) == ["2026-06-02T00:00:00.000Z"])
+    |                                            `- error: cannot infer key path type from context; consider explicitly specifying a root type
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:116:44: error: cannot infer key path type from context; consider explicitly specifying a root type
+114 |         #expect(viewModel.apiTokenRows.map(\.tokenPrefix) == ["sj_live_abcd"])
+115 |         #expect(viewModel.apiTokenRows.map(\.updatedAt) == ["2026-06-02T00:00:00.000Z"])
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+    |                                            `- error: cannot infer key path type from context; consider explicitly specifying a root type
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:117:51: error: cannot infer key path type from context; consider explicitly specifying a root type
+115 |         #expect(viewModel.apiTokenRows.map(\.updatedAt) == ["2026-06-02T00:00:00.000Z"])
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+    |                                                   `- error: cannot infer key path type from context; consider explicitly specifying a root type
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+119 |         #expect(viewModel.queuedWorkSummary == "1 account change waiting to sync")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:118:44: error: cannot infer key path type from context; consider explicitly specifying a root type
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+    |                                            `- error: cannot infer key path type from context; consider explicitly specifying a root type
+119 |         #expect(viewModel.queuedWorkSummary == "1 account change waiting to sync")
+120 |         #expect(viewModel.conflictBanner == SettingsSurfaceConflictBanner(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:118:55: error: reference to member 'password' cannot be resolved without a contextual type
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+    |                                                       `- error: reference to member 'password' cannot be resolved without a contextual type
+119 |         #expect(viewModel.queuedWorkSummary == "1 account change waiting to sync")
+120 |         #expect(viewModel.conflictBanner == SettingsSurfaceConflictBanner(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:118:66: error: reference to member 'passkeys' cannot be resolved without a contextual type
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+    |                                                                  `- error: reference to member 'passkeys' cannot be resolved without a contextual type
+119 |         #expect(viewModel.queuedWorkSummary == "1 account change waiting to sync")
+120 |         #expect(viewModel.conflictBanner == SettingsSurfaceConflictBanner(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:118:77: error: reference to member 'providerLinks' cannot be resolved without a contextual type
+116 |         #expect(viewModel.apiTokenRows.map(\.revealedSecret) == [nil])
+117 |         #expect(viewModel.oauthConnectionRows.map(\.id) == ["conn_mobile_importer"])
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+    |                                                                             `- error: reference to member 'providerLinks' cannot be resolved without a contextual type
+119 |         #expect(viewModel.queuedWorkSummary == "1 account change waiting to sync")
+120 |         #expect(viewModel.conflictBanner == SettingsSurfaceConflictBanner(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:120:45: error: cannot find 'SettingsSurfaceConflictBanner' in scope
+118 |         #expect(viewModel.securityRows.map(\.id) == [.password, .passkeys, .providerLinks])
+119 |         #expect(viewModel.queuedWorkSummary == "1 account change waiting to sync")
+120 |         #expect(viewModel.conflictBanner == SettingsSurfaceConflictBanner(
+    |                                             `- error: cannot find 'SettingsSurfaceConflictBanner' in scope
+121 |             localClientMutationID: "cm_profile_display",
+122 |             message: "Profile changed on another device.",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:125:56: error: cannot infer contextual base in reference to member 'conflict'
+123 |             actionTitle: "Review account conflict"
+124 |         ))
+125 |         #expect(viewModel.offlineIndicator.display == .conflict(
+    |                                                        `- error: cannot infer contextual base in reference to member 'conflict'
+126 |             recordID: "cm_profile_display",
+127 |             mutationID: "cm_profile_display"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:130:25: error: cannot find 'SettingsSurfaceViewModel' in scope
+128 |         ))
+129 |
+130 |         let signedOut = SettingsSurfaceViewModel.signedOut(
+    |                         `- error: cannot find 'SettingsSurfaceViewModel' in scope
+131 |             environment: .production,
+132 |             offline: .unavailable,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:131:27: error: cannot infer contextual base in reference to member 'production'
+129 |
+130 |         let signedOut = SettingsSurfaceViewModel.signedOut(
+131 |             environment: .production,
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+132 |             offline: .unavailable,
+133 |             secureHandoffRoutes: .spoonjoyApp
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:132:23: error: cannot infer contextual base in reference to member 'unavailable'
+130 |         let signedOut = SettingsSurfaceViewModel.signedOut(
+131 |             environment: .production,
+132 |             offline: .unavailable,
+    |                       `- error: cannot infer contextual base in reference to member 'unavailable'
+133 |             secureHandoffRoutes: .spoonjoyApp
+134 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:133:35: error: cannot infer contextual base in reference to member 'spoonjoyApp'
+131 |             environment: .production,
+132 |             offline: .unavailable,
+133 |             secureHandoffRoutes: .spoonjoyApp
+    |                                   `- error: cannot infer contextual base in reference to member 'spoonjoyApp'
+134 |         )
+135 |         #expect(signedOut.sections.map(\.id) == [.session, .environment, .offline])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:135:40: error: cannot infer key path type from context; consider explicitly specifying a root type
+133 |             secureHandoffRoutes: .spoonjoyApp
+134 |         )
+135 |         #expect(signedOut.sections.map(\.id) == [.session, .environment, .offline])
+    |                                        `- error: cannot infer key path type from context; consider explicitly specifying a root type
+136 |         #expect(signedOut.profileDraft == nil)
+137 |         #expect(signedOut.apiTokenRows.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:135:51: error: reference to member 'session' cannot be resolved without a contextual type
+133 |             secureHandoffRoutes: .spoonjoyApp
+134 |         )
+135 |         #expect(signedOut.sections.map(\.id) == [.session, .environment, .offline])
+    |                                                   `- error: reference to member 'session' cannot be resolved without a contextual type
+136 |         #expect(signedOut.profileDraft == nil)
+137 |         #expect(signedOut.apiTokenRows.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:135:61: error: reference to member 'environment' cannot be resolved without a contextual type
+133 |             secureHandoffRoutes: .spoonjoyApp
+134 |         )
+135 |         #expect(signedOut.sections.map(\.id) == [.session, .environment, .offline])
+    |                                                             `- error: reference to member 'environment' cannot be resolved without a contextual type
+136 |         #expect(signedOut.profileDraft == nil)
+137 |         #expect(signedOut.apiTokenRows.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:135:75: error: reference to member 'offline' cannot be resolved without a contextual type
+133 |             secureHandoffRoutes: .spoonjoyApp
+134 |         )
+135 |         #expect(signedOut.sections.map(\.id) == [.session, .environment, .offline])
+    |                                                                           `- error: reference to member 'offline' cannot be resolved without a contextual type
+136 |         #expect(signedOut.profileDraft == nil)
+137 |         #expect(signedOut.apiTokenRows.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:139:48: error: cannot find 'SettingsSecureHandoff' in scope
+137 |         #expect(signedOut.apiTokenRows.isEmpty)
+138 |         #expect(signedOut.oauthConnectionRows.isEmpty)
+139 |         #expect(signedOut.primaryAuthAction == SettingsSecureHandoff(
+    |                                                `- error: cannot find 'SettingsSecureHandoff' in scope
+140 |             target: .login,
+141 |             url: URL(string: "https://spoonjoy.app/login")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:140:22: error: cannot infer contextual base in reference to member 'login'
+138 |         #expect(signedOut.oauthConnectionRows.isEmpty)
+139 |         #expect(signedOut.primaryAuthAction == SettingsSecureHandoff(
+140 |             target: .login,
+    |                      `- error: cannot infer contextual base in reference to member 'login'
+141 |             url: URL(string: "https://spoonjoy.app/login")!
+142 |         ))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:148:22: error: cannot find 'SettingsAccountProfile' in scope
+146 |     func repositoriesReadLiveAndSnapshotSettingsSurface() async throws {
+147 |         let transport = RecordingSettingsSurfaceTransport(
+148 |             account: SettingsAccountProfile(
+    |                      `- error: cannot find 'SettingsAccountProfile' in scope
+149 |                 id: "chef_ari",
+150 |                 email: "ari@example.com",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:157:28: error: cannot find 'SettingsNotificationPreferences' in scope
+155 |                 passkeys: []
+156 |             ),
+157 |             notifications: SettingsNotificationPreferences(
+    |                            `- error: cannot find 'SettingsNotificationPreferences' in scope
+158 |                 notifySpoonOnMyRecipe: true,
+159 |                 notifyForkOfMyRecipe: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:164:17: error: cannot find 'SettingsAPITokenSummary' in scope
+162 |             ),
+163 |             tokens: [
+164 |                 SettingsAPITokenSummary(
+    |                 `- error: cannot find 'SettingsAPITokenSummary' in scope
+165 |                     id: "cred_cli",
+166 |                     name: "CLI",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:177:17: error: cannot find 'SettingsOAuthConnectionSummary' in scope
+175 |             ],
+176 |             connections: [
+177 |                 SettingsOAuthConnectionSummary(
+    |                 `- error: cannot find 'SettingsOAuthConnectionSummary' in scope
+178 |                     id: "conn_cli",
+179 |                     clientID: "cm_cli",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:171:33: error: 'nil' requires a contextual type
+169 |                     createdAt: "2026-06-01T00:00:00.000Z",
+170 |                     updatedAt: "2026-06-02T00:00:00.000Z",
+171 |                     lastUsedAt: nil,
+    |                                 `- error: 'nil' requires a contextual type
+172 |                     revokedAt: nil,
+173 |                     expiresAt: nil
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:172:32: error: 'nil' requires a contextual type
+170 |                     updatedAt: "2026-06-02T00:00:00.000Z",
+171 |                     lastUsedAt: nil,
+172 |                     revokedAt: nil,
+    |                                `- error: 'nil' requires a contextual type
+173 |                     expiresAt: nil
+174 |                 )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:173:32: error: 'nil' requires a contextual type
+171 |                     lastUsedAt: nil,
+172 |                     revokedAt: nil,
+173 |                     expiresAt: nil
+    |                                `- error: 'nil' requires a contextual type
+174 |                 )
+175 |             ],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:189:30: error: cannot find 'LiveSettingsSurfaceRepository' in scope
+187 |             ]
+188 |         )
+189 |         let liveRepository = LiveSettingsSurfaceRepository(
+    |                              `- error: cannot find 'LiveSettingsSurfaceRepository' in scope
+190 |             transport: transport,
+191 |             cache: NativeDurableCache(records: []),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:191:20: error: cannot find 'NativeDurableCache' in scope
+189 |         let liveRepository = LiveSettingsSurfaceRepository(
+190 |             transport: transport,
+191 |             cache: NativeDurableCache(records: []),
+    |                    `- error: cannot find 'NativeDurableCache' in scope
+192 |             configuration: Self.configuration
+193 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:197:27: error: cannot infer contextual base in reference to member 'production'
+195 |         let live = try await liveRepository.fetchSettingsSurface(
+196 |             accountID: "chef_ari",
+197 |             environment: .production
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+198 |         )
+199 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:209:41: error: cannot infer key path type from context; consider explicitly specifying a root type
+207 |         #expect(Set(transport.requestPaths) == Set(expectedRequestPaths))
+208 |         #expect(live.data.account?.username == "ari")
+209 |         #expect(live.data.apiTokens.map(\.tokenPrefix) == ["sj_live_cli"])
+    |                                         `- error: cannot infer key path type from context; consider explicitly specifying a root type
+210 |         #expect(live.data.oauthConnections.map(\.clientID) == ["cm_cli"])
+211 |         #expect(live.data.source == .live(requestID: "req_settings_surface", validatedAt: transport.validatedAt))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:210:48: error: cannot infer key path type from context; consider explicitly specifying a root type
+208 |         #expect(live.data.account?.username == "ari")
+209 |         #expect(live.data.apiTokens.map(\.tokenPrefix) == ["sj_live_cli"])
+210 |         #expect(live.data.oauthConnections.map(\.clientID) == ["cm_cli"])
+    |                                                `- error: cannot infer key path type from context; consider explicitly specifying a root type
+211 |         #expect(live.data.source == .live(requestID: "req_settings_surface", validatedAt: transport.validatedAt))
+212 |         #expect(live.persistedRecords.map(\.metadata.domain) == [
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:211:38: error: cannot infer contextual base in reference to member 'live'
+209 |         #expect(live.data.apiTokens.map(\.tokenPrefix) == ["sj_live_cli"])
+210 |         #expect(live.data.oauthConnections.map(\.clientID) == ["cm_cli"])
+211 |         #expect(live.data.source == .live(requestID: "req_settings_surface", validatedAt: transport.validatedAt))
+    |                                      `- error: cannot infer contextual base in reference to member 'live'
+212 |         #expect(live.persistedRecords.map(\.metadata.domain) == [
+213 |             .settings,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:212:43: error: cannot infer key path type from context; consider explicitly specifying a root type
+210 |         #expect(live.data.oauthConnections.map(\.clientID) == ["cm_cli"])
+211 |         #expect(live.data.source == .live(requestID: "req_settings_surface", validatedAt: transport.validatedAt))
+212 |         #expect(live.persistedRecords.map(\.metadata.domain) == [
+    |                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+213 |             .settings,
+214 |             .notificationPreferences,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:213:14: error: reference to member 'settings' cannot be resolved without a contextual type
+211 |         #expect(live.data.source == .live(requestID: "req_settings_surface", validatedAt: transport.validatedAt))
+212 |         #expect(live.persistedRecords.map(\.metadata.domain) == [
+213 |             .settings,
+    |              `- error: reference to member 'settings' cannot be resolved without a contextual type
+214 |             .notificationPreferences,
+215 |             .tokenMetadata,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:214:14: error: reference to member 'notificationPreferences' cannot be resolved without a contextual type
+212 |         #expect(live.persistedRecords.map(\.metadata.domain) == [
+213 |             .settings,
+214 |             .notificationPreferences,
+    |              `- error: reference to member 'notificationPreferences' cannot be resolved without a contextual type
+215 |             .tokenMetadata,
+216 |             .connectionStatus
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:215:14: error: reference to member 'tokenMetadata' cannot be resolved without a contextual type
+213 |             .settings,
+214 |             .notificationPreferences,
+215 |             .tokenMetadata,
+    |              `- error: reference to member 'tokenMetadata' cannot be resolved without a contextual type
+216 |             .connectionStatus
+217 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:216:14: error: reference to member 'connectionStatus' cannot be resolved without a contextual type
+214 |             .notificationPreferences,
+215 |             .tokenMetadata,
+216 |             .connectionStatus
+    |              `- error: reference to member 'connectionStatus' cannot be resolved without a contextual type
+217 |         ])
+218 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:219:24: error: cannot find 'SettingsSurfaceCacheSnapshot' in scope
+217 |         ])
+218 |
+219 |         let snapshot = SettingsSurfaceCacheSnapshot(
+    |                        `- error: cannot find 'SettingsSurfaceCacheSnapshot' in scope
+220 |             accountID: "chef_ari",
+221 |             environment: .production,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:221:27: error: cannot infer contextual base in reference to member 'production'
+219 |         let snapshot = SettingsSurfaceCacheSnapshot(
+220 |             accountID: "chef_ari",
+221 |             environment: .production,
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+222 |             records: live.persistedRecords
+223 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:224:26: error: cannot find 'SnapshotSettingsSurfaceRepository' in scope
+222 |             records: live.persistedRecords
+223 |         )
+224 |         let cached = try SnapshotSettingsSurfaceRepository(snapshot: snapshot).fetchSettingsSurface()
+    |                          `- error: cannot find 'SnapshotSettingsSurfaceRepository' in scope
+225 |         #expect(cached.data.account?.email == "ari@example.com")
+226 |         #expect(cached.data.notifications?.notifyForkOfMyRecipe == true)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:227:43: error: cannot infer key path type from context; consider explicitly specifying a root type
+225 |         #expect(cached.data.account?.email == "ari@example.com")
+226 |         #expect(cached.data.notifications?.notifyForkOfMyRecipe == true)
+227 |         #expect(cached.data.apiTokens.map(\.id) == ["cred_cli"])
+    |                                           `- error: cannot infer key path type from context; consider explicitly specifying a root type
+228 |         #expect(cached.data.oauthConnections.map(\.id) == ["conn_cli"])
+229 |         #expect(cached.data.source == .cache(lastValidatedAt: transport.validatedAt))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:228:50: error: cannot infer key path type from context; consider explicitly specifying a root type
+226 |         #expect(cached.data.notifications?.notifyForkOfMyRecipe == true)
+227 |         #expect(cached.data.apiTokens.map(\.id) == ["cred_cli"])
+228 |         #expect(cached.data.oauthConnections.map(\.id) == ["conn_cli"])
+    |                                                  `- error: cannot infer key path type from context; consider explicitly specifying a root type
+229 |         #expect(cached.data.source == .cache(lastValidatedAt: transport.validatedAt))
+230 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:229:40: error: cannot infer contextual base in reference to member 'cache'
+227 |         #expect(cached.data.apiTokens.map(\.id) == ["cred_cli"])
+228 |         #expect(cached.data.oauthConnections.map(\.id) == ["conn_cli"])
+229 |         #expect(cached.data.source == .cache(lastValidatedAt: transport.validatedAt))
+    |                                        `- error: cannot infer contextual base in reference to member 'cache'
+230 |     }
+231 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:234:23: error: cannot find 'SettingsActionPlanner' in scope
+232 |     @Test("profile and notification actions plan exact REST requests with offline queue fallbacks")
+233 |     func profileAndNotificationActionsPlanRESTAndOfflineFallbacks() throws {
+234 |         let planner = SettingsActionPlanner(
+    |                       `- error: cannot find 'SettingsActionPlanner' in scope
+235 |             connectivity: .online,
+236 |             secureHandoffRoutes: .spoonjoyApp,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:235:28: error: cannot infer contextual base in reference to member 'online'
+233 |     func profileAndNotificationActionsPlanRESTAndOfflineFallbacks() throws {
+234 |         let planner = SettingsActionPlanner(
+235 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+236 |             secureHandoffRoutes: .spoonjoyApp,
+237 |             now: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:236:35: error: cannot infer contextual base in reference to member 'spoonjoyApp'
+234 |         let planner = SettingsActionPlanner(
+235 |             connectivity: .online,
+236 |             secureHandoffRoutes: .spoonjoyApp,
+    |                                   `- error: cannot infer contextual base in reference to member 'spoonjoyApp'
+237 |             now: { Self.createdAt }
+238 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:240:41: error: cannot infer contextual base in reference to member 'updateProfile'
+238 |         )
+239 |
+240 |         let profile = try planner.plan(.updateProfile(
+    |                                         `- error: cannot infer contextual base in reference to member 'updateProfile'
+241 |             email: "new-ari@example.com",
+242 |             username: "newari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:251:51: error: cannot infer contextual base in reference to member 'profileDisplayUpdate'
+249 |         #expect(profile.queuedMutation == nil)
+250 |         let profileFallback = try requireMutation(profile.offlineFallbackMutation, "profile fallback")
+251 |         #expect(profileFallback.queueableKind == .profileDisplayUpdate)
+    |                                                   `- error: cannot infer contextual base in reference to member 'profileDisplayUpdate'
+252 |         try assertJSONRequest(try queuedRequest(from: profileFallback), method: .patch, path: "/api/v1/me", expected: [
+253 |             "email": "new-ari@example.com",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:264:40: error: cannot infer contextual base in reference to member 'uploadProfilePhoto'
+262 |             data: Data([0x47, 0x49, 0x46])
+263 |         )
+264 |         let upload = try planner.plan(.uploadProfilePhoto(photo: photo, clientMutationID: "cm_photo"))
+    |                                        `- error: cannot infer contextual base in reference to member 'uploadProfilePhoto'
+265 |         try assertMultipartRequest(
+266 |             try remoteRequest(from: upload),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:277:45: error: cannot infer contextual base in reference to member 'removeProfilePhoto'
+275 |         #expect(try requireMutation(upload.offlineFallbackMutation, "photo fallback").queueableKind == .profilePhotoUpload)
+276 |
+277 |         let removePhoto = try planner.plan(.removeProfilePhoto(clientMutationID: "cm_remove_photo"))
+    |                                             `- error: cannot infer contextual base in reference to member 'removeProfilePhoto'
+278 |         assertNoBodyRequest(
+279 |             try remoteRequest(from: removePhoto),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:287:13: error: cannot find 'SettingsNotificationPreferences' in scope
+285 |
+286 |         let notifications = try planner.plan(.updateNotificationPreferences(
+287 |             SettingsNotificationPreferences(
+    |             `- error: cannot find 'SettingsNotificationPreferences' in scope
+288 |                 notifySpoonOnMyRecipe: false,
+289 |                 notifyForkOfMyRecipe: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:286:47: error: cannot infer contextual base in reference to member 'updateNotificationPreferences'
+284 |         #expect(try requireMutation(removePhoto.offlineFallbackMutation, "remove photo fallback").queueableKind == .profilePhotoRemove)
+285 |
+286 |         let notifications = try planner.plan(.updateNotificationPreferences(
+    |                                               `- error: cannot infer contextual base in reference to member 'updateNotificationPreferences'
+287 |             SettingsNotificationPreferences(
+288 |                 notifySpoonOnMyRecipe: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:308:30: error: cannot find 'SettingsActionPlanner' in scope
+306 |         #expect(try requireMutation(notifications.offlineFallbackMutation, "notification fallback").queueableKind == .notificationPreferenceUpdate)
+307 |
+308 |         let offlinePlanner = SettingsActionPlanner(
+    |                              `- error: cannot find 'SettingsActionPlanner' in scope
+309 |             connectivity: .offline,
+310 |             secureHandoffRoutes: .spoonjoyApp,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:309:28: error: cannot infer contextual base in reference to member 'offline'
+307 |
+308 |         let offlinePlanner = SettingsActionPlanner(
+309 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+310 |             secureHandoffRoutes: .spoonjoyApp,
+311 |             now: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:310:35: error: cannot infer contextual base in reference to member 'spoonjoyApp'
+308 |         let offlinePlanner = SettingsActionPlanner(
+309 |             connectivity: .offline,
+310 |             secureHandoffRoutes: .spoonjoyApp,
+    |                                   `- error: cannot infer contextual base in reference to member 'spoonjoyApp'
+311 |             now: { Self.createdAt }
+312 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:313:54: error: cannot infer contextual base in reference to member 'updateProfile'
+311 |             now: { Self.createdAt }
+312 |         )
+313 |         let queuedProfile = try offlinePlanner.plan(.updateProfile(
+    |                                                      `- error: cannot infer contextual base in reference to member 'updateProfile'
+314 |             email: "queued@example.com",
+315 |             username: "queuedari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:328:58: error: cannot infer contextual base in reference to member 'uploadProfilePhoto'
+326 |         ])
+327 |
+328 |         let queuedPhotoUpload = try offlinePlanner.plan(.uploadProfilePhoto(photo: photo, clientMutationID: "cm_photo_offline"))
+    |                                                          `- error: cannot infer contextual base in reference to member 'uploadProfilePhoto'
+329 |         #expect(queuedPhotoUpload.remoteRequestBuilder == nil)
+330 |         #expect(queuedPhotoUpload.offlineFallbackMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:344:58: error: cannot infer contextual base in reference to member 'removeProfilePhoto'
+342 |         )
+343 |
+344 |         let queuedPhotoRemove = try offlinePlanner.plan(.removeProfilePhoto(clientMutationID: "cm_remove_photo_offline"))
+    |                                                          `- error: cannot infer contextual base in reference to member 'removeProfilePhoto'
+345 |         #expect(queuedPhotoRemove.remoteRequestBuilder == nil)
+346 |         #expect(queuedPhotoRemove.offlineFallbackMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:358:13: error: cannot find 'SettingsNotificationPreferences' in scope
+356 |
+357 |         let queuedNotifications = try offlinePlanner.plan(.updateNotificationPreferences(
+358 |             SettingsNotificationPreferences(
+    |             `- error: cannot find 'SettingsNotificationPreferences' in scope
+359 |                 notifySpoonOnMyRecipe: true,
+360 |                 notifyForkOfMyRecipe: false,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:357:60: error: cannot infer contextual base in reference to member 'updateNotificationPreferences'
+355 |         )
+356 |
+357 |         let queuedNotifications = try offlinePlanner.plan(.updateNotificationPreferences(
+    |                                                            `- error: cannot infer contextual base in reference to member 'updateNotificationPreferences'
+358 |             SettingsNotificationPreferences(
+359 |                 notifySpoonOnMyRecipe: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:386:29: error: cannot find 'SettingsActionPlanner' in scope
+384 |     @Test("tokens connections logout and credential handoffs are online-only while offline")
+385 |     func tokenConnectionLogoutAndCredentialActionsAreOnlineOnlyOffline() throws {
+386 |         let onlinePlanner = SettingsActionPlanner(
+    |                             `- error: cannot find 'SettingsActionPlanner' in scope
+387 |             connectivity: .online,
+388 |             secureHandoffRoutes: .spoonjoyApp,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:387:28: error: cannot infer contextual base in reference to member 'online'
+385 |     func tokenConnectionLogoutAndCredentialActionsAreOnlineOnlyOffline() throws {
+386 |         let onlinePlanner = SettingsActionPlanner(
+387 |             connectivity: .online,
+    |                            `- error: cannot infer contextual base in reference to member 'online'
+388 |             secureHandoffRoutes: .spoonjoyApp,
+389 |             now: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:388:35: error: cannot infer contextual base in reference to member 'spoonjoyApp'
+386 |         let onlinePlanner = SettingsActionPlanner(
+387 |             connectivity: .online,
+388 |             secureHandoffRoutes: .spoonjoyApp,
+    |                                   `- error: cannot infer contextual base in reference to member 'spoonjoyApp'
+389 |             now: { Self.createdAt }
+390 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:392:51: error: cannot infer contextual base in reference to member 'createAPIToken'
+390 |         )
+391 |
+392 |         let createToken = try onlinePlanner.plan(.createAPIToken(
+    |                                                   `- error: cannot infer contextual base in reference to member 'createAPIToken'
+393 |             name: "Kitchen Script",
+394 |             scopes: ["recipes:read", "shopping_list:write"]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:403:51: error: cannot infer contextual base in reference to member 'revokeAPIToken'
+401 |         #expect(createToken.queuedMutation == nil)
+402 |
+403 |         let revokeToken = try onlinePlanner.plan(.revokeAPIToken(credentialID: "cred/with spaces"))
+    |                                                   `- error: cannot infer contextual base in reference to member 'revokeAPIToken'
+404 |         assertNoBodyRequest(
+405 |             try remoteRequest(from: revokeToken),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:412:50: error: cannot infer contextual base in reference to member 'disconnectOAuthConnection'
+410 |         #expect(revokeToken.offlineFallbackMutation == nil)
+411 |
+412 |         let disconnect = try onlinePlanner.plan(.disconnectOAuthConnection(connectionID: "conn/google"))
+    |                                                  `- error: cannot infer contextual base in reference to member 'disconnectOAuthConnection'
+413 |         assertNoBodyRequest(
+414 |             try remoteRequest(from: disconnect),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:421:74: error: cannot find 'SettingsSecureHandoff' in scope
+419 |         #expect(disconnect.offlineFallbackMutation == nil)
+420 |
+421 |         #expect(try onlinePlanner.plan(.managePasskeys).secureHandoff == SettingsSecureHandoff(
+    |                                                                          `- error: cannot find 'SettingsSecureHandoff' in scope
+422 |             target: .passkeys,
+423 |             url: URL(string: "https://spoonjoy.app/account/settings#passkeys")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:421:41: error: cannot infer contextual base in reference to member 'managePasskeys'
+419 |         #expect(disconnect.offlineFallbackMutation == nil)
+420 |
+421 |         #expect(try onlinePlanner.plan(.managePasskeys).secureHandoff == SettingsSecureHandoff(
+    |                                         `- error: cannot infer contextual base in reference to member 'managePasskeys'
+422 |             target: .passkeys,
+423 |             url: URL(string: "https://spoonjoy.app/account/settings#passkeys")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:422:22: error: cannot infer contextual base in reference to member 'passkeys'
+420 |
+421 |         #expect(try onlinePlanner.plan(.managePasskeys).secureHandoff == SettingsSecureHandoff(
+422 |             target: .passkeys,
+    |                      `- error: cannot infer contextual base in reference to member 'passkeys'
+423 |             url: URL(string: "https://spoonjoy.app/account/settings#passkeys")!
+424 |         ))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:425:74: error: cannot find 'SettingsSecureHandoff' in scope
+423 |             url: URL(string: "https://spoonjoy.app/account/settings#passkeys")!
+424 |         ))
+425 |         #expect(try onlinePlanner.plan(.managePassword).secureHandoff == SettingsSecureHandoff(
+    |                                                                          `- error: cannot find 'SettingsSecureHandoff' in scope
+426 |             target: .password,
+427 |             url: URL(string: "https://spoonjoy.app/account/settings#password")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:425:41: error: cannot infer contextual base in reference to member 'managePassword'
+423 |             url: URL(string: "https://spoonjoy.app/account/settings#passkeys")!
+424 |         ))
+425 |         #expect(try onlinePlanner.plan(.managePassword).secureHandoff == SettingsSecureHandoff(
+    |                                         `- error: cannot infer contextual base in reference to member 'managePassword'
+426 |             target: .password,
+427 |             url: URL(string: "https://spoonjoy.app/account/settings#password")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:426:22: error: cannot infer contextual base in reference to member 'password'
+424 |         ))
+425 |         #expect(try onlinePlanner.plan(.managePassword).secureHandoff == SettingsSecureHandoff(
+426 |             target: .password,
+    |                      `- error: cannot infer contextual base in reference to member 'password'
+427 |             url: URL(string: "https://spoonjoy.app/account/settings#password")!
+428 |         ))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:429:81: error: cannot find 'SettingsSecureHandoff' in scope
+427 |             url: URL(string: "https://spoonjoy.app/account/settings#password")!
+428 |         ))
+429 |         #expect(try onlinePlanner.plan(.linkProvider(.google)).secureHandoff == SettingsSecureHandoff(
+    |                                                                                 `- error: cannot find 'SettingsSecureHandoff' in scope
+430 |             target: .providerLink(.google),
+431 |             url: URL(string: "https://spoonjoy.app/auth/google?linking=true")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:429:41: error: cannot infer contextual base in reference to member 'linkProvider'
+427 |             url: URL(string: "https://spoonjoy.app/account/settings#password")!
+428 |         ))
+429 |         #expect(try onlinePlanner.plan(.linkProvider(.google)).secureHandoff == SettingsSecureHandoff(
+    |                                         `- error: cannot infer contextual base in reference to member 'linkProvider'
+430 |             target: .providerLink(.google),
+431 |             url: URL(string: "https://spoonjoy.app/auth/google?linking=true")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:429:55: error: cannot infer contextual base in reference to member 'google'
+427 |             url: URL(string: "https://spoonjoy.app/account/settings#password")!
+428 |         ))
+429 |         #expect(try onlinePlanner.plan(.linkProvider(.google)).secureHandoff == SettingsSecureHandoff(
+    |                                                       `- error: cannot infer contextual base in reference to member 'google'
+430 |             target: .providerLink(.google),
+431 |             url: URL(string: "https://spoonjoy.app/auth/google?linking=true")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:430:22: error: cannot infer contextual base in reference to member 'providerLink'
+428 |         ))
+429 |         #expect(try onlinePlanner.plan(.linkProvider(.google)).secureHandoff == SettingsSecureHandoff(
+430 |             target: .providerLink(.google),
+    |                      `- error: cannot infer contextual base in reference to member 'providerLink'
+431 |             url: URL(string: "https://spoonjoy.app/auth/google?linking=true")!
+432 |         ))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:430:36: error: cannot infer contextual base in reference to member 'google'
+428 |         ))
+429 |         #expect(try onlinePlanner.plan(.linkProvider(.google)).secureHandoff == SettingsSecureHandoff(
+430 |             target: .providerLink(.google),
+    |                                    `- error: cannot infer contextual base in reference to member 'google'
+431 |             url: URL(string: "https://spoonjoy.app/auth/google?linking=true")!
+432 |         ))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:434:46: error: cannot infer contextual base in reference to member 'logout'
+432 |         ))
+433 |
+434 |         let logout = try onlinePlanner.plan(.logout)
+    |                                              `- error: cannot infer contextual base in reference to member 'logout'
+435 |         #expect(logout.sessionOperation == .logout)
+436 |         #expect(logout.secureHandoff == SettingsSecureHandoff(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:435:45: error: cannot infer contextual base in reference to member 'logout'
+433 |
+434 |         let logout = try onlinePlanner.plan(.logout)
+435 |         #expect(logout.sessionOperation == .logout)
+    |                                             `- error: cannot infer contextual base in reference to member 'logout'
+436 |         #expect(logout.secureHandoff == SettingsSecureHandoff(
+437 |             target: .logout,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:436:41: error: cannot find 'SettingsSecureHandoff' in scope
+434 |         let logout = try onlinePlanner.plan(.logout)
+435 |         #expect(logout.sessionOperation == .logout)
+436 |         #expect(logout.secureHandoff == SettingsSecureHandoff(
+    |                                         `- error: cannot find 'SettingsSecureHandoff' in scope
+437 |             target: .logout,
+438 |             url: URL(string: "https://spoonjoy.app/logout")!
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:437:22: error: cannot infer contextual base in reference to member 'logout'
+435 |         #expect(logout.sessionOperation == .logout)
+436 |         #expect(logout.secureHandoff == SettingsSecureHandoff(
+437 |             target: .logout,
+    |                      `- error: cannot infer contextual base in reference to member 'logout'
+438 |             url: URL(string: "https://spoonjoy.app/logout")!
+439 |         ))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:443:53: error: cannot infer contextual base in reference to member 'revokeSession'
+441 |         #expect(logout.offlineFallbackMutation == nil)
+442 |
+443 |         let revokeSession = try onlinePlanner.plan(.revokeSession)
+    |                                                     `- error: cannot infer contextual base in reference to member 'revokeSession'
+444 |         #expect(revokeSession.sessionOperation == .revokeAndLogout)
+445 |         #expect(revokeSession.secureHandoff == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:444:52: error: cannot infer contextual base in reference to member 'revokeAndLogout'
+442 |
+443 |         let revokeSession = try onlinePlanner.plan(.revokeSession)
+444 |         #expect(revokeSession.sessionOperation == .revokeAndLogout)
+    |                                                    `- error: cannot infer contextual base in reference to member 'revokeAndLogout'
+445 |         #expect(revokeSession.secureHandoff == nil)
+446 |         #expect(revokeSession.queuedMutation == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:449:30: error: cannot find 'SettingsActionPlanner' in scope
+447 |         #expect(revokeSession.offlineFallbackMutation == nil)
+448 |
+449 |         let offlinePlanner = SettingsActionPlanner(
+    |                              `- error: cannot find 'SettingsActionPlanner' in scope
+450 |             connectivity: .offline,
+451 |             secureHandoffRoutes: .spoonjoyApp,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:450:28: error: cannot infer contextual base in reference to member 'offline'
+448 |
+449 |         let offlinePlanner = SettingsActionPlanner(
+450 |             connectivity: .offline,
+    |                            `- error: cannot infer contextual base in reference to member 'offline'
+451 |             secureHandoffRoutes: .spoonjoyApp,
+452 |             now: { Self.createdAt }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:451:35: error: cannot infer contextual base in reference to member 'spoonjoyApp'
+449 |         let offlinePlanner = SettingsActionPlanner(
+450 |             connectivity: .offline,
+451 |             secureHandoffRoutes: .spoonjoyApp,
+    |                                   `- error: cannot infer contextual base in reference to member 'spoonjoyApp'
+452 |             now: { Self.createdAt }
+453 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:454:32: error: cannot find type 'SettingsAction' in scope
+452 |             now: { Self.createdAt }
+453 |         )
+454 |         let onlineOnlyCases: [(SettingsAction, SettingsOnlineOnlyReason)] = [
+    |                                `- error: cannot find type 'SettingsAction' in scope
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:454:48: error: cannot find type 'SettingsOnlineOnlyReason' in scope
+452 |             now: { Self.createdAt }
+453 |         )
+454 |         let onlineOnlyCases: [(SettingsAction, SettingsOnlineOnlyReason)] = [
+    |                                                `- error: cannot find type 'SettingsOnlineOnlyReason' in scope
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:455:15: error: cannot infer contextual base in reference to member 'createAPIToken'
+453 |         )
+454 |         let onlineOnlyCases: [(SettingsAction, SettingsOnlineOnlyReason)] = [
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+    |               `- error: cannot infer contextual base in reference to member 'createAPIToken'
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:455:81: error: cannot infer contextual base in reference to member 'apiTokenCreate'
+453 |         )
+454 |         let onlineOnlyCases: [(SettingsAction, SettingsOnlineOnlyReason)] = [
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+    |                                                                                 `- error: cannot infer contextual base in reference to member 'apiTokenCreate'
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:456:15: error: cannot infer contextual base in reference to member 'revokeAPIToken'
+454 |         let onlineOnlyCases: [(SettingsAction, SettingsOnlineOnlyReason)] = [
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+    |               `- error: cannot infer contextual base in reference to member 'revokeAPIToken'
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+458 |             (.logout, .logout),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:456:58: error: cannot infer contextual base in reference to member 'apiTokenRevoke'
+454 |         let onlineOnlyCases: [(SettingsAction, SettingsOnlineOnlyReason)] = [
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+    |                                                          `- error: cannot infer contextual base in reference to member 'apiTokenRevoke'
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+458 |             (.logout, .logout),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:457:15: error: cannot infer contextual base in reference to member 'disconnectOAuthConnection'
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+    |               `- error: cannot infer contextual base in reference to member 'disconnectOAuthConnection'
+458 |             (.logout, .logout),
+459 |             (.revokeSession, .sessionRevoke),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:457:69: error: cannot infer contextual base in reference to member 'oauthConnectionDisconnect'
+455 |             (.createAPIToken(name: "Offline Script", scopes: ["tokens:read"]), .apiTokenCreate),
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+    |                                                                     `- error: cannot infer contextual base in reference to member 'oauthConnectionDisconnect'
+458 |             (.logout, .logout),
+459 |             (.revokeSession, .sessionRevoke),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:458:15: error: cannot infer contextual base in reference to member 'logout'
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+458 |             (.logout, .logout),
+    |               `- error: cannot infer contextual base in reference to member 'logout'
+459 |             (.revokeSession, .sessionRevoke),
+460 |             (.managePasskeys, .credentialHandoff),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:458:24: error: cannot infer contextual base in reference to member 'logout'
+456 |             (.revokeAPIToken(credentialID: "cred_cli"), .apiTokenRevoke),
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+458 |             (.logout, .logout),
+    |                        `- error: cannot infer contextual base in reference to member 'logout'
+459 |             (.revokeSession, .sessionRevoke),
+460 |             (.managePasskeys, .credentialHandoff),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:459:15: error: cannot infer contextual base in reference to member 'revokeSession'
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+458 |             (.logout, .logout),
+459 |             (.revokeSession, .sessionRevoke),
+    |               `- error: cannot infer contextual base in reference to member 'revokeSession'
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:459:31: error: cannot infer contextual base in reference to member 'sessionRevoke'
+457 |             (.disconnectOAuthConnection(connectionID: "conn_cli"), .oauthConnectionDisconnect),
+458 |             (.logout, .logout),
+459 |             (.revokeSession, .sessionRevoke),
+    |                               `- error: cannot infer contextual base in reference to member 'sessionRevoke'
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:460:15: error: cannot infer contextual base in reference to member 'managePasskeys'
+458 |             (.logout, .logout),
+459 |             (.revokeSession, .sessionRevoke),
+460 |             (.managePasskeys, .credentialHandoff),
+    |               `- error: cannot infer contextual base in reference to member 'managePasskeys'
+461 |             (.managePassword, .credentialHandoff),
+462 |             (.linkProvider(.github), .credentialHandoff)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:460:32: error: cannot infer contextual base in reference to member 'credentialHandoff'
+458 |             (.logout, .logout),
+459 |             (.revokeSession, .sessionRevoke),
+460 |             (.managePasskeys, .credentialHandoff),
+    |                                `- error: cannot infer contextual base in reference to member 'credentialHandoff'
+461 |             (.managePassword, .credentialHandoff),
+462 |             (.linkProvider(.github), .credentialHandoff)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:461:15: error: cannot infer contextual base in reference to member 'managePassword'
+459 |             (.revokeSession, .sessionRevoke),
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+    |               `- error: cannot infer contextual base in reference to member 'managePassword'
+462 |             (.linkProvider(.github), .credentialHandoff)
+463 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:461:32: error: cannot infer contextual base in reference to member 'credentialHandoff'
+459 |             (.revokeSession, .sessionRevoke),
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+    |                                `- error: cannot infer contextual base in reference to member 'credentialHandoff'
+462 |             (.linkProvider(.github), .credentialHandoff)
+463 |         ]
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:462:15: error: cannot infer contextual base in reference to member 'linkProvider'
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+462 |             (.linkProvider(.github), .credentialHandoff)
+    |               `- error: cannot infer contextual base in reference to member 'linkProvider'
+463 |         ]
+464 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:462:29: error: cannot infer contextual base in reference to member 'github'
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+462 |             (.linkProvider(.github), .credentialHandoff)
+    |                             `- error: cannot infer contextual base in reference to member 'github'
+463 |         ]
+464 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:462:39: error: cannot infer contextual base in reference to member 'credentialHandoff'
+460 |             (.managePasskeys, .credentialHandoff),
+461 |             (.managePassword, .credentialHandoff),
+462 |             (.linkProvider(.github), .credentialHandoff)
+    |                                       `- error: cannot infer contextual base in reference to member 'credentialHandoff'
+463 |         ]
+464 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:478:22: error: cannot find 'SettingsProfilePhotoStagingPolicy' in scope
+476 |     @Test("profile photo staging follows web allowlist and preserves existing draft on rejected replacement")
+477 |     func profilePhotoStagingPolicyMatchesWebAndPreservesDrafts() throws {
+478 |         let policy = SettingsProfilePhotoStagingPolicy.webProfileParity
+    |                      `- error: cannot find 'SettingsProfilePhotoStagingPolicy' in scope
+479 |         #expect(policy.acceptedContentTypes == ["image/jpeg", "image/png", "image/gif", "image/webp"])
+480 |         #expect(policy.maxBytes == 5 * 1_024 * 1_024)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:510:44: error: cannot infer contextual base in reference to member 'unsupportedContentType'
+508 |         let rejectedType = policy.stageReplacement(existing: existing, candidate: badType)
+509 |         #expect(rejectedType.stagedPhoto == existing)
+510 |         #expect(rejectedType.rejection == .unsupportedContentType("image/svg+xml"))
+    |                                            `- error: cannot infer contextual base in reference to member 'unsupportedContentType'
+511 |
+512 |         let rejectedSize = policy.stageReplacement(existing: existing, candidate: oversized)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:514:44: error: cannot infer contextual base in reference to member 'fileTooLarge'
+512 |         let rejectedSize = policy.stageReplacement(existing: existing, candidate: oversized)
+513 |         #expect(rejectedSize.stagedPhoto == existing)
+514 |         #expect(rejectedSize.rejection == .fileTooLarge(maxBytes: 5 * 1_024 * 1_024))
+    |                                            `- error: cannot infer contextual base in reference to member 'fileTooLarge'
+515 |
+516 |         let accepted = policy.stageReplacement(existing: existing, candidate: gif)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:711:16: error: cannot find 'SettingsTransportEnvelope' in scope
+709 |     func fetchAccount(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsAccountProfile> {
+710 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+711 |         return SettingsTransportEnvelope(requestID: "req_account", data: account, validatedAt: validatedAt)
+    |                `- error: cannot find 'SettingsTransportEnvelope' in scope
+712 |     }
+713 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:716:16: error: cannot find 'SettingsTransportEnvelope' in scope
+714 |     func fetchNotificationPreferences(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsNotificationPreferences> {
+715 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+716 |         return SettingsTransportEnvelope(requestID: "req_notifications", data: notifications, validatedAt: validatedAt)
+    |                `- error: cannot find 'SettingsTransportEnvelope' in scope
+717 |     }
+718 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:721:16: error: cannot find 'SettingsTransportEnvelope' in scope
+719 |     func fetchAPITokens(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsAPITokenSummary]> {
+720 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+721 |         return SettingsTransportEnvelope(requestID: "req_tokens", data: tokens, validatedAt: validatedAt)
+    |                `- error: cannot find 'SettingsTransportEnvelope' in scope
+722 |     }
+723 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SettingsTokenConnectionTests.swift:726:16: error: cannot find 'SettingsTransportEnvelope' in scope
+724 |     func fetchOAuthConnections(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsOAuthConnectionSummary]> {
+725 |         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+726 |         return SettingsTransportEnvelope(requestID: "req_connections", data: connections, validatedAt: validatedAt)
+    |                `- error: cannot find 'SettingsTransportEnvelope' in scope
+727 |     }
+728 | }
+error: fatalError
+swift_status=1
+== settings surface static red ==
+FAIL: missing search/capture/settings/profile surface files: Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift, Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift
+static_status=1

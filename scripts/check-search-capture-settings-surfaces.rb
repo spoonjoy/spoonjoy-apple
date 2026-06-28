@@ -14,7 +14,9 @@ REQUIRED_FILES = [
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
   "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift",
   "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift",
-  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift"
+  "Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift",
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift",
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift"
 ].freeze
 
 REQUIRED_TOKENS = {
@@ -75,7 +77,22 @@ REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
     "SettingsView",
     "SettingsViewModel",
+    "SettingsSurfaceViewModel",
+    "SettingsActionPlanner",
     "SettingsState",
+    "Profile",
+    "Email",
+    "Username",
+    "Upload Photo",
+    "Remove Photo",
+    "Notifications",
+    "API Tokens",
+    "Connections",
+    "Passkeys",
+    "Password",
+    "Sign Out",
+    "SettingsOnlineOnlyReason",
+    "SettingsSecureHandoff",
     "settings.statusRows",
     "Form",
     "Section",
@@ -128,6 +145,50 @@ REQUIRED_TOKENS = {
     "NativeQueuedMutation.profilePhotoUpload",
     "NativeQueuedMutation.profilePhotoRemove",
     "OfflineIndicatorState"
+  ],
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift" => [
+    "SettingsSurfaceRepository",
+    "LiveSettingsSurfaceRepository",
+    "SnapshotSettingsSurfaceRepository",
+    "SettingsSurfaceData",
+    "SettingsSurfaceCacheSnapshot",
+    "SettingsAccountProfile",
+    "SettingsNotificationPreferences",
+    "SettingsAPITokenSummary",
+    "SettingsOAuthConnectionSummary",
+    "tokenPrefix",
+    "updatedAt",
+    "revokedAt",
+    "PrivateAccountRequests.currentAccount",
+    "PrivateAccountRequests.notificationPreferences",
+    "TokenCredentialRequests.listTokens",
+    "PrivateAccountRequests.connections",
+    "NativeCacheDomain.settings",
+    "NativeCacheDomain.notificationPreferences",
+    "NativeCacheDomain.tokenMetadata",
+    "NativeCacheDomain.connectionStatus",
+    "NativeCachePayload.tokenMetadata",
+    "NativeCachePayload.connectionStatus"
+  ],
+  "Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift" => [
+    "SettingsSurfaceViewModel",
+    "SettingsSurfaceSectionID",
+    "SettingsProfileDraft",
+    "SettingsProfilePhotoStagingPolicy",
+    "SettingsActionPlanner",
+    "SettingsActionPlan",
+    "SettingsOnlineOnlyReason",
+    "SettingsSecureHandoff",
+    "SettingsSurfaceConflictBanner",
+    "NativeQueuedMutation.profileDisplayUpdate",
+    "NativeQueuedMutation.profilePhotoUpload",
+    "NativeQueuedMutation.profilePhotoRemove",
+    "NativeQueuedMutation.notificationPreferenceUpdate",
+    "NativeOfflineMutationPolicy.decision",
+    "TokenCredentialRequests.createToken",
+    "TokenCredentialRequests.revokeToken",
+    "PrivateAccountRequests.disconnectConnection",
+    "SecureAuthWebHandoff.logout"
   ]
 }.freeze
 
@@ -142,7 +203,12 @@ PLATFORM_NAVIGATION_TOKENS = [
   "LiveProfileChefGraphSurfaceRepository",
   "FallbackProfileChefGraphSurfaceRepository",
   "profileGraphRepository",
-  "openProfileRoute"
+  "openProfileRoute",
+  "contentState.settingsSurfaceViewModel",
+  "performSettingsAction",
+  "queueSettingsMutationIfNeeded",
+  "LiveSettingsSurfaceRepository",
+  "SnapshotSettingsSurfaceRepository"
 ].freeze
 
 FORBIDDEN_TOKENS = [
@@ -166,7 +232,14 @@ FORBIDDEN_TOKENS = [
   "MailCompose",
   "RecipeComments",
   "SocialFeed",
-  "ActivityFeed"
+  "ActivityFeed",
+  "tokenHash",
+  "rawToken",
+  "tokenSecret",
+  "accessTokenSecret",
+  "refreshTokenSecret",
+  "accessTokenValue",
+  "refreshTokenValue"
 ].freeze
 
 FORBIDDEN_BY_FILE = {
@@ -266,6 +339,11 @@ scenario_verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swif
   "profile graph",
   "fellow chefs",
   "kitchen visitors",
+  "settings token connection surface",
+  "settings profile update",
+  "settings token create online-only",
+  "settings connection disconnect online-only",
+  "settings secure handoff",
   "safe unknown link",
   "SearchView.swift",
   "CaptureDraftView.swift",
