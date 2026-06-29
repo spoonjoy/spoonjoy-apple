@@ -41,7 +41,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -864,6 +864,193 @@ if domain == "spoon"
       "reaction App Entity",
       "TODO Spoon AppEntity",
       "eventually add spoon entities"
+    ],
+    failures
+  )
+end
+
+if domain == "capture-draft"
+  core_entities = ROOT.join("Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift")
+  app_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  live_store = ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift")
+  navigation = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+  spotlight = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [core_entities, app_entities, metadata, verifier, intent_action, live_store, navigation, spotlight, project].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    core_entities,
+    [
+      "CaptureDraftEntityCatalog",
+      "CaptureDraftEntityCatalogError",
+      "CaptureDraftEntityKind",
+      "CaptureDraftEntityTransferValue",
+      "CaptureDraftEntityScope",
+      "CaptureDraftEntityDescriptor",
+      "CaptureDraftEntityIndexPurgePlan",
+      "isPlaceholder",
+      "captureDraftEntity(id:",
+      "captureDraftEntities(for identifiers:",
+      "captureDraftEntities(matching string:",
+      "suggestedCaptureDraftEntities",
+      "public static func loading(",
+      "NativeAppSnapshot",
+      "NativeAppStateStore",
+      "NativeDurableCacheSnapshot",
+      "NativeDurableCacheStore",
+      "NativeCachePayload.captureDraft",
+      "NativeCacheDomain.captureDraft",
+      "accountID",
+      "environment",
+      "public static func captureDraftEntityIdentifier(",
+      "public static func resolvedCaptureDraftID(",
+      "public static func purgeEntityIdentifiers(",
+      "purgeDomainIdentifiers(",
+      "public static func accountScopePurge(",
+      "public static func cacheDeletePurge(",
+      "public static func draftDiscardPurge(",
+      "CaptureDraft",
+      "pendingCaptureImport",
+      "captureImportProviderBlocker",
+      "importReadiness",
+      "AppRoute.capture",
+      "NativeSharePayload.privateCaptureDraft",
+      "privateTransferValue",
+      "debugFields"
+    ],
+    failures
+  )
+
+  require_tokens(
+    app_entities,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "import CoreTransferable",
+      "import SpoonjoyCore",
+      "@available(iOS 27.0, macOS 27.0, *)",
+      "struct SpoonjoyCaptureDraftEntity: AppEntity",
+      "struct SpoonjoyCaptureDraftEntityQuery: EntityQuery, EntityStringQuery",
+      "typealias DefaultQuery = SpoonjoyCaptureDraftEntityQuery",
+      "static let typeDisplayRepresentation",
+      "var displayRepresentation",
+      "DisplayRepresentation",
+      "TypeDisplayRepresentation",
+      "entities(for identifiers: [String]) async throws",
+      "entities(matching string: String) async throws",
+      "suggestedEntities() async throws",
+      "CaptureDraftEntityCatalog",
+      "CaptureDraftEntityDescriptor",
+      "Transferable",
+      "TransferRepresentation",
+      "CaptureDraftEntityTransferValue",
+      "resolvedCaptureDraftID() throws",
+      "NativeIntentActionError.unresolvedCaptureDraftEntity",
+      "descriptor.isPlaceholder",
+      "NativeAppStateLocation.defaultFileURL()",
+      "NativeAppStateStore",
+      "NativeDurableCacheStore",
+      "trustedIntentScope",
+      "KeychainTokenVault()",
+      "scope.accountID",
+      "scope.environment"
+    ],
+    failures
+  )
+
+  require_patterns(
+    app_entities,
+    {
+      "SpoonjoyCaptureDraftEntity AppEntity declaration" => /\bstruct\s+SpoonjoyCaptureDraftEntity\s*:\s*AppEntity\b/,
+      "capture draft query declaration" => /\bstruct\s+SpoonjoyCaptureDraftEntityQuery\s*:\s*EntityQuery\s*,\s*EntityStringQuery\b/
+    },
+    failures
+  )
+  require_nested_body_tokens(app_entities, "SpoonjoyCaptureDraftEntityQuery", /\bstruct\s+SpoonjoyCaptureDraftEntityQuery\b/, "identifier query", /func\s+entities\(for identifiers: \[String\]\)/, ["CaptureDraftEntityCatalog.loading(", "captureDraftEntities(for: identifiers)", "SpoonjoyCaptureDraftEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyCaptureDraftEntityQuery", /\bstruct\s+SpoonjoyCaptureDraftEntityQuery\b/, "string query", /func\s+entities\(matching string: String\)/, ["CaptureDraftEntityCatalog.loading(", "captureDraftEntities(matching: string)", "SpoonjoyCaptureDraftEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyCaptureDraftEntityQuery", /\bstruct\s+SpoonjoyCaptureDraftEntityQuery\b/, "suggestions query", /func\s+suggestedEntities\(\)/, ["CaptureDraftEntityCatalog.loading(", "suggestedCaptureDraftEntities", "SpoonjoyCaptureDraftEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyCaptureDraftEntity", /\bstruct\s+SpoonjoyCaptureDraftEntity\b/, "display representation", /var\s+displayRepresentation:\s+DisplayRepresentation/, ["descriptor.title", "descriptor.subtitle", "descriptor.disambiguationLabel"], failures)
+
+  require_tokens(
+    metadata,
+    [
+      "SpoonjoyCaptureDraftEntity",
+      "SpoonjoyCaptureDraftEntityQuery"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "capture draft App Entity",
+      "CaptureDraftEntityCatalog",
+      "SpoonjoyCaptureDraftEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    intent_action,
+    [
+      "unresolvedCaptureDraftEntity",
+      "Choose a Spoonjoy capture draft before running this Siri action."
+    ],
+    failures
+  )
+
+  require_body_tokens(live_store, "performSettingsSessionOperation", /func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/, ["CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
+  require_body_tokens(live_store, "restoreFromCache account or environment switch", /func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\]\s*\)/, ["preFilterCacheRecord", "preFilterAppStateRecord", "dependencies.cacheStore.loadOrRecover(fallback:", "appStateStore.loadOrCreate(fallback:", "previousCacheSnapshot", "previousAppSnapshot", "preFilterCacheRecord.value", "preFilterAppStateRecord.value", "previousCacheSnapshot.accountID", "previousCacheSnapshot.environment", "previousAppSnapshot.accountID", "previousAppSnapshot.environment", "CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers", "accountID: previousCacheSnapshot.accountID", "environment: previousCacheSnapshot.environment", "accountID: previousAppSnapshot.accountID", "environment: previousAppSnapshot.environment", "!= accountID(for: authSessionState)", "!= cacheEnvironment"], failures)
+  require_body_tokens(live_store, "discardCaptureDraft", /func\s+discardCaptureDraft\(id draftID: String\)/, ["CaptureDraftEntityIndexPurgePlan.draftDiscardPurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
+  require_body_tokens(live_store, "recordCaptureDraft", /func\s+recordCaptureDraft\(_ draft: CaptureDraft\)/, ["CaptureDraftEntityIndexPurgePlan.cacheDeletePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
+
+  require_tokens(
+    navigation,
+    [
+      "NativeCaptureDraftEntityIndexPurgeRequest",
+      "purgeCaptureDraftEntityIndexesHandler"
+    ],
+    failures
+  )
+
+  require_tokens(
+    spotlight,
+    [
+      "func delete(identifiers: [String], domainIdentifiers: [String])",
+      "deleteSearchableItems(withIdentifiers:",
+      "deleteSearchableItems(withDomainIdentifiers:"
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  forbid_tokens(
+    app_entities,
+    [
+      "rawText",
+      "imageAssetIdentifier",
+      "captureImportProviderBlocker",
+      "comment App Entity",
+      "feed App Entity",
+      "message App Entity",
+      "mail App Entity",
+      "TODO CaptureDraft AppEntity",
+      "eventually add capture draft entities"
     ],
     failures
   )
