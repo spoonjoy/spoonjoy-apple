@@ -4,6 +4,46 @@ import SpoonjoyCore
 #if canImport(AppIntents)
 import AppIntents
 
+private typealias SpoonjoyIntentNativeSharePayload = NativeSharePayload
+
+@available(iOS 27.0, macOS 27.0, *)
+enum SpoonjoySearchScopeOption: String, AppEnum {
+    case all
+    case recipes
+    case cookbooks
+    case chefs
+    case shoppingList
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation {
+        TypeDisplayRepresentation(name: "Search Scope")
+    }
+
+    static var caseDisplayRepresentations: [SpoonjoySearchScopeOption: DisplayRepresentation] {
+        [
+            .all: DisplayRepresentation(title: "All"),
+            .recipes: DisplayRepresentation(title: "Recipes"),
+            .cookbooks: DisplayRepresentation(title: "Cookbooks"),
+            .chefs: DisplayRepresentation(title: "Chefs"),
+            .shoppingList: DisplayRepresentation(title: "Shopping List")
+        ]
+    }
+
+    var searchScope: SearchScope {
+        switch self {
+        case .all:
+            SearchScope.all
+        case .recipes:
+            SearchScope.recipes
+        case .cookbooks:
+            SearchScope.cookbooks
+        case .chefs:
+            SearchScope.chefs
+        case .shoppingList:
+            SearchScope.shoppingList
+        }
+    }
+}
+
 @available(iOS 27.0, macOS 27.0, *)
 struct OpenRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Recipe"
@@ -21,10 +61,163 @@ struct OpenRecipeIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let recipeID = try recipe.resolvedRecipeID()
-        let action = try NativeIntentActionResolver().openRecipe(recipeID: recipeID)
+        let action = try NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening recipe in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Cookbook"
+    static let description = IntentDescription("Open a Spoonjoy cookbook.")
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    init() {
+        cookbook = SpoonjoyCookbookEntity()
+    }
+
+    init(cookbook: SpoonjoyCookbookEntity) {
+        self.cookbook = cookbook
+    }
+
+    func perform() async throws -> some IntentResult {
+        let action = try NativeIntentActionResolver().openCookbook(cookbook: cookbook.descriptor)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening cookbook in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenProfileIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Profile"
+    static let description = IntentDescription("Open a Spoonjoy chef profile.")
+
+    @Parameter(title: "Profile", requestValueDialog: "Which Spoonjoy profile?")
+    var profile: SpoonjoyChefProfileEntity
+
+    init() {
+        profile = SpoonjoyChefProfileEntity()
+    }
+
+    init(profile: SpoonjoyChefProfileEntity) {
+        self.profile = profile
+    }
+
+    func perform() async throws -> some IntentResult {
+        let action = try NativeIntentActionResolver().openProfile(profile: profile.descriptor)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening profile in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SearchSpoonjoyIntent: AppIntent {
+    static let title: LocalizedStringResource = "Search Spoonjoy"
+    static let description = IntentDescription("Search recipes, cookbooks, chefs, and shopping-list items in Spoonjoy.")
+
+    @Parameter(title: "Query")
+    var query: String
+
+    @Parameter(title: "Scope")
+    var scope: SpoonjoySearchScopeOption
+
+    init() {
+        query = ""
+        scope = .all
+    }
+
+    init(query: String, scope: SpoonjoySearchScopeOption = .all) {
+        self.query = query
+        self.scope = scope
+    }
+
+    func perform() async throws -> some IntentResult {
+        let action = NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Searching Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ShareRecipeIntent: AppIntent {
+    static let title: LocalizedStringResource = "Share Recipe"
+    static let description = IntentDescription("Share a public Spoonjoy recipe URL.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+    }
+
+    init(recipe: SpoonjoyRecipeEntity) {
+        self.recipe = recipe
+    }
+
+    func perform() async throws -> some IntentResult {
+        let share = try NativeIntentActionResolver().shareRecipe(recipe: recipe.descriptor)
+        guard let publicURL = share.publicURL else {
+            throw NativeIntentActionError.shareUnavailable(recipe.descriptor.route)
+        }
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(publicURL), dialog: "Sharing recipe from Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ShareCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Share Cookbook"
+    static let description = IntentDescription("Share a public Spoonjoy cookbook URL.")
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    init() {
+        cookbook = SpoonjoyCookbookEntity()
+    }
+
+    init(cookbook: SpoonjoyCookbookEntity) {
+        self.cookbook = cookbook
+    }
+
+    func perform() async throws -> some IntentResult {
+        let share = try NativeIntentActionResolver().shareCookbook(cookbook: cookbook.descriptor)
+        guard let publicURL = share.publicURL else {
+            throw NativeIntentActionError.shareUnavailable(cookbook.descriptor.route)
+        }
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(publicURL), dialog: "Sharing cookbook from Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ShareShoppingListIntent: AppIntent {
+    static let title: LocalizedStringResource = "Share Shopping List"
+    static let description = IntentDescription("Share a private Spoonjoy shopping-list transfer value.")
+
+    @Parameter(title: "Shopping List", requestValueDialog: "Which Spoonjoy shopping list?")
+    var shoppingList: SpoonjoyShoppingListEntity
+
+    init() {
+        shoppingList = SpoonjoyShoppingListEntity()
+    }
+
+    init(shoppingList: SpoonjoyShoppingListEntity) {
+        self.shoppingList = shoppingList
+    }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let share = try NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)
+        guard let privateTransferValue = share.privateTransferValue,
+              share.publicURL == nil,
+              case .privateTransfer = share.kind else {
+            throw NativeIntentActionError.shareUnavailable(shoppingList.descriptor.route)
+        }
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(value: privateTransferValue, dialog: "Prepared a private Spoonjoy shopping-list transfer")
     }
 }
 
@@ -45,10 +238,32 @@ struct StartCookModeIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let recipeID = try recipe.resolvedRecipeID()
-        let action = try NativeIntentActionResolver().startCookMode(recipeID: recipeID)
+        let action = try NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Starting cook mode in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ContinueCookModeIntent: AppIntent {
+    static let title: LocalizedStringResource = "Continue Cooking"
+    static let description = IntentDescription("Continue cooking a Spoonjoy recipe.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+    }
+
+    init(recipe: SpoonjoyRecipeEntity) {
+        self.recipe = recipe
+    }
+
+    func perform() async throws -> some IntentResult {
+        let action = try NativeIntentActionResolver().continueCookMode(recipe: recipe.descriptor)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Continuing cook mode in Spoonjoy")
     }
 }
 
@@ -237,6 +452,51 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             systemImageName: "book"
         )
         AppShortcut(
+            intent: OpenCookbookIntent(),
+            phrases: [
+                "Open a cookbook in \(.applicationName)",
+                "Show my cookbook in \(.applicationName)"
+            ],
+            shortTitle: "Open Cookbook",
+            systemImageName: "books.vertical"
+        )
+        AppShortcut(
+            intent: SearchSpoonjoyIntent(),
+            phrases: [
+                "Search \(.applicationName)",
+                "Find something in \(.applicationName)"
+            ],
+            shortTitle: "Search Spoonjoy",
+            systemImageName: "magnifyingglass"
+        )
+        AppShortcut(
+            intent: ShareRecipeIntent(),
+            phrases: [
+                "Share a recipe from \(.applicationName)",
+                "Send a \(.applicationName) recipe"
+            ],
+            shortTitle: "Share Recipe",
+            systemImageName: "square.and.arrow.up"
+        )
+        AppShortcut(
+            intent: ShareCookbookIntent(),
+            phrases: [
+                "Share a cookbook from \(.applicationName)",
+                "Send a \(.applicationName) cookbook"
+            ],
+            shortTitle: "Share Cookbook",
+            systemImageName: "square.and.arrow.up.on.square"
+        )
+        AppShortcut(
+            intent: ShareShoppingListIntent(),
+            phrases: [
+                "Share my shopping list from \(.applicationName)",
+                "Export my \(.applicationName) shopping list"
+            ],
+            shortTitle: "Share Shopping List",
+            systemImageName: "cart"
+        )
+        AppShortcut(
             intent: StartCookModeIntent(),
             phrases: [
                 "Start cooking in \(.applicationName)",
@@ -244,6 +504,15 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Start Cooking",
             systemImageName: "fork.knife"
+        )
+        AppShortcut(
+            intent: ContinueCookModeIntent(),
+            phrases: [
+                "Continue cooking in \(.applicationName)",
+                "Resume cooking with \(.applicationName)"
+            ],
+            shortTitle: "Continue Cooking",
+            systemImageName: "play.circle"
         )
         AppShortcut(
             intent: AddShoppingListItemIntent(),
@@ -255,42 +524,6 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             systemImageName: "cart.badge.plus"
         )
         AppShortcut(
-            intent: SetShoppingListItemCheckedIntent(),
-            phrases: [
-                "Update a shopping item in \(.applicationName)",
-                "Check off an item in \(.applicationName)"
-            ],
-            shortTitle: "Check Shopping Item",
-            systemImageName: "checkmark.circle"
-        )
-        AppShortcut(
-            intent: AddRecipeIngredientsToShoppingListIntent(),
-            phrases: [
-                "Add recipe ingredients in \(.applicationName)",
-                "Shop for a recipe in \(.applicationName)"
-            ],
-            shortTitle: "Add Recipe Ingredients",
-            systemImageName: "list.bullet.clipboard"
-        )
-        AppShortcut(
-            intent: ClearCompletedShoppingItemsIntent(),
-            phrases: [
-                "Clear completed shopping items in \(.applicationName)",
-                "Clean up my \(.applicationName) shopping list"
-            ],
-            shortTitle: "Clear Completed",
-            systemImageName: "checklist.checked"
-        )
-        AppShortcut(
-            intent: ClearShoppingListIntent(),
-            phrases: [
-                "Clear my shopping list in \(.applicationName)",
-                "Empty my \(.applicationName) shopping list"
-            ],
-            shortTitle: "Clear Shopping List",
-            systemImageName: "trash"
-        )
-        AppShortcut(
             intent: CaptureRecipeIntent(),
             phrases: [
                 "Capture a recipe in \(.applicationName)",
@@ -299,6 +532,21 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             shortTitle: "Capture Recipe",
             systemImageName: "square.and.arrow.down"
         )
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+private enum SpoonjoyIntentShortcutBudget {
+    static let appShortcutLimit = 10
+
+    static var shortcutsLibraryOnlyIntentNames: [String] {
+        [
+            String(describing: OpenProfileIntent()),
+            String(describing: SetShoppingListItemCheckedIntent()),
+            String(describing: AddRecipeIngredientsToShoppingListIntent()),
+            String(describing: ClearCompletedShoppingItemsIntent()),
+            String(describing: ClearShoppingListIntent())
+        ]
     }
 }
 

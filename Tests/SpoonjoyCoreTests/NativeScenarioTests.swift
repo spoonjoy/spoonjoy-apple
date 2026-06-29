@@ -6,7 +6,14 @@ import Testing
 struct NativeScenarioTests {
     private let expectedAppIntents = [
         "OpenRecipeIntent",
+        "OpenCookbookIntent",
+        "OpenProfileIntent",
+        "SearchSpoonjoyIntent",
+        "ShareRecipeIntent",
+        "ShareCookbookIntent",
+        "ShareShoppingListIntent",
         "StartCookModeIntent",
+        "ContinueCookModeIntent",
         "AddShoppingListItemIntent",
         "SetShoppingListItemCheckedIntent",
         "AddRecipeIngredientsToShoppingListIntent",
@@ -28,7 +35,8 @@ struct NativeScenarioTests {
         "capture-recipe-video-url",
         "recipe-import-submit",
         "share-recipe",
-        "share-cookbook"
+        "share-cookbook",
+        "native-shopping-list-transfer"
     ]
     private let expectedOfflineFlows = [
         "fixture-offline-restore",
@@ -806,7 +814,14 @@ struct NativeScenarioTests {
 
         for declaration in [
             "struct OpenRecipeIntent: AppIntent",
+            "struct OpenCookbookIntent: AppIntent",
+            "struct OpenProfileIntent: AppIntent",
+            "struct SearchSpoonjoyIntent: AppIntent",
+            "struct ShareRecipeIntent: AppIntent",
+            "struct ShareCookbookIntent: AppIntent",
+            "struct ShareShoppingListIntent: AppIntent",
             "struct StartCookModeIntent: AppIntent",
+            "struct ContinueCookModeIntent: AppIntent",
             "struct AddShoppingListItemIntent: AppIntent",
             "struct SetShoppingListItemCheckedIntent: AppIntent",
             "struct AddRecipeIngredientsToShoppingListIntent: AppIntent",
@@ -927,7 +942,7 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, appIntentsPath])
+        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, chefProfileEntitiesPath, appIntentsPath])
         try assertSwiftSourcesTypecheck([
             appEntitiesPath,
             shoppingEntitiesPath,

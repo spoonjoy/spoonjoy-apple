@@ -2,21 +2,30 @@ import Foundation
 
 public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case invalidRecipeID(String)
+    case invalidCookbookID(String)
+    case invalidProfileIdentifier(String)
     case invalidShoppingItemID(String)
     case invalidScaleFactor(Double)
     case emptyShoppingItem
     case emptyCaptureSource
     case authRequired
     case unresolvedRecipeEntity
+    case unresolvedCookbookEntity
+    case unresolvedShoppingListEntity
     case unresolvedShoppingItemEntity
     case unresolvedSpoonEntity
     case unresolvedCaptureDraftEntity
     case unresolvedChefProfileEntity
+    case shareUnavailable(AppRoute)
 
     public var description: String {
         switch self {
         case .invalidRecipeID(let recipeID):
             "Recipe ID \(recipeID) is not safe for a native route."
+        case .invalidCookbookID(let cookbookID):
+            "Cookbook ID \(cookbookID) is not safe for a native route."
+        case .invalidProfileIdentifier(let profileIdentifier):
+            "Profile identifier \(profileIdentifier) is not safe for a native route."
         case .invalidShoppingItemID(let itemID):
             "Shopping item ID \(itemID) is not safe for a native route."
         case .invalidScaleFactor(let scaleFactor):
@@ -29,6 +38,10 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Sign in to Spoonjoy before queueing this Siri action."
         case .unresolvedRecipeEntity:
             "Choose a Spoonjoy recipe before running this Siri action."
+        case .unresolvedCookbookEntity:
+            "Choose a Spoonjoy cookbook before running this Siri action."
+        case .unresolvedShoppingListEntity:
+            "Choose a Spoonjoy shopping list before running this Siri action."
         case .unresolvedShoppingItemEntity:
             "Choose a Spoonjoy shopping item before running this Siri action."
         case .unresolvedSpoonEntity:
@@ -37,6 +50,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Choose a Spoonjoy capture draft before running this Siri action."
         case .unresolvedChefProfileEntity:
             "Choose a Spoonjoy chef profile before running this Siri action."
+        case .shareUnavailable(let route):
+            "Spoonjoy cannot create a native share value for \(route.stateIdentifier)."
         }
     }
 }
@@ -97,27 +112,108 @@ public enum NativeIntentAction: Equatable {
     }
 }
 
+public struct NativeIntentShareValue: Equatable, Sendable {
+    public let domain: NativeShareDomain
+    public let kind: NativeSharePayloadKind
+    public let publicURL: URL?
+    public let route: AppRoute?
+    public let title: String
+    public let subtitle: String
+    public let privateTransferValue: String?
+
+    public init(
+        domain: NativeShareDomain,
+        kind: NativeSharePayloadKind,
+        publicURL: URL?,
+        route: AppRoute?,
+        title: String,
+        subtitle: String,
+        privateTransferValue: String?
+    ) {
+        self.domain = domain
+        self.kind = kind
+        self.publicURL = publicURL
+        self.route = route
+        self.title = title
+        self.subtitle = subtitle
+        self.privateTransferValue = privateTransferValue
+    }
+
+    public var isPublicURL: Bool {
+        kind == NativeSharePayloadKind.publicURL
+    }
+
+    public var isPrivateTransfer: Bool {
+        kind == NativeSharePayloadKind.privateTransfer
+    }
+}
+
 public struct NativeIntentActionResolver {
     public init() {}
 
     public func openRecipe(recipeID: String) throws -> NativeIntentAction {
         let id = try canonicalRecipeID(recipeID)
-        return .openRoute(
-            .recipeDetail(id: id, presentation: .detail),
-            url: schemeURL(host: "recipes", path: "/\(id)")
+        return openRoute(.recipeDetail(id: id, presentation: .detail))
+    }
+
+    public func openRecipe(recipe: RecipeEntityDescriptor) throws -> NativeIntentAction {
+        try openRoute(recipeDetailRoute(recipe, presentation: .detail))
+    }
+
+    public func openCookbook(cookbook: CookbookEntityDescriptor) throws -> NativeIntentAction {
+        try openRoute(cookbookDetailRoute(cookbook))
+    }
+
+    public func openProfile(profile: ChefProfileEntityDescriptor) throws -> NativeIntentAction {
+        try openRoute(profileRoute(profile))
+    }
+
+    public func searchSpoonjoy(query: String, scope: SearchScope) -> NativeIntentAction {
+        let route = AppRoute.search(
+            query: query.trimmingCharacters(in: .whitespacesAndNewlines),
+            scope: scope
         )
+        return openRoute(route)
     }
 
     public func startCookMode(recipeID: String) throws -> NativeIntentAction {
         let id = try canonicalRecipeID(recipeID)
-        return .openRoute(
-            .recipeDetail(id: id, presentation: .cook),
-            url: schemeURL(host: "recipes", path: "/\(id)/cook")
-        )
+        return openRoute(.recipeDetail(id: id, presentation: .cook))
+    }
+
+    public func startCookMode(recipe: RecipeEntityDescriptor) throws -> NativeIntentAction {
+        try openRoute(recipeDetailRoute(recipe, presentation: .cook))
     }
 
     public func continueCookMode(recipeID: String) throws -> NativeIntentAction {
         try startCookMode(recipeID: recipeID)
+    }
+
+    public func continueCookMode(recipe: RecipeEntityDescriptor) throws -> NativeIntentAction {
+        try startCookMode(recipe: recipe)
+    }
+
+    public func shareRecipe(recipe: RecipeEntityDescriptor) throws -> NativeIntentShareValue {
+        try publicShareValue(route: recipeDetailRoute(recipe, presentation: .detail), title: recipe.title, subtitle: recipe.subtitle)
+    }
+
+    public func shareCookbook(cookbook: CookbookEntityDescriptor) throws -> NativeIntentShareValue {
+        try publicShareValue(route: cookbookDetailRoute(cookbook), title: cookbook.title, subtitle: cookbook.subtitle)
+    }
+
+    public func shareShoppingList(shoppingList: ShoppingListEntityDescriptor) throws -> NativeIntentShareValue {
+        guard !shoppingList.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedShoppingListEntity
+        }
+        return NativeIntentShareValue(
+            domain: .shoppingList,
+            kind: .privateTransfer,
+            publicURL: nil,
+            route: shoppingList.route,
+            title: shoppingList.title,
+            subtitle: shoppingList.subtitle,
+            privateTransferValue: shoppingList.transferValue.privateTransferValue
+        )
     }
 
     public func addShoppingListItem(
@@ -144,7 +240,7 @@ public struct NativeIntentActionResolver {
         return .addShoppingListItem(
             mutation,
             route: .shoppingList,
-            url: schemeURL(host: "shopping-list")
+            url: DeepLinkURLBuilder.url(for: .shoppingList)
         )
     }
 
@@ -163,7 +259,7 @@ public struct NativeIntentActionResolver {
                 createdAt: createdAt
             ),
             route: .shoppingList,
-            url: schemeURL(host: "shopping-list")
+            url: DeepLinkURLBuilder.url(for: .shoppingList)
         )
     }
 
@@ -185,7 +281,7 @@ public struct NativeIntentActionResolver {
                 createdAt: createdAt
             ),
             route: .shoppingList,
-            url: schemeURL(host: "shopping-list")
+            url: DeepLinkURLBuilder.url(for: .shoppingList)
         )
     }
 
@@ -197,7 +293,7 @@ public struct NativeIntentActionResolver {
                 createdAt: createdAt
             ),
             route: .shoppingList,
-            url: schemeURL(host: "shopping-list")
+            url: DeepLinkURLBuilder.url(for: .shoppingList)
         )
     }
 
@@ -209,7 +305,7 @@ public struct NativeIntentActionResolver {
                 createdAt: createdAt
             ),
             route: .shoppingList,
-            url: schemeURL(host: "shopping-list")
+            url: DeepLinkURLBuilder.url(for: .shoppingList)
         )
     }
 
@@ -224,12 +320,23 @@ public struct NativeIntentActionResolver {
         return .captureDraft(
             draft,
             route: .capture,
-            url: schemeURL(host: "capture")
+            url: DeepLinkURLBuilder.url(for: .capture)
         )
     }
 
     private func canonicalRecipeID(_ recipeID: String) throws -> String {
-        let id = recipeID.trimmingCharacters(in: .whitespacesAndNewlines)
+        try canonicalObjectID(recipeID, invalidError: .invalidRecipeID(recipeID))
+    }
+
+    private func canonicalCookbookID(_ cookbookID: String) throws -> String {
+        try canonicalObjectID(cookbookID, invalidError: .invalidCookbookID(cookbookID))
+    }
+
+    private func canonicalObjectID(
+        _ rawID: String,
+        invalidError: NativeIntentActionError
+    ) throws -> String {
+        let id = rawID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard
             !id.isEmpty,
             !id.contains("/"),
@@ -239,10 +346,72 @@ public struct NativeIntentActionResolver {
             id != "..",
             id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
         else {
-            throw NativeIntentActionError.invalidRecipeID(recipeID)
+            throw invalidError
         }
 
         return id
+    }
+
+    private func recipeDetailRoute(
+        _ recipe: RecipeEntityDescriptor,
+        presentation: RecipePresentation
+    ) throws -> AppRoute {
+        guard !recipe.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedRecipeEntity
+        }
+        let id = try canonicalRecipeID(recipe.id)
+        guard recipe.route == .recipeDetail(id: id, presentation: .detail) else {
+            throw NativeIntentActionError.invalidRecipeID(recipe.id)
+        }
+        return .recipeDetail(id: id, presentation: presentation)
+    }
+
+    private func cookbookDetailRoute(_ cookbook: CookbookEntityDescriptor) throws -> AppRoute {
+        guard !cookbook.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedCookbookEntity
+        }
+        let id = try canonicalCookbookID(cookbook.id)
+        guard cookbook.route == .cookbookDetail(id: id) else {
+            throw NativeIntentActionError.invalidCookbookID(cookbook.id)
+        }
+        return .cookbookDetail(id: id)
+    }
+
+    private func profileRoute(_ profile: ChefProfileEntityDescriptor) throws -> AppRoute {
+        guard !profile.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedChefProfileEntity
+        }
+        guard AppRoute.isSafeProfileIdentifier(profile.username),
+              profile.route == .profile(identifier: profile.username) else {
+            throw NativeIntentActionError.invalidProfileIdentifier(profile.username)
+        }
+        return .profile(identifier: profile.username)
+    }
+
+    private func openRoute(_ route: AppRoute) -> NativeIntentAction {
+        .openRoute(route, url: DeepLinkURLBuilder.url(for: route))
+    }
+
+    private func publicShareValue(
+        route: AppRoute,
+        title: String,
+        subtitle: String
+    ) throws -> NativeIntentShareValue {
+        guard let payload = NativeSharePayload.publicRoute(route),
+              payload.kind == NativeSharePayloadKind.publicURL,
+              let publicURL = payload.publicURL else {
+            throw NativeIntentActionError.shareUnavailable(route)
+        }
+
+        return NativeIntentShareValue(
+            domain: payload.domain,
+            kind: NativeSharePayloadKind.publicURL,
+            publicURL: publicURL,
+            route: route,
+            title: title,
+            subtitle: subtitle,
+            privateTransferValue: nil
+        )
     }
 
     private func canonicalShoppingItemID(_ itemID: String) throws -> String {
@@ -288,11 +457,4 @@ public struct NativeIntentActionResolver {
         return token.split(separator: "-").joined(separator: "-")
     }
 
-    private func schemeURL(host: String, path: String = "") -> URL {
-        var components = URLComponents()
-        components.scheme = DeepLinkManifest.urlSchemes[0]
-        components.host = host
-        components.path = path
-        return components.url!
-    }
 }

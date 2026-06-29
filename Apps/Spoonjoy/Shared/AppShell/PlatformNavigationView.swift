@@ -1366,6 +1366,10 @@ struct PlatformNavigationView: View {
 
 #if canImport(AppIntents)
     private var routeEntityIdentifier: EntityIdentifier? {
+        guard #available(iOS 27.0, macOS 27.0, *) else {
+            return nil
+        }
+
         switch navigation.route {
         case .recipeDetail(let id, _):
             return EntityIdentifier(for: SpoonjoyRecipeEntity.self, identifier: id)

@@ -1752,6 +1752,10 @@ if domain == "open-search-share-cook"
     ],
     failures
   )
+  if app_intents.file?
+    shortcut_count = uncommented_swift(app_intents.read).scan("AppShortcut(").size
+    failures << "#{relative(app_intents)} declares #{shortcut_count} App Shortcuts, above Apple limit 10" if shortcut_count > 10
+  end
 
   {
     recipe_cookbook_entities => [
@@ -1804,8 +1808,8 @@ if domain == "open-search-share-cook"
       forbidden: ["var cookbookID: String", "shareCookbook(cookbookID:"]
     },
     "ShareShoppingListIntent" => {
-      required: ["@Parameter(title: \"Shopping List\", requestValueDialog:", "var shoppingList: SpoonjoyShoppingListEntity", "NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)", "share.privateTransferValue", "share.publicURL == nil"],
-      forbidden: ["OpenURLIntent", "https://spoonjoy.app/shopping-list", "NativeSharePayload.publicRoute(.shoppingList"]
+      required: ["@Parameter(title: \"Shopping List\", requestValueDialog:", "var shoppingList: SpoonjoyShoppingListEntity", "NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)", "some IntentResult & ReturnsValue<String>", "share.privateTransferValue", "share.publicURL == nil", ".result(value: privateTransferValue"],
+      forbidden: ["OpenURLIntent", "_ = privateTransferValue", "https://spoonjoy.app/shopping-list", "NativeSharePayload.publicRoute(.shoppingList"]
     },
     "StartCookModeIntent" => {
       required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],

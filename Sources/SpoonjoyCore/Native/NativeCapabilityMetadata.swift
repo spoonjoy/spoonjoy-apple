@@ -33,7 +33,14 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
     public static let spoonjoy = NativeCapabilityMetadata(
         appIntents: [
             "OpenRecipeIntent",
+            "OpenCookbookIntent",
+            "OpenProfileIntent",
+            "SearchSpoonjoyIntent",
+            "ShareRecipeIntent",
+            "ShareCookbookIntent",
+            "ShareShoppingListIntent",
             "StartCookModeIntent",
+            "ContinueCookModeIntent",
             "AddShoppingListItemIntent",
             "SetShoppingListItemCheckedIntent",
             "AddRecipeIngredientsToShoppingListIntent",
@@ -68,7 +75,8 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "capture-recipe-video-url",
             "recipe-import-submit",
             "share-recipe",
-            "share-cookbook"
+            "share-cookbook",
+            "native-shopping-list-transfer"
         ],
         offlineFlows: [
             "fixture-offline-restore",

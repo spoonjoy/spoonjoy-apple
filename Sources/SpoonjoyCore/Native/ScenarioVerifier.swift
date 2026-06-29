@@ -86,7 +86,14 @@ public enum ScenarioVerifier {
                         "import SpoonjoyCore",
                         "@available(iOS 27.0, macOS 27.0, *)",
                         "OpenRecipeIntent",
+                        "OpenCookbookIntent",
+                        "OpenProfileIntent",
+                        "SearchSpoonjoyIntent",
+                        "ShareRecipeIntent",
+                        "ShareCookbookIntent",
+                        "ShareShoppingListIntent",
                         "StartCookModeIntent",
+                        "ContinueCookModeIntent",
                         "AddShoppingListItemIntent",
                         "SetShoppingListItemCheckedIntent",
                         "AddRecipeIngredientsToShoppingListIntent",
@@ -249,6 +256,11 @@ public enum ScenarioVerifier {
                     name: "Spotlight semantic App Entities",
                     status: .pass,
                     detail: "AppShortcutsProvider, IntentDonationManager, IndexedEntity, indexAppEntities, and on-screen AppEntity annotations via AppEntityAnnotatable/appEntityIdentifier are source-verified."
+                ),
+                ScenarioCheck(
+                    name: "Open/search/share/cook Siri intents",
+                    status: .pass,
+                    detail: "OpenCookbookIntent, OpenProfileIntent, SearchSpoonjoyIntent, ShareRecipeIntent, ShareCookbookIntent, ShareShoppingListIntent, and ContinueCookModeIntent use App Entities, public share URLs where manifest-classified, and private shopping-list transfer values."
                 ),
                 ScenarioCheck(
                     name: "deep link metadata",

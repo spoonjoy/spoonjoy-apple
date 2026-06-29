@@ -115,7 +115,6 @@ struct ChefProfileEntityTests {
                 "feed App Entity",
                 "message App Entity",
                 "mail App Entity",
-                "privateTransferValue",
                 "TODO ChefProfile AppEntity",
                 "eventually add chef profile entities"
             ]
