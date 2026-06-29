@@ -229,7 +229,7 @@ public struct NativeIntentActionResolver {
         title: String,
         createdAt: String
     ) throws -> NativeIntentAction {
-        let id = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
+        let id = try recipeIDForMutation(recipe)
         let titleOverride = normalizedRecipeTitle(title, fallback: "\(recipe.title), my version")
         let mutationID = "intent-recipe-fork-\(stableToken(id))-\(stableToken(createdAt))"
         return .nativeMutation(
@@ -249,8 +249,8 @@ public struct NativeIntentActionResolver {
         cookbook: CookbookEntityDescriptor,
         createdAt: String
     ) throws -> NativeIntentAction {
-        let recipeID = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
-        let cookbookID = try cookbookDetailRoute(cookbook).cookbookIDForMutation()
+        let recipeID = try recipeIDForMutation(recipe)
+        let cookbookID = try cookbookIDForMutation(cookbook)
         let mutationID = "intent-cookbook-save-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
         let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
         return .nativeMutation(
@@ -270,8 +270,8 @@ public struct NativeIntentActionResolver {
         cookbook: CookbookEntityDescriptor,
         createdAt: String
     ) throws -> NativeIntentAction {
-        let recipeID = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
-        let cookbookID = try cookbookDetailRoute(cookbook).cookbookIDForMutation()
+        let recipeID = try recipeIDForMutation(recipe)
+        let cookbookID = try cookbookIDForMutation(cookbook)
         let mutationID = "intent-cookbook-remove-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
         let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
         return .nativeMutation(
@@ -291,7 +291,7 @@ public struct NativeIntentActionResolver {
         currentChefID: String,
         createdAt: String
     ) throws -> NativeIntentAction {
-        let recipeID = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
+        let recipeID = try recipeIDForMutation(recipe)
         let chefID = try canonicalObjectID(currentChefID, invalidError: .recipeOwnershipRequired(recipeID: recipeID))
         guard recipe.chefID == chefID else {
             throw NativeIntentActionError.recipeOwnershipRequired(recipeID: recipeID)
@@ -433,6 +433,28 @@ public struct NativeIntentActionResolver {
         )
     }
 
+    private func recipeIDForMutation(_ recipe: RecipeEntityDescriptor) throws -> String {
+        guard !recipe.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedRecipeEntity
+        }
+        let id = try canonicalRecipeID(recipe.id)
+        guard recipe.route == .recipeDetail(id: id, presentation: .detail) else {
+            throw NativeIntentActionError.invalidRecipeID(recipe.id)
+        }
+        return id
+    }
+
+    private func cookbookIDForMutation(_ cookbook: CookbookEntityDescriptor) throws -> String {
+        guard !cookbook.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedCookbookEntity
+        }
+        let id = try canonicalCookbookID(cookbook.id)
+        guard cookbook.route == .cookbookDetail(id: id) else {
+            throw NativeIntentActionError.invalidCookbookID(cookbook.id)
+        }
+        return id
+    }
+
     private func canonicalRecipeID(_ recipeID: String) throws -> String {
         try canonicalObjectID(recipeID, invalidError: .invalidRecipeID(recipeID))
     }
@@ -571,20 +593,4 @@ public struct NativeIntentActionResolver {
         return token.split(separator: "-").joined(separator: "-")
     }
 
-}
-
-private extension AppRoute {
-    func recipeIDForMutation() throws -> String {
-        guard case .recipeDetail(let id, _) = self else {
-            throw NativeIntentActionError.invalidRecipeID(stateIdentifier)
-        }
-        return id
-    }
-
-    func cookbookIDForMutation() throws -> String {
-        guard case .cookbookDetail(let id) = self else {
-            throw NativeIntentActionError.invalidCookbookID(stateIdentifier)
-        }
-        return id
-    }
 }
