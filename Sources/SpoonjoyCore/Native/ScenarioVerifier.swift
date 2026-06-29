@@ -587,10 +587,10 @@ public enum ScenarioVerifier {
             let viewModel = CookModeViewModel(recipe: recipe, progress: restored)
             let stepIDs = recipe.steps.map(\.id)
             let currentStepIsValid = viewModel.currentStepID.map { stepIDs.contains($0) } == true
-            let status: ScenarioCheckStatus = restored == advanced &&
+            let status = scenarioStatus(restored == advanced &&
                 restored.completedStepIDs.contains(step.id) &&
                 viewModel.completionFraction > 0 &&
-                currentStepIsValid ? .pass : .fail
+                currentStepIsValid)
 
             return ScenarioCheck(
                 name: "cook progress persistence",
@@ -624,7 +624,7 @@ public enum ScenarioVerifier {
             configuration: .spoonjoyProduction,
             offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
         )
-        let status: ScenarioCheckStatus = signedOutContent.settingsViewModel.authSessionState == .signedOut ? .pass : .fail
+        let status = scenarioStatus(signedOutContent.settingsViewModel.authSessionState == .signedOut)
 
         return ScenarioCheck(
             name: "first-run session setup",
@@ -696,13 +696,13 @@ public enum ScenarioVerifier {
             return source
         }
 
-        let status: ScenarioCheckStatus = !NativeFixtureFallbackPolicy.disabledInProduction.allowsProductionFallback(
+        let status = scenarioStatus(!NativeFixtureFallbackPolicy.disabledInProduction.allowsProductionFallback(
             isTestOrDemoBuild: false,
             environment: [:]
         ) && !NativeFixtureFallbackPolicy.testsAndDemoOnly.allowsProductionFallback(
             isTestOrDemoBuild: false,
             environment: [:]
-        ) ? .pass : .fail
+        ))
 
         return ScenarioCheck(
             name: "fixture fallback disabled",
@@ -756,11 +756,11 @@ public enum ScenarioVerifier {
                 .updatingShoppingList(checked, queuedMutation: mutation, savedAt: "2026-06-16T13:40:00.000Z")
             let encoded = try JSONEncoder().encode(snapshot)
             let restored = try JSONDecoder().decode(NativeAppSnapshot.self, from: encoded).validated()
-            let status: ScenarioCheckStatus = restored.hasCompletedFirstRun &&
+            let status = scenarioStatus(restored.hasCompletedFirstRun &&
                 restored.cookProgress(for: recipe.id) == progress &&
                 restored.shoppingList?.item(id: "item_lemons")?.checked == true &&
                 restored.captureDraft == draft &&
-                restored.pendingMutationCount == 1 ? .pass : .fail
+                restored.pendingMutationCount == 1)
 
             return ScenarioCheck(
                 name: "durable native state",
@@ -798,9 +798,9 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-shopping-check"
             ))
             let item = plan.updatedShoppingList?.item(id: itemID)
-            let status: ScenarioCheckStatus = item?.checked == true &&
+            let status = scenarioStatus(item?.checked == true &&
                 item?.checkedAt == "2026-06-16T11:42:00.000Z" &&
-                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true ? .pass : .fail
+                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true)
 
             return ScenarioCheck(
                 name: "shopping checkoff",
@@ -836,9 +836,9 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-shopping-add"
             ))
             let createdItem = plan.updatedShoppingList?.item(id: "item_local_scenario-shopping-add")
-            let status: ScenarioCheckStatus = createdItem?.name == "limes" &&
+            let status = scenarioStatus(createdItem?.name == "limes" &&
                 plan.remoteRequestBuilder != nil &&
-                plan.offlineFallbackMutation?.queueableKind == .shoppingAddItem ? .pass : .fail
+                plan.offlineFallbackMutation?.queueableKind == .shoppingAddItem)
 
             return ScenarioCheck(
                 name: "shopping add item",
@@ -871,8 +871,8 @@ public enum ScenarioVerifier {
     ) -> ScenarioCheck {
         do {
             let plan = try planBuilder(recipeID, scaleFactor, recipeIngredients, "scenario-shopping-recipe")
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
-                plan.offlineFallbackMutation?.queueableKind == .shoppingAddFromRecipe ? .pass : .fail
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .shoppingAddFromRecipe)
 
             return ScenarioCheck(
                 name: "shopping add recipe ingredients",
@@ -896,9 +896,9 @@ public enum ScenarioVerifier {
             scenarioShoppingItem(id: "item_salt", name: "salt", unit: "pinch"),
             scenarioShoppingItem(id: "item_pasta", name: "pasta", unit: "oz")
         ])
-        let status: ScenarioCheckStatus =
+        let status = scenarioStatus(
             !RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialShoppingList) &&
-            RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: completeShoppingList) ? .pass : .fail
+            RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: completeShoppingList))
 
         return ScenarioCheck(
             name: "shopping recipe coverage",
@@ -926,10 +926,10 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-shopping-clear-confirmed",
                 confirmation: .confirmed
             ))
-            let status: ScenarioCheckStatus = plan.confirmationPrompt?.isDestructive == true &&
+            let status = scenarioStatus(plan.confirmationPrompt?.isDestructive == true &&
                 plan.confirmationPrompt?.confirmButtonTitle == "Clear All" &&
                 plan.remoteRequestBuilder == nil &&
-                confirmedPlan.offlineFallbackMutation?.queueableKind == .shoppingClearAll ? .pass : .fail
+                confirmedPlan.offlineFallbackMutation?.queueableKind == .shoppingClearAll)
 
             return ScenarioCheck(
                 name: "shopping clear confirmation",
@@ -1015,10 +1015,10 @@ public enum ScenarioVerifier {
         do {
             let cookbook = try loadCookbook()
             let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
-            let status: ScenarioCheckStatus = viewModel.id == cookbook.id &&
+            let status = scenarioStatus(viewModel.id == cookbook.id &&
                 viewModel.title == cookbook.title &&
                 viewModel.recipes.map(\.id) == cookbook.recipes.map(\.id) &&
-                viewModel.sharePayload.publicURL == cookbook.canonicalURL ? .pass : .fail
+                viewModel.sharePayload.publicURL == cookbook.canonicalURL)
 
             return ScenarioCheck(
                 name: "cookbook detail",
@@ -1045,11 +1045,11 @@ public enum ScenarioVerifier {
                 availableRecipes: [availableRecipe()],
                 currentChefID: "chef_visitor"
             )
-            let status: ScenarioCheckStatus = viewModel.ownerTools.isVisible &&
+            let status = scenarioStatus(viewModel.ownerTools.isVisible &&
                 viewModel.availableActionIDs == [.share, .editTitle, .addRecipe, .removeRecipe, .deleteCookbook] &&
                 viewModel.ownerTools.availableRecipes.map(\.id) == ["scenario-shopping-recipe"] &&
                 !visitor.ownerTools.isVisible &&
-                visitor.availableActionIDs == [.share] ? .pass : .fail
+                visitor.availableActionIDs == [.share])
 
             return ScenarioCheck(
                 name: "cookbook owner tools",
@@ -1081,10 +1081,10 @@ public enum ScenarioVerifier {
                 relativePath: "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
                 tokens: ["CookbookCreateSheet", "planCreate", "performCookbookAction"]
             )
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookCreate &&
                 plan.successRoute == .cookbooks &&
-                source.status == .pass ? .pass : .fail
+                source.status == .pass)
 
             return ScenarioCheck(
                 name: "cookbook create",
@@ -1104,9 +1104,9 @@ public enum ScenarioVerifier {
         do {
             let plan = try viewModel()
                 .plan(.rename(title: " Scenario Dinner Parties ", clientMutationID: "scenario-cookbook-rename"))
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookUpdate &&
-                plan.updatedCookbook?.title == "Scenario Dinner Parties" ? .pass : .fail
+                plan.updatedCookbook?.title == "Scenario Dinner Parties")
 
             return ScenarioCheck(
                 name: "cookbook rename",
@@ -1133,10 +1133,10 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-cookbook-delete-confirmed",
                 confirmation: .confirmed
             ))
-            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+            let status = scenarioStatus(prompt.confirmationPrompt?.isDestructive == true &&
                 prompt.remoteRequestBuilder == nil &&
                 confirmed.offlineFallbackMutation?.queueableKind == .cookbookDelete &&
-                confirmed.successRoute == .cookbooks ? .pass : .fail
+                confirmed.successRoute == .cookbooks)
 
             return ScenarioCheck(
                 name: "cookbook delete",
@@ -1163,9 +1163,9 @@ public enum ScenarioVerifier {
                 recipeID: recipe.id,
                 clientMutationID: "scenario-cookbook-add-recipe"
             ))
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookAddRecipe &&
-                plan.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == true ? .pass : .fail
+                plan.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == true)
 
             return ScenarioCheck(
                 name: "cookbook add recipe",
@@ -1199,10 +1199,10 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-cookbook-remove-recipe-confirmed",
                 confirmation: .confirmed
             ))
-            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+            let status = scenarioStatus(prompt.confirmationPrompt?.isDestructive == true &&
                 confirmed.remoteRequestBuilder != nil &&
                 confirmed.offlineFallbackMutation?.queueableKind == .cookbookRemoveRecipe &&
-                confirmed.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == false ? .pass : .fail
+                confirmed.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == false)
 
             return ScenarioCheck(
                 name: "cookbook remove recipe",
@@ -1265,10 +1265,10 @@ public enum ScenarioVerifier {
             connectivity: .online,
             now: { Date(timeIntervalSince1970: 1_780_120_000) }
         )
-        let status: ScenarioCheckStatus = viewModel.openRoute == .profile(identifier: profile.profile.username) &&
+        let status = scenarioStatus(viewModel.openRoute == .profile(identifier: profile.profile.username) &&
             viewModel.ownerActions.editProfileRoute == .settings &&
             viewModel.sectionIDs == [.recipes, .cookbooks, .recentSpoons, .fellowChefs, .kitchenVisitors] &&
-            viewModel.unsupportedSocialSurfaces.isEmpty ? .pass : .fail
+            viewModel.unsupportedSocialSurfaces.isEmpty)
 
         return ScenarioCheck(
             name: "profile detail",
@@ -1305,8 +1305,8 @@ public enum ScenarioVerifier {
             source: .live(requestID: "scenario-profile-graph", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
         )
         let viewModel = ProfileGraphViewModel(page: page)
-        let status: ScenarioCheckStatus = viewModel.rows.first?.openRoute == .profile(identifier: "jules") &&
-            viewModel.rows.first?.interactionSummary == "1 spoon, 1 fork, 1 cookbook save" ? .pass : .fail
+        let status = scenarioStatus(viewModel.rows.first?.openRoute == .profile(identifier: "jules") &&
+            viewModel.rows.first?.interactionSummary == "1 spoon, 1 fork, 1 cookbook save")
 
         return ScenarioCheck(
             name: direction == .fellowChefs ? "fellow chefs" : "kitchen visitors",
@@ -1395,10 +1395,10 @@ public enum ScenarioVerifier {
         let page = contentState.searchSurfacePage(for: state)
         let viewModel = contentState.performSearch(state)
         let shoppingAuth = SearchSurfaceRepositoryError.authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read")
-        let status: ScenarioCheckStatus = page.results.map(\.id) == ["recipe_lemon_pasta"] &&
+        let status = scenarioStatus(page.results.map(\.id) == ["recipe_lemon_pasta"] &&
             viewModel.sections.flatMap(\.rows).first?.openRoute == .recipeDetail(id: "recipe_lemon_pasta", presentation: .detail) &&
             viewModel.offlineIndicator.display == .stale(domain: .searchResults(query: "lemon pasta", scope: .all)) &&
-            shoppingAuth == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read") ? .pass : .fail
+            shoppingAuth == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read"))
 
         return ScenarioCheck(
             name: "search",
@@ -1446,15 +1446,13 @@ public enum ScenarioVerifier {
                     clientMutationID: "scenario-import",
                     createdAt: "2026-06-16T12:08:00.000Z"
                 )
-            let status: ScenarioCheckStatus =
+            let status = scenarioStatus(
                 viewModel.status == .localOnly &&
                 viewModel.previewLines == ["https://example.com/recipe"] &&
                 viewModel.canCreateServerRecipe &&
                 request.url.path == "/api/v1/recipes/import" &&
                 offlinePlan.offlineRetryMutation?.queueableKind == .recipeImportSubmit &&
-                providerSecretPlan.blocker == .providerSecret(retryAfterSeconds: 30)
-                ? .pass
-                : .fail
+                providerSecretPlan.blocker == .providerSecret(retryAfterSeconds: 30))
 
             return ScenarioCheck(
                 name: "capture import submission",
@@ -1478,9 +1476,9 @@ public enum ScenarioVerifier {
             preferredCookModeTextSize: .large
         )
         let viewModel = SettingsViewModel(settings: scenarioSettings)
-        let status: ScenarioCheckStatus = viewModel.canReadShoppingList &&
+        let status = scenarioStatus(viewModel.canReadShoppingList &&
             viewModel.canWriteShoppingList &&
-            viewModel.rows.map(\.id) == ["auth", "environment", "offline", "cook-mode-text"] ? .pass : .fail
+            viewModel.rows.map(\.id) == ["auth", "environment", "offline", "cook-mode-text"])
 
         return ScenarioCheck(
             name: "settings state",
@@ -1544,9 +1542,9 @@ public enum ScenarioVerifier {
             secureHandoffRoutes: .spoonjoyApp,
             now: { Date(timeIntervalSince1970: 1_780_120_000) }
         )
-        let status: ScenarioCheckStatus = viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
+        let status = scenarioStatus(viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
             viewModel.apiTokenRows.first?.tokenPrefix == "sj_live_cli" &&
-            viewModel.oauthConnectionRows.first?.clientID == "client_cli" ? .pass : .fail
+            viewModel.oauthConnectionRows.first?.clientID == "client_cli")
 
         return ScenarioCheck(
             name: "settings token connection surface",
@@ -1566,9 +1564,9 @@ public enum ScenarioVerifier {
             })
             let plan = try planBuilder(planner)
             let request = try plan.remoteRequestBuilder?.urlRequest(configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"))
-            let status: ScenarioCheckStatus = request?.method == .patch &&
+            let status = scenarioStatus(request?.method == .patch &&
                 request?.url.path == "/api/v1/me" &&
-                plan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate ? .pass : .fail
+                plan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate)
             return ScenarioCheck(
                 name: "settings profile update",
                 status: status,
@@ -1587,9 +1585,9 @@ public enum ScenarioVerifier {
         do {
             let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
             let plan = try planBuilder(planner)
-            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .apiTokenCreate &&
+            let status = scenarioStatus(plan.onlineOnlyReason == .apiTokenCreate &&
                 plan.queuedMutation == nil &&
-                plan.offlineFallbackMutation == nil ? .pass : .fail
+                plan.offlineFallbackMutation == nil)
             return ScenarioCheck(
                 name: "settings token create online-only",
                 status: status,
@@ -1608,9 +1606,9 @@ public enum ScenarioVerifier {
         do {
             let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
             let plan = try planBuilder(planner)
-            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .oauthConnectionDisconnect &&
+            let status = scenarioStatus(plan.onlineOnlyReason == .oauthConnectionDisconnect &&
                 plan.queuedMutation == nil &&
-                plan.offlineFallbackMutation == nil ? .pass : .fail
+                plan.offlineFallbackMutation == nil)
             return ScenarioCheck(
                 name: "settings connection disconnect online-only",
                 status: status,
@@ -1631,8 +1629,8 @@ public enum ScenarioVerifier {
             let plans = try planBuilder(planner)
             let provider = plans.provider
             let passkeys = plans.passkeys
-            let status: ScenarioCheckStatus = provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
-                passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys" ? .pass : .fail
+            let status = scenarioStatus(provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
+                passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys")
             return ScenarioCheck(
                 name: "settings secure handoff",
                 status: status,
@@ -1699,13 +1697,13 @@ public enum ScenarioVerifier {
             clientMutationID: "cm_scenario_apns_production"
         ))
         let tokenAcquisition = try? offlinePlanner.planDeviceTokenAcquisition()
-        let status: ScenarioCheckStatus = viewModel.notificationDraft == preferences &&
+        let status = scenarioStatus(viewModel.notificationDraft == preferences &&
             viewModel.apnsRegistration?.registrationState == .registered &&
             viewModel.permissionDeniedBanner != nil &&
             viewModel.productionBlocker?.capability == AppleDeveloperProgramBlocker.capabilityName &&
             developmentRegister?.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister &&
             productionRegister?.deliveryBlocker == localValidationBlocker &&
-            tokenAcquisition?.onlineOnlyReason == .deviceTokenAcquisition ? .pass : .fail
+            tokenAcquisition?.onlineOnlyReason == .deviceTokenAcquisition)
 
         return ScenarioCheck(
             name: "notification APNs surface",
@@ -1718,12 +1716,16 @@ public enum ScenarioVerifier {
         "2026-06-16T12:09:00.000Z"
     }
 
+    private static func scenarioStatus(_ isPassing: Bool) -> ScenarioCheckStatus {
+        isPassing ? .pass : .fail
+    }
+
     static func offlineStatusCheck(
         available: OfflineState = .available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:10:00.000Z"),
         unavailable: OfflineState = .unavailable
     ) -> ScenarioCheck {
-        let status: ScenarioCheckStatus = available.statusLabel == "Offline cache ready: 2 snapshots" &&
-            unavailable.statusLabel == "Offline cache unavailable" ? .pass : .fail
+        let status = scenarioStatus(available.statusLabel == "Offline cache ready: 2 snapshots" &&
+            unavailable.statusLabel == "Offline cache unavailable")
 
         return ScenarioCheck(
             name: "offline status",
@@ -1752,7 +1754,7 @@ public enum ScenarioVerifier {
                 ]
             ))
         ]
-        let status: ScenarioCheckStatus = checkedRoutes.allSatisfy { $0 == .unknownLink } ? .pass : .fail
+        let status = scenarioStatus(checkedRoutes.allSatisfy { $0 == .unknownLink })
 
         return ScenarioCheck(
             name: "safe unknown link",
@@ -1806,13 +1808,13 @@ public enum ScenarioVerifier {
     }
 
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
-        [
+        scenarioStatus([
             metadata.appIntents,
             metadata.spotlightIndexedTypes,
             metadata.searchableScopes,
             metadata.shareActions,
             metadata.offlineFlows
-        ].allSatisfy { !$0.isEmpty } ? .pass : .fail
+        ].allSatisfy { !$0.isEmpty })
     }
 
     private static func deepLinkCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
@@ -1829,7 +1831,7 @@ public enum ScenarioVerifier {
             metadata.deepLinkRoutes.contains("spoonjoy://recipes/new/edit") &&
             metadata.deepLinkRoutes.contains("spoonjoy://shopping-list")
 
-        return hasAssociatedDomain && hasScheme && hasWebRoutes && hasSchemeRoutes ? .pass : .fail
+        return scenarioStatus(hasAssociatedDomain && hasScheme && hasWebRoutes && hasSchemeRoutes)
     }
 
     private static func sourceCheck(

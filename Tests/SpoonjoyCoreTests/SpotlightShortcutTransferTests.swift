@@ -179,20 +179,21 @@ struct SpotlightShortcutTransferTests {
                     "ShoppingEntityIndexPurgePlan.accountScopePurge",
                     "SpoonEntityIndexPurgePlan.accountScopePurge",
                     "CaptureDraftEntityIndexPurgePlan.accountScopePurge",
+                    "CaptureDraftEntityIndexPurgePlan.cacheDeletePurge",
                     "ChefProfileEntityIndexPurgePlan.accountScopePurge",
                     "purgeShoppingEntityIdentifiers",
                     "purgeSpoonEntityIdentifiers",
                     "purgeCaptureDraftEntityIdentifiers",
-                    "purgeChefProfileEntityIdentifiers"
+                    "purgeChefProfileEntityIdentifiers",
+                    "report.captureDraftEntityPurgeRequests"
                 ],
                 "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift": [
                     "ShoppingEntityIndexPurgePlan.tombstonePurge",
                     "SpoonEntityIndexPurgePlan.tombstonePurge",
-                    "CaptureDraftEntityIndexPurgePlan.cacheDeletePurge",
                     "ChefProfileEntityIndexPurgePlan.tombstonePurge",
+                    "ChefProfileEntityIndexPurgePlan.cacheDeletePurge",
                     "shoppingEntityPurgeIdentifiers",
                     "spoonEntityPurgeIdentifiers",
-                    "captureDraftEntityPurgeIdentifiers",
                     "chefProfileEntityPurgeIdentifiers",
                     "removedCacheKeys",
                     "tombstones"
@@ -296,10 +297,12 @@ struct SpotlightShortcutTransferTests {
         let shoppingIdentifier = SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_lemons", scope: scope)
         let spoonIdentifier = SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_lemon", recipeID: "recipe_pasta", scope: scope)
         let captureIdentifier = SpotlightIndexPlan.captureDraftUniqueIdentifier(draftID: "draft_url", scope: scope)
+        let chefProfileIdentifier = SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_jules", scope: scope)
 
         #expect(shoppingIdentifier == "production|account-ari-example-com|shopping-list-item|item_lemons")
         #expect(spoonIdentifier == "production|account-ari-example-com|spoon|spoon_lemon~recipe_pasta")
         #expect(captureIdentifier == "production|account-ari-example-com|capture-draft|draft_url")
+        #expect(chefProfileIdentifier == "production|account-ari-example-com|chef-profile|chef_jules")
         #expect(SpotlightIndexPlan.domainIdentifiers(scope: scope) == [
             "app.spoonjoy.production.account-ari-example-com.recipe",
             "app.spoonjoy.production.account-ari-example-com.cookbook",
@@ -311,14 +314,68 @@ struct SpotlightShortcutTransferTests {
         #expect(SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.shopping-list-item")
         #expect(SpotlightIndexPlan.spoonDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.spoon")
         #expect(SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.capture-draft")
+        #expect(SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.chef-profile")
         #expect(!shoppingIdentifier.contains("@"))
         #expect(!spoonIdentifier.contains("@"))
         #expect(!captureIdentifier.contains("@"))
+        #expect(!chefProfileIdentifier.contains("@"))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|shopping-list-item|../secret") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|spoon|spoon_lemon~recipe_pasta") == .recipeDetail(id: "recipe_pasta", presentation: .detail))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|spoon|spoon_lemon") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|capture-draft|draft_url") == .capture)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|chef-profile|chef_jules") == .profile(identifier: "chef_jules"))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|chef-profile|chef..secret") == .unknownLink)
+    }
+
+    @Test("Spotlight documents include semantic spoon capture draft and chef profile entities")
+    func spotlightDocumentsIncludeSemanticSpoonCaptureDraftAndChefProfileEntities() {
+        let scope = SpotlightIndexScope(accountID: "account_ari", environment: .local)
+        let shoppingList = ShoppingListState(
+            id: "shopping_empty",
+            chef: ChefSummary(id: "account_ari", username: "ari"),
+            items: [],
+            nextCursor: "",
+            updatedAt: "2026-06-29T11:00:00.000Z"
+        )
+
+        let documents = SpotlightIndexPlan.documents(
+            recipes: [],
+            cookbooks: [],
+            shoppingList: shoppingList,
+            spoons: [SpoonEntityDescriptor.placeholder],
+            captureDrafts: [CaptureDraftEntityDescriptor.placeholder],
+            chefProfiles: [ChefProfileEntityDescriptor.placeholder],
+            scope: scope
+        )
+
+        #expect(documents.map(\.type) == [.spoon, .captureDraft, .chefProfile])
+        #expect(documents.map(\.route) == [
+            .recipeDetail(id: "recipe-placeholder", presentation: .detail),
+            .capture,
+            .profile(identifier: "Spoonjoy")
+        ])
+        #expect(documents.map(\.domainIdentifier) == [
+            SpotlightIndexPlan.spoonDomainIdentifier(scope: scope),
+            SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope),
+            SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope)
+        ])
+
+        let spoon = documents[0]
+        #expect(spoon.uniqueIdentifier == SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon-placeholder", recipeID: "recipe-placeholder", scope: scope))
+        #expect(spoon.keywords.contains("Recipe"))
+
+        let captureDraft = documents[1]
+        #expect(captureDraft.uniqueIdentifier == SpotlightIndexPlan.captureDraftUniqueIdentifier(draftID: "capture-draft-placeholder", scope: scope))
+        #expect(captureDraft.keywords.contains(CaptureDraftImportReadiness.ready.rawValue))
+
+        let chefProfile = documents[2]
+        #expect(chefProfile.uniqueIdentifier == SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef-profile-placeholder", scope: scope))
+        #expect(chefProfile.keywords == [
+            "Spoonjoy",
+            SpotlightIndexType.chefProfile.rawValue,
+            "Chef Profile",
+            "Spoonjoy chef profile"
+        ])
     }
 }
 

@@ -1537,11 +1537,13 @@ if domain == "spotlight-shortcuts"
       "ShoppingEntityIndexPurgePlan.accountScopePurge",
       "SpoonEntityIndexPurgePlan.accountScopePurge",
       "CaptureDraftEntityIndexPurgePlan.accountScopePurge",
+      "CaptureDraftEntityIndexPurgePlan.cacheDeletePurge",
       "ChefProfileEntityIndexPurgePlan.accountScopePurge",
       "purgeShoppingEntityIdentifiers",
       "purgeSpoonEntityIdentifiers",
       "purgeCaptureDraftEntityIdentifiers",
-      "purgeChefProfileEntityIdentifiers"
+      "purgeChefProfileEntityIdentifiers",
+      "report.captureDraftEntityPurgeRequests"
     ],
     failures
   )
@@ -1551,11 +1553,10 @@ if domain == "spotlight-shortcuts"
     [
       "ShoppingEntityIndexPurgePlan.tombstonePurge",
       "SpoonEntityIndexPurgePlan.tombstonePurge",
-      "CaptureDraftEntityIndexPurgePlan.cacheDeletePurge",
       "ChefProfileEntityIndexPurgePlan.tombstonePurge",
+      "ChefProfileEntityIndexPurgePlan.cacheDeletePurge",
       "shoppingEntityPurgeIdentifiers",
       "spoonEntityPurgeIdentifiers",
-      "captureDraftEntityPurgeIdentifiers",
       "chefProfileEntityPurgeIdentifiers",
       "removedCacheKeys",
       "tombstones"

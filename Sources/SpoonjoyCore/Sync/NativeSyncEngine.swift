@@ -3532,6 +3532,13 @@ public struct NativeSyncTriggerCoordinator: Sendable {
     public func handle(_ event: NativeSyncTriggerEvent) async throws -> NativeSyncReport {
         try await runner.bootstrapAndDrain(configuration: configuration, trigger: event.cacheTrigger, scope: scope)
     }
+
+    public func scoped(
+        configuration: APIClientConfiguration,
+        scope: NativeSyncExecutionScope
+    ) -> NativeSyncTriggerCoordinator {
+        NativeSyncTriggerCoordinator(runner: runner, configuration: configuration, scope: scope)
+    }
 }
 
 private extension NativeSyncTriggerEvent {
@@ -3834,6 +3841,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let bootstrapAccountID: String?
         let bootstrapEnvironment: NativeCacheEnvironment?
         let bootstrapTombstones: [NativeSyncTombstone]
+        var bootstrapRemovedCacheKeys: [String] = []
         switch bootstrapResult {
         case .success(let cursor, let tombstones):
             bootstrapCursor = cursor
@@ -3857,6 +3865,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             bootstrapAccountID = syncData.freshness.accountID
             bootstrapEnvironment = syncData.freshness.environment
             bootstrapTombstones = applyResult.tombstones
+            bootstrapRemovedCacheKeys = applyResult.removedCacheKeys
         }
 
         let canReplayStoredQueue = Self.canReuseStoredState(previousSnapshot, scope: scope)
@@ -3868,9 +3877,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         var spoonEntityPurgeIdentifiers: [String] = []
         var spoonEntityPurgeDomainIdentifiers: [String] = []
         var spoonEntityPurgeRequests: [NativeSpoonEntityIndexPurgeRequest] = []
-        var captureDraftEntityPurgeIdentifiers: [String] = []
-        var captureDraftEntityPurgeDomainIdentifiers: [String] = []
-        var captureDraftEntityPurgeRequests: [NativeCaptureDraftEntityIndexPurgeRequest] = []
+        let captureDraftEntityPurgeIdentifiers: [String] = []
+        let captureDraftEntityPurgeDomainIdentifiers: [String] = []
+        let captureDraftEntityPurgeRequests: [NativeCaptureDraftEntityIndexPurgeRequest] = []
         var chefProfileEntityPurgeIdentifiers: [String] = []
         var chefProfileEntityPurgeDomainIdentifiers: [String] = []
         var chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest] = []
@@ -4061,13 +4070,11 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             upsertingCachedRecords: cachePatch.upserting,
             deletingCachedRecordKeys: cachePatch.deletingCacheKeys
         )
-        let removedCacheKeys = cachePatch.deletingCacheKeys
+        let removedCacheKeys = Set(bootstrapRemovedCacheKeys).union(cachePatch.deletingCacheKeys)
         let currentShoppingRequestStart = shoppingEntityPurgeIdentifiers.count
         let currentShoppingDomainRequestStart = shoppingEntityPurgeDomainIdentifiers.count
         let currentSpoonRequestStart = spoonEntityPurgeIdentifiers.count
         let currentSpoonDomainRequestStart = spoonEntityPurgeDomainIdentifiers.count
-        let currentCaptureDraftRequestStart = captureDraftEntityPurgeIdentifiers.count
-        let currentCaptureDraftDomainRequestStart = captureDraftEntityPurgeDomainIdentifiers.count
         let currentChefProfileRequestStart = chefProfileEntityPurgeIdentifiers.count
         let currentChefProfileDomainRequestStart = chefProfileEntityPurgeDomainIdentifiers.count
         if let queueAccountID, let queueEnvironment {
@@ -4077,8 +4084,6 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             let makeSpoonTombstonePurge = SpoonEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeSpoonCacheDeletePurge = SpoonEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:spoonIDs:)
             let purgeSpoonEntityIdentifiers = SpoonEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
-            let makeCaptureDraftCacheDeletePurge = CaptureDraftEntityIndexPurgePlan.cacheDeletePurge(deletedRecordDomains:accountID:environment:)
-            let purgeCaptureDraftEntityIdentifiers = CaptureDraftEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
             let makeChefProfileTombstonePurge = ChefProfileEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeChefProfileCacheDeletePurge = ChefProfileEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:profileIDs:)
             let purgeChefProfileEntityIdentifiers = ChefProfileEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
@@ -4130,22 +4135,6 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     plan: spoonCacheDeletePurgePlan
                 ))
             }
-            let deletedCaptureDraftDomains = removedCacheKeys.compactMap { cacheKey -> NativeCacheDomain? in
-                let prefix = "capture-draft:"
-                guard cacheKey.hasPrefix(prefix) else {
-                    return nil
-                }
-                return .captureDraft(id: String(cacheKey.dropFirst(prefix.count)))
-            }
-            if !deletedCaptureDraftDomains.isEmpty {
-                let captureDraftCacheDeletePurgePlan = makeCaptureDraftCacheDeletePurge(deletedCaptureDraftDomains, queueAccountID, queueEnvironment)
-                captureDraftEntityPurgeIdentifiers.append(contentsOf: purgeCaptureDraftEntityIdentifiers(queueAccountID, queueEnvironment, captureDraftCacheDeletePurgePlan))
-                captureDraftEntityPurgeDomainIdentifiers.append(contentsOf: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
-                    accountID: queueAccountID,
-                    environment: queueEnvironment,
-                    plan: captureDraftCacheDeletePurgePlan
-                ))
-            }
             let chefProfileTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.profile }
             let chefProfileTombstonePurgePlan = makeChefProfileTombstonePurge(chefProfileTombstones, queueAccountID, queueEnvironment)
             chefProfileEntityPurgeIdentifiers.append(contentsOf: purgeChefProfileEntityIdentifiers(queueAccountID, queueEnvironment, chefProfileTombstonePurgePlan))
@@ -4190,16 +4179,6 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     environment: queueEnvironment
                 ))
             }
-            let currentCaptureDraftIdentifiers = Array(captureDraftEntityPurgeIdentifiers[currentCaptureDraftRequestStart...])
-            let currentCaptureDraftDomainIdentifiers = Array(captureDraftEntityPurgeDomainIdentifiers[currentCaptureDraftDomainRequestStart...])
-            if !currentCaptureDraftIdentifiers.isEmpty || !currentCaptureDraftDomainIdentifiers.isEmpty {
-                captureDraftEntityPurgeRequests.append(NativeCaptureDraftEntityIndexPurgeRequest(
-                    identifiers: Self.uniquePreservingOrder(currentCaptureDraftIdentifiers),
-                    domainIdentifiers: Self.uniquePreservingOrder(currentCaptureDraftDomainIdentifiers),
-                    accountID: queueAccountID,
-                    environment: queueEnvironment
-                ))
-            }
             let currentChefProfileIdentifiers = Array(chefProfileEntityPurgeIdentifiers[currentChefProfileRequestStart...])
             let currentChefProfileDomainIdentifiers = Array(chefProfileEntityPurgeDomainIdentifiers[currentChefProfileDomainRequestStart...])
             if !currentChefProfileIdentifiers.isEmpty || !currentChefProfileDomainIdentifiers.isEmpty {
@@ -4215,8 +4194,6 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         shoppingEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeDomainIdentifiers)
         spoonEntityPurgeIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeIdentifiers)
         spoonEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeDomainIdentifiers)
-        captureDraftEntityPurgeIdentifiers = Self.uniquePreservingOrder(captureDraftEntityPurgeIdentifiers)
-        captureDraftEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(captureDraftEntityPurgeDomainIdentifiers)
         chefProfileEntityPurgeIdentifiers = Self.uniquePreservingOrder(chefProfileEntityPurgeIdentifiers)
         chefProfileEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(chefProfileEntityPurgeDomainIdentifiers)
 

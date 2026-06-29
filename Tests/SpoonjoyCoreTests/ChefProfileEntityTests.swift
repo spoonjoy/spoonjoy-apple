@@ -561,6 +561,89 @@ struct ChefProfileEntityTests {
         #expect(NativeIntentActionError.unresolvedChefProfileEntity.description == "Choose a Spoonjoy chef profile before running this Siri action.")
     }
 
+    @Test("chef profile entity purge plans dedupe and reject wrong scopes")
+    func chefProfileEntityPurgePlansDedupeAndRejectWrongScopes() {
+        let scope = SpotlightIndexScope(accountID: "account_ari", environment: .production)
+        let accountPlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
+            accountID: "account_ari",
+            environment: .production,
+            profileIDs: ["chef_ari", "chef_jules", "chef_ari"]
+        )
+
+        #expect(accountPlan.identifiers == [
+            SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_ari", scope: scope),
+            SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_jules", scope: scope)
+        ])
+        #expect(accountPlan.domainIdentifiers == [
+            SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope)
+        ])
+        #expect(accountPlan.reason == .accountScopeChanged)
+
+        let cacheDeletePlan = ChefProfileEntityIndexPurgePlan.cacheDeletePurge(
+            accountID: "account_ari",
+            environment: .production,
+            profileIDs: ["chef_ari", "chef_ari"]
+        )
+        #expect(cacheDeletePlan.identifiers == [
+            SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_ari", scope: scope)
+        ])
+        #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
+        #expect(cacheDeletePlan.reason == .cacheDeleted)
+
+        let tombstonePlan = ChefProfileEntityIndexPurgePlan.tombstonePurge(
+            tombstones: [
+                NativeSyncTombstone(
+                    resourceType: .recipe,
+                    resourceID: "recipe_not_profile",
+                    parentResourceID: nil,
+                    title: "Not a profile",
+                    deletedAt: "2026-06-29T01:00:00.000Z",
+                    updatedAt: "2026-06-29T01:00:00.000Z"
+                ),
+                NativeSyncTombstone(
+                    resourceType: .profile,
+                    resourceID: "chef_ari",
+                    parentResourceID: nil,
+                    title: "ari",
+                    deletedAt: "2026-06-29T01:00:00.000Z",
+                    updatedAt: "2026-06-29T01:00:00.000Z"
+                )
+            ],
+            accountID: "account_ari",
+            environment: .production
+        )
+        #expect(tombstonePlan.identifiers == [
+            SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_ari", scope: scope)
+        ])
+        #expect(tombstonePlan.domainIdentifiers.isEmpty)
+        #expect(tombstonePlan.reason == .tombstoneApplied)
+
+        let wrongScopePlan = ChefProfileEntityIndexPurgePlan(
+            identifiers: [
+                SpotlightIndexPlan.chefProfileUniqueIdentifier(
+                    profileID: "chef_ari",
+                    scope: SpotlightIndexScope(accountID: "account_other", environment: .production)
+                )
+            ],
+            domainIdentifiers: [
+                SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope),
+                "app.spoonjoy.production.account_other.chef-profile"
+            ],
+            reason: .cacheDeleted
+        )
+
+        #expect(ChefProfileEntityCatalog.purgeEntityIdentifiers(
+            accountID: "account_ari",
+            environment: .production,
+            plan: wrongScopePlan
+        ).isEmpty)
+        #expect(ChefProfileEntityCatalog.purgeDomainIdentifiers(
+            accountID: "account_ari",
+            environment: .production,
+            plan: wrongScopePlan
+        ) == [SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope)])
+    }
+
     private static func catalog(
         syncSnapshot: NativeSyncSnapshot? = nil,
         cacheSnapshot: NativeDurableCacheSnapshot? = nil,

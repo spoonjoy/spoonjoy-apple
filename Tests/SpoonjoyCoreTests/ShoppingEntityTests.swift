@@ -307,6 +307,14 @@ struct ShoppingEntityTests {
                     title: "spaghetti",
                     deletedAt: "2026-06-01T00:10:00.000Z",
                     updatedAt: "2026-06-01T00:10:00.000Z"
+                ),
+                NativeSyncTombstone(
+                    resourceType: .recipe,
+                    resourceID: "recipe_not_a_shopping_item",
+                    parentResourceID: nil,
+                    title: "Not a shopping item",
+                    deletedAt: "2026-06-01T00:11:00.000Z",
+                    updatedAt: "2026-06-01T00:11:00.000Z"
                 )
             ]
         )

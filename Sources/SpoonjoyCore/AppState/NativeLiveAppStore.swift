@@ -1670,8 +1670,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public var syncTriggerCoordinator: NativeSyncTriggerCoordinator {
-        NativeSyncTriggerCoordinator(
-            runner: dependencies.syncEngine,
+        dependencies.syncTriggerCoordinator.scoped(
             configuration: configuration,
             scope: NativeSyncExecutionScope(
                 expectedAccountID: trustedAccountID(for: currentContentState.authSessionState),

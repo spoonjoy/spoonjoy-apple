@@ -1,0 +1,262 @@
+Test Suite 'Selected tests' started at 2026-06-29 05:07:51.537.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-06-29 05:07:51.538.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-06-29 05:07:51.538.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-06-29 05:07:51.538.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native sync engine and mutation queue" started.
+◇ Suite "Spotlight, App Shortcuts, and transfer integration contracts" started.
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "sync engine pauses on auth failure classifies conflicts and retains the blocked queue" started.
+◇ Test "source contracts wire semantic Spotlight, App Shortcuts, donations, on-screen annotations, and transfers" started.
+◇ Test "Spotlight documents include semantic spoon capture draft and chef profile entities" started.
+◇ Test "native metadata advertises every shipped entity as Spotlight indexed" started.
+◇ Test "Spotlight identifiers stay scoped and reject malformed private routes" started.
+◇ Test "queued mutation resource id replacement targets identifier fields only" started.
+◇ Test "restore cache only launch mode renders signed-in settings without live fetch" started.
+◇ Test "capture draft mutations are durable local cache mutations and never build network requests" started.
+◇ Test "scoped queue save clears previous owner checkpoint records and tombstones" started.
+◇ Test "drained recipe mutations persist to file backed cache for restart" started.
+◇ Test "live store purges capture draft entity indexes on logout" started.
+◇ Test "live store queueMutation persists mutations through native sync store" started.
+◇ Test "sync engine rewrites local optimistic cookbook ids after create responses" started.
+◇ Test "sync engine records step and ingredient create id remaps for drained optimistic mutations" started.
+◇ Test "live store maps sync conflict auth retry and local queue outcomes to shell states" started.
+◇ Test "sync engine rewrites dependent shopping item ids after add-from-recipe drains" started.
+◇ Test "live store does not double apply drained structural recipe mutations after immediate online drain" started.
+◇ Test "live store appends mutations to matching scoped queue" started.
+◇ Test "core declares live app bootstrap state and repository dependencies" started.
+◇ Test "sync tombstones apply to local cache records and checkpoint revisions" started.
+◇ Test "bootstrap profile tombstones emit scoped chef profile purge requests" started.
+◇ Test "production fixture fallback is an explicit test and demo only policy" started.
+◇ Test "native mutation queue persists every offline product domain with durable replay metadata" started.
+◇ Test "sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events" started.
+◇ Test "sync engine rewrites local optimistic recipe and step ids after create responses" started.
+◇ Test "optimistic shopping mutations fail closed for malformed replay payloads" started.
+◇ Test "shell content settings surface view model covers signed-out loaded and signed-in unloaded states" started.
+◇ Test "drained cover mutations clear stale active cover cache for restart" started.
+◇ Test "drained spoon mutations persist to recipe cache for restart" started.
+◇ Test "retry schedule uses exact Offline Product Contract backoff with capped jitter" started.
+◇ Test "provider-secret blockers retain blocked imports while independent mutations drain" started.
+◇ Test "stale shopping check mutations preserve the current list" started.
+◇ Test "legacy intent shopping mutations convert into native durable queued mutations" started.
+◇ Test "live store keeps drained recipe editor mutations visible after immediate online drain" started.
+◇ Test "platform navigation consumes live content state and never decodes production fixtures" started.
+◇ Test "optimistic cookbook mutations preserve cache for stale and malformed payloads" started.
+◇ Test "retry results block the failed dependency key while independent mutations can still drain" started.
+◇ Test "restore cache only launch mode preserves signed-out shell without live fetch" started.
+◇ Test "bootstrap account switch reports previous shopping entity purge identifiers" started.
+◇ Test "live store reports fixture fallback and queue persistence failures as sync failures" started.
+◇ Test "expired retry schedules drain and tombstone revisions preserve resource families" started.
+◇ Test "production sources cannot silently use fixture bundles" started.
+◇ Test "live store executes settings action requests and captures created tokens" started.
+◇ Test "file backed sync store applies records checkpoints and missing staged media errors" started.
+◇ Test "restore cache only launch mode preserves expired signed-in cache without refreshing" started.
+◇ Test "offline mutation policy queues allowed writes and refuses online only account security and provider actions" started.
+◇ Test "live store persists direct capture import provider blocker through successful bootstrap" started.
+◇ Test "sync engine applies bootstrap sync data before draining queued mutations" started.
+◇ Test "unbound authenticated offline restore fails closed for private sync cache" started.
+◇ Test "native sync checkpoints validate global and shopping cursors" started.
+◇ Test "native sync report builds scoped purge requests from legacy fallback arrays" started.
+◇ Test "sync apply rebinds account and clears previous owner queue before replay" started.
+◇ Test "sync engine rewrites remaining local ids when auth failure pauses after create success" started.
+◇ Test "sync engine keeps local capture draft mutations out of remote drain" started.
+◇ Test "sync apply clears legacy unscoped snapshots before binding current account" started.
+◇ Test "drained shopping mutations persist to file backed cache for restart" started.
+◇ Test "bootstrap states replace content without changing severity" started.
+◇ Test "file backed sync store restores queue checkpoint tombstones and staged media for restart" started.
+◇ Test "scheduled retry report keeps the shortest independent retry delay" started.
+◇ Test "live store persists drained shopping checks when the base list came from app snapshot" started.
+◇ Test "drained shopping cache patch deletes removed cached rows and timestamps from first drained mutation" started.
+◇ Test "live store queue and conflict discard no-ops leave state untouched" started.
+◇ Test "live store represents an empty synced shopping list" started.
+◇ Test "optimistic recipe mutations cover every recipe branch and malformed payload fallback" started.
+◇ Test "live store discards conflicted queued recipe mutation when discarding local edit" started.
+◇ Test "live store covers shopping merge ties signed-in settings and environment failures" started.
+◇ Test "live store restores only bound account cache route and Siri capture draft" started.
+◇ Test "bootstrap request and sync envelope use the private /me/sync contract" started.
+◇ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" started.
+◇ Test "drained cookbook mutations patch cached cookbook records" started.
+◇ Test "live store persists queued capture import blockers while unrelated work drains" started.
+◇ Test "mutation queue and durable decode edge cases fail closed" started.
+◇ Test "live store queueMutation optimistically reflects queued cookbook edits" started.
+◇ Test "drained add-from-recipe replays queued ingredient descriptors without cached recipe" started.
+◇ Test "file backed sync store lets scoped bootstrap discard previous owner staged media" started.
+◇ Test "signed out search recording does not overwrite mismatched durable account cache" started.
+◇ Test "live store executes recipe editor requests with auth-refreshing transport" started.
+◇ Test "bootstrap profile cache deletes without tombstones emit scoped chef profile purge requests" started.
+◇ Test "live store records capture drafts retries and discard through durable app state" started.
+◇ Test "live store refreshes settings surface cache after sync" started.
+◇ Test "live store purges chef profile entity indexes with scoped requests" started.
+◇ Test "sync engine records spoon create id remaps without sending internal fields" started.
+◇ Test "live store records notification APNs Apple Developer Program blocker" started.
+◇ Test "scheduled retry timestamps are honored before replaying a dependency key" started.
+◇ Test "sync engine ignores previous owner checkpoint and queue on first scoped bootstrap" started.
+◇ Test "shell content restores notification APNs status from durable cache" started.
+◇ Test "signed out live store restores durable fallback content and records scoped routes" started.
+◇ Test "sync engine blocks local recipe dependent replay when create has not drained" started.
+◇ Test "sync engine rewrites dependent shopping item ids after add drains" started.
+◇ Test "shell content folds synced spoon records and tombstones into restored recipes" started.
+◇ Test "live store ignores legacy unscoped app snapshot state" started.
+◇ Test "sync stores expose simple queue checkpoint and unavailable errors" started.
+◇ Test "live store discard keeps independent conflicts and removes dependent queued recipe work" started.
+◇ Test "recipe editor app surface drains online structural batches and labels conflict discard honestly" started.
+◇ Test "live store reports partial online recipe editor drains before the editor closes" started.
+◇ Test "live store purges shopping and spoon entity indexes on logout and account switch" started.
+◇ Test "root view bootstraps through live store instead of fixture first run" started.
+◇ Test "live store queueMutation discards previous owner media queue before appending current work" started.
+◇ Test "live store dependencies default recipe editor transport is URLSession-backed" started.
+◇ Test "live store clears capture draft and pending import after queued import drains" started.
+◇ Test "live store resets mismatched app snapshots before recording local state" started.
+◇ Test "live store consumes capture draft entity purge requests from sync reports" started.
+◇ Test "live store queueMutation optimistically reflects queued recipe edits" started.
+◇ Test "live store keeps drained shopping mutations visible and cached after immediate online drain" started.
+◇ Test "live store handles capture import blockers without durable app state" started.
+◇ Test "shell content exposes recipe catalog source for live and offline states" started.
+◇ Test "shell contract gate live store instead of fixture parity" started.
+◇ Test "signed in search recording persists scoped cache and filters private rows" started.
+◇ Test "live store refreshes auth before sync and hydrates applied sync cache" started.
+◇ Test "scenario verifier reports live store as structured checks and capabilities" started.
+◇ Test "live store deletes superseded spoon draft media unless queued" started.
+◇ Test "environment switch clears previous environment content and applies scoped sync" started.
+◇ Test "live store contract covers global search scopes and environment rebinding" started.
+◇ Test "live store restores queued shopping mutations as optimistic content" started.
+◇ Test "live store performs settings session operations and returns to signed out shell" started.
+◇ Test "signed out settings and offline indicator cover every live shell state" started.
+◇ Test "live store ignores app snapshot state from another account" started.
+◇ Test "live store executes capture import requests and prepends imported recipes" started.
+◇ Test "live store restores queued spoon mutations as optimistic recipe detail" started.
+◇ Test "bootstrap tombstones are recorded with checkpoint cursors" started.
+◇ Test "sync engine blocks local cookbook dependent replay when create has not drained" started.
+◇ Test "optimistic shopping check and clear completed update stale timestamps" started.
+◇ Test "sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations" started.
+✔ Test "native metadata advertises every shipped entity as Spotlight indexed" passed after 0.021 seconds.
+✔ Test "Spotlight identifiers stay scoped and reject malformed private routes" passed after 0.024 seconds.
+✔ Test "Spotlight documents include semantic spoon capture draft and chef profile entities" passed after 0.026 seconds.
+✔ Test "capture draft mutations are durable local cache mutations and never build network requests" passed after 0.026 seconds.
+✔ Test "sync tombstones apply to local cache records and checkpoint revisions" passed after 0.027 seconds.
+✔ Test "scoped queue save clears previous owner checkpoint records and tombstones" passed after 0.027 seconds.
+✔ Test "bootstrap profile tombstones emit scoped chef profile purge requests" passed after 0.027 seconds.
+✔ Test "sync engine pauses on auth failure classifies conflicts and retains the blocked queue" passed after 0.027 seconds.
+✔ Test "sync engine rewrites local optimistic cookbook ids after create responses" passed after 0.027 seconds.
+✔ Test "sync engine rewrites dependent shopping item ids after add-from-recipe drains" passed after 0.034 seconds.
+✔ Test "optimistic shopping mutations fail closed for malformed replay payloads" passed after 0.034 seconds.
+✔ Test "sync engine rewrites local optimistic recipe and step ids after create responses" passed after 0.035 seconds.
+✔ Test "sync engine records step and ingredient create id remaps for drained optimistic mutations" passed after 0.037 seconds.
+✔ Test "queued mutation resource id replacement targets identifier fields only" passed after 0.037 seconds.
+✔ Test "shell content settings surface view model covers signed-out loaded and signed-in unloaded states" passed after 0.037 seconds.
+✔ Test "retry schedule uses exact Offline Product Contract backoff with capped jitter" passed after 0.037 seconds.
+✔ Test "stale shopping check mutations preserve the current list" passed after 0.037 seconds.
+✔ Test "sync trigger coordinator starts bootstrap and drain for lifecycle network account environment and stale surface events" passed after 0.037 seconds.
+✔ Test "provider-secret blockers retain blocked imports while independent mutations drain" passed after 0.037 seconds.
+✔ Test "legacy intent shopping mutations convert into native durable queued mutations" passed after 0.037 seconds.
+✔ Test "retry results block the failed dependency key while independent mutations can still drain" passed after 0.037 seconds.
+✔ Test "optimistic cookbook mutations preserve cache for stale and malformed payloads" passed after 0.037 seconds.
+✔ Test "expired retry schedules drain and tombstone revisions preserve resource families" passed after 0.037 seconds.
+✔ Test "drained recipe mutations persist to file backed cache for restart" passed after 0.037 seconds.
+✔ Test "bootstrap account switch reports previous shopping entity purge identifiers" passed after 0.037 seconds.
+✔ Test "offline mutation policy queues allowed writes and refuses online only account security and provider actions" passed after 0.037 seconds.
+✔ Test "native mutation queue persists every offline product domain with durable replay metadata" passed after 0.037 seconds.
+✔ Test "native sync checkpoints validate global and shopping cursors" passed after 0.037 seconds.
+✔ Test "native sync report builds scoped purge requests from legacy fallback arrays" passed after 0.037 seconds.
+✔ Test "sync engine applies bootstrap sync data before draining queued mutations" passed after 0.037 seconds.
+✔ Test "sync apply rebinds account and clears previous owner queue before replay" passed after 0.037 seconds.
+✔ Test "sync engine keeps local capture draft mutations out of remote drain" passed after 0.037 seconds.
+✔ Test "sync engine rewrites remaining local ids when auth failure pauses after create success" passed after 0.038 seconds.
+✔ Test "drained cover mutations clear stale active cover cache for restart" passed after 0.038 seconds.
+✔ Test "file backed sync store applies records checkpoints and missing staged media errors" passed after 0.038 seconds.
+✔ Test "bootstrap states replace content without changing severity" passed after 0.038 seconds.
+✔ Test "sync apply clears legacy unscoped snapshots before binding current account" passed after 0.038 seconds.
+✔ Test "scheduled retry report keeps the shortest independent retry delay" passed after 0.038 seconds.
+✔ Test "drained shopping mutations persist to file backed cache for restart" passed after 0.038 seconds.
+✔ Test "drained shopping cache patch deletes removed cached rows and timestamps from first drained mutation" passed after 0.038 seconds.
+✔ Test "bootstrap request and sync envelope use the private /me/sync contract" passed after 0.038 seconds.
+✔ Test "drained spoon mutations persist to recipe cache for restart" passed after 0.039 seconds.
+✔ Test "optimistic recipe mutations cover every recipe branch and malformed payload fallback" passed after 0.038 seconds.
+✔ Test "drained cookbook mutations patch cached cookbook records" passed after 0.038 seconds.
+✔ Test "queued remote mutations build exact REST requests with idempotency keys and bearer auth" passed after 0.038 seconds.
+✔ Test "file backed sync store restores queue checkpoint tombstones and staged media for restart" passed after 0.038 seconds.
+✔ Test "sync engine records spoon create id remaps without sending internal fields" passed after 0.038 seconds.
+✔ Test "drained add-from-recipe replays queued ingredient descriptors without cached recipe" passed after 0.038 seconds.
+✔ Test "scheduled retry timestamps are honored before replaying a dependency key" passed after 0.038 seconds.
+✔ Test "mutation queue and durable decode edge cases fail closed" passed after 0.038 seconds.
+✔ Test "sync engine ignores previous owner checkpoint and queue on first scoped bootstrap" passed after 0.038 seconds.
+✔ Test "shell content restores notification APNs status from durable cache" passed after 0.038 seconds.
+✔ Test "sync engine rewrites dependent shopping item ids after add drains" passed after 0.038 seconds.
+✔ Test "bootstrap profile cache deletes without tombstones emit scoped chef profile purge requests" passed after 0.038 seconds.
+✔ Test "file backed sync store lets scoped bootstrap discard previous owner staged media" passed after 0.038 seconds.
+✔ Test "sync engine blocks local recipe dependent replay when create has not drained" passed after 0.038 seconds.
+✔ Test "shell content exposes recipe catalog source for live and offline states" passed after 0.031 seconds.
+✔ Test "shell contract gate live store instead of fixture parity" passed after 0.031 seconds.
+✔ Test "recipe editor app surface drains online structural batches and labels conflict discard honestly" passed after 0.038 seconds.
+✔ Test "sync stores expose simple queue checkpoint and unavailable errors" passed after 0.038 seconds.
+✔ Test "shell content folds synced spoon records and tombstones into restored recipes" passed after 0.038 seconds.
+✔ Test "bootstrap tombstones are recorded with checkpoint cursors" passed after 0.024 seconds.
+✔ Test "sync engine blocks local cookbook dependent replay when create has not drained" passed after 0.022 seconds.
+✔ Test "optimistic shopping check and clear completed update stale timestamps" passed after 0.022 seconds.
+✔ Test "sync engine bootstraps reads drains FIFO per dependency key and removes replayed mutations" passed after 0.020 seconds.
+✔ Test "signed out search recording does not overwrite mismatched durable account cache" passed after 0.038 seconds.
+✔ Test "live store records notification APNs Apple Developer Program blocker" passed after 0.038 seconds.
+✔ Suite "Native sync engine and mutation queue" passed after 0.040 seconds.
+✔ Test "root view bootstraps through live store instead of fixture first run" passed after 0.039 seconds.
+✔ Test "live store contract covers global search scopes and environment rebinding" passed after 0.035 seconds.
+✔ Test "platform navigation consumes live content state and never decodes production fixtures" passed after 0.045 seconds.
+✔ Test "live store dependencies default recipe editor transport is URLSession-backed" passed after 0.043 seconds.
+✔ Test "core declares live app bootstrap state and repository dependencies" passed after 0.047 seconds.
+✔ Test "signed out settings and offline indicator cover every live shell state" passed after 0.039 seconds.
+✔ Test "live store resets mismatched app snapshots before recording local state" passed after 0.052 seconds.
+✔ Test "scenario verifier reports live store as structured checks and capabilities" passed after 0.088 seconds.
+✔ Test "live store queueMutation persists mutations through native sync store" passed after 0.100 seconds.
+✔ Test "restore cache only launch mode preserves signed-out shell without live fetch" passed after 0.104 seconds.
+✔ Test "restore cache only launch mode renders signed-in settings without live fetch" passed after 0.116 seconds.
+✔ Test "restore cache only launch mode preserves expired signed-in cache without refreshing" passed after 0.117 seconds.
+✔ Test "unbound authenticated offline restore fails closed for private sync cache" passed after 0.123 seconds.
+✔ Test "live store handles capture import blockers without durable app state" passed after 0.133 seconds.
+✔ Test "live store represents an empty synced shopping list" passed after 0.146 seconds.
+✔ Test "live store persists queued capture import blockers while unrelated work drains" passed after 0.147 seconds.
+✔ Test "signed out live store restores durable fallback content and records scoped routes" passed after 0.148 seconds.
+✔ Test "live store ignores legacy unscoped app snapshot state" passed after 0.148 seconds.
+✔ Test "live store ignores app snapshot state from another account" passed after 0.142 seconds.
+✔ Test "signed in search recording persists scoped cache and filters private rows" passed after 0.148 seconds.
+✔ Test "live store reports fixture fallback and queue persistence failures as sync failures" passed after 0.156 seconds.
+✔ Test "live store restores only bound account cache route and Siri capture draft" passed after 0.155 seconds.
+✔ Test "live store refreshes settings surface cache after sync" passed after 0.156 seconds.
+✔ Test "live store executes capture import requests and prepends imported recipes" passed after 0.150 seconds.
+✔ Test "source contracts wire semantic Spotlight, App Shortcuts, donations, on-screen annotations, and transfers" passed after 0.163 seconds.
+✔ Suite "Spotlight, App Shortcuts, and transfer integration contracts" passed after 0.163 seconds.
+✔ Test "live store covers shopping merge ties signed-in settings and environment failures" passed after 0.162 seconds.
+✔ Test "live store queueMutation optimistically reflects queued cookbook edits" passed after 0.163 seconds.
+✔ Test "live store queueMutation discards previous owner media queue before appending current work" passed after 0.163 seconds.
+✔ Test "live store appends mutations to matching scoped queue" passed after 0.165 seconds.
+✔ Test "live store consumes capture draft entity purge requests from sync reports" passed after 0.158 seconds.
+✔ Test "live store deletes superseded spoon draft media unless queued" passed after 0.162 seconds.
+✔ Test "live store queue and conflict discard no-ops leave state untouched" passed after 0.172 seconds.
+✔ Test "live store performs settings session operations and returns to signed out shell" passed after 0.165 seconds.
+✔ Test "environment switch clears previous environment content and applies scoped sync" passed after 0.166 seconds.
+✔ Test "live store refreshes auth before sync and hydrates applied sync cache" passed after 0.167 seconds.
+✔ Test "live store persists direct capture import provider blocker through successful bootstrap" passed after 0.175 seconds.
+✔ Test "live store records capture drafts retries and discard through durable app state" passed after 0.176 seconds.
+✔ Test "live store executes recipe editor requests with auth-refreshing transport" passed after 0.176 seconds.
+✔ Test "live store purges capture draft entity indexes on logout" passed after 0.179 seconds.
+✔ Test "live store discards conflicted queued recipe mutation when discarding local edit" passed after 0.179 seconds.
+✔ Test "live store restores queued spoon mutations as optimistic recipe detail" passed after 0.176 seconds.
+✔ Test "live store persists drained shopping checks when the base list came from app snapshot" passed after 0.186 seconds.
+✔ Test "live store restores queued shopping mutations as optimistic content" passed after 0.178 seconds.
+✔ Test "live store reports partial online recipe editor drains before the editor closes" passed after 0.186 seconds.
+✔ Test "live store keeps drained recipe editor mutations visible after immediate online drain" passed after 0.189 seconds.
+✔ Test "live store does not double apply drained structural recipe mutations after immediate online drain" passed after 0.189 seconds.
+✔ Test "live store executes settings action requests and captures created tokens" passed after 0.191 seconds.
+✔ Test "live store clears capture draft and pending import after queued import drains" passed after 0.190 seconds.
+✔ Test "live store purges chef profile entity indexes with scoped requests" passed after 0.193 seconds.
+✔ Test "live store queueMutation optimistically reflects queued recipe edits" passed after 0.186 seconds.
+✔ Test "live store keeps drained shopping mutations visible and cached after immediate online drain" passed after 0.186 seconds.
+✔ Test "live store purges shopping and spoon entity indexes on logout and account switch" passed after 0.194 seconds.
+✔ Test "live store maps sync conflict auth retry and local queue outcomes to shell states" passed after 0.196 seconds.
+✔ Test "live store discard keeps independent conflicts and removes dependent queued recipe work" passed after 0.197 seconds.
+✔ Test "production sources cannot silently use fixture bundles" passed after 0.223 seconds.
+✔ Test "production fixture fallback is an explicit test and demo only policy" passed after 0.566 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.567 seconds.
+✔ Test run with 123 tests in 3 suites passed after 0.567 seconds.

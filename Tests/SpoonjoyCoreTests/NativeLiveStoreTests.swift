@@ -1714,7 +1714,7 @@ struct NativeLiveStoreTests {
     @Test("live store purges shopping and spoon entity indexes on logout and account switch")
     func liveStorePurgesShoppingAndSpoonEntityIndexesOnLogoutAndAccountSwitch() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
-            let vault = try await Self.signedInVault(accountID: nil)
+            let vault = try await Self.signedInVault(accountID: "client_live")
             let shoppingItem = Self.sampleShoppingItem(id: "item_logout_purge", name: "logout lemons")
             let purgeRecorder = CapturingShoppingEntityIndexPurge()
             let spoonPurgeRecorder = CapturingSpoonEntityIndexPurge()
@@ -1766,10 +1766,32 @@ struct NativeLiveStoreTests {
             )
 
             await liveStore.bootstrap()
+            let manualShoppingIdentifier = SpotlightIndexPlan.shoppingListItemUniqueIdentifier(
+                itemID: "item_manual_purge",
+                scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+            )
+            let manualShoppingDomain = SpotlightIndexPlan.shoppingListItemDomainIdentifier(
+                scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+            )
+            await liveStore.purgeShoppingEntityIdentifiers([], domainIdentifiers: [])
+            await liveStore.purgeShoppingEntityIdentifiers(
+                [manualShoppingIdentifier, manualShoppingIdentifier],
+                domainIdentifiers: [manualShoppingDomain, manualShoppingDomain]
+            )
             try await liveStore.performSettingsSessionOperation(.logout)
             await liveStore.purgeSpoonEntityIdentifiers([], domainIdentifiers: [])
 
             #expect(await purgeRecorder.requests() == [
+                NativeShoppingEntityIndexPurgeRequest(
+                    identifiers: [
+                        manualShoppingIdentifier
+                    ],
+                    domainIdentifiers: [
+                        manualShoppingDomain
+                    ],
+                    accountID: "client_live",
+                    environment: .production
+                ),
                 NativeShoppingEntityIndexPurgeRequest(
                     identifiers: [
                         SpotlightIndexPlan.shoppingListItemUniqueIdentifier(
@@ -1806,7 +1828,7 @@ struct NativeLiveStoreTests {
         }
 
         try await withTemporaryLiveStoreDirectory { directory in
-            let vault = try await Self.signedInVault(accountID: nil)
+            let vault = try await Self.signedInVault(accountID: "client_live")
             let previousItem = Self.sampleShoppingItem(id: "item_previous_purge", name: "previous carrots")
             let purgeRecorder = CapturingShoppingEntityIndexPurge()
             let liveStore = Self.liveStore(
@@ -1919,6 +1941,192 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store consumes capture draft entity purge requests from sync reports")
+    func liveStoreConsumesCaptureDraftEntityPurgeRequestsFromSyncReports() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "client_live")
+            let purgeRecorder = CapturingCaptureDraftEntityIndexPurge()
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "client_live",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let purgeRequest = NativeCaptureDraftEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.captureDraftUniqueIdentifier(
+                        draftID: "draft_report_purge",
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ],
+                domainIdentifiers: [
+                    SpotlightIndexPlan.captureDraftDomainIdentifier(
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ],
+                accountID: "client_live",
+                environment: .production
+            )
+            let syncRunner = StaticNativeSyncTriggerRunner(report: NativeSyncReport(
+                trigger: .launch,
+                bootstrapCursor: nil,
+                accountID: "client_live",
+                environment: .production,
+                captureDraftEntityPurgeRequests: [purgeRequest],
+                drainedClientMutationIDs: [],
+                conflicts: [],
+                pausedReason: nil,
+                retryAfterSeconds: nil
+            ))
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: syncRunner, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                captureDraftEntityIndexPurge: { request in
+                    await purgeRecorder.purge(request)
+                },
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            #expect(await syncRunner.triggers() == [.launch])
+            #expect(await purgeRecorder.requests() == [purgeRequest])
+        }
+    }
+
+    @MainActor
+    @Test("live store purges chef profile entity indexes with scoped requests")
+    func liveStorePurgesChefProfileEntityIndexesWithScopedRequests() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "client_live")
+            let profile = Self.profileSummary(id: "chef_live_profile", username: "live-profile")
+            let purgeRecorder = CapturingChefProfileEntityIndexPurge()
+            let removedProfileTombstone = NativeSyncTombstone(
+                resourceType: .profile,
+                resourceID: "chef_removed_live_profile",
+                parentResourceID: nil,
+                title: "Removed live profile",
+                deletedAt: Self.isoString(Self.now),
+                updatedAt: Self.isoString(Self.now)
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: "client_live",
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: NativeMutationQueue(),
+                    cachedRecords: [
+                        NativeSyncCachedRecord(
+                            kind: .profile,
+                            resourceID: profile.id,
+                            payload: try Self.jsonValue(profile),
+                            serverRevision: .updatedAt(Self.isoString(Self.now))
+                        )
+                    ]
+                ),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [removedProfileTombstone])),
+                chefProfileEntityIndexPurge: { request in
+                    await purgeRecorder.purge(request)
+                }
+            )
+
+            await liveStore.bootstrap()
+            await liveStore.purgeChefProfileEntityIdentifiers([], domainIdentifiers: [])
+            await liveStore.purgeChefProfileEntityIdentifiers(
+                ["production|client_live|chef-profile|manual_profile", "production|client_live|chef-profile|manual_profile"],
+                domainIdentifiers: ["app.spoonjoy.production.client_live.chef-profile", "app.spoonjoy.production.client_live.chef-profile"]
+            )
+            try await liveStore.performSettingsSessionOperation(.logout)
+
+            let scope = SpotlightIndexScope(accountID: "client_live", environment: .production)
+            let manualRequest = NativeChefProfileEntityIndexPurgeRequest(
+                identifiers: ["production|client_live|chef-profile|manual_profile"],
+                domainIdentifiers: ["app.spoonjoy.production.client_live.chef-profile"],
+                accountID: "client_live",
+                environment: .production
+            )
+            let tombstoneRequest = NativeChefProfileEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: removedProfileTombstone.resourceID, scope: scope)
+                ],
+                domainIdentifiers: [],
+                accountID: "client_live",
+                environment: .production
+            )
+            let logoutRequest = NativeChefProfileEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: profile.id, scope: scope)
+                ],
+                domainIdentifiers: [
+                    SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope)
+                ],
+                accountID: "client_live",
+                environment: .production
+            )
+            let requests = await purgeRecorder.requests()
+            #expect(requests == [tombstoneRequest, manualRequest, logoutRequest])
+        }
+
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_current")
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            try cacheStore.save(NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_previous",
+                environment: .production,
+                createdAt: Self.now,
+                records: [
+                    try Self.profileCacheRecord(id: "chef_previous_profile", username: "previous", accountID: "chef_previous", environment: .production),
+                    try Self.cacheRecord(domain: .settings, payload: .empty, accountID: "chef_previous", environment: .production)
+                ],
+                dismissedIndicators: []
+            ))
+            let purgeRecorder = CapturingChefProfileEntityIndexPurge()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_current_profile_switch", title: "Current Profile Switch"),
+                    shoppingItem: nil,
+                    accountID: "chef_current"
+                ))),
+                chefProfileEntityIndexPurge: { request in
+                    await purgeRecorder.purge(request)
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            let previousScope = SpotlightIndexScope(accountID: "chef_previous", environment: .production)
+            #expect(await purgeRecorder.requests() == [
+                NativeChefProfileEntityIndexPurgeRequest(
+                    identifiers: [
+                        SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_previous_profile", scope: previousScope)
+                    ],
+                    domainIdentifiers: [
+                        SpotlightIndexPlan.chefProfileDomainIdentifier(scope: previousScope)
+                    ],
+                    accountID: "chef_previous",
+                    environment: .production
+                )
+            ])
+        }
+    }
+
+    @MainActor
     @Test("live store executes capture import requests and prepends imported recipes")
     func liveStoreExecutesCaptureImportRequestsAndPrependsImportedRecipes() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -1972,7 +2180,7 @@ struct NativeLiveStoreTests {
 
     @MainActor
     @Test("live store dependencies default recipe editor transport is URLSession-backed")
-    func liveStoreDependenciesDefaultRecipeEditorTransportIsURLSessionBacked() throws {
+    func liveStoreDependenciesDefaultRecipeEditorTransportIsURLSessionBacked() async throws {
         let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
         let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -1989,6 +2197,12 @@ struct NativeLiveStoreTests {
         )
 
         #expect(dependencies.recipeEditorAPITransport(NoopRecipeEditorAPIRefresher()) is URLSessionAPITransport)
+        await dependencies.chefProfileEntityIndexPurge(NativeChefProfileEntityIndexPurgeRequest(
+            identifiers: ["production|client_live|chef-profile|chef_default_hook"],
+            domainIdentifiers: ["app.spoonjoy.production.client_live.chef-profile"],
+            accountID: "client_live",
+            environment: .production
+        ))
     }
 
     @MainActor
@@ -5113,6 +5327,28 @@ private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
     }
 }
 
+private actor StaticNativeSyncTriggerRunner: NativeSyncTriggerRunning {
+    let report: NativeSyncReport
+    private var recordedTriggers: [NativeCacheRevalidationTrigger] = []
+
+    init(report: NativeSyncReport) {
+        self.report = report
+    }
+
+    func bootstrapAndDrain(
+        configuration _: APIClientConfiguration,
+        trigger: NativeCacheRevalidationTrigger,
+        scope _: NativeSyncExecutionScope
+    ) async throws -> NativeSyncReport {
+        recordedTriggers.append(trigger)
+        return report
+    }
+
+    func triggers() -> [NativeCacheRevalidationTrigger] {
+        recordedTriggers
+    }
+}
+
 private actor CapturingShoppingEntityIndexPurge {
     private var recordedRequests: [NativeShoppingEntityIndexPurgeRequest] = []
 
@@ -5145,6 +5381,18 @@ private actor CapturingCaptureDraftEntityIndexPurge {
     }
 
     func requests() -> [NativeCaptureDraftEntityIndexPurgeRequest] {
+        recordedRequests
+    }
+}
+
+private actor CapturingChefProfileEntityIndexPurge {
+    private var recordedRequests: [NativeChefProfileEntityIndexPurgeRequest] = []
+
+    func purge(_ request: NativeChefProfileEntityIndexPurgeRequest) {
+        recordedRequests.append(request)
+    }
+
+    func requests() -> [NativeChefProfileEntityIndexPurgeRequest] {
         recordedRequests
     }
 }
@@ -5368,6 +5616,7 @@ private extension NativeLiveStoreTests {
         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
         spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
         captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
+        chefProfileEntityIndexPurge: @escaping NativeChefProfileEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -5387,6 +5636,7 @@ private extension NativeLiveStoreTests {
             shoppingEntityIndexPurge: shoppingEntityIndexPurge,
             spoonEntityIndexPurge: spoonEntityIndexPurge,
             captureDraftEntityIndexPurge: captureDraftEntityIndexPurge,
+            chefProfileEntityIndexPurge: chefProfileEntityIndexPurge,
             bootstrapMode: bootstrapMode,
             now: { Self.now }
         ))
@@ -5592,6 +5842,32 @@ private extension NativeLiveStoreTests {
             iconKey: "lemon",
             sortIndex: 0,
             updatedAt: isoString(now)
+        )
+    }
+
+    static func profileSummary(id: String, username: String) -> ProfileSummary {
+        let href = "/users/\(AppRoute.encodedProfileIdentifier(username))"
+        return ProfileSummary(
+            id: id,
+            username: username,
+            photoURL: nil,
+            joinedLabel: "Joined Spoonjoy",
+            href: href,
+            canonicalURL: URL(string: "https://spoonjoy.app\(href)")!
+        )
+    }
+
+    static func profileCacheRecord(
+        id: String,
+        username: String,
+        accountID: String,
+        environment: NativeCacheEnvironment
+    ) throws -> NativeCacheRecord {
+        try cacheRecord(
+            domain: .profile(id: id),
+            payload: .profile(id: id, username: username),
+            accountID: accountID,
+            environment: environment
         )
     }
 

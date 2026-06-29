@@ -256,6 +256,92 @@ struct NativeSyncEngineTests {
         #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
     }
 
+    @Test("native sync report builds scoped purge requests from legacy fallback arrays")
+    func nativeSyncReportBuildsScopedPurgeRequestsFromLegacyFallbackArrays() {
+        let scope = SpotlightIndexScope(accountID: "chef_ari", environment: .production)
+        let shoppingIdentifier = SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_lemons", scope: scope)
+        let shoppingDomain = SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: scope)
+        let spoonIdentifier = SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_lemon", scope: scope)
+        let spoonDomain = SpotlightIndexPlan.spoonDomainIdentifier(scope: scope)
+        let captureIdentifier = SpotlightIndexPlan.captureDraftUniqueIdentifier(draftID: "draft_url", scope: scope)
+        let captureDomain = SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope)
+        let chefIdentifier = SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_jules", scope: scope)
+        let chefDomain = SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope)
+
+        let report = NativeSyncReport(
+            trigger: .networkRecovered,
+            bootstrapCursor: nil,
+            accountID: "chef_ari",
+            environment: .production,
+            shoppingEntityPurgeIdentifiers: [shoppingIdentifier],
+            shoppingEntityPurgeDomainIdentifiers: [shoppingDomain],
+            spoonEntityPurgeIdentifiers: [spoonIdentifier],
+            spoonEntityPurgeDomainIdentifiers: [spoonDomain],
+            captureDraftEntityPurgeIdentifiers: [captureIdentifier],
+            captureDraftEntityPurgeDomainIdentifiers: [captureDomain],
+            chefProfileEntityPurgeIdentifiers: [chefIdentifier],
+            chefProfileEntityPurgeDomainIdentifiers: [chefDomain],
+            drainedClientMutationIDs: [],
+            conflicts: [],
+            pausedReason: nil,
+            retryAfterSeconds: nil
+        )
+
+        #expect(report.shoppingEntityPurgeRequests == [
+            NativeShoppingEntityIndexPurgeRequest(
+                identifiers: [shoppingIdentifier],
+                domainIdentifiers: [shoppingDomain],
+                accountID: "chef_ari",
+                environment: .production
+            )
+        ])
+        #expect(report.spoonEntityPurgeRequests == [
+            NativeSpoonEntityIndexPurgeRequest(
+                identifiers: [spoonIdentifier],
+                domainIdentifiers: [spoonDomain],
+                accountID: "chef_ari",
+                environment: .production
+            )
+        ])
+        #expect(report.captureDraftEntityPurgeRequests == [
+            NativeCaptureDraftEntityIndexPurgeRequest(
+                identifiers: [captureIdentifier],
+                domainIdentifiers: [captureDomain],
+                accountID: "chef_ari",
+                environment: .production
+            )
+        ])
+        #expect(report.chefProfileEntityPurgeRequests == [
+            NativeChefProfileEntityIndexPurgeRequest(
+                identifiers: [chefIdentifier],
+                domainIdentifiers: [chefDomain],
+                accountID: "chef_ari",
+                environment: .production
+            )
+        ])
+
+        let explicitCaptureRequest = NativeCaptureDraftEntityIndexPurgeRequest(
+            identifiers: ["explicit-capture"],
+            domainIdentifiers: [],
+            accountID: "explicit",
+            environment: .local
+        )
+        let explicitReport = NativeSyncReport(
+            trigger: .foreground,
+            bootstrapCursor: nil,
+            accountID: "chef_ari",
+            environment: .production,
+            captureDraftEntityPurgeIdentifiers: [captureIdentifier],
+            captureDraftEntityPurgeRequests: [explicitCaptureRequest],
+            drainedClientMutationIDs: [],
+            conflicts: [],
+            pausedReason: nil,
+            retryAfterSeconds: nil
+        )
+
+        #expect(explicitReport.captureDraftEntityPurgeRequests == [explicitCaptureRequest])
+    }
+
     @Test("native sync checkpoints validate global and shopping cursors")
     func nativeSyncCheckpointsValidateGlobalAndShoppingCursors() throws {
         let checkpoint = try NativeSyncCheckpoint(
@@ -3552,6 +3638,104 @@ struct NativeSyncEngineTests {
         #expect(report.drainedClientMutationIDs.isEmpty)
         #expect(try await store.loadCheckpoint().globalCursor?.rawValue == "cursor_with_tombstone")
         #expect(await store.tombstones.entries == [tombstone])
+    }
+
+    @Test("bootstrap profile tombstones emit scoped chef profile purge requests")
+    func bootstrapProfileTombstonesEmitScopedChefProfilePurgeRequests() async throws {
+        let profileTombstone = NativeSyncTombstone(
+            resourceType: .profile,
+            resourceID: "chef_removed_bootstrap",
+            parentResourceID: nil,
+            title: "Removed chef",
+            deletedAt: "2026-06-16T09:30:00.000Z",
+            updatedAt: "2026-06-16T09:31:00.000Z"
+        )
+        let recipeTombstone = NativeSyncTombstone(
+            resourceType: .recipe,
+            resourceID: "recipe_removed_bootstrap",
+            parentResourceID: nil,
+            title: "Removed recipe",
+            deletedAt: "2026-06-16T09:30:00.000Z",
+            updatedAt: "2026-06-16T09:31:00.000Z"
+        )
+        let store = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .success(cursor: nil, tombstones: [recipeTombstone, profileTombstone]),
+            mutationResults: []
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport)
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch, scope: boundScope)
+        let scope = SpotlightIndexScope(accountID: "chef_ari", environment: .local)
+        let expectedIdentifier = SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_removed_bootstrap", scope: scope)
+
+        #expect(report.chefProfileEntityPurgeIdentifiers == [expectedIdentifier])
+        #expect(report.chefProfileEntityPurgeDomainIdentifiers.isEmpty)
+        #expect(report.chefProfileEntityPurgeRequests == [
+            NativeChefProfileEntityIndexPurgeRequest(
+                identifiers: [expectedIdentifier],
+                domainIdentifiers: [],
+                accountID: "chef_ari",
+                environment: .local
+            )
+        ])
+    }
+
+    @Test("bootstrap profile cache deletes without tombstones emit scoped chef profile purge requests")
+    func bootstrapProfileCacheDeletesWithoutTombstonesEmitScopedChefProfilePurgeRequests() async throws {
+        let syncData = NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: "chef_ari",
+                environment: .local,
+                schemaVersion: 1,
+                sourceEndpoint: "/api/v1/me/sync",
+                generatedAt: "2026-06-16T09:32:00.000Z",
+                lastValidatedAt: "2026-06-16T09:32:00.000Z"
+            ),
+            entries: [
+                NativeSyncEntry(
+                    action: .delete,
+                    kind: .profile,
+                    resourceID: "chef_removed_cache_delete",
+                    updatedAt: "2026-06-16T09:32:01.000Z",
+                    payload: nil,
+                    tombstone: nil
+                )
+            ],
+            nextCursor: nil,
+            hasMore: false
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: NativeMutationQueue(),
+            cachedRecords: [
+                NativeSyncCachedRecord(
+                    kind: .profile,
+                    resourceID: "chef_removed_cache_delete",
+                    payload: .object(["username": .string("removed")]),
+                    serverRevision: .updatedAt("2026-06-16T09:30:00.000Z")
+                )
+            ]
+        )
+        let transport = RecordingNativeSyncTransport(bootstrap: .syncData(syncData), mutationResults: [])
+        let engine = NativeSyncEngine(store: store, transport: transport)
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch, scope: boundScope)
+        let scope = SpotlightIndexScope(accountID: "chef_ari", environment: .local)
+        let expectedIdentifier = SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_removed_cache_delete", scope: scope)
+
+        #expect(report.chefProfileEntityPurgeIdentifiers == [expectedIdentifier])
+        #expect(report.chefProfileEntityPurgeDomainIdentifiers.isEmpty)
+        #expect(report.chefProfileEntityPurgeRequests == [
+            NativeChefProfileEntityIndexPurgeRequest(
+                identifiers: [expectedIdentifier],
+                domainIdentifiers: [],
+                accountID: "chef_ari",
+                environment: .local
+            )
+        ])
     }
 
     @Test("optimistic recipe mutations cover every recipe branch and malformed payload fallback")

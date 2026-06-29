@@ -193,7 +193,7 @@ public struct SpoonEntityIndexPurgePlan: Equatable, Sendable {
         environment: NativeCacheEnvironment,
         spoonIDs: [String]
     ) -> SpoonEntityIndexPurgePlan {
-        scopedPlan(accountID: accountID, environment: environment, spoonIDs: spoonIDs, includeDomain: true, reason: .accountScopeChanged)
+        scopedPlan(accountID: accountID, environment: environment, spoonIDs: spoonIDs, reason: .accountScopeChanged)
     }
 
     public static func cacheDeletePurge(
@@ -201,7 +201,7 @@ public struct SpoonEntityIndexPurgePlan: Equatable, Sendable {
         environment: NativeCacheEnvironment,
         spoonIDs: [String]
     ) -> SpoonEntityIndexPurgePlan {
-        scopedPlan(accountID: accountID, environment: environment, spoonIDs: spoonIDs, includeDomain: true, reason: .cacheDeleted)
+        scopedPlan(accountID: accountID, environment: environment, spoonIDs: spoonIDs, reason: .cacheDeleted)
     }
 
     public static func tombstonePurge(
@@ -215,7 +215,6 @@ public struct SpoonEntityIndexPurgePlan: Equatable, Sendable {
             spoonIDs: tombstones.compactMap { tombstone in
                 tombstone.resourceType == NativeSyncResourceType.spoon ? tombstone.resourceID : nil
             },
-            includeDomain: true,
             reason: .tombstoneApplied
         )
     }
@@ -224,14 +223,13 @@ public struct SpoonEntityIndexPurgePlan: Equatable, Sendable {
         accountID: String,
         environment: NativeCacheEnvironment,
         spoonIDs: [String],
-        includeDomain: Bool,
         reason: Reason
     ) -> SpoonEntityIndexPurgePlan {
         let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
         let identifiers = spoonIDs.map { spoonID in
             SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: spoonID, scope: spotlightScope)
         }
-        let domainIdentifiers = includeDomain ? [SpotlightIndexPlan.spoonDomainIdentifier(scope: spotlightScope)] : []
+        let domainIdentifiers = [SpotlightIndexPlan.spoonDomainIdentifier(scope: spotlightScope)]
         return SpoonEntityIndexPurgePlan(identifiers: identifiers, domainIdentifiers: domainIdentifiers, reason: reason)
     }
 }
