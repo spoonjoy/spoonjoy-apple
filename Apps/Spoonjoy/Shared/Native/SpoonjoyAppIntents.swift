@@ -323,8 +323,9 @@ struct SaveRecipeToCookbookIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
         let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, createdAt: createdAt)
+        let action = try NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
 

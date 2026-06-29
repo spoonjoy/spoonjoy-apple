@@ -1970,7 +1970,9 @@ if domain == "recipe-action"
         "var recipe: SpoonjoyRecipeEntity",
         "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
+        "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
       ],
       forbidden: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
@@ -1982,7 +1984,9 @@ if domain == "recipe-action"
         "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
         "try await requestConfirmation(",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
+        "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
       ],
       forbidden: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]

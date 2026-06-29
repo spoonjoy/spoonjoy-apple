@@ -279,10 +279,15 @@ public struct NativeIntentActionResolver {
     public func saveRecipeToCookbook(
         recipe: RecipeEntityDescriptor,
         cookbook: CookbookEntityDescriptor,
+        currentChefID: String,
         createdAt: String
     ) throws -> NativeIntentAction {
         let recipeID = try recipeIDForMutation(recipe)
         let cookbookID = try cookbookIDForMutation(cookbook)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))
+        guard cookbook.chefID == chefID else {
+            throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)
+        }
         let mutationID = "intent-cookbook-save-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
         let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
         return .nativeMutation(

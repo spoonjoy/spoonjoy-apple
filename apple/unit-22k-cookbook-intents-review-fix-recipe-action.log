@@ -1,0 +1,15 @@
+Another instance of SwiftPM (PID: 63986) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.14s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Recipe action Siri intent contracts" started.
+◇ Test "recipe action intent resolver queues UI-compatible offline mutations" started.
+◇ Test "recipe action intent resolver rejects unresolved unsafe and non-owner entities" started.
+◇ Test "recipe action Siri intents require entity-backed queueable actions" started.
+✔ Test "recipe action intent resolver rejects unresolved unsafe and non-owner entities" passed after 0.001 seconds.
+✔ Test "recipe action intent resolver queues UI-compatible offline mutations" passed after 0.007 seconds.
+✔ Test "recipe action Siri intents require entity-backed queueable actions" passed after 0.076 seconds.
+✔ Suite "Recipe action Siri intent contracts" passed after 0.076 seconds.
+✔ Test run with 3 tests in 1 suite passed after 0.076 seconds.

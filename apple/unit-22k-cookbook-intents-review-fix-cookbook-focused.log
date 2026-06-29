@@ -1,0 +1,27 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Compiling SpoonjoyCore NativeIntentAction.swift
+[4/7] Emitting module SpoonjoyCore
+[4/9] Write Objects.LinkFileList
+[5/17] Linking SpoonjoyScenarioVerifier
+[6/17] Applying SpoonjoyScenarioVerifier
+[8/17] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[9/17] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[10/17] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[11/17] Compiling SpoonjoyCoreTests RecipeActionIntentTests.swift
+[12/17] Emitting module SpoonjoyCoreTests
+[13/17] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[14/17] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[15/17] Compiling SpoonjoyCoreTests CaptureImportIntentTests.swift
+[15/17] Write Objects.LinkFileList
+[16/17] Linking SpoonjoyApplePackageTests
+Build complete! (11.19s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Cookbook Siri intent contracts" started.
+◇ Test "cookbook Siri intents require entity-backed owner-safe cookbook actions" started.
+✔ Test "cookbook Siri intents require entity-backed owner-safe cookbook actions" passed after 0.134 seconds.
+✔ Suite "Cookbook Siri intent contracts" passed after 0.135 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.135 seconds.

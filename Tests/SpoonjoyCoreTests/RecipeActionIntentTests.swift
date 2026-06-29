@@ -120,7 +120,9 @@ struct RecipeActionIntentTests {
                         "var recipe: SpoonjoyRecipeEntity",
                         "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
+                        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
+                        "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
                     ],
                     forbiddenTokens: [
@@ -139,7 +141,9 @@ struct RecipeActionIntentTests {
                         "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "try await requestConfirmation(",
+                        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
+                        "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
                     ],
                     forbiddenTokens: [
@@ -209,6 +213,7 @@ struct RecipeActionIntentTests {
         let saveAction = try resolver.saveRecipeToCookbook(
             recipe: recipe,
             cookbook: cookbook,
+            currentChefID: " chef_ari ",
             createdAt: "2026-06-16T15:02:00.000Z"
         )
         let removeAction = try resolver.removeRecipeFromCookbook(
@@ -309,12 +314,18 @@ struct RecipeActionIntentTests {
             try resolver.forkRecipe(recipe: .placeholder, title: "Draft", createdAt: "2026-06-16T15:10:00.000Z")
         }
         #expect(throws: NativeIntentActionError.unresolvedCookbookEntity) {
-            try resolver.saveRecipeToCookbook(recipe: recipe, cookbook: .placeholder, createdAt: "2026-06-16T15:11:00.000Z")
+            try resolver.saveRecipeToCookbook(
+                recipe: recipe,
+                cookbook: .placeholder,
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-16T15:11:00.000Z"
+            )
         }
         #expect(throws: NativeIntentActionError.invalidRecipeID("recipe_lemon_pantry_pasta")) {
             try resolver.saveRecipeToCookbook(
                 recipe: recipeActionIntentRecipeDescriptor(route: .recipes),
                 cookbook: cookbook,
+                currentChefID: "chef_ari",
                 createdAt: "2026-06-16T15:12:00.000Z"
             )
         }
@@ -330,6 +341,7 @@ struct RecipeActionIntentTests {
             try resolver.saveRecipeToCookbook(
                 recipe: recipe,
                 cookbook: recipeActionIntentCookbookDescriptor(route: .cookbooks),
+                currentChefID: "chef_ari",
                 createdAt: "2026-06-16T15:14:00.000Z"
             )
         }
@@ -339,6 +351,14 @@ struct RecipeActionIntentTests {
                 cookbook: recipeActionIntentCookbookDescriptor(id: "bad/cookbook", route: .cookbookDetail(id: "bad/cookbook")),
                 currentChefID: "chef_ari",
                 createdAt: "2026-06-16T15:15:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.saveRecipeToCookbook(
+                recipe: recipe,
+                cookbook: cookbook,
+                currentChefID: "chef_jules",
+                createdAt: "2026-06-16T15:15:15.000Z"
             )
         }
         #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
