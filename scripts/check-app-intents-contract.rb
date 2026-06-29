@@ -199,12 +199,13 @@ if domain == "recipe-cookbook"
       "CookbookEntityDescriptor",
       "RecipeCookbookEntityTransferValue",
       "RecipeCookbookEntityKind",
+      "isPlaceholder",
       "recipeEntity(id:",
       "cookbookEntity(id:",
-      "recipeEntities(for:",
-      "cookbookEntities(for:",
-      "recipeEntities(matching:",
-      "cookbookEntities(matching:",
+      "recipeEntities(for identifiers:",
+      "cookbookEntities(for identifiers:",
+      "recipeEntities(matching string:",
+      "cookbookEntities(matching string:",
       "suggestedRecipeEntities",
       "suggestedCookbookEntities",
       "loading(syncStore:",
@@ -240,7 +241,7 @@ if domain == "recipe-cookbook"
       "struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery",
       "typealias DefaultQuery = SpoonjoyRecipeEntityQuery",
       "typealias DefaultQuery = SpoonjoyCookbookEntityQuery",
-      "static var typeDisplayRepresentation",
+      "static let typeDisplayRepresentation",
       "var displayRepresentation",
       "DisplayRepresentation",
       "TypeDisplayRepresentation",
@@ -253,6 +254,9 @@ if domain == "recipe-cookbook"
       "Transferable",
       "TransferRepresentation",
       "RecipeCookbookEntityTransferValue",
+      "resolvedRecipeID() throws",
+      "NativeIntentActionError.unresolvedRecipeEntity",
+      "descriptor.isPlaceholder",
       "NativeAppStateLocation.defaultFileURL()",
       "FileBackedNativeSyncStore",
       "loadSnapshot()",
@@ -288,22 +292,18 @@ if domain == "recipe-cookbook"
     [
       "@Parameter(title: \"Recipe\", requestValueDialog:",
       "var recipe: SpoonjoyRecipeEntity",
-      "OpenRecipeIntent(recipe:",
-      "StartCookModeIntent(recipe:",
-      "AddRecipeIngredientsToShoppingListIntent(recipe:",
-      "recipe.descriptor.id",
-      "SpoonjoyRecipeEntityQuery"
+      "try recipe.resolvedRecipeID()"
     ],
     failures
   )
   {
-    "OpenRecipeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "recipe.descriptor.id"],
-    "StartCookModeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "recipe.descriptor.id"],
-    "AddRecipeIngredientsToShoppingListIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "recipe.descriptor.id"]
+    "OpenRecipeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"],
+    "StartCookModeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"],
+    "AddRecipeIngredientsToShoppingListIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"]
   }.each do |intent_name, tokens|
     pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
     require_body_tokens(app_intents, intent_name, pattern, tokens, failures)
-    forbid_body_tokens(app_intents, intent_name, pattern, ["var recipeID: String", "@Parameter(title: \"Recipe ID\")"], failures)
+    forbid_body_tokens(app_intents, intent_name, pattern, ["var recipeID: String", "@Parameter(title: \"Recipe ID\")", "recipe.descriptor.id"], failures)
   end
 
   require_tokens(
@@ -312,9 +312,7 @@ if domain == "recipe-cookbook"
       "SpoonjoyRecipeEntity",
       "SpoonjoyCookbookEntity",
       "SpoonjoyRecipeEntityQuery",
-      "SpoonjoyCookbookEntityQuery",
-      "recipe-entity",
-      "cookbook-entity"
+      "SpoonjoyCookbookEntityQuery"
     ],
     failures
   )
@@ -351,6 +349,9 @@ if domain == "recipe-cookbook"
     [
       "@Parameter(title: \"Recipe ID\")",
       "@Parameter(title: \"Cookbook ID\")",
+      "recipe.descriptor.id",
+      "recipe-entity",
+      "cookbook-entity",
       "String-only recipe App Intent",
       "TODO AppEntity"
     ],

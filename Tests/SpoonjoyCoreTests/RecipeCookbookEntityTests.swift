@@ -21,12 +21,13 @@ struct RecipeCookbookEntityTests {
                     "CookbookEntityDescriptor",
                     "RecipeCookbookEntityTransferValue",
                     "RecipeCookbookEntityKind",
+                    "isPlaceholder",
                     "recipeEntity(id:",
                     "cookbookEntity(id:",
-                    "recipeEntities(for:",
-                    "cookbookEntities(for:",
-                    "recipeEntities(matching:",
-                    "cookbookEntities(matching:",
+                    "recipeEntities(for identifiers:",
+                    "cookbookEntities(for identifiers:",
+                    "recipeEntities(matching string:",
+                    "cookbookEntities(matching string:",
                     "suggestedRecipeEntities",
                     "suggestedCookbookEntities",
                     "loading(syncStore:",
@@ -58,7 +59,7 @@ struct RecipeCookbookEntityTests {
                     "struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery",
                     "typealias DefaultQuery = SpoonjoyRecipeEntityQuery",
                     "typealias DefaultQuery = SpoonjoyCookbookEntityQuery",
-                    "static var typeDisplayRepresentation",
+                    "static let typeDisplayRepresentation",
                     "var displayRepresentation",
                     "DisplayRepresentation",
                     "TypeDisplayRepresentation",
@@ -71,6 +72,9 @@ struct RecipeCookbookEntityTests {
                     "Transferable",
                     "TransferRepresentation",
                     "RecipeCookbookEntityTransferValue",
+                    "resolvedRecipeID() throws",
+                    "NativeIntentActionError.unresolvedRecipeEntity",
+                    "descriptor.isPlaceholder",
                     "DeepLinkURLBuilder.url(for:",
                     "NativeAppStateLocation.defaultFileURL()",
                     "FileBackedNativeSyncStore",
@@ -83,19 +87,13 @@ struct RecipeCookbookEntityTests {
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift": [
                     "@Parameter(title: \"Recipe\", requestValueDialog:",
                     "var recipe: SpoonjoyRecipeEntity",
-                    "OpenRecipeIntent(recipe:",
-                    "StartCookModeIntent(recipe:",
-                    "AddRecipeIngredientsToShoppingListIntent(recipe:",
-                    "recipe.descriptor.id",
-                    "SpoonjoyRecipeEntityQuery"
+                    "try recipe.resolvedRecipeID()"
                 ],
                 "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift": [
                     "SpoonjoyRecipeEntity",
                     "SpoonjoyCookbookEntity",
                     "SpoonjoyRecipeEntityQuery",
-                    "SpoonjoyCookbookEntityQuery",
-                    "recipe-entity",
-                    "cookbook-entity"
+                    "SpoonjoyCookbookEntityQuery"
                 ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
                     "recipe App Entity",
@@ -108,6 +106,9 @@ struct RecipeCookbookEntityTests {
             forbiddenTokens: [
                 "@Parameter(title: \"Recipe ID\")",
                 "@Parameter(title: \"Cookbook ID\")",
+                "recipe.descriptor.id",
+                "recipe-entity",
+                "cookbook-entity",
                 "String-only recipe App Intent",
                 "TODO AppEntity",
                 "eventually add entities"
@@ -148,6 +149,14 @@ struct RecipeCookbookEntityTests {
         let byIdentifier = try await catalog.recipeEntities(for: ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
         #expect(byIdentifier.map(\.id) == ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
 
+        let mixedStaleBatch = try await catalog.recipeEntities(for: [
+            "recipe_missing_from_old_shortcut",
+            "  recipe_lemon_pantry_pasta  ",
+            "recipe_deleted_from_old_donation",
+            "recipe_tomato_toast"
+        ])
+        #expect(mixedStaleBatch.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_toast"])
+
         let suggested = try await catalog.suggestedRecipeEntities(limit: 10)
         #expect(suggested.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_toast"])
     }
@@ -183,6 +192,14 @@ struct RecipeCookbookEntityTests {
 
         let byIdentifier = try await catalog.cookbookEntities(for: ["cookbook_no_covers", "cookbook_weeknights"])
         #expect(byIdentifier.map(\.id) == ["cookbook_no_covers", "cookbook_weeknights"])
+
+        let mixedStaleBatch = try await catalog.cookbookEntities(for: [
+            "cookbook_missing_from_old_shortcut",
+            "  cookbook_weeknights  ",
+            "cookbook_deleted_from_old_donation",
+            "cookbook_no_covers"
+        ])
+        #expect(mixedStaleBatch.map(\.id) == ["cookbook_weeknights", "cookbook_no_covers"])
 
         let suggested = try await catalog.suggestedCookbookEntities(limit: 10)
         #expect(suggested.map(\.id) == ["cookbook_weeknights", "cookbook_no_covers"])
@@ -342,6 +359,8 @@ struct RecipeCookbookEntityTests {
 
         #expect(try await catalog.suggestedRecipeEntities(limit: 10).isEmpty)
         #expect(try await catalog.suggestedCookbookEntities(limit: 10).isEmpty)
+        #expect(try await catalog.recipeEntities(for: [recipe.id]).isEmpty)
+        #expect(try await catalog.cookbookEntities(for: [cookbook.id]).isEmpty)
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
             _ = try await catalog.recipeEntity(id: recipe.id)
         }

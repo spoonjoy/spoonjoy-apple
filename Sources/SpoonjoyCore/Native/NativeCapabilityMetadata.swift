@@ -39,7 +39,11 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "AddRecipeIngredientsToShoppingListIntent",
             "ClearCompletedShoppingItemsIntent",
             "ClearShoppingListIntent",
-            "CaptureRecipeIntent"
+            "CaptureRecipeIntent",
+            "SpoonjoyRecipeEntity",
+            "SpoonjoyCookbookEntity",
+            "SpoonjoyRecipeEntityQuery",
+            "SpoonjoyCookbookEntityQuery"
         ],
         spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item"],
         searchableScopes: ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
