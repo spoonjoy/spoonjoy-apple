@@ -41,7 +41,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -1218,6 +1218,358 @@ if domain == "capture-draft"
       "mail App Entity",
       "TODO CaptureDraft AppEntity",
       "eventually add capture draft entities"
+    ],
+    failures
+  )
+end
+
+if domain == "spotlight-shortcuts"
+  spotlight_plan = ROOT.join("Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift")
+  spotlight_indexer = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift")
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  recipe_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift")
+  shopping_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift")
+  spoon_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift")
+  capture_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift")
+  chef_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift")
+  platform_navigation = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+  root_view = ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift")
+  live_store = ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift")
+  sync_engine = ROOT.join("Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [
+    spotlight_plan,
+    spotlight_indexer,
+    app_intents,
+    recipe_entities,
+    shopping_entities,
+    spoon_entities,
+    capture_entities,
+    chef_entities,
+    platform_navigation,
+    root_view,
+    live_store,
+    sync_engine,
+    metadata,
+    verifier,
+    project
+  ].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    spotlight_plan,
+    [
+      "case recipe",
+      "case cookbook",
+      "case spoon",
+      "case shoppingListItem = \"shopping-list-item\"",
+      "case captureDraft = \"capture-draft\"",
+      "case chefProfile = \"chef-profile\"",
+      "public static let searchableTypes",
+      "public static func documents(",
+      "spoons:",
+      "captureDrafts:",
+      "chefProfiles:",
+      "public static func document(recipe:",
+      "public static func document(cookbook:",
+      "public static func document(shoppingListItem",
+      "public static func document(spoon:",
+      "public static func document(captureDraft:",
+      "public static func document(chefProfile:",
+      "public static func shoppingListItemUniqueIdentifier",
+      "public static func shoppingListItemDomainIdentifier",
+      "public static func spoonUniqueIdentifier",
+      "public static func spoonDomainIdentifier",
+      "public static func captureDraftUniqueIdentifier",
+      "public static func captureDraftDomainIdentifier",
+      "public static func chefProfileUniqueIdentifier",
+      "public static func chefProfileDomainIdentifier",
+      "userVisibleSummary",
+      "contentDescription",
+      "AppRoute.profile"
+    ],
+    failures
+  )
+
+  require_tokens(
+    spotlight_indexer,
+    [
+      "#if canImport(CoreSpotlight)",
+      "import CoreSpotlight",
+      "import AppIntents",
+      "SpotlightIndexPlan.searchableTypes",
+      ".spoon",
+      ".captureDraft",
+      ".chefProfile",
+      "CSSearchableIndex.isIndexingAvailable()",
+      "indexAppEntities",
+      "deleteAppEntities",
+      "deleteSearchableItems(withIdentifiers:",
+      "deleteSearchableItems(withDomainIdentifiers:"
+    ],
+    failures
+  )
+
+  require_tokens(
+    app_intents,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "struct SpoonjoyAppShortcuts: AppShortcutsProvider",
+      "static var appShortcuts",
+      "AppShortcut(",
+      "\\(.applicationName)",
+      "OpenRecipeIntent()",
+      "StartCookModeIntent()",
+      "AddShoppingListItemIntent()",
+      "SetShoppingListItemCheckedIntent()",
+      "AddRecipeIngredientsToShoppingListIntent()",
+      "ClearCompletedShoppingItemsIntent()",
+      "ClearShoppingListIntent()",
+      "CaptureRecipeIntent()",
+      "struct SpoonjoyInteractionDonor",
+      "IntentDonationManager.shared",
+      ".donate(intent:",
+      "deleteDonations(matching:",
+      "IntentDonationMatchingPredicate"
+    ],
+    failures
+  )
+
+  [
+    [
+      recipe_entities,
+      [
+        "struct SpoonjoyRecipeEntity",
+        "struct SpoonjoyCookbookEntity",
+        "AppEntity",
+        "IndexedEntity",
+        "Transferable",
+        "attributeSet",
+        "defaultAttributeSet",
+        "TransferRepresentation",
+        "userVisibleSummary"
+      ]
+    ],
+    [
+      shopping_entities,
+      [
+        "struct SpoonjoyShoppingListEntity",
+        "struct SpoonjoyShoppingItemEntity",
+        "AppEntity",
+        "IndexedEntity",
+        "Transferable",
+        "attributeSet",
+        "defaultAttributeSet",
+        "TransferRepresentation",
+        "userVisibleSummary"
+      ]
+    ],
+    [
+      spoon_entities,
+      [
+        "struct SpoonjoySpoonEntity",
+        "AppEntity",
+        "IndexedEntity",
+        "Transferable",
+        "attributeSet",
+        "defaultAttributeSet",
+        "TransferRepresentation",
+        "userVisibleSummary"
+      ]
+    ],
+    [
+      capture_entities,
+      [
+        "struct SpoonjoyCaptureDraftEntity",
+        "AppEntity",
+        "IndexedEntity",
+        "Transferable",
+        "attributeSet",
+        "defaultAttributeSet",
+        "TransferRepresentation",
+        "userVisibleSummary"
+      ]
+    ],
+    [
+      chef_entities,
+      [
+        "struct SpoonjoyChefProfileEntity",
+        "AppEntity",
+        "IndexedEntity",
+        "Transferable",
+        "attributeSet",
+        "defaultAttributeSet",
+        "TransferRepresentation",
+        "userVisibleSummary"
+      ]
+    ]
+  ].each do |path, tokens|
+    require_tokens(path, tokens, failures)
+  end
+
+  require_patterns(
+    recipe_entities,
+    {
+      "recipe IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoyRecipeEntity\s*:\s*[^{\n]*\bIndexedEntity\b/,
+      "cookbook IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoyCookbookEntity\s*:\s*[^{\n]*\bIndexedEntity\b/
+    },
+    failures
+  )
+  require_patterns(
+    shopping_entities,
+    {
+      "shopping list IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoyShoppingListEntity\s*:\s*[^{\n]*\bIndexedEntity\b/,
+      "shopping item IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoyShoppingItemEntity\s*:\s*[^{\n]*\bIndexedEntity\b/
+    },
+    failures
+  )
+  require_patterns(spoon_entities, { "spoon IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoySpoonEntity\s*:\s*[^{\n]*\bIndexedEntity\b/ }, failures)
+  require_patterns(capture_entities, { "capture draft IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoyCaptureDraftEntity\s*:\s*[^{\n]*\bIndexedEntity\b/ }, failures)
+  require_patterns(chef_entities, { "chef profile IndexedEntity conformance" => /\b(?:struct|extension)\s+SpoonjoyChefProfileEntity\s*:\s*[^{\n]*\bIndexedEntity\b/ }, failures)
+
+  require_body_tokens(
+    platform_navigation,
+    "spotlightIndexDocuments",
+    /private\s+var\s+spotlightIndexDocuments:\s+\[SpotlightIndexDocument\]/,
+    [
+      "contentState.recipes",
+      "contentState.cookbooks",
+      "contentState.shoppingList",
+      "contentState.cachedProfiles",
+      "contentState.captureDraft",
+      "recentSpoons",
+      "SpotlightIndexPlan.documents("
+    ],
+    failures
+  )
+
+  shared_source = Dir.glob(ROOT.join("Apps/Spoonjoy/Shared/**/*.swift").to_s).map do |path|
+    uncommented_swift(Pathname.new(path).read)
+  end.join("\n")
+  [
+    "appEntityIdentifier",
+    "EntityIdentifier"
+  ].each do |token|
+    failures << "Apps/Spoonjoy/Shared missing on-screen AppEntity annotations token #{token}" unless shared_source.include?(token)
+  end
+
+  require_tokens(
+    live_store,
+    [
+      "NativeShoppingEntityIndexPurgeOperation",
+      "NativeSpoonEntityIndexPurgeOperation",
+      "NativeCaptureDraftEntityIndexPurgeOperation",
+      "NativeChefProfileEntityIndexPurgeOperation",
+      "ShoppingEntityIndexPurgePlan.accountScopePurge",
+      "SpoonEntityIndexPurgePlan.accountScopePurge",
+      "CaptureDraftEntityIndexPurgePlan.accountScopePurge",
+      "ChefProfileEntityIndexPurgePlan.accountScopePurge",
+      "purgeShoppingEntityIdentifiers",
+      "purgeSpoonEntityIdentifiers",
+      "purgeCaptureDraftEntityIdentifiers",
+      "purgeChefProfileEntityIdentifiers"
+    ],
+    failures
+  )
+
+  require_tokens(
+    sync_engine,
+    [
+      "ShoppingEntityIndexPurgePlan.tombstonePurge",
+      "SpoonEntityIndexPurgePlan.tombstonePurge",
+      "CaptureDraftEntityIndexPurgePlan.cacheDeletePurge",
+      "ChefProfileEntityIndexPurgePlan.tombstonePurge",
+      "shoppingEntityPurgeIdentifiers",
+      "spoonEntityPurgeIdentifiers",
+      "captureDraftEntityPurgeIdentifiers",
+      "chefProfileEntityPurgeIdentifiers",
+      "removedCacheKeys",
+      "tombstones"
+    ],
+    failures
+  )
+
+  require_tokens(
+    metadata,
+    [
+      "\"recipe\"",
+      "\"cookbook\"",
+      "\"shopping-list-item\"",
+      "\"spoon\"",
+      "\"capture-draft\"",
+      "\"chef-profile\"",
+      "SpoonjoyAppShortcuts",
+      "SpoonjoyInteractionDonor"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Spotlight semantic App Entities",
+      "AppShortcutsProvider",
+      "IntentDonationManager",
+      "on-screen AppEntity annotations",
+      "AppEntityAnnotatable",
+      "appEntityIdentifier",
+      "IndexedEntity",
+      "indexAppEntities"
+    ],
+    failures
+  )
+
+  if project.file?
+    [
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
+    ].each do |relative_source|
+      require_project_source_membership(project_path, relative_source, ["Spoonjoy iOS", "Spoonjoy macOS"], failures)
+    end
+  end
+
+  forbid_tokens(
+    spotlight_plan,
+    [
+      "privateTransferValue",
+      "debugFields",
+      "captureImportProviderBlocker",
+      "imageAssetIdentifier",
+      "rawText",
+      "providerSecret"
+    ],
+    failures
+  )
+  forbid_tokens(
+    spotlight_indexer,
+    [
+      "deleteAllSearchableItems",
+      "replaceAll(documents: [SpotlightIndexDocument])"
+    ],
+    failures
+  )
+  forbid_tokens(
+    app_intents,
+    [
+      "@Parameter(title: \"Recipe ID\")",
+      "@Parameter(title: \"Cookbook ID\")",
+      "@Parameter(title: \"Shopping Item ID\")",
+      "@Parameter(title: \"Spoon ID\")",
+      "@Parameter(title: \"Capture Draft ID\")",
+      "@Parameter(title: \"Chef ID\")",
+      "String-only",
+      "eventually"
     ],
     failures
   )
