@@ -1,0 +1,182 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/docs/native-dogfood-docs.test.tsx (6 tests | 6 failed) 172ms
+     × documents the real Spoonjoy Apple OAuth quickstart instead of generic example.com callbacks 5ms
+     × renders the same native dogfood guidance on /developers 95ms
+     × documents profile photo examples and DELETE idempotency forms native clients must dogfood 1ms
+     × documents REST scope defaults separately from MCP resource-bound tokens 0ms
+     × documents the Offline Product Contract for native API/cache/sync responsibilities 1ms
+     × keeps generated playground and OpenAPI profiles aligned with native dogfood docs 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/docs/native-dogfood-docs.test.tsx > native Apple dogfood API docs > documents the real Spoonjoy Apple OAuth quickstart instead of generic example.com callbacks
+AssertionError: expected [ …(9) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "Spoonjoy Apple native dogfood quickstart",
++   "https://spoonjoy.app/oauth/callback",
++   "applinks:spoonjoy.app",
++   "ASWebAuthenticationSession.Callback.https(host: \"spoonjoy.app\", path: \"/oauth/callback\")",
++   "custom URL scheme is for app navigation only, not OAuth",
++   "persist client_id in Keychain",
++   "persist access_token and refresh_token in Keychain",
++   "clear state and code_verifier after a successful token exchange",
++   "decode Spoonjoy REST envelopes",
++ ]
+
+ ❯ expectContainsAll test/docs/native-dogfood-docs.test.tsx:27:19
+     25| function expectContainsAll(text: string, markers: readonly string[]) {
+     26|   const missing = markers.filter((marker) => !text.includes(marker));
+     27|   expect(missing).toEqual([]);
+       |                   ^
+     28| }
+     29| 
+ ❯ test/docs/native-dogfood-docs.test.tsx:76:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  test/docs/native-dogfood-docs.test.tsx > native Apple dogfood API docs > renders the same native dogfood guidance on /developers
+AssertionError: expected [ …(9) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "Spoonjoy Apple native dogfood quickstart",
++   "https://spoonjoy.app/oauth/callback",
++   "applinks:spoonjoy.app",
++   "ASWebAuthenticationSession.Callback.https(host: \"spoonjoy.app\", path: \"/oauth/callback\")",
++   "custom URL scheme is for app navigation only, not OAuth",
++   "persist client_id in Keychain",
++   "persist access_token and refresh_token in Keychain",
++   "clear state and code_verifier after a successful token exchange",
++   "decode Spoonjoy REST envelopes",
++ ]
+
+ ❯ expectContainsAll test/docs/native-dogfood-docs.test.tsx:27:19
+     25| function expectContainsAll(text: string, markers: readonly string[]) {
+     26|   const missing = markers.filter((marker) => !text.includes(marker));
+     27|   expect(missing).toEqual([]);
+       |                   ^
+     28| }
+     29| 
+ ❯ test/docs/native-dogfood-docs.test.tsx:95:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  test/docs/native-dogfood-docs.test.tsx > native Apple dogfood API docs > documents profile photo examples and DELETE idempotency forms native clients must dogfood
+AssertionError: expected [ 'Profile photo upload/remove', …(8) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "Profile photo upload/remove",
++   "multipart/form-data",
++   "photo=@profile.jpg;type=image/jpeg",
++   "Do not set the Content-Type header manually for multipart uploads",
++   "DELETE idempotency",
++   "X-Client-Mutation-Id is recommended for DELETE retries",
++   "JSON body clientMutationId",
++   "query string clientMutationId",
++   "DELETE /api/v1/shopping-list/items/{itemId}",
++ ]
+
+ ❯ expectContainsAll test/docs/native-dogfood-docs.test.tsx:27:19
+     25| function expectContainsAll(text: string, markers: readonly string[]) {
+     26|   const missing = markers.filter((marker) => !text.includes(marker));
+     27|   expect(missing).toEqual([]);
+       |                   ^
+     28| }
+     29| 
+ ❯ test/docs/native-dogfood-docs.test.tsx:100:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  test/docs/native-dogfood-docs.test.tsx > native Apple dogfood API docs > documents REST scope defaults separately from MCP resource-bound tokens
+AssertionError: expected [ …(6) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "Blank OAuth authorize scope defaults to kitchen:read",
++   "Omitted delegated approval scopes default to shopping_list:read shopping_list:write",
++   "Omit resource for REST OAuth apps",
++   "Use resource=https://spoonjoy.app/mcp only for MCP OAuth",
++   "resource-bound MCP tokens are rejected by REST API v1",
++   "OAuth kitchen scopes do not grant tokens:read or tokens:write",
++ ]
+
+ ❯ expectContainsAll test/docs/native-dogfood-docs.test.tsx:27:19
+     25| function expectContainsAll(text: string, markers: readonly string[]) {
+     26|   const missing = markers.filter((marker) => !text.includes(marker));
+     27|   expect(missing).toEqual([]);
+       |                   ^
+     28| }
+     29| 
+ ❯ test/docs/native-dogfood-docs.test.tsx:118:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  test/docs/native-dogfood-docs.test.tsx > native Apple dogfood API docs > documents the Offline Product Contract for native API/cache/sync responsibilities
+AssertionError: expected [ 'Offline Product Contract', …(12) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "Offline Product Contract",
++   "accountId",
++   "schemaVersion",
++   "fetchedAt",
++   "lastValidatedAt",
++   "sourceEndpoint",
++   "server revision marker",
++   "6 hours",
++   "Profile display-field updates, profile photo upload/remove after local media staging, and notification preference updates are queueable",
++   "API token create/revoke, OAuth connection disconnect, logout/session revoke, passkey/password/provider-link actions are online-only",
++   "queued work",
++   "sync failure",
++   "destructive confirmation",
++ ]
+
+ ❯ expectContainsAll test/docs/native-dogfood-docs.test.tsx:27:19
+     25| function expectContainsAll(text: string, markers: readonly string[]) {
+     26|   const missing = markers.filter((marker) => !text.includes(marker));
+     27|   expect(missing).toEqual([]);
+       |                   ^
+     28| }
+     29| 
+ ❯ test/docs/native-dogfood-docs.test.tsx:129:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  test/docs/native-dogfood-docs.test.tsx > native Apple dogfood API docs > keeps generated playground and OpenAPI profiles aligned with native dogfood docs
+AssertionError: expected undefined to be defined
+ ❯ test/docs/native-dogfood-docs.test.tsx:142:28
+    140|       scenario.id === "spoonjoy-apple-native-dogfood"
+    141|     ));
+    142|     expect(nativeScenario).toBeDefined();
+       |                            ^
+    143|     expect(nativeScenario?.sample).toContain("https://spoonjoy.app/oau…
+    144|     expect(nativeScenario?.notes.join("\n")).toContain("Keychain");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  16:11:52
+   Duration  1.48s (transform 362ms, setup 150ms, import 757ms, tests 172ms, environment 264ms)
+
