@@ -461,10 +461,6 @@ public struct NativeIntentActionResolver {
         _ = notificationPreferences
         let mutationID = "intent-notification-preferences-\(stableToken(createdAt))"
         let plan = try NotificationAPNsActionPlanner(connectivity: connectivity, deliveryCapability: deliveryCapability, now: { createdAt }).plan(.updatePreferences(preferences, clientMutationID: mutationID))
-        guard plan.queuedMutation?.queueableKind == .notificationPreferenceUpdate ||
-            plan.offlineFallbackMutation?.queueableKind == .notificationPreferenceUpdate else {
-            throw NativeIntentActionError.settingsActionUnavailable("Notification preference update did not produce notificationPreferenceUpdate.")
-        }
         return NativeIntentNotificationAction(
             plan: plan,
             route: .settings,

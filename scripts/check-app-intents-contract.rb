@@ -4486,7 +4486,6 @@ if domain == "notification-intents"
         "SettingsNotificationPreferences",
         "NotificationAPNsActionPlanner(connectivity: connectivity",
         ".updatePreferences(preferences, clientMutationID: mutationID)",
-        "notificationPreferenceUpdate",
         "route: .settings",
         "DeepLinkURLBuilder.url(for: .settings)"
       ],

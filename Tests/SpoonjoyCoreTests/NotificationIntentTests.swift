@@ -349,7 +349,6 @@ struct NotificationIntentTests {
                         "SettingsNotificationPreferences",
                         "NotificationAPNsActionPlanner(connectivity: connectivity",
                         ".updatePreferences(preferences, clientMutationID: mutationID)",
-                        "notificationPreferenceUpdate",
                         "route: .settings",
                         "DeepLinkURLBuilder.url(for: .settings)"
                     ],
@@ -483,6 +482,9 @@ struct NotificationIntentTests {
         #expect(throws: NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable offline until Spoonjoy has cached them.")) {
             try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .offline)
         }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable until Spoonjoy refreshes or caches them.")) {
+            try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .online)
+        }
 
         let liveData = NotificationAPNsSurfaceData(
             preferences: .disabled,
@@ -493,6 +495,10 @@ struct NotificationIntentTests {
         )
         let summary = try resolver.readNotificationPreferences(data: liveData, hasCachedPreferences: false, connectivity: .online)
         #expect(summary.preferences == .disabled)
+
+        let statusAction = resolver.openNotificationAPNsStatus(data: liveData)
+        #expect(statusAction.deliveryBlocker == .localValidation)
+        #expect(statusAction.onlineOnlyReason == nil)
     }
 
     @Test("notification resolver merges partial Siri updates with current preferences")
@@ -515,12 +521,51 @@ struct NotificationIntentTests {
             createdAt: "2026-06-29T14:02:00.000Z"
         )
         let mutation = try #require(action.plan.queuedMutation)
+        #expect(action.onlineOnlyReason == nil)
         #expect(mutation.notificationPreferenceUpdateValues == SettingsNotificationPreferences(
             notifySpoonOnMyRecipe: true,
             notifyForkOfMyRecipe: true,
             notifyCookbookSaveOfMine: false,
             notifyFellowChefOriginCook: true
         ))
+
+        let forkPreservingAction = try resolver.updateNotificationPreferences(
+            currentPreferences: current,
+            spoons: false,
+            forks: nil,
+            cookbookSaves: true,
+            fellowChefCooks: false,
+            connectivity: .offline,
+            createdAt: "2026-06-29T14:03:00.000Z"
+        )
+        let forkPreservingMutation = try #require(forkPreservingAction.plan.queuedMutation)
+        #expect(forkPreservingMutation.notificationPreferenceUpdateValues == SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: false,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        ))
+    }
+
+    @Test("notification preference mutation values fail closed when required fields are missing")
+    func notificationPreferenceMutationValuesFailClosedWhenRequiredFieldsAreMissing() throws {
+        let malformedJSON = """
+        {
+          "schemaVersion": 1,
+          "id": "native:cm_bad_notifications",
+          "clientMutationId": "cm_bad_notifications",
+          "createdAt": "2026-06-29T14:04:00.000Z",
+          "kind": {
+            "type": "notification.preference.update",
+            "notifySpoonOnMyRecipe": true,
+            "notifyForkOfMyRecipe": false,
+            "notifyCookbookSaveOfMine": true
+          }
+        }
+        """.data(using: .utf8)!
+        let malformed = try JSONDecoder().decode(NativeQueuedMutation.self, from: malformedJSON)
+
+        #expect(malformed.notificationPreferenceUpdateValues == nil)
     }
 }
 

@@ -437,6 +437,21 @@ struct CaptureDraftEntityTests {
             "Video URL draft"
         ])
 
+        let pendingDraft = try CaptureDraft.localText(id: "draft_pending_mismatch", rawText: "Draft text", createdAt: createdAt)
+        let otherDraft = try CaptureDraft.localText(id: "draft_pending_other", rawText: "Other text", createdAt: createdAt)
+        let mismatchedImport = NativeQueuedMutation.recipeImportSubmit(
+            source: try otherDraft.importSource(),
+            clientMutationID: "cm_other_import",
+            createdAt: createdAt
+        )
+        let mismatchCatalog = try Self.catalog(appSnapshot: Self.appSnapshot(
+            captureDraft: pendingDraft,
+            pendingCaptureImport: mismatchedImport
+        ))
+        let mismatchEntity = try await mismatchCatalog.captureDraftEntity(id: "draft_pending_mismatch")
+        #expect(!mismatchEntity.hasPendingImport)
+        #expect(mismatchEntity.subtitle == "Text draft")
+
         let noScopeCatalog = CaptureDraftEntityCatalog(
             appSnapshot: Self.appSnapshot(captureDraft: drafts[0]),
             cacheSnapshot: nil,
