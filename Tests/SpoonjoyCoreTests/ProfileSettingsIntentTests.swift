@@ -148,7 +148,7 @@ struct ProfileSettingsIntentTests {
                     "public func revokeCurrentSession(",
                     "SettingsActionPlanner",
                     "SettingsSurfaceConnectivity",
-                    "SettingsSecureHandoffRoutes.spoonjoyApp",
+                    "settingsSecureHandoffRoutes",
                     "DeepLinkURLBuilder.url(for: .settings)"
                 ],
                 "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift": [
@@ -547,7 +547,7 @@ struct ProfileSettingsIntentTests {
                     label: "updateProfileDisplay resolver",
                     pattern: #"public\s+func\s+updateProfileDisplay\("#,
                     requiredTokens: [
-                        "SettingsActionPlanner(connectivity:",
+                        "settingsPlan(",
                         ".updateProfile(email: email, username: username, clientMutationID: mutationID)",
                         "profileDisplayUpdate",
                         ".settingsAction(plan",
@@ -666,6 +666,412 @@ struct ProfileSettingsIntentTests {
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
     }
+
+    @Test("profile settings resolver executes settings routes queueable mutations handoffs and safe credential actions")
+    func profileSettingsResolverExecutesRoutesMutationsHandoffsAndCredentialActions() throws {
+        let resolver = NativeIntentActionResolver()
+        let createdAt = "2026-06-28T18:00:00.000Z"
+        let settingsURL = DeepLinkURLBuilder.url(for: .settings)
+
+        for action in [
+            resolver.openSettings(),
+            resolver.openAPITokens(),
+            resolver.openAccountConnections()
+        ] {
+            #expect(action.route == .settings)
+            #expect(action.url == settingsURL)
+            #expect(action.queuedMutation == nil)
+        }
+
+        let displayOnline = try profileSettingsIntentRequireSettingsAction(
+            try resolver.updateProfileDisplay(
+                email: "ari@example.com",
+                username: "ari",
+                connectivity: .online,
+                createdAt: createdAt
+            ),
+            "online profile display"
+        )
+        try profileSettingsIntentAssertJSONRequest(
+            try profileSettingsIntentRemoteRequest(from: displayOnline.plan),
+            method: .patch,
+            path: "/api/v1/me",
+            expected: [
+                "email": "ari@example.com",
+                "username": "ari"
+            ]
+        )
+        let displayFallback = try profileSettingsIntentRequireMutation(displayOnline.plan.offlineFallbackMutation, "online profile fallback")
+        #expect(displayFallback.queueableKind == .profileDisplayUpdate)
+        #expect(displayFallback.profileDisplayUpdateValues?.email == "ari@example.com")
+        #expect(displayFallback.profileDisplayUpdateValues?.username == "ari")
+        #expect(displayOnline.action.nativeQueuedMutation == nil)
+
+        let displayOffline = try profileSettingsIntentRequireSettingsAction(
+            try resolver.updateProfileDisplay(
+                email: "queued@example.com",
+                username: "queuedari",
+                connectivity: .offline,
+                createdAt: createdAt
+            ),
+            "offline profile display"
+        )
+        let queuedDisplay = try profileSettingsIntentRequireMutation(displayOffline.plan.queuedMutation, "queued profile display")
+        #expect(queuedDisplay.queueableKind == .profileDisplayUpdate)
+        #expect(queuedDisplay.profileDisplayUpdateValues?.email == "queued@example.com")
+        #expect(queuedDisplay.profileDisplayUpdateValues?.username == "queuedari")
+        #expect(NativeQueuedMutation.profilePhotoRemove(
+            clientMutationID: "cm_not_profile_display",
+            createdAt: createdAt
+        ).profileDisplayUpdateValues == nil)
+
+        let photo = NativeStagedMediaUpload(
+            localStageID: "stage_profile_photo",
+            fileName: "avatar.png",
+            contentType: "image/png",
+            data: Data([0x89, 0x50, 0x4E, 0x47])
+        )
+        let photoOnline = try profileSettingsIntentRequireSettingsAction(
+            try resolver.updateProfilePhoto(photo: photo, connectivity: .online, createdAt: createdAt),
+            "online profile photo"
+        )
+        let photoRequest = try profileSettingsIntentRemoteRequest(from: photoOnline.plan)
+        #expect(photoRequest.method == .post)
+        #expect(photoRequest.url.path == "/api/v1/me/photo")
+        #expect(photoOnline.plan.offlineFallbackMutation?.queueableKind == .profilePhotoUpload)
+
+        let removePhotoOffline = try profileSettingsIntentRequireSettingsAction(
+            try resolver.removeProfilePhoto(connectivity: .offline, createdAt: createdAt),
+            "offline profile photo removal"
+        )
+        #expect(removePhotoOffline.plan.queuedMutation?.queueableKind == .profilePhotoRemove)
+        #expect(removePhotoOffline.route == .settings)
+        #expect(removePhotoOffline.url == settingsURL)
+
+        let createTokenOnline = try resolver.createAPIToken(
+            name: "Kitchen Script",
+            scopes: ["recipes:read"],
+            connectivity: .online
+        )
+        #expect(createTokenOnline.route == .settings)
+        #expect(createTokenOnline.url == settingsURL)
+        #expect(createTokenOnline.onlineOnlyReason == nil)
+        #expect(createTokenOnline.plan.remoteRequestBuilder == nil)
+        #expect(createTokenOnline.plan.userFacingMessage?.contains("one-time credential") == true)
+
+        let createTokenOffline = try resolver.createAPIToken(
+            name: "Kitchen Script",
+            scopes: ["recipes:read"],
+            connectivity: .offline
+        )
+        #expect(createTokenOffline.onlineOnlyReason == .apiTokenCreate)
+        #expect(createTokenOffline.plan.queuedMutation == nil)
+
+        let token = APITokenEntityDescriptor(
+            id: "api-token-cred_cli",
+            credentialID: "cred_cli",
+            name: "CLI",
+            tokenPrefix: "sj_cli",
+            scopes: ["recipes:read"],
+            subtitle: "sj_cli - recipes:read",
+            disambiguationLabel: "Production"
+        )
+        let revokeOnline = try resolver.revokeAPIToken(token: token, connectivity: .online)
+        profileSettingsIntentAssertNoBodyRequest(
+            try profileSettingsIntentRemoteRequest(from: revokeOnline.plan),
+            method: .delete,
+            path: "/api/v1/tokens/cred_cli"
+        )
+        let revokeOffline = try resolver.revokeAPIToken(token: token, connectivity: .offline)
+        #expect(revokeOffline.onlineOnlyReason == .apiTokenRevoke)
+        #expect(revokeOffline.plan.remoteRequestBuilder == nil)
+
+        let connection = AccountConnectionEntityDescriptor(
+            id: "account-connection-conn_google",
+            connectionID: "conn_google",
+            clientName: "Google",
+            resource: "Spoonjoy",
+            scopes: ["profile"],
+            subtitle: "Spoonjoy - profile",
+            disambiguationLabel: "Production"
+        )
+        let disconnectOnline = try resolver.disconnectAccountConnection(connection: connection, connectivity: .online)
+        profileSettingsIntentAssertNoBodyRequest(
+            try profileSettingsIntentRemoteRequest(from: disconnectOnline.plan),
+            method: .delete,
+            path: "/api/v1/me/connections/conn_google"
+        )
+        let disconnectOffline = try resolver.disconnectAccountConnection(connection: connection, connectivity: .offline)
+        #expect(disconnectOffline.onlineOnlyReason == .oauthConnectionDisconnect)
+        #expect(disconnectOffline.plan.remoteRequestBuilder == nil)
+
+        let passkeys = try resolver.openPasskeys(connectivity: .online)
+        #expect(passkeys.route == .settings)
+        #expect(passkeys.url == settingsURL)
+        #expect(passkeys.secureHandoff.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys")
+        #expect(passkeys.onlineOnlyReason == nil)
+
+        let passkeysOffline = try resolver.openPasskeys(connectivity: .offline)
+        #expect(passkeysOffline.onlineOnlyReason == .credentialHandoff)
+        #expect(passkeysOffline.secureHandoff.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys")
+
+        let password = try resolver.openPassword(connectivity: .online)
+        #expect(password.secureHandoff.url.absoluteString == "https://spoonjoy.app/account/settings#password")
+        #expect(password.onlineOnlyReason == nil)
+
+        let provider = try resolver.linkProvider(provider: .github, connectivity: .online)
+        #expect(provider.secureHandoff.url.absoluteString == "https://spoonjoy.app/auth/github?linking=true")
+        #expect(provider.onlineOnlyReason == nil)
+
+        let providerOffline = try resolver.linkProvider(provider: .apple, connectivity: .offline)
+        #expect(providerOffline.onlineOnlyReason == .credentialHandoff)
+        #expect(providerOffline.secureHandoff.url.absoluteString == "https://spoonjoy.app/auth/apple?linking=true")
+
+        let logoutOnline = try resolver.logout(connectivity: .online)
+        #expect(logoutOnline.plan.sessionOperation == .logout)
+        #expect(logoutOnline.url.absoluteString == "https://spoonjoy.app/logout")
+        #expect(logoutOnline.onlineOnlyReason == nil)
+
+        let logoutOffline = try resolver.logout(connectivity: .offline)
+        #expect(logoutOffline.plan.sessionOperation == nil)
+        #expect(logoutOffline.onlineOnlyReason == .logout)
+
+        let revokeSessionOnline = try resolver.revokeCurrentSession(connectivity: .online)
+        #expect(revokeSessionOnline.plan.sessionOperation == .revokeAndLogout)
+        #expect(revokeSessionOnline.url == settingsURL)
+
+        let revokeSessionOffline = try resolver.revokeCurrentSession(connectivity: .offline)
+        #expect(revokeSessionOffline.onlineOnlyReason == .sessionRevoke)
+    }
+
+    @Test("profile settings resolver fails closed for unsafe entities rejected media and impossible planner states")
+    func profileSettingsResolverFailsClosedForUnsafeEntitiesRejectedMediaAndBadPlannerStates() throws {
+        let resolver = NativeIntentActionResolver()
+        let createdAt = "2026-06-28T18:00:00.000Z"
+
+        #expect(NativeIntentActionError.unresolvedAPITokenEntity.description == "Choose a Spoonjoy API token before running this Siri action.")
+        #expect(NativeIntentActionError.unresolvedAccountConnectionEntity.description == "Choose a Spoonjoy account connection before running this Siri action.")
+        #expect(NativeIntentActionError.settingsActionUnavailable("Nope").description == "Nope")
+
+        let rejectedPhoto = NativeStagedMediaUpload(
+            localStageID: "stage_rejected_profile_photo",
+            fileName: "avatar.svg",
+            contentType: "image/svg+xml",
+            data: Data([0x3C, 0x73, 0x76, 0x67])
+        )
+        do {
+            _ = try resolver.updateProfilePhoto(photo: rejectedPhoto, connectivity: .online, createdAt: createdAt)
+            Issue.record("Expected rejected profile photo to throw.")
+        } catch let error as NativeIntentActionError {
+            #expect(error.description.contains("image/svg+xml"))
+        }
+
+        let unsafeToken = APITokenEntityDescriptor(
+            id: "unsafe",
+            credentialID: "cred/unsafe",
+            name: "Unsafe",
+            tokenPrefix: "sj_unsafe",
+            scopes: [],
+            subtitle: "Unsafe",
+            disambiguationLabel: "Production"
+        )
+        let wrongRouteToken = APITokenEntityDescriptor(
+            id: "wrong-route",
+            credentialID: "cred_safe",
+            name: "Wrong route",
+            tokenPrefix: "sj_wrong",
+            scopes: [],
+            subtitle: "Wrong route",
+            disambiguationLabel: "Production",
+            route: .unknownLink
+        )
+        #expect(throws: NativeIntentActionError.unresolvedAPITokenEntity) {
+            _ = try resolver.revokeAPIToken(token: .placeholder, connectivity: .online)
+        }
+        #expect(throws: NativeIntentActionError.unresolvedAPITokenEntity) {
+            _ = try resolver.revokeAPIToken(token: unsafeToken, connectivity: .online)
+        }
+        #expect(throws: NativeIntentActionError.unresolvedAPITokenEntity) {
+            _ = try resolver.revokeAPIToken(token: wrongRouteToken, connectivity: .online)
+        }
+
+        let unsafeConnection = AccountConnectionEntityDescriptor(
+            id: "unsafe",
+            connectionID: "conn/unsafe",
+            clientName: "Unsafe",
+            resource: nil,
+            scopes: [],
+            subtitle: "Unsafe",
+            disambiguationLabel: "Production"
+        )
+        let wrongRouteConnection = AccountConnectionEntityDescriptor(
+            id: "wrong-route",
+            connectionID: "conn_safe",
+            clientName: "Wrong route",
+            resource: nil,
+            scopes: [],
+            subtitle: "Wrong route",
+            disambiguationLabel: "Production",
+            route: .unknownLink
+        )
+        #expect(throws: NativeIntentActionError.unresolvedAccountConnectionEntity) {
+            _ = try resolver.disconnectAccountConnection(connection: .placeholder, connectivity: .online)
+        }
+        #expect(throws: NativeIntentActionError.unresolvedAccountConnectionEntity) {
+            _ = try resolver.disconnectAccountConnection(connection: unsafeConnection, connectivity: .online)
+        }
+        #expect(throws: NativeIntentActionError.unresolvedAccountConnectionEntity) {
+            _ = try resolver.disconnectAccountConnection(connection: wrongRouteConnection, connectivity: .online)
+        }
+
+        let badHandoffResolver = NativeIntentActionResolver(
+            settingsSecureHandoffRoutes: SettingsSecureHandoffRoutes(baseURL: URL(string: "https://example.invalid")!)
+        )
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected passkey handoff route.")) {
+            _ = try badHandoffResolver.openPasskeys(connectivity: .online)
+        }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected password handoff route.")) {
+            _ = try badHandoffResolver.openPassword(connectivity: .online)
+        }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected provider handoff route.")) {
+            _ = try badHandoffResolver.linkProvider(provider: .google, connectivity: .online)
+        }
+
+        let missingMutationResolver = profileSettingsIntentResolverReturning(SettingsActionPlan())
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Settings action did not produce profile.display.update.")) {
+            _ = try missingMutationResolver.updateProfileDisplay(
+                email: "ari@example.com",
+                username: "ari",
+                connectivity: .online,
+                createdAt: createdAt
+            )
+        }
+
+        let wrongReasonPlan = SettingsActionPlan(onlineOnlyReason: .apiTokenCreate)
+        let wrongReasonResolver = profileSettingsIntentResolverReturning(wrongReasonPlan)
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected API token revoke plan.")) {
+            _ = try wrongReasonResolver.revokeAPIToken(
+                token: APITokenEntityDescriptor(
+                    id: "token",
+                    credentialID: "cred_safe",
+                    name: "Safe",
+                    tokenPrefix: "sj_safe",
+                    scopes: [],
+                    subtitle: "Safe",
+                    disambiguationLabel: "Production"
+                ),
+                connectivity: .offline
+            )
+        }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected account connection disconnect plan.")) {
+            _ = try wrongReasonResolver.disconnectAccountConnection(
+                connection: AccountConnectionEntityDescriptor(
+                    id: "connection",
+                    connectionID: "conn_safe",
+                    clientName: "Safe",
+                    resource: nil,
+                    scopes: [],
+                    subtitle: "Safe",
+                    disambiguationLabel: "Production"
+                ),
+                connectivity: .offline
+            )
+        }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected logout plan.")) {
+            _ = try wrongReasonResolver.logout(connectivity: .offline)
+        }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected session revoke plan.")) {
+            _ = try wrongReasonResolver.revokeCurrentSession(connectivity: .offline)
+        }
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Logout plan is missing its sessionOperation.")) {
+            _ = try profileSettingsIntentResolverReturning(SettingsActionPlan()).logout(connectivity: .online)
+        }
+    }
+}
+
+private let profileSettingsIntentAPIConfiguration = APIClientConfiguration(
+    baseURL: URL(string: "https://spoonjoy.app")!,
+    bearerToken: "sj_private_token"
+)
+
+private struct ProfileSettingsIntentSettingsAction {
+    let action: NativeIntentAction
+    let plan: SettingsActionPlan
+    let route: AppRoute
+    let url: URL
+}
+
+private struct ProfileSettingsIntentTestFailure: Error, CustomStringConvertible {
+    let description: String
+}
+
+private func profileSettingsIntentResolverReturning(_ plan: SettingsActionPlan) -> NativeIntentActionResolver {
+    NativeIntentActionResolver(settingsSecureHandoffRoutes: .spoonjoyApp) { _, _, _ in
+        plan
+    }
+}
+
+private func profileSettingsIntentRequireSettingsAction(
+    _ action: NativeIntentAction,
+    _ label: String
+) throws -> ProfileSettingsIntentSettingsAction {
+    guard case .settingsAction(let plan, let route, let url) = action else {
+        throw ProfileSettingsIntentTestFailure(description: "Expected settings action for \(label).")
+    }
+    return ProfileSettingsIntentSettingsAction(action: action, plan: plan, route: route, url: url)
+}
+
+private func profileSettingsIntentRequireMutation(
+    _ mutation: NativeQueuedMutation?,
+    _ label: String
+) throws -> NativeQueuedMutation {
+    guard let mutation else {
+        throw ProfileSettingsIntentTestFailure(description: "Missing \(label).")
+    }
+    return mutation
+}
+
+private func profileSettingsIntentRemoteRequest(from plan: SettingsActionPlan) throws -> APIRequest {
+    guard let builder = plan.remoteRequestBuilder else {
+        throw ProfileSettingsIntentTestFailure(description: "Missing remote settings request.")
+    }
+    return try builder.urlRequest(configuration: profileSettingsIntentAPIConfiguration)
+}
+
+private func profileSettingsIntentAssertJSONRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    expected: [String: Any]
+) throws {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.headers["Authorization"] == "Bearer sj_private_token")
+    #expect(request.headers["Content-Type"] == "application/json")
+    #expect(try profileSettingsIntentJSONBody(from: request) == expected as NSDictionary)
+}
+
+private func profileSettingsIntentAssertNoBodyRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String
+) {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.headers["Authorization"] == "Bearer sj_private_token")
+    #expect(request.body == nil)
+}
+
+private func profileSettingsIntentJSONBody(from request: APIRequest) throws -> NSDictionary {
+    guard let body = request.body else {
+        throw ProfileSettingsIntentTestFailure(description: "Missing JSON body.")
+    }
+    guard let object = try JSONSerialization.jsonObject(with: body) as? NSDictionary else {
+        throw ProfileSettingsIntentTestFailure(description: "Expected JSON object body.")
+    }
+    return object
 }
 
 private func profileSettingsIntentForbiddenProductTokens() -> [String] {

@@ -3637,7 +3637,7 @@ if domain == "profile-settings-intents"
       "public func revokeCurrentSession(",
       "SettingsActionPlanner",
       "SettingsSurfaceConnectivity",
-      "SettingsSecureHandoffRoutes.spoonjoyApp",
+      "settingsSecureHandoffRoutes",
       "DeepLinkURLBuilder.url(for: .settings)"
     ],
     failures
@@ -3920,7 +3920,7 @@ if domain == "profile-settings-intents"
     "updateProfileDisplay resolver" => {
       pattern: /\bpublic\s+func\s+updateProfileDisplay\(/,
       required: [
-        "SettingsActionPlanner(connectivity:",
+        "settingsPlan(",
         ".updateProfile(email: email, username: username, clientMutationID: mutationID)",
         "profileDisplayUpdate",
         ".settingsAction(plan",

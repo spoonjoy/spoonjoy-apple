@@ -299,6 +299,7 @@ public enum ScenarioVerifier {
                     status: .pass,
                     detail: "CaptureRecipeIntent, SubmitCaptureImportIntent, OpenCaptureDraftIntent, and DiscardCaptureDraftIntent use capture-draft App Entities, confirmations, owner checks, pending import reuse, and the same native offline import queue as the app UI."
                 ),
+                profileSettingsSiriIntentsCheck(metadata: metadata),
                 ScenarioCheck(
                     name: "deep link metadata",
                     status: deepLinkCheckStatus(metadata),

@@ -807,6 +807,7 @@ struct NativeScenarioTests {
         let spoonEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift"
         let captureDraftEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift"
         let chefProfileEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift"
+        let settingsEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift"
         let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
         let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
         let platformNavigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
@@ -815,6 +816,7 @@ struct NativeScenarioTests {
         let shoppingEntitiesSource = try readRepoFile(shoppingEntitiesPath)
         let spoonEntitiesSource = try readRepoFile(spoonEntitiesPath)
         let captureDraftEntitiesSource = try readRepoFile(captureDraftEntitiesPath)
+        let settingsEntitiesSource = try readRepoFile(settingsEntitiesPath)
         let spotlightSource = try readRepoFile(spotlightPath)
         let rootViewSource = try readRepoFile(rootViewPath)
         let platformNavigationSource = try readRepoFile(platformNavigationPath)
@@ -846,7 +848,21 @@ struct NativeScenarioTests {
             "struct CaptureRecipeIntent: AppIntent",
             "struct SubmitCaptureImportIntent: AppIntent",
             "struct OpenCaptureDraftIntent: AppIntent",
-            "struct DiscardCaptureDraftIntent: AppIntent"
+            "struct DiscardCaptureDraftIntent: AppIntent",
+            "struct OpenSettingsIntent: AppIntent",
+            "struct UpdateProfileDisplayIntent: AppIntent",
+            "struct UpdateProfilePhotoIntent: AppIntent",
+            "struct RemoveProfilePhotoIntent: AppIntent",
+            "struct OpenAPITokensIntent: AppIntent",
+            "struct CreateAPITokenIntent: AppIntent",
+            "struct RevokeAPITokenIntent: AppIntent",
+            "struct OpenAccountConnectionsIntent: AppIntent",
+            "struct DisconnectAccountConnectionIntent: AppIntent",
+            "struct OpenPasskeysIntent: AppIntent",
+            "struct OpenPasswordIntent: AppIntent",
+            "struct LinkProviderIntent: AppIntent",
+            "struct LogoutIntent: AppIntent",
+            "struct RevokeCurrentSessionIntent: AppIntent"
         ] {
             #expect(appIntentsSource.contains(declaration))
         }
@@ -949,6 +965,30 @@ struct NativeScenarioTests {
         #expect(captureDraftEntitiesSource.contains("scope.environment"))
 
         for declaration in [
+            "struct SpoonjoyAPITokenEntity: AppEntity",
+            "struct SpoonjoyAPITokenEntityQuery: EntityQuery, EntityStringQuery",
+            "struct SpoonjoyAccountConnectionEntity: AppEntity",
+            "struct SpoonjoyAccountConnectionEntityQuery: EntityQuery, EntityStringQuery",
+            "enum SpoonjoySettingsAuthProviderOption: String, AppEnum"
+        ] {
+            #expect(settingsEntitiesSource.contains(declaration))
+        }
+        #expect(settingsEntitiesSource.contains("SpoonjoySettingsEntitySource"))
+        #expect(settingsEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(settingsEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(settingsEntitiesSource.contains("NativeIntentActionError.unresolvedAPITokenEntity"))
+        #expect(settingsEntitiesSource.contains("NativeIntentActionError.unresolvedAccountConnectionEntity"))
+        #expect(settingsEntitiesSource.contains("descriptor.isPlaceholder"))
+        #expect(settingsEntitiesSource.contains("trustedIntentScope"))
+        #expect(settingsEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(settingsEntitiesSource.contains("scope.accountID"))
+        #expect(settingsEntitiesSource.contains("scope.environment"))
+        #expect(settingsEntitiesSource.contains("token.tokenPrefix"))
+        #expect(!settingsEntitiesSource.contains("token.value"))
+        #expect(!settingsEntitiesSource.contains("accessToken"))
+        #expect(!settingsEntitiesSource.contains("refreshToken"))
+
+        for declaration in [
             "struct SpoonjoySpotlightIndexer",
             "CSSearchableItem",
             "CSSearchableItemAttributeSet",
@@ -994,13 +1034,14 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, appIntentsPath, spotlightPath])
+        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, captureDraftEntitiesPath, chefProfileEntitiesPath, settingsEntitiesPath, appIntentsPath, spotlightPath])
         try assertSwiftSourcesTypecheck([
             appEntitiesPath,
             shoppingEntitiesPath,
             spoonEntitiesPath,
             captureDraftEntitiesPath,
             chefProfileEntitiesPath,
+            settingsEntitiesPath,
             appIntentsPath,
             spotlightPath
         ])

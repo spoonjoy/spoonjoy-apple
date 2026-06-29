@@ -330,7 +330,34 @@ public struct NativeIntentSettingsHandoffPlan: Equatable, Sendable {
 }
 
 public struct NativeIntentActionResolver {
-    public init() {}
+    private let settingsSecureHandoffRoutes: SettingsSecureHandoffRoutes
+    private let settingsPlanBuilder: @Sendable (
+        SettingsAction,
+        SettingsSurfaceConnectivity,
+        (@Sendable () -> String)?
+    ) throws -> SettingsActionPlan
+
+    public init(settingsSecureHandoffRoutes: SettingsSecureHandoffRoutes = .spoonjoyApp) {
+        self.init(settingsSecureHandoffRoutes: settingsSecureHandoffRoutes) { action, connectivity, now in
+            try SettingsActionPlanner(
+                connectivity: connectivity,
+                secureHandoffRoutes: settingsSecureHandoffRoutes,
+                now: now
+            ).plan(action)
+        }
+    }
+
+    init(
+        settingsSecureHandoffRoutes: SettingsSecureHandoffRoutes,
+        settingsPlanBuilder: @escaping @Sendable (
+            SettingsAction,
+            SettingsSurfaceConnectivity,
+            (@Sendable () -> String)?
+        ) throws -> SettingsActionPlan
+    ) {
+        self.settingsSecureHandoffRoutes = settingsSecureHandoffRoutes
+        self.settingsPlanBuilder = settingsPlanBuilder
+    }
 
     public func openRecipe(recipeID: String) throws -> NativeIntentAction {
         let id = try canonicalRecipeID(recipeID)
@@ -361,8 +388,11 @@ public struct NativeIntentActionResolver {
         createdAt: String
     ) throws -> NativeIntentAction {
         let mutationID = "intent-settings-profile-display-\(stableToken(email))-\(stableToken(username))-\(stableToken(createdAt))"
-        let planner = SettingsActionPlanner(connectivity: connectivity, secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp, now: { createdAt })
-        let plan = try planner.plan(.updateProfile(email: email, username: username, clientMutationID: mutationID))
+        let plan = try settingsPlan(
+            .updateProfile(email: email, username: username, clientMutationID: mutationID),
+            connectivity: connectivity,
+            now: { createdAt }
+        )
         _ = try settingsMutation(from: plan, expectedKind: .profileDisplayUpdate)
         let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
         return .settingsAction(plan, route: target.route, url: target.url)
@@ -381,16 +411,12 @@ public struct NativeIntentActionResolver {
         if let rejection = stagedResult.rejection {
             throw NativeIntentActionError.settingsProfilePhotoRejected("\(rejection)")
         }
-        guard let stagedPhoto = stagedResult.stagedPhoto else {
-            throw NativeIntentActionError.settingsProfilePhotoRejected("no staged image was available")
-        }
         let mutationID = "intent-settings-profile-photo-\(stableToken(stagedPhoto.localStageID))-\(stableToken(createdAt))"
-        let planner = SettingsActionPlanner(
+        let plan = try settingsPlan(
+            .uploadProfilePhoto(photo: stagedPhoto, clientMutationID: mutationID),
             connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp,
             now: { createdAt }
         )
-        let plan = try planner.plan(.uploadProfilePhoto(photo: stagedPhoto, clientMutationID: mutationID))
         _ = try settingsMutation(from: plan, expectedKind: .profilePhotoUpload)
         let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
         return .settingsAction(plan, route: target.route, url: target.url)
@@ -401,12 +427,11 @@ public struct NativeIntentActionResolver {
         createdAt: String
     ) throws -> NativeIntentAction {
         let mutationID = "intent-settings-profile-photo-remove-\(stableToken(createdAt))"
-        let planner = SettingsActionPlanner(
+        let plan = try settingsPlan(
+            .removeProfilePhoto(clientMutationID: mutationID),
             connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp,
             now: { createdAt }
         )
-        let plan = try planner.plan(.removeProfilePhoto(clientMutationID: mutationID))
         _ = try settingsMutation(from: plan, expectedKind: .profilePhotoRemove)
         let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
         return .settingsAction(plan, route: target.route, url: target.url)
@@ -423,10 +448,7 @@ public struct NativeIntentActionResolver {
         connectivity: SettingsSurfaceConnectivity
     ) throws -> NativeIntentSettingsAction {
         _ = try TokenCredentialRequests.createToken(name: name, scopes: scopes)
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
-        ).plan(.createAPIToken(name: name, scopes: scopes))
+        let plan = try settingsPlan(.createAPIToken(name: name, scopes: scopes), connectivity: connectivity)
         let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
         if plan.onlineOnlyReason != nil {
             return NativeIntentSettingsAction(
@@ -448,10 +470,7 @@ public struct NativeIntentActionResolver {
     ) throws -> NativeIntentSettingsAction {
         let credentialID = try tokenIDForMutation(token)
         _ = TokenCredentialRequests.revokeToken(credentialID: credentialID)
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
-        ).plan(.revokeAPIToken(credentialID: credentialID))
+        let plan = try settingsPlan(.revokeAPIToken(credentialID: credentialID), connectivity: connectivity)
         guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.apiTokenRevoke else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected API token revoke plan.")
         }
@@ -473,10 +492,7 @@ public struct NativeIntentActionResolver {
     ) throws -> NativeIntentSettingsAction {
         let connectionID = try accountConnectionIDForMutation(connection)
         _ = PrivateAccountRequests.disconnectConnection(connectionID: connectionID)
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
-        ).plan(.disconnectOAuthConnection(connectionID: connectionID))
+        let plan = try settingsPlan(.disconnectOAuthConnection(connectionID: connectionID), connectivity: connectivity)
         guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.oauthConnectionDisconnect else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected account connection disconnect plan.")
         }
@@ -488,30 +504,24 @@ public struct NativeIntentActionResolver {
     }
 
     public func openPasskeys(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsHandoffPlan {
-        let secureHandoffRoutes = SettingsSecureHandoffRoutes.spoonjoyApp
+        let secureHandoffRoutes = settingsSecureHandoffRoutes
         let expectedURL = "https://spoonjoy.app/account/settings#passkeys"
         let handoff = secureHandoffRoutes.handoff(target: .passkeys)
         guard handoff.url.absoluteString == expectedURL else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected passkey handoff route.")
         }
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: secureHandoffRoutes
-        ).plan(.managePasskeys)
+        let plan = try settingsPlan(.managePasskeys, connectivity: connectivity)
         return try settingsHandoffPlan(plan, fallbackHandoff: handoff)
     }
 
     public func openPassword(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsHandoffPlan {
-        let secureHandoffRoutes = SettingsSecureHandoffRoutes.spoonjoyApp
+        let secureHandoffRoutes = settingsSecureHandoffRoutes
         let expectedURL = "https://spoonjoy.app/account/settings#password"
         let handoff = secureHandoffRoutes.handoff(target: .password)
         guard handoff.url.absoluteString == expectedURL else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected password handoff route.")
         }
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: secureHandoffRoutes
-        ).plan(.managePassword)
+        let plan = try settingsPlan(.managePassword, connectivity: connectivity)
         return try settingsHandoffPlan(plan, fallbackHandoff: handoff)
     }
 
@@ -519,24 +529,18 @@ public struct NativeIntentActionResolver {
         provider: SettingsAuthProvider,
         connectivity: SettingsSurfaceConnectivity
     ) throws -> NativeIntentSettingsHandoffPlan {
-        let secureHandoffRoutes = SettingsSecureHandoffRoutes.spoonjoyApp
+        let secureHandoffRoutes = settingsSecureHandoffRoutes
         let expectedURLPrefix = "https://spoonjoy.app/auth/"
         let handoff = secureHandoffRoutes.handoff(target: .providerLink(provider))
         guard handoff.url.absoluteString.hasPrefix(expectedURLPrefix) else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected provider handoff route.")
         }
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: secureHandoffRoutes
-        ).plan(.linkProvider(provider))
+        let plan = try settingsPlan(.linkProvider(provider), connectivity: connectivity)
         return try settingsHandoffPlan(plan, fallbackHandoff: handoff)
     }
 
     public func logout(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsAction {
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
-        ).plan(.logout)
+        let plan = try settingsPlan(.logout, connectivity: connectivity)
         guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.logout else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected logout plan.")
         }
@@ -551,10 +555,7 @@ public struct NativeIntentActionResolver {
     }
 
     public func revokeCurrentSession(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsAction {
-        let plan = try SettingsActionPlanner(
-            connectivity: connectivity,
-            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
-        ).plan(.revokeSession)
+        let plan = try settingsPlan(.revokeSession, connectivity: connectivity)
         guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.sessionRevoke else {
             throw NativeIntentActionError.settingsActionUnavailable("Unexpected session revoke plan.")
         }
@@ -1185,6 +1186,14 @@ public struct NativeIntentActionResolver {
             throw NativeIntentActionError.settingsActionUnavailable("Settings action did not produce \(expectedKind.rawValue).")
         }
         return mutation
+    }
+
+    private func settingsPlan(
+        _ action: SettingsAction,
+        connectivity: SettingsSurfaceConnectivity,
+        now: (@Sendable () -> String)? = nil
+    ) throws -> SettingsActionPlan {
+        try settingsPlanBuilder(action, connectivity, now)
     }
 
     private func settingsHandoffPlan(
