@@ -37,7 +37,6 @@ struct ChefProfileEntityTests {
                     "NativeDurableCacheSnapshot",
                     "NativeDurableCacheStore",
                     "NativeCachePayload.profile",
-                    "NativeCacheDomain.profile",
                     "accountID",
                     "environment",
                     "ProfileSurfaceResult",
@@ -238,11 +237,241 @@ struct ChefProfileEntityTests {
         }
     }
 
+    @Test("chef profile graph page rows honor profile tombstones")
+    func chefProfileGraphPageRowsHonorProfileTombstones() async throws {
+        let catalog = try Self.catalog(syncSnapshot: Self.syncSnapshot(
+            records: try [
+                Self.profileRecord(id: "chef_ari", username: "ari"),
+                Self.profileGraphRecord(
+                    id: "graph_fellow_chefs",
+                    direction: .fellowChefs,
+                    rows: [
+                        Self.graphRow(
+                            chefID: "chef_peer",
+                            username: "peer",
+                            spoons: 1,
+                            forks: 0,
+                            cookbookSaves: 0,
+                            latestInteractionAt: "2026-06-29T00:06:00.000Z"
+                        )
+                    ]
+                )
+            ],
+            tombstones: [
+                NativeSyncTombstone(
+                    resourceType: .profile,
+                    resourceID: "chef_peer",
+                    parentResourceID: nil,
+                    title: "peer",
+                    deletedAt: "2026-06-29T01:00:00.000Z",
+                    updatedAt: "2026-06-29T01:00:00.000Z"
+                )
+            ]
+        ))
+
+        #expect(try await catalog.suggestedChefProfileEntities(limit: 10).map(\.profileID) == ["chef_ari"])
+        #expect(try await catalog.chefProfileEntities(matching: "peer").isEmpty)
+        await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+            _ = try await catalog.chefProfileEntity(id: "peer")
+        }
+    }
+
+    @Test("chef profile entities decode profile payload variants and graph pages")
+    func chefProfileEntitiesDecodeProfilePayloadVariantsAndGraphPages() async throws {
+        let records = try [
+            Self.profileResultRecord(
+                id: "chef_result",
+                username: "result",
+                joinedLabel: "Joined Result",
+                photoURL: URL(string: "https://spoonjoy.app/photos/profiles/chef_result/avatar.jpg"),
+                fellowChefsCount: 2,
+                kitchenVisitorsCount: 3
+            ),
+            Self.profileSummaryRecord(id: "chef_summary", username: "summary"),
+            Self.rawProfileRecord(
+                id: "chef_raw",
+                username: "raw-chef",
+                joinedLabel: "Joined Raw",
+                photoURLRaw: "https://spoonjoy.app/photos/profiles/chef_raw/avatar.jpg"
+            ),
+            Self.rawProfileRecord(id: "chef_default", username: "default-chef", joinedLabel: "   "),
+            Self.rawProfileRecord(id: "", username: "unsafe/profile"),
+            Self.profileGraphRecord(
+                id: "graph_kitchen_visitors",
+                direction: .kitchenVisitors,
+                rows: [
+                    Self.graphRow(
+                        chefID: "chef_zero",
+                        username: "zero",
+                        spoons: 0,
+                        forks: 0,
+                        cookbookSaves: 0,
+                        latestInteractionAt: nil
+                    ),
+                    Self.graphRow(
+                        chefID: "chef_active",
+                        username: "active",
+                        spoons: 2,
+                        forks: 1,
+                        cookbookSaves: 1,
+                        latestInteractionAt: "2026-06-29T00:05:00.000Z"
+                    )
+                ]
+            ),
+            Self.profileGraphRecord(
+                id: "graph_fellow_chefs",
+                direction: .fellowChefs,
+                rows: [
+                    Self.graphRow(
+                        chefID: "chef_peer",
+                        username: "peer",
+                        spoons: 1,
+                        forks: 0,
+                        cookbookSaves: 0,
+                        latestInteractionAt: "2026-06-29T00:06:00.000Z"
+                    )
+                ]
+            )
+        ]
+        let catalog = try Self.catalog(
+            syncSnapshot: Self.syncSnapshot(records: records),
+            cacheSnapshot: Self.cacheSnapshot(records: [
+                Self.profileCacheRecord(id: "chef_zero", username: "zero")
+            ])
+        )
+
+        let allMatches = try await catalog.chefProfileEntities(matching: "   ")
+        #expect(allMatches.map(\.profileID) == [
+            "chef_result",
+            "chef_summary",
+            "chef_raw",
+            "chef_default",
+            "chef_zero",
+            "chef_active",
+            "chef_peer"
+        ])
+        #expect(try await catalog.suggestedChefProfileEntities(limit: -1).isEmpty)
+
+        let result = try await catalog.chefProfileEntity(id: "result")
+        #expect(result.fellowChefsCount == 2)
+        #expect(result.kitchenVisitorsCount == 3)
+        #expect(result.subtitle == "Joined Result")
+        #expect(result.photoURL == URL(string: "https://spoonjoy.app/photos/profiles/chef_result/avatar.jpg"))
+
+        let summary = try await catalog.chefProfileEntity(id: "chef_summary")
+        #expect(summary.username == "summary")
+        #expect(summary.route == .profile(identifier: "summary"))
+
+        let raw = try await catalog.chefProfileEntity(id: "raw-chef")
+        #expect(raw.profileID == "chef_raw")
+        #expect(raw.subtitle == "Joined Raw")
+        #expect(raw.photoURL == URL(string: "https://spoonjoy.app/photos/profiles/chef_raw/avatar.jpg"))
+
+        let rawDefault = try await catalog.chefProfileEntity(id: "default-chef")
+        #expect(rawDefault.subtitle == "Joined Spoonjoy")
+        #expect(rawDefault.photoURL == nil)
+
+        let zero = try await catalog.chefProfileEntity(id: "zero")
+        #expect(zero.subtitle == "Kitchen visitor - No interactions yet")
+        #expect(zero.interactionSummary == nil)
+
+        let active = try await catalog.chefProfileEntity(id: "active")
+        #expect(active.subtitle == "Kitchen visitor - 2 spoons, 1 fork, 1 cookbook save")
+        #expect(active.interactionSummary == "2 spoons, 1 fork, 1 cookbook save")
+
+        let peer = try await catalog.chefProfileEntity(id: "peer")
+        #expect(peer.subtitle == "Fellow chef - 1 spoon")
+        #expect(peer.interactionSummary == "1 spoon")
+
+        await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+            _ = try await catalog.chefProfileEntity(id: "unsafe/profile")
+        }
+    }
+
+    @Test("chef profile recipe graph suggestions sort ties use fallback timestamps and require an owner")
+    func chefProfileRecipeGraphSuggestionsSortTiesUseFallbackTimestampsAndRequireAnOwner() async throws {
+        let ari = Self.chef(id: "chef_ari", username: "ari")
+        let ada = Self.chef(id: "chef_ada", username: "ada")
+        let bob = Self.chef(id: "chef_bob", username: "bob")
+        let cal = Self.chef(id: "chef_cal", username: "cal")
+        let records = try [
+            Self.profileRecord(id: "chef_ari", username: "ari"),
+            Self.recipeRecord(Self.recipe(
+                id: "recipe_ada",
+                title: "Ada Soup",
+                chef: ada,
+                recentSpoons: [
+                    Self.spoon(
+                        id: "spoon_ari_ada",
+                        recipeID: "recipe_ada",
+                        chef: ari,
+                        cookedAt: nil,
+                        updatedAt: "2026-06-29T00:03:00.000Z"
+                    )
+                ]
+            )),
+            Self.recipeRecord(Self.recipe(
+                id: "recipe_bob",
+                title: "Bob Bread",
+                chef: bob,
+                recentSpoons: [
+                    Self.spoon(
+                        id: "spoon_ari_bob",
+                        recipeID: "recipe_bob",
+                        chef: ari,
+                        cookedAt: "2026-06-29T00:03:00.000Z"
+                    )
+                ]
+            )),
+            Self.recipeRecord(Self.recipe(
+                id: "recipe_cal",
+                title: "Cal Curry",
+                chef: cal,
+                recentSpoons: [
+                    Self.spoon(
+                        id: "spoon_ari_cal",
+                        recipeID: "recipe_cal",
+                        chef: ari,
+                        cookedAt: "2026-06-29T00:05:00.000Z"
+                    )
+                ]
+            ))
+        ]
+        let catalog = try Self.catalog(syncSnapshot: Self.syncSnapshot(records: records))
+
+        #expect(try await catalog.suggestedChefProfileEntities(limit: 10).map(\.profileID) == [
+            "chef_ari",
+            "chef_cal",
+            "chef_ada",
+            "chef_bob"
+        ])
+        #expect(try await catalog.chefProfileEntity(id: "ada").interactionSummary == "1 spoon")
+
+        let nonOwnerCatalog = try Self.catalog(syncSnapshot: Self.syncSnapshot(records: try [
+            Self.profileRecord(id: "chef_jules", username: "jules"),
+            Self.recipeRecord(Self.recipe(
+                id: "recipe_cal_without_owner",
+                title: "Cal Curry",
+                chef: cal,
+                recentSpoons: [
+                    Self.spoon(
+                        id: "spoon_jules_cal",
+                        recipeID: "recipe_cal_without_owner",
+                        chef: Self.chef(id: "chef_jules", username: "jules"),
+                        cookedAt: "2026-06-29T00:05:00.000Z"
+                    )
+                ]
+            ))
+        ]))
+        #expect(try await nonOwnerCatalog.suggestedChefProfileEntities(limit: 10).map(\.profileID) == ["chef_jules"])
+    }
+
     @Test("chef profile entities filter wrong scopes reject unsafe identifiers and load stores")
     func chefProfileEntitiesFilterWrongScopesRejectUnsafeIdentifiersAndLoadStores() async throws {
         let syncSnapshot = try Self.syncSnapshot()
         let cacheSnapshot = try Self.cacheSnapshot(records: [
-            Self.profileCacheRecord(id: "chef_cached", username: "cached")
+            Self.profileCacheRecord(id: "chef_cached", username: "cached"),
+            Self.emptyProfileCacheRecord(id: "chef_empty")
         ])
         let wrongAccountCatalog = ChefProfileEntityCatalog(
             syncSnapshot: syncSnapshot,
@@ -258,6 +487,7 @@ struct ChefProfileEntityTests {
         )
 
         #expect(try await wrongAccountCatalog.suggestedChefProfileEntities(limit: 10).isEmpty)
+        #expect(try await wrongAccountCatalog.chefProfileEntities(for: ["chef_ari"]).isEmpty)
         #expect(try await wrongEnvironmentCatalog.chefProfileEntities(matching: "ari").isEmpty)
         await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
             _ = try await wrongAccountCatalog.chefProfileEntity(id: "ari")
@@ -272,6 +502,7 @@ struct ChefProfileEntityTests {
         #expect(cached.subtitle == "Joined Spoonjoy")
         #expect(cached.route == .profile(identifier: "cached"))
         #expect(cached.transferValue.debugFields.isEmpty)
+        #expect(try await catalog.chefProfileEntities(for: ["chef_empty"]).isEmpty)
 
         for unsafe in ["", ".", "..", "ari\\bad", "ari..bad", " ari\nbad "] {
             await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
@@ -303,6 +534,31 @@ struct ChefProfileEntityTests {
 
         #expect(try await loaded.chefProfileEntity(id: "filesync").profileID == "chef_file_sync")
         #expect(try await loaded.chefProfileEntity(id: "filecache").profileID == "chef_file_cache")
+
+        let signedOutDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("chef-profile-entity-signed-out-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: signedOutDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: signedOutDirectory) }
+        let signedOutSyncStore = try FileBackedNativeSyncStore(
+            fileURL: signedOutDirectory.appendingPathComponent("native-sync-store.json"),
+            fallback: NativeSyncSnapshot.empty
+        )
+        let signedOutCacheStore = NativeDurableCacheStore(fileURL: signedOutDirectory.appendingPathComponent("native-durable-cache.json"))
+        let signedOutCatalog = try await ChefProfileEntityCatalog.loading(
+            syncStore: signedOutSyncStore,
+            cacheStore: signedOutCacheStore,
+            currentAccountID: nil,
+            environment: .production
+        )
+        #expect(try await signedOutCatalog.suggestedChefProfileEntities(limit: 10).isEmpty)
+    }
+
+    @Test("chef profile descriptor placeholder and unresolved intent error are user safe")
+    func chefProfileDescriptorPlaceholderAndUnresolvedIntentErrorAreUserSafe() {
+        let placeholder = ChefProfileEntityDescriptor.placeholder
+        #expect(placeholder.isPlaceholder)
+        #expect(placeholder.route == .profile(identifier: "Spoonjoy"))
+        #expect(placeholder.transferValue.debugFields.isEmpty)
+        #expect(NativeIntentActionError.unresolvedChefProfileEntity.description == "Choose a Spoonjoy chef profile before running this Siri action.")
     }
 
     private static func catalog(
@@ -394,12 +650,125 @@ struct ChefProfileEntityTests {
         )
     }
 
+    private static func profileResultRecord(
+        id: String,
+        username: String,
+        joinedLabel: String,
+        photoURL: URL?,
+        fellowChefsCount: Int,
+        kitchenVisitorsCount: Int
+    ) throws -> NativeSyncCachedRecord {
+        NativeSyncCachedRecord(
+            kind: .profile,
+            resourceID: id,
+            payload: try Self.jsonValue(ProfileSurfaceResult(
+                data: Self.profileSurfaceData(
+                    id: id,
+                    username: username,
+                    joinedLabel: joinedLabel,
+                    photoURL: photoURL,
+                    fellowChefsCount: fellowChefsCount,
+                    kitchenVisitorsCount: kitchenVisitorsCount
+                ),
+                source: .live(requestID: "req_\(id)", validatedAt: Self.instant("2026-06-29T00:00:00.000Z"))
+            )),
+            serverRevision: .updatedAt("2026-06-29T00:00:00.000Z")
+        )
+    }
+
+    private static func profileSummaryRecord(id: String, username: String) throws -> NativeSyncCachedRecord {
+        NativeSyncCachedRecord(
+            kind: .profile,
+            resourceID: id,
+            payload: try Self.jsonValue(ProfileSummary(
+                id: id,
+                username: username,
+                photoURL: nil,
+                joinedLabel: "Joined Summary",
+                href: "/users/\(AppRoute.encodedProfileIdentifier(username))",
+                canonicalURL: URL(string: "https://spoonjoy.app/users/\(AppRoute.encodedProfileIdentifier(username))")!
+            )),
+            serverRevision: .updatedAt("2026-06-29T00:00:00.000Z")
+        )
+    }
+
+    private static func rawProfileRecord(
+        id: String,
+        username: String,
+        joinedLabel: String? = nil,
+        photoURLRaw: String? = nil
+    ) -> NativeSyncCachedRecord {
+        var fields: [String: JSONValue] = ["username": .string(username)]
+        if let joinedLabel {
+            fields["joinedLabel"] = .string(joinedLabel)
+        }
+        if let photoURLRaw {
+            fields["photoUrl"] = .string(photoURLRaw)
+        }
+        return NativeSyncCachedRecord(
+            kind: .profile,
+            resourceID: id,
+            payload: .object(fields),
+            serverRevision: .updatedAt("2026-06-29T00:00:00.000Z")
+        )
+    }
+
+    private static func profileGraphRecord(
+        id: String,
+        direction: ProfileGraphDirection,
+        rows: [ProfileGraphRow]
+    ) throws -> NativeSyncCachedRecord {
+        NativeSyncCachedRecord(
+            kind: .profile,
+            resourceID: id,
+            payload: try Self.jsonValue(ProfileGraphPage(
+                profile: ProfileGraphProfile(
+                    id: "chef_ari",
+                    username: "ari",
+                    href: "/users/ari",
+                    canonicalURL: URL(string: "https://spoonjoy.app/users/ari")!
+                ),
+                direction: direction,
+                page: 1,
+                pageSize: rows.count,
+                total: rows.count,
+                nextCursor: nil,
+                rows: rows,
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.instant("2026-06-29T00:00:00.000Z"))
+            )),
+            serverRevision: .updatedAt("2026-06-29T00:00:00.000Z")
+        )
+    }
+
     private static func recipeRecord(_ recipe: Recipe) throws -> NativeSyncCachedRecord {
         NativeSyncCachedRecord(
             kind: .recipe,
             resourceID: recipe.id,
             payload: try Self.jsonValue(recipe),
             serverRevision: .updatedAt(recipe.updatedAt)
+        )
+    }
+
+    private static func graphRow(
+        chefID: String,
+        username: String,
+        spoons: Int,
+        forks: Int,
+        cookbookSaves: Int,
+        latestInteractionAt: String?
+    ) -> ProfileGraphRow {
+        ProfileGraphRow(
+            chefID: chefID,
+            username: username,
+            photoURL: URL(string: "https://spoonjoy.app/photos/profiles/\(chefID)/avatar.jpg"),
+            href: "/users/\(AppRoute.encodedProfileIdentifier(username))",
+            canonicalURL: URL(string: "https://spoonjoy.app/users/\(AppRoute.encodedProfileIdentifier(username))")!,
+            interactionCounts: ProfileGraphInteractionCounts(
+                spoons: spoons,
+                forks: forks,
+                cookbookSaves: cookbookSaves
+            ),
+            latestInteractionAt: latestInteractionAt
         )
     }
 
@@ -457,6 +826,23 @@ struct ChefProfileEntityTests {
         )
     }
 
+    private static func emptyProfileCacheRecord(id: String) throws -> NativeCacheRecord {
+        try NativeCacheRecord(
+            id: NativeCacheDomain.profile(id: id).stableRecordID,
+            metadata: NativeCacheRecordMetadata(
+                accountID: "account_ari",
+                environment: .production,
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                domain: .profile(id: id),
+                fetchedAt: Self.instant("2026-06-29T00:00:00.000Z"),
+                lastValidatedAt: Self.instant("2026-06-29T00:00:00.000Z"),
+                sourceEndpoint: "/api/v1/users/\(id)",
+                serverRevision: .updatedAt("2026-06-29T00:00:00.000Z")
+            ),
+            payload: .empty
+        )
+    }
+
     private static func recipe(
         id: String,
         title: String,
@@ -490,18 +876,25 @@ struct ChefProfileEntityTests {
         )
     }
 
-    private static func spoon(id: String, recipeID: String, chef: ChefSummary) -> RecipeDetailRecentSpoon {
+    private static func spoon(
+        id: String,
+        recipeID: String,
+        chef: ChefSummary,
+        cookedAt: String? = "2026-06-29T00:00:00.000Z",
+        updatedAt: String = "2026-06-29T00:00:00.000Z",
+        deletedAt: String? = nil
+    ) -> RecipeDetailRecentSpoon {
         RecipeDetailRecentSpoon(
             id: id,
             chefID: chef.id,
             recipeID: recipeID,
-            cookedAt: "2026-06-29T00:00:00.000Z",
+            cookedAt: cookedAt,
             photoURL: nil,
             note: nil,
             nextTime: nil,
-            deletedAt: nil,
+            deletedAt: deletedAt,
             createdAt: "2026-06-29T00:00:00.000Z",
-            updatedAt: "2026-06-29T00:00:00.000Z",
+            updatedAt: updatedAt,
             chef: chef
         )
     }

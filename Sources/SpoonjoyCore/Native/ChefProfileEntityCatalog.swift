@@ -214,6 +214,9 @@ public struct ChefProfileEntityCatalog: Sendable {
         for record in profileRecords.compactMap(Self.profileRecord(syncRecord:)) {
             upsert(record)
         }
+        for record in profileRecords.flatMap({ Self.profileGraphRecords(syncRecord: $0, tombstonedProfileIDs: tombstonedProfiles) }) {
+            upsert(record)
+        }
         for record in cachedProfileRecords {
             upsert(record)
         }
@@ -334,8 +337,7 @@ public struct ChefProfileEntityCatalog: Sendable {
         return cacheSnapshot.records.compactMap { record in
             guard record.metadata.accountID == accountID,
                   record.metadata.environment == environment,
-                  case NativeCachePayload.profile(let id, let username) = record.payload,
-                  case NativeCacheDomain.profile = record.metadata.domain else {
+                  case NativeCachePayload.profile(let id, let username) = record.payload else {
                 return nil
             }
             return ChefProfileRecord(profile: profileSummary(id: id, username: username))
@@ -363,6 +365,30 @@ public struct ChefProfileEntityCatalog: Sendable {
             return ChefProfileRecord(profile: profile)
         }
         return profileSummary(resourceID: record.resourceID, payload: record.payload).map { ChefProfileRecord(profile: $0) }
+    }
+
+    private static func profileGraphRecords(
+        syncRecord record: NativeSyncCachedRecord,
+        tombstonedProfileIDs: Set<String>
+    ) -> [ChefProfileRecord] {
+        guard let page = decode(ProfileGraphPage.self, from: record) else {
+            return []
+        }
+        let relationship: ChefProfileRelationship = page.direction == .fellowChefs ? .fellowChefs : .kitchenVisitors
+        return graphRows(from: page).filter { !tombstonedProfileIDs.contains($0.chefID) }.map { row in
+            ChefProfileRecord(
+                profile: ProfileSummary(
+                    id: row.chefID,
+                    username: row.username,
+                    photoURL: row.photoURL,
+                    joinedLabel: "Joined Spoonjoy",
+                    href: row.href,
+                    canonicalURL: row.canonicalURL
+                ),
+                relationship: relationship,
+                interactionSummary: row.interactionSummary == "No interactions yet" ? nil : row.interactionSummary
+            )
+        }
     }
 
     private static func profileGraphRecords(
@@ -443,7 +469,7 @@ public struct ChefProfileEntityCatalog: Sendable {
     }
 
     private static func ownerProfileID(_ records: Dictionary<String, ChefProfileRecord>.Values) -> String? {
-        records.first(where: \.isOwner)?.profile.id ?? records.first?.profile.id
+        records.first(where: \.isOwner)?.profile.id
     }
 
     private static func profileSummary(resourceID: String, payload: JSONValue) -> ProfileSummary? {

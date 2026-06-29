@@ -904,7 +904,6 @@ if domain == "chef-profile"
       "NativeDurableCacheSnapshot",
       "NativeDurableCacheStore",
       "NativeCachePayload.profile",
-      "NativeCacheDomain.profile",
       "accountID",
       "environment",
       "ProfileSurfaceResult",
