@@ -1,0 +1,16 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Capture draft App Entity contracts" started.
+◇ Test "capture draft entity purge plans cover logout account-switch discard and cache delete" started.
+◇ Test "capture draft entities restore from durable cache without exposing media identifiers" started.
+◇ Test "capture draft entities filter wrong scope and reject unsafe identifiers" started.
+◇ Test "capture draft entities resolve from scoped app state and expose private transfer values" started.
+◇ Test "capture draft entity sources exist with AppIntents contracts" started.
+✔ Test "capture draft entity purge plans cover logout account-switch discard and cache delete" passed after 0.003 seconds.
+✔ Test "capture draft entities filter wrong scope and reject unsafe identifiers" passed after 0.003 seconds.
+✔ Test "capture draft entities restore from durable cache without exposing media identifiers" passed after 0.007 seconds.
+✔ Test "capture draft entities resolve from scoped app state and expose private transfer values" passed after 0.007 seconds.
+✔ Test "capture draft entity sources exist with AppIntents contracts" passed after 0.143 seconds.
+✔ Suite "Capture draft App Entity contracts" passed after 0.143 seconds.
+✔ Test run with 5 tests in 1 suite passed after 0.143 seconds.

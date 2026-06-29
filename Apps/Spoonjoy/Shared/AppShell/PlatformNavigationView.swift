@@ -39,6 +39,7 @@ struct PlatformNavigationView: View {
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
     private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
+    private let purgeCaptureDraftEntityIndexesHandler: @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
@@ -68,7 +69,8 @@ struct PlatformNavigationView: View {
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
         purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
-        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
+        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
+        purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
     ) {
         _navigation = navigation
         _search = search
@@ -98,6 +100,7 @@ struct PlatformNavigationView: View {
         self.syncTriggerCoordinator = syncTriggerCoordinator
         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
         self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
+        self.purgeCaptureDraftEntityIndexesHandler = purgeCaptureDraftEntityIndexes
     }
 
     var body: some View {

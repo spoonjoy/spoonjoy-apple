@@ -40,6 +40,22 @@ public struct NativeSpoonEntityIndexPurgeRequest: Equatable, Sendable {
 
 public typealias NativeSpoonEntityIndexPurgeOperation = @Sendable (_ request: NativeSpoonEntityIndexPurgeRequest) async -> Void
 
+public struct NativeCaptureDraftEntityIndexPurgeRequest: Equatable, Sendable {
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+
+    public init(identifiers: [String], domainIdentifiers: [String]) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+    }
+
+    public var isEmpty: Bool {
+        identifiers.isEmpty && domainIdentifiers.isEmpty
+    }
+}
+
+public typealias NativeCaptureDraftEntityIndexPurgeOperation = @Sendable (_ request: NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
+
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
     case restoreCacheOnly
@@ -60,6 +76,7 @@ public struct NativeLiveAppStoreDependencies {
     public let stagedMediaDirectory: NativeStagedMediaDirectory?
     public let shoppingEntityIndexPurge: NativeShoppingEntityIndexPurgeOperation
     public let spoonEntityIndexPurge: NativeSpoonEntityIndexPurgeOperation
+    public let captureDraftEntityIndexPurge: NativeCaptureDraftEntityIndexPurgeOperation
     public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
@@ -80,6 +97,7 @@ public struct NativeLiveAppStoreDependencies {
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
         spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
+        captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
@@ -97,6 +115,7 @@ public struct NativeLiveAppStoreDependencies {
         self.stagedMediaDirectory = stagedMediaDirectory
         self.shoppingEntityIndexPurge = shoppingEntityIndexPurge
         self.spoonEntityIndexPurge = spoonEntityIndexPurge
+        self.captureDraftEntityIndexPurge = captureDraftEntityIndexPurge
         self.bootstrapMode = bootstrapMode
         self.now = now
     }
@@ -2017,6 +2036,30 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: cacheEnvironment,
                 plan: spoonPurgePlan
             ))
+            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+            let captureDraftSnapshot = currentContentState.captureDraft.map { draft in
+                NativeAppSnapshot.bootstrap(
+                    shoppingList: currentContentState.shoppingList,
+                    accountID: currentAccountID,
+                    environment: cacheEnvironment,
+                    savedAt: savedAt
+                ).recordingCaptureDraft(draft, savedAt: savedAt)
+            }
+            let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
+                appSnapshot: captureDraftSnapshot,
+                cacheSnapshot: nil,
+                accountID: currentAccountID,
+                environment: cacheEnvironment
+            )
+            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: captureDraftPurgePlan
+            ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: captureDraftPurgePlan
+            ))
             try await dependencies.authSessionRepository.revokeAndLogout()
         }
         await bootstrap()
@@ -2048,6 +2091,20 @@ public final class NativeLiveAppStore: ObservableObject {
         }
 
         await dependencies.spoonEntityIndexPurge(request)
+    }
+
+    public func purgeCaptureDraftEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
+        let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
+        let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
+        let request = NativeCaptureDraftEntityIndexPurgeRequest(
+            identifiers: uniqueIdentifiers,
+            domainIdentifiers: uniqueDomainIdentifiers
+        )
+        guard !request.isEmpty else {
+            return
+        }
+
+        await dependencies.captureDraftEntityIndexPurge(request)
     }
 
     private var optimisticRecipeChef: ChefSummary {
@@ -2200,6 +2257,18 @@ public final class NativeLiveAppStore: ObservableObject {
             }
         }
 
+        let cacheDeletePlan = CaptureDraftEntityIndexPurgePlan.cacheDeletePurge(
+            deletedRecordDomains: [.captureDraft(id: draft.id)],
+            accountID: accountID,
+            environment: cacheEnvironment
+        )
+        Task {
+            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                accountID: accountID,
+                environment: cacheEnvironment,
+                plan: cacheDeletePlan
+            ))
+        }
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(draft))))
     }
 
@@ -2231,6 +2300,18 @@ public final class NativeLiveAppStore: ObservableObject {
             }
         }
 
+        let discardPlan = CaptureDraftEntityIndexPurgePlan.draftDiscardPurge(
+            draftID: draftID,
+            accountID: accountID,
+            environment: cacheEnvironment
+        )
+        Task {
+            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                accountID: accountID,
+                environment: cacheEnvironment,
+                plan: discardPlan
+            ))
+        }
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(nil))))
     }
 
@@ -2407,11 +2488,71 @@ public final class NativeLiveAppStore: ObservableObject {
         authSessionState: NativeAuthSessionState,
         optimisticMutations: [NativeQueuedMutation] = []
     ) async throws -> NativeShellContentState {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let preFilterCacheFallback = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: accountID(for: authSessionState),
+            environment: cacheEnvironment,
+            createdAt: dependencies.now(),
+            records: [],
+            dismissedIndicators: []
+        )
+        let preFilterCacheRecord = try dependencies.cacheStore.loadOrRecover(fallback: preFilterCacheFallback)
+        let previousCacheSnapshot = preFilterCacheRecord.value
+        if previousCacheSnapshot.accountID != accountID(for: authSessionState) ||
+            previousCacheSnapshot.environment != cacheEnvironment {
+            let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
+                appSnapshot: nil,
+                cacheSnapshot: previousCacheSnapshot,
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment
+            )
+            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                plan: captureDraftPurgePlan
+            ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                plan: captureDraftPurgePlan
+            ))
+        }
+
+        if let appStateStore = dependencies.appStateStoreProvider() {
+            let preFilterAppStateFallback = NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: accountID(for: authSessionState),
+                environment: cacheEnvironment,
+                savedAt: savedAt
+            )
+            if let preFilterAppStateRecord = try? appStateStore.loadOrCreate(fallback: preFilterAppStateFallback) {
+                let previousAppSnapshot = preFilterAppStateRecord.value
+                if previousAppSnapshot.accountID != accountID(for: authSessionState) ||
+                    previousAppSnapshot.environment != cacheEnvironment {
+                    let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
+                        appSnapshot: previousAppSnapshot,
+                        cacheSnapshot: nil,
+                        accountID: previousAppSnapshot.accountID,
+                        environment: previousAppSnapshot.environment
+                    )
+                    await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                        accountID: previousAppSnapshot.accountID ?? "",
+                        environment: previousAppSnapshot.environment ?? cacheEnvironment,
+                        plan: captureDraftPurgePlan
+                    ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+                        accountID: previousAppSnapshot.accountID ?? "",
+                        environment: previousAppSnapshot.environment ?? cacheEnvironment,
+                        plan: captureDraftPurgePlan
+                    ))
+                }
+            }
+        }
+
         let record = try loadOrCreateCacheSnapshot(authSessionState: authSessionState)
         let syncSnapshot = try await scopedSyncSnapshot(authSessionState: authSessionState)
         let appSnapshot = loadAppSnapshot(
             authSessionState: authSessionState,
-            savedAt: NativeLiveAppStoreClock.isoString(dependencies.now())
+            savedAt: savedAt
         )
         restoredRoute = appSnapshot?.lastOpenedRoute.flatMap(AppRoute.init(stateIdentifier:))
         let display: OfflineIndicatorDisplay

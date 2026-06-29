@@ -157,6 +157,12 @@ struct SpoonjoyRootView: View {
                     request.identifiers,
                     domainIdentifiers: request.domainIdentifiers
                 )
+            },
+            purgeCaptureDraftEntityIndexes: { request in
+                await liveStore.purgeCaptureDraftEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers
+                )
             }
         )
     }
@@ -303,6 +309,9 @@ struct SpoonjoyRootView: View {
             spoonEntityIndexPurge: { request in
                 await Self.purgeSpoonEntityIdentifiersIfAvailable(request)
             },
+            captureDraftEntityIndexPurge: { request in
+                await Self.purgeCaptureDraftEntityIdentifiersIfAvailable(request)
+            },
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
@@ -320,6 +329,17 @@ struct SpoonjoyRootView: View {
     }
 
     private static func purgeSpoonEntityIdentifiersIfAvailable(_ request: NativeSpoonEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers
+            )
+        }
+#endif
+    }
+
+    private static func purgeCaptureDraftEntityIdentifiersIfAvailable(_ request: NativeCaptureDraftEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
         if #available(iOS 27.0, macOS 27.0, *) {
             try? await SpoonjoySpotlightIndexer().delete(

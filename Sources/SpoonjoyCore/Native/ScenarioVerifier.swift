@@ -168,6 +168,27 @@ public enum ScenarioVerifier {
                     ]
                 ),
                 sourceCheck(
+                    name: "capture draft App Entity source",
+                    detail: "Capture draft App Entity integration source is present.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoyCaptureDraftEntity",
+                        "SpoonjoyCaptureDraftEntityQuery",
+                        "CaptureDraftEntityCatalog",
+                        "EntityStringQuery",
+                        "NativeAppStateStore",
+                        "NativeDurableCacheStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
                     name: "spotlight source",
                     detail: "CoreSpotlight integration source is present.",
                     rootURL: rootURL,

@@ -1,0 +1,2107 @@
+diff --git a/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift b/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift
+index a0997b4..b0a9a9d 100644
+--- a/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift
++++ b/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift
+@@ -39,6 +39,7 @@ struct PlatformNavigationView: View {
+     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
+     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
+     private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
++    private let purgeCaptureDraftEntityIndexesHandler: @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
+ 
+     init(
+         navigation: Binding<AppNavigationState>,
+@@ -68,7 +69,8 @@ struct PlatformNavigationView: View {
+         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
+         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
+         purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
+-        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
++        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
++        purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
+     ) {
+         _navigation = navigation
+         _search = search
+@@ -98,6 +100,7 @@ struct PlatformNavigationView: View {
+         self.syncTriggerCoordinator = syncTriggerCoordinator
+         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
+         self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
++        self.purgeCaptureDraftEntityIndexesHandler = purgeCaptureDraftEntityIndexes
+     }
+ 
+     var body: some View {
+diff --git a/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift b/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift
+index 8cf5e13..25748f7 100644
+--- a/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift
++++ b/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift
+@@ -157,6 +157,12 @@ struct SpoonjoyRootView: View {
+                     request.identifiers,
+                     domainIdentifiers: request.domainIdentifiers
+                 )
++            },
++            purgeCaptureDraftEntityIndexes: { request in
++                await liveStore.purgeCaptureDraftEntityIdentifiers(
++                    request.identifiers,
++                    domainIdentifiers: request.domainIdentifiers
++                )
+             }
+         )
+     }
+@@ -303,6 +309,9 @@ struct SpoonjoyRootView: View {
+             spoonEntityIndexPurge: { request in
+                 await Self.purgeSpoonEntityIdentifiersIfAvailable(request)
+             },
++            captureDraftEntityIndexPurge: { request in
++                await Self.purgeCaptureDraftEntityIdentifiersIfAvailable(request)
++            },
+             bootstrapMode: bootstrapMode,
+             now: Date.init
+         )
+@@ -330,6 +339,17 @@ struct SpoonjoyRootView: View {
+ #endif
+     }
+ 
++    private static func purgeCaptureDraftEntityIdentifiersIfAvailable(_ request: NativeCaptureDraftEntityIndexPurgeRequest) async {
++#if canImport(CoreSpotlight)
++        if #available(iOS 27.0, macOS 27.0, *) {
++            try? await SpoonjoySpotlightIndexer().delete(
++                identifiers: request.identifiers,
++                domainIdentifiers: request.domainIdentifiers
++            )
++        }
++#endif
++    }
++
+ #if DEBUG
+     private static func screenshotValidationTokenVault(environment: [String: String]) -> (any TokenVault)? {
+         guard truthy("SPOONJOY_SCREENSHOT_AUTH", in: environment) else {
+diff --git a/Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift b/Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift
+new file mode 100644
+index 0000000..aa323a5
+--- /dev/null
++++ b/Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift
+@@ -0,0 +1,105 @@
++import Foundation
++import SpoonjoyCore
++
++#if canImport(AppIntents)
++import AppIntents
++import CoreTransferable
++
++@available(iOS 27.0, macOS 27.0, *)
++struct SpoonjoyCaptureDraftEntity: AppEntity, Transferable {
++    typealias DefaultQuery = SpoonjoyCaptureDraftEntityQuery
++
++    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Capture Draft")
++    static let defaultQuery = SpoonjoyCaptureDraftEntityQuery()
++
++    let descriptor: CaptureDraftEntityDescriptor
++
++    var id: String { descriptor.id }
++    var transferValue: CaptureDraftEntityTransferValue { descriptor.transferValue }
++    var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
++
++    init() {
++        descriptor = .placeholder
++    }
++
++    init(descriptor: CaptureDraftEntityDescriptor) {
++        self.descriptor = descriptor
++    }
++
++    var displayRepresentation: DisplayRepresentation {
++        let subtitle = "\(descriptor.subtitle) - \(descriptor.disambiguationLabel)"
++        return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
++    }
++
++    static var transferRepresentation: some TransferRepresentation {
++        ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
++    }
++
++    func resolvedCaptureDraftID() throws -> String {
++        guard !descriptor.isPlaceholder else {
++            throw NativeIntentActionError.unresolvedCaptureDraftEntity
++        }
++        return descriptor.captureDraftID
++    }
++}
++
++@available(iOS 27.0, macOS 27.0, *)
++struct SpoonjoyCaptureDraftEntityQuery: EntityQuery, EntityStringQuery {
++    func entities(for identifiers: [String]) async throws -> [SpoonjoyCaptureDraftEntity] {
++        let inputs = try await catalogInputs()
++        let catalog = try await CaptureDraftEntityCatalog.loading(
++            appStateStore: inputs.appStateStore,
++            cacheStore: inputs.cacheStore,
++            currentAccountID: inputs.scope.accountID,
++            environment: inputs.scope.environment
++        )
++        let descriptors = try await catalog.captureDraftEntities(for: identifiers)
++        return descriptors.map(SpoonjoyCaptureDraftEntity.init)
++    }
++
++    func entities(matching string: String) async throws -> [SpoonjoyCaptureDraftEntity] {
++        let inputs = try await catalogInputs()
++        let catalog = try await CaptureDraftEntityCatalog.loading(
++            appStateStore: inputs.appStateStore,
++            cacheStore: inputs.cacheStore,
++            currentAccountID: inputs.scope.accountID,
++            environment: inputs.scope.environment
++        )
++        let descriptors = try await catalog.captureDraftEntities(matching: string)
++        return descriptors.map(SpoonjoyCaptureDraftEntity.init)
++    }
++
++    func suggestedEntities() async throws -> [SpoonjoyCaptureDraftEntity] {
++        let inputs = try await catalogInputs()
++        let catalog = try await CaptureDraftEntityCatalog.loading(
++            appStateStore: inputs.appStateStore,
++            cacheStore: inputs.cacheStore,
++            currentAccountID: inputs.scope.accountID,
++            environment: inputs.scope.environment
++        )
++        let descriptors = try await catalog.suggestedCaptureDraftEntities()
++        return descriptors.map(SpoonjoyCaptureDraftEntity.init)
++    }
++
++    private func catalogInputs(
++        fileURL: URL = NativeAppStateLocation.defaultFileURL()
++    ) async throws -> (
++        appStateStore: NativeAppStateStore,
++        cacheStore: NativeDurableCacheStore,
++        scope: (accountID: String, environment: NativeCacheEnvironment)
++    ) {
++        let appDirectory = fileURL.deletingLastPathComponent()
++        let syncStore = try FileBackedNativeSyncStore(
++            fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
++            mediaResolver: NativeStagedMediaDirectory(
++                directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
++            )
++        )
++        let syncSnapshot = try await syncStore.loadSnapshot()
++        let scope = try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
++        let appStateStore = NativeAppStateStore(fileURL: fileURL)
++        let cacheStore = NativeDurableCacheStore(fileURL: appDirectory.appendingPathComponent("native-durable-cache.json"))
++        return (appStateStore, cacheStore, scope)
++    }
++}
++#endif
+diff --git a/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift b/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift
+index 7a9c349..9b309fa 100644
+--- a/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift
++++ b/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift
+@@ -40,6 +40,22 @@ public struct NativeSpoonEntityIndexPurgeRequest: Equatable, Sendable {
+ 
+ public typealias NativeSpoonEntityIndexPurgeOperation = @Sendable (_ request: NativeSpoonEntityIndexPurgeRequest) async -> Void
+ 
++public struct NativeCaptureDraftEntityIndexPurgeRequest: Equatable, Sendable {
++    public let identifiers: [String]
++    public let domainIdentifiers: [String]
++
++    public init(identifiers: [String], domainIdentifiers: [String]) {
++        self.identifiers = identifiers
++        self.domainIdentifiers = domainIdentifiers
++    }
++
++    public var isEmpty: Bool {
++        identifiers.isEmpty && domainIdentifiers.isEmpty
++    }
++}
++
++public typealias NativeCaptureDraftEntityIndexPurgeOperation = @Sendable (_ request: NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
++
+ public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
+     case liveFirst
+     case restoreCacheOnly
+@@ -60,6 +76,7 @@ public struct NativeLiveAppStoreDependencies {
+     public let stagedMediaDirectory: NativeStagedMediaDirectory?
+     public let shoppingEntityIndexPurge: NativeShoppingEntityIndexPurgeOperation
+     public let spoonEntityIndexPurge: NativeSpoonEntityIndexPurgeOperation
++    public let captureDraftEntityIndexPurge: NativeCaptureDraftEntityIndexPurgeOperation
+     public let bootstrapMode: NativeLiveAppBootstrapMode
+     public let now: @Sendable () -> Date
+ 
+@@ -80,6 +97,7 @@ public struct NativeLiveAppStoreDependencies {
+         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
+         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
+         spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
++        captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
+         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
+         now: @escaping @Sendable () -> Date
+     ) {
+@@ -97,6 +115,7 @@ public struct NativeLiveAppStoreDependencies {
+         self.stagedMediaDirectory = stagedMediaDirectory
+         self.shoppingEntityIndexPurge = shoppingEntityIndexPurge
+         self.spoonEntityIndexPurge = spoonEntityIndexPurge
++        self.captureDraftEntityIndexPurge = captureDraftEntityIndexPurge
+         self.bootstrapMode = bootstrapMode
+         self.now = now
+     }
+@@ -2017,6 +2036,30 @@ public final class NativeLiveAppStore: ObservableObject {
+                 environment: cacheEnvironment,
+                 plan: spoonPurgePlan
+             ))
++            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
++            let captureDraftSnapshot = currentContentState.captureDraft.map { draft in
++                NativeAppSnapshot.bootstrap(
++                    shoppingList: currentContentState.shoppingList,
++                    accountID: currentAccountID,
++                    environment: cacheEnvironment,
++                    savedAt: savedAt
++                ).recordingCaptureDraft(draft, savedAt: savedAt)
++            }
++            let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
++                appSnapshot: captureDraftSnapshot,
++                cacheSnapshot: nil,
++                accountID: currentAccountID,
++                environment: cacheEnvironment
++            )
++            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
++                accountID: currentAccountID,
++                environment: cacheEnvironment,
++                plan: captureDraftPurgePlan
++            ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
++                accountID: currentAccountID,
++                environment: cacheEnvironment,
++                plan: captureDraftPurgePlan
++            ))
+             try await dependencies.authSessionRepository.revokeAndLogout()
+         }
+         await bootstrap()
+@@ -2050,6 +2093,20 @@ public final class NativeLiveAppStore: ObservableObject {
+         await dependencies.spoonEntityIndexPurge(request)
+     }
+ 
++    public func purgeCaptureDraftEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
++        let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
++        let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
++        let request = NativeCaptureDraftEntityIndexPurgeRequest(
++            identifiers: uniqueIdentifiers,
++            domainIdentifiers: uniqueDomainIdentifiers
++        )
++        guard !request.isEmpty else {
++            return
++        }
++
++        await dependencies.captureDraftEntityIndexPurge(request)
++    }
++
+     private var optimisticRecipeChef: ChefSummary {
+         currentContentState.recipes.first?.chef ?? currentContentState.cookbooks.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
+     }
+@@ -2200,6 +2257,18 @@ public final class NativeLiveAppStore: ObservableObject {
+             }
+         }
+ 
++        let cacheDeletePlan = CaptureDraftEntityIndexPurgePlan.cacheDeletePurge(
++            deletedRecordDomains: [.captureDraft(id: draft.id)],
++            accountID: accountID,
++            environment: cacheEnvironment
++        )
++        Task {
++            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
++                accountID: accountID,
++                environment: cacheEnvironment,
++                plan: cacheDeletePlan
++            ))
++        }
+         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(draft))))
+     }
+ 
+@@ -2231,6 +2300,18 @@ public final class NativeLiveAppStore: ObservableObject {
+             }
+         }
+ 
++        let discardPlan = CaptureDraftEntityIndexPurgePlan.draftDiscardPurge(
++            draftID: draftID,
++            accountID: accountID,
++            environment: cacheEnvironment
++        )
++        Task {
++            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
++                accountID: accountID,
++                environment: cacheEnvironment,
++                plan: discardPlan
++            ))
++        }
+         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(nil))))
+     }
+ 
+@@ -2407,11 +2488,71 @@ public final class NativeLiveAppStore: ObservableObject {
+         authSessionState: NativeAuthSessionState,
+         optimisticMutations: [NativeQueuedMutation] = []
+     ) async throws -> NativeShellContentState {
++        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
++        let preFilterCacheFallback = try NativeDurableCacheSnapshot(
++            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
++            accountID: accountID(for: authSessionState),
++            environment: cacheEnvironment,
++            createdAt: dependencies.now(),
++            records: [],
++            dismissedIndicators: []
++        )
++        let preFilterCacheRecord = try dependencies.cacheStore.loadOrRecover(fallback: preFilterCacheFallback)
++        let previousCacheSnapshot = preFilterCacheRecord.value
++        if previousCacheSnapshot.accountID != accountID(for: authSessionState) ||
++            previousCacheSnapshot.environment != cacheEnvironment {
++            let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
++                appSnapshot: nil,
++                cacheSnapshot: previousCacheSnapshot,
++                accountID: previousCacheSnapshot.accountID,
++                environment: previousCacheSnapshot.environment
++            )
++            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
++                accountID: previousCacheSnapshot.accountID,
++                environment: previousCacheSnapshot.environment,
++                plan: captureDraftPurgePlan
++            ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
++                accountID: previousCacheSnapshot.accountID,
++                environment: previousCacheSnapshot.environment,
++                plan: captureDraftPurgePlan
++            ))
++        }
++
++        if let appStateStore = dependencies.appStateStoreProvider() {
++            let preFilterAppStateFallback = NativeAppSnapshot.bootstrap(
++                shoppingList: nil,
++                accountID: accountID(for: authSessionState),
++                environment: cacheEnvironment,
++                savedAt: savedAt
++            )
++            if let preFilterAppStateRecord = try? appStateStore.loadOrCreate(fallback: preFilterAppStateFallback) {
++                let previousAppSnapshot = preFilterAppStateRecord.value
++                if previousAppSnapshot.accountID != accountID(for: authSessionState) ||
++                    previousAppSnapshot.environment != cacheEnvironment {
++                    let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
++                        appSnapshot: previousAppSnapshot,
++                        cacheSnapshot: nil,
++                        accountID: previousAppSnapshot.accountID,
++                        environment: previousAppSnapshot.environment
++                    )
++                    await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
++                        accountID: previousAppSnapshot.accountID ?? "",
++                        environment: previousAppSnapshot.environment ?? cacheEnvironment,
++                        plan: captureDraftPurgePlan
++                    ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
++                        accountID: previousAppSnapshot.accountID ?? "",
++                        environment: previousAppSnapshot.environment ?? cacheEnvironment,
++                        plan: captureDraftPurgePlan
++                    ))
++                }
++            }
++        }
++
+         let record = try loadOrCreateCacheSnapshot(authSessionState: authSessionState)
+         let syncSnapshot = try await scopedSyncSnapshot(authSessionState: authSessionState)
+         let appSnapshot = loadAppSnapshot(
+             authSessionState: authSessionState,
+-            savedAt: NativeLiveAppStoreClock.isoString(dependencies.now())
++            savedAt: savedAt
+         )
+         restoredRoute = appSnapshot?.lastOpenedRoute.flatMap(AppRoute.init(stateIdentifier:))
+         let display: OfflineIndicatorDisplay
+diff --git a/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift b/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift
+new file mode 100644
+index 0000000..f69fb40
+--- /dev/null
++++ b/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift
+@@ -0,0 +1,538 @@
++import Foundation
++
++public enum CaptureDraftEntityKind: String, Codable, Equatable, Sendable {
++    case captureDraft
++}
++
++public enum CaptureDraftEntityCatalogError: Error, Equatable, Sendable {
++    case invalidIdentifier(String)
++    case unavailableForScope(accountID: String?, environment: NativeCacheEnvironment?)
++    case captureDraftNotFound(String)
++}
++
++public struct CaptureDraftEntityScope: Codable, Equatable, Hashable, Sendable {
++    public let accountID: String
++    public let environment: NativeCacheEnvironment
++
++    public init(accountID: String, environment: NativeCacheEnvironment) {
++        self.accountID = accountID
++        self.environment = environment
++    }
++
++    public var domainIdentifier: String {
++        "capture-draft:\(environment.rawValue):\(accountID)"
++    }
++}
++
++public struct CaptureDraftEntityTransferValue: Codable, Equatable, Sendable {
++    public let kind: CaptureDraftEntityKind
++    public let rawResourceID: String
++    public let title: String
++    public let routeIdentifier: String
++    public let publicURL: URL?
++    public let privateTransferValue: String
++    public let userVisibleSummary: String
++    public let debugFields: [String]
++
++    public init(
++        kind: CaptureDraftEntityKind,
++        rawResourceID: String,
++        title: String,
++        routeIdentifier: String,
++        publicURL: URL?,
++        privateTransferValue: String,
++        userVisibleSummary: String,
++        debugFields: [String] = []
++    ) {
++        self.kind = kind
++        self.rawResourceID = rawResourceID
++        self.title = title
++        self.routeIdentifier = routeIdentifier
++        self.publicURL = publicURL
++        self.privateTransferValue = privateTransferValue
++        self.userVisibleSummary = userVisibleSummary
++        self.debugFields = debugFields
++    }
++}
++
++public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
++    public let id: String
++    public let captureDraftID: String
++    public let scope: CaptureDraftEntityScope
++    public let title: String
++    public let subtitle: String
++    public let disambiguationLabel: String
++    public let route: AppRoute
++    public let source: CaptureDraftSource
++    public let importReadiness: CaptureDraftImportReadiness
++    public let hasPendingImport: Bool
++    public let transferValue: CaptureDraftEntityTransferValue
++    public var isPlaceholder: Bool { id == Self.placeholder.id }
++
++    public static let placeholder = CaptureDraftEntityDescriptor(
++        id: "capture-draft-placeholder",
++        captureDraftID: "capture-draft-placeholder",
++        scope: CaptureDraftEntityScope(accountID: "placeholder", environment: .production),
++        title: "Capture Draft",
++        subtitle: "Spoonjoy capture draft",
++        disambiguationLabel: "Spoonjoy capture draft",
++        route: .capture,
++        source: .text,
++        importReadiness: .ready,
++        hasPendingImport: false,
++        transferValue: CaptureDraftEntityTransferValue(
++            kind: .captureDraft,
++            rawResourceID: "capture-draft-placeholder",
++            title: "Capture Draft",
++            routeIdentifier: AppRoute.capture.stateIdentifier,
++            publicURL: nil,
++            privateTransferValue: "schema=app.spoonjoy.capture-draft-entity.v1;domain=capture-draft;title=Capture Draft",
++            userVisibleSummary: "Capture Draft"
++        )
++    )
++
++    public init(draft: CaptureDraft, scope: CaptureDraftEntityScope, hasPendingImport: Bool) {
++        let payload = NativeSharePayload.privateCaptureDraft(draft)
++        let title = payload.title
++        let subtitle = Self.subtitle(for: draft, hasPendingImport: hasPendingImport)
++        self.init(
++            id: CaptureDraftEntityCatalog.captureDraftEntityIdentifier(
++                draftID: draft.id,
++                accountID: scope.accountID,
++                environment: scope.environment
++            ),
++            captureDraftID: draft.id,
++            scope: scope,
++            title: title,
++            subtitle: subtitle,
++            disambiguationLabel: "\(title) from capture",
++            route: .capture,
++            source: draft.source,
++            importReadiness: draft.importReadiness,
++            hasPendingImport: hasPendingImport,
++            transferValue: CaptureDraftEntityTransferValue(
++                kind: .captureDraft,
++                rawResourceID: draft.id,
++                title: title,
++                routeIdentifier: AppRoute.capture.stateIdentifier,
++                publicURL: nil,
++                privateTransferValue: payload.serializedTransferValue,
++                userVisibleSummary: title
++            )
++        )
++    }
++
++    public init(
++        id: String,
++        captureDraftID: String,
++        scope: CaptureDraftEntityScope,
++        title: String,
++        subtitle: String,
++        disambiguationLabel: String,
++        route: AppRoute,
++        source: CaptureDraftSource,
++        importReadiness: CaptureDraftImportReadiness,
++        hasPendingImport: Bool,
++        transferValue: CaptureDraftEntityTransferValue
++    ) {
++        self.id = id
++        self.captureDraftID = captureDraftID
++        self.scope = scope
++        self.title = title
++        self.subtitle = subtitle
++        self.disambiguationLabel = disambiguationLabel
++        self.route = route
++        self.source = source
++        self.importReadiness = importReadiness
++        self.hasPendingImport = hasPendingImport
++        self.transferValue = transferValue
++    }
++
++    private static func subtitle(for draft: CaptureDraft, hasPendingImport: Bool) -> String {
++        let base = "\(sourceLabel(for: draft.source)) draft"
++        return hasPendingImport ? "\(base) - pending import" : base
++    }
++
++    private static func sourceLabel(for source: CaptureDraftSource) -> String {
++        switch source {
++        case .text:
++            "Text"
++        case .url:
++            "URL"
++        case .image:
++            "Image"
++        case .cameraImage:
++            "Camera image"
++        case .photoLibraryImage:
++            "Photo library image"
++        case .shareSheetURL:
++            "Share sheet URL"
++        case .jsonLD:
++            "JSON-LD"
++        case .videoURL:
++            "Video URL"
++        }
++    }
++}
++
++public struct CaptureDraftEntityIndexPurgePlan: Equatable, Sendable {
++    public enum Reason: String, Codable, Equatable, Sendable {
++        case accountScopeChanged
++        case cacheDeleted
++        case draftDiscarded
++    }
++
++    public let identifiers: [String]
++    public let domainIdentifiers: [String]
++    public let reason: Reason
++
++    public init(identifiers: [String], domainIdentifiers: [String], reason: Reason) {
++        self.identifiers = identifiers
++        self.domainIdentifiers = domainIdentifiers
++        self.reason = reason
++    }
++
++    public static func accountScopePurge(
++        appSnapshot: NativeAppSnapshot?,
++        cacheSnapshot: NativeDurableCacheSnapshot?,
++        accountID: String?,
++        environment: NativeCacheEnvironment?
++    ) -> CaptureDraftEntityIndexPurgePlan {
++        let appDraftIDs = appSnapshot?.captureDraft.map { [$0.id] } ?? []
++        let cacheDraftIDs = cacheSnapshot?.records.compactMap { record -> String? in
++            guard case NativeCacheDomain.captureDraft(let id) = record.metadata.domain else {
++                return nil
++            }
++            return id
++        } ?? []
++        return scopedPlan(
++            accountID: accountID,
++            environment: environment,
++            draftIDs: appDraftIDs + cacheDraftIDs,
++            includeDomain: true,
++            reason: .accountScopeChanged
++        )
++    }
++
++    public static func cacheDeletePurge(
++        deletedRecordDomains: [NativeCacheDomain],
++        accountID: String?,
++        environment: NativeCacheEnvironment?
++    ) -> CaptureDraftEntityIndexPurgePlan {
++        let draftIDs = deletedRecordDomains.compactMap { domain -> String? in
++            guard case .captureDraft(let id) = domain else {
++                return nil
++            }
++            return id
++        }
++        return scopedPlan(
++            accountID: accountID,
++            environment: environment,
++            draftIDs: draftIDs,
++            includeDomain: false,
++            reason: .cacheDeleted
++        )
++    }
++
++    public static func draftDiscardPurge(
++        draftID: String,
++        accountID: String?,
++        environment: NativeCacheEnvironment?
++    ) -> CaptureDraftEntityIndexPurgePlan {
++        scopedPlan(
++            accountID: accountID,
++            environment: environment,
++            draftIDs: [draftID],
++            includeDomain: false,
++            reason: .draftDiscarded
++        )
++    }
++
++    private static func scopedPlan(
++        accountID: String?,
++        environment: NativeCacheEnvironment?,
++        draftIDs: [String],
++        includeDomain: Bool,
++        reason: Reason
++    ) -> CaptureDraftEntityIndexPurgePlan {
++        guard let accountID,
++              let environment else {
++            return CaptureDraftEntityIndexPurgePlan(identifiers: [], domainIdentifiers: [], reason: reason)
++        }
++
++        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
++        let identifiers = CaptureDraftEntityCatalog.uniquePreservingOrder(draftIDs).map { draftID in
++            SpotlightIndexPlan.captureDraftUniqueIdentifier(draftID: draftID, scope: spotlightScope)
++        }
++        let domainIdentifiers = includeDomain ? [SpotlightIndexPlan.captureDraftDomainIdentifier(scope: spotlightScope)] : []
++        return CaptureDraftEntityIndexPurgePlan(
++            identifiers: identifiers,
++            domainIdentifiers: domainIdentifiers,
++            reason: reason
++        )
++    }
++}
++
++public struct CaptureDraftEntityCatalog: Sendable {
++    private let scope: CaptureDraftEntityScope?
++    private let records: [CaptureDraftRecord]
++
++    public init(
++        appSnapshot: NativeAppSnapshot?,
++        cacheSnapshot: NativeDurableCacheSnapshot?,
++        currentAccountID: String?,
++        environment: NativeCacheEnvironment
++    ) {
++        guard let currentAccountID else {
++            scope = nil
++            records = []
++            return
++        }
++
++        scope = CaptureDraftEntityScope(accountID: currentAccountID, environment: environment)
++        var keyedRecords: [String: CaptureDraftRecord] = [:]
++
++        if let appSnapshot,
++           appSnapshot.isScoped(accountID: currentAccountID, environment: environment),
++           let draft = appSnapshot.captureDraft {
++            let hasProviderBlocker = appSnapshot.captureImportProviderBlocker?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
++            let hasPendingImport = Self.pendingImport(appSnapshot.pendingCaptureImport, matches: draft) || hasProviderBlocker
++            keyedRecords[draft.id] = CaptureDraftRecord(draft: draft, hasPendingImport: hasPendingImport)
++        }
++
++        if let cacheSnapshot,
++           cacheSnapshot.accountID == currentAccountID,
++           cacheSnapshot.environment == environment {
++            for record in cacheSnapshot.records {
++                guard record.metadata.accountID == currentAccountID,
++                      record.metadata.environment == environment,
++                      case NativeCachePayload.captureDraft(let id, let source) = record.payload,
++                      keyedRecords[id] == nil,
++                      let draft = Self.captureDraft(id: id, source: source, fetchedAt: record.metadata.fetchedAt) else {
++                    continue
++                }
++                keyedRecords[id] = CaptureDraftRecord(draft: draft, hasPendingImport: false)
++            }
++        }
++
++        records = keyedRecords.values.sorted { left, right in
++            if left.draft.createdAt == right.draft.createdAt {
++                return left.draft.id < right.draft.id
++            }
++            return left.draft.createdAt > right.draft.createdAt
++        }
++    }
++
++    public static func loading(
++        appStateStore: NativeAppStateStore,
++        cacheStore: NativeDurableCacheStore,
++        currentAccountID: String?,
++        environment: NativeCacheEnvironment,
++        now: Date = Date()
++    ) async throws -> CaptureDraftEntityCatalog {
++        let savedAt = isoString(now)
++        let appFallback = NativeAppSnapshot
++            .bootstrap(
++                shoppingList: nil,
++                accountID: currentAccountID,
++                environment: environment,
++                savedAt: savedAt
++            )
++            .completingFirstRun(savedAt: savedAt)
++        let appSnapshot = try appStateStore.loadOrCreate(fallback: appFallback).value
++        let cacheFallback = try NativeDurableCacheSnapshot(
++            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
++            accountID: currentAccountID ?? "signed-out",
++            environment: environment,
++            createdAt: now,
++            records: [],
++            dismissedIndicators: []
++        )
++        let cacheSnapshot = try cacheStore.loadOrRecover(fallback: cacheFallback).value
++        return CaptureDraftEntityCatalog(
++            appSnapshot: appSnapshot,
++            cacheSnapshot: cacheSnapshot,
++            currentAccountID: currentAccountID,
++            environment: environment
++        )
++    }
++
++    public func captureDraftEntity(id: String) async throws -> CaptureDraftEntityDescriptor {
++        let scope = try ensureScopeAvailable()
++        let draftID = try canonicalRawCaptureDraftIdentifier(id, scope: scope)
++        guard let record = records.first(where: { $0.draft.id == draftID }) else {
++            throw CaptureDraftEntityCatalogError.captureDraftNotFound(draftID)
++        }
++        return CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport)
++    }
++
++    public func captureDraftEntities(for identifiers: [String]) async throws -> [CaptureDraftEntityDescriptor] {
++        let scope = try ensureScopeAvailable()
++        var entities: [CaptureDraftEntityDescriptor] = []
++        for identifier in identifiers {
++            guard let draftID = try? Self.resolvedCaptureDraftID(
++                from: identifier,
++                accountID: scope.accountID,
++                environment: scope.environment
++            ),
++            let record = records.first(where: { $0.draft.id == draftID }) else {
++                continue
++            }
++            entities.append(CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport))
++        }
++        return entities
++    }
++
++    public func captureDraftEntities(matching string: String) async throws -> [CaptureDraftEntityDescriptor] {
++        guard let scope else {
++            return []
++        }
++        let query = normalizedQuery(string)
++        let matches = query.isEmpty ? records : records.filter { record in
++            let descriptor = CaptureDraftEntityDescriptor(
++                draft: record.draft,
++                scope: scope,
++                hasPendingImport: record.hasPendingImport
++            )
++            return descriptor.title.localizedCaseInsensitiveContains(query) ||
++                descriptor.subtitle.localizedCaseInsensitiveContains(query) ||
++                descriptor.source.rawValue.localizedCaseInsensitiveContains(query)
++        }
++        return matches.map { CaptureDraftEntityDescriptor(draft: $0.draft, scope: scope, hasPendingImport: $0.hasPendingImport) }
++    }
++
++    public func suggestedCaptureDraftEntities(limit: Int = 10) async throws -> [CaptureDraftEntityDescriptor] {
++        guard let scope else {
++            return []
++        }
++        return records.prefix(max(0, limit)).map { record in
++            CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport)
++        }
++    }
++
++    public static func captureDraftEntityIdentifier(
++        draftID: String,
++        accountID: String,
++        environment: NativeCacheEnvironment
++    ) -> String {
++        "capture-draft:\(environment.rawValue):\(accountID):\(draftID)"
++    }
++
++    public static func resolvedCaptureDraftID(
++        from identifier: String,
++        accountID: String,
++        environment: NativeCacheEnvironment
++    ) throws -> String {
++        let parts = identifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
++        guard parts.count == 4,
++              parts[0] == "capture-draft",
++              parts[1] == environment.rawValue,
++              parts[2] == accountID,
++              !parts[3].isEmpty else {
++            throw CaptureDraftEntityCatalogError.invalidIdentifier(identifier)
++        }
++        return parts[3]
++    }
++
++    public static func purgeEntityIdentifiers(
++        accountID: String,
++        environment: NativeCacheEnvironment,
++        plan: CaptureDraftEntityIndexPurgePlan
++    ) -> [String] {
++        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
++        let expectedPrefix = "\(spotlightScope.identifierPrefix)|\(SpotlightIndexType.captureDraft.rawValue)|"
++        guard plan.identifiers.allSatisfy({ $0.hasPrefix(expectedPrefix) }) else {
++            return []
++        }
++        return plan.identifiers
++    }
++
++    public static func purgeDomainIdentifiers(
++        accountID: String,
++        environment: NativeCacheEnvironment,
++        plan: CaptureDraftEntityIndexPurgePlan
++    ) -> [String] {
++        let expectedDomain = SpotlightIndexPlan.captureDraftDomainIdentifier(
++            scope: SpotlightIndexScope(accountID: accountID, environment: environment)
++        )
++        return plan.domainIdentifiers.filter { $0 == expectedDomain }
++    }
++
++    public static func uniquePreservingOrder(_ values: [String]) -> [String] {
++        var seen = Set<String>()
++        return values.filter { seen.insert($0).inserted }
++    }
++
++    private func ensureScopeAvailable() throws -> CaptureDraftEntityScope {
++        guard let scope else {
++            throw CaptureDraftEntityCatalogError.unavailableForScope(accountID: nil, environment: nil)
++        }
++        return scope
++    }
++
++    private func canonicalRawCaptureDraftIdentifier(_ rawValue: String, scope: CaptureDraftEntityScope) throws -> String {
++        if let draftID = try? Self.resolvedCaptureDraftID(
++            from: rawValue,
++            accountID: scope.accountID,
++            environment: scope.environment
++        ) {
++            return draftID
++        }
++
++        let id = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
++        guard
++            !id.isEmpty,
++            !id.contains("/"),
++            !id.contains("\\"),
++            !id.contains(".."),
++            id != ".",
++            id != "..",
++            id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
++        else {
++            throw CaptureDraftEntityCatalogError.invalidIdentifier(rawValue)
++        }
++        return id
++    }
++
++    private func normalizedQuery(_ rawValue: String) -> String {
++        rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
++    }
++
++    private static func pendingImport(_ mutation: NativeQueuedMutation?, matches draft: CaptureDraft) -> Bool {
++        guard let mutation,
++              let source = try? draft.importSource() else {
++            return false
++        }
++        return mutation.recipeImportSource == source
++    }
++
++    private static func captureDraft(
++        id: String,
++        source: NativeCaptureDraftCacheSource,
++        fetchedAt: Date
++    ) -> CaptureDraft? {
++        let createdAt = isoString(fetchedAt)
++        switch source {
++        case .shareSheetURL(let rawURL):
++            guard let url = URL(string: rawURL) else {
++                return nil
++            }
++            return try? CaptureDraft.shareSheetURL(id: id, url: url, createdAt: createdAt)
++        case .text(let text):
++            return try? CaptureDraft.localText(id: id, rawText: text, createdAt: createdAt)
++        case .imageAsset:
++            return nil
++        }
++    }
++
++    private static func isoString(_ date: Date) -> String {
++        let formatter = ISO8601DateFormatter()
++        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
++        return formatter.string(from: date)
++    }
++}
++
++private struct CaptureDraftRecord: Sendable {
++    let draft: CaptureDraft
++    let hasPendingImport: Bool
++}
+diff --git a/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift b/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift
+index a6c8e43..dbe0578 100644
+--- a/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift
++++ b/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift
+@@ -49,7 +49,9 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
+             "SpoonjoyShoppingListEntityQuery",
+             "SpoonjoyShoppingItemEntityQuery",
+             "SpoonjoySpoonEntity",
+-            "SpoonjoySpoonEntityQuery"
++            "SpoonjoySpoonEntityQuery",
++            "SpoonjoyCaptureDraftEntity",
++            "SpoonjoyCaptureDraftEntityQuery"
+         ],
+         spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item"],
+         searchableScopes: ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
+diff --git a/Sources/SpoonjoyCore/Native/NativeIntentAction.swift b/Sources/SpoonjoyCore/Native/NativeIntentAction.swift
+index d59cc2e..59cc06c 100644
+--- a/Sources/SpoonjoyCore/Native/NativeIntentAction.swift
++++ b/Sources/SpoonjoyCore/Native/NativeIntentAction.swift
+@@ -10,6 +10,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
+     case unresolvedRecipeEntity
+     case unresolvedShoppingItemEntity
+     case unresolvedSpoonEntity
++    case unresolvedCaptureDraftEntity
+ 
+     public var description: String {
+         switch self {
+@@ -31,6 +32,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
+             "Choose a Spoonjoy shopping item before running this Siri action."
+         case .unresolvedSpoonEntity:
+             "Choose a Spoonjoy cook log before running this Siri action."
++        case .unresolvedCaptureDraftEntity:
++            "Choose a Spoonjoy capture draft before running this Siri action."
+         }
+     }
+ }
+diff --git a/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift b/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift
+index 0bd55f8..ddadbc6 100644
+--- a/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift
++++ b/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift
+@@ -167,6 +167,27 @@ public enum ScenarioVerifier {
+                         "ShoppingListState.decodeFromBundle()"
+                     ]
+                 ),
++                sourceCheck(
++                    name: "capture draft App Entity source",
++                    detail: "Capture draft App Entity integration source is present.",
++                    rootURL: rootURL,
++                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift",
++                    tokens: [
++                        "#if canImport(AppIntents)",
++                        "import AppIntents",
++                        "import CoreTransferable",
++                        "import SpoonjoyCore",
++                        "SpoonjoyCaptureDraftEntity",
++                        "SpoonjoyCaptureDraftEntityQuery",
++                        "CaptureDraftEntityCatalog",
++                        "EntityStringQuery",
++                        "NativeAppStateStore",
++                        "NativeDurableCacheStore"
++                    ],
++                    forbiddenTokens: [
++                        "ShoppingListState.decodeFromBundle()"
++                    ]
++                ),
+                 sourceCheck(
+                     name: "spotlight source",
+                     detail: "CoreSpotlight integration source is present.",
+diff --git a/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift b/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift
+index f49a755..3a4b1d5 100644
+--- a/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift
++++ b/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift
+@@ -5,6 +5,7 @@ public enum SpotlightIndexType: String, Equatable, Sendable {
+     case cookbook
+     case spoon
+     case shoppingListItem = "shopping-list-item"
++    case captureDraft = "capture-draft"
+ }
+ 
+ public struct SpotlightIndexDocument: Equatable, Sendable {
+@@ -139,6 +140,14 @@ public enum SpotlightIndexPlan {
+         "\(scope.domainPrefix).\(SpotlightIndexType.spoon.rawValue)"
+     }
+ 
++    public static func captureDraftUniqueIdentifier(draftID: String, scope: SpotlightIndexScope) -> String {
++        "\(scope.identifierPrefix)|\(SpotlightIndexType.captureDraft.rawValue)|\(draftID)"
++    }
++
++    public static func captureDraftDomainIdentifier(scope: SpotlightIndexScope) -> String {
++        "\(scope.domainPrefix).\(SpotlightIndexType.captureDraft.rawValue)"
++    }
++
+     public static func route(uniqueIdentifier: String) -> AppRoute {
+         let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+         guard parts.count == 4,
+@@ -161,6 +170,9 @@ public enum SpotlightIndexPlan {
+         case .shoppingListItem:
+             guard isSafeObjectID(id) else { return .unknownLink }
+             return .shoppingList
++        case .captureDraft:
++            guard isSafeObjectID(id) else { return .unknownLink }
++            return .capture
+         }
+     }
+ 
+diff --git a/Spoonjoy.xcodeproj/project.pbxproj b/Spoonjoy.xcodeproj/project.pbxproj
+index 05f51c3..7444867 100644
+--- a/Spoonjoy.xcodeproj/project.pbxproj
++++ b/Spoonjoy.xcodeproj/project.pbxproj
+@@ -7,163 +7,143 @@
+ 	objects = {
+ 
+ /* Begin PBXBuildFile section */
+-		013023130088599966ECD9B93FD480C9 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC0E9796B071BA2C0550D1221D69D78 /* PlatformNavigationView.swift */; };
+-		060F1C4CC95CCC6FA349C02104199447 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263FCBDE090DE10A253203191D9826C4 /* SpoonjoyRootView.swift */; };
+-		061C8134146BCDA066B7FAE35A77A349 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F535F98E028A8ED0CF13D767044FAF /* SignedOutSetupView.swift */; };
+-		08B881328E134E071914F86DE115D852 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093C82E73B9F2395371CD483143488F2 /* OfflineStatusView.swift */; };
+-		0CC256596D824CEE31A760F1E3AC9DB4 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA39A47A0CB9A3510D42CF84759AB4C /* KitchenView.swift */; };
+-		0DAE584C3CBA0412ECE7806CC1B115A4 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = F18BFBDCA67C6CA44C8B1687E74229B3 /* SpoonjoyCore */; };
+-		10F18C1DDC6EB520123A5032E2718C2D /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B0D906CD74F88D58383A8B904DFFA4 /* RecipeCoverControlsView.swift */; };
+-		14A2991822AF7956EF2E80C55FED16EA /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 378FF2AAAE4847F7C4DDD034D22DA842 /* SpoonjoyAppIntents.swift */; };
+-		14FC0A96BB88DC3E01EB344C1C9289D9 /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0852F33182F67D61371E2C2446603D6 /* RecipeEditorView.swift */; };
+-		16D5669B5F02A3A01AC4398E16C16479 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 729C7504B687BFCB072AF3D245BDBF87 /* ShoppingListView.swift */; };
+-		17519FB3C9031B82A530C42A5D32FBCC /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C58161A712600CDD46B35749DFA1F3A /* ShareActions.swift */; };
+-		1AA06BEE104E04AC15A2C8776AC61AB3 /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9994A374DEB09337476329DFBBB128 /* SpoonjoyShoppingEntities.swift */; };
+-		225F3299047290CA102F129A57D9DE34 /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8BE66F44CA3281DE6B474FB6946ECE /* RecipesView.swift */; };
+-		239D21A6F4C8BC44D5E7051F355D2D32 /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22A99DBF179656BE6F227DD68A893135 /* SpoonjoySpoonEntities.swift */; };
+-		23DB231A3AA47C0BE1246088A1F06D85 /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E08A188B962D9831D66E240AD8733E9 /* SpoonCookLogView.swift */; };
+-		30964796E13E86409129E97B0F7AD75F /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F535F98E028A8ED0CF13D767044FAF /* SignedOutSetupView.swift */; };
+-		31D6E8FEE0994B890868E29C518E987C /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 093C82E73B9F2395371CD483143488F2 /* OfflineStatusView.swift */; };
+-		32F44A5325CCA476906D301208DB7241 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 729C7504B687BFCB072AF3D245BDBF87 /* ShoppingListView.swift */; };
+-		4098251A433649958D02B7F15824463C /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F012B36ADAE092779E5514A319AB3FE /* ProfileView.swift */; };
+-		434613AE31A8EDBFECDA08030A00A03C /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617905450EDD57FEAC09F9EF86E26A11 /* SpoonjoyApp.swift */; };
+-		44A0BAD64B0ED8423CA15861E06FBB34 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4798513ED4CED1D716E2FFCBA9F40C29 /* SettingsView.swift */; };
+-		523F1EC3435FDFFFFBC0E7B3B54C2E7D /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0852F33182F67D61371E2C2446603D6 /* RecipeEditorView.swift */; };
+-		55FA6CFBF75F360FDE9154C4657A4697 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5B0645D01157CDCB51584862C62905 /* NotificationAPNsSettingsView.swift */; };
+-		562B9E6C23E1611E27D70FFB97829ABB /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FE9E12C7A8C4AD9F6FB98C906D7606 /* RecipeCoverImage.swift */; };
+-		569767F1432315F9FAEE2908FD9E02FB /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9AE8FA99CE581699E9971CD92E4369 /* ReceiptListView.swift */; };
+-		593A785713CD2CF962AE35D7806C5578 /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E08A188B962D9831D66E240AD8733E9 /* SpoonCookLogView.swift */; };
+-		5EE48D1EDCDFE86ABCFCE5DCFE595527 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C75C0BDC8B72400E0407432D471B5F56 /* RecipeDetailView.swift */; };
+-		61C5F81F7133F95AD4A74C2D8588E81F /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F012B36ADAE092779E5514A319AB3FE /* ProfileView.swift */; };
+-		656E28B34168F6A5DCCAFA0F686FA405 /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D894A5857D11688C22D5DB69F48C0 /* NotificationAPNsDeviceBridge.swift */; };
+-		65AB0699F69AED32EAD8F318A911792B /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6940FE0277ED2315CFA363876279E30A /* KitchenTableTheme.swift */; };
+-		670A842B6CEEFFD1908C385D54EC64C9 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA566B7093E1057684BB88E5D1103568 /* SpoonjoySpotlightIndexer.swift */; };
+-		68C494FA8137F39EB203CFA873339D14 /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202D894A5857D11688C22D5DB69F48C0 /* NotificationAPNsDeviceBridge.swift */; };
+-		6D751B224F95139E3126DB7FEDC7E8A5 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE835D5EEB326DB08C72190EFA5CA9E5 /* CaptureDraftView.swift */; };
+-		6E69C59520DD923093D4A8CCA9770333 /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E9994A374DEB09337476329DFBBB128 /* SpoonjoyShoppingEntities.swift */; };
+-		7D45BCE4CD98132B983ABA6D733DDE22 /* SpoonjoyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3F08622F93CDB5AB6EB1CFBEEC3E86 /* SpoonjoyMacApp.swift */; };
+-		7EB8A1E9277E1193AA45253253059631 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9240B4943A5DB5BB2B24D789D622104E /* Assets.xcassets */; };
+-		7F4DBCCA16CACD1ABF3B7FC8831B5EC9 /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 617905450EDD57FEAC09F9EF86E26A11 /* SpoonjoyApp.swift */; };
+-		8404BDC6487CCF23FC80D262D036E581 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71989C2943FAAABDE7B9CAB4103D39DC /* CookbooksView.swift */; };
+-		8741C790F8FAA4E73D7FEC93C9649DB5 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263FCBDE090DE10A253203191D9826C4 /* SpoonjoyRootView.swift */; };
+-		8AD591421A42D078A525DAAF013545E9 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 378FF2AAAE4847F7C4DDD034D22DA842 /* SpoonjoyAppIntents.swift */; };
+-		8C80F290AC9D8DC3EC3A25DD53CD5763 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C3B5C5B2FBBA00C37195AE854012463 /* SearchView.swift */; };
+-		92F1511442694A674804FCAD83624756 /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B0D906CD74F88D58383A8B904DFFA4 /* RecipeCoverControlsView.swift */; };
+-		94B00B1081837F7FFBC087EBE2B92814 /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22A99DBF179656BE6F227DD68A893135 /* SpoonjoySpoonEntities.swift */; };
+-		9788A71FDDB87111D57CA272C4E6DCCA /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6161F58470016EE63977A27E77AB5C /* KitchenSafeControls.swift */; };
+-		9798D2691CFB0C1254D83982F398411A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9240B4943A5DB5BB2B24D789D622104E /* Assets.xcassets */; };
+-		9A1EED17CCC92F9C56E6B98395C6CEF2 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BE9B30479CD7D008309292FDEE9630 /* CookModeView.swift */; };
+-		A3233F85A4153C53D217DEBE3C6956C6 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA566B7093E1057684BB88E5D1103568 /* SpoonjoySpotlightIndexer.swift */; };
+-		B0453F74C827B996493C148367B92DBA /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BE9B30479CD7D008309292FDEE9630 /* CookModeView.swift */; };
+-		B3C1C9AC92AAF3EF470839A17CDF5260 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71989C2943FAAABDE7B9CAB4103D39DC /* CookbooksView.swift */; };
+-		B441612DA41DFA711F02B33860F6D958 /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BE412952EE441073966210EF431FC63 /* SpoonjoyWebAuthenticationSession.swift */; };
+-		B5B1D59DED9D03D55491B7E9AA6256D0 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C3B5C5B2FBBA00C37195AE854012463 /* SearchView.swift */; };
+-		B6BE98435B512D91CDD7430D7656060A /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06ACEB95261A5969F87A745DFB51CF8 /* SpoonjoyToolbar.swift */; };
+-		BAC6EA363B648E93E11AE8BBA246AA3F /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BE412952EE441073966210EF431FC63 /* SpoonjoyWebAuthenticationSession.swift */; };
+-		BCE48D2AD2CE060A013F2014B588960A /* SpoonjoyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A005E0C408A4C6C943F7C297D2EB64F /* SpoonjoyiOSApp.swift */; };
+-		BFA156FDE3905C625F66B98A5AA788E7 /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FE9E12C7A8C4AD9F6FB98C906D7606 /* RecipeCoverImage.swift */; };
+-		C342DFF3AE9B094272B1C5A63DA89A6E /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EA39A47A0CB9A3510D42CF84759AB4C /* KitchenView.swift */; };
+-		CA37FB8D28F62E4AB50604C1041DFA4C /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6940FE0277ED2315CFA363876279E30A /* KitchenTableTheme.swift */; };
+-		CDB2FC32B68F847C7A4BA9E5D07E77D4 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = B9FB8EB1603A799E13571BDD31BA9E05 /* SpoonjoyCore */; };
+-		D687EA99E5CE924697A43C977A6EC03D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4798513ED4CED1D716E2FFCBA9F40C29 /* SettingsView.swift */; };
+-		D6BB2EF61499C7FA2E799684F235FB55 /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF01BB906C3F64F9106F1CA486A953E /* SpoonjoyRecipeCookbookEntities.swift */; };
+-		DC105F60B1FFF8B3EC34484B2535C51E /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A8BE66F44CA3281DE6B474FB6946ECE /* RecipesView.swift */; };
+-		E3B468A0E7C05EBEFCBF1CFE45CCAF78 /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F06ACEB95261A5969F87A745DFB51CF8 /* SpoonjoyToolbar.swift */; };
+-		E402F343052E251B63F5EFDC557F7796 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C75C0BDC8B72400E0407432D471B5F56 /* RecipeDetailView.swift */; };
+-		E48B66A0A08D27DBFAADA1C552CF94C1 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE835D5EEB326DB08C72190EFA5CA9E5 /* CaptureDraftView.swift */; };
+-		E69AB955728998A1213806E7755951B1 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6161F58470016EE63977A27E77AB5C /* KitchenSafeControls.swift */; };
+-		EBD5EAD438A145F2DBE3913D8A14DA72 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC0E9796B071BA2C0550D1221D69D78 /* PlatformNavigationView.swift */; };
+-		F1D5C3CBE92907A411AF2A883F1E0200 /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF01BB906C3F64F9106F1CA486A953E /* SpoonjoyRecipeCookbookEntities.swift */; };
+-		F4FB1BC0C17D8864F9E5EAB07D14E411 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9AE8FA99CE581699E9971CD92E4369 /* ReceiptListView.swift */; };
+-		FB7FF25CF38603F63BE026F460821DC5 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD5B0645D01157CDCB51584862C62905 /* NotificationAPNsSettingsView.swift */; };
+-		FB8E50088E746A341CAAE4256238747E /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C58161A712600CDD46B35749DFA1F3A /* ShareActions.swift */; };
++		0A5E815D9C8C598A073FDE8AC481E54D /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5AD72D7622F19DB061EC3F7591B4FEC /* SpoonjoyRecipeCookbookEntities.swift */; };
++		0A769F8747E22F860CD200C7852DEBF6 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28CAE75F8C6CA33D184F9C4906FF6543 /* SignedOutSetupView.swift */; };
++		0C87D3FAFDC123D735147828068DA839 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA377E43A5B2462989CDC5934FB0FB0 /* SettingsView.swift */; };
++		107B7649D8F1A95BE4071D25289A0809 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4D5841CC06DCF98EC51266C3FB63C2 /* KitchenSafeControls.swift */; };
++		1267BB00A0355576A4A4A2CF4F456F8C /* SpoonjoyCaptureDraftEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE8A5FF0C3C902EEBF403039D6268CDE /* SpoonjoyCaptureDraftEntities.swift */; };
++		1897BE67850AE66CD3FE616B3B546A44 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582B0D95E7EA19BA30CFF2BF9357714E /* PlatformNavigationView.swift */; };
++		18E0940A59D3E180B5C4593427079E0F /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4908D57E5CE69E6C9AFB8D9F8BA4FB53 /* ShoppingListView.swift */; };
++		1941869FE80A815DC88BCC502DB2BF0E /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC5092B2CEE03007B49110DD4BA7D7F /* SpoonjoySpoonEntities.swift */; };
++		1BD4AC4FD0F034EE45344FB3CE22ED2C /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0F6190AF73679B5479F3B6BE599EFD /* SpoonjoyApp.swift */; };
++		1EEE947F78200BCCBE4D7DDF502AF998 /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163A4AF6F362E3A2DEF4B4A13DC8A404 /* RecipeCoverImage.swift */; };
++		1FC526B13F23F449843E2DDC74F8C152 /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD37E6AF286E7B82936F39F46C82B076 /* RecipeCoverControlsView.swift */; };
++		28C5599C49277704452AD6E54A3F6D25 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B971C3E421EC955752143E1414D6D282 /* SearchView.swift */; };
++		295944FF84578AC893DAD80C3A33DB0D /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = B1F59A47545737EAF9625C2D611CF161 /* SpoonjoyCore */; };
++		2E0863E99A6F86BD22CD1AF063861030 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586065794BDD9A55E80F9027C58D2262 /* KitchenView.swift */; };
++		2E1B6F4D7C4903524F786AC411E90B17 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162CBF36ACC6B6805EA3033BC44A0ED9 /* CookbooksView.swift */; };
++		2E680ADF83E09DA8F6060B6A8AB0C33F /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E502EF6C8BE66ACC67AB9B302A82B1 /* SpoonjoyShoppingEntities.swift */; };
++		2EE340B9D67944CFEA2E3535232F6D01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 614039A2B62BDA4241E0A6A8DFAF0EF0 /* Assets.xcassets */; };
++		2F78F6863A511F4395A1F9363D14BBCB /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0F6190AF73679B5479F3B6BE599EFD /* SpoonjoyApp.swift */; };
++		3359BC7C8A545D1B24B0FAB075FB23AD /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8497F8135E4FF71D9744875C959B2D84 /* SpoonjoyWebAuthenticationSession.swift */; };
++		381C9FA180E0225007E7B5E08F2B5F98 /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163A4AF6F362E3A2DEF4B4A13DC8A404 /* RecipeCoverImage.swift */; };
++		39FB9761D48201E86DA2F02CD7EC277F /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5AD72D7622F19DB061EC3F7591B4FEC /* SpoonjoyRecipeCookbookEntities.swift */; };
++		3C62FFAC76EDAD0D5B6D426427AE5787 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB2DF2AF1EBD5AF5EB9CA42EABFC2B5 /* ReceiptListView.swift */; };
++		418156710ADDCC612E9A0F07E8AD6A63 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B2516D355849E1C14A2B8434F48FCC7 /* OfflineStatusView.swift */; };
++		42258FBE265EB9E1E6FA71BF6088D7A0 /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573127D6375F87775653BF951C8573F5 /* SpoonCookLogView.swift */; };
++		453003D49FD2B25E8AB35F92533C57D8 /* SpoonjoyCaptureDraftEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE8A5FF0C3C902EEBF403039D6268CDE /* SpoonjoyCaptureDraftEntities.swift */; };
++		464B96B63A18C4898E2EA9EEF7177762 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21103979610089765C774A202AB7C675 /* SpoonjoyRootView.swift */; };
++		49F3D51ADEE0DF06FA63CE6586C131CD /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E27FE6C604F7A54D3915403125C51C36 /* NotificationAPNsDeviceBridge.swift */; };
++		4A4CA739B8046068F826DB5F371D6E9C /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD37E6AF286E7B82936F39F46C82B076 /* RecipeCoverControlsView.swift */; };
++		4B0313014CF64FFA7C859A9ED2740875 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28CAE75F8C6CA33D184F9C4906FF6543 /* SignedOutSetupView.swift */; };
++		4C117977E493736B8660800CF087F7B7 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152340339217922E72F603BB05291080 /* RecipeDetailView.swift */; };
++		50FE2945F2842721A74ED7A851C009BB /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A5F5CE06B7D33EE24FFF503F44E8FC /* SpoonjoyAppIntents.swift */; };
++		5A5853FAA4D0CBC6BC99899D0DE03405 /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B4C27D8AA136F79C617E868109272F /* RecipeEditorView.swift */; };
++		5B5BC46A9EC9FFDCD3EE68B2EC81851C /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C31D894EBAAB1E1EF77B1BFD7A7F3CC /* NotificationAPNsSettingsView.swift */; };
++		641DCC3AE50BD43AEEAAB3A68F6457C5 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B971C3E421EC955752143E1414D6D282 /* SearchView.swift */; };
++		6E2B496AF7AF173F8923D2B994ED98A3 /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC5092B2CEE03007B49110DD4BA7D7F /* SpoonjoySpoonEntities.swift */; };
++		73C9E91778C2A5F2A81AD474E86E641E /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C31D894EBAAB1E1EF77B1BFD7A7F3CC /* NotificationAPNsSettingsView.swift */; };
++		7478C062A8DB73DB80D754189CA36E56 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21103979610089765C774A202AB7C675 /* SpoonjoyRootView.swift */; };
++		76584CB0D18E0F92F0BA5D73EAF5AF35 /* SpoonjoyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A005E0C408A4C6C943F7C297D2EB64F /* SpoonjoyiOSApp.swift */; };
++		7712BECCFEC47E8ABCD2AACE047E373C /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3344EDDB9FAA25B7FF1E321224B2CEA /* CaptureDraftView.swift */; };
++		78128789F9CF10CA2DC8C6B913F45D85 /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C8D221B4FFAF8240F1BD528AA1A4B0 /* RecipesView.swift */; };
++		7A4CBAA780AE6A6EAD3DB6B6902B47E1 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B2516D355849E1C14A2B8434F48FCC7 /* OfflineStatusView.swift */; };
++		7B06D06B843EE580DDFE21F05E4FEB65 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4908D57E5CE69E6C9AFB8D9F8BA4FB53 /* ShoppingListView.swift */; };
++		889228BB192C4798B7D212B7D5F7EE36 /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 933C583D651A04F0ABB0042B66B110B1 /* ShareActions.swift */; };
++		88DC6D62F6A171C03F490630CF5135A5 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5ECEAD511E3A024B617963FEFB1EFAA3 /* SpoonjoyCore */; };
++		88E0EFC0084F1B135004771E9DF73D15 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF64126E0B5A0250BE390F7ECDCD411 /* SpoonjoySpotlightIndexer.swift */; };
++		8B6C5CB9AC561EA24CE860510FEE8DE1 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4D5841CC06DCF98EC51266C3FB63C2 /* KitchenSafeControls.swift */; };
++		9076F80E6A70B85E1C0970AB772AD2E3 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582B0D95E7EA19BA30CFF2BF9357714E /* PlatformNavigationView.swift */; };
++		964A84193223A558FFAA613888432361 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FF64126E0B5A0250BE390F7ECDCD411 /* SpoonjoySpotlightIndexer.swift */; };
++		97D6259CB632F60C17DF1BFCC5B1ACC1 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE047DD308C10DF3F2FCC90A2B08D97A /* CookModeView.swift */; };
++		99F044403FB55723CB12205BF2A7737C /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 933C583D651A04F0ABB0042B66B110B1 /* ShareActions.swift */; };
++		A0552A6BCB7AD6A00B0FCFD2E6266D8A /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B4C27D8AA136F79C617E868109272F /* RecipeEditorView.swift */; };
++		A6C037E5ACD75A386EB1CE9D77872CAF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 614039A2B62BDA4241E0A6A8DFAF0EF0 /* Assets.xcassets */; };
++		A7780AB1C840EE572E3756C57AD7B9E0 /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F71FD026CFA1C7B8B538F375CECB9EE /* SpoonjoyToolbar.swift */; };
++		A7E7F2C46F1106613AA5866F1D0F73D1 /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8497F8135E4FF71D9744875C959B2D84 /* SpoonjoyWebAuthenticationSession.swift */; };
++		AC3E8462795D1A0E5C57AA0484E54D24 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EB2DF2AF1EBD5AF5EB9CA42EABFC2B5 /* ReceiptListView.swift */; };
++		ADB30B3C9A3AED18107CED42895FD24A /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A337950FD7823402C39E447DEE27D70 /* KitchenTableTheme.swift */; };
++		B212AE2660582D938DE47635A5A846EB /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B344E0E1FEBBDDA4A8C486B76CED8A03 /* ProfileView.swift */; };
++		C0047C316CB57AF2CE6C2C5695EA143E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA377E43A5B2462989CDC5934FB0FB0 /* SettingsView.swift */; };
++		C2926DF2E0457E89B63C9D924CDD1AA7 /* SpoonjoyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3F08622F93CDB5AB6EB1CFBEEC3E86 /* SpoonjoyMacApp.swift */; };
++		C5847A1BB44D468FDEAD68D1F0AD058E /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573127D6375F87775653BF951C8573F5 /* SpoonCookLogView.swift */; };
++		C73535B4D2ADD6DDA2B9381D800C7AA0 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE047DD308C10DF3F2FCC90A2B08D97A /* CookModeView.swift */; };
++		CD085428E3C386B3907180413EE912BE /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B344E0E1FEBBDDA4A8C486B76CED8A03 /* ProfileView.swift */; };
++		D827153BDFB4C5B051FC4B6249D77BE0 /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E502EF6C8BE66ACC67AB9B302A82B1 /* SpoonjoyShoppingEntities.swift */; };
++		D87053D17ADD1DC8DA22D4D28A96D8E3 /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A337950FD7823402C39E447DEE27D70 /* KitchenTableTheme.swift */; };
++		DAD5DB8407B1CC5351E3595C45EF7FAF /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586065794BDD9A55E80F9027C58D2262 /* KitchenView.swift */; };
++		DE323AB13BA4FE9E10AA9DF0792E3BF6 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162CBF36ACC6B6805EA3033BC44A0ED9 /* CookbooksView.swift */; };
++		E54FFB5E1998223B67F0196B2644CF42 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A5F5CE06B7D33EE24FFF503F44E8FC /* SpoonjoyAppIntents.swift */; };
++		E56F5CB61E044864AFA950D307E07DCE /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C8D221B4FFAF8240F1BD528AA1A4B0 /* RecipesView.swift */; };
++		F167475DACC538B7DC891D9145D72B7A /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E27FE6C604F7A54D3915403125C51C36 /* NotificationAPNsDeviceBridge.swift */; };
++		F84CE2751B1CD126CAC95AEBC578F1C4 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152340339217922E72F603BB05291080 /* RecipeDetailView.swift */; };
++		FB37699D63E0B236618579A362C823C6 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3344EDDB9FAA25B7FF1E321224B2CEA /* CaptureDraftView.swift */; };
++		FB61D9D05A8556BDFF7F6A74560F71BE /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F71FD026CFA1C7B8B538F375CECB9EE /* SpoonjoyToolbar.swift */; };
+ /* End PBXBuildFile section */
+ 
+ /* Begin PBXFileReference section */
+-		093C82E73B9F2395371CD483143488F2 /* OfflineStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineStatusView.swift; sourceTree = "<group>"; };
+-		1E9994A374DEB09337476329DFBBB128 /* SpoonjoyShoppingEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyShoppingEntities.swift; sourceTree = "<group>"; };
+-		202D894A5857D11688C22D5DB69F48C0 /* NotificationAPNsDeviceBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsDeviceBridge.swift; sourceTree = "<group>"; };
+-		22A99DBF179656BE6F227DD68A893135 /* SpoonjoySpoonEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpoonEntities.swift; sourceTree = "<group>"; };
+-		263FCBDE090DE10A253203191D9826C4 /* SpoonjoyRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRootView.swift; sourceTree = "<group>"; };
++		152340339217922E72F603BB05291080 /* RecipeDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeDetailView.swift; sourceTree = "<group>"; };
++		162CBF36ACC6B6805EA3033BC44A0ED9 /* CookbooksView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookbooksView.swift; sourceTree = "<group>"; };
++		163A4AF6F362E3A2DEF4B4A13DC8A404 /* RecipeCoverImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverImage.swift; sourceTree = "<group>"; };
++		21103979610089765C774A202AB7C675 /* SpoonjoyRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRootView.swift; sourceTree = "<group>"; };
++		27C8D221B4FFAF8240F1BD528AA1A4B0 /* RecipesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipesView.swift; sourceTree = "<group>"; };
++		28CAE75F8C6CA33D184F9C4906FF6543 /* SignedOutSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedOutSetupView.swift; sourceTree = "<group>"; };
++		2A337950FD7823402C39E447DEE27D70 /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
+ 		2E4D205787348B54CEE9FA6A14446717 /* Spoonjoy macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Spoonjoy macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+-		2EC0E9796B071BA2C0550D1221D69D78 /* PlatformNavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlatformNavigationView.swift; sourceTree = "<group>"; };
+-		34BE9B30479CD7D008309292FDEE9630 /* CookModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeView.swift; sourceTree = "<group>"; };
+-		378FF2AAAE4847F7C4DDD034D22DA842 /* SpoonjoyAppIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyAppIntents.swift; sourceTree = "<group>"; };
+-		3A8BE66F44CA3281DE6B474FB6946ECE /* RecipesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipesView.swift; sourceTree = "<group>"; };
+-		3BE412952EE441073966210EF431FC63 /* SpoonjoyWebAuthenticationSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyWebAuthenticationSession.swift; sourceTree = "<group>"; };
+-		3EA39A47A0CB9A3510D42CF84759AB4C /* KitchenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenView.swift; sourceTree = "<group>"; };
+-		4798513ED4CED1D716E2FFCBA9F40C29 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
++		4908D57E5CE69E6C9AFB8D9F8BA4FB53 /* ShoppingListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
+ 		4A005E0C408A4C6C943F7C297D2EB64F /* SpoonjoyiOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyiOSApp.swift; sourceTree = "<group>"; };
+-		4E08A188B962D9831D66E240AD8733E9 /* SpoonCookLogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonCookLogView.swift; sourceTree = "<group>"; };
++		573127D6375F87775653BF951C8573F5 /* SpoonCookLogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonCookLogView.swift; sourceTree = "<group>"; };
++		582B0D95E7EA19BA30CFF2BF9357714E /* PlatformNavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlatformNavigationView.swift; sourceTree = "<group>"; };
++		586065794BDD9A55E80F9027C58D2262 /* KitchenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenView.swift; sourceTree = "<group>"; };
++		5B4D5841CC06DCF98EC51266C3FB63C2 /* KitchenSafeControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenSafeControls.swift; sourceTree = "<group>"; };
+ 		5D3F08622F93CDB5AB6EB1CFBEEC3E86 /* SpoonjoyMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyMacApp.swift; sourceTree = "<group>"; };
+-		5F012B36ADAE092779E5514A319AB3FE /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+-		617905450EDD57FEAC09F9EF86E26A11 /* SpoonjoyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyApp.swift; sourceTree = "<group>"; };
++		5F71FD026CFA1C7B8B538F375CECB9EE /* SpoonjoyToolbar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyToolbar.swift; sourceTree = "<group>"; };
++		614039A2B62BDA4241E0A6A8DFAF0EF0 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+ 		63AB3B552FC5F219E8CEABEE06E3287B /* Spoonjoy iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Spoonjoy iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+-		6940FE0277ED2315CFA363876279E30A /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
+-		6C3B5C5B2FBBA00C37195AE854012463 /* SearchView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+-		6C58161A712600CDD46B35749DFA1F3A /* ShareActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareActions.swift; sourceTree = "<group>"; };
+-		6E255DEFB34F4FEBFC5D7482E5996C82 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+-		71989C2943FAAABDE7B9CAB4103D39DC /* CookbooksView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookbooksView.swift; sourceTree = "<group>"; };
+-		729C7504B687BFCB072AF3D245BDBF87 /* ShoppingListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
+-		73FE9E12C7A8C4AD9F6FB98C906D7606 /* RecipeCoverImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverImage.swift; sourceTree = "<group>"; };
+-		9240B4943A5DB5BB2B24D789D622104E /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+-		A0852F33182F67D61371E2C2446603D6 /* RecipeEditorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeEditorView.swift; sourceTree = "<group>"; };
+-		B2F535F98E028A8ED0CF13D767044FAF /* SignedOutSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedOutSetupView.swift; sourceTree = "<group>"; };
+-		B31A3085BBFF104E75A705047E5756CC /* Spoonjoy.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Spoonjoy.entitlements; sourceTree = "<group>"; };
+-		C75C0BDC8B72400E0407432D471B5F56 /* RecipeDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeDetailView.swift; sourceTree = "<group>"; };
+-		CF9AE8FA99CE581699E9971CD92E4369 /* ReceiptListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReceiptListView.swift; sourceTree = "<group>"; };
+-		DCF01BB906C3F64F9106F1CA486A953E /* SpoonjoyRecipeCookbookEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRecipeCookbookEntities.swift; sourceTree = "<group>"; };
+-		DE835D5EEB326DB08C72190EFA5CA9E5 /* CaptureDraftView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureDraftView.swift; sourceTree = "<group>"; };
+-		EF6161F58470016EE63977A27E77AB5C /* KitchenSafeControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenSafeControls.swift; sourceTree = "<group>"; };
+-		F06ACEB95261A5969F87A745DFB51CF8 /* SpoonjoyToolbar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyToolbar.swift; sourceTree = "<group>"; };
+-		F3B0D906CD74F88D58383A8B904DFFA4 /* RecipeCoverControlsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverControlsView.swift; sourceTree = "<group>"; };
+-		FA566B7093E1057684BB88E5D1103568 /* SpoonjoySpotlightIndexer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpotlightIndexer.swift; sourceTree = "<group>"; };
+-		FD5B0645D01157CDCB51584862C62905 /* NotificationAPNsSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsSettingsView.swift; sourceTree = "<group>"; };
++		6AA377E43A5B2462989CDC5934FB0FB0 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
++		6B2516D355849E1C14A2B8434F48FCC7 /* OfflineStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineStatusView.swift; sourceTree = "<group>"; };
++		6C31D894EBAAB1E1EF77B1BFD7A7F3CC /* NotificationAPNsSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsSettingsView.swift; sourceTree = "<group>"; };
++		79A5F5CE06B7D33EE24FFF503F44E8FC /* SpoonjoyAppIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyAppIntents.swift; sourceTree = "<group>"; };
++		79E502EF6C8BE66ACC67AB9B302A82B1 /* SpoonjoyShoppingEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyShoppingEntities.swift; sourceTree = "<group>"; };
++		7EB2DF2AF1EBD5AF5EB9CA42EABFC2B5 /* ReceiptListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReceiptListView.swift; sourceTree = "<group>"; };
++		81A4253647CC81990432FDC0B47655F8 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
++		8497F8135E4FF71D9744875C959B2D84 /* SpoonjoyWebAuthenticationSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyWebAuthenticationSession.swift; sourceTree = "<group>"; };
++		8FF64126E0B5A0250BE390F7ECDCD411 /* SpoonjoySpotlightIndexer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpotlightIndexer.swift; sourceTree = "<group>"; };
++		933C583D651A04F0ABB0042B66B110B1 /* ShareActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareActions.swift; sourceTree = "<group>"; };
++		A477889BA4E5A36C9B10C3F9AE753874 /* Spoonjoy.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Spoonjoy.entitlements; sourceTree = "<group>"; };
++		AD0F6190AF73679B5479F3B6BE599EFD /* SpoonjoyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyApp.swift; sourceTree = "<group>"; };
++		AD37E6AF286E7B82936F39F46C82B076 /* RecipeCoverControlsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverControlsView.swift; sourceTree = "<group>"; };
++		B344E0E1FEBBDDA4A8C486B76CED8A03 /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
++		B971C3E421EC955752143E1414D6D282 /* SearchView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
++		BE047DD308C10DF3F2FCC90A2B08D97A /* CookModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeView.swift; sourceTree = "<group>"; };
++		CEC5092B2CEE03007B49110DD4BA7D7F /* SpoonjoySpoonEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpoonEntities.swift; sourceTree = "<group>"; };
++		E27FE6C604F7A54D3915403125C51C36 /* NotificationAPNsDeviceBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsDeviceBridge.swift; sourceTree = "<group>"; };
++		E3344EDDB9FAA25B7FF1E321224B2CEA /* CaptureDraftView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureDraftView.swift; sourceTree = "<group>"; };
++		F1B4C27D8AA136F79C617E868109272F /* RecipeEditorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeEditorView.swift; sourceTree = "<group>"; };
++		F5AD72D7622F19DB061EC3F7591B4FEC /* SpoonjoyRecipeCookbookEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRecipeCookbookEntities.swift; sourceTree = "<group>"; };
++		FE8A5FF0C3C902EEBF403039D6268CDE /* SpoonjoyCaptureDraftEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCaptureDraftEntities.swift; sourceTree = "<group>"; };
+ /* End PBXFileReference section */
+ 
+ /* Begin PBXFrameworksBuildPhase section */
+-		765D944C3D09BE9AA02ECA7805F5635B /* Frameworks */ = {
++		1427896BC5F3C046151E8959D8AD04D0 /* Frameworks */ = {
+ 			isa = PBXFrameworksBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
+-				0DAE584C3CBA0412ECE7806CC1B115A4 /* SpoonjoyCore in Frameworks */,
++				295944FF84578AC893DAD80C3A33DB0D /* SpoonjoyCore in Frameworks */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		BE0D707B817309F7881AEAF11B9EA960 /* Frameworks */ = {
++		F85F302D29C8F9D115293C3A285E3A90 /* Frameworks */ = {
+ 			isa = PBXFrameworksBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
+-				CDB2FC32B68F847C7A4BA9E5D07E77D4 /* SpoonjoyCore in Frameworks */,
++				88DC6D62F6A171C03F490630CF5135A5 /* SpoonjoyCore in Frameworks */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ /* End PBXFrameworksBuildPhase section */
+ 
+ /* Begin PBXGroup section */
+-		0CFF2497C428D83890A95BEC8776F5E7 /* Native */ = {
+-			isa = PBXGroup;
+-			children = (
+-				202D894A5857D11688C22D5DB69F48C0 /* NotificationAPNsDeviceBridge.swift */,
+-				378FF2AAAE4847F7C4DDD034D22DA842 /* SpoonjoyAppIntents.swift */,
+-				DCF01BB906C3F64F9106F1CA486A953E /* SpoonjoyRecipeCookbookEntities.swift */,
+-				1E9994A374DEB09337476329DFBBB128 /* SpoonjoyShoppingEntities.swift */,
+-				22A99DBF179656BE6F227DD68A893135 /* SpoonjoySpoonEntities.swift */,
+-				FA566B7093E1057684BB88E5D1103568 /* SpoonjoySpotlightIndexer.swift */,
+-			);
+-			name = Native;
+-			path = Native;
+-			sourceTree = "<group>";
+-		};
+-		19CA8C25CC05060BF58F0A56784E540F /* Design */ = {
+-			isa = PBXGroup;
+-			children = (
+-				6940FE0277ED2315CFA363876279E30A /* KitchenTableTheme.swift */,
+-			);
+-			name = Design;
+-			path = Design;
+-			sourceTree = "<group>";
+-		};
+ 		515279DD6545E9596B784DC2FCB67B4F /* iOS */ = {
+ 			isa = PBXGroup;
+ 			children = (
+@@ -176,7 +156,7 @@
+ 			children = (
+ 				8435C077FED7681A019DF64031121D5B /* iOS */,
+ 				AEEE8888379A1805BF1899C1F2E7CAF0 /* macOS */,
+-				B7D084D7F00397861E3A8AD7C400884A /* Shared */,
++				AAEFF175521FA10FE3E7A30FCBE4F578 /* Shared */,
+ 			);
+ 			name = Spoonjoy;
+ 			path = Spoonjoy;
+@@ -209,78 +189,87 @@
+ 			path = iOS;
+ 			sourceTree = "<group>";
+ 		};
+-		8DD4B3A8E89BAE1925120F102C0C113D /* Components */ = {
++		91253A43E9C73F16CD628C3C50183556 /* Views */ = {
+ 			isa = PBXGroup;
+ 			children = (
+-				EF6161F58470016EE63977A27E77AB5C /* KitchenSafeControls.swift */,
+-				093C82E73B9F2395371CD483143488F2 /* OfflineStatusView.swift */,
+-				CF9AE8FA99CE581699E9971CD92E4369 /* ReceiptListView.swift */,
+-				73FE9E12C7A8C4AD9F6FB98C906D7606 /* RecipeCoverImage.swift */,
++				E3344EDDB9FAA25B7FF1E321224B2CEA /* CaptureDraftView.swift */,
++				162CBF36ACC6B6805EA3033BC44A0ED9 /* CookbooksView.swift */,
++				BE047DD308C10DF3F2FCC90A2B08D97A /* CookModeView.swift */,
++				586065794BDD9A55E80F9027C58D2262 /* KitchenView.swift */,
++				6C31D894EBAAB1E1EF77B1BFD7A7F3CC /* NotificationAPNsSettingsView.swift */,
++				B344E0E1FEBBDDA4A8C486B76CED8A03 /* ProfileView.swift */,
++				AD37E6AF286E7B82936F39F46C82B076 /* RecipeCoverControlsView.swift */,
++				152340339217922E72F603BB05291080 /* RecipeDetailView.swift */,
++				F1B4C27D8AA136F79C617E868109272F /* RecipeEditorView.swift */,
++				27C8D221B4FFAF8240F1BD528AA1A4B0 /* RecipesView.swift */,
++				B971C3E421EC955752143E1414D6D282 /* SearchView.swift */,
++				6AA377E43A5B2462989CDC5934FB0FB0 /* SettingsView.swift */,
++				4908D57E5CE69E6C9AFB8D9F8BA4FB53 /* ShoppingListView.swift */,
++				573127D6375F87775653BF951C8573F5 /* SpoonCookLogView.swift */,
+ 			);
+-			name = Components;
+-			path = Components;
++			name = Views;
++			path = Views;
+ 			sourceTree = "<group>";
+ 		};
+-		AEEE8888379A1805BF1899C1F2E7CAF0 /* macOS */ = {
++		A667B249F417DAC5B467A8D62927A468 /* AppShell */ = {
+ 			isa = PBXGroup;
+ 			children = (
+-				5D3F08622F93CDB5AB6EB1CFBEEC3E86 /* SpoonjoyMacApp.swift */,
++				582B0D95E7EA19BA30CFF2BF9357714E /* PlatformNavigationView.swift */,
++				933C583D651A04F0ABB0042B66B110B1 /* ShareActions.swift */,
++				28CAE75F8C6CA33D184F9C4906FF6543 /* SignedOutSetupView.swift */,
++				21103979610089765C774A202AB7C675 /* SpoonjoyRootView.swift */,
++				5F71FD026CFA1C7B8B538F375CECB9EE /* SpoonjoyToolbar.swift */,
+ 			);
+-			name = macOS;
+-			path = macOS;
++			name = AppShell;
++			path = AppShell;
+ 			sourceTree = "<group>";
+ 		};
+-		B3FD08E0E54306C0D903579B252EA3D4 /* Views */ = {
++		AAEFF175521FA10FE3E7A30FCBE4F578 /* Shared */ = {
+ 			isa = PBXGroup;
+ 			children = (
+-				DE835D5EEB326DB08C72190EFA5CA9E5 /* CaptureDraftView.swift */,
+-				71989C2943FAAABDE7B9CAB4103D39DC /* CookbooksView.swift */,
+-				34BE9B30479CD7D008309292FDEE9630 /* CookModeView.swift */,
+-				3EA39A47A0CB9A3510D42CF84759AB4C /* KitchenView.swift */,
+-				FD5B0645D01157CDCB51584862C62905 /* NotificationAPNsSettingsView.swift */,
+-				5F012B36ADAE092779E5514A319AB3FE /* ProfileView.swift */,
+-				F3B0D906CD74F88D58383A8B904DFFA4 /* RecipeCoverControlsView.swift */,
+-				C75C0BDC8B72400E0407432D471B5F56 /* RecipeDetailView.swift */,
+-				A0852F33182F67D61371E2C2446603D6 /* RecipeEditorView.swift */,
+-				3A8BE66F44CA3281DE6B474FB6946ECE /* RecipesView.swift */,
+-				6C3B5C5B2FBBA00C37195AE854012463 /* SearchView.swift */,
+-				4798513ED4CED1D716E2FFCBA9F40C29 /* SettingsView.swift */,
+-				729C7504B687BFCB072AF3D245BDBF87 /* ShoppingListView.swift */,
+-				4E08A188B962D9831D66E240AD8733E9 /* SpoonCookLogView.swift */,
++				A667B249F417DAC5B467A8D62927A468 /* AppShell */,
++				614039A2B62BDA4241E0A6A8DFAF0EF0 /* Assets.xcassets */,
++				D96951143B277F8EDF1520FF7BADF5AB /* Auth */,
++				BD2C2F87B685321C2051EC83BB09A47F /* Components */,
++				AFF31F90193597F35ACF10EB8535B8E2 /* Design */,
++				81A4253647CC81990432FDC0B47655F8 /* Info.plist */,
++				E19960546FA8DD5C153107FAACC1579F /* Native */,
++				A477889BA4E5A36C9B10C3F9AE753874 /* Spoonjoy.entitlements */,
++				AD0F6190AF73679B5479F3B6BE599EFD /* SpoonjoyApp.swift */,
++				91253A43E9C73F16CD628C3C50183556 /* Views */,
+ 			);
+-			name = Views;
+-			path = Views;
++			name = Shared;
++			path = Shared;
+ 			sourceTree = "<group>";
+ 		};
+-		B7D084D7F00397861E3A8AD7C400884A /* Shared */ = {
++		AEEE8888379A1805BF1899C1F2E7CAF0 /* macOS */ = {
+ 			isa = PBXGroup;
+ 			children = (
+-				C8CE042B238FA0FB297CB05EC6EA1065 /* AppShell */,
+-				9240B4943A5DB5BB2B24D789D622104E /* Assets.xcassets */,
+-				FEBDBAAC8DB558DDD0BB9019C6AD55C6 /* Auth */,
+-				8DD4B3A8E89BAE1925120F102C0C113D /* Components */,
+-				19CA8C25CC05060BF58F0A56784E540F /* Design */,
+-				6E255DEFB34F4FEBFC5D7482E5996C82 /* Info.plist */,
+-				0CFF2497C428D83890A95BEC8776F5E7 /* Native */,
+-				B31A3085BBFF104E75A705047E5756CC /* Spoonjoy.entitlements */,
+-				617905450EDD57FEAC09F9EF86E26A11 /* SpoonjoyApp.swift */,
+-				B3FD08E0E54306C0D903579B252EA3D4 /* Views */,
++				5D3F08622F93CDB5AB6EB1CFBEEC3E86 /* SpoonjoyMacApp.swift */,
+ 			);
+-			name = Shared;
+-			path = Shared;
++			name = macOS;
++			path = macOS;
+ 			sourceTree = "<group>";
+ 		};
+-		C8CE042B238FA0FB297CB05EC6EA1065 /* AppShell */ = {
++		AFF31F90193597F35ACF10EB8535B8E2 /* Design */ = {
+ 			isa = PBXGroup;
+ 			children = (
+-				2EC0E9796B071BA2C0550D1221D69D78 /* PlatformNavigationView.swift */,
+-				6C58161A712600CDD46B35749DFA1F3A /* ShareActions.swift */,
+-				B2F535F98E028A8ED0CF13D767044FAF /* SignedOutSetupView.swift */,
+-				263FCBDE090DE10A253203191D9826C4 /* SpoonjoyRootView.swift */,
+-				F06ACEB95261A5969F87A745DFB51CF8 /* SpoonjoyToolbar.swift */,
++				2A337950FD7823402C39E447DEE27D70 /* KitchenTableTheme.swift */,
+ 			);
+-			name = AppShell;
+-			path = AppShell;
++			name = Design;
++			path = Design;
++			sourceTree = "<group>";
++		};
++		BD2C2F87B685321C2051EC83BB09A47F /* Components */ = {
++			isa = PBXGroup;
++			children = (
++				5B4D5841CC06DCF98EC51266C3FB63C2 /* KitchenSafeControls.swift */,
++				6B2516D355849E1C14A2B8434F48FCC7 /* OfflineStatusView.swift */,
++				7EB2DF2AF1EBD5AF5EB9CA42EABFC2B5 /* ReceiptListView.swift */,
++				163A4AF6F362E3A2DEF4B4A13DC8A404 /* RecipeCoverImage.swift */,
++			);
++			name = Components;
++			path = Components;
+ 			sourceTree = "<group>";
+ 		};
+ 		D79C7F947CB66D3593E686E43B916648 /* Apps */ = {
+@@ -292,6 +281,30 @@
+ 			path = Apps;
+ 			sourceTree = "<group>";
+ 		};
++		D96951143B277F8EDF1520FF7BADF5AB /* Auth */ = {
++			isa = PBXGroup;
++			children = (
++				8497F8135E4FF71D9744875C959B2D84 /* SpoonjoyWebAuthenticationSession.swift */,
++			);
++			name = Auth;
++			path = Auth;
++			sourceTree = "<group>";
++		};
++		E19960546FA8DD5C153107FAACC1579F /* Native */ = {
++			isa = PBXGroup;
++			children = (
++				E27FE6C604F7A54D3915403125C51C36 /* NotificationAPNsDeviceBridge.swift */,
++				79A5F5CE06B7D33EE24FFF503F44E8FC /* SpoonjoyAppIntents.swift */,
++				FE8A5FF0C3C902EEBF403039D6268CDE /* SpoonjoyCaptureDraftEntities.swift */,
++				F5AD72D7622F19DB061EC3F7591B4FEC /* SpoonjoyRecipeCookbookEntities.swift */,
++				79E502EF6C8BE66ACC67AB9B302A82B1 /* SpoonjoyShoppingEntities.swift */,
++				CEC5092B2CEE03007B49110DD4BA7D7F /* SpoonjoySpoonEntities.swift */,
++				8FF64126E0B5A0250BE390F7ECDCD411 /* SpoonjoySpotlightIndexer.swift */,
++			);
++			name = Native;
++			path = Native;
++			sourceTree = "<group>";
++		};
+ 		F6101C35A87BE4A7C6B71AFEFE983577 /* Products */ = {
+ 			isa = PBXGroup;
+ 			children = (
+@@ -308,56 +321,47 @@
+ 			name = "OS X";
+ 			sourceTree = "<group>";
+ 		};
+-		FEBDBAAC8DB558DDD0BB9019C6AD55C6 /* Auth */ = {
+-			isa = PBXGroup;
+-			children = (
+-				3BE412952EE441073966210EF431FC63 /* SpoonjoyWebAuthenticationSession.swift */,
+-			);
+-			name = Auth;
+-			path = Auth;
+-			sourceTree = "<group>";
+-		};
+ /* End PBXGroup section */
+ 
+ /* Begin PBXNativeTarget section */
+-		B20EA0CFEECCFFCEE809DE130F1D4AA1 /* Spoonjoy macOS */ = {
++		78A4FB5815AD745E0C63139C6260C1FF /* Spoonjoy iOS */ = {
+ 			isa = PBXNativeTarget;
+-			buildConfigurationList = 365EE09F8FBED4B009835929B67EBE3A /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */;
++			buildConfigurationList = 892AC8826975999E42C907CD1C25A210 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */;
+ 			buildPhases = (
+-				68E26BF5CED519E36966C1013012632D /* Sources */,
+-				765D944C3D09BE9AA02ECA7805F5635B /* Frameworks */,
+-				EF32C6D2505185C710B8ADDBB4C59760 /* Resources */,
++				B63B1D2321E073102A35A2472A08B5B4 /* Sources */,
++				F85F302D29C8F9D115293C3A285E3A90 /* Frameworks */,
++				17BBBFBEC76416517FC6509186F73E8C /* Resources */,
+ 			);
+ 			buildRules = (
+ 			);
+ 			dependencies = (
+ 			);
+-			name = "Spoonjoy macOS";
++			name = "Spoonjoy iOS";
+ 			packageProductDependencies = (
+-				F18BFBDCA67C6CA44C8B1687E74229B3 /* SpoonjoyCore */,
++				5ECEAD511E3A024B617963FEFB1EFAA3 /* SpoonjoyCore */,
+ 			);
+-			productName = "Spoonjoy macOS";
+-			productReference = 2E4D205787348B54CEE9FA6A14446717 /* Spoonjoy macOS.app */;
++			productName = "Spoonjoy iOS";
++			productReference = 63AB3B552FC5F219E8CEABEE06E3287B /* Spoonjoy iOS.app */;
+ 			productType = "com.apple.product-type.application";
+ 		};
+-		F2C5DF272BE92A248DA006E5B2A9A0DE /* Spoonjoy iOS */ = {
++		BD00780915A4B9F3291A19C340E55F78 /* Spoonjoy macOS */ = {
+ 			isa = PBXNativeTarget;
+-			buildConfigurationList = D7CB3A70A2194625C17A9129CE955F1B /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */;
++			buildConfigurationList = 929EDFBA8BF690CCAEC805926FB8E0E3 /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */;
+ 			buildPhases = (
+-				B33469269B6CE7C6F69C3D2646B7848A /* Sources */,
+-				BE0D707B817309F7881AEAF11B9EA960 /* Frameworks */,
+-				CF4ADE8571DA32C1A7403623DA128D7C /* Resources */,
++				C6F737926C21B40B2F4ED7ACC097BE10 /* Sources */,
++				1427896BC5F3C046151E8959D8AD04D0 /* Frameworks */,
++				B73036CC9E1F5F566DFDFF2D60A5A713 /* Resources */,
+ 			);
+ 			buildRules = (
+ 			);
+ 			dependencies = (
+ 			);
+-			name = "Spoonjoy iOS";
++			name = "Spoonjoy macOS";
+ 			packageProductDependencies = (
+-				B9FB8EB1603A799E13571BDD31BA9E05 /* SpoonjoyCore */,
++				B1F59A47545737EAF9625C2D611CF161 /* SpoonjoyCore */,
+ 			);
+-			productName = "Spoonjoy iOS";
+-			productReference = 63AB3B552FC5F219E8CEABEE06E3287B /* Spoonjoy iOS.app */;
++			productName = "Spoonjoy macOS";
++			productReference = 2E4D205787348B54CEE9FA6A14446717 /* Spoonjoy macOS.app */;
+ 			productType = "com.apple.product-type.application";
+ 		};
+ /* End PBXNativeTarget section */
+@@ -380,142 +384,124 @@
+ 			mainGroup = 5CEC7907A1E07F8B138170C59A17A93B;
+ 			minimizedProjectReferenceProxies = 0;
+ 			packageReferences = (
+-				1B7928ABB185166554739F9E167A5C1C /* XCLocalSwiftPackageReference "." */,
++				B25559CBDA0EE2F8D921768ABEBD3CA9 /* XCLocalSwiftPackageReference "." */,
+ 			);
+ 			preferredProjectObjectVersion = 77;
+ 			productRefGroup = F6101C35A87BE4A7C6B71AFEFE983577 /* Products */;
+ 			projectDirPath = "";
+ 			projectRoot = "";
+ 			targets = (
+-				F2C5DF272BE92A248DA006E5B2A9A0DE /* Spoonjoy iOS */,
+-				B20EA0CFEECCFFCEE809DE130F1D4AA1 /* Spoonjoy macOS */,
++				78A4FB5815AD745E0C63139C6260C1FF /* Spoonjoy iOS */,
++				BD00780915A4B9F3291A19C340E55F78 /* Spoonjoy macOS */,
+ 			);
+ 		};
+ /* End PBXProject section */
+ 
+ /* Begin PBXResourcesBuildPhase section */
+-		CF4ADE8571DA32C1A7403623DA128D7C /* Resources */ = {
++		17BBBFBEC76416517FC6509186F73E8C /* Resources */ = {
+ 			isa = PBXResourcesBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
+-				9798D2691CFB0C1254D83982F398411A /* Assets.xcassets in Resources */,
++				A6C037E5ACD75A386EB1CE9D77872CAF /* Assets.xcassets in Resources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		EF32C6D2505185C710B8ADDBB4C59760 /* Resources */ = {
++		B73036CC9E1F5F566DFDFF2D60A5A713 /* Resources */ = {
+ 			isa = PBXResourcesBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
+-				7EB8A1E9277E1193AA45253253059631 /* Assets.xcassets in Resources */,
++				2EE340B9D67944CFEA2E3535232F6D01 /* Assets.xcassets in Resources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ /* End PBXResourcesBuildPhase section */
+ 
+ /* Begin PBXSourcesBuildPhase section */
+-		68E26BF5CED519E36966C1013012632D /* Sources */ = {
++		B63B1D2321E073102A35A2472A08B5B4 /* Sources */ = {
+ 			isa = PBXSourcesBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
+-				E48B66A0A08D27DBFAADA1C552CF94C1 /* CaptureDraftView.swift in Sources */,
+-				B3C1C9AC92AAF3EF470839A17CDF5260 /* CookbooksView.swift in Sources */,
+-				9A1EED17CCC92F9C56E6B98395C6CEF2 /* CookModeView.swift in Sources */,
+-				E69AB955728998A1213806E7755951B1 /* KitchenSafeControls.swift in Sources */,
+-				CA37FB8D28F62E4AB50604C1041DFA4C /* KitchenTableTheme.swift in Sources */,
+-				0CC256596D824CEE31A760F1E3AC9DB4 /* KitchenView.swift in Sources */,
+-				656E28B34168F6A5DCCAFA0F686FA405 /* NotificationAPNsDeviceBridge.swift in Sources */,
+-				55FA6CFBF75F360FDE9154C4657A4697 /* NotificationAPNsSettingsView.swift in Sources */,
+-				08B881328E134E071914F86DE115D852 /* OfflineStatusView.swift in Sources */,
+-				013023130088599966ECD9B93FD480C9 /* PlatformNavigationView.swift in Sources */,
+-				61C5F81F7133F95AD4A74C2D8588E81F /* ProfileView.swift in Sources */,
+-				F4FB1BC0C17D8864F9E5EAB07D14E411 /* ReceiptListView.swift in Sources */,
+-				92F1511442694A674804FCAD83624756 /* RecipeCoverControlsView.swift in Sources */,
+-				562B9E6C23E1611E27D70FFB97829ABB /* RecipeCoverImage.swift in Sources */,
+-				E402F343052E251B63F5EFDC557F7796 /* RecipeDetailView.swift in Sources */,
+-				523F1EC3435FDFFFFBC0E7B3B54C2E7D /* RecipeEditorView.swift in Sources */,
+-				DC105F60B1FFF8B3EC34484B2535C51E /* RecipesView.swift in Sources */,
+-				B5B1D59DED9D03D55491B7E9AA6256D0 /* SearchView.swift in Sources */,
+-				D687EA99E5CE924697A43C977A6EC03D /* SettingsView.swift in Sources */,
+-				17519FB3C9031B82A530C42A5D32FBCC /* ShareActions.swift in Sources */,
+-				16D5669B5F02A3A01AC4398E16C16479 /* ShoppingListView.swift in Sources */,
+-				061C8134146BCDA066B7FAE35A77A349 /* SignedOutSetupView.swift in Sources */,
+-				593A785713CD2CF962AE35D7806C5578 /* SpoonCookLogView.swift in Sources */,
+-				434613AE31A8EDBFECDA08030A00A03C /* SpoonjoyApp.swift in Sources */,
+-				8AD591421A42D078A525DAAF013545E9 /* SpoonjoyAppIntents.swift in Sources */,
+-				7D45BCE4CD98132B983ABA6D733DDE22 /* SpoonjoyMacApp.swift in Sources */,
+-				F1D5C3CBE92907A411AF2A883F1E0200 /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
+-				060F1C4CC95CCC6FA349C02104199447 /* SpoonjoyRootView.swift in Sources */,
+-				1AA06BEE104E04AC15A2C8776AC61AB3 /* SpoonjoyShoppingEntities.swift in Sources */,
+-				239D21A6F4C8BC44D5E7051F355D2D32 /* SpoonjoySpoonEntities.swift in Sources */,
+-				A3233F85A4153C53D217DEBE3C6956C6 /* SpoonjoySpotlightIndexer.swift in Sources */,
+-				E3B468A0E7C05EBEFCBF1CFE45CCAF78 /* SpoonjoyToolbar.swift in Sources */,
+-				BAC6EA363B648E93E11AE8BBA246AA3F /* SpoonjoyWebAuthenticationSession.swift in Sources */,
++				7712BECCFEC47E8ABCD2AACE047E373C /* CaptureDraftView.swift in Sources */,
++				DE323AB13BA4FE9E10AA9DF0792E3BF6 /* CookbooksView.swift in Sources */,
++				97D6259CB632F60C17DF1BFCC5B1ACC1 /* CookModeView.swift in Sources */,
++				8B6C5CB9AC561EA24CE860510FEE8DE1 /* KitchenSafeControls.swift in Sources */,
++				ADB30B3C9A3AED18107CED42895FD24A /* KitchenTableTheme.swift in Sources */,
++				DAD5DB8407B1CC5351E3595C45EF7FAF /* KitchenView.swift in Sources */,
++				49F3D51ADEE0DF06FA63CE6586C131CD /* NotificationAPNsDeviceBridge.swift in Sources */,
++				73C9E91778C2A5F2A81AD474E86E641E /* NotificationAPNsSettingsView.swift in Sources */,
++				418156710ADDCC612E9A0F07E8AD6A63 /* OfflineStatusView.swift in Sources */,
++				9076F80E6A70B85E1C0970AB772AD2E3 /* PlatformNavigationView.swift in Sources */,
++				CD085428E3C386B3907180413EE912BE /* ProfileView.swift in Sources */,
++				AC3E8462795D1A0E5C57AA0484E54D24 /* ReceiptListView.swift in Sources */,
++				4A4CA739B8046068F826DB5F371D6E9C /* RecipeCoverControlsView.swift in Sources */,
++				381C9FA180E0225007E7B5E08F2B5F98 /* RecipeCoverImage.swift in Sources */,
++				4C117977E493736B8660800CF087F7B7 /* RecipeDetailView.swift in Sources */,
++				A0552A6BCB7AD6A00B0FCFD2E6266D8A /* RecipeEditorView.swift in Sources */,
++				E56F5CB61E044864AFA950D307E07DCE /* RecipesView.swift in Sources */,
++				28C5599C49277704452AD6E54A3F6D25 /* SearchView.swift in Sources */,
++				0C87D3FAFDC123D735147828068DA839 /* SettingsView.swift in Sources */,
++				889228BB192C4798B7D212B7D5F7EE36 /* ShareActions.swift in Sources */,
++				18E0940A59D3E180B5C4593427079E0F /* ShoppingListView.swift in Sources */,
++				0A769F8747E22F860CD200C7852DEBF6 /* SignedOutSetupView.swift in Sources */,
++				42258FBE265EB9E1E6FA71BF6088D7A0 /* SpoonCookLogView.swift in Sources */,
++				2F78F6863A511F4395A1F9363D14BBCB /* SpoonjoyApp.swift in Sources */,
++				50FE2945F2842721A74ED7A851C009BB /* SpoonjoyAppIntents.swift in Sources */,
++				1267BB00A0355576A4A4A2CF4F456F8C /* SpoonjoyCaptureDraftEntities.swift in Sources */,
++				76584CB0D18E0F92F0BA5D73EAF5AF35 /* SpoonjoyiOSApp.swift in Sources */,
++				0A5E815D9C8C598A073FDE8AC481E54D /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
++				464B96B63A18C4898E2EA9EEF7177762 /* SpoonjoyRootView.swift in Sources */,
++				2E680ADF83E09DA8F6060B6A8AB0C33F /* SpoonjoyShoppingEntities.swift in Sources */,
++				6E2B496AF7AF173F8923D2B994ED98A3 /* SpoonjoySpoonEntities.swift in Sources */,
++				88E0EFC0084F1B135004771E9DF73D15 /* SpoonjoySpotlightIndexer.swift in Sources */,
++				A7780AB1C840EE572E3756C57AD7B9E0 /* SpoonjoyToolbar.swift in Sources */,
++				A7E7F2C46F1106613AA5866F1D0F73D1 /* SpoonjoyWebAuthenticationSession.swift in Sources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+-		B33469269B6CE7C6F69C3D2646B7848A /* Sources */ = {
++		C6F737926C21B40B2F4ED7ACC097BE10 /* Sources */ = {
+ 			isa = PBXSourcesBuildPhase;
+ 			buildActionMask = 2147483647;
+ 			files = (
+-				6D751B224F95139E3126DB7FEDC7E8A5 /* CaptureDraftView.swift in Sources */,
+-				8404BDC6487CCF23FC80D262D036E581 /* CookbooksView.swift in Sources */,
+-				B0453F74C827B996493C148367B92DBA /* CookModeView.swift in Sources */,
+-				9788A71FDDB87111D57CA272C4E6DCCA /* KitchenSafeControls.swift in Sources */,
+-				65AB0699F69AED32EAD8F318A911792B /* KitchenTableTheme.swift in Sources */,
+-				C342DFF3AE9B094272B1C5A63DA89A6E /* KitchenView.swift in Sources */,
+-				68C494FA8137F39EB203CFA873339D14 /* NotificationAPNsDeviceBridge.swift in Sources */,
+-				FB7FF25CF38603F63BE026F460821DC5 /* NotificationAPNsSettingsView.swift in Sources */,
+-				31D6E8FEE0994B890868E29C518E987C /* OfflineStatusView.swift in Sources */,
+-				EBD5EAD438A145F2DBE3913D8A14DA72 /* PlatformNavigationView.swift in Sources */,
+-				4098251A433649958D02B7F15824463C /* ProfileView.swift in Sources */,
+-				569767F1432315F9FAEE2908FD9E02FB /* ReceiptListView.swift in Sources */,
+-				10F18C1DDC6EB520123A5032E2718C2D /* RecipeCoverControlsView.swift in Sources */,
+-				BFA156FDE3905C625F66B98A5AA788E7 /* RecipeCoverImage.swift in Sources */,
+-				5EE48D1EDCDFE86ABCFCE5DCFE595527 /* RecipeDetailView.swift in Sources */,
+-				14FC0A96BB88DC3E01EB344C1C9289D9 /* RecipeEditorView.swift in Sources */,
+-				225F3299047290CA102F129A57D9DE34 /* RecipesView.swift in Sources */,
+-				8C80F290AC9D8DC3EC3A25DD53CD5763 /* SearchView.swift in Sources */,
+-				44A0BAD64B0ED8423CA15861E06FBB34 /* SettingsView.swift in Sources */,
+-				FB8E50088E746A341CAAE4256238747E /* ShareActions.swift in Sources */,
+-				32F44A5325CCA476906D301208DB7241 /* ShoppingListView.swift in Sources */,
+-				30964796E13E86409129E97B0F7AD75F /* SignedOutSetupView.swift in Sources */,
+-				23DB231A3AA47C0BE1246088A1F06D85 /* SpoonCookLogView.swift in Sources */,
+-				7F4DBCCA16CACD1ABF3B7FC8831B5EC9 /* SpoonjoyApp.swift in Sources */,
+-				14A2991822AF7956EF2E80C55FED16EA /* SpoonjoyAppIntents.swift in Sources */,
+-				BCE48D2AD2CE060A013F2014B588960A /* SpoonjoyiOSApp.swift in Sources */,
+-				D6BB2EF61499C7FA2E799684F235FB55 /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
+-				8741C790F8FAA4E73D7FEC93C9649DB5 /* SpoonjoyRootView.swift in Sources */,
+-				6E69C59520DD923093D4A8CCA9770333 /* SpoonjoyShoppingEntities.swift in Sources */,
+-				94B00B1081837F7FFBC087EBE2B92814 /* SpoonjoySpoonEntities.swift in Sources */,
+-				670A842B6CEEFFD1908C385D54EC64C9 /* SpoonjoySpotlightIndexer.swift in Sources */,
+-				B6BE98435B512D91CDD7430D7656060A /* SpoonjoyToolbar.swift in Sources */,
+-				B441612DA41DFA711F02B33860F6D958 /* SpoonjoyWebAuthenticationSession.swift in Sources */,
++				FB37699D63E0B236618579A362C823C6 /* CaptureDraftView.swift in Sources */,
++				2E1B6F4D7C4903524F786AC411E90B17 /* CookbooksView.swift in Sources */,
++				C73535B4D2ADD6DDA2B9381D800C7AA0 /* CookModeView.swift in Sources */,
++				107B7649D8F1A95BE4071D25289A0809 /* KitchenSafeControls.swift in Sources */,
++				D87053D17ADD1DC8DA22D4D28A96D8E3 /* KitchenTableTheme.swift in Sources */,
++				2E0863E99A6F86BD22CD1AF063861030 /* KitchenView.swift in Sources */,
++				F167475DACC538B7DC891D9145D72B7A /* NotificationAPNsDeviceBridge.swift in Sources */,
++				5B5BC46A9EC9FFDCD3EE68B2EC81851C /* NotificationAPNsSettingsView.swift in Sources */,
++				7A4CBAA780AE6A6EAD3DB6B6902B47E1 /* OfflineStatusView.swift in Sources */,
++				1897BE67850AE66CD3FE616B3B546A44 /* PlatformNavigationView.swift in Sources */,
++				B212AE2660582D938DE47635A5A846EB /* ProfileView.swift in Sources */,
++				3C62FFAC76EDAD0D5B6D426427AE5787 /* ReceiptListView.swift in Sources */,
++				1FC526B13F23F449843E2DDC74F8C152 /* RecipeCoverControlsView.swift in Sources */,
++				1EEE947F78200BCCBE4D7DDF502AF998 /* RecipeCoverImage.swift in Sources */,
++				F84CE2751B1CD126CAC95AEBC578F1C4 /* RecipeDetailView.swift in Sources */,
++				5A5853FAA4D0CBC6BC99899D0DE03405 /* RecipeEditorView.swift in Sources */,
++				78128789F9CF10CA2DC8C6B913F45D85 /* RecipesView.swift in Sources */,
++				641DCC3AE50BD43AEEAAB3A68F6457C5 /* SearchView.swift in Sources */,
++				C0047C316CB57AF2CE6C2C5695EA143E /* SettingsView.swift in Sources */,
++				99F044403FB55723CB12205BF2A7737C /* ShareActions.swift in Sources */,
++				7B06D06B843EE580DDFE21F05E4FEB65 /* ShoppingListView.swift in Sources */,
++				4B0313014CF64FFA7C859A9ED2740875 /* SignedOutSetupView.swift in Sources */,
++				C5847A1BB44D468FDEAD68D1F0AD058E /* SpoonCookLogView.swift in Sources */,
++				1BD4AC4FD0F034EE45344FB3CE22ED2C /* SpoonjoyApp.swift in Sources */,
++				E54FFB5E1998223B67F0196B2644CF42 /* SpoonjoyAppIntents.swift in Sources */,
++				453003D49FD2B25E8AB35F92533C57D8 /* SpoonjoyCaptureDraftEntities.swift in Sources */,
++				C2926DF2E0457E89B63C9D924CDD1AA7 /* SpoonjoyMacApp.swift in Sources */,
++				39FB9761D48201E86DA2F02CD7EC277F /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
++				7478C062A8DB73DB80D754189CA36E56 /* SpoonjoyRootView.swift in Sources */,
++				D827153BDFB4C5B051FC4B6249D77BE0 /* SpoonjoyShoppingEntities.swift in Sources */,
++				1941869FE80A815DC88BCC502DB2BF0E /* SpoonjoySpoonEntities.swift in Sources */,
++				964A84193223A558FFAA613888432361 /* SpoonjoySpotlightIndexer.swift in Sources */,
++				FB61D9D05A8556BDFF7F6A74560F71BE /* SpoonjoyToolbar.swift in Sources */,
++				3359BC7C8A545D1B24B0FAB075FB23AD /* SpoonjoyWebAuthenticationSession.swift in Sources */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+ /* End PBXSourcesBuildPhase section */
+ 
+ /* Begin XCBuildConfiguration section */
+-		077A91C483EA4D530016C83BCE2A6BDE /* Debug */ = {
+-			isa = XCBuildConfiguration;
+-			buildSettings = {
+-				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
+-				COMBINE_HIDPI_IMAGES = YES;
+-				CURRENT_PROJECT_VERSION = 1;
+-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+-				GENERATE_INFOPLIST_FILE = NO;
+-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+-				MARKETING_VERSION = 1.0;
+-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy.mac;
+-				PRODUCT_NAME = Spoonjoy;
+-				SDKROOT = macosx;
+-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+-				SWIFT_VERSION = 6.0;
+-			};
+-			name = Debug;
+-		};
+ 		228DA311D1A6529990B0C3DA1257FA2A /* Debug */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+@@ -577,27 +563,28 @@
+ 			};
+ 			name = Debug;
+ 		};
+-		2BCABAA7BFE08648D458054262D9CDBF /* BootstrapDebug */ = {
++		2C5295EF9DB46FE93D84627747592CC8 /* Debug */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
++				CLANG_ENABLE_OBJC_WEAK = NO;
+ 				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
+-				COMBINE_HIDPI_IMAGES = YES;
+ 				CURRENT_PROJECT_VERSION = 1;
+ 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+ 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+-				MACOSX_DEPLOYMENT_TARGET = 26.2;
++				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
++				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+ 				MARKETING_VERSION = 1.0;
+-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy.mac;
++				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy;
+ 				PRODUCT_NAME = Spoonjoy;
+-				SDKROOT = macosx;
++				SDKROOT = iphoneos;
+ 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				SWIFT_VERSION = 6.0;
++				TARGETED_DEVICE_FAMILY = "1,2";
+ 			};
+-			name = BootstrapDebug;
++			name = Debug;
+ 		};
+-		336597CA62208BD03DB2F1CE1CA0093F /* Release */ = {
++		741D32860DACCA0161323812324D26FF /* Release */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+ 				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
+@@ -671,6 +658,26 @@
+ 			};
+ 			name = Release;
+ 		};
++		8DCC156437E2C8D0E5FD4FC4F809B907 /* Debug */ = {
++			isa = XCBuildConfiguration;
++			buildSettings = {
++				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
++				COMBINE_HIDPI_IMAGES = YES;
++				CURRENT_PROJECT_VERSION = 1;
++				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
++				GENERATE_INFOPLIST_FILE = NO;
++				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
++				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
++				MACOSX_DEPLOYMENT_TARGET = 27.0;
++				MARKETING_VERSION = 1.0;
++				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy.mac;
++				PRODUCT_NAME = Spoonjoy;
++				SDKROOT = macosx;
++				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
++				SWIFT_VERSION = 6.0;
++			};
++			name = Debug;
++		};
+ 		9C188A2EC39D79243268FD866D610842 /* BootstrapDebug */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+@@ -732,28 +739,27 @@
+ 			};
+ 			name = BootstrapDebug;
+ 		};
+-		BAAA31FC27E279B5599156784DF82106 /* BootstrapDebug */ = {
++		A4BC9906FF94D25D730B1186D0B7030C /* BootstrapDebug */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+-				CLANG_ENABLE_OBJC_WEAK = NO;
+ 				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
++				COMBINE_HIDPI_IMAGES = YES;
+ 				CURRENT_PROJECT_VERSION = 1;
+ 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+ 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
++				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
++				MACOSX_DEPLOYMENT_TARGET = 26.2;
+ 				MARKETING_VERSION = 1.0;
+-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy;
++				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy.mac;
+ 				PRODUCT_NAME = Spoonjoy;
+-				SDKROOT = iphoneos;
++				SDKROOT = macosx;
+ 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				SWIFT_VERSION = 6.0;
+-				TARGETED_DEVICE_FAMILY = "1,2";
+ 			};
+ 			name = BootstrapDebug;
+ 		};
+-		C464548DD7B08E9A64175720A9C632F4 /* Debug */ = {
++		ADFED139455A03406456C98719332310 /* Release */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+ 				CLANG_ENABLE_OBJC_WEAK = NO;
+@@ -771,10 +777,11 @@
+ 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				SWIFT_VERSION = 6.0;
+ 				TARGETED_DEVICE_FAMILY = "1,2";
++				VALIDATE_PRODUCT = YES;
+ 			};
+-			name = Debug;
++			name = Release;
+ 		};
+-		EB29B99411DF054D875DFF2134EF8974 /* Release */ = {
++		AF455E657900A191C677E0580C371C8E /* BootstrapDebug */ = {
+ 			isa = XCBuildConfiguration;
+ 			buildSettings = {
+ 				CLANG_ENABLE_OBJC_WEAK = NO;
+@@ -783,7 +790,7 @@
+ 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+ 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
++				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+ 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+ 				MARKETING_VERSION = 1.0;
+ 				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.Spoonjoy;
+@@ -792,39 +799,38 @@
+ 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+ 				SWIFT_VERSION = 6.0;
+ 				TARGETED_DEVICE_FAMILY = "1,2";
+-				VALIDATE_PRODUCT = YES;
+ 			};
+-			name = Release;
++			name = BootstrapDebug;
+ 		};
+ /* End XCBuildConfiguration section */
+ 
+ /* Begin XCConfigurationList section */
+-		365EE09F8FBED4B009835929B67EBE3A /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */ = {
++		892AC8826975999E42C907CD1C25A210 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */ = {
+ 			isa = XCConfigurationList;
+ 			buildConfigurations = (
+-				2BCABAA7BFE08648D458054262D9CDBF /* BootstrapDebug */,
+-				077A91C483EA4D530016C83BCE2A6BDE /* Debug */,
+-				336597CA62208BD03DB2F1CE1CA0093F /* Release */,
++				AF455E657900A191C677E0580C371C8E /* BootstrapDebug */,
++				2C5295EF9DB46FE93D84627747592CC8 /* Debug */,
++				ADFED139455A03406456C98719332310 /* Release */,
+ 			);
+ 			defaultConfigurationIsVisible = 0;
+ 			defaultConfigurationName = Release;
+ 		};
+-		A65174F3380A3FCE787DE5D8D4F17759 /* Build configuration list for PBXProject "Spoonjoy" */ = {
++		929EDFBA8BF690CCAEC805926FB8E0E3 /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */ = {
+ 			isa = XCConfigurationList;
+ 			buildConfigurations = (
+-				9C188A2EC39D79243268FD866D610842 /* BootstrapDebug */,
+-				228DA311D1A6529990B0C3DA1257FA2A /* Debug */,
+-				7CB06ECD64F3D22011F65DA279137F75 /* Release */,
++				A4BC9906FF94D25D730B1186D0B7030C /* BootstrapDebug */,
++				8DCC156437E2C8D0E5FD4FC4F809B907 /* Debug */,
++				741D32860DACCA0161323812324D26FF /* Release */,
+ 			);
+ 			defaultConfigurationIsVisible = 0;
+ 			defaultConfigurationName = Release;
+ 		};
+-		D7CB3A70A2194625C17A9129CE955F1B /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */ = {
++		A65174F3380A3FCE787DE5D8D4F17759 /* Build configuration list for PBXProject "Spoonjoy" */ = {
+ 			isa = XCConfigurationList;
+ 			buildConfigurations = (
+-				BAAA31FC27E279B5599156784DF82106 /* BootstrapDebug */,
+-				C464548DD7B08E9A64175720A9C632F4 /* Debug */,
+-				EB29B99411DF054D875DFF2134EF8974 /* Release */,
++				9C188A2EC39D79243268FD866D610842 /* BootstrapDebug */,
++				228DA311D1A6529990B0C3DA1257FA2A /* Debug */,
++				7CB06ECD64F3D22011F65DA279137F75 /* Release */,
+ 			);
+ 			defaultConfigurationIsVisible = 0;
+ 			defaultConfigurationName = Release;
+@@ -832,21 +838,21 @@
+ /* End XCConfigurationList section */
+ 
+ /* Begin XCLocalSwiftPackageReference section */
+-		1B7928ABB185166554739F9E167A5C1C /* XCLocalSwiftPackageReference "." */ = {
++		B25559CBDA0EE2F8D921768ABEBD3CA9 /* XCLocalSwiftPackageReference "." */ = {
+ 			isa = XCLocalSwiftPackageReference;
+ 			relativePath = .;
+ 		};
+ /* End XCLocalSwiftPackageReference section */
+ 
+ /* Begin XCSwiftPackageProductDependency section */
+-		B9FB8EB1603A799E13571BDD31BA9E05 /* SpoonjoyCore */ = {
++		5ECEAD511E3A024B617963FEFB1EFAA3 /* SpoonjoyCore */ = {
+ 			isa = XCSwiftPackageProductDependency;
+-			package = 1B7928ABB185166554739F9E167A5C1C /* XCLocalSwiftPackageReference "." */;
++			package = B25559CBDA0EE2F8D921768ABEBD3CA9 /* XCLocalSwiftPackageReference "." */;
+ 			productName = SpoonjoyCore;
+ 		};
+-		F18BFBDCA67C6CA44C8B1687E74229B3 /* SpoonjoyCore */ = {
++		B1F59A47545737EAF9625C2D611CF161 /* SpoonjoyCore */ = {
+ 			isa = XCSwiftPackageProductDependency;
+-			package = 1B7928ABB185166554739F9E167A5C1C /* XCLocalSwiftPackageReference "." */;
++			package = B25559CBDA0EE2F8D921768ABEBD3CA9 /* XCLocalSwiftPackageReference "." */;
+ 			productName = SpoonjoyCore;
+ 		};
+ /* End XCSwiftPackageProductDependency section */
+diff --git a/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy iOS.xcscheme b/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy iOS.xcscheme
+index 7372508..73cb216 100644
+--- a/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy iOS.xcscheme	
++++ b/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy iOS.xcscheme	
+@@ -14,7 +14,7 @@
+             buildForAnalyzing = "YES">
+             <BuildableReference
+                BuildableIdentifier = "primary"
+-               BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
++               BlueprintIdentifier = "78A4FB5815AD745E0C63139C6260C1FF"
+                BuildableName = "Spoonjoy iOS.app"
+                BlueprintName = "Spoonjoy iOS"
+                ReferencedContainer = "container:Spoonjoy.xcodeproj">
+@@ -30,7 +30,7 @@
+       <MacroExpansion>
+          <BuildableReference
+             BuildableIdentifier = "primary"
+-            BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
++            BlueprintIdentifier = "78A4FB5815AD745E0C63139C6260C1FF"
+             BuildableName = "Spoonjoy iOS.app"
+             BlueprintName = "Spoonjoy iOS"
+             ReferencedContainer = "container:Spoonjoy.xcodeproj">
+@@ -53,7 +53,7 @@
+          runnableDebuggingMode = "0">
+          <BuildableReference
+             BuildableIdentifier = "primary"
+-            BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
++            BlueprintIdentifier = "78A4FB5815AD745E0C63139C6260C1FF"
+             BuildableName = "Spoonjoy iOS.app"
+             BlueprintName = "Spoonjoy iOS"
+             ReferencedContainer = "container:Spoonjoy.xcodeproj">
+@@ -70,7 +70,7 @@
+          runnableDebuggingMode = "0">
+          <BuildableReference
+             BuildableIdentifier = "primary"
+-            BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
++            BlueprintIdentifier = "78A4FB5815AD745E0C63139C6260C1FF"
+             BuildableName = "Spoonjoy iOS.app"
+             BlueprintName = "Spoonjoy iOS"
+             ReferencedContainer = "container:Spoonjoy.xcodeproj">
+diff --git a/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy macOS.xcscheme b/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy macOS.xcscheme
+index e5e28df..7aa0aea 100644
+--- a/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy macOS.xcscheme	
++++ b/Spoonjoy.xcodeproj/xcshareddata/xcschemes/Spoonjoy macOS.xcscheme	
+@@ -14,7 +14,7 @@
+             buildForAnalyzing = "YES">
+             <BuildableReference
+                BuildableIdentifier = "primary"
+-               BlueprintIdentifier = "B20EA0CFEECCFFCEE809DE130F1D4AA1"
++               BlueprintIdentifier = "BD00780915A4B9F3291A19C340E55F78"
+                BuildableName = "Spoonjoy macOS.app"
+                BlueprintName = "Spoonjoy macOS"
+                ReferencedContainer = "container:Spoonjoy.xcodeproj">
+@@ -30,7 +30,7 @@
+       <MacroExpansion>
+          <BuildableReference
+             BuildableIdentifier = "primary"
+-            BlueprintIdentifier = "B20EA0CFEECCFFCEE809DE130F1D4AA1"
++            BlueprintIdentifier = "BD00780915A4B9F3291A19C340E55F78"
+             BuildableName = "Spoonjoy macOS.app"
+             BlueprintName = "Spoonjoy macOS"
+             ReferencedContainer = "container:Spoonjoy.xcodeproj">
+@@ -53,7 +53,7 @@
+          runnableDebuggingMode = "0">
+          <BuildableReference
+             BuildableIdentifier = "primary"
+-            BlueprintIdentifier = "B20EA0CFEECCFFCEE809DE130F1D4AA1"
++            BlueprintIdentifier = "BD00780915A4B9F3291A19C340E55F78"
+             BuildableName = "Spoonjoy macOS.app"
+             BlueprintName = "Spoonjoy macOS"
+             ReferencedContainer = "container:Spoonjoy.xcodeproj">
+@@ -70,7 +70,7 @@
+          runnableDebuggingMode = "0">
+          <BuildableReference
+             BuildableIdentifier = "primary"
+-            BlueprintIdentifier = "B20EA0CFEECCFFCEE809DE130F1D4AA1"
++            BlueprintIdentifier = "BD00780915A4B9F3291A19C340E55F78"
+             BuildableName = "Spoonjoy macOS.app"
+             BlueprintName = "Spoonjoy macOS"
+             ReferencedContainer = "container:Spoonjoy.xcodeproj">
+diff --git a/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes/unit-21q-capture-draft-entities.md b/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes/unit-21q-capture-draft-entities.md
+new file mode 100644
+index 0000000..01071eb
+--- /dev/null
++++ b/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/integration-notes/unit-21q-capture-draft-entities.md
+@@ -0,0 +1,17 @@
++# Unit 21q Capture Draft App Entities Integration Notes
++
++## Implemented
++
++- Added `CaptureDraftEntityCatalog` in `Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift`.
++- Added guarded `SpoonjoyCaptureDraftEntity` and `SpoonjoyCaptureDraftEntityQuery` in `Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift`.
++- Added capture-draft Spotlight unique/domain identifier helpers for account/environment-scoped purge.
++- Added `NativeCaptureDraftEntityIndexPurgeRequest` plumbing through `NativeLiveAppStore`, `PlatformNavigationView`, and `SpoonjoyRootView`.
++- Updated native capability metadata and scenario verifier source checks for capture-draft App Entity registration.
++- Regenerated `Spoonjoy.xcodeproj` so `SpoonjoyCaptureDraftEntities.swift` is in both iOS and macOS app targets.
++
++## Privacy And Scope
++
++- Capture draft entities resolve only from the current account/environment app snapshot or durable cache snapshot.
++- Image-asset-only cached drafts are excluded from Siri/App Entity resolution so local media identifiers are not exposed.
++- Transfer values use `NativeSharePayload.privateCaptureDraft`, preserving only user-visible summary/source-host metadata and excluding raw text, signed URLs, local media identifiers, provider blockers, account IDs, and debug fields.
++- Logout, account/environment switch, draft discard, and capture-draft cache deletion all produce scoped purge requests for stale private entity indexes.

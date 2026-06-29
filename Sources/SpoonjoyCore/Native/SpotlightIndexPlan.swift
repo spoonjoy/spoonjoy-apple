@@ -5,6 +5,7 @@ public enum SpotlightIndexType: String, Equatable, Sendable {
     case cookbook
     case spoon
     case shoppingListItem = "shopping-list-item"
+    case captureDraft = "capture-draft"
 }
 
 public struct SpotlightIndexDocument: Equatable, Sendable {
@@ -139,6 +140,14 @@ public enum SpotlightIndexPlan {
         "\(scope.domainPrefix).\(SpotlightIndexType.spoon.rawValue)"
     }
 
+    public static func captureDraftUniqueIdentifier(draftID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.captureDraft.rawValue)|\(draftID)"
+    }
+
+    public static func captureDraftDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.captureDraft.rawValue)"
+    }
+
     public static func route(uniqueIdentifier: String) -> AppRoute {
         let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
         guard parts.count == 4,
@@ -161,6 +170,9 @@ public enum SpotlightIndexPlan {
         case .shoppingListItem:
             guard isSafeObjectID(id) else { return .unknownLink }
             return .shoppingList
+        case .captureDraft:
+            guard isSafeObjectID(id) else { return .unknownLink }
+            return .capture
         }
     }
 
