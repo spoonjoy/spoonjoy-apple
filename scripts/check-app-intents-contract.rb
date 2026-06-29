@@ -95,7 +95,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -1696,6 +1696,213 @@ if domain == "spotlight-shortcuts"
     ],
     failures
   )
+end
+
+if domain == "shopping-intents"
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  shopping_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift")
+  recipe_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [
+    app_intents,
+    shopping_entities,
+    recipe_entities,
+    intent_action,
+    metadata,
+    verifier,
+    project
+  ].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    app_intents,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "struct AddShoppingListItemIntent: AppIntent",
+      "struct SetShoppingListItemCheckedIntent: AppIntent",
+      "struct RemoveShoppingListItemIntent: AppIntent",
+      "struct ClearCompletedShoppingItemsIntent: AppIntent",
+      "struct ClearShoppingListIntent: AppIntent",
+      "struct AddRecipeIngredientsToShoppingListIntent: AppIntent",
+      "var item: SpoonjoyShoppingItemEntity",
+      "var recipe: SpoonjoyRecipeEntity",
+      "SpoonjoyIntentStateWriter",
+      "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+      "SpoonjoyIntentClock.timestamp()",
+      "SpoonjoyInteractionDonor",
+      "throw NativeIntentActionError.authRequired"
+    ],
+    failures
+  )
+
+  {
+    "AddShoppingListItemIntent" => {
+      required: [
+        "@Parameter(title: \"Name\")",
+        "@Parameter(title: \"Quantity\")",
+        "@Parameter(title: \"Unit\")",
+        "NativeIntentActionResolver().addShoppingListItem(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var itemID: String", "@Parameter(title: \"Item ID\")"]
+    },
+    "SetShoppingListItemCheckedIntent" => {
+      required: [
+        "@Parameter(title: \"Shopping Item\", requestValueDialog:",
+        "var item: SpoonjoyShoppingItemEntity",
+        "@Parameter(title: \"Checked\")",
+        "try item.resolvedShoppingItemID()",
+        "NativeIntentActionResolver().setShoppingListItemChecked(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: ["var itemID: String", "@Parameter(title: \"Item ID\")"]
+    },
+    "RemoveShoppingListItemIntent" => {
+      required: [
+        "@Parameter(title: \"Shopping Item\", requestValueDialog:",
+        "var item: SpoonjoyShoppingItemEntity",
+        "try item.resolvedShoppingItemID()",
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().removeShoppingListItem(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: ["var itemID: String", "@Parameter(title: \"Item ID\")"]
+    },
+    "ClearCompletedShoppingItemsIntent" => {
+      required: [
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().clearCompletedShoppingItems(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: []
+    },
+    "ClearShoppingListIntent" => {
+      required: [
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().clearShoppingList(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: []
+    },
+    "AddRecipeIngredientsToShoppingListIntent" => {
+      required: [
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
+        "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Scale Factor\")",
+        "try recipe.resolvedRecipeID()",
+        "NativeIntentActionResolver().addRecipeIngredientsToShoppingList(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: ["var recipeID: String", "@Parameter(title: \"Recipe ID\")"]
+    }
+  }.each do |intent_name, contract|
+    pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
+    require_body_tokens(app_intents, intent_name, pattern, contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, intent_name, pattern, contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    intent_action,
+    [
+      "public func addShoppingListItem(",
+      "public func setShoppingListItemChecked(",
+      "public func removeShoppingListItem(",
+      "public func clearCompletedShoppingItems(",
+      "public func clearShoppingList(",
+      "public func addRecipeIngredientsToShoppingList(",
+      ".shoppingCheckItem",
+      ".shoppingDeleteItem",
+      ".shoppingClearCompleted",
+      ".shoppingClearAll",
+      ".shoppingAddFromRecipe",
+      "DeepLinkURLBuilder.url(for: .shoppingList)"
+    ],
+    failures
+  )
+
+  require_tokens(
+    metadata,
+    [
+      "AddShoppingListItemIntent",
+      "SetShoppingListItemCheckedIntent",
+      "RemoveShoppingListItemIntent",
+      "ClearCompletedShoppingItemsIntent",
+      "ClearShoppingListIntent",
+      "AddRecipeIngredientsToShoppingListIntent"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Shopping Siri intents",
+      "AddShoppingListItemIntent",
+      "SetShoppingListItemCheckedIntent",
+      "RemoveShoppingListItemIntent",
+      "ClearCompletedShoppingItemsIntent",
+      "ClearShoppingListIntent",
+      "AddRecipeIngredientsToShoppingListIntent"
+    ],
+    failures
+  )
+
+  require_tokens(
+    shopping_entities,
+    [
+      "struct SpoonjoyShoppingItemEntity: AppEntity",
+      "struct SpoonjoyShoppingItemEntityQuery: EntityQuery, EntityStringQuery",
+      "resolvedShoppingItemID() throws",
+      "NativeIntentActionError.unresolvedShoppingItemEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    recipe_entities,
+    [
+      "struct SpoonjoyRecipeEntity: AppEntity",
+      "resolvedRecipeID() throws",
+      "NativeIntentActionError.unresolvedRecipeEntity"
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  [
+    app_intents,
+    intent_action
+  ].each do |path|
+    forbid_tokens(
+      path,
+      [
+        "@Parameter(title: \"Shopping Item ID\")",
+        "@Parameter(title: \"Recipe ID\")",
+        "var itemID: String",
+        "var recipeID: String",
+        "String-only shopping App Intent",
+        "TODO ShoppingIntent",
+        "eventually add shopping intents"
+      ],
+      failures
+    )
+  end
 end
 
 if domain == "open-search-share-cook"

@@ -1,0 +1,11 @@
+FAIL: Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RemoveShoppingListItemIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveShoppingListItemIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveShoppingListItemIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift ClearCompletedShoppingItemsIntent missing try await requestConfirmation(
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift ClearShoppingListIntent missing try await requestConfirmation(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func removeShoppingListItem(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .shoppingDeleteItem
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RemoveShoppingListItemIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Shopping Siri intents
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RemoveShoppingListItemIntent
+expected red status: 1

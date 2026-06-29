@@ -1,0 +1,165 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/88] Compiling SpoonjoyCore PaginationCursor.swift
+[4/88] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[5/88] Compiling SpoonjoyCore ShoppingListAPI.swift
+[6/88] Compiling SpoonjoyCore ShoppingListRequests.swift
+[7/88] Compiling SpoonjoyCore AppNavigationState.swift
+[8/88] Compiling SpoonjoyCore AppRoute.swift
+[9/88] Compiling SpoonjoyCore DeepLinkRouter.swift
+[10/88] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[11/88] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[12/96] Compiling SpoonjoyCore APIClient.swift
+[13/96] Compiling SpoonjoyCore APIEnvelope.swift
+[14/96] Compiling SpoonjoyCore APIError.swift
+[15/96] Compiling SpoonjoyCore APIRequestBuilder.swift
+[16/96] Compiling SpoonjoyCore APIRequestSupport.swift
+[17/96] Compiling SpoonjoyCore APIRetryPolicy.swift
+[18/96] Compiling SpoonjoyCore APITransport.swift
+[19/96] Compiling SpoonjoyCore JSONValue.swift
+[20/96] Compiling SpoonjoyCore NativeAPIRequests.swift
+[21/96] Emitting module SpoonjoyCore
+[22/96] Compiling SpoonjoyCore CaptureDraft.swift
+[23/96] Compiling SpoonjoyCore CookModeProgress.swift
+[24/96] Compiling SpoonjoyCore KitchenFixtureState.swift
+[25/96] Compiling SpoonjoyCore SettingsState.swift
+[26/96] Compiling SpoonjoyCore ShoppingListState.swift
+[27/96] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[28/96] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[29/96] Compiling SpoonjoyCore DeepLinkManifest.swift
+[30/96] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[31/96] Compiling SpoonjoyCore NativeIntentAction.swift
+[32/96] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[33/96] Compiling SpoonjoyCore ScenarioCommand.swift
+[34/96] Compiling SpoonjoyCore ScenarioReport.swift
+[35/96] Compiling SpoonjoyCore ScenarioVerifier.swift
+[36/96] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[37/96] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[38/96] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[39/96] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[40/96] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[41/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[42/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[43/96] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[44/96] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[45/96] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[46/96] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[47/96] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[48/96] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[49/96] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[50/96] Compiling SpoonjoyCore ScreenViewModels.swift
+[51/96] Compiling SpoonjoyCore SearchState.swift
+[52/96] Compiling SpoonjoyCore AuthSessionState.swift
+[53/96] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[54/96] Compiling SpoonjoyCore KeychainTokenVault.swift
+[55/96] Compiling SpoonjoyCore NativeAuthSession.swift
+[56/96] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[57/96] Compiling SpoonjoyCore OAuthPKCE.swift
+[58/96] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[59/96] Compiling SpoonjoyCore OAuthRequests.swift
+[60/96] Compiling SpoonjoyCore OAuthResponses.swift
+[61/96] Compiling SpoonjoyCore RefreshCoordinator.swift
+[62/96] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[63/96] Compiling SpoonjoyCore TokenVault.swift
+[64/96] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[65/96] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[66/96] Compiling SpoonjoyCore NativeDurableCache.swift
+[67/96] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[68/96] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[69/96] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[70/96] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[71/96] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[72/96] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[73/96] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[74/96] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[75/96] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[76/96] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[77/96] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[78/96] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[79/96] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[80/96] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[81/96] Compiling SpoonjoyCore NativeSharePayload.swift
+[82/96] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[83/96] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[84/96] Compiling SpoonjoyCore JSONFileStore.swift
+[85/96] Compiling SpoonjoyCore MutationQueue.swift
+[86/96] Compiling SpoonjoyCore OfflineSnapshot.swift
+[87/96] Compiling SpoonjoyCore SyncCheckpoint.swift
+[88/96] Compiling SpoonjoyCore RecipeCookbook.swift
+[89/96] Compiling SpoonjoyCore SpoonjoyCore.swift
+[90/96] Compiling SpoonjoyCore NativeSyncEngine.swift
+[91/96] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[92/136] Emitting module SpoonjoyScenarioVerifier
+[93/136] Compiling SpoonjoyScenarioVerifier main.swift
+[94/136] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[94/136] Write Objects.LinkFileList
+[95/136] Linking SpoonjoyScenarioVerifier
+[96/136] Applying SpoonjoyScenarioVerifier
+[98/136] Emitting module SpoonjoyCoreTests
+[99/139] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[100/139] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[101/139] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[102/139] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[103/139] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[104/139] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[105/139] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[106/139] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[107/139] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[108/139] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[109/139] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[110/139] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[111/139] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[112/139] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[113/139] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[114/139] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[115/139] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[116/139] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[117/139] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[118/139] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[119/139] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[120/139] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[121/139] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[122/139] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[123/139] Compiling SpoonjoyCoreTests APITransportTests.swift
+[124/139] Compiling SpoonjoyCoreTests AppStateTests.swift
+[125/139] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[126/139] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[127/139] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[128/139] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[129/139] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[130/139] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[131/139] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[132/139] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[133/139] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[134/139] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[135/139] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[136/139] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[137/139] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[138/141] Emitting module SpoonjoyApplePackageTests
+[139/141] Compiling SpoonjoyApplePackageTests runner.swift
+[139/141] Write Objects.LinkFileList
+[140/141] Linking SpoonjoyApplePackageTests
+Build complete! (34.48s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Shopping Siri intent contracts" started.
+◇ Test "shopping Siri intents require entity-backed queueable actions" started.
+◇ Test "shopping intent resolver queues UI-compatible offline mutations" started.
+✔ Test "shopping intent resolver queues UI-compatible offline mutations" passed after 0.001 seconds.
+✘ Test "shopping Siri intents require entity-backed queueable actions" recorded an issue at ShoppingIntentTests.swift:183:9: Expectation failed: (failures → ["Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RemoveShoppingListItemIntent: AppIntent", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func removeShoppingListItem(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .shoppingDeleteItem", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RemoveShoppingListItemIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Shopping Siri intents", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RemoveShoppingListItemIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveShoppingListItemIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift ClearCompletedShoppingItemsIntent missing try await requestConfirmation(", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift ClearShoppingListIntent missing try await requestConfirmation("]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RemoveShoppingListItemIntent: AppIntent
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func removeShoppingListItem(
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .shoppingDeleteItem
+  Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RemoveShoppingListItemIntent
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Shopping Siri intents
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RemoveShoppingListItemIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveShoppingListItemIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift ClearCompletedShoppingItemsIntent missing try await requestConfirmation(
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift ClearShoppingListIntent missing try await requestConfirmation(
+✘ Test "shopping Siri intents require entity-backed queueable actions" failed after 0.043 seconds with 1 issue.
+✘ Suite "Shopping Siri intent contracts" failed after 0.043 seconds with 1 issue.
+✘ Test run with 2 tests in 1 suite failed after 0.044 seconds with 1 issue.
+expected red status: 1
