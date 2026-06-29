@@ -78,7 +78,6 @@ struct ProfileSettingsIntentTests {
                     "resolvedCredentialID() throws",
                     "resolvedConnectionID() throws",
                     "tokenPrefix",
-                    "revealedSecret",
                     "NativeIntentActionError.unresolvedAPITokenEntity",
                     "NativeIntentActionError.unresolvedAccountConnectionEntity"
                 ],
@@ -222,6 +221,39 @@ struct ProfileSettingsIntentTests {
             contracts: [
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "OpenSettingsIntent",
+                    pattern: #"struct\s+OpenSettingsIntent\s*:\s*AppIntent"#,
+                    requiredTokens: [
+                        "NativeIntentActionResolver().openSettings(",
+                        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+                        "OpenURLIntent(action.url)"
+                    ],
+                    forbiddenTokens: [".apply(action", "NativeQueuedMutation", "ReturnsValue<String>"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "OpenAPITokensIntent",
+                    pattern: #"struct\s+OpenAPITokensIntent\s*:\s*AppIntent"#,
+                    requiredTokens: [
+                        "NativeIntentActionResolver().openAPITokens(",
+                        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+                        "OpenURLIntent(action.url)"
+                    ],
+                    forbiddenTokens: [".apply(action", "NativeQueuedMutation", "ReturnsValue<String>", "rawToken", "tokenSecret", "revealedSecret"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "OpenAccountConnectionsIntent",
+                    pattern: #"struct\s+OpenAccountConnectionsIntent\s*:\s*AppIntent"#,
+                    requiredTokens: [
+                        "NativeIntentActionResolver().openAccountConnections(",
+                        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+                        "OpenURLIntent(action.url)"
+                    ],
+                    forbiddenTokens: [".apply(action", "NativeQueuedMutation", "ReturnsValue<String>"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
                     label: "UpdateProfileDisplayIntent",
                     pattern: #"struct\s+UpdateProfileDisplayIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
@@ -274,7 +306,7 @@ struct ProfileSettingsIntentTests {
                         "not queued",
                         "OpenURLIntent(action.url)"
                     ],
-                    forbiddenTokens: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "tokenSecret", ".apply(action"]
+                    forbiddenTokens: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "rawToken", "tokenSecret", "revealedSecret", ".apply(action"]
                 ),
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
@@ -308,10 +340,36 @@ struct ProfileSettingsIntentTests {
                 ),
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
-                    label: "credential handoff intents",
+                    label: "OpenPasskeysIntent",
                     pattern: #"struct\s+OpenPasskeysIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
                         "NativeIntentActionResolver().openPasskeys(",
+                        "SettingsOnlineOnlyReason.credentialHandoff.message",
+                        "not queued",
+                        "OpenURLIntent(plan.secureHandoff.url)"
+                    ],
+                    forbiddenTokens: [".apply(action", "NativeQueuedMutation"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "OpenPasswordIntent",
+                    pattern: #"struct\s+OpenPasswordIntent\s*:\s*AppIntent"#,
+                    requiredTokens: [
+                        "NativeIntentActionResolver().openPassword(",
+                        "SettingsOnlineOnlyReason.credentialHandoff.message",
+                        "not queued",
+                        "OpenURLIntent(plan.secureHandoff.url)"
+                    ],
+                    forbiddenTokens: [".apply(action", "NativeQueuedMutation"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "LinkProviderIntent",
+                    pattern: #"struct\s+LinkProviderIntent\s*:\s*AppIntent"#,
+                    requiredTokens: [
+                        "@Parameter(title: \"Provider\")",
+                        "var provider: SpoonjoySettingsAuthProviderOption",
+                        "NativeIntentActionResolver().linkProvider(",
                         "SettingsOnlineOnlyReason.credentialHandoff.message",
                         "not queued",
                         "OpenURLIntent(plan.secureHandoff.url)"
@@ -347,6 +405,36 @@ struct ProfileSettingsIntentTests {
 
         failures.append(contentsOf: profileSettingsIntentBodyContractFailures(
             contracts: [
+                (
+                    relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
+                    label: "openSettings resolver",
+                    pattern: #"public\s+func\s+openSettings\("#,
+                    requiredTokens: [
+                        "route: .settings",
+                        "DeepLinkURLBuilder.url(for: .settings)"
+                    ],
+                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation(", "TokenCredentialRequests"]
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
+                    label: "openAPITokens resolver",
+                    pattern: #"public\s+func\s+openAPITokens\("#,
+                    requiredTokens: [
+                        "route: .settings",
+                        "DeepLinkURLBuilder.url(for: .settings)"
+                    ],
+                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation(", "TokenCredentialRequests.createToken", "TokenCredentialRequests.revokeToken"]
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
+                    label: "openAccountConnections resolver",
+                    pattern: #"public\s+func\s+openAccountConnections\("#,
+                    requiredTokens: [
+                        "route: .settings",
+                        "DeepLinkURLBuilder.url(for: .settings)"
+                    ],
+                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation(", "PrivateAccountRequests.disconnectConnection"]
+                ),
                 (
                     relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
                     label: "updateProfileDisplay resolver",
@@ -421,12 +509,34 @@ struct ProfileSettingsIntentTests {
                 ),
                 (
                     relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
-                    label: "credential handoff resolver",
+                    label: "openPasskeys resolver",
                     pattern: #"public\s+func\s+openPasskeys\("#,
                     requiredTokens: [
                         ".managePasskeys",
                         "secureHandoffRoutes.handoff(target: .passkeys)",
                         "https://spoonjoy.app/account/settings#passkeys"
+                    ],
+                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation("]
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
+                    label: "openPassword resolver",
+                    pattern: #"public\s+func\s+openPassword\("#,
+                    requiredTokens: [
+                        ".managePassword",
+                        "secureHandoffRoutes.handoff(target: .password)",
+                        "https://spoonjoy.app/account/settings#password"
+                    ],
+                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation("]
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
+                    label: "linkProvider resolver",
+                    pattern: #"public\s+func\s+linkProvider\("#,
+                    requiredTokens: [
+                        ".linkProvider(provider)",
+                        "secureHandoffRoutes.handoff(target: .providerLink(provider))",
+                        "https://spoonjoy.app/auth/"
                     ],
                     forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation("]
                 ),
@@ -479,7 +589,7 @@ private func profileSettingsIntentForbiddenSecretTokens() -> [String] {
         "createdAPIToken.token",
         "rawToken",
         "tokenSecret",
-        "revealedSecret: String",
+        "revealedSecret",
         "secretValue"
     ]
 }

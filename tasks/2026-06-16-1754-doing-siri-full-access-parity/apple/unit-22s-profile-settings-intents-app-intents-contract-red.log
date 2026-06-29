@@ -52,6 +52,12 @@ Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsActionPlann
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsSurfaceConnectivity
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsSecureHandoffRoutes.spoonjoyApp
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing DeepLinkURLBuilder.url(for: .settings)
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenSettingsIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenSettingsIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAPITokensIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAPITokensIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAccountConnectionsIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAccountConnectionsIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfileDisplayIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfileDisplayIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfilePhotoIntent
@@ -66,10 +72,20 @@ Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for Disconnect
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DisconnectAccountConnectionIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasskeysIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasskeysIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasswordIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasswordIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LinkProviderIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LinkProviderIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogoutIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogoutIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeCurrentSessionIntent
 Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeCurrentSessionIntent
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openSettings resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openSettings resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAPITokens resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAPITokens resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAccountConnections resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAccountConnections resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfileDisplay resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfileDisplay resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfilePhoto resolver
@@ -82,8 +98,12 @@ Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for revokeAPIT
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for revokeAPIToken resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for disconnectAccountConnection resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for disconnectAccountConnection resolver
-Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for credential handoff resolver
-Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for credential handoff resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPasskeys resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPasskeys resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPassword resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPassword resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for linkProvider resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for linkProvider resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logout resolver
 Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logout resolver
 Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenSettingsIntent

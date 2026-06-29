@@ -1,17 +1,157 @@
+[0/1] Planning build
 Building for debugging...
-[0/5] Write sources
-[1/5] Write swift-version--58304C5D6DBC2206.txt
-[3/5] Compiling SpoonjoyCoreTests ProfileSettingsIntentTests.swift
-[4/5] Emitting module SpoonjoyCoreTests
-[4/6] Write Objects.LinkFileList
-[5/6] Linking SpoonjoyApplePackageTests
-Build complete! (4.58s)
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/88] Compiling SpoonjoyCore PaginationCursor.swift
+[4/88] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[5/88] Compiling SpoonjoyCore ShoppingListAPI.swift
+[6/88] Compiling SpoonjoyCore ShoppingListRequests.swift
+[7/88] Compiling SpoonjoyCore AppNavigationState.swift
+[8/88] Compiling SpoonjoyCore AppRoute.swift
+[9/88] Compiling SpoonjoyCore DeepLinkRouter.swift
+[10/88] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[11/88] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[12/96] Compiling SpoonjoyCore APIClient.swift
+[13/96] Compiling SpoonjoyCore APIEnvelope.swift
+[14/96] Compiling SpoonjoyCore APIError.swift
+[15/96] Compiling SpoonjoyCore APIRequestBuilder.swift
+[16/96] Compiling SpoonjoyCore APIRequestSupport.swift
+[17/96] Compiling SpoonjoyCore APIRetryPolicy.swift
+[18/96] Compiling SpoonjoyCore APITransport.swift
+[19/96] Compiling SpoonjoyCore JSONValue.swift
+[20/96] Compiling SpoonjoyCore NativeAPIRequests.swift
+[21/96] Emitting module SpoonjoyCore
+[22/96] Compiling SpoonjoyCore CaptureDraft.swift
+[23/96] Compiling SpoonjoyCore CookModeProgress.swift
+[24/96] Compiling SpoonjoyCore KitchenFixtureState.swift
+[25/96] Compiling SpoonjoyCore SettingsState.swift
+[26/96] Compiling SpoonjoyCore ShoppingListState.swift
+[27/96] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[28/96] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[29/96] Compiling SpoonjoyCore DeepLinkManifest.swift
+[30/96] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[31/96] Compiling SpoonjoyCore OAuthPKCE.swift
+[32/96] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[33/96] Compiling SpoonjoyCore OAuthRequests.swift
+[34/96] Compiling SpoonjoyCore OAuthResponses.swift
+[35/96] Compiling SpoonjoyCore RefreshCoordinator.swift
+[36/96] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[37/96] Compiling SpoonjoyCore TokenVault.swift
+[38/96] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[39/96] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[40/96] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[41/96] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[42/96] Compiling SpoonjoyCore ScreenViewModels.swift
+[43/96] Compiling SpoonjoyCore SearchState.swift
+[44/96] Compiling SpoonjoyCore AuthSessionState.swift
+[45/96] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[46/96] Compiling SpoonjoyCore KeychainTokenVault.swift
+[47/96] Compiling SpoonjoyCore NativeAuthSession.swift
+[48/96] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[49/96] Compiling SpoonjoyCore NativeIntentAction.swift
+[50/96] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[51/96] Compiling SpoonjoyCore ScenarioCommand.swift
+[52/96] Compiling SpoonjoyCore ScenarioReport.swift
+[53/96] Compiling SpoonjoyCore ScenarioVerifier.swift
+[54/96] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[55/96] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[56/96] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[57/96] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[58/96] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[59/96] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[60/96] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[61/96] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[62/96] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[63/96] Compiling SpoonjoyCore NativeSharePayload.swift
+[64/96] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[65/96] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[66/96] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[67/96] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[68/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[69/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[70/96] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[71/96] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[72/96] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[73/96] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[74/96] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[75/96] Compiling SpoonjoyCore NativeDurableCache.swift
+[76/96] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[77/96] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[78/96] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[79/96] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[80/96] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[81/96] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[82/96] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[83/96] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[84/96] Compiling SpoonjoyCore JSONFileStore.swift
+[85/96] Compiling SpoonjoyCore MutationQueue.swift
+[86/96] Compiling SpoonjoyCore OfflineSnapshot.swift
+[87/96] Compiling SpoonjoyCore SyncCheckpoint.swift
+[88/96] Compiling SpoonjoyCore RecipeCookbook.swift
+[89/96] Compiling SpoonjoyCore SpoonjoyCore.swift
+[90/96] Compiling SpoonjoyCore NativeSyncEngine.swift
+[91/96] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[92/140] Compiling SpoonjoyScenarioVerifier main.swift
+[93/140] Emitting module SpoonjoyScenarioVerifier
+[94/140] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[94/139] Linking SpoonjoyScenarioVerifier
+[95/139] Applying SpoonjoyScenarioVerifier
+[97/139] Emitting module SpoonjoyCoreTests
+[98/143] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[99/143] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[100/143] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[101/143] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[102/143] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[103/143] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[104/143] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[105/143] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[106/143] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[107/143] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[108/143] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[109/143] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[110/143] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[111/143] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[112/143] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[113/143] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[114/143] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[115/143] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[116/143] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[117/143] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[118/143] Compiling SpoonjoyCoreTests CookbookIntentTests.swift
+[119/143] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[120/143] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[121/143] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[122/143] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[123/143] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[124/143] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[125/143] Compiling SpoonjoyCoreTests APITransportTests.swift
+[126/143] Compiling SpoonjoyCoreTests AppStateTests.swift
+[127/143] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[128/143] Compiling SpoonjoyCoreTests CaptureImportIntentTests.swift
+[129/143] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[130/143] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[131/143] Compiling SpoonjoyCoreTests ProfileSettingsIntentTests.swift
+[132/143] Compiling SpoonjoyCoreTests RecipeActionIntentTests.swift
+[133/143] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[134/143] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[135/143] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[136/143] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[137/143] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[138/143] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[139/143] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[140/143] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[141/143] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[142/145] Emitting module SpoonjoyApplePackageTests
+[143/145] Compiling SpoonjoyApplePackageTests runner.swift
+[143/145] Write Objects.LinkFileList
+[144/145] Linking SpoonjoyApplePackageTests
+Build complete! (29.22s)
 ◇ Test run started.
 ↳ Testing Library Version: 1902
 ↳ Target Platform: arm64e-apple-macos14.0
 ◇ Suite "Profile and settings Siri intent contracts" started.
 ◇ Test "profile and settings Siri intents require queueable profile actions and online-only credential actions" started.
-✘ Test "profile and settings Siri intents require queueable profile actions and online-only credential actions" recorded an issue at ProfileSettingsIntentTests.swift:447:9: Expectation failed: (failures → ["Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenSettingsIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateProfileDisplayIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateProfilePhotoIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RemoveProfilePhotoIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenAPITokensIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct CreateAPITokenIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RevokeAPITokenIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenAccountConnectionsIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct DisconnectAccountConnectionIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenPasskeysIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenPasswordIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LinkProviderIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LogoutIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RevokeCurrentSessionIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var token: SpoonjoyAPITokenEntity", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var connection: SpoonjoyAccountConnectionEntity", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing SpoonjoySettingsAuthProviderOption", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing IntentFile", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing OpenURLIntent(plan.secureHandoff.url)", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenSettingsIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: UpdateProfileDisplayIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: UpdateProfilePhotoIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RemoveProfilePhotoIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenAPITokensIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: CreateAPITokenIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RevokeAPITokenIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenAccountConnectionsIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: DisconnectAccountConnectionIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenPasskeysIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenPasswordIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LinkProviderIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LogoutIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RevokeCurrentSessionIntent())", "missing Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing case unresolvedAPITokenEntity", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing case unresolvedAccountConnectionEntity", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openSettings(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func updateProfileDisplay(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func updateProfilePhoto(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func removeProfilePhoto(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openAPITokens(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func createAPIToken(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func revokeAPIToken(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openAccountConnections(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func disconnectAccountConnection(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openPasskeys(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openPassword(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func linkProvider(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func logout(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func revokeCurrentSession(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsActionPlanner", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsSurfaceConnectivity", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsSecureHandoffRoutes.spoonjoyApp", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing DeepLinkURLBuilder.url(for: .settings)", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenSettingsIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing UpdateProfileDisplayIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing UpdateProfilePhotoIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RemoveProfilePhotoIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenAPITokensIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing CreateAPITokenIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RevokeAPITokenIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenAccountConnectionsIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing DisconnectAccountConnectionIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenPasskeysIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenPasswordIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LinkProviderIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LogoutIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RevokeCurrentSessionIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoyAPITokenEntity", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoyAccountConnectionEntity", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Profile and settings Siri intents", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing UpdateProfileDisplayIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing UpdateProfilePhotoIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing CreateAPITokenIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RevokeAPITokenIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing DisconnectAccountConnectionIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing OpenPasskeysIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing OpenPasswordIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LinkProviderIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LogoutIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RevokeCurrentSessionIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfileDisplayIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfilePhotoIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveProfilePhotoIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateAPITokenIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeAPITokenIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DisconnectAccountConnectionIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for credential handoff intents", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogoutIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeCurrentSessionIntent", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfileDisplay resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfilePhoto resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for removeProfilePhoto resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createAPIToken resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for revokeAPIToken resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for disconnectAccountConnection resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for credential handoff resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logout resolver"]).isEmpty → false
+✘ Test "profile and settings Siri intents require queueable profile actions and online-only credential actions" recorded an issue at ProfileSettingsIntentTests.swift:557:9: Expectation failed: (failures → ["Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenSettingsIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateProfileDisplayIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateProfilePhotoIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RemoveProfilePhotoIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenAPITokensIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct CreateAPITokenIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RevokeAPITokenIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenAccountConnectionsIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct DisconnectAccountConnectionIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenPasskeysIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenPasswordIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LinkProviderIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LogoutIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RevokeCurrentSessionIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var token: SpoonjoyAPITokenEntity", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var connection: SpoonjoyAccountConnectionEntity", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing SpoonjoySettingsAuthProviderOption", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing IntentFile", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing OpenURLIntent(plan.secureHandoff.url)", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenSettingsIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: UpdateProfileDisplayIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: UpdateProfilePhotoIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RemoveProfilePhotoIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenAPITokensIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: CreateAPITokenIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RevokeAPITokenIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenAccountConnectionsIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: DisconnectAccountConnectionIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenPasskeysIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenPasswordIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LinkProviderIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LogoutIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RevokeCurrentSessionIntent())", "missing Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing case unresolvedAPITokenEntity", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing case unresolvedAccountConnectionEntity", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openSettings(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func updateProfileDisplay(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func updateProfilePhoto(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func removeProfilePhoto(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openAPITokens(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func createAPIToken(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func revokeAPIToken(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openAccountConnections(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func disconnectAccountConnection(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openPasskeys(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openPassword(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func linkProvider(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func logout(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func revokeCurrentSession(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsActionPlanner", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsSurfaceConnectivity", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsSecureHandoffRoutes.spoonjoyApp", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing DeepLinkURLBuilder.url(for: .settings)", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenSettingsIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing UpdateProfileDisplayIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing UpdateProfilePhotoIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RemoveProfilePhotoIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenAPITokensIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing CreateAPITokenIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RevokeAPITokenIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenAccountConnectionsIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing DisconnectAccountConnectionIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenPasskeysIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenPasswordIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LinkProviderIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LogoutIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RevokeCurrentSessionIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoyAPITokenEntity", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoyAccountConnectionEntity", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Profile and settings Siri intents", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing UpdateProfileDisplayIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing UpdateProfilePhotoIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing CreateAPITokenIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RevokeAPITokenIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing DisconnectAccountConnectionIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing OpenPasskeysIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing OpenPasswordIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LinkProviderIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LogoutIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RevokeCurrentSessionIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenSettingsIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAPITokensIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAccountConnectionsIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfileDisplayIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfilePhotoIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveProfilePhotoIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateAPITokenIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeAPITokenIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DisconnectAccountConnectionIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasskeysIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasswordIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LinkProviderIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogoutIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeCurrentSessionIntent", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openSettings resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAPITokens resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAccountConnections resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfileDisplay resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfilePhoto resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for removeProfilePhoto resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createAPIToken resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for revokeAPIToken resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for disconnectAccountConnection resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPasskeys resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPassword resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for linkProvider resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logout resolver"]).isEmpty → false
 ↳ Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenSettingsIntent: AppIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateProfileDisplayIntent: AppIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateProfilePhotoIntent: AppIntent
@@ -93,24 +233,34 @@ Build complete! (4.58s)
   Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LinkProviderIntent
   Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LogoutIntent
   Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RevokeCurrentSessionIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenSettingsIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAPITokensIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenAccountConnectionsIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfileDisplayIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateProfilePhotoIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RemoveProfilePhotoIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateAPITokenIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeAPITokenIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DisconnectAccountConnectionIntent
-  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for credential handoff intents
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasskeysIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenPasswordIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LinkProviderIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogoutIntent
   Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RevokeCurrentSessionIntent
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openSettings resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAPITokens resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openAccountConnections resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfileDisplay resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateProfilePhoto resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for removeProfilePhoto resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createAPIToken resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for revokeAPIToken resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for disconnectAccountConnection resolver
-  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for credential handoff resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPasskeys resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openPassword resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for linkProvider resolver
   Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logout resolver
-✘ Test "profile and settings Siri intents require queueable profile actions and online-only credential actions" failed after 0.298 seconds with 1 issue.
-✘ Suite "Profile and settings Siri intent contracts" failed after 0.298 seconds with 1 issue.
-✘ Test run with 1 test in 1 suite failed after 0.298 seconds with 1 issue.
+✘ Test "profile and settings Siri intents require queueable profile actions and online-only credential actions" failed after 0.350 seconds with 1 issue.
+✘ Suite "Profile and settings Siri intent contracts" failed after 0.351 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.352 seconds with 1 issue.
 expected red status: 1

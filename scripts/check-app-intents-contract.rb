@@ -3536,7 +3536,6 @@ if domain == "profile-settings-intents"
       "resolvedCredentialID() throws",
       "resolvedConnectionID() throws",
       "tokenPrefix",
-      "revealedSecret",
       "NativeIntentActionError.unresolvedAPITokenEntity",
       "NativeIntentActionError.unresolvedAccountConnectionEntity"
     ],
@@ -3645,6 +3644,30 @@ if domain == "profile-settings-intents"
   )
 
   {
+    "OpenSettingsIntent" => {
+      required: [
+        "NativeIntentActionResolver().openSettings(",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation", "ReturnsValue<String>"]
+    },
+    "OpenAPITokensIntent" => {
+      required: [
+        "NativeIntentActionResolver().openAPITokens(",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation", "ReturnsValue<String>", "rawToken", "tokenSecret", "revealedSecret"]
+    },
+    "OpenAccountConnectionsIntent" => {
+      required: [
+        "NativeIntentActionResolver().openAccountConnections(",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation", "ReturnsValue<String>"]
+    },
     "UpdateProfileDisplayIntent" => {
       required: [
         "@Parameter(title: \"Email\")",
@@ -3687,7 +3710,7 @@ if domain == "profile-settings-intents"
         "not queued",
         "OpenURLIntent(action.url)"
       ],
-      forbidden: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "tokenSecret", ".apply(action"]
+      forbidden: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "rawToken", "tokenSecret", "revealedSecret", ".apply(action"]
     },
     "RevokeAPITokenIntent" => {
       required: [
@@ -3722,6 +3745,26 @@ if domain == "profile-settings-intents"
       ],
       forbidden: [".apply(action", "NativeQueuedMutation"]
     },
+    "OpenPasswordIntent" => {
+      required: [
+        "NativeIntentActionResolver().openPassword(",
+        "SettingsOnlineOnlyReason.credentialHandoff.message",
+        "not queued",
+        "OpenURLIntent(plan.secureHandoff.url)"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation"]
+    },
+    "LinkProviderIntent" => {
+      required: [
+        "@Parameter(title: \"Provider\")",
+        "var provider: SpoonjoySettingsAuthProviderOption",
+        "NativeIntentActionResolver().linkProvider(",
+        "SettingsOnlineOnlyReason.credentialHandoff.message",
+        "not queued",
+        "OpenURLIntent(plan.secureHandoff.url)"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation"]
+    },
     "LogoutIntent" => {
       required: [
         "try await requestConfirmation(",
@@ -3747,6 +3790,30 @@ if domain == "profile-settings-intents"
   end
 
   {
+    "openSettings resolver" => {
+      pattern: /\bpublic\s+func\s+openSettings\(/,
+      required: [
+        "route: .settings",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation(", "TokenCredentialRequests"]
+    },
+    "openAPITokens resolver" => {
+      pattern: /\bpublic\s+func\s+openAPITokens\(/,
+      required: [
+        "route: .settings",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation(", "TokenCredentialRequests.createToken", "TokenCredentialRequests.revokeToken"]
+    },
+    "openAccountConnections resolver" => {
+      pattern: /\bpublic\s+func\s+openAccountConnections\(/,
+      required: [
+        "route: .settings",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation(", "PrivateAccountRequests.disconnectConnection"]
+    },
     "updateProfileDisplay resolver" => {
       pattern: /\bpublic\s+func\s+updateProfileDisplay\(/,
       required: [
@@ -3807,12 +3874,30 @@ if domain == "profile-settings-intents"
       ],
       forbidden: ["NativeQueuedMutation", ".nativeMutation("]
     },
-    "credential handoff resolver" => {
+    "openPasskeys resolver" => {
       pattern: /\bpublic\s+func\s+openPasskeys\(/,
       required: [
         ".managePasskeys",
         "secureHandoffRoutes.handoff(target: .passkeys)",
         "https://spoonjoy.app/account/settings#passkeys"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    },
+    "openPassword resolver" => {
+      pattern: /\bpublic\s+func\s+openPassword\(/,
+      required: [
+        ".managePassword",
+        "secureHandoffRoutes.handoff(target: .password)",
+        "https://spoonjoy.app/account/settings#password"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    },
+    "linkProvider resolver" => {
+      pattern: /\bpublic\s+func\s+linkProvider\(/,
+      required: [
+        ".linkProvider(provider)",
+        "secureHandoffRoutes.handoff(target: .providerLink(provider))",
+        "https://spoonjoy.app/auth/"
       ],
       forbidden: ["NativeQueuedMutation", ".nativeMutation("]
     },
@@ -3893,7 +3978,7 @@ if domain == "profile-settings-intents"
       "createdAPIToken.token",
       "rawToken",
       "tokenSecret",
-      "revealedSecret: String",
+      "revealedSecret",
       "secretValue"
     ],
     failures
