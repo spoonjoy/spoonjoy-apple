@@ -64,7 +64,9 @@ CONTRACTS = {
     "OfflineStatusView",
     "Hide offline status",
     "textFits",
-    "noTinyClusters"
+    "noTinyClusters",
+    "emittedBy",
+    "bundleIdentifier"
   ],
   "scripts/validate-design-review-blocker.rb" => [
     'apple/#{unit_slug}-accessibility-proof-ios.json',
@@ -78,7 +80,7 @@ CONTRACTS = {
   "scripts/capture-native-screenshots.sh" => [
     "accessibility_proof_ios",
     "accessibility_proof_macos",
-    "write_accessibility_proof",
+    "wait_for_accessibility_proof",
     "accessibilityProofArtifacts",
     "offlineIndicatorProof",
     "minimumTargetSize",
@@ -89,6 +91,16 @@ CONTRACTS = {
     "apple/${unit_slug}-accessibility-proof-ios.json",
     "apple/${unit_slug}-accessibility-proof-macos.json",
     "rm -f \"$accessibility_proof_ios\" \"$accessibility_proof_macos\""
+  ],
+  "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift" => [
+    "ScreenshotAccessibilityProofWriter",
+    "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+    "writeIfNeeded(route: String, source: String)",
+    "OfflineStatusView.screenshotAccessibilityProof",
+    "\"emittedBy\": \"SpoonjoyApp\"",
+    "\"bundleIdentifier\": Bundle.main.bundleIdentifier",
+    "JSONSerialization.data",
+    "FileManager.default.createDirectory"
   ],
   "scripts/validate-native-local.sh" => [
     "scripts/check-design-accessibility-contract.rb",
@@ -105,7 +117,20 @@ CONTRACTS = {
     ".accessibilityLabel(label)",
     ".accessibilityLabel(\"Hide offline status\")",
     "Button",
-    "KitchenTableTheme.bodyNote"
+    "KitchenTableTheme.bodyNote",
+    "screenshotAccessibilityProof",
+    "visibleProbeDisplays",
+    "hiddenProbeDisplays",
+    "severityCorrect"
+  ],
+  "Apps/Spoonjoy/Shared/Views/KitchenView.swift" => [
+    "ScreenshotAccessibilityProofWriter.writeIfNeeded(route: \"kitchen\", source: \"KitchenView\")"
+  ],
+  "Apps/Spoonjoy/Shared/Views/SearchView.swift" => [
+    "ScreenshotAccessibilityProofWriter.writeIfNeeded(route: \"search\", source: \"SearchView\")"
+  ],
+  "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
+    "ScreenshotAccessibilityProofWriter.writeIfNeeded(route: \"settings\", source: \"SettingsView\")"
   ]
 }.freeze
 
@@ -160,6 +185,8 @@ def accessibility_proof(platform)
     "platform" => platform,
     "route" => "kitchen",
     "source" => "KitchenView",
+    "emittedBy" => "SpoonjoyApp",
+    "bundleIdentifier" => platform == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy",
     "minimumTargetSize" => 44,
     "textFits" => true,
     "noTinyClusters" => true,
@@ -177,6 +204,11 @@ def accessibility_proof(platform)
 end
 
 CONTRACTS.each { |relative_path, tokens| assert_tokens(relative_path, tokens) }
+
+capture_script = ROOT.join("scripts/capture-native-screenshots.sh").read
+if capture_script.include?("write_accessibility_proof()")
+  record_failure("scripts/capture-native-screenshots.sh must not fabricate accessibility proof artifacts in the harness")
+end
 
 [
   "scripts/check-design-accessibility-contract.rb",
@@ -241,6 +273,9 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
   }
   blocked_review_path = temp_root.join("design-review-blocked.json")
   blocked_review_path.write(JSON.pretty_generate(expanded_blocked_review) + "\n")
+  base_design_review.fetch("accessibilityProofArtifacts").each do |relative_path|
+    temp_root.join(relative_path).delete if temp_root.join(relative_path).exist?
+  end
   assert_status(
     true,
     ["ruby", blocker_validator, blocked_review_path, "--artifact-root", temp_root, "--unit-slug", "unit-contract"],

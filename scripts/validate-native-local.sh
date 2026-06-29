@@ -120,7 +120,9 @@ write_xcode_screenshot_blocker() {
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",
-        "design-review.json"
+        "design-review.json",
+        "apple/matrix-accessibility-proof-ios.json",
+        "apple/matrix-accessibility-proof-macos.json"
       ],
       "reason" => screenshot_blocker.fetch("reason"),
       "ownerAction" => screenshot_blocker.fetch("ownerAction")
@@ -129,6 +131,7 @@ write_xcode_screenshot_blocker() {
   ' "$source_blocker" "$screenshot_blocker" "$design_review_blocked"
   rm -f "$artifact_root/design-review.json"
   rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/macos-desktop.png"
+  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
 }
 
 run_required() {

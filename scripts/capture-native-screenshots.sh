@@ -44,6 +44,13 @@ ios_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-ios.json"
 macos_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-macos.json"
 ios_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ios.json"
 macos_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-macos.json"
+accessibility_proof_ios="$artifact_root/apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_macos="$artifact_root/apple/${unit_slug}-accessibility-proof-macos.json"
+accessibility_proof_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-macos.json"
+accessibility_proof_ios_rel="apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_macos_rel="apple/${unit_slug}-accessibility-proof-macos.json"
+ios_accessibility_proof_runtime_path=""
 screenshot_proof_path=""
 screenshot_route="kitchen"
 if [[ "$unit_slug" == *search* ]]; then
@@ -105,7 +112,7 @@ write_blocker() {
 write_design_review_blocked() {
   local source_blocker_path="$1"
   ruby -rjson -e '
-    source_path, output_path = ARGV
+    source_path, output_path, ios_accessibility_proof, macos_accessibility_proof = ARGV
     blocker = JSON.parse(File.read(source_path))
     manifest = {
       "blocked" => true,
@@ -114,20 +121,24 @@ write_design_review_blocked() {
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",
-        "design-review.json"
+        "design-review.json",
+        ios_accessibility_proof,
+        macos_accessibility_proof
       ],
       "reason" => blocker.fetch("reason"),
       "ownerAction" => blocker.fetch("ownerAction")
     }
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$source_blocker_path" "$design_review_blocked"
+  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel"
   rm -f "$ios_screenshot" "$macos_screenshot"
+  rm -f "$accessibility_proof_ios" "$accessibility_proof_macos"
+  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_macos_abs"
   rm -f "$design_review"
 }
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, macos_proof = ARGV
+    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
@@ -139,6 +150,7 @@ write_design_review_success() {
       "contrast" => true,
       "kitchenTableHierarchy" => true,
       "noOverlap" => true,
+      "accessibilityProofArtifacts" => [ios_accessibility_proof, macos_accessibility_proof],
       "blockers" => []
     }
     if route == "settings"
@@ -162,7 +174,7 @@ write_design_review_success() {
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel"
 }
 
 is_xcode_platform_blocker() {
@@ -381,6 +393,7 @@ ios_launch_app() {
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
+  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
     xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy.Spoonjoy >> "$capture_log" 2>&1
 }
 
@@ -392,6 +405,7 @@ open_macos_app() {
     --env "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=$settings_capture_focus" \
     --env "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS=$search_capture_disable_focus" \
     --env "SPOONJOY_SCREENSHOT_PROOF_PATH=$screenshot_proof_path" \
+    --env "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs" \
     "$macos_app" >> "$capture_log" 2>&1
 }
 
@@ -528,6 +542,55 @@ wait_for_screenshot_proof() {
   return 1
 }
 
+wait_for_accessibility_proof() {
+  local proof_path="$1"
+  local expected_route="$2"
+  local expected_platform="$3"
+  local output_path="$4"
+  for _ in $(seq 1 "$proof_attempts"); do
+    if ruby -rjson -rfileutils -e '
+      path, expected_route, expected_platform, output_path = ARGV
+      proof = JSON.parse(File.read(path))
+      expected_source = case expected_route
+                        when "kitchen" then "KitchenView"
+                        when "search" then "SearchView"
+                        when "settings" then "SettingsView"
+                        else abort("unsupported route #{expected_route}")
+                        end
+      expected_bundle = expected_platform == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy"
+      expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast", "kitchenTableHierarchy", "noOverlap"]
+      expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
+      expected_dismissible = ["offline", "stale"]
+      expected_severe = ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
+      abort("#{expected_platform} accessibility proof platform mismatch") unless proof.fetch("platform") == expected_platform
+      abort("#{expected_platform} accessibility proof route mismatch") unless proof.fetch("route") == expected_route
+      abort("#{expected_platform} accessibility proof source mismatch") unless proof.fetch("source") == expected_source
+      abort("#{expected_platform} accessibility proof emitter mismatch") unless proof.fetch("emittedBy") == "SpoonjoyApp"
+      abort("#{expected_platform} accessibility proof bundle mismatch") unless proof.fetch("bundleIdentifier") == expected_bundle
+      missing_fields = expected_fields.reject { |field| proof[field] == true }
+      abort("#{expected_platform} accessibility proof false fields: #{missing_fields.join(", ")}") unless missing_fields.empty?
+      abort("#{expected_platform} accessibility proof minimumTargetSize mismatch") unless proof.fetch("minimumTargetSize") >= 44
+      abort("#{expected_platform} accessibility proof textFits mismatch") unless proof.fetch("textFits") == true
+      abort("#{expected_platform} accessibility proof noTinyClusters mismatch") unless proof.fetch("noTinyClusters") == true
+      offline = proof.fetch("offlineIndicatorProof")
+      abort("#{expected_platform} accessibility proof offline source mismatch") unless offline.fetch("source") == "OfflineStatusView"
+      abort("#{expected_platform} accessibility proof visible states mismatch") unless offline.fetch("visibleStates") == expected_visible
+      abort("#{expected_platform} accessibility proof dismissible states mismatch") unless offline.fetch("dismissibleStates") == expected_dismissible
+      abort("#{expected_platform} accessibility proof severe states mismatch") unless offline.fetch("severeStates") == expected_severe
+      abort("#{expected_platform} accessibility proof hidden states mismatch") unless offline.fetch("hiddenStates") == ["synced", "dismissed"]
+      abort("#{expected_platform} accessibility proof voiceOverLabel mismatch") unless offline.fetch("voiceOverLabel") == true
+      abort("#{expected_platform} accessibility proof dismissButtonLabel mismatch") unless offline.fetch("dismissButtonLabel") == "Hide offline status"
+      abort("#{expected_platform} accessibility proof severityCorrect mismatch") unless offline.fetch("severityCorrect") == true
+      FileUtils.mkdir_p(File.dirname(output_path))
+      File.write(output_path, JSON.pretty_generate(proof) + "\n")
+    ' "$proof_path" "$expected_route" "$expected_platform" "$output_path" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep "$proof_sleep_seconds"
+  done
+  return 1
+}
+
 validate_screenshot_surface_proof() {
   local proof_path="$1"
   local output_path="$2"
@@ -590,9 +653,11 @@ capture_ios_app() {
   data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy.Spoonjoy data)"
   local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
   screenshot_proof_path="$ios_app_dir/native-screenshot-proof.json"
+  ios_accessibility_proof_runtime_path="$ios_app_dir/native-accessibility-proof.json"
   write_app_state "$ios_app_dir/native-app-state.json" "$expected_recorded_route"
   write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
   rm -f "$screenshot_proof_path"
+  rm -f "$ios_accessibility_proof_runtime_path"
   if ! xcrun simctl terminate "$udid" app.spoonjoy.Spoonjoy >"$terminate_log" 2>&1; then
     if ! grep -qi "found nothing to terminate" "$terminate_log"; then
       cat "$terminate_log" >> "$capture_log"
@@ -609,6 +674,10 @@ capture_ios_app() {
     fi
     wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" || return 1
     validate_screenshot_surface_proof "$screenshot_proof_path" "$ios_proof_artifact" "ios" >> "$capture_log" 2>&1 || return 1
+  fi
+  if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "$accessibility_proof_ios"; then
+    printf 'Spoonjoy did not write the expected iOS accessibility proof for %s\n' "$screenshot_route" >> "$capture_log"
+    return 1
   fi
   xcrun simctl io "$udid" screenshot "$ios_screenshot" >> "$capture_log" 2>&1
   [[ -f "$ios_screenshot" && -s "$ios_screenshot" ]]
@@ -681,6 +750,8 @@ run_smoke() {
 : > "$capture_log"
 rm -f "$ios_screenshot" "$macos_screenshot"
 rm -f "$ios_proof_artifact" "$macos_proof_artifact"
+rm -f "$accessibility_proof_ios" "$accessibility_proof_macos"
+rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_macos_abs"
 rm -f "$design_review_blocked"
 rm -f "$design_review"
 rm -f "$xcode_blocker" "$ios_blocker" "$macos_blocker"
@@ -750,6 +821,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   rm -f "$state_file"
   rm -f "$cache_file"
   rm -f "$proof_file"
+  rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
   screenshot_proof_path="$proof_file"
   write_app_state "$state_file" "$expected_recorded_route"
   write_cache_state "$cache_file" "$screenshot_route"
@@ -775,6 +847,16 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy macOS did not prove the expected visible screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
   fi
+  if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs"; then
+    printf 'Spoonjoy did not write the expected macOS accessibility proof for %s\n' "$screenshot_route" >> "$capture_log"
+    write_blocker \
+      "$macos_blocker" \
+      "MacOSLaunch" \
+      "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs spoonjoy://$screenshot_route" \
+      "$capture_log" \
+      "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route." \
+      "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
+  fi
   ruby -rjson -e '
     path, expected_route = ARGV
     snapshot = JSON.parse(File.read(path))
@@ -797,6 +879,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     pkill -x Spoonjoy >/dev/null 2>&1 || true
     sleep 1
     rm -f "$proof_file"
+    rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
     write_app_state "$state_file" "$expected_recorded_route"
     write_cache_state "$cache_file" "$screenshot_route"
     open_macos_app
@@ -812,6 +895,16 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
         "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$screenshot_route" \
         "$capture_log" \
         "Spoonjoy macOS did not prove the expected visible screenshot route after relaunch." \
+        "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
+    fi
+    if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs"; then
+      printf 'Spoonjoy did not write the expected macOS accessibility proof after relaunch for %s\n' "$screenshot_route" >> "$capture_log"
+      write_blocker \
+        "$macos_blocker" \
+        "MacOSLaunch" \
+        "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs spoonjoy://$screenshot_route" \
+        "$capture_log" \
+        "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
     fi
     ruby -rjson -e '
@@ -857,6 +950,10 @@ elif [[ -f "$macos_blocker" ]]; then
 else
   if [[ ! -s "$ios_screenshot" || ! -s "$macos_screenshot" ]]; then
     printf 'Screenshot capture produced no blocker but did not produce both screenshots\n' >&2
+    exit 1
+  fi
+  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce both accessibility proofs\n' >&2
     exit 1
   fi
   write_design_review_success

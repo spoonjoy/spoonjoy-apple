@@ -1,0 +1,47 @@
+{
+  "contrast": true,
+  "dynamicType": true,
+  "keyboardNavigation": true,
+  "kitchenTableHierarchy": true,
+  "minimumTargetSize": 44,
+  "noOverlap": true,
+  "noTinyClusters": true,
+  "offlineIndicatorProof": {
+    "dismissButtonLabel": "Hide offline status",
+    "dismissibleStates": [
+      "offline",
+      "stale"
+    ],
+    "hiddenStates": [
+      "synced",
+      "dismissed"
+    ],
+    "severeStates": [
+      "queuedWork",
+      "syncFailure",
+      "conflict",
+      "blocker",
+      "destructiveConfirmation"
+    ],
+    "severityCorrect": true,
+    "source": "OfflineStatusView",
+    "visibleStates": [
+      "offline",
+      "stale",
+      "queuedWork",
+      "syncFailure",
+      "conflict",
+      "blocker",
+      "destructiveConfirmation"
+    ],
+    "voiceOverLabel": true
+  },
+  "platform": "macos",
+  "reduceMotion": true,
+  "route": "kitchen",
+  "source": "KitchenView",
+  "emittedBy": "SpoonjoyApp",
+  "bundleIdentifier": "app.spoonjoy.Spoonjoy.mac",
+  "textFits": true,
+  "voiceOverLabels": true
+}

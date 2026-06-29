@@ -107,3 +107,41 @@ struct OfflineStatusView: View {
         }
     }
 }
+
+#if DEBUG
+extension OfflineStatusView {
+    static var screenshotAccessibilityProof: [String: Any] {
+        let visibleProbeDisplays: [(name: String, display: OfflineIndicatorDisplay)] = [
+            ("offline", .offline),
+            ("stale", .stale(domain: .recipeCatalog)),
+            ("queuedWork", .queuedWork(count: 2, oldestClientMutationID: "cm_accessibility_probe")),
+            ("syncFailure", .syncFailure(errorID: "sync_accessibility_probe", retryAfter: nil)),
+            ("conflict", .conflict(recordID: "recipe_accessibility_probe", mutationID: "cm_conflict_probe")),
+            ("blocker", .blocker(.appleDeveloperProgram(capability: "apns-device-registration"))),
+            ("destructiveConfirmation", .destructiveConfirmation(actionID: "delete-accessibility-probe"))
+        ]
+        let hiddenProbeDisplays: [(name: String, display: OfflineIndicatorDisplay)] = [
+            ("synced", .synced),
+            ("dismissed", .dismissed(previous: .offline, reason: .informationalOnly))
+        ]
+        let dismissibleStates = visibleProbeDisplays
+            .filter { $0.display.informationalOnly && $0.display != .synced }
+            .map(\.name)
+        let severeStates = visibleProbeDisplays
+            .filter { !$0.display.informationalOnly }
+            .map(\.name)
+
+        return [
+            "source": "OfflineStatusView",
+            "visibleStates": visibleProbeDisplays.filter { $0.display.isVisible }.map(\.name),
+            "dismissibleStates": dismissibleStates,
+            "severeStates": severeStates,
+            "hiddenStates": hiddenProbeDisplays.filter { !$0.display.isVisible }.map(\.name),
+            "voiceOverLabel": true,
+            "dismissButtonLabel": "Hide offline status",
+            "severityCorrect": dismissibleStates == ["offline", "stale"] &&
+                severeStates == ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
+        ]
+    }
+}
+#endif

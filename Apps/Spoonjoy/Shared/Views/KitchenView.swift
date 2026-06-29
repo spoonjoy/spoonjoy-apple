@@ -24,6 +24,9 @@ struct KitchenView: View {
             .padding()
         }
         .background(KitchenTableTheme.bone)
+        .task {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "kitchen", source: "KitchenView")
+        }
     }
 
     private var leadObject: KitchenLeadObject {

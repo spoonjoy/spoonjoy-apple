@@ -73,6 +73,7 @@ struct SearchView: View {
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
         .task(id: search.route.stateIdentifier) {
             await writeScreenshotProofIfNeeded()
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "search", source: "SearchView")
             await debounceSearch()
         }
     }

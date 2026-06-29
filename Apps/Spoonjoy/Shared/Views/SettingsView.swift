@@ -63,6 +63,7 @@ struct SettingsView: View {
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["Profile", "Security"]
                         )
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "settings", source: "SettingsView")
                     case .notifications:
                         withAnimation(nil) {
                             proxy.scrollTo(Self.notificationsFocusID, anchor: .center)
@@ -75,6 +76,7 @@ struct SettingsView: View {
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
                         )
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "settings", source: "SettingsView")
                     }
                 }
         }
