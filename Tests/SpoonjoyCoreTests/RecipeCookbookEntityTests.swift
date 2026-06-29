@@ -290,6 +290,69 @@ struct RecipeCookbookEntityTests {
         #expect(try await catalog.cookbookEntity(id: "cookbook_weeknights").title == "Weeknights")
     }
 
+    @Test("entity descriptors cover placeholder sparse recipe and singular cookbook display edges")
+    func entityDescriptorsCoverPlaceholderSparseRecipeAndSingularCookbookDisplayEdges() async throws {
+        let recipeCatalog = try RecipeFixtureCatalog.decodeFromBundle()
+        let cookbookCatalog = try CookbookFixtureCatalog.decodeFromBundle()
+        let lemon = try #require(recipeCatalog.recipe(id: "recipe_lemon_pantry_pasta"))
+        let weeknights = try #require(cookbookCatalog.cookbook(id: "cookbook_weeknights"))
+        let sparseRecipe = Self.recipeVariant(
+            lemon,
+            id: "recipe_plain_toast",
+            title: "Plain Toast",
+            chef: lemon.chef,
+            servings: "   "
+        )
+        let singularCookbook = Self.cookbookVariant(
+            weeknights,
+            id: "cookbook_one_recipe",
+            title: "Solo Suppers",
+            chef: weeknights.chef,
+            recipeCount: 1,
+            recipes: Array(weeknights.recipes.prefix(1))
+        )
+        let catalog = RecipeCookbookEntityCatalog(
+            syncSnapshot: try Self.syncSnapshot(records: [
+                NativeSyncCachedRecord(
+                    kind: .recipe,
+                    resourceID: sparseRecipe.id,
+                    payload: Self.jsonValue(sparseRecipe),
+                    serverRevision: .updatedAt(sparseRecipe.updatedAt)
+                ),
+                NativeSyncCachedRecord(
+                    kind: .cookbook,
+                    resourceID: singularCookbook.id,
+                    payload: Self.jsonValue(singularCookbook),
+                    serverRevision: .updatedAt(singularCookbook.updatedAt)
+                )
+            ]),
+            currentAccountID: "account_ari",
+            environment: NativeCacheEnvironment.production
+        )
+
+        #expect(RecipeEntityDescriptor.placeholder.isPlaceholder)
+        #expect(CookbookEntityDescriptor.placeholder.isPlaceholder)
+
+        let recipe = try await catalog.recipeEntity(id: "recipe_plain_toast")
+        #expect(!recipe.isPlaceholder)
+        #expect(recipe.subtitle == "ari")
+        #expect(recipe.canonicalURL == sparseRecipe.canonicalURL)
+        #expect(recipe.transferValue.canonicalURL == sparseRecipe.canonicalURL)
+
+        let cookbook = try await catalog.cookbookEntity(id: "cookbook_one_recipe")
+        #expect(!cookbook.isPlaceholder)
+        #expect(cookbook.subtitle == "ari - 1 recipe")
+        #expect(cookbook.recipeCount == 1)
+        #expect(cookbook.canonicalURL == singularCookbook.canonicalURL)
+        #expect(cookbook.transferValue.canonicalURL == singularCookbook.canonicalURL)
+
+        let allRecipes = try await catalog.recipeEntities(matching: "   ")
+        #expect(allRecipes.map(\.id) == ["recipe_plain_toast"])
+
+        let allCookbooks = try await catalog.cookbookEntities(matching: "")
+        #expect(allCookbooks.map(\.id) == ["cookbook_one_recipe"])
+    }
+
     @Test("entity catalog trims identifiers and reports missing cached entities")
     func entityCatalogTrimsIdentifiersAndReportsMissingCachedEntities() async throws {
         let catalog = try Self.entityCatalog()
@@ -448,13 +511,14 @@ struct RecipeCookbookEntityTests {
         _ recipe: Recipe,
         id: String,
         title: String,
-        chef: ChefSummary
+        chef: ChefSummary,
+        servings: String? = nil
     ) -> Recipe {
         Recipe(
             id: id,
             title: title,
             description: recipe.description,
-            servings: recipe.servings,
+            servings: servings ?? recipe.servings,
             chef: chef,
             coverImageURL: recipe.coverImageURL,
             coverProvenanceLabel: recipe.coverProvenanceLabel,
@@ -475,20 +539,22 @@ struct RecipeCookbookEntityTests {
         _ cookbook: Cookbook,
         id: String,
         title: String,
-        chef: ChefSummary
+        chef: ChefSummary,
+        recipeCount: Int? = nil,
+        recipes: [RecipeSummary]? = nil
     ) -> Cookbook {
         Cookbook(
             id: id,
             title: title,
             chef: chef,
-            recipeCount: cookbook.recipeCount,
+            recipeCount: recipeCount ?? cookbook.recipeCount,
             cover: cookbook.cover,
             href: "/cookbooks/\(id)",
             canonicalURL: URL(string: "https://spoonjoy.app/cookbooks/\(id)")!,
             attribution: cookbook.attribution,
             createdAt: cookbook.createdAt,
             updatedAt: cookbook.updatedAt,
-            recipes: cookbook.recipes
+            recipes: recipes ?? cookbook.recipes
         )
     }
 }
