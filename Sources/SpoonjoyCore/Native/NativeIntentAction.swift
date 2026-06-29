@@ -263,6 +263,23 @@ public struct NativeIntentActionResolver {
         )
     }
 
+    public func removeShoppingListItem(
+        itemID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let id = try canonicalShoppingItemID(itemID)
+        let mutationID = "intent-shopping-remove-\(stableToken(id))-\(stableToken(createdAt))"
+        return .shoppingMutation(
+            .shoppingDeleteItem(
+                itemID: id,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .shoppingList,
+            url: DeepLinkURLBuilder.url(for: .shoppingList)
+        )
+    }
+
     public func addRecipeIngredientsToShoppingList(
         recipeID: String,
         scaleFactor: Double,

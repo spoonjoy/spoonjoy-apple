@@ -43,6 +43,7 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "ContinueCookModeIntent",
             "AddShoppingListItemIntent",
             "SetShoppingListItemCheckedIntent",
+            "RemoveShoppingListItemIntent",
             "AddRecipeIngredientsToShoppingListIntent",
             "ClearCompletedShoppingItemsIntent",
             "ClearShoppingListIntent",

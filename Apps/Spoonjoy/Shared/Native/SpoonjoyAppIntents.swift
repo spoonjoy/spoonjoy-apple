@@ -345,6 +345,37 @@ struct SetShoppingListItemCheckedIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+struct RemoveShoppingListItemIntent: AppIntent {
+    static let title: LocalizedStringResource = "Remove Shopping Item"
+    static let description = IntentDescription("Remove an item from the Spoonjoy shopping list.")
+
+    @Parameter(title: "Shopping Item", requestValueDialog: "Which Spoonjoy shopping item?")
+    var item: SpoonjoyShoppingItemEntity
+
+    init() {
+        item = SpoonjoyShoppingItemEntity()
+    }
+
+    init(item: SpoonjoyShoppingItemEntity) {
+        self.item = item
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let itemID = try item.resolvedShoppingItemID()
+        let action = try NativeIntentActionResolver().removeShoppingListItem(
+            itemID: itemID,
+            createdAt: createdAt
+        )
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Removed shopping item in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct AddRecipeIngredientsToShoppingListIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Recipe Ingredients"
     static let description = IntentDescription("Add a Spoonjoy recipe's ingredients to the shopping list.")
@@ -386,6 +417,7 @@ struct ClearCompletedShoppingItemsIntent: AppIntent {
     static let description = IntentDescription("Remove completed items from the Spoonjoy shopping list.")
 
     func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
         let createdAt = SpoonjoyIntentClock.timestamp()
         let action = NativeIntentActionResolver().clearCompletedShoppingItems(createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
@@ -401,6 +433,7 @@ struct ClearShoppingListIntent: AppIntent {
     static let description = IntentDescription("Remove all items from the Spoonjoy shopping list.")
 
     func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
         let createdAt = SpoonjoyIntentClock.timestamp()
         let action = NativeIntentActionResolver().clearShoppingList(createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
@@ -543,6 +576,7 @@ private enum SpoonjoyIntentShortcutBudget {
         [
             String(describing: OpenProfileIntent()),
             String(describing: SetShoppingListItemCheckedIntent()),
+            String(describing: RemoveShoppingListItemIntent()),
             String(describing: AddRecipeIngredientsToShoppingListIntent()),
             String(describing: ClearCompletedShoppingItemsIntent()),
             String(describing: ClearShoppingListIntent())
