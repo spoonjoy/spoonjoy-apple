@@ -1,0 +1,167 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/88] Compiling SpoonjoyCore PaginationCursor.swift
+[4/88] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[5/88] Compiling SpoonjoyCore ShoppingListAPI.swift
+[6/88] Compiling SpoonjoyCore ShoppingListRequests.swift
+[7/88] Compiling SpoonjoyCore AppNavigationState.swift
+[8/88] Compiling SpoonjoyCore AppRoute.swift
+[9/88] Compiling SpoonjoyCore DeepLinkRouter.swift
+[10/88] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[11/88] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[12/96] Compiling SpoonjoyCore CaptureDraft.swift
+[13/96] Compiling SpoonjoyCore CookModeProgress.swift
+[14/96] Compiling SpoonjoyCore KitchenFixtureState.swift
+[15/96] Compiling SpoonjoyCore SettingsState.swift
+[16/96] Compiling SpoonjoyCore ShoppingListState.swift
+[17/96] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[18/96] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[19/96] Compiling SpoonjoyCore DeepLinkManifest.swift
+[20/96] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[21/96] Compiling SpoonjoyCore APIClient.swift
+[22/96] Compiling SpoonjoyCore APIEnvelope.swift
+[23/96] Compiling SpoonjoyCore APIError.swift
+[24/96] Compiling SpoonjoyCore APIRequestBuilder.swift
+[25/96] Compiling SpoonjoyCore APIRequestSupport.swift
+[26/96] Compiling SpoonjoyCore APIRetryPolicy.swift
+[27/96] Compiling SpoonjoyCore APITransport.swift
+[28/96] Compiling SpoonjoyCore JSONValue.swift
+[29/96] Compiling SpoonjoyCore NativeAPIRequests.swift
+[30/96] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[31/96] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[32/96] Compiling SpoonjoyCore ScreenViewModels.swift
+[33/96] Compiling SpoonjoyCore SearchState.swift
+[34/96] Compiling SpoonjoyCore AuthSessionState.swift
+[35/96] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[36/96] Compiling SpoonjoyCore KeychainTokenVault.swift
+[37/96] Compiling SpoonjoyCore NativeAuthSession.swift
+[38/96] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[39/96] Emitting module SpoonjoyCore
+[40/96] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[41/96] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[42/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[43/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[44/96] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[45/96] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[46/96] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[47/96] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[48/96] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[49/96] Compiling SpoonjoyCore NativeIntentAction.swift
+[50/96] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[51/96] Compiling SpoonjoyCore ScenarioCommand.swift
+[52/96] Compiling SpoonjoyCore ScenarioReport.swift
+[53/96] Compiling SpoonjoyCore ScenarioVerifier.swift
+[54/96] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[55/96] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[56/96] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[57/96] Compiling SpoonjoyCore NativeDurableCache.swift
+[58/96] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[59/96] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[60/96] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[61/96] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[62/96] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[63/96] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[64/96] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[65/96] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[66/96] Compiling SpoonjoyCore OAuthPKCE.swift
+[67/96] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[68/96] Compiling SpoonjoyCore OAuthRequests.swift
+[69/96] Compiling SpoonjoyCore OAuthResponses.swift
+[70/96] Compiling SpoonjoyCore RefreshCoordinator.swift
+[71/96] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[72/96] Compiling SpoonjoyCore TokenVault.swift
+[73/96] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[74/96] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[75/96] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[76/96] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[77/96] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[78/96] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[79/96] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[80/96] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[81/96] Compiling SpoonjoyCore NativeSharePayload.swift
+[82/96] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[83/96] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[84/96] Compiling SpoonjoyCore JSONFileStore.swift
+[85/96] Compiling SpoonjoyCore MutationQueue.swift
+[86/96] Compiling SpoonjoyCore OfflineSnapshot.swift
+[87/96] Compiling SpoonjoyCore SyncCheckpoint.swift
+[88/96] Compiling SpoonjoyCore RecipeCookbook.swift
+[89/96] Compiling SpoonjoyCore SpoonjoyCore.swift
+[90/96] Compiling SpoonjoyCore NativeSyncEngine.swift
+[91/96] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[92/133] Compiling SpoonjoyScenarioVerifier main.swift
+[93/133] Emitting module SpoonjoyScenarioVerifier
+[94/133] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[94/132] Linking SpoonjoyScenarioVerifier
+[95/132] Applying SpoonjoyScenarioVerifier
+[97/132] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[98/132] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[99/132] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[100/132] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[101/135] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[102/135] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[103/135] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[104/135] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[105/135] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[106/135] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[107/135] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[108/135] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[109/135] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[110/135] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[111/135] Emitting module SpoonjoyCoreTests
+[112/135] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[113/135] Compiling SpoonjoyCoreTests APITransportTests.swift
+[114/135] Compiling SpoonjoyCoreTests AppStateTests.swift
+[115/135] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[116/135] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[117/135] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[118/135] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[119/135] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[120/135] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[121/135] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[122/135] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[123/135] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[124/135] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[125/135] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[126/135] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[127/135] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[128/135] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[129/135] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[130/135] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[131/135] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[132/135] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[133/135] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[134/137] Emitting module SpoonjoyApplePackageTests
+[135/137] Compiling SpoonjoyApplePackageTests runner.swift
+[135/137] Write Objects.LinkFileList
+[136/137] Linking SpoonjoyApplePackageTests
+Build complete! (22.98s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Chef profile App Entity contracts" started.
+◇ Test "chef profile entities resolve cached profiles and expose public transfer values" started.
+◇ Test "chef profile entities filter tombstoned profiles and recipe graph sources" started.
+◇ Test "chef profile entities filter wrong scopes reject unsafe identifiers and load stores" started.
+◇ Test "chef profile suggestions include graph chefs without follow feed or comment semantics" started.
+◇ Test "chef profile entity sources exist with AppIntents contracts" started.
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" recorded an issue at ChefProfileEntityTests.swift:228:9: Expectation failed: try await catalog.suggestedChefProfileEntities(limit: 10).map(\.profileID) == ["chef_ari"]
+✔ Test "chef profile suggestions include graph chefs without follow feed or comment semantics" passed after 0.004 seconds.
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" recorded an issue at ChefProfileEntityTests.swift:229:9: Expectation failed: try await catalog.chefProfileEntities(matching: "jules").isEmpty
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" recorded an issue at ChefProfileEntityTests.swift:230:9: Expectation failed: try await catalog.chefProfileEntities(matching: "mika").isEmpty
+✔ Test "chef profile entities resolve cached profiles and expose public transfer values" passed after 0.008 seconds.
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" recorded an issue at ChefProfileEntityTests.swift:231:9: Expectation failed: try await catalog.chefProfileEntities(for: ["chef_jules", "mika"]).isEmpty
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" recorded an issue at ChefProfileEntityTests.swift:568:21: Issue recorded
+↳ Expected ChefProfileEntityCatalogError to be thrown.
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" recorded an issue at ChefProfileEntityTests.swift:568:21: Issue recorded
+↳ Expected ChefProfileEntityCatalogError to be thrown.
+✘ Test "chef profile entities filter tombstoned profiles and recipe graph sources" failed after 0.008 seconds with 6 issues.
+✔ Test "chef profile entities filter wrong scopes reject unsafe identifiers and load stores" passed after 0.013 seconds.
+✘ Test "chef profile entity sources exist with AppIntents contracts" recorded an issue at ChefProfileEntityTests.swift:125:9: Expectation failed: (failures → ["Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift missing NativeSyncTombstone", "Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift missing tombstones"]).isEmpty → false
+↳ Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift missing NativeSyncTombstone
+  Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift missing tombstones
+✘ Test "chef profile entity sources exist with AppIntents contracts" failed after 0.058 seconds with 1 issue.
+✘ Suite "Chef profile App Entity contracts" failed after 0.059 seconds with 7 issues.
+✘ Test run with 5 tests in 1 suite failed after 0.059 seconds with 7 issues.

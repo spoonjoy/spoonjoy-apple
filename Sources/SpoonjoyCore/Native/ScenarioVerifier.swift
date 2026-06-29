@@ -189,6 +189,27 @@ public enum ScenarioVerifier {
                     ]
                 ),
                 sourceCheck(
+                    name: "chef profile App Entity source",
+                    detail: "Chef profile App Entity integration source is present for existing profiles, fellow chefs, and kitchen visitors.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoyChefProfileEntity",
+                        "SpoonjoyChefProfileEntityQuery",
+                        "ChefProfileEntityCatalog",
+                        "EntityStringQuery",
+                        "FileBackedNativeSyncStore",
+                        "NativeDurableCacheStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
                     name: "spotlight source",
                     detail: "CoreSpotlight integration source is present.",
                     rootURL: rootURL,

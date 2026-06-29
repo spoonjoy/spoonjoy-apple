@@ -30,6 +30,8 @@ struct ChefProfileEntityTests {
                     "public static func loading(",
                     "NativeSyncSnapshot",
                     "NativeSyncCachedRecord",
+                    "NativeSyncTombstone",
+                    "tombstones",
                     "NativeSyncEntryKind.profile",
                     "NativeSyncEntryKind.recipe",
                     "NativeDurableCacheSnapshot",
@@ -202,6 +204,40 @@ struct ChefProfileEntityTests {
         }
     }
 
+    @Test("chef profile entities filter tombstoned profiles and recipe graph sources")
+    func chefProfileEntitiesFilterTombstonedProfilesAndRecipeGraphSources() async throws {
+        let catalog = try Self.catalog(syncSnapshot: Self.syncSnapshot(tombstones: [
+            NativeSyncTombstone(
+                resourceType: .profile,
+                resourceID: "chef_jules",
+                parentResourceID: nil,
+                title: "jules",
+                deletedAt: "2026-06-29T01:00:00.000Z",
+                updatedAt: "2026-06-29T01:00:00.000Z"
+            ),
+            NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_ari_bread",
+                parentResourceID: nil,
+                title: "Ari Bread",
+                deletedAt: "2026-06-29T01:00:00.000Z",
+                updatedAt: "2026-06-29T01:00:00.000Z"
+            )
+        ]))
+
+        #expect(try await catalog.suggestedChefProfileEntities(limit: 10).map(\.profileID) == ["chef_ari"])
+        #expect(try await catalog.chefProfileEntities(matching: "jules").isEmpty)
+        #expect(try await catalog.chefProfileEntities(matching: "mika").isEmpty)
+        #expect(try await catalog.chefProfileEntities(for: ["chef_jules", "mika"]).isEmpty)
+
+        await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+            _ = try await catalog.chefProfileEntity(id: "jules")
+        }
+        await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+            _ = try await catalog.chefProfileEntity(id: "mika")
+        }
+    }
+
     @Test("chef profile entities filter wrong scopes reject unsafe identifiers and load stores")
     func chefProfileEntitiesFilterWrongScopesRejectUnsafeIdentifiersAndLoadStores() async throws {
         let syncSnapshot = try Self.syncSnapshot()
@@ -283,7 +319,10 @@ struct ChefProfileEntityTests {
         )
     }
 
-    private static func syncSnapshot(records: [NativeSyncCachedRecord]? = nil) throws -> NativeSyncSnapshot {
+    private static func syncSnapshot(
+        records: [NativeSyncCachedRecord]? = nil,
+        tombstones: [NativeSyncTombstone] = []
+    ) throws -> NativeSyncSnapshot {
         let ari = Self.chef(id: "chef_ari", username: "ari")
         let jules = Self.chef(id: "chef_jules", username: "jules")
         let mika = Self.chef(id: "chef_mika", username: "mika")
@@ -328,7 +367,7 @@ struct ChefProfileEntityTests {
             ),
             queue: NativeMutationQueue(),
             cachedRecords: records ?? defaultRecords,
-            tombstones: []
+            tombstones: tombstones
         )
     }
 
