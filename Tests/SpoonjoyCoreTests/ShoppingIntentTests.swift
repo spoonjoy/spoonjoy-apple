@@ -208,6 +208,10 @@ struct ShoppingIntentTests {
             checked: false,
             createdAt: "2026-06-16T14:06:00.000Z"
         )
+        let removeAction = try resolver.removeShoppingListItem(
+            itemID: " item_lemons ",
+            createdAt: "2026-06-16T14:06:30.000Z"
+        )
         let addRecipeAction = try resolver.addRecipeIngredientsToShoppingList(
             recipeID: " recipe_lemon_pantry_pasta ",
             scaleFactor: 2,
@@ -220,6 +224,7 @@ struct ShoppingIntentTests {
         let pantryMutation = try #require(pantryAction.queuedMutation)
         let checkMutation = try #require(checkAction.nativeQueuedMutation)
         let uncheckMutation = try #require(uncheckAction.nativeQueuedMutation)
+        let removeMutation = try #require(removeAction.nativeQueuedMutation)
         let addRecipeMutation = try #require(addRecipeAction.nativeQueuedMutation)
         let clearCompletedMutation = try #require(clearCompletedAction.nativeQueuedMutation)
         let clearAllMutation = try #require(clearAllAction.nativeQueuedMutation)
@@ -233,6 +238,11 @@ struct ShoppingIntentTests {
         #expect(checkMutation.clientMutationID == "intent-shopping-check-item_lemons-checked-2026-06-16T14-05-00-000Z")
         #expect(uncheckMutation.queueableKind == .shoppingCheckItem)
         #expect(uncheckMutation.clientMutationID == "intent-shopping-check-item_lemons-unchecked-2026-06-16T14-06-00-000Z")
+        #expect(removeAction.route == .shoppingList)
+        #expect(removeAction.url == URL(string: "spoonjoy://shopping-list"))
+        #expect(removeMutation.queueableKind == .shoppingDeleteItem)
+        #expect(removeMutation.clientMutationID == "intent-shopping-remove-item_lemons-2026-06-16T14-06-30-000Z")
+        #expect(removeMutation.createdAt == "2026-06-16T14:06:30.000Z")
         #expect(addRecipeMutation.queueableKind == .shoppingAddFromRecipe)
         #expect(addRecipeMutation.clientMutationID == "intent-shopping-recipe-recipe_lemon_pantry_pasta-2026-06-16T14-07-00-000Z")
         #expect(clearCompletedMutation.queueableKind == .shoppingClearCompleted)
@@ -253,6 +263,12 @@ struct ShoppingIntentTests {
                 itemID: "bad/item",
                 checked: true,
                 createdAt: "2026-06-16T14:11:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.invalidShoppingItemID("bad/item")) {
+            try resolver.removeShoppingListItem(
+                itemID: "bad/item",
+                createdAt: "2026-06-16T14:11:30.000Z"
             )
         }
         #expect(throws: NativeIntentActionError.invalidScaleFactor(0)) {
