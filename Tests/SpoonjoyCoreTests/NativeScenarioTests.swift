@@ -11,7 +11,11 @@ struct NativeScenarioTests {
         "SetShoppingListItemCheckedIntent",
         "AddRecipeIngredientsToShoppingListIntent",
         "ClearCompletedShoppingItemsIntent",
-        "ClearShoppingListIntent"
+        "ClearShoppingListIntent",
+        "SpoonjoyRecipeEntity",
+        "SpoonjoyCookbookEntity",
+        "SpoonjoyRecipeEntityQuery",
+        "SpoonjoyCookbookEntityQuery"
     ]
     private let expectedSpotlightIndexedTypes = ["recipe", "cookbook", "shopping-list-item"]
     private let expectedSearchableScopes = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
@@ -88,7 +92,7 @@ struct NativeScenarioTests {
         #expect(checksByName["deep link metadata"] == .pass)
         #expect(report.checks.first { $0.name == "app surfaces" }?.detail.contains("Units 14-16") == true)
         #expect(Set(report.nativeCapabilities.appIntents).isSuperset(of: Set(expectedAppIntents)))
-        #expect(!report.nativeCapabilities.appIntents.contains { $0.hasPrefix("Spoonjoy") })
+        #expect(report.nativeCapabilities.appIntents.contains("SpoonjoyRecipeEntity"))
         #expect(Set(report.nativeCapabilities.spotlightIndexedTypes).isSuperset(of: Set(expectedSpotlightIndexedTypes)))
         #expect(Set(report.nativeCapabilities.searchableScopes) == Set(expectedSearchableScopes))
         #expect(Set(report.nativeCapabilities.shareActions) == Set(expectedShareActions))
@@ -248,6 +252,7 @@ struct NativeScenarioTests {
             )
         }
         #expect(NativeIntentActionError.authRequired.description == "Sign in to Spoonjoy before queueing this Siri action.")
+        #expect(NativeIntentActionError.unresolvedRecipeEntity.description == "Choose a Spoonjoy recipe before running this Siri action.")
     }
 
     @Test("spotlight index plan builds route aware searchable documents")
@@ -784,10 +789,12 @@ struct NativeScenarioTests {
     @Test("app integration sources typecheck and declare expected native types")
     func appIntegrationSourcesTypecheckAndDeclareExpectedNativeTypes() throws {
         let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
+        let appEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift"
         let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
         let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
         let platformNavigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let appIntentsSource = try readRepoFile(appIntentsPath)
+        let appEntitiesSource = try readRepoFile(appEntitiesPath)
         let spotlightSource = try readRepoFile(spotlightPath)
         let rootViewSource = try readRepoFile(rootViewPath)
         let platformNavigationSource = try readRepoFile(platformNavigationPath)
@@ -822,9 +829,31 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains("accountID: scope.accountID"))
         #expect(appIntentsSource.contains("environment: scope.environment"))
         #expect(appIntentsSource.contains("try await SpoonjoyIntentStateWriter().apply"))
+        #expect(appIntentsSource.contains("var recipe: SpoonjoyRecipeEntity"))
+        #expect(appIntentsSource.contains("try recipe.resolvedRecipeID()"))
+        #expect(!appIntentsSource.contains("recipe.descriptor.id"))
+        #expect(!appIntentsSource.contains("@Parameter(title: \"Recipe ID\")"))
         #expect(!appIntentsSource.contains("native-app-snapshot.json"))
         #expect(!appIntentsSource.contains("ShoppingListState.decodeFromBundle()"))
         #expect(!appIntentsSource.contains("func perform() async throws -> some IntentResult {\n        .result()\n    }"))
+
+        for declaration in [
+            "struct SpoonjoyRecipeEntity: AppEntity, Transferable",
+            "struct SpoonjoyCookbookEntity: AppEntity, Transferable",
+            "struct SpoonjoyRecipeEntityQuery: EntityQuery, EntityStringQuery",
+            "struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery"
+        ] {
+            #expect(appEntitiesSource.contains(declaration))
+        }
+        #expect(appEntitiesSource.contains("RecipeCookbookEntityCatalog.loading(syncStore:"))
+        #expect(appEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(appEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(appEntitiesSource.contains("NativeIntentActionError.unresolvedRecipeEntity"))
+        #expect(appEntitiesSource.contains("descriptor.isPlaceholder"))
+        #expect(appEntitiesSource.contains("trustedIntentScope"))
+        #expect(appEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(appEntitiesSource.contains("scope.accountID"))
+        #expect(appEntitiesSource.contains("scope.environment"))
 
         for declaration in [
             "struct SpoonjoySpotlightIndexer",
@@ -863,7 +892,7 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourceTypechecks(appIntentsPath)
+        try assertSwiftSourcesTypecheck([appEntitiesPath, appIntentsPath])
         try assertSwiftSourceTypechecks(spotlightPath)
     }
 
@@ -1131,15 +1160,18 @@ struct NativeScenarioTests {
     }
 
     private func assertSwiftSourceTypechecks(_ relativePath: String) throws {
+        try assertSwiftSourcesTypecheck([relativePath])
+    }
+
+    private func assertSwiftSourcesTypecheck(_ relativePaths: [String]) throws {
         let result = try runProcess(
             "/usr/bin/xcrun",
             arguments: [
                 "swiftc",
                 "-typecheck",
                 "-warnings-as-errors",
-                "-I", repoURL.appendingPathComponent(".build/arm64-apple-macosx/debug/Modules").path,
-                repoURL.appendingPathComponent(relativePath).path
-            ],
+                "-I", repoURL.appendingPathComponent(".build/arm64-apple-macosx/debug/Modules").path
+            ] + relativePaths.map { repoURL.appendingPathComponent($0).path },
             currentDirectoryURL: repoURL
         )
 

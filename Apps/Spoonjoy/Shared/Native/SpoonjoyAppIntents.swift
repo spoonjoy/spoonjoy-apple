@@ -7,20 +7,21 @@ import AppIntents
 @available(iOS 27.0, macOS 27.0, *)
 struct OpenRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Recipe"
-    static let description = IntentDescription("Open a Spoonjoy recipe by identifier.")
+    static let description = IntentDescription("Open a Spoonjoy recipe.")
 
-    @Parameter(title: "Recipe ID")
-    var recipeID: String
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
 
     init() {
-        recipeID = ""
+        recipe = SpoonjoyRecipeEntity()
     }
 
-    init(recipeID: String) {
-        self.recipeID = recipeID
+    init(recipe: SpoonjoyRecipeEntity) {
+        self.recipe = recipe
     }
 
     func perform() async throws -> some IntentResult {
+        let recipeID = try recipe.resolvedRecipeID()
         let action = try NativeIntentActionResolver().openRecipe(recipeID: recipeID)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening recipe in Spoonjoy")
     }
@@ -31,18 +32,19 @@ struct StartCookModeIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Cooking"
     static let description = IntentDescription("Open a Spoonjoy recipe directly in cook mode.")
 
-    @Parameter(title: "Recipe ID")
-    var recipeID: String
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
 
     init() {
-        recipeID = ""
+        recipe = SpoonjoyRecipeEntity()
     }
 
-    init(recipeID: String) {
-        self.recipeID = recipeID
+    init(recipe: SpoonjoyRecipeEntity) {
+        self.recipe = recipe
     }
 
     func perform() async throws -> some IntentResult {
+        let recipeID = try recipe.resolvedRecipeID()
         let action = try NativeIntentActionResolver().startCookMode(recipeID: recipeID)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Starting cook mode in Spoonjoy")
     }
@@ -127,24 +129,25 @@ struct AddRecipeIngredientsToShoppingListIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Recipe Ingredients"
     static let description = IntentDescription("Add a Spoonjoy recipe's ingredients to the shopping list.")
 
-    @Parameter(title: "Recipe ID")
-    var recipeID: String
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
 
     @Parameter(title: "Scale Factor")
     var scaleFactor: Double
 
     init() {
-        recipeID = ""
+        recipe = SpoonjoyRecipeEntity()
         scaleFactor = 1
     }
 
-    init(recipeID: String, scaleFactor: Double = 1) {
-        self.recipeID = recipeID
+    init(recipe: SpoonjoyRecipeEntity, scaleFactor: Double = 1) {
+        self.recipe = recipe
         self.scaleFactor = scaleFactor
     }
 
     func perform() async throws -> some IntentResult {
         let createdAt = SpoonjoyIntentClock.timestamp()
+        let recipeID = try recipe.resolvedRecipeID()
         let action = try NativeIntentActionResolver().addRecipeIngredientsToShoppingList(
             recipeID: recipeID,
             scaleFactor: scaleFactor,
