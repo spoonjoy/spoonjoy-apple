@@ -7,7 +7,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 - Cook mode stays usable offline, preserves progress locally, and gives large kitchen-safe controls for the current step.
 - Shopping checkoff is fast and local-first, with receipt rows, native edit/check controls, and queued sync back to `spoonjoy.app`.
 - Recipe and cookbook browsing use native navigation, search, share, and platform layouts instead of a web clone.
-- Universal links from `spoonjoy.app` and the `spoonjoy` fallback URL scheme open the matching native screen, including recipe detail, cook mode, cookbooks, shopping list, search, capture, and settings.
+- Universal links from `spoonjoy.app` open matching current web-route screens such as recipe detail, cookbooks, shopping list, search, and settings; the `spoonjoy` fallback URL scheme owns native-only actions such as capture drafts and cook-mode continuation.
 - Capture creates local drafts from native entry points without pretending the REST API already supports production recipe writes.
 - Settings exposes auth, offline, environment, and validation state in native forms.
 
@@ -33,7 +33,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 
 - Canonical recipe, cookbook, shopping, OAuth, and idempotency contracts stay with the Spoonjoy v2 backend.
 - The native app consumes `/api/v1/recipes`, `/api/v1/cookbooks`, shopping-list endpoints, and OAuth paths instead of duplicating server policy.
-- Production universal-link validation depends on Spoonjoy v2 serving `https://spoonjoy.app/.well-known/apple-app-site-association` with the Apple Team ID app IDs once Developer Program membership exists.
+- Production AASA publication is live: Spoonjoy v2 serves `https://spoonjoy.app/.well-known/apple-app-site-association` with one valid production Apple Team ID across the iOS and macOS bundle identifiers. Installed-app Universal Link runtime validation still waits for signed app/device or TestFlight capability.
 - Design language comes from the web Kitchen Table system, translated into native navigation and controls.
 - Production recipe creation remains a backend/API responsibility; this slice supports local capture drafts.
 

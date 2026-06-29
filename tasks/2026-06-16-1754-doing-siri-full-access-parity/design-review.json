@@ -1,7 +1,7 @@
 {
   "mobileScreenshot": true,
   "desktopScreenshot": true,
-  "screenshotRoute": "search",
+  "screenshotRoute": "kitchen",
   "dynamicType": true,
   "voiceOverLabels": true,
   "keyboardNavigation": true,
@@ -12,17 +12,6 @@
   "blockers": [
 
   ],
-  "searchNativeSurface": true,
-  "searchScopes": [
-    "all",
-    "recipes",
-    "cookbooks",
-    "chefs",
-    "shopping-list"
-  ],
-  "searchSeedAccountID": "chef_search_capture",
-  "searchSurfaceProofArtifacts": [
-    "apple/unit-19o-search-surface-screenshot-proof-ios.json",
-    "apple/unit-19o-search-surface-screenshot-proof-macos.json"
-  ]
+  "kitchenSignedInSurface": true,
+  "kitchenSeedAccountID": "chef_kitchen_capture"
 }

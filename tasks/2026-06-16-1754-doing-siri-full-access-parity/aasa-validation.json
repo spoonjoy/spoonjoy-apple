@@ -1,11 +1,18 @@
 {
-  "generatedAt": "2026-06-28T16:08:28-07:00",
+  "generatedAt": "2026-06-28T19:10:44-07:00",
   "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
   "httpsNoRedirectExpected": true,
   "redirected": false,
+  "expectedAppleTeamID": null,
+  "validatedAppleTeamID": "743GT2AJ24",
+  "appleTeamIDValidationError": null,
+  "requiredBundleIDs": [
+    "app.spoonjoy.Spoonjoy",
+    "app.spoonjoy.Spoonjoy.mac"
+  ],
   "requiredAppIDs": [
-    "TEAMID.app.spoonjoy.Spoonjoy",
-    "TEAMID.app.spoonjoy.Spoonjoy.mac"
+    "743GT2AJ24.app.spoonjoy.Spoonjoy",
+    "743GT2AJ24.app.spoonjoy.Spoonjoy.mac"
   ],
   "expectedRoutes": [
     "https://spoonjoy.app/",
@@ -86,6 +93,9 @@
       "/": "/shopping-list"
     },
     {
+      "/": "/search"
+    },
+    {
       "/": "/search",
       "?": {
         "*": "*"
@@ -99,27 +109,38 @@
     }
   ],
   "missingComponents": [
-    {
-      "/": "/search"
-    }
+
   ],
   "fetched": {
     "status": 200,
     "contentType": "application/json",
     "location": null,
-    "bodySHA256": "2af4a3b0eb3f955a922c13217ff5bb28db9bc71b07b3a45b0067deb4fd189cf4",
-    "bodyBytes": 333
+    "bodySHA256": "19d49c557c8e9f41a159df065d94220eda712f4ee09ae18ee3e60b3029198267",
+    "bodyBytes": 357
   },
   "successfulStatus": true,
   "validContentType": true,
   "validJSON": true,
   "discoveredAppIDs": [
-    "TEAMID.app.spoonjoy.Spoonjoy",
-    "TEAMID.app.spoonjoy.Spoonjoy.mac"
+    "743GT2AJ24.app.spoonjoy.Spoonjoy",
+    "743GT2AJ24.app.spoonjoy.Spoonjoy.mac"
   ],
-  "ok": false,
-  "blocked": true,
-  "capability": "AASAProductionValidation",
-  "reason": "AASA endpoint is missing required route components.",
-  "blockerReason": "AASA endpoint is missing required route components."
+  "discoveredAppleTeamIDsByBundle": {
+    "app.spoonjoy.Spoonjoy": [
+      "743GT2AJ24"
+    ],
+    "app.spoonjoy.Spoonjoy.mac": [
+      "743GT2AJ24"
+    ]
+  },
+  "discoveredCommonAppleTeamIDs": [
+    "743GT2AJ24"
+  ],
+  "ambiguousAppleTeamIDs": [
+
+  ],
+  "missingAppIDBundles": [
+
+  ],
+  "ok": true
 }

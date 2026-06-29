@@ -4496,7 +4496,10 @@ struct NativeLiveStoreTests {
                 "document.keywords",
                 "document.route.stateIdentifier",
                 "SettingsView(",
-                "settingsViewModel"
+                "settingsViewModel",
+                "detailContentWithShellStatus",
+                "shellOfflineStatusBar",
+                "VStack(spacing: 0)"
             ],
             forbids: [
                 "RecipeFixtureCatalog.decodeFromBundle()",
@@ -4505,7 +4508,8 @@ struct NativeLiveStoreTests {
                 "KitchenFixtureState.bootstrapFallback",
                 "SettingsState(\n                auth: .signedOut",
                 "NativeQueuedMutation(",
-                "startedAt: \"2026-06-16T11:45:00.000Z\""
+                "startedAt: \"2026-06-16T11:45:00.000Z\"",
+                ".safeAreaInset(edge: .bottom)"
             ]
         )
     }
