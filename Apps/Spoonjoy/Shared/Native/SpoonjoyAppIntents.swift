@@ -3,6 +3,9 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+#if canImport(CoreSpotlight)
+import CoreSpotlight
+#endif
 
 private typealias SpoonjoyIntentNativeSharePayload = NativeSharePayload
 
@@ -725,7 +728,7 @@ struct CaptureRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Capture Recipe"
     static let description = IntentDescription("Save a recipe URL or note into Spoonjoy capture drafts.")
 
-    @Parameter(title: "Source")
+    @Parameter(title: "Source", requestValueDialog: "What recipe URL or text should Spoonjoy capture?")
     var source: String
 
     init() {
@@ -746,6 +749,86 @@ struct CaptureRecipeIntent: AppIntent {
         await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Saved a Spoonjoy capture draft")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SubmitCaptureImportIntent: AppIntent {
+    static let title: LocalizedStringResource = "Submit Capture Import"
+    static let description = IntentDescription("Queue a Spoonjoy capture draft for recipe import.")
+
+    @Parameter(title: "Capture Draft", requestValueDialog: "Which Spoonjoy capture draft should be imported?")
+    var draft: SpoonjoyCaptureDraftEntity
+
+    init() {
+        draft = SpoonjoyCaptureDraftEntity()
+    }
+
+    init(draft: SpoonjoyCaptureDraftEntity) {
+        self.draft = draft
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued capture draft import in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenCaptureDraftIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Capture Draft"
+    static let description = IntentDescription("Open a Spoonjoy capture draft.")
+
+    @Parameter(title: "Capture Draft", requestValueDialog: "Which Spoonjoy capture draft should open?")
+    var draft: SpoonjoyCaptureDraftEntity
+
+    init() {
+        draft = SpoonjoyCaptureDraftEntity()
+    }
+
+    init(draft: SpoonjoyCaptureDraftEntity) {
+        self.draft = draft
+    }
+
+    func perform() async throws -> some IntentResult {
+        let action = try NativeIntentActionResolver().openCaptureDraft(draft: draft.descriptor)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening capture draft in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct DiscardCaptureDraftIntent: AppIntent {
+    static let title: LocalizedStringResource = "Discard Capture Draft"
+    static let description = IntentDescription("Discard a Spoonjoy capture draft and cancel its pending import.")
+
+    @Parameter(title: "Capture Draft", requestValueDialog: "Which Spoonjoy capture draft should be discarded?")
+    var draft: SpoonjoyCaptureDraftEntity
+
+    init() {
+        draft = SpoonjoyCaptureDraftEntity()
+    }
+
+    init(draft: SpoonjoyCaptureDraftEntity) {
+        self.draft = draft
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().discardCaptureDraft(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Discarded capture draft in Spoonjoy")
     }
 }
 
@@ -864,7 +947,10 @@ private enum SpoonjoyIntentShortcutBudget {
             String(describing: LogCookIntent()),
             String(describing: EditCookLogIntent()),
             String(describing: DeleteCookLogIntent()),
-            String(describing: CreateCoverFromSpoonIntent())
+            String(describing: CreateCoverFromSpoonIntent()),
+            String(describing: SubmitCaptureImportIntent()),
+            String(describing: OpenCaptureDraftIntent()),
+            String(describing: DiscardCaptureDraftIntent())
         ]
     }
 }
@@ -900,6 +986,7 @@ private enum SpoonjoyIntentClock {
     }
 }
 
+@available(iOS 27.0, macOS 27.0, *)
 private struct SpoonjoyIntentStateWriter {
     private let store: NativeAppStateStore
     private let syncStore: any NativeSyncStore
@@ -932,11 +1019,26 @@ private struct SpoonjoyIntentStateWriter {
             try await appendNativeMutation(nativeMutation)
             try await applyShoppingMutation(nativeMutation, savedAt: savedAt, legacyQueuedMutation: mutation)
         case .nativeMutation(let mutation, _, _):
-            try await appendNativeMutation(mutation)
-            try await applyNativeMutation(mutation, savedAt: savedAt)
+            let appliedMutation: NativeQueuedMutation
+            if mutation.queueableKind == .recipeImportSubmit {
+                appliedMutation = try await appendNativeMutationIfNeeded(mutation)
+            } else {
+                try await appendNativeMutation(mutation)
+                appliedMutation = mutation
+            }
+            try await applyNativeMutation(appliedMutation, savedAt: savedAt)
         case .shoppingMutation(let mutation, _, _):
             try await appendNativeMutation(mutation)
             try await applyShoppingMutation(mutation, savedAt: savedAt)
+        case .captureDraftDiscard(let mutation, let draftID, let draftImportSource, _, _):
+            try await discardMatchingCaptureImportMutations(draftImportSource: draftImportSource)
+            try await appendNativeMutationIfNeeded(mutation)
+            var snapshot = try await loadSnapshot(savedAt: savedAt)
+            snapshot = snapshot.discardingCaptureDraft(id: draftID, savedAt: savedAt)
+            try store.save(snapshot)
+            if let scope = try? await currentIntentScope() {
+                await purgeCaptureDraftEntitySurfaces(draftID: draftID, scope: scope)
+            }
         case .captureDraft(let draft, _, _):
             try await appendNativeMutation(.captureDraftCreate(
                 draftID: draft.id,
@@ -962,6 +1064,10 @@ private struct SpoonjoyIntentStateWriter {
         switch mutation.queueableKind {
         case .shoppingAddItem, .shoppingCheckItem, .shoppingDeleteItem, .shoppingAddFromRecipe, .shoppingClearCompleted, .shoppingClearAll:
             try await applyShoppingMutation(mutation, savedAt: savedAt)
+        case .recipeImportSubmit:
+            var snapshot = try await loadSnapshot(savedAt: savedAt)
+            snapshot = snapshot.recordingCaptureImportRetry(mutation, savedAt: savedAt)
+            try store.save(snapshot)
         default:
             break
         }
@@ -1007,6 +1113,99 @@ private struct SpoonjoyIntentStateWriter {
             accountID: scope.accountID,
             environment: scope.environment
         )
+    }
+
+    @discardableResult
+    private func appendNativeMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws -> NativeQueuedMutation {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let queue: NativeMutationQueue
+        if syncSnapshot.accountID == scope.accountID,
+           syncSnapshot.environment == scope.environment {
+            queue = try await syncStore.loadQueue()
+        } else {
+            queue = NativeMutationQueue()
+        }
+        if queue.mutations.contains(where: { $0.clientMutationID == mutation.clientMutationID }),
+           let existingMutation = queue.mutations.first(where: { $0.clientMutationID == mutation.clientMutationID }) {
+            return existingMutation
+        }
+        if let source = mutation.recipeImportSource,
+           let existingMutation = queue.mutations.first(where: {
+               $0.queueableKind == .recipeImportSubmit &&
+                   $0.recipeImportSource == source
+           }) {
+            return existingMutation
+        }
+        try await syncStore.saveQueue(
+            try queue.appending(mutation),
+            accountID: scope.accountID,
+            environment: scope.environment
+        )
+        return mutation
+    }
+
+    private func discardMatchingCaptureImportMutations(draftImportSource: NativeMutationSource?) async throws {
+        guard let draftImportSource else {
+            return
+        }
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let queue: NativeMutationQueue
+        if syncSnapshot.accountID == scope.accountID,
+           syncSnapshot.environment == scope.environment {
+            queue = try await syncStore.loadQueue()
+        } else {
+            queue = NativeMutationQueue()
+        }
+        let clientMutationIDs = Set(queue.mutations
+            .filter {
+                $0.queueableKind == .recipeImportSubmit &&
+                    $0.recipeImportSource == draftImportSource
+            }
+            .map(\.clientMutationID))
+        guard !clientMutationIDs.isEmpty else {
+            return
+        }
+        try await syncStore.saveQueue(
+            try queue.removing(clientMutationIDs: clientMutationIDs),
+            accountID: scope.accountID,
+            environment: scope.environment
+        )
+    }
+
+    private func purgeCaptureDraftEntitySurfaces(
+        draftID: String,
+        scope: (accountID: String, environment: NativeCacheEnvironment)
+    ) async {
+        let discardPlan = CaptureDraftEntityIndexPurgePlan.draftDiscardPurge(
+            draftID: draftID,
+            accountID: scope.accountID,
+            environment: scope.environment
+        )
+        let identifiers = CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+            accountID: scope.accountID,
+            environment: scope.environment,
+            plan: discardPlan
+        )
+        let domainIdentifiers = CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+            accountID: scope.accountID,
+            environment: scope.environment,
+            plan: discardPlan
+        )
+#if canImport(CoreSpotlight)
+        try? await SpoonjoySpotlightIndexer().delete(
+            identifiers: identifiers,
+            domainIdentifiers: domainIdentifiers,
+            accountID: scope.accountID,
+            environment: scope.environment
+        )
+#endif
+    }
+
+    private func currentIntentScope() async throws -> (accountID: String, environment: NativeCacheEnvironment) {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        return try await trustedIntentScope(from: syncSnapshot)
     }
 
     private func loadSnapshot(savedAt: String) async throws -> NativeAppSnapshot {

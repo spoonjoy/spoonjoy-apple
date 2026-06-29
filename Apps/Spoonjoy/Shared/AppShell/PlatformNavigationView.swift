@@ -1303,7 +1303,8 @@ struct PlatformNavigationView: View {
                 CaptureDraftEntityDescriptor(
                     draft: draft,
                     scope: CaptureDraftEntityScope(accountID: scope.accountID, environment: scope.environment),
-                    hasPendingImport: pendingCaptureImportMutation != nil
+                    hasPendingImport: pendingCaptureImportMutation != nil,
+                    pendingImport: pendingCaptureImportMutation
                 )
             ]
         } ?? []

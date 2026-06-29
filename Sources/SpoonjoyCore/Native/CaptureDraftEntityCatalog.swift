@@ -66,6 +66,8 @@ public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
     public let source: CaptureDraftSource
     public let importReadiness: CaptureDraftImportReadiness
     public let hasPendingImport: Bool
+    public let importableDraft: CaptureDraft?
+    public let pendingImport: NativeQueuedMutation?
     public let transferValue: CaptureDraftEntityTransferValue
     public var isPlaceholder: Bool { id == Self.placeholder.id }
 
@@ -80,6 +82,8 @@ public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
         source: .text,
         importReadiness: .ready,
         hasPendingImport: false,
+        importableDraft: nil,
+        pendingImport: nil,
         transferValue: CaptureDraftEntityTransferValue(
             kind: .captureDraft,
             rawResourceID: "capture-draft-placeholder",
@@ -91,7 +95,12 @@ public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
         )
     )
 
-    public init(draft: CaptureDraft, scope: CaptureDraftEntityScope, hasPendingImport: Bool) {
+    public init(
+        draft: CaptureDraft,
+        scope: CaptureDraftEntityScope,
+        hasPendingImport: Bool,
+        pendingImport: NativeQueuedMutation? = nil
+    ) {
         let payload = NativeSharePayload.privateCaptureDraft(draft)
         let title = payload.title
         let subtitle = Self.subtitle(for: draft, hasPendingImport: hasPendingImport)
@@ -110,6 +119,8 @@ public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
             source: draft.source,
             importReadiness: draft.importReadiness,
             hasPendingImport: hasPendingImport,
+            importableDraft: draft,
+            pendingImport: pendingImport,
             transferValue: CaptureDraftEntityTransferValue(
                 kind: .captureDraft,
                 rawResourceID: draft.id,
@@ -133,6 +144,8 @@ public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
         source: CaptureDraftSource,
         importReadiness: CaptureDraftImportReadiness,
         hasPendingImport: Bool,
+        importableDraft: CaptureDraft?,
+        pendingImport: NativeQueuedMutation?,
         transferValue: CaptureDraftEntityTransferValue
     ) {
         self.id = id
@@ -145,6 +158,8 @@ public struct CaptureDraftEntityDescriptor: Equatable, Sendable {
         self.source = source
         self.importReadiness = importReadiness
         self.hasPendingImport = hasPendingImport
+        self.importableDraft = importableDraft
+        self.pendingImport = pendingImport
         self.transferValue = transferValue
     }
 
@@ -296,8 +311,9 @@ public struct CaptureDraftEntityCatalog: Sendable {
            appSnapshot.isScoped(accountID: currentAccountID, environment: environment),
            let draft = appSnapshot.captureDraft {
             let hasProviderBlocker = appSnapshot.captureImportProviderBlocker?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-            let hasPendingImport = Self.pendingImport(appSnapshot.pendingCaptureImport, matches: draft) || hasProviderBlocker
-            keyedRecords[draft.id] = CaptureDraftRecord(draft: draft, hasPendingImport: hasPendingImport)
+            let pendingImport = Self.pendingImport(appSnapshot.pendingCaptureImport, matches: draft)
+            let hasPendingImport = pendingImport != nil || hasProviderBlocker
+            keyedRecords[draft.id] = CaptureDraftRecord(draft: draft, hasPendingImport: hasPendingImport, pendingImport: pendingImport)
         }
 
         if let cacheSnapshot,
@@ -311,7 +327,7 @@ public struct CaptureDraftEntityCatalog: Sendable {
                       let draft = Self.captureDraft(id: id, source: source, fetchedAt: record.metadata.fetchedAt) else {
                     continue
                 }
-                keyedRecords[id] = CaptureDraftRecord(draft: draft, hasPendingImport: false)
+                keyedRecords[id] = CaptureDraftRecord(draft: draft, hasPendingImport: false, pendingImport: nil)
             }
         }
 
@@ -363,7 +379,7 @@ public struct CaptureDraftEntityCatalog: Sendable {
         guard let record = records.first(where: { $0.draft.id == draftID }) else {
             throw CaptureDraftEntityCatalogError.captureDraftNotFound(draftID)
         }
-        return CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport)
+        return CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport, pendingImport: record.pendingImport)
     }
 
     public func captureDraftEntities(for identifiers: [String]) async throws -> [CaptureDraftEntityDescriptor] {
@@ -378,7 +394,7 @@ public struct CaptureDraftEntityCatalog: Sendable {
             let record = records.first(where: { $0.draft.id == draftID }) else {
                 continue
             }
-            entities.append(CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport))
+            entities.append(CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport, pendingImport: record.pendingImport))
         }
         return entities
     }
@@ -392,13 +408,14 @@ public struct CaptureDraftEntityCatalog: Sendable {
             let descriptor = CaptureDraftEntityDescriptor(
                 draft: record.draft,
                 scope: scope,
-                hasPendingImport: record.hasPendingImport
+                hasPendingImport: record.hasPendingImport,
+                pendingImport: record.pendingImport
             )
             return descriptor.title.localizedCaseInsensitiveContains(query) ||
                 descriptor.subtitle.localizedCaseInsensitiveContains(query) ||
                 descriptor.source.rawValue.localizedCaseInsensitiveContains(query)
         }
-        return matches.map { CaptureDraftEntityDescriptor(draft: $0.draft, scope: scope, hasPendingImport: $0.hasPendingImport) }
+        return matches.map { CaptureDraftEntityDescriptor(draft: $0.draft, scope: scope, hasPendingImport: $0.hasPendingImport, pendingImport: $0.pendingImport) }
     }
 
     public func suggestedCaptureDraftEntities(limit: Int = 10) async throws -> [CaptureDraftEntityDescriptor] {
@@ -406,7 +423,7 @@ public struct CaptureDraftEntityCatalog: Sendable {
             return []
         }
         return records.prefix(max(0, limit)).map { record in
-            CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport)
+            CaptureDraftEntityDescriptor(draft: record.draft, scope: scope, hasPendingImport: record.hasPendingImport, pendingImport: record.pendingImport)
         }
     }
 
@@ -498,12 +515,12 @@ public struct CaptureDraftEntityCatalog: Sendable {
         rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func pendingImport(_ mutation: NativeQueuedMutation?, matches draft: CaptureDraft) -> Bool {
+    private static func pendingImport(_ mutation: NativeQueuedMutation?, matches draft: CaptureDraft) -> NativeQueuedMutation? {
         guard let mutation,
-              let source = try? draft.importSource() else {
-            return false
+              let draftImportSource = try? draft.importSource() else {
+            return nil
         }
-        return mutation.recipeImportSource == source
+        return mutation.recipeImportSource == draftImportSource ? mutation : nil
     }
 
     private static func captureDraft(
@@ -535,4 +552,5 @@ public struct CaptureDraftEntityCatalog: Sendable {
 private struct CaptureDraftRecord: Sendable {
     let draft: CaptureDraft
     let hasPendingImport: Bool
+    let pendingImport: NativeQueuedMutation?
 }

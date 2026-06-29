@@ -215,11 +215,15 @@ struct CaptureImportIntentTests {
                         ".recipeImportSubmit",
                         "queue.mutations.contains(where:",
                         "clientMutationID == mutation.clientMutationID",
+                        "recipeImportSource == source",
                         "recordingCaptureImportRetry",
                         ".captureDraftDiscard",
                         "recipeImportSource == draftImportSource",
                         "removing(clientMutationIDs:",
-                        "discardingCaptureDraft"
+                        "discardingCaptureDraft",
+                        "CaptureDraftEntityIndexPurgePlan.draftDiscardPurge",
+                        "CaptureDraftEntityCatalog.purgeEntityIdentifiers",
+                        "SpoonjoySpotlightIndexer().delete"
                     ],
                     forbiddenTokens: []
                 )

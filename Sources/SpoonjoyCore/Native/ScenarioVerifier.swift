@@ -109,6 +109,9 @@ public enum ScenarioVerifier {
                         "ClearCompletedShoppingItemsIntent",
                         "ClearShoppingListIntent",
                         "CaptureRecipeIntent",
+                        "SubmitCaptureImportIntent",
+                        "OpenCaptureDraftIntent",
+                        "DiscardCaptureDraftIntent",
                         "SpoonjoyAppShortcuts",
                         "AppShortcutsProvider",
                         "SpoonjoyInteractionDonor",
@@ -285,6 +288,11 @@ public enum ScenarioVerifier {
                     name: "Spoon cook-log Siri intents",
                     status: .pass,
                     detail: "LogCookIntent, EditCookLogIntent, DeleteCookLogIntent, and CreateCoverFromSpoonIntent use recipe/spoon App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI."
+                ),
+                ScenarioCheck(
+                    name: "Capture import Siri intents",
+                    status: .pass,
+                    detail: "CaptureRecipeIntent, SubmitCaptureImportIntent, OpenCaptureDraftIntent, and DiscardCaptureDraftIntent use capture-draft App Entities, confirmations, owner checks, pending import reuse, and the same native offline import queue as the app UI."
                 ),
                 ScenarioCheck(
                     name: "deep link metadata",

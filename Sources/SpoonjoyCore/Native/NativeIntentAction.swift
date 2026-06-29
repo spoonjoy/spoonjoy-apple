@@ -14,6 +14,9 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case recipeOwnershipRequired(recipeID: String)
     case spoonOwnershipRequired(spoonID: String)
     case spoonPhotoRequired(spoonID: String)
+    case captureDraftOwnershipRequired(draftID: String)
+    case captureImportNeedsTextRecognition(draftID: String)
+    case captureImportQueueUnavailable(draftID: String)
     case unresolvedRecipeEntity
     case unresolvedCookbookEntity
     case unresolvedShoppingListEntity
@@ -51,6 +54,12 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Only the cook who logged \(spoonID) can update it from Siri."
         case .spoonPhotoRequired(let spoonID):
             "Choose a cook log with a photo before making \(spoonID) a recipe cover."
+        case .captureDraftOwnershipRequired(let draftID):
+            "Only the capture draft owner can update \(draftID) from Siri."
+        case .captureImportNeedsTextRecognition(let draftID):
+            "Capture draft \(draftID) needs text recognition before Siri can submit it."
+        case .captureImportQueueUnavailable(let draftID):
+            "Capture draft \(draftID) could not be queued for import from Siri."
         case .unresolvedRecipeEntity:
             "Choose a Spoonjoy recipe before running this Siri action."
         case .unresolvedCookbookEntity:
@@ -77,6 +86,7 @@ public enum NativeIntentAction: Equatable {
     case nativeMutation(NativeQueuedMutation, route: AppRoute, url: URL)
     case shoppingMutation(NativeQueuedMutation, route: AppRoute, url: URL)
     case captureDraft(CaptureDraft, route: AppRoute, url: URL)
+    case captureDraftDiscard(NativeQueuedMutation, draftID: String, draftImportSource: NativeMutationSource?, route: AppRoute, url: URL)
 
     public var route: AppRoute {
         switch self {
@@ -84,7 +94,8 @@ public enum NativeIntentAction: Equatable {
              .addShoppingListItem(_, let route, _),
              .nativeMutation(_, let route, _),
              .shoppingMutation(_, let route, _),
-             .captureDraft(_, let route, _):
+             .captureDraft(_, let route, _),
+             .captureDraftDiscard(_, _, _, let route, _):
             route
         }
     }
@@ -95,7 +106,8 @@ public enum NativeIntentAction: Equatable {
              .addShoppingListItem(_, _, let url),
              .nativeMutation(_, _, let url),
              .shoppingMutation(_, _, let url),
-             .captureDraft(_, _, let url):
+             .captureDraft(_, _, let url),
+             .captureDraftDiscard(_, _, _, _, let url):
             url
         }
     }
@@ -104,7 +116,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .addShoppingListItem(let mutation, _, _):
             mutation
-        case .openRoute, .nativeMutation, .shoppingMutation, .captureDraft:
+        case .openRoute, .nativeMutation, .shoppingMutation, .captureDraft, .captureDraftDiscard:
             nil
         }
     }
@@ -117,6 +129,8 @@ public enum NativeIntentAction: Equatable {
             mutation
         case .shoppingMutation(let mutation, _, _):
             mutation
+        case .captureDraftDiscard(let mutation, _, _, _, _):
+            mutation
         case .openRoute, .captureDraft:
             nil
         }
@@ -126,7 +140,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .captureDraft(let draft, _, _):
             draft
-        case .openRoute, .addShoppingListItem, .nativeMutation, .shoppingMutation:
+        case .openRoute, .addShoppingListItem, .nativeMutation, .shoppingMutation, .captureDraftDiscard:
             nil
         }
     }
@@ -571,6 +585,73 @@ public struct NativeIntentActionResolver {
         )
     }
 
+    public func submitCaptureImport(
+        draft: CaptureDraftEntityDescriptor,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let captureDraftID = try captureDraftIDForMutation(draft)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .captureDraftOwnershipRequired(draftID: captureDraftID))
+        guard draft.scope.accountID == chefID else {
+            throw NativeIntentActionError.captureDraftOwnershipRequired(draftID: captureDraftID)
+        }
+
+        let captureDraft = try captureDraftForMutation(draft)
+        guard captureDraft.importReadiness == .ready else {
+            throw NativeIntentActionError.captureImportNeedsTextRecognition(draftID: captureDraftID)
+        }
+
+        let plan = try CaptureImportViewModel(
+            draft: captureDraft,
+            connectivity: .offline,
+            pendingRetryMutation: draft.pendingImport
+        ).planSubmit(
+            clientMutationID: draft.pendingImport?.clientMutationID ?? "intent-capture-import-\(stableToken(captureDraftID))-\(stableToken(createdAt))",
+            createdAt: createdAt
+        )
+        guard let mutation = plan.offlineRetryMutation else {
+            throw NativeIntentActionError.captureImportQueueUnavailable(draftID: captureDraftID)
+        }
+
+        return .nativeMutation(
+            mutation,
+            route: .capture,
+            url: DeepLinkURLBuilder.url(for: .capture)
+        )
+    }
+
+    public func openCaptureDraft(draft: CaptureDraftEntityDescriptor) throws -> NativeIntentAction {
+        _ = try captureDraftIDForMutation(draft)
+        let target: (route: AppRoute, url: URL) = (route: .capture, url: DeepLinkURLBuilder.url(for: .capture))
+        return .openRoute(target.route, url: target.url)
+    }
+
+    public func discardCaptureDraft(
+        draft: CaptureDraftEntityDescriptor,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let captureDraftID = try captureDraftIDForMutation(draft)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .captureDraftOwnershipRequired(draftID: captureDraftID))
+        guard draft.scope.accountID == chefID else {
+            throw NativeIntentActionError.captureDraftOwnershipRequired(draftID: captureDraftID)
+        }
+
+        let captureDraft = try captureDraftForMutation(draft)
+        let draftImportSource = try? captureDraft.importSource()
+        return .captureDraftDiscard(
+            NativeQueuedMutation.captureDraftDiscard(
+                draftID: captureDraftID,
+                clientMutationID: "intent-capture-discard-\(stableToken(captureDraftID))-\(stableToken(createdAt))",
+                createdAt: createdAt
+            ),
+            draftID: captureDraftID,
+            draftImportSource: draftImportSource,
+            route: .capture,
+            url: DeepLinkURLBuilder.url(for: .capture)
+        )
+    }
+
     private func recipeIDForMutation(_ recipe: RecipeEntityDescriptor) throws -> String {
         guard !recipe.isPlaceholder else {
             throw NativeIntentActionError.unresolvedRecipeEntity
@@ -603,6 +684,24 @@ public struct NativeIntentActionResolver {
             throw NativeIntentActionError.invalidRecipeID(spoon.recipeID)
         }
         return spoonID
+    }
+
+    private func captureDraftIDForMutation(_ draft: CaptureDraftEntityDescriptor) throws -> String {
+        guard !draft.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedCaptureDraftEntity
+        }
+        let captureDraftID = try canonicalObjectID(draft.captureDraftID, invalidError: .unresolvedCaptureDraftEntity)
+        guard draft.route == .capture else {
+            throw NativeIntentActionError.unresolvedCaptureDraftEntity
+        }
+        return captureDraftID
+    }
+
+    private func captureDraftForMutation(_ draft: CaptureDraftEntityDescriptor) throws -> CaptureDraft {
+        guard let captureDraft = draft.importableDraft else {
+            throw NativeIntentActionError.unresolvedCaptureDraftEntity
+        }
+        return captureDraft
     }
 
     private func canonicalRecipeID(_ recipeID: String) throws -> String {
