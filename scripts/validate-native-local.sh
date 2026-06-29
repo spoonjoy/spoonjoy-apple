@@ -43,6 +43,7 @@ required_hooks=(
   "scripts/bundle-check.sh"
   "scripts/bundle-exec.sh"
   "scripts/check-native-design-language.rb"
+  "scripts/check-design-accessibility-contract.rb"
   "scripts/check-kitchen-recipe-surfaces.rb"
   "scripts/check-cook-shopping-surfaces.rb"
   "scripts/check-search-capture-settings-surfaces.rb"
@@ -188,6 +189,7 @@ run_required "native scenario final" "$apple_dir/matrix-final-scenario.log" scri
 run_required "xcode project contract" "$apple_dir/matrix-project-contract.log" scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb || overall_status=1
 run_required "xcode generator contract" "$apple_dir/matrix-generator-contract.log" scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb || overall_status=1
 run_required "native design contract" "$apple_dir/matrix-native-design-contract.log" ruby scripts/check-native-design-language.rb --web-design-doc "$web_design_doc" || overall_status=1
+run_required "native design accessibility contract" "$apple_dir/matrix-design-accessibility-contract.log" ruby scripts/check-design-accessibility-contract.rb || overall_status=1
 run_required "kitchen surfaces contract" "$apple_dir/matrix-kitchen-surfaces-contract.log" ruby scripts/check-kitchen-recipe-surfaces.rb || overall_status=1
 run_required "cook shopping contract" "$apple_dir/matrix-cook-shopping-contract.log" ruby scripts/check-cook-shopping-surfaces.rb || overall_status=1
 run_required "search capture settings contract" "$apple_dir/matrix-search-capture-contract.log" ruby scripts/check-search-capture-settings-surfaces.rb || overall_status=1
@@ -256,6 +258,7 @@ matrix_warning_logs=(
   "$apple_dir/matrix-project-contract.log"
   "$apple_dir/matrix-generator-contract.log"
   "$apple_dir/matrix-native-design-contract.log"
+  "$apple_dir/matrix-design-accessibility-contract.log"
   "$apple_dir/matrix-kitchen-surfaces-contract.log"
   "$apple_dir/matrix-cook-shopping-contract.log"
   "$apple_dir/matrix-search-capture-contract.log"
