@@ -20,9 +20,63 @@ def fail_check(message)
 end
 
 def uncommented_swift(content)
-  content
-    .gsub(%r{/\*.*?\*/}m, "")
-    .gsub(%r{//.*$}, "")
+  output = +""
+  chars = content.each_char.to_a
+  index = 0
+  in_string = false
+  escaping = false
+
+  while index < chars.length
+    char = chars[index]
+    next_char = chars[index + 1]
+
+    if in_string
+      output << char
+      if escaping
+        escaping = false
+      elsif char == "\\"
+        escaping = true
+      elsif char == "\""
+        in_string = false
+      end
+      index += 1
+      next
+    end
+
+    if char == "\""
+      in_string = true
+      output << char
+      index += 1
+      next
+    end
+
+    if char == "/" && next_char == "/"
+      index += 2
+      index += 1 while index < chars.length && chars[index] != "\n"
+      if index < chars.length
+        output << chars[index]
+        index += 1
+      end
+      next
+    end
+
+    if char == "/" && next_char == "*"
+      index += 2
+      while index < chars.length
+        if chars[index - 1] == "*" && chars[index] == "/"
+          index += 1
+          break
+        end
+        index += 1
+      end
+      next
+    end
+
+    output << char
+    index += 1
+  end
+
+  output
 end
 
 def relative(path)
@@ -41,7 +95,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -1642,6 +1696,261 @@ if domain == "spotlight-shortcuts"
     ],
     failures
   )
+end
+
+if domain == "open-search-share-cook"
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  recipe_cookbook_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift")
+  shopping_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift")
+  chef_profile_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  sharing = ROOT.join("Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [app_intents, recipe_cookbook_entities, shopping_entities, chef_profile_entities, intent_action, metadata, verifier, sharing, project].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    app_intents,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "struct OpenRecipeIntent: AppIntent",
+      "struct OpenCookbookIntent: AppIntent",
+      "struct OpenProfileIntent: AppIntent",
+      "struct SearchSpoonjoyIntent: AppIntent",
+      "struct ShareRecipeIntent: AppIntent",
+      "struct ShareCookbookIntent: AppIntent",
+      "struct ShareShoppingListIntent: AppIntent",
+      "struct StartCookModeIntent: AppIntent",
+      "struct ContinueCookModeIntent: AppIntent",
+      "enum SpoonjoySearchScopeOption: String, AppEnum",
+      "var recipe: SpoonjoyRecipeEntity",
+      "var cookbook: SpoonjoyCookbookEntity",
+      "var profile: SpoonjoyChefProfileEntity",
+      "var shoppingList: SpoonjoyShoppingListEntity",
+      "var scope: SpoonjoySearchScopeOption",
+      "SearchScope.all",
+      "SearchScope.recipes",
+      "SearchScope.cookbooks",
+      "SearchScope.chefs",
+      "SearchScope.shoppingList",
+      "NativeSharePayload",
+      "case .privateTransfer",
+      "OpenCookbookIntent()",
+      "OpenProfileIntent()",
+      "SearchSpoonjoyIntent()",
+      "ShareRecipeIntent()",
+      "ShareCookbookIntent()",
+      "ShareShoppingListIntent()",
+      "ContinueCookModeIntent()",
+      "SpoonjoyInteractionDonor"
+    ],
+    failures
+  )
+
+  {
+    recipe_cookbook_entities => [
+      ["SpoonjoyRecipeEntity", /\bstruct\s+SpoonjoyRecipeEntity\s*:\s*AppEntity\b/],
+      ["SpoonjoyCookbookEntity", /\bstruct\s+SpoonjoyCookbookEntity\s*:\s*AppEntity\b/]
+    ],
+    shopping_entities => [
+      ["SpoonjoyShoppingListEntity", /\bstruct\s+SpoonjoyShoppingListEntity\s*:\s*AppEntity\b/]
+    ],
+    chef_profile_entities => [
+      ["SpoonjoyChefProfileEntity", /\bstruct\s+SpoonjoyChefProfileEntity\s*:\s*AppEntity\b/]
+    ]
+  }.each do |path, entity_contracts|
+    entity_contracts.each do |entity_name, entity_pattern|
+      require_nested_body_tokens(
+        path,
+        entity_name,
+        entity_pattern,
+        "display representation",
+        /var\s+displayRepresentation:\s+DisplayRepresentation/,
+        ["descriptor.title", "descriptor.subtitle", "descriptor.disambiguationLabel"],
+        failures
+      )
+    end
+  end
+
+  {
+    "OpenRecipeIntent" => {
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
+      forbidden: ["try recipe.resolvedRecipeID()", "openRecipe(recipeID:"]
+    },
+    "OpenCookbookIntent" => {
+      required: ["@Parameter(title: \"Cookbook\", requestValueDialog:", "var cookbook: SpoonjoyCookbookEntity", "NativeIntentActionResolver().openCookbook(cookbook: cookbook.descriptor)", "OpenURLIntent(action.url)"],
+      forbidden: ["var cookbookID: String", "openCookbook(cookbookID:"]
+    },
+    "OpenProfileIntent" => {
+      required: ["@Parameter(title: \"Profile\", requestValueDialog:", "var profile: SpoonjoyChefProfileEntity", "NativeIntentActionResolver().openProfile(profile: profile.descriptor)", "OpenURLIntent(action.url)"],
+      forbidden: ["var profileID: String", "var chefID: String", "openProfile(profileID:", "openProfile(chefID:"]
+    },
+    "SearchSpoonjoyIntent" => {
+      required: ["@Parameter(title: \"Query\")", "var scope: SpoonjoySearchScopeOption", "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)", "OpenURLIntent(action.url)"],
+      forbidden: ["var scope: String", "String-only search intent"]
+    },
+    "ShareRecipeIntent" => {
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().shareRecipe(recipe: recipe.descriptor)", "share.publicURL"],
+      forbidden: ["var recipeID: String", "shareRecipe(recipeID:"]
+    },
+    "ShareCookbookIntent" => {
+      required: ["@Parameter(title: \"Cookbook\", requestValueDialog:", "var cookbook: SpoonjoyCookbookEntity", "NativeIntentActionResolver().shareCookbook(cookbook: cookbook.descriptor)", "share.publicURL"],
+      forbidden: ["var cookbookID: String", "shareCookbook(cookbookID:"]
+    },
+    "ShareShoppingListIntent" => {
+      required: ["@Parameter(title: \"Shopping List\", requestValueDialog:", "var shoppingList: SpoonjoyShoppingListEntity", "NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)", "share.privateTransferValue", "share.publicURL == nil"],
+      forbidden: ["OpenURLIntent", "https://spoonjoy.app/shopping-list", "NativeSharePayload.publicRoute(.shoppingList"]
+    },
+    "StartCookModeIntent" => {
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
+      forbidden: ["try recipe.resolvedRecipeID()", "startCookMode(recipeID:"]
+    },
+    "ContinueCookModeIntent" => {
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().continueCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
+      forbidden: ["var recipeID: String", "continueCookMode(recipeID:"]
+    }
+  }.each do |intent_name, contract|
+    pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
+    require_body_tokens(app_intents, intent_name, pattern, contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, intent_name, pattern, contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    intent_action,
+    [
+      "NativeIntentShareValue",
+      "public func openRecipe(recipe: RecipeEntityDescriptor)",
+      "public func openCookbook(cookbook: CookbookEntityDescriptor)",
+      "public func openProfile(profile: ChefProfileEntityDescriptor)",
+      "public func searchSpoonjoy(query: String, scope: SearchScope)",
+      "public func shareRecipe(recipe: RecipeEntityDescriptor)",
+      "public func shareCookbook(cookbook: CookbookEntityDescriptor)",
+      "public func shareShoppingList(shoppingList: ShoppingListEntityDescriptor)",
+      "public func startCookMode(recipe: RecipeEntityDescriptor)",
+      "public func continueCookMode(recipe: RecipeEntityDescriptor)",
+      "NativeSharePayloadKind.publicURL",
+      "NativeSharePayloadKind.privateTransfer",
+      "privateTransferValue",
+      "DeepLinkURLBuilder.url(for:"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    intent_action,
+    "shareShoppingList",
+    /public\s+func\s+shareShoppingList\(shoppingList:\s+ShoppingListEntityDescriptor\)/,
+    [
+      "domain: .shoppingList",
+      "kind: .privateTransfer",
+      "publicURL: nil",
+      "privateTransferValue: shoppingList.transferValue.privateTransferValue"
+    ],
+    failures
+  )
+  forbid_body_tokens(
+    intent_action,
+    "shareShoppingList",
+    /public\s+func\s+shareShoppingList\(shoppingList:\s+ShoppingListEntityDescriptor\)/,
+    [
+      "NativeSharePayload.publicRoute(.shoppingList",
+      "DeepLinkURLBuilder.url(for: .shoppingList)",
+      "https://spoonjoy.app/shopping-list"
+    ],
+    failures
+  )
+
+  require_tokens(
+    metadata,
+    [
+      "OpenCookbookIntent",
+      "OpenProfileIntent",
+      "SearchSpoonjoyIntent",
+      "ShareRecipeIntent",
+      "ShareCookbookIntent",
+      "ShareShoppingListIntent",
+      "ContinueCookModeIntent",
+      "native-shopping-list-transfer"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Open/search/share/cook Siri intents",
+      "OpenCookbookIntent",
+      "OpenProfileIntent",
+      "SearchSpoonjoyIntent",
+      "ShareRecipeIntent",
+      "ShareCookbookIntent",
+      "ShareShoppingListIntent",
+      "ContinueCookModeIntent"
+    ],
+    failures
+  )
+
+  require_tokens(
+    sharing,
+    [
+      "privateShoppingList",
+      "publicURL: nil",
+      ".privateTransfer("
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  [
+    app_intents,
+    intent_action
+  ].each do |path|
+    forbid_tokens(
+      path,
+      [
+        "@Parameter(title: \"Recipe ID\")",
+        "var recipeID: String",
+        "@Parameter(title: \"Cookbook ID\")",
+        "var cookbookID: String",
+        "@Parameter(title: \"Chef ID\")",
+        "@Parameter(title: \"Profile ID\")",
+        "var chefID: String",
+        "var profileID: String",
+        "@Parameter(title: \"Shopping List ID\")",
+        "var shoppingListID: String",
+        "https://spoonjoy.app/shopping-list",
+        "NativeSharePayload.publicRoute(.shoppingList)",
+        "NativePublicShareRoutePolicy.publicURL(for: .shoppingList)",
+        "CommentIntent",
+        "FeedIntent",
+        "MessageIntent",
+        "MailIntent",
+        "SpoonjoyCommentEntity",
+        "social-feed",
+        "/comments",
+        "/feeds",
+        "/messages",
+        "mailto:",
+        "MFMailComposeViewController",
+        "MessageUI"
+      ],
+      failures
+    )
+  end
 end
 
 fail_check(failures.join("\n")) unless failures.empty?
