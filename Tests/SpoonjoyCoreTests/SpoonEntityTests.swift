@@ -41,13 +41,13 @@ struct SpoonEntityTests {
                     "tombstones",
                     "accountID",
                     "environment",
-                    "spoonEntityIdentifier(spoonID:accountID:environment:",
-                    "resolvedSpoonID(from:accountID:environment:",
+                    "public static func spoonEntityIdentifier(",
+                    "public static func resolvedSpoonID(",
                     "public static func purgeEntityIdentifiers(",
                     "purgeDomainIdentifiers(",
-                    "accountScopePurge(accountID:environment:spoonIDs:",
-                    "tombstonePurge(tombstones:accountID:environment:",
-                    "cacheDeletePurge(accountID:environment:spoonIDs:",
+                    "public static func accountScopePurge(",
+                    "public static func tombstonePurge(",
+                    "public static func cacheDeletePurge(",
                     "domainIdentifiers",
                     "SpotlightIndexPlan.spoonUniqueIdentifier",
                     "SpotlightIndexPlan.spoonDomainIdentifier",
@@ -374,11 +374,12 @@ struct SpoonEntityTests {
             environment: scope.environment,
             spoonIDs: ["spoon_ari_lemon", "spoon_bea_toast"]
         )
+        let spotlightScope = SpotlightIndexScope(accountID: scope.accountID, environment: scope.environment)
         #expect(logoutPlan.identifiers == [
-            SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment),
-            SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_bea_toast", accountID: scope.accountID, environment: scope.environment)
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_ari_lemon", scope: spotlightScope),
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_bea_toast", scope: spotlightScope)
         ])
-        #expect(logoutPlan.domainIdentifiers == [scope.domainIdentifier])
+        #expect(logoutPlan.domainIdentifiers == [SpotlightIndexPlan.spoonDomainIdentifier(scope: spotlightScope)])
         #expect(logoutPlan.reason == .accountScopeChanged)
 
         let cacheDeletePlan = SpoonEntityIndexPurgePlan.cacheDeletePurge(
@@ -387,7 +388,7 @@ struct SpoonEntityTests {
             spoonIDs: ["spoon_ari_lemon"]
         )
         #expect(cacheDeletePlan.identifiers == [
-            SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment)
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_ari_lemon", scope: spotlightScope)
         ])
         #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
         #expect(cacheDeletePlan.reason == .cacheDeleted)
@@ -415,7 +416,7 @@ struct SpoonEntityTests {
             environment: scope.environment
         )
         #expect(tombstonePlan.identifiers == [
-            SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment)
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_ari_lemon", scope: spotlightScope)
         ])
         #expect(tombstonePlan.domainIdentifiers.isEmpty)
         #expect(tombstonePlan.reason == .tombstoneApplied)

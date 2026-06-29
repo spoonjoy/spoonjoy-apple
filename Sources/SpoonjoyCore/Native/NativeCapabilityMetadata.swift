@@ -47,7 +47,9 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "SpoonjoyShoppingListEntity",
             "SpoonjoyShoppingItemEntity",
             "SpoonjoyShoppingListEntityQuery",
-            "SpoonjoyShoppingItemEntityQuery"
+            "SpoonjoyShoppingItemEntityQuery",
+            "SpoonjoySpoonEntity",
+            "SpoonjoySpoonEntityQuery"
         ],
         spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item"],
         searchableScopes: ["all", "recipes", "cookbooks", "chefs", "shopping-list"],

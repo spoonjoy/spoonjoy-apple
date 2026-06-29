@@ -38,6 +38,7 @@ struct PlatformNavigationView: View {
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
+    private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
@@ -66,7 +67,8 @@ struct PlatformNavigationView: View {
         recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
-        purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
+        purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
+        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
     ) {
         _navigation = navigation
         _search = search
@@ -95,6 +97,7 @@ struct PlatformNavigationView: View {
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
         self.syncTriggerCoordinator = syncTriggerCoordinator
         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
+        self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
     }
 
     var body: some View {
@@ -134,6 +137,10 @@ struct PlatformNavigationView: View {
                     await purgeShoppingEntityIndexesHandler(NativeShoppingEntityIndexPurgeRequest(
                         identifiers: report.shoppingEntityPurgeIdentifiers,
                         domainIdentifiers: report.shoppingEntityPurgeDomainIdentifiers
+                    ))
+                    await purgeSpoonEntityIndexesHandler(NativeSpoonEntityIndexPurgeRequest(
+                        identifiers: report.spoonEntityPurgeIdentifiers,
+                        domainIdentifiers: report.spoonEntityPurgeDomainIdentifiers
                     ))
                 }
             }

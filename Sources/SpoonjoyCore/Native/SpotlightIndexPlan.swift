@@ -3,6 +3,7 @@ import Foundation
 public enum SpotlightIndexType: String, Equatable, Sendable {
     case recipe
     case cookbook
+    case spoon
     case shoppingListItem = "shopping-list-item"
 }
 
@@ -130,6 +131,14 @@ public enum SpotlightIndexPlan {
         "\(scope.domainPrefix).\(SpotlightIndexType.shoppingListItem.rawValue)"
     }
 
+    public static func spoonUniqueIdentifier(spoonID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.spoon.rawValue)|\(spoonID)"
+    }
+
+    public static func spoonDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.spoon.rawValue)"
+    }
+
     public static func route(uniqueIdentifier: String) -> AppRoute {
         let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
         guard parts.count == 4,
@@ -147,6 +156,8 @@ public enum SpotlightIndexPlan {
         case .cookbook:
             guard isSafeObjectID(id) else { return .unknownLink }
             return .cookbookDetail(id: id)
+        case .spoon:
+            return .unknownLink
         case .shoppingListItem:
             guard isSafeObjectID(id) else { return .unknownLink }
             return .shoppingList

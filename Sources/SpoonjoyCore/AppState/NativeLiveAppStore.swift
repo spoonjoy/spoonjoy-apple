@@ -24,6 +24,22 @@ public struct NativeShoppingEntityIndexPurgeRequest: Equatable, Sendable {
 
 public typealias NativeShoppingEntityIndexPurgeOperation = @Sendable (_ request: NativeShoppingEntityIndexPurgeRequest) async -> Void
 
+public struct NativeSpoonEntityIndexPurgeRequest: Equatable, Sendable {
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+
+    public init(identifiers: [String], domainIdentifiers: [String]) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+    }
+
+    public var isEmpty: Bool {
+        identifiers.isEmpty && domainIdentifiers.isEmpty
+    }
+}
+
+public typealias NativeSpoonEntityIndexPurgeOperation = @Sendable (_ request: NativeSpoonEntityIndexPurgeRequest) async -> Void
+
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
     case restoreCacheOnly
@@ -43,6 +59,7 @@ public struct NativeLiveAppStoreDependencies {
     public let settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
     public let stagedMediaDirectory: NativeStagedMediaDirectory?
     public let shoppingEntityIndexPurge: NativeShoppingEntityIndexPurgeOperation
+    public let spoonEntityIndexPurge: NativeSpoonEntityIndexPurgeOperation
     public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
@@ -62,6 +79,7 @@ public struct NativeLiveAppStoreDependencies {
         settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
+        spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
@@ -78,6 +96,7 @@ public struct NativeLiveAppStoreDependencies {
         self.settingsSurfaceFetch = settingsSurfaceFetch
         self.stagedMediaDirectory = stagedMediaDirectory
         self.shoppingEntityIndexPurge = shoppingEntityIndexPurge
+        self.spoonEntityIndexPurge = spoonEntityIndexPurge
         self.bootstrapMode = bootstrapMode
         self.now = now
     }
@@ -1979,6 +1998,25 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: cacheEnvironment,
                 plan: purgePlan
             ))
+            let spoonIDs = currentContentState.recipes.flatMap { recipe in
+                recipe.recentSpoons.compactMap { spoon in
+                    spoon.deletedAt == nil ? spoon.id : nil
+                }
+            }
+            let spoonPurgePlan = SpoonEntityIndexPurgePlan.accountScopePurge(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                spoonIDs: spoonIDs
+            )
+            await purgeSpoonEntityIdentifiers(SpoonEntityCatalog.purgeEntityIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: spoonPurgePlan
+            ), domainIdentifiers: SpoonEntityCatalog.purgeDomainIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: spoonPurgePlan
+            ))
             try await dependencies.authSessionRepository.revokeAndLogout()
         }
         await bootstrap()
@@ -1996,6 +2034,20 @@ public final class NativeLiveAppStore: ObservableObject {
         }
 
         await dependencies.shoppingEntityIndexPurge(request)
+    }
+
+    public func purgeSpoonEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
+        let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
+        let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
+        let request = NativeSpoonEntityIndexPurgeRequest(
+            identifiers: uniqueIdentifiers,
+            domainIdentifiers: uniqueDomainIdentifiers
+        )
+        guard !request.isEmpty else {
+            return
+        }
+
+        await dependencies.spoonEntityIndexPurge(request)
     }
 
     private var optimisticRecipeChef: ChefSummary {
@@ -2448,6 +2500,10 @@ public final class NativeLiveAppStore: ObservableObject {
         await purgeShoppingEntityIdentifiers(
             report.shoppingEntityPurgeIdentifiers,
             domainIdentifiers: report.shoppingEntityPurgeDomainIdentifiers
+        )
+        await purgeSpoonEntityIdentifiers(
+            report.spoonEntityPurgeIdentifiers,
+            domainIdentifiers: report.spoonEntityPurgeDomainIdentifiers
         )
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
         clearDrainedCaptureImports(

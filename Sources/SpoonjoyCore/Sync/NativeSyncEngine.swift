@@ -3592,6 +3592,8 @@ public struct NativeSyncReport: Equatable, Sendable {
     public let environment: NativeCacheEnvironment?
     public let shoppingEntityPurgeIdentifiers: [String]
     public let shoppingEntityPurgeDomainIdentifiers: [String]
+    public let spoonEntityPurgeIdentifiers: [String]
+    public let spoonEntityPurgeDomainIdentifiers: [String]
     public let drainedClientMutationIDs: [String]
     public let drainedMutations: [NativeQueuedMutation]
     public let conflicts: [NativeSyncConflict]
@@ -3606,6 +3608,8 @@ public struct NativeSyncReport: Equatable, Sendable {
         environment: NativeCacheEnvironment? = nil,
         shoppingEntityPurgeIdentifiers: [String] = [],
         shoppingEntityPurgeDomainIdentifiers: [String] = [],
+        spoonEntityPurgeIdentifiers: [String] = [],
+        spoonEntityPurgeDomainIdentifiers: [String] = [],
         drainedClientMutationIDs: [String],
         drainedMutations: [NativeQueuedMutation] = [],
         conflicts: [NativeSyncConflict],
@@ -3619,6 +3623,8 @@ public struct NativeSyncReport: Equatable, Sendable {
         self.environment = environment
         self.shoppingEntityPurgeIdentifiers = shoppingEntityPurgeIdentifiers
         self.shoppingEntityPurgeDomainIdentifiers = shoppingEntityPurgeDomainIdentifiers
+        self.spoonEntityPurgeIdentifiers = spoonEntityPurgeIdentifiers
+        self.spoonEntityPurgeDomainIdentifiers = spoonEntityPurgeDomainIdentifiers
         self.drainedClientMutationIDs = drainedClientMutationIDs
         self.drainedMutations = drainedMutations
         self.conflicts = conflicts
@@ -3791,6 +3797,8 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let queueEnvironment = bootstrapEnvironment ?? scope.environment
         var shoppingEntityPurgeIdentifiers: [String] = []
         var shoppingEntityPurgeDomainIdentifiers: [String] = []
+        var spoonEntityPurgeIdentifiers: [String] = []
+        var spoonEntityPurgeDomainIdentifiers: [String] = []
         if let accountScopePurge = Self.shoppingEntityAccountScopePurgePlan(
             previousSnapshot: previousSnapshot,
             nextAccountID: queueAccountID,
@@ -3802,6 +3810,22 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 plan: accountScopePurge.plan
             ))
             shoppingEntityPurgeDomainIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeDomainIdentifiers(
+                accountID: accountScopePurge.accountID,
+                environment: accountScopePurge.environment,
+                plan: accountScopePurge.plan
+            ))
+        }
+        if let accountScopePurge = Self.spoonEntityAccountScopePurgePlan(
+            previousSnapshot: previousSnapshot,
+            nextAccountID: queueAccountID,
+            nextEnvironment: queueEnvironment
+        ) {
+            spoonEntityPurgeIdentifiers.append(contentsOf: SpoonEntityCatalog.purgeEntityIdentifiers(
+                accountID: accountScopePurge.accountID,
+                environment: accountScopePurge.environment,
+                plan: accountScopePurge.plan
+            ))
+            spoonEntityPurgeDomainIdentifiers.append(contentsOf: SpoonEntityCatalog.purgeDomainIdentifiers(
                 accountID: accountScopePurge.accountID,
                 environment: accountScopePurge.environment,
                 plan: accountScopePurge.plan
@@ -3947,14 +3971,17 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             let makeTombstonePurge = ShoppingEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeCacheDeletePurge = ShoppingEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:shoppingItemIDs:)
             let purgeShoppingEntityIdentifiers = ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
+            let makeSpoonTombstonePurge = SpoonEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
+            let makeSpoonCacheDeletePurge = SpoonEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:spoonIDs:)
+            let purgeSpoonEntityIdentifiers = SpoonEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
             let shoppingItemTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.shoppingItem }
             let tombstonePurgePlan = makeTombstonePurge(shoppingItemTombstones, queueAccountID, queueEnvironment)
             shoppingEntityPurgeIdentifiers.append(contentsOf: purgeShoppingEntityIdentifiers(queueAccountID, queueEnvironment, tombstonePurgePlan))
             shoppingEntityPurgeDomainIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeDomainIdentifiers(
                 accountID: queueAccountID,
                 environment: queueEnvironment,
-                plan: tombstonePurgePlan
-            ))
+                    plan: tombstonePurgePlan
+                ))
             let deletedShoppingItemIDs = removedCacheKeys.compactMap { cacheKey -> String? in
                 let prefix = "\(NativeSyncEntryKind.shoppingItem.rawValue):"
                 guard cacheKey.hasPrefix(prefix) else {
@@ -3971,9 +3998,35 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     plan: cacheDeletePurgePlan
                 ))
             }
+            let spoonTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.spoon }
+            let spoonTombstonePurgePlan = makeSpoonTombstonePurge(spoonTombstones, queueAccountID, queueEnvironment)
+            spoonEntityPurgeIdentifiers.append(contentsOf: purgeSpoonEntityIdentifiers(queueAccountID, queueEnvironment, spoonTombstonePurgePlan))
+            spoonEntityPurgeDomainIdentifiers.append(contentsOf: SpoonEntityCatalog.purgeDomainIdentifiers(
+                accountID: queueAccountID,
+                environment: queueEnvironment,
+                plan: spoonTombstonePurgePlan
+            ))
+            let deletedSpoonIDs = removedCacheKeys.compactMap { cacheKey -> String? in
+                let prefix = "\(NativeSyncEntryKind.spoon.rawValue):"
+                guard cacheKey.hasPrefix(prefix) else {
+                    return nil
+                }
+                return String(cacheKey.dropFirst(prefix.count))
+            }
+            if !deletedSpoonIDs.isEmpty {
+                let spoonCacheDeletePurgePlan = makeSpoonCacheDeletePurge(queueAccountID, queueEnvironment, deletedSpoonIDs)
+                spoonEntityPurgeIdentifiers.append(contentsOf: purgeSpoonEntityIdentifiers(queueAccountID, queueEnvironment, spoonCacheDeletePurgePlan))
+                spoonEntityPurgeDomainIdentifiers.append(contentsOf: SpoonEntityCatalog.purgeDomainIdentifiers(
+                    accountID: queueAccountID,
+                    environment: queueEnvironment,
+                    plan: spoonCacheDeletePurgePlan
+                ))
+            }
         }
         shoppingEntityPurgeIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeIdentifiers)
         shoppingEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeDomainIdentifiers)
+        spoonEntityPurgeIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeIdentifiers)
+        spoonEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeDomainIdentifiers)
 
         return NativeSyncReport(
             trigger: trigger,
@@ -3982,6 +4035,8 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             environment: bootstrapEnvironment,
             shoppingEntityPurgeIdentifiers: shoppingEntityPurgeIdentifiers,
             shoppingEntityPurgeDomainIdentifiers: shoppingEntityPurgeDomainIdentifiers,
+            spoonEntityPurgeIdentifiers: spoonEntityPurgeIdentifiers,
+            spoonEntityPurgeDomainIdentifiers: spoonEntityPurgeDomainIdentifiers,
             drainedClientMutationIDs: drainedClientMutationIDs,
             drainedMutations: drainedMutations,
             conflicts: conflicts,
@@ -4022,6 +4077,40 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 accountID: previousAccountID,
                 environment: previousEnvironment,
                 shoppingItemIDs: shoppingItemIDs
+            )
+        )
+    }
+
+    private static func spoonEntityAccountScopePurgePlan(
+        previousSnapshot: NativeSyncSnapshot,
+        nextAccountID: String?,
+        nextEnvironment: NativeCacheEnvironment?
+    ) -> (accountID: String, environment: NativeCacheEnvironment, plan: SpoonEntityIndexPurgePlan)? {
+        guard let previousAccountID = previousSnapshot.accountID,
+              let previousEnvironment = previousSnapshot.environment,
+              let nextAccountID,
+              let nextEnvironment,
+              (previousAccountID != nextAccountID || previousEnvironment != nextEnvironment) else {
+            return nil
+        }
+
+        let spoonIDs = previousSnapshot.cachedRecords.flatMap { record -> [String] in
+            if record.kind == .spoon {
+                return [record.resourceID]
+            }
+            guard record.kind == .recipe,
+                  let recipe = try? JSONDecoder().decode(Recipe.self, from: JSONEncoder().encode(record.payload)) else {
+                return []
+            }
+            return recipe.recentSpoons.map(\.id)
+        }
+        return (
+            accountID: previousAccountID,
+            environment: previousEnvironment,
+            plan: SpoonEntityIndexPurgePlan.accountScopePurge(
+                accountID: previousAccountID,
+                environment: previousEnvironment,
+                spoonIDs: uniquePreservingOrder(spoonIDs)
             )
         )
     }

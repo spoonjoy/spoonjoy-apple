@@ -148,6 +148,26 @@ public enum ScenarioVerifier {
                     ]
                 ),
                 sourceCheck(
+                    name: "spoon cook-log App Entity source",
+                    detail: "Spoon cook-log App Entity integration source is present.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoySpoonEntity",
+                        "SpoonjoySpoonEntityQuery",
+                        "SpoonEntityCatalog",
+                        "EntityStringQuery",
+                        "FileBackedNativeSyncStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
                     name: "spotlight source",
                     detail: "CoreSpotlight integration source is present.",
                     rootURL: rootURL,

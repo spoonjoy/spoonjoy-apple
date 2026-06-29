@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E3F098EB4E231D1FA7F2963EAC58AF4D"
+               BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
                BuildableName = "Spoonjoy iOS.app"
                BlueprintName = "Spoonjoy iOS"
                ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E3F098EB4E231D1FA7F2963EAC58AF4D"
+            BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
             BuildableName = "Spoonjoy iOS.app"
             BlueprintName = "Spoonjoy iOS"
             ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -53,7 +53,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E3F098EB4E231D1FA7F2963EAC58AF4D"
+            BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
             BuildableName = "Spoonjoy iOS.app"
             BlueprintName = "Spoonjoy iOS"
             ReferencedContainer = "container:Spoonjoy.xcodeproj">
@@ -70,7 +70,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E3F098EB4E231D1FA7F2963EAC58AF4D"
+            BlueprintIdentifier = "F2C5DF272BE92A248DA006E5B2A9A0DE"
             BuildableName = "Spoonjoy iOS.app"
             BlueprintName = "Spoonjoy iOS"
             ReferencedContainer = "container:Spoonjoy.xcodeproj">
