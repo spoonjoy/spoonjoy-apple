@@ -2899,6 +2899,7 @@ if domain == "capture-import-intents"
       "case captureDraftOwnershipRequired(draftID: String)",
       "case captureImportNeedsTextRecognition(draftID: String)",
       "public func submitCaptureImport(",
+      "func captureImportSubmitAction(from plan:",
       "public func openCaptureDraft(",
       "public func discardCaptureDraft(",
       "currentChefID: String",
@@ -2924,7 +2925,15 @@ if domain == "capture-import-intents"
         "throw NativeIntentActionError.captureImportNeedsTextRecognition(draftID: captureDraftID)",
         "let plan = try CaptureImportViewModel(",
         "pendingRetryMutation: draft.pendingImport",
-        "plan.offlineRetryMutation",
+        "return try captureImportSubmitAction(from: plan, draftID: captureDraftID)"
+      ],
+      forbidden: ["draftID: String"]
+    },
+    "captureImportSubmitAction helper" => {
+      pattern: /\bfunc\s+captureImportSubmitAction\(from\s+plan:/,
+      required: [
+        "guard let mutation = plan.offlineRetryMutation else",
+        "throw NativeIntentActionError.captureImportQueueUnavailable(draftID: draftID)",
         "route: .capture",
         "DeepLinkURLBuilder.url(for: .capture)"
       ],

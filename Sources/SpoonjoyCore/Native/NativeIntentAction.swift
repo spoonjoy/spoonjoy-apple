@@ -609,10 +609,13 @@ public struct NativeIntentActionResolver {
             clientMutationID: draft.pendingImport?.clientMutationID ?? "intent-capture-import-\(stableToken(captureDraftID))-\(stableToken(createdAt))",
             createdAt: createdAt
         )
-        guard let mutation = plan.offlineRetryMutation else {
-            throw NativeIntentActionError.captureImportQueueUnavailable(draftID: captureDraftID)
-        }
+        return try captureImportSubmitAction(from: plan, draftID: captureDraftID)
+    }
 
+    func captureImportSubmitAction(from plan: CaptureImportPlan, draftID: String) throws -> NativeIntentAction {
+        guard let mutation = plan.offlineRetryMutation else {
+            throw NativeIntentActionError.captureImportQueueUnavailable(draftID: draftID)
+        }
         return .nativeMutation(
             mutation,
             route: .capture,
