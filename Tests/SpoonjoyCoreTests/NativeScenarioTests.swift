@@ -813,6 +813,7 @@ struct NativeScenarioTests {
         let appIntentsSource = try readRepoFile(appIntentsPath)
         let appEntitiesSource = try readRepoFile(appEntitiesPath)
         let shoppingEntitiesSource = try readRepoFile(shoppingEntitiesPath)
+        let spoonEntitiesSource = try readRepoFile(spoonEntitiesPath)
         let spotlightSource = try readRepoFile(spotlightPath)
         let rootViewSource = try readRepoFile(rootViewPath)
         let platformNavigationSource = try readRepoFile(platformNavigationPath)
@@ -831,6 +832,10 @@ struct NativeScenarioTests {
             "struct SaveRecipeToCookbookIntent: AppIntent",
             "struct RemoveRecipeFromCookbookIntent: AppIntent",
             "struct DeleteRecipeIntent: AppIntent",
+            "struct LogCookIntent: AppIntent",
+            "struct EditCookLogIntent: AppIntent",
+            "struct DeleteCookLogIntent: AppIntent",
+            "struct CreateCoverFromSpoonIntent: AppIntent",
             "struct AddShoppingListItemIntent: AppIntent",
             "struct SetShoppingListItemCheckedIntent: AppIntent",
             "struct RemoveShoppingListItemIntent: AppIntent",
@@ -861,6 +866,7 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains("try await SpoonjoyIntentStateWriter().apply"))
         #expect(appIntentsSource.contains("var recipe: SpoonjoyRecipeEntity"))
         #expect(appIntentsSource.contains("try recipe.resolvedRecipeID()"))
+        #expect(appIntentsSource.contains("var spoon: SpoonjoySpoonEntity"))
         #expect(appIntentsSource.contains("var item: SpoonjoyShoppingItemEntity"))
         #expect(appIntentsSource.contains("try item.resolvedShoppingItemID()"))
         #expect(!appIntentsSource.contains("recipe.descriptor.id"))
@@ -905,6 +911,22 @@ struct NativeScenarioTests {
         #expect(shoppingEntitiesSource.contains("KeychainTokenVault()"))
         #expect(shoppingEntitiesSource.contains("scope.accountID"))
         #expect(shoppingEntitiesSource.contains("scope.environment"))
+
+        for declaration in [
+            "struct SpoonjoySpoonEntity: AppEntity, IndexedEntity, Transferable",
+            "struct SpoonjoySpoonEntityQuery: EntityQuery, EntityStringQuery"
+        ] {
+            #expect(spoonEntitiesSource.contains(declaration))
+        }
+        #expect(spoonEntitiesSource.contains("SpoonEntityCatalog.loading(syncStore:"))
+        #expect(spoonEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(spoonEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
+        #expect(spoonEntitiesSource.contains("NativeIntentActionError.unresolvedSpoonEntity"))
+        #expect(spoonEntitiesSource.contains("descriptor.isPlaceholder"))
+        #expect(spoonEntitiesSource.contains("trustedIntentScope"))
+        #expect(spoonEntitiesSource.contains("KeychainTokenVault()"))
+        #expect(spoonEntitiesSource.contains("scope.accountID"))
+        #expect(spoonEntitiesSource.contains("scope.environment"))
 
         for declaration in [
             "struct SpoonjoySpotlightIndexer",
@@ -952,7 +974,7 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
-        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, chefProfileEntitiesPath, appIntentsPath])
+        try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, spoonEntitiesPath, chefProfileEntitiesPath, appIntentsPath])
         try assertSwiftSourcesTypecheck([
             appEntitiesPath,
             shoppingEntitiesPath,

@@ -67,12 +67,16 @@ public struct SpoonEntityDescriptor: Equatable, Sendable {
     public let spoonID: String
     public let recipeID: String
     public let recipeTitle: String
+    public let chefID: String
     public let chefUsername: String
     public let title: String
     public let subtitle: String
     public let disambiguationLabel: String
     public let route: AppRoute
     public let photoURL: URL?
+    public let note: String?
+    public let nextTime: String?
+    public let cookedAt: String?
     public let transferValue: SpoonEntityTransferValue
     public var isPlaceholder: Bool { id == Self.placeholder.id }
 
@@ -81,12 +85,16 @@ public struct SpoonEntityDescriptor: Equatable, Sendable {
         spoonID: "spoon-placeholder",
         recipeID: "recipe-placeholder",
         recipeTitle: "Recipe",
+        chefID: "chef-placeholder",
         chefUsername: "Spoonjoy",
         title: "Recipe cook log",
         subtitle: "Spoonjoy cook log",
         disambiguationLabel: "Spoonjoy cook log",
         route: .recipeDetail(id: "recipe-placeholder", presentation: .detail),
         photoURL: nil,
+        note: nil,
+        nextTime: nil,
+        cookedAt: nil,
         transferValue: SpoonEntityTransferValue(
             kind: .spoon,
             rawResourceID: "spoon-placeholder",
@@ -110,12 +118,16 @@ public struct SpoonEntityDescriptor: Equatable, Sendable {
             spoonID: spoon.id,
             recipeID: spoon.recipeID,
             recipeTitle: recipe.title,
+            chefID: spoon.chefID,
             chefUsername: spoon.chef.username,
             title: title,
             subtitle: subtitle,
             disambiguationLabel: "\(recipe.title) by \(spoon.chef.username)",
             route: route,
             photoURL: spoon.photoURL,
+            note: spoon.note,
+            nextTime: spoon.nextTime,
+            cookedAt: spoon.cookedAt,
             transferValue: SpoonEntityTransferValue(
                 kind: .spoon,
                 rawResourceID: spoon.id,
@@ -135,24 +147,32 @@ public struct SpoonEntityDescriptor: Equatable, Sendable {
         spoonID: String,
         recipeID: String,
         recipeTitle: String,
+        chefID: String,
         chefUsername: String,
         title: String,
         subtitle: String,
         disambiguationLabel: String,
         route: AppRoute,
         photoURL: URL?,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
         transferValue: SpoonEntityTransferValue
     ) {
         self.id = id
         self.spoonID = spoonID
         self.recipeID = recipeID
         self.recipeTitle = recipeTitle
+        self.chefID = chefID
         self.chefUsername = chefUsername
         self.title = title
         self.subtitle = subtitle
         self.disambiguationLabel = disambiguationLabel
         self.route = route
         self.photoURL = photoURL
+        self.note = note
+        self.nextTime = nextTime
+        self.cookedAt = cookedAt
         self.transferValue = transferValue
     }
 

@@ -5,11 +5,14 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case invalidCookbookID(String)
     case invalidProfileIdentifier(String)
     case invalidShoppingItemID(String)
+    case invalidSpoonID(String)
     case invalidScaleFactor(Double)
     case emptyShoppingItem
     case emptyCaptureSource
     case authRequired
     case recipeOwnershipRequired(recipeID: String)
+    case spoonOwnershipRequired(spoonID: String)
+    case spoonPhotoRequired(spoonID: String)
     case unresolvedRecipeEntity
     case unresolvedCookbookEntity
     case unresolvedShoppingListEntity
@@ -29,6 +32,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Profile identifier \(profileIdentifier) is not safe for a native route."
         case .invalidShoppingItemID(let itemID):
             "Shopping item ID \(itemID) is not safe for a native route."
+        case .invalidSpoonID(let spoonID):
+            "Cook log ID \(spoonID) is not safe for a native route."
         case .invalidScaleFactor(let scaleFactor):
             "Scale factor \(scaleFactor) must be greater than zero."
         case .emptyShoppingItem:
@@ -39,6 +44,10 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Sign in to Spoonjoy before queueing this Siri action."
         case .recipeOwnershipRequired(let recipeID):
             "Only the recipe owner can update \(recipeID) from Siri."
+        case .spoonOwnershipRequired(let spoonID):
+            "Only the cook who logged \(spoonID) can update it from Siri."
+        case .spoonPhotoRequired(let spoonID):
+            "Choose a cook log with a photo before making \(spoonID) a recipe cover."
         case .unresolvedRecipeEntity:
             "Choose a Spoonjoy recipe before running this Siri action."
         case .unresolvedCookbookEntity:
@@ -308,6 +317,127 @@ public struct NativeIntentActionResolver {
         )
     }
 
+    public func logCook(
+        recipe: RecipeEntityDescriptor,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let recipeID = try recipeIDForMutation(recipe)
+        let mutationID = "intent-spoon-log-\(stableToken(recipeID))-\(stableToken(createdAt))"
+        let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
+        let loggedAt = normalizedText(cookedAt) ?? createdAt
+        return .nativeMutation(
+            .spoonCreate(
+                recipeID: recipeID,
+                clientMutationID: mutationID,
+                note: normalizedText(note),
+                nextTime: normalizedText(nextTime),
+                cookedAt: loggedAt,
+                photoURL: nil,
+                useAsRecipeCover: false,
+                createdAt: createdAt
+            ),
+            route: .recipeDetail(id: recipeID, presentation: .detail),
+            url: DeepLinkURLBuilder.url(for: route)
+        )
+    }
+
+    public func editCookLog(
+        spoon: SpoonEntityDescriptor,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let spoonID = try spoonIDForMutation(spoon)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .spoonOwnershipRequired(spoonID: spoonID))
+        guard spoon.chefID == chefID else {
+            throw NativeIntentActionError.spoonOwnershipRequired(spoonID: spoonID)
+        }
+        let mutationID = "intent-spoon-edit-\(stableToken(spoonID))-\(stableToken(createdAt))"
+        let route = AppRoute.recipeDetail(id: spoon.recipeID, presentation: .detail)
+        let updatedNote = normalizedText(note) ?? normalizedText(spoon.note)
+        let updatedNextTime = normalizedText(nextTime) ?? normalizedText(spoon.nextTime)
+        let updatedCookedAt = normalizedText(cookedAt) ?? normalizedText(spoon.cookedAt)
+        return .nativeMutation(
+            .spoonUpdate(
+                recipeID: spoon.recipeID,
+                spoonID: spoonID,
+                clientMutationID: mutationID,
+                note: updatedNote,
+                nextTime: updatedNextTime,
+                cookedAt: updatedCookedAt,
+                photoURL: spoon.photoURL?.absoluteString,
+                createdAt: createdAt
+            ),
+            route: route,
+            url: DeepLinkURLBuilder.url(for: route)
+        )
+    }
+
+    public func deleteCookLog(
+        spoon: SpoonEntityDescriptor,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let spoonID = try spoonIDForMutation(spoon)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .spoonOwnershipRequired(spoonID: spoonID))
+        guard spoon.chefID == chefID else {
+            throw NativeIntentActionError.spoonOwnershipRequired(spoonID: spoonID)
+        }
+        let mutationID = "intent-spoon-delete-\(stableToken(spoonID))-\(stableToken(createdAt))"
+        let route = AppRoute.recipeDetail(id: spoon.recipeID, presentation: .detail)
+        return .nativeMutation(
+            .spoonDelete(
+                recipeID: spoon.recipeID,
+                spoonID: spoonID,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: route,
+            url: DeepLinkURLBuilder.url(for: route)
+        )
+    }
+
+    public func createCoverFromSpoon(
+        recipe: RecipeEntityDescriptor,
+        spoon: SpoonEntityDescriptor,
+        activate: Bool,
+        generateEditorial: Bool,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let recipeID = try recipeIDForMutation(recipe)
+        let spoonID = try spoonIDForMutation(spoon)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .recipeOwnershipRequired(recipeID: recipeID))
+        guard recipe.chefID == chefID else {
+            throw NativeIntentActionError.recipeOwnershipRequired(recipeID: recipeID)
+        }
+        guard spoon.recipeID == recipeID else {
+            throw NativeIntentActionError.invalidRecipeID(spoon.recipeID)
+        }
+        guard spoon.photoURL != nil else {
+            throw NativeIntentActionError.spoonPhotoRequired(spoonID: spoonID)
+        }
+        let mutationID = "intent-cover-spoon-\(stableToken(recipeID))-\(stableToken(spoonID))-\(stableToken(createdAt))"
+        let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
+        return .nativeMutation(
+            .coverFromSpoon(
+                recipeID: recipeID,
+                spoonID: spoonID,
+                clientMutationID: mutationID,
+                activate: activate,
+                generateEditorial: generateEditorial,
+                createdAt: createdAt
+            ),
+            route: route,
+            url: DeepLinkURLBuilder.url(for: route)
+        )
+    }
+
     public func addShoppingListItem(
         name: String,
         quantity: Double?,
@@ -455,6 +585,18 @@ public struct NativeIntentActionResolver {
         return id
     }
 
+    private func spoonIDForMutation(_ spoon: SpoonEntityDescriptor) throws -> String {
+        guard !spoon.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedSpoonEntity
+        }
+        let spoonID = try canonicalObjectID(spoon.spoonID, invalidError: .invalidSpoonID(spoon.spoonID))
+        let recipeID = try canonicalRecipeID(spoon.recipeID)
+        guard spoon.route == .recipeDetail(id: recipeID, presentation: .detail) else {
+            throw NativeIntentActionError.invalidRecipeID(spoon.recipeID)
+        }
+        return spoonID
+    }
+
     private func canonicalRecipeID(_ recipeID: String) throws -> String {
         try canonicalObjectID(recipeID, invalidError: .invalidRecipeID(recipeID))
     }
@@ -578,6 +720,11 @@ public struct NativeIntentActionResolver {
 
     private func normalizedOptional(_ value: String?) -> String? {
         let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "" ? nil : normalized
+    }
+
+    private func normalizedText(_ value: String?) -> String? {
+        let normalized = value?.trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized == "" ? nil : normalized
     }
 

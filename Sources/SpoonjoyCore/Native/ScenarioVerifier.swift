@@ -98,6 +98,10 @@ public enum ScenarioVerifier {
                         "SaveRecipeToCookbookIntent",
                         "RemoveRecipeFromCookbookIntent",
                         "DeleteRecipeIntent",
+                        "LogCookIntent",
+                        "EditCookLogIntent",
+                        "DeleteCookLogIntent",
+                        "CreateCoverFromSpoonIntent",
                         "AddShoppingListItemIntent",
                         "SetShoppingListItemCheckedIntent",
                         "RemoveShoppingListItemIntent",
@@ -276,6 +280,11 @@ public enum ScenarioVerifier {
                     name: "Recipe action Siri intents",
                     status: .pass,
                     detail: "ForkRecipeIntent, SaveRecipeToCookbookIntent, RemoveRecipeFromCookbookIntent, DeleteRecipeIntent, and AddRecipeIngredientsToShoppingListIntent use recipe/cookbook App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI."
+                ),
+                ScenarioCheck(
+                    name: "Spoon cook-log Siri intents",
+                    status: .pass,
+                    detail: "LogCookIntent, EditCookLogIntent, DeleteCookLogIntent, and CreateCoverFromSpoonIntent use recipe/spoon App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI."
                 ),
                 ScenarioCheck(
                     name: "deep link metadata",

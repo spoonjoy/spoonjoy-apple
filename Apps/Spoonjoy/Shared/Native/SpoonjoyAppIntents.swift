@@ -566,6 +566,161 @@ struct ClearShoppingListIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+struct LogCookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Log Cook"
+    static let description = IntentDescription("Log a cook on a Spoonjoy recipe.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe did you cook?")
+    var recipe: SpoonjoyRecipeEntity
+
+    @Parameter(title: "Note")
+    var note: String?
+
+    @Parameter(title: "Next Time")
+    var nextTime: String?
+
+    @Parameter(title: "Cooked At")
+    var cookedAt: String?
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+        note = nil
+        nextTime = nil
+        cookedAt = nil
+    }
+
+    init(recipe: SpoonjoyRecipeEntity, note: String? = nil, nextTime: String? = nil, cookedAt: String? = nil) {
+        self.recipe = recipe
+        self.note = note
+        self.nextTime = nextTime
+        self.cookedAt = cookedAt
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().logCook(recipe: recipe.descriptor, note: note, nextTime: nextTime, cookedAt: cookedAt, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cook log in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct EditCookLogIntent: AppIntent {
+    static let title: LocalizedStringResource = "Edit Cook Log"
+    static let description = IntentDescription("Edit one of your Spoonjoy cook logs.")
+
+    @Parameter(title: "Cook Log", requestValueDialog: "Which Spoonjoy cook log?")
+    var spoon: SpoonjoySpoonEntity
+
+    @Parameter(title: "Note")
+    var note: String?
+
+    @Parameter(title: "Next Time")
+    var nextTime: String?
+
+    @Parameter(title: "Cooked At")
+    var cookedAt: String?
+
+    init() {
+        spoon = SpoonjoySpoonEntity()
+        note = nil
+        nextTime = nil
+        cookedAt = nil
+    }
+
+    init(spoon: SpoonjoySpoonEntity, note: String? = nil, nextTime: String? = nil, cookedAt: String? = nil) {
+        self.spoon = spoon
+        self.note = note
+        self.nextTime = nextTime
+        self.cookedAt = cookedAt
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().editCookLog(spoon: spoon.descriptor, note: note, nextTime: nextTime, cookedAt: cookedAt, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cook-log edit in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct DeleteCookLogIntent: AppIntent {
+    static let title: LocalizedStringResource = "Delete Cook Log"
+    static let description = IntentDescription("Delete one of your Spoonjoy cook logs.")
+
+    @Parameter(title: "Cook Log", requestValueDialog: "Which Spoonjoy cook log?")
+    var spoon: SpoonjoySpoonEntity
+
+    init() {
+        spoon = SpoonjoySpoonEntity()
+    }
+
+    init(spoon: SpoonjoySpoonEntity) {
+        self.spoon = spoon
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().deleteCookLog(spoon: spoon.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cook-log deletion in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct CreateCoverFromSpoonIntent: AppIntent {
+    static let title: LocalizedStringResource = "Create Cover from Cook Log"
+    static let description = IntentDescription("Use a Spoonjoy cook-log photo as a recipe cover.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe gets the cover?")
+    var recipe: SpoonjoyRecipeEntity
+
+    @Parameter(title: "Cook Log", requestValueDialog: "Which Spoonjoy cook log has the photo?")
+    var spoon: SpoonjoySpoonEntity
+
+    @Parameter(title: "Activate")
+    var activate: Bool
+
+    @Parameter(title: "Generate Editorial")
+    var generateEditorial: Bool
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+        spoon = SpoonjoySpoonEntity()
+        activate = true
+        generateEditorial = false
+    }
+
+    init(recipe: SpoonjoyRecipeEntity, spoon: SpoonjoySpoonEntity, activate: Bool = true, generateEditorial: Bool = false) {
+        self.recipe = recipe
+        self.spoon = spoon
+        self.activate = activate
+        self.generateEditorial = generateEditorial
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor, activate: activate, generateEditorial: generateEditorial, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued spoon photo as a cover in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct CaptureRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Capture Recipe"
     static let description = IntentDescription("Save a recipe URL or note into Spoonjoy capture drafts.")
@@ -705,7 +860,11 @@ private enum SpoonjoyIntentShortcutBudget {
             String(describing: ForkRecipeIntent()),
             String(describing: SaveRecipeToCookbookIntent()),
             String(describing: RemoveRecipeFromCookbookIntent()),
-            String(describing: DeleteRecipeIntent())
+            String(describing: DeleteRecipeIntent()),
+            String(describing: LogCookIntent()),
+            String(describing: EditCookLogIntent()),
+            String(describing: DeleteCookLogIntent()),
+            String(describing: CreateCoverFromSpoonIntent())
         ]
     }
 }

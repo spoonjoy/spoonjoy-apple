@@ -1,0 +1,18 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (6.44s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Spoon cook-log Siri intent contracts" started.
+◇ Test "spoon intent resolver preserves cook-log fields and requires cover photos" started.
+◇ Test "spoon Siri intents require entity-backed queueable actions" started.
+✔ Test "spoon intent resolver preserves cook-log fields and requires cover photos" passed after 0.042 seconds.
+✔ Test "spoon Siri intents require entity-backed queueable actions" passed after 0.122 seconds.
+✔ Suite "Spoon cook-log Siri intent contracts" passed after 0.122 seconds.
+✔ Test run with 2 tests in 1 suite passed after 0.123 seconds.

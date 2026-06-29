@@ -299,6 +299,184 @@ struct SpoonIntentTests {
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
     }
+
+    @Test("spoon intent resolver preserves cook-log fields and requires cover photos")
+    func spoonIntentResolverPreservesCookLogFieldsAndRequiresCoverPhotos() throws {
+        let resolver = NativeIntentActionResolver()
+        let recipe = spoonIntentRecipeDescriptor()
+        let photographedSpoon = spoonIntentSpoonDescriptor()
+        let coverlessSpoon = spoonIntentSpoonDescriptor(photoURL: nil)
+
+        let logAction = try resolver.logCook(
+            recipe: recipe,
+            note: nil,
+            nextTime: nil,
+            cookedAt: nil,
+            createdAt: "2026-06-29T15:00:00.000Z"
+        )
+        let logMutation = try #require(logAction.nativeQueuedMutation)
+        #expect(logMutation.queueableKind == .spoonCreate)
+        #expect(logAction.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+        try spoonIntentAssertJSONRequest(
+            try spoonIntentRequest(from: logMutation),
+            method: .post,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta/spoons",
+            expected: [
+                "clientMutationId": "intent-spoon-log-recipe_lemon_pantry_pasta-2026-06-29T15-00-00-000Z",
+                "note": NSNull(),
+                "nextTime": NSNull(),
+                "cookedAt": "2026-06-29T15:00:00.000Z",
+                "photoUrl": NSNull(),
+                "useAsRecipeCover": false
+            ]
+        )
+
+        let editAction = try resolver.editCookLog(
+            spoon: photographedSpoon,
+            note: "  Updated after Siri  ",
+            nextTime: nil,
+            cookedAt: nil,
+            currentChefID: " chef_ari ",
+            createdAt: "2026-06-29T15:01:00.000Z"
+        )
+        let editMutation = try #require(editAction.nativeQueuedMutation)
+        #expect(editMutation.queueableKind == .spoonUpdate)
+        try spoonIntentAssertJSONRequest(
+            try spoonIntentRequest(from: editMutation),
+            method: .patch,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta/spoons/spoon_ari_lemon",
+            expected: [
+                "clientMutationId": "intent-spoon-edit-spoon_ari_lemon-2026-06-29T15-01-00-000Z",
+                "note": "Updated after Siri",
+                "nextTime": "Use more lemon zest.",
+                "cookedAt": "2026-06-01T10:00:00.000Z",
+                "photoUrl": "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg"
+            ]
+        )
+
+        #expect(throws: NativeIntentActionError.spoonPhotoRequired(spoonID: "spoon_ari_lemon")) {
+            try resolver.createCoverFromSpoon(
+                recipe: recipe,
+                spoon: coverlessSpoon,
+                activate: true,
+                generateEditorial: false,
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-29T15:02:00.000Z"
+            )
+        }
+
+        let coverAction = try resolver.createCoverFromSpoon(
+            recipe: recipe,
+            spoon: photographedSpoon,
+            activate: true,
+            generateEditorial: false,
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-29T15:03:00.000Z"
+        )
+        let coverMutation = try #require(coverAction.nativeQueuedMutation)
+        #expect(coverMutation.queueableKind == .coverFromSpoon)
+        #expect(coverAction.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+        try spoonIntentAssertJSONRequest(
+            try spoonIntentRequest(from: coverMutation),
+            method: .post,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta/covers/from-spoon/spoon_ari_lemon",
+            expected: [
+                "clientMutationId": "intent-cover-spoon-recipe_lemon_pantry_pasta-spoon_ari_lemon-2026-06-29T15-03-00-000Z",
+                "activate": true,
+                "generateEditorial": false
+            ]
+        )
+    }
+}
+
+private let spoonIntentConfiguration = APIClientConfiguration(
+    baseURL: URL(string: "https://spoonjoy.app")!,
+    bearerToken: "sj_private_token"
+)
+
+private func spoonIntentRecipeDescriptor() -> RecipeEntityDescriptor {
+    let route = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+    let canonicalURL = URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")!
+    return RecipeEntityDescriptor(
+        id: "recipe_lemon_pantry_pasta",
+        title: "Lemon Pantry Pasta",
+        chefID: "chef_ari",
+        chefUsername: "ari",
+        subtitle: "ari - 2 servings",
+        disambiguationLabel: "Lemon Pantry Pasta by ari",
+        route: route,
+        canonicalURL: canonicalURL,
+        imageURL: URL(string: "https://spoonjoy.app/photos/recipes/lemon.jpg"),
+        transferValue: RecipeCookbookEntityTransferValue(
+            kind: .recipe,
+            id: "recipe_lemon_pantry_pasta",
+            title: "Lemon Pantry Pasta",
+            chefUsername: "ari",
+            routeIdentifier: route.stateIdentifier,
+            canonicalURL: canonicalURL,
+            imageURL: URL(string: "https://spoonjoy.app/photos/recipes/lemon.jpg"),
+            userVisibleSummary: "Lemon Pantry Pasta by ari"
+        )
+    )
+}
+
+private func spoonIntentSpoonDescriptor(photoURL: URL? = URL(string: "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg")) -> SpoonEntityDescriptor {
+    let route = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+    return SpoonEntityDescriptor(
+        id: "production|account_ari|spoon|spoon_ari_lemon",
+        spoonID: "spoon_ari_lemon",
+        recipeID: "recipe_lemon_pantry_pasta",
+        recipeTitle: "Lemon Pantry Pasta",
+        chefID: "chef_ari",
+        chefUsername: "ari",
+        title: "Lemon Pantry Pasta cook log",
+        subtitle: "Loved this with extra lemon.",
+        disambiguationLabel: "Lemon Pantry Pasta by ari",
+        route: route,
+        photoURL: photoURL,
+        note: "Loved this with extra lemon.",
+        nextTime: "Use more lemon zest.",
+        cookedAt: "2026-06-01T10:00:00.000Z",
+        transferValue: SpoonEntityTransferValue(
+            kind: .spoon,
+            rawResourceID: "spoon_ari_lemon",
+            recipeID: "recipe_lemon_pantry_pasta",
+            recipeTitle: "Lemon Pantry Pasta",
+            title: "Lemon Pantry Pasta cook log",
+            routeIdentifier: route.stateIdentifier,
+            publicURL: nil,
+            privateTransferValue: "schema=app.spoonjoy.spoon-entity.v1;domain=spoon;title=Lemon Pantry Pasta cook log",
+            userVisibleSummary: "Lemon Pantry Pasta: Loved this with extra lemon."
+        )
+    )
+}
+
+private func spoonIntentRequest(from mutation: NativeQueuedMutation) throws -> APIRequest {
+    try mutation.requestBuilder().urlRequest(configuration: spoonIntentConfiguration)
+}
+
+private func spoonIntentAssertJSONRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    expected: [String: Any]
+) throws {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.queryItems.isEmpty)
+    #expect(request.headers == [
+        "Accept": "application/json",
+        "Authorization": "Bearer sj_private_token",
+        "Content-Type": "application/json"
+    ])
+    #expect(request.responseCachePolicy == .privateNoStore)
+    #expect(NSDictionary(dictionary: try spoonIntentJSONBody(from: request)).isEqual(to: expected))
+}
+
+private func spoonIntentJSONBody(from request: APIRequest) throws -> [String: Any] {
+    let body = try #require(request.body)
+    return try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 }
 
 private func spoonIntentSourceContractFailures(
