@@ -95,7 +95,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -2114,6 +2114,336 @@ if domain == "recipe-action"
         "MessageUI",
         "TODO RecipeActionIntent",
         "eventually add recipe action"
+      ],
+      failures
+    )
+  end
+end
+
+if domain == "spoon-intents"
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  spoon_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift")
+  recipe_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift")
+  spoon_catalog = ROOT.join("Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift")
+  recipe_catalog = ROOT.join("Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [
+    app_intents,
+    spoon_entities,
+    recipe_entities,
+    spoon_catalog,
+    recipe_catalog,
+    intent_action,
+    metadata,
+    verifier,
+    project
+  ].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    app_intents,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "struct LogCookIntent: AppIntent",
+      "struct EditCookLogIntent: AppIntent",
+      "struct DeleteCookLogIntent: AppIntent",
+      "struct CreateCoverFromSpoonIntent: AppIntent",
+      "var recipe: SpoonjoyRecipeEntity",
+      "var spoon: SpoonjoySpoonEntity",
+      "SpoonjoyIntentStateWriter",
+      "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+      "SpoonjoyIntentClock.timestamp()",
+      "SpoonjoyInteractionDonor",
+      "throw NativeIntentActionError.authRequired",
+      "String(describing: LogCookIntent())",
+      "String(describing: EditCookLogIntent())",
+      "String(describing: DeleteCookLogIntent())",
+      "String(describing: CreateCoverFromSpoonIntent())"
+    ],
+    failures
+  )
+
+  if app_intents.file?
+    app_intents_content = uncommented_swift(app_intents.read)
+    shortcut_count = app_intents_content.scan("AppShortcut(").length
+    failures << "#{relative(app_intents)} declares #{shortcut_count} App Shortcuts, above Apple limit 10" if shortcut_count > 10
+    shortcuts_body = declaration_body(app_intents_content, /\bstruct\s+SpoonjoyAppShortcuts\s*:\s*AppShortcutsProvider\b/)
+    if shortcuts_body
+      [
+        "LogCookIntent",
+        "EditCookLogIntent",
+        "DeleteCookLogIntent",
+        "CreateCoverFromSpoonIntent"
+      ].each do |intent_name|
+        failures << "#{relative(app_intents)} promotes library-only #{intent_name} into AppShortcuts" if shortcuts_body.include?("#{intent_name}(")
+      end
+    else
+      failures << "#{relative(app_intents)} missing body for SpoonjoyAppShortcuts"
+    end
+  end
+
+  require_body_tokens(
+    app_intents,
+    "SpoonjoyIntentShortcutBudget",
+    /\bprivate\s+enum\s+SpoonjoyIntentShortcutBudget\b/,
+    [
+      "String(describing: LogCookIntent())",
+      "String(describing: EditCookLogIntent())",
+      "String(describing: DeleteCookLogIntent())",
+      "String(describing: CreateCoverFromSpoonIntent())"
+    ],
+    failures
+  )
+
+  {
+    "LogCookIntent" => {
+      required: [
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
+        "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Note\")",
+        "@Parameter(title: \"Next Time\")",
+        "@Parameter(title: \"Cooked At\")",
+        "NativeIntentActionResolver().logCook(recipe: recipe.descriptor",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var recipeID: String", "@Parameter(title: \"Recipe ID\")"]
+    },
+    "EditCookLogIntent" => {
+      required: [
+        "@Parameter(title: \"Cook Log\", requestValueDialog:",
+        "var spoon: SpoonjoySpoonEntity",
+        "@Parameter(title: \"Note\")",
+        "@Parameter(title: \"Next Time\")",
+        "@Parameter(title: \"Cooked At\")",
+        "try await requestConfirmation(",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "NativeIntentActionResolver().editCookLog(spoon: spoon.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: ["var spoonID: String", "@Parameter(title: \"Spoon ID\")"]
+    },
+    "DeleteCookLogIntent" => {
+      required: [
+        "@Parameter(title: \"Cook Log\", requestValueDialog:",
+        "var spoon: SpoonjoySpoonEntity",
+        "try await requestConfirmation(",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "NativeIntentActionResolver().deleteCookLog(spoon: spoon.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: ["var spoonID: String", "@Parameter(title: \"Spoon ID\")"]
+    },
+    "CreateCoverFromSpoonIntent" => {
+      required: [
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
+        "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Cook Log\", requestValueDialog:",
+        "var spoon: SpoonjoySpoonEntity",
+        "@Parameter(title: \"Activate\")",
+        "@Parameter(title: \"Generate Editorial\")",
+        "try await requestConfirmation(",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
+      ],
+      forbidden: ["var recipeID: String", "var spoonID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Spoon ID\")"]
+    }
+  }.each do |intent_name, contract|
+    pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
+    require_body_tokens(app_intents, intent_name, pattern, contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, intent_name, pattern, contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    spoon_entities,
+    [
+      "struct SpoonjoySpoonEntity: AppEntity",
+      "struct SpoonjoySpoonEntityQuery: EntityQuery, EntityStringQuery",
+      "resolvedSpoonID() throws",
+      "NativeIntentActionError.unresolvedSpoonEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    recipe_entities,
+    [
+      "struct SpoonjoyRecipeEntity: AppEntity",
+      "resolvedRecipeID() throws",
+      "NativeIntentActionError.unresolvedRecipeEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    spoon_catalog,
+    [
+      "public let chefID: String",
+      "chefID: spoon.chefID",
+      "chefID: \"chef-placeholder\""
+    ],
+    failures
+  )
+
+  require_tokens(
+    recipe_catalog,
+    [
+      "public let chefID: String",
+      "chefID: recipe.chef.id"
+    ],
+    failures
+  )
+
+  require_tokens(
+    intent_action,
+    [
+      "public func logCook(",
+      "public func editCookLog(",
+      "public func deleteCookLog(",
+      "public func createCoverFromSpoon(",
+      "currentChefID: String",
+      "NativeIntentActionError.spoonOwnershipRequired",
+      "NativeIntentActionError.recipeOwnershipRequired",
+      ".spoonCreate",
+      ".spoonUpdate",
+      ".spoonDelete",
+      ".coverFromSpoon",
+      "DeepLinkURLBuilder.url(for:"
+    ],
+    failures
+  )
+
+  {
+    "logCook resolver" => {
+      pattern: /\bpublic\s+func\s+logCook\(/,
+      required: [
+        "let recipeID = try recipeIDForMutation(recipe)",
+        ".spoonCreate(",
+        "route: .recipeDetail(id: recipeID, presentation: .detail)",
+        "DeepLinkURLBuilder.url(for: route)"
+      ],
+      forbidden: ["recipeID: String"]
+    },
+    "editCookLog resolver" => {
+      pattern: /\bpublic\s+func\s+editCookLog\(/,
+      required: [
+        "let spoonID = try spoonIDForMutation(spoon)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .spoonOwnershipRequired(spoonID: spoonID))",
+        "guard spoon.chefID == chefID else",
+        "throw NativeIntentActionError.spoonOwnershipRequired(spoonID: spoonID)",
+        ".spoonUpdate("
+      ],
+      forbidden: ["spoonID: String"]
+    },
+    "deleteCookLog resolver" => {
+      pattern: /\bpublic\s+func\s+deleteCookLog\(/,
+      required: [
+        "let spoonID = try spoonIDForMutation(spoon)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .spoonOwnershipRequired(spoonID: spoonID))",
+        "guard spoon.chefID == chefID else",
+        "throw NativeIntentActionError.spoonOwnershipRequired(spoonID: spoonID)",
+        ".spoonDelete("
+      ],
+      forbidden: ["spoonID: String"]
+    },
+    "createCoverFromSpoon resolver" => {
+      pattern: /\bpublic\s+func\s+createCoverFromSpoon\(/,
+      required: [
+        "let recipeID = try recipeIDForMutation(recipe)",
+        "let spoonID = try spoonIDForMutation(spoon)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .recipeOwnershipRequired(recipeID: recipeID))",
+        "guard recipe.chefID == chefID else",
+        "throw NativeIntentActionError.recipeOwnershipRequired(recipeID: recipeID)",
+        "guard spoon.recipeID == recipeID else",
+        "throw NativeIntentActionError.invalidRecipeID(spoon.recipeID)",
+        ".coverFromSpoon("
+      ],
+      forbidden: ["recipeID: String", "spoonID: String"]
+    },
+    "spoonIDForMutation helper" => {
+      pattern: /\bprivate\s+func\s+spoonIDForMutation\(/,
+      required: [
+        "guard !spoon.isPlaceholder else",
+        "throw NativeIntentActionError.unresolvedSpoonEntity",
+        "let spoonID = try canonicalObjectID(spoon.spoonID, invalidError: .invalidSpoonID(spoon.spoonID))",
+        "let recipeID = try canonicalRecipeID(spoon.recipeID)",
+        "guard spoon.route == .recipeDetail(id: recipeID, presentation: .detail) else",
+        "return spoonID"
+      ],
+      forbidden: []
+    }
+  }.each do |label, contract|
+    require_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:required), failures)
+    forbid_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    metadata,
+    [
+      "LogCookIntent",
+      "EditCookLogIntent",
+      "DeleteCookLogIntent",
+      "CreateCoverFromSpoonIntent"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Spoon cook-log Siri intents",
+      "LogCookIntent",
+      "EditCookLogIntent",
+      "DeleteCookLogIntent",
+      "CreateCoverFromSpoonIntent"
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  [
+    app_intents,
+    intent_action
+  ].each do |path|
+    forbid_tokens(
+      path,
+      [
+        "@Parameter(title: \"Spoon ID\")",
+        "@Parameter(title: \"Recipe ID\")",
+        "var spoonID: String",
+        "var recipeID: String",
+        "String-only spoon App Intent",
+        "CommentIntent",
+        "FeedIntent",
+        "MessageIntent",
+        "MailIntent",
+        "social-feed",
+        "/comments",
+        "/feeds",
+        "/messages",
+        "mailto:",
+        "MessageUI",
+        "TODO SpoonIntent",
+        "eventually add spoon intents"
       ],
       failures
     )

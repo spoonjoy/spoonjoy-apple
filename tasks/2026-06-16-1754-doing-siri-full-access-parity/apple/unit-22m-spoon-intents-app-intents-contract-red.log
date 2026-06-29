@@ -1,0 +1,53 @@
+FAIL: Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LogCookIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct EditCookLogIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct DeleteCookLogIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct CreateCoverFromSpoonIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var spoon: SpoonjoySpoonEntity
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LogCookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: EditCookLogIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: DeleteCookLogIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: CreateCoverFromSpoonIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: LogCookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: EditCookLogIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: DeleteCookLogIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: CreateCoverFromSpoonIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogCookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogCookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for EditCookLogIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for EditCookLogIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DeleteCookLogIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DeleteCookLogIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateCoverFromSpoonIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateCoverFromSpoonIntent
+Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing public let chefID: String
+Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing chefID: spoon.chefID
+Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing chefID: "chef-placeholder"
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func logCook(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func editCookLog(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func deleteCookLog(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func createCoverFromSpoon(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing NativeIntentActionError.spoonOwnershipRequired
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonCreate
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonUpdate
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonDelete
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .coverFromSpoon
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logCook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logCook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for editCookLog resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for editCookLog resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for deleteCookLog resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for deleteCookLog resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createCoverFromSpoon resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createCoverFromSpoon resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for spoonIDForMutation helper
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for spoonIDForMutation helper
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LogCookIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing EditCookLogIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing DeleteCookLogIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing CreateCoverFromSpoonIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Spoon cook-log Siri intents
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LogCookIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing EditCookLogIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing DeleteCookLogIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing CreateCoverFromSpoonIntent
+expected red status: 1
