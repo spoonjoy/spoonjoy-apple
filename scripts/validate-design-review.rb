@@ -44,6 +44,32 @@ EXPECTED_OFFLINE_SEVERE_STATES = [
   "blocker",
   "destructiveConfirmation"
 ].freeze
+EXPECTED_ROUTE_EVIDENCE = {
+  "kitchen" => {
+    "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
+    "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+    "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  },
+  "search" => {
+    "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
+    "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
+    "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  },
+  "settings" => {
+    "voiceOverLabels" => ["Settings", "Profile", "Security"],
+    "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass label on bone"],
+    "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  }
+}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -121,6 +147,17 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
   fail_check("#{proof_path} minimumTargetSize must be at least 44") unless proof["minimumTargetSize"].is_a?(Numeric) && proof["minimumTargetSize"] >= 44
   fail_check("#{proof_path} textFits must be true") unless proof["textFits"] == true
   fail_check("#{proof_path} noTinyClusters must be true") unless proof["noTinyClusters"] == true
+  fail_check("#{proof_path} observedDynamicTypeSize must be a non-empty string") unless proof["observedDynamicTypeSize"].is_a?(String) && !proof["observedDynamicTypeSize"].empty?
+  fail_check("#{proof_path} observedReduceMotion must be boolean") unless [true, false].include?(proof["observedReduceMotion"])
+
+  route_evidence = proof["routeEvidence"]
+  fail_check("#{proof_path} routeEvidence must be an object") unless route_evidence.is_a?(Hash)
+  EXPECTED_ROUTE_EVIDENCE.fetch(route).each do |field, required_values|
+    actual_values = route_evidence[field]
+    fail_check("#{proof_path} routeEvidence.#{field} must be an array") unless actual_values.is_a?(Array)
+    missing_values = required_values.reject { |value| actual_values.include?(value) }
+    fail_check("#{proof_path} routeEvidence.#{field} missing #{missing_values.join(", ")}") unless missing_values.empty?
+  end
 
   offline_proof = proof["offlineIndicatorProof"]
   fail_check("#{proof_path} offlineIndicatorProof must be an object") unless offline_proof.is_a?(Hash)

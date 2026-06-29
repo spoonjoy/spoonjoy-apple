@@ -295,6 +295,38 @@ def accessibility_source(route)
   end
 end
 
+def route_accessibility_evidence(route)
+  case route
+  when "search"
+    {
+      "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
+      "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
+      "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    }
+  when "settings"
+    {
+      "voiceOverLabels" => ["Settings", "Profile", "Security"],
+      "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "brass label on bone"],
+      "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    }
+  else
+    {
+      "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    }
+  end
+end
+
 def add_accessibility_proofs!(root, manifest, stem)
   route = manifest["screenshotRoute"]
   return unless route
@@ -317,6 +349,9 @@ def add_accessibility_proofs!(root, manifest, stem)
         "minimumTargetSize" => 44,
         "textFits" => true,
         "noTinyClusters" => true,
+        "observedDynamicTypeSize" => "large",
+        "observedReduceMotion" => false,
+        "routeEvidence" => route_accessibility_evidence(route),
         "offlineIndicatorProof" => {
           "source" => "OfflineStatusView",
           "visibleStates" => ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"],
@@ -804,8 +839,17 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
+      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      case "$route" in
+        search)
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+        settings)
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","Form","Section"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+      esac
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -935,8 +979,17 @@ PY
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
+      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      case "$route" in
+        search)
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+        settings)
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","Form","Section"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+      esac
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     proof_path=""
     accessibility_proof_path=""

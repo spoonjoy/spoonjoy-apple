@@ -562,6 +562,32 @@ wait_for_accessibility_proof() {
       expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
       expected_dismissible = ["offline", "stale"]
       expected_severe = ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
+      expected_route_evidence = {
+        "kitchen" => {
+          "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
+          "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+          "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+        },
+        "search" => {
+          "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
+          "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
+          "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+        },
+        "settings" => {
+          "voiceOverLabels" => ["Settings", "Profile", "Security"],
+          "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass label on bone"],
+          "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+        }
+      }
       abort("#{expected_platform} accessibility proof platform mismatch") unless proof.fetch("platform") == expected_platform
       abort("#{expected_platform} accessibility proof route mismatch") unless proof.fetch("route") == expected_route
       abort("#{expected_platform} accessibility proof source mismatch") unless proof.fetch("source") == expected_source
@@ -572,6 +598,16 @@ wait_for_accessibility_proof() {
       abort("#{expected_platform} accessibility proof minimumTargetSize mismatch") unless proof.fetch("minimumTargetSize") >= 44
       abort("#{expected_platform} accessibility proof textFits mismatch") unless proof.fetch("textFits") == true
       abort("#{expected_platform} accessibility proof noTinyClusters mismatch") unless proof.fetch("noTinyClusters") == true
+      abort("#{expected_platform} accessibility proof observedDynamicTypeSize missing") unless proof.fetch("observedDynamicTypeSize").is_a?(String) && !proof.fetch("observedDynamicTypeSize").empty?
+      abort("#{expected_platform} accessibility proof observedReduceMotion missing") unless [true, false].include?(proof.fetch("observedReduceMotion"))
+      route_evidence = proof.fetch("routeEvidence")
+      abort("#{expected_platform} accessibility proof routeEvidence mismatch") unless route_evidence.is_a?(Hash)
+      expected_route_evidence.fetch(expected_route).each do |field, required_values|
+        actual_values = route_evidence.fetch(field)
+        abort("#{expected_platform} accessibility proof routeEvidence #{field} is not an array") unless actual_values.is_a?(Array)
+        missing_values = required_values.reject { |value| actual_values.include?(value) }
+        abort("#{expected_platform} accessibility proof routeEvidence #{field} missing #{missing_values.join(", ")}") unless missing_values.empty?
+      end
       offline = proof.fetch("offlineIndicatorProof")
       abort("#{expected_platform} accessibility proof offline source mismatch") unless offline.fetch("source") == "OfflineStatusView"
       abort("#{expected_platform} accessibility proof visible states mismatch") unless offline.fetch("visibleStates") == expected_visible

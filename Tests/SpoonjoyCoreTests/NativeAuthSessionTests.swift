@@ -986,6 +986,7 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         "check-xcode-project-contract.rb",
         "check-xcode-generator-contract.rb",
         "check-native-design-language.rb",
+        "check-design-accessibility-contract.rb",
         "check-kitchen-recipe-surfaces.rb",
         "check-cook-shopping-surfaces.rb",
         "check-search-capture-settings-surfaces.rb",

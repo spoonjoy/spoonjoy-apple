@@ -14,6 +14,9 @@ struct SearchView: View {
     private let searchTask: @MainActor @Sendable (SearchState) async -> Void
     private let debounce = SearchSurfaceDebouncePolicy(delayMilliseconds: 350, defaultLimit: 20)
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     init(
         search: Binding<SearchState>,
         viewModel: SearchSurfaceViewModel,
@@ -73,13 +76,24 @@ struct SearchView: View {
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
         .task(id: search.route.stateIdentifier) {
             await writeScreenshotProofIfNeeded()
-            await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "search", source: "SearchView")
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "search",
+                source: "SearchView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
             await debounceSearch()
         }
     }
 
     private var searchableScopeOrder: [SearchScope] {
         viewModel.searchableScopes
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     @MainActor

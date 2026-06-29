@@ -43,5 +43,35 @@
   "emittedBy": "SpoonjoyApp",
   "bundleIdentifier": "app.spoonjoy.Spoonjoy.mac",
   "textFits": true,
-  "voiceOverLabels": true
+  "voiceOverLabels": true,
+  "observedDynamicTypeSize": "large",
+  "observedReduceMotion": false,
+  "routeEvidence": {
+    "voiceOverLabels": [
+      "Spoonjoy Kitchen",
+      "Open Recipe",
+      "Start Cooking"
+    ],
+    "keyboardNavigationTargets": [
+      "lead recipe actions",
+      "recipe index buttons"
+    ],
+    "dynamicTypeTextStyles": [
+      "KitchenTableTheme.displayTitle",
+      "KitchenTableTheme.uiLabel"
+    ],
+    "contrastPairs": [
+      "charcoal on bone",
+      "white on photo overlay"
+    ],
+    "hierarchyAnchors": [
+      "KitchenView",
+      "KitchenMasthead",
+      "RecipeLead"
+    ],
+    "layoutGuards": [
+      "text-fit",
+      "no-tiny-clusters"
+    ]
+  }
 }

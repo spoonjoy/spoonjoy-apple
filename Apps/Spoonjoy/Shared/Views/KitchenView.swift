@@ -9,6 +9,9 @@ struct KitchenView: View {
     let startCooking: (String) -> Void
     let openCookbook: (String) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -25,7 +28,11 @@ struct KitchenView: View {
         }
         .background(KitchenTableTheme.bone)
         .task {
-            await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "kitchen", source: "KitchenView")
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "kitchen",
+                source: "KitchenView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
         }
     }
 
@@ -39,6 +46,13 @@ struct KitchenView: View {
         }
 
         return recipes.first { $0.id == id }
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 }
 

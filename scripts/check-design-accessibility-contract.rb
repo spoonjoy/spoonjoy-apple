@@ -66,7 +66,10 @@ CONTRACTS = {
     "textFits",
     "noTinyClusters",
     "emittedBy",
-    "bundleIdentifier"
+    "bundleIdentifier",
+    "observedDynamicTypeSize",
+    "observedReduceMotion",
+    "routeEvidence"
   ],
   "scripts/validate-design-review-blocker.rb" => [
     'apple/#{unit_slug}-accessibility-proof-ios.json',
@@ -84,6 +87,8 @@ CONTRACTS = {
     "accessibilityProofArtifacts",
     "offlineIndicatorProof",
     "minimumTargetSize",
+    "observedDynamicTypeSize",
+    "routeEvidence",
     "visibleStates",
     "dismissibleStates",
     "severeStates",
@@ -94,9 +99,17 @@ CONTRACTS = {
   ],
   "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift" => [
     "ScreenshotAccessibilityProofWriter",
+    "ScreenshotAccessibilityRuntimeContext",
     "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
-    "writeIfNeeded(route: String, source: String)",
+    "writeIfNeeded(",
+    "runtimeContext: ScreenshotAccessibilityRuntimeContext",
+    "routeEvidence(route: route, source: source)",
+    "row.accessibilityLabel",
+    "SearchSurfaceContract.searchableScopes",
+    "SearchSurfaceContract.typedRows",
     "OfflineStatusView.screenshotAccessibilityProof",
+    "observedDynamicTypeSize",
+    "observedReduceMotion",
     "\"emittedBy\": \"SpoonjoyApp\"",
     "\"bundleIdentifier\": Bundle.main.bundleIdentifier",
     "JSONSerialization.data",
@@ -124,13 +137,22 @@ CONTRACTS = {
     "severityCorrect"
   ],
   "Apps/Spoonjoy/Shared/Views/KitchenView.swift" => [
-    "ScreenshotAccessibilityProofWriter.writeIfNeeded(route: \"kitchen\", source: \"KitchenView\")"
+    "@Environment(\\.dynamicTypeSize)",
+    "@Environment(\\.accessibilityReduceMotion)",
+    "ScreenshotAccessibilityProofWriter.writeIfNeeded(",
+    "runtimeContext: screenshotAccessibilityRuntimeContext"
   ],
   "Apps/Spoonjoy/Shared/Views/SearchView.swift" => [
-    "ScreenshotAccessibilityProofWriter.writeIfNeeded(route: \"search\", source: \"SearchView\")"
+    "@Environment(\\.dynamicTypeSize)",
+    "@Environment(\\.accessibilityReduceMotion)",
+    "ScreenshotAccessibilityProofWriter.writeIfNeeded(",
+    "runtimeContext: screenshotAccessibilityRuntimeContext"
   ],
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
-    "ScreenshotAccessibilityProofWriter.writeIfNeeded(route: \"settings\", source: \"SettingsView\")"
+    "@Environment(\\.dynamicTypeSize)",
+    "@Environment(\\.accessibilityReduceMotion)",
+    "ScreenshotAccessibilityProofWriter.writeIfNeeded(",
+    "runtimeContext: screenshotAccessibilityRuntimeContext"
   ]
 }.freeze
 
@@ -190,6 +212,16 @@ def accessibility_proof(platform)
     "minimumTargetSize" => 44,
     "textFits" => true,
     "noTinyClusters" => true,
+    "observedDynamicTypeSize" => "large",
+    "observedReduceMotion" => false,
+    "routeEvidence" => {
+      "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    },
     "offlineIndicatorProof" => {
       "source" => "OfflineStatusView",
       "visibleStates" => EXPECTED_OFFLINE_VISIBLE_STATES,
@@ -235,6 +267,14 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
   valid_review_path = temp_root.join("valid-design-review.json")
   valid_review_path.write(JSON.pretty_generate(base_design_review) + "\n")
   assert_status(true, ["ruby", validator, valid_review_path], "valid accessibility design review")
+
+  missing_route_evidence = accessibility_proof("ios")
+  missing_route_evidence.delete("routeEvidence")
+  temp_root.join("apple/unit-contract-accessibility-proof-ios.json").write(JSON.pretty_generate(missing_route_evidence) + "\n")
+  missing_route_evidence_path = temp_root.join("missing-route-evidence-design-review.json")
+  missing_route_evidence_path.write(JSON.pretty_generate(base_design_review) + "\n")
+  assert_status(false, ["ruby", validator, missing_route_evidence_path], "missing routeEvidence design review")
+  temp_root.join("apple/unit-contract-accessibility-proof-ios.json").write(JSON.pretty_generate(accessibility_proof("ios")) + "\n")
 
   missing_accessibility_path = temp_root.join("missing-accessibility-proof.json")
   missing_accessibility_path.write(JSON.pretty_generate(base_design_review.reject { |key, _| key == "accessibilityProofArtifacts" }) + "\n")

@@ -1,0 +1,8 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native auth session contract" started.
+◇ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" started.
+✔ Test "local validation matrix executes xcodebuild wrapper for app bundle rows" passed after 7.417 seconds.
+✔ Suite "Native auth session contract" passed after 7.417 seconds.
+✔ Test run with 1 test in 1 suite passed after 7.417 seconds.

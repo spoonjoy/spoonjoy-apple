@@ -10,8 +10,8 @@
   "kitchenTableHierarchy": true,
   "noOverlap": true,
   "accessibilityProofArtifacts": [
-    "apple/unit-23b-design-accessibility-proof-ios.json",
-    "apple/unit-23b-design-accessibility-proof-macos.json"
+    "apple/unit-23c-design-accessibility-proof-ios.json",
+    "apple/unit-23c-design-accessibility-proof-macos.json"
   ],
   "blockers": [
 

@@ -27,6 +27,8 @@ struct SettingsView: View {
     var onDismissOfflineIndicator: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var selectedProfilePhotoItem: PhotosPickerItem?
     @State private var stagedProfilePhoto: NativeStagedMediaUpload?
     @State private var profileEmail = ""
@@ -63,7 +65,11 @@ struct SettingsView: View {
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["Profile", "Security"]
                         )
-                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "settings", source: "SettingsView")
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                            route: "settings",
+                            source: "SettingsView",
+                            runtimeContext: screenshotAccessibilityRuntimeContext
+                        )
                     case .notifications:
                         withAnimation(nil) {
                             proxy.scrollTo(Self.notificationsFocusID, anchor: .center)
@@ -76,7 +82,11 @@ struct SettingsView: View {
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
                         )
-                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(route: "settings", source: "SettingsView")
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                            route: "settings",
+                            source: "SettingsView",
+                            runtimeContext: screenshotAccessibilityRuntimeContext
+                        )
                     }
                 }
         }
@@ -111,6 +121,13 @@ struct SettingsView: View {
                 Text(message)
             }
         }
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var settingsForm: some View {
