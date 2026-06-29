@@ -146,6 +146,34 @@ struct NativeSyncEngineTests {
             Self.shoppingItem(id: "item_previous_bread", name: "bread", quantity: 1, unit: "loaf"),
             Self.shoppingItem(id: "item_previous_butter", name: "butter", quantity: 2, unit: "sticks")
         ]
+        let previousChef = ChefSummary(id: "chef_previous", username: "previous")
+        let previousStandaloneSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_previous_standalone",
+            chefID: previousChef.id,
+            recipeID: "recipe_lemon",
+            cookedAt: Self.createdAt(1),
+            photoURL: nil,
+            note: "Standalone cached spoon.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.createdAt(1),
+            updatedAt: Self.createdAt(1),
+            chef: previousChef
+        )
+        let previousEmbeddedSpoon = RecipeDetailRecentSpoon(
+            id: "spoon_previous_embedded",
+            chefID: previousChef.id,
+            recipeID: "recipe_lemon",
+            cookedAt: Self.createdAt(2),
+            photoURL: nil,
+            note: "Recipe embedded spoon.",
+            nextTime: nil,
+            deletedAt: nil,
+            createdAt: Self.createdAt(2),
+            updatedAt: Self.createdAt(2),
+            chef: previousChef
+        )
+        let previousRecipe = Self.optimisticRecipe(recentSpoons: [previousEmbeddedSpoon])
         let store = InMemoryNativeSyncStore(
             accountID: "chef_previous",
             environment: .local,
@@ -158,7 +186,20 @@ struct NativeSyncEngineTests {
                     payload: try Self.jsonValue(item),
                     serverRevision: .updatedAt(item.updatedAt)
                 )
-            }
+            } + [
+                NativeSyncCachedRecord(
+                    kind: .spoon,
+                    resourceID: previousStandaloneSpoon.id,
+                    payload: try Self.jsonValue(previousStandaloneSpoon),
+                    serverRevision: .updatedAt(previousStandaloneSpoon.updatedAt)
+                ),
+                NativeSyncCachedRecord(
+                    kind: .recipe,
+                    resourceID: previousRecipe.id,
+                    payload: try Self.jsonValue(previousRecipe),
+                    serverRevision: .updatedAt(previousRecipe.updatedAt)
+                )
+            ]
         )
         let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
         let transport = RecordingNativeSyncTransport(
@@ -178,6 +219,14 @@ struct NativeSyncEngineTests {
         ])
         #expect(report.shoppingEntityPurgeDomainIdentifiers == [
             SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: previousScope)
+        ])
+        #expect(report.spoonEntityPurgeIdentifiers == [
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: previousEmbeddedSpoon.id, scope: previousScope),
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: previousStandaloneSpoon.id, scope: previousScope),
+            SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_deleted", scope: nextScope)
+        ])
+        #expect(report.spoonEntityPurgeDomainIdentifiers == [
+            SpotlightIndexPlan.spoonDomainIdentifier(scope: previousScope)
         ])
         let snapshot = await store.loadSnapshot()
         #expect(snapshot.accountID == "chef_ari")
@@ -2048,7 +2097,8 @@ struct NativeSyncEngineTests {
                 checkpoint: nil,
                 queue: try NativeMutationQueue(mutations: [create, update, delete]),
                 cachedRecords: [
-                    NativeSyncCachedRecord(kind: .recipe, resourceID: lemonRecipe.id, payload: try Self.jsonValue(lemonRecipe), serverRevision: .updatedAt(lemonRecipe.updatedAt))
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: lemonRecipe.id, payload: try Self.jsonValue(lemonRecipe), serverRevision: .updatedAt(lemonRecipe.updatedAt)),
+                    NativeSyncCachedRecord(kind: .spoon, resourceID: existingSpoon.id, payload: try Self.jsonValue(existingSpoon), serverRevision: .updatedAt(existingSpoon.updatedAt))
                 ],
                 tombstones: []
             )
@@ -2074,7 +2124,14 @@ struct NativeSyncEngineTests {
 
             #expect(report.drainedClientMutationIDs == ["cm_spoon_restart_create", "cm_spoon_restart_update", "cm_spoon_restart_delete"])
             #expect(report.drainedMutations.first?.optimisticSpoonID == "spoon_server_restart")
+            #expect(report.spoonEntityPurgeIdentifiers == [
+                SpotlightIndexPlan.spoonUniqueIdentifier(
+                    spoonID: existingSpoon.id,
+                    scope: SpotlightIndexScope(accountID: "chef_ari", environment: .local)
+                )
+            ])
             #expect(try await restored.loadQueue().mutations.isEmpty)
+            #expect(try await restored.cachedRecord(kind: .spoon, resourceID: existingSpoon.id) == nil)
             #expect(createdSpoon.note == "Great cold.")
             #expect(createdSpoon.cookedAt == Self.createdAt(2))
             #expect(deletedSpoon.note == nil)

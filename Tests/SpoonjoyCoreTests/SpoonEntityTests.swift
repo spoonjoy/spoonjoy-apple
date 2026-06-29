@@ -364,6 +364,115 @@ struct SpoonEntityTests {
         #expect(spoon.transferValue.publicURL == nil)
     }
 
+    @Test("spoon entity coverage edges preserve placeholder loading and identifier behavior")
+    func spoonEntityCoverageEdgesPreservePlaceholderLoadingAndIdentifierBehavior() async throws {
+        let placeholder = SpoonEntityDescriptor.placeholder
+        #expect(placeholder.isPlaceholder)
+        #expect(placeholder.transferValue.publicURL == nil)
+
+        let cookedAtOnly = Self.spoon(
+            id: "spoon_cooked_at_only",
+            recipeID: "recipe_edge_spoons",
+            note: "  ",
+            cookedAt: "2026-06-03T10:00:00.000Z"
+        )
+        let nextTimeOnly = Self.spoon(
+            id: "spoon_next_time_only",
+            recipeID: "recipe_edge_spoons",
+            note: nil,
+            cookedAt: nil,
+            nextTime: "Try chili crisp."
+        )
+        let untimed = Self.spoon(
+            id: "spoon_untimed",
+            recipeID: "recipe_edge_spoons",
+            note: nil,
+            cookedAt: nil
+        )
+        let sameDateB = Self.spoon(id: "spoon_tie_b", recipeID: "recipe_edge_spoons", note: "Tie B.", cookedAt: nil)
+        let sameDateA = Self.spoon(id: "spoon_tie_a", recipeID: "recipe_edge_spoons", note: "Tie A.", cookedAt: nil)
+        let orphan = Self.spoon(id: "spoon_orphan", recipeID: "recipe_missing", note: "No recipe.", cookedAt: nil)
+        let recipe = try Self.recipe(
+            id: "recipe_edge_spoons",
+            title: "Edge Spoon Pasta",
+            recentSpoons: [cookedAtOnly, nextTimeOnly, untimed, sameDateB, sameDateA]
+        )
+        let snapshot = try Self.syncSnapshot(
+            recipes: [recipe],
+            spoons: [orphan],
+            tombstones: [
+                NativeSyncTombstone(
+                    resourceType: .recipe,
+                    resourceID: "recipe_deleted_elsewhere",
+                    parentResourceID: nil,
+                    title: "Deleted elsewhere",
+                    deletedAt: "2026-06-03T11:00:00.000Z",
+                    updatedAt: "2026-06-03T11:00:00.000Z"
+                )
+            ]
+        )
+        let directCatalog = SpoonEntityCatalog(
+            syncSnapshot: snapshot,
+            currentAccountID: "account_ari",
+            environment: .production
+        )
+        #expect(try await directCatalog.spoonEntities(matching: "orphan").isEmpty)
+        let syncStore = InMemoryNativeSyncStore(
+            accountID: snapshot.accountID,
+            environment: snapshot.environment,
+            checkpoint: snapshot.checkpoint,
+            queue: snapshot.queue,
+            cachedRecords: snapshot.cachedRecords
+        )
+        let catalog = try await SpoonEntityCatalog.loading(
+            syncStore: syncStore,
+            currentAccountID: "account_ari",
+            environment: .production
+        )
+
+        let all = try await catalog.spoonEntities(matching: " ")
+        #expect(all.map { $0.spoonID } == [
+            "spoon_cooked_at_only",
+            "spoon_next_time_only",
+            "spoon_tie_a",
+            "spoon_tie_b",
+            "spoon_untimed"
+        ])
+        #expect(all.first?.subtitle == "Cooked 2026-06-03T10:00:00.000Z")
+        #expect(all[1].subtitle == "Next time: Try chili crisp.")
+        #expect(all.last?.subtitle == "Cook log")
+
+        let scopedID = SpoonEntityCatalog.spoonEntityIdentifier(
+            spoonID: "spoon_cooked_at_only",
+            accountID: "account_ari",
+            environment: .production
+        )
+        #expect(try await catalog.spoonEntity(id: scopedID).spoonID == "spoon_cooked_at_only")
+        await spoonExpectAsyncThrows(SpoonEntityCatalogError.self) {
+            _ = try await catalog.spoonEntity(id: "spoon_missing")
+        }
+        await spoonExpectAsyncThrows(SpoonEntityCatalogError.self) {
+            _ = try await catalog.spoonEntity(id: "spoon/unsafe")
+        }
+        #expect(try await catalog.spoonEntities(matching: "orphan").isEmpty)
+    }
+
+    @Test("spoon entity spotlight and intent error edges stay private and fail closed")
+    func spoonEntitySpotlightAndIntentErrorEdgesStayPrivateAndFailClosed() {
+        let emptyScope = SpotlightIndexScope(accountID: "", environment: .production)
+        #expect(emptyScope.identifierPrefix == "production|unbound")
+        #expect(emptyScope.domainPrefix == "app.spoonjoy.production.unbound")
+
+        let safeScope = SpotlightIndexScope(accountID: "account_ari", environment: .production)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.spoonUniqueIdentifier(
+            spoonID: "spoon_ari_lemon",
+            scope: safeScope
+        )) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account_ari|recipe|../unsafe") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account_ari|cookbook|../unsafe") == .unknownLink)
+        #expect(NativeIntentActionError.unresolvedSpoonEntity.description == "Choose a Spoonjoy cook log before running this Siri action.")
+    }
+
     @Test("spoon entity purge plans cover logout account-switch cache-delete and tombstones")
     func spoonEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
         let scope = SpoonEntityScope(accountID: "account_ari", environment: .production)

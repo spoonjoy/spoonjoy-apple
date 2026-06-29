@@ -1,0 +1,22 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Spoon cook-log App Entity contracts" started.
+◇ Test "spoon entity sources exist with AppIntents contracts" started.
+◇ Test "spoon entities resolve from scoped native sync cache records" started.
+◇ Test "spoon entity lookup uses supplied sync snapshot records instead of fixture fallback" started.
+◇ Test "spoon entity spotlight and intent error edges stay private and fail closed" started.
+◇ Test "spoon entity coverage edges preserve placeholder loading and identifier behavior" started.
+◇ Test "spoon entity lookup filters deleted, tombstoned, and wrong-scope data" started.
+◇ Test "spoon entity purge plans cover logout account-switch cache-delete and tombstones" started.
+◇ Test "spoon entity transfer values filter private and debug-only fields" started.
+✔ Test "spoon entity spotlight and intent error edges stay private and fail closed" passed after 0.001 seconds.
+✔ Test "spoon entity purge plans cover logout account-switch cache-delete and tombstones" passed after 0.001 seconds.
+✔ Test "spoon entity lookup uses supplied sync snapshot records instead of fixture fallback" passed after 0.014 seconds.
+✔ Test "spoon entity transfer values filter private and debug-only fields" passed after 0.014 seconds.
+✔ Test "spoon entities resolve from scoped native sync cache records" passed after 0.014 seconds.
+✔ Test "spoon entity coverage edges preserve placeholder loading and identifier behavior" passed after 0.014 seconds.
+✔ Test "spoon entity lookup filters deleted, tombstoned, and wrong-scope data" passed after 0.017 seconds.
+✔ Test "spoon entity sources exist with AppIntents contracts" passed after 0.251 seconds.
+✔ Suite "Spoon cook-log App Entity contracts" passed after 0.251 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.251 seconds.

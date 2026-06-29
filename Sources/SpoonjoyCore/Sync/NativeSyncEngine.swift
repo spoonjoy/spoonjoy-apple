@@ -4132,7 +4132,15 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let updatedRecipes = drainedMutations.reduce(cachedRecipes) { recipes, mutation in
             mutation.applyingOptimisticRecipeMutation(to: recipes, fallbackChef: fallbackChef, now: mutation.createdAt)
         }
-        let deletedCacheKeys = Set(Set(cachedRecipes.map(\.id)).subtracting(updatedRecipes.map(\.id)).map { "\(NativeSyncEntryKind.recipe.rawValue):\($0)" })
+        var deletedCacheKeys = Set(Set(cachedRecipes.map(\.id)).subtracting(updatedRecipes.map(\.id)).map { "\(NativeSyncEntryKind.recipe.rawValue):\($0)" })
+        let deletedSpoonCacheKeys = drainedMutations.compactMap { mutation -> String? in
+            guard mutation.queueableKind == .spoonDelete,
+                  let spoonID = mutation.optimisticSpoonID else {
+                return nil
+            }
+            return "\(NativeSyncEntryKind.spoon.rawValue):\(spoonID)"
+        }
+        deletedCacheKeys.formUnion(deletedSpoonCacheKeys)
         let upserts = try updatedRecipes.map { recipe in
             NativeSyncCachedRecord(
                 kind: .recipe,

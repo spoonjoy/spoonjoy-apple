@@ -1711,27 +1711,63 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
-    @Test("live store purges shopping entity indexes on logout and account switch")
-    func liveStorePurgesShoppingEntityIndexesOnLogoutAndAccountSwitch() async throws {
+    @Test("live store purges shopping and spoon entity indexes on logout and account switch")
+    func liveStorePurgesShoppingAndSpoonEntityIndexesOnLogoutAndAccountSwitch() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
             let vault = try await Self.signedInVault(accountID: nil)
             let shoppingItem = Self.sampleShoppingItem(id: "item_logout_purge", name: "logout lemons")
             let purgeRecorder = CapturingShoppingEntityIndexPurge()
+            let spoonPurgeRecorder = CapturingSpoonEntityIndexPurge()
+            let chef = ChefSummary(id: "client_live", username: "ari")
+            let activeSpoon = RecipeDetailRecentSpoon(
+                id: "spoon_logout_active",
+                chefID: chef.id,
+                recipeID: "recipe_logout_purge",
+                cookedAt: Self.isoString(Self.now),
+                photoURL: nil,
+                note: "Active logout spoon.",
+                nextTime: nil,
+                deletedAt: nil,
+                createdAt: Self.isoString(Self.now),
+                updatedAt: Self.isoString(Self.now),
+                chef: chef
+            )
+            let deletedSpoon = RecipeDetailRecentSpoon(
+                id: "spoon_logout_deleted",
+                chefID: chef.id,
+                recipeID: "recipe_logout_purge",
+                cookedAt: Self.isoString(Self.now),
+                photoURL: nil,
+                note: "Deleted logout spoon.",
+                nextTime: nil,
+                deletedAt: Self.isoString(Self.now),
+                createdAt: Self.isoString(Self.now),
+                updatedAt: Self.isoString(Self.now),
+                chef: chef
+            )
             let liveStore = Self.liveStore(
                 directory: directory,
                 vault: vault,
                 syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
                 transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
-                    recipe: Self.sampleRecipe(id: "recipe_logout_purge", title: "Logout Purge"),
+                    recipe: Self.sampleRecipe(
+                        id: "recipe_logout_purge",
+                        title: "Logout Purge",
+                        recentSpoons: [activeSpoon, deletedSpoon]
+                    ),
                     shoppingItem: shoppingItem
                 ))),
                 shoppingEntityIndexPurge: { request in
                     await purgeRecorder.purge(request)
+                },
+                spoonEntityIndexPurge: { request in
+                    await spoonPurgeRecorder.purge(request)
                 }
             )
 
             await liveStore.bootstrap()
             try await liveStore.performSettingsSessionOperation(.logout)
+            await liveStore.purgeSpoonEntityIdentifiers([], domainIdentifiers: [])
 
             #expect(await purgeRecorder.requests() == [
                 NativeShoppingEntityIndexPurgeRequest(
@@ -1743,6 +1779,21 @@ struct NativeLiveStoreTests {
                     ],
                     domainIdentifiers: [
                         SpotlightIndexPlan.shoppingListItemDomainIdentifier(
+                            scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                        )
+                    ]
+                )
+            ])
+            #expect(await spoonPurgeRecorder.requests() == [
+                NativeSpoonEntityIndexPurgeRequest(
+                    identifiers: [
+                        SpotlightIndexPlan.spoonUniqueIdentifier(
+                            spoonID: activeSpoon.id,
+                            scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                        )
+                    ],
+                    domainIdentifiers: [
+                        SpotlightIndexPlan.spoonDomainIdentifier(
                             scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
                         )
                     ]
@@ -5008,6 +5059,18 @@ private actor CapturingShoppingEntityIndexPurge {
     }
 }
 
+private actor CapturingSpoonEntityIndexPurge {
+    private var recordedRequests: [NativeSpoonEntityIndexPurgeRequest] = []
+
+    func purge(_ request: NativeSpoonEntityIndexPurgeRequest) {
+        recordedRequests.append(request)
+    }
+
+    func requests() -> [NativeSpoonEntityIndexPurgeRequest] {
+        recordedRequests
+    }
+}
+
 private struct ThrowingLiveStoreSyncTransport: NativeSyncTransport {
     let error: APITransportError
 
@@ -5225,6 +5288,7 @@ private extension NativeLiveStoreTests {
         settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
+        spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -5242,6 +5306,7 @@ private extension NativeLiveStoreTests {
             settingsSurfaceFetch: settingsSurfaceFetch,
             stagedMediaDirectory: stagedMediaDirectory,
             shoppingEntityIndexPurge: shoppingEntityIndexPurge,
+            spoonEntityIndexPurge: spoonEntityIndexPurge,
             bootstrapMode: bootstrapMode,
             now: { Self.now }
         ))
