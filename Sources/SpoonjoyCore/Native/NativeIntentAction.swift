@@ -392,7 +392,7 @@ public struct NativeIntentActionResolver {
         .openRoute(route, url: DeepLinkURLBuilder.url(for: route))
     }
 
-    private func publicShareValue(
+    func publicShareValue(
         route: AppRoute,
         title: String,
         subtitle: String

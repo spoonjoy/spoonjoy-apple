@@ -364,10 +364,13 @@ struct OpenSearchShareCookIntentTests {
         #expect(try resolver.continueCookMode(recipe: recipe).route == .recipeDetail(id: recipe.id, presentation: .cook))
         #expect(try resolver.openCookbook(cookbook: cookbook).route == .cookbookDetail(id: cookbook.id))
         #expect(try resolver.openProfile(profile: profile).route == .profile(identifier: profile.username))
+        #expect(resolver.searchSpoonjoy(query: " lemons ", scope: .recipes).route == .search(query: "lemons", scope: .recipes))
 
         let recipeShare = try resolver.shareRecipe(recipe: recipe)
         #expect(recipeShare.domain == .recipe)
         #expect(recipeShare.kind == .publicURL)
+        #expect(recipeShare.isPublicURL)
+        #expect(!recipeShare.isPrivateTransfer)
         #expect(recipeShare.publicURL == URL(string: "https://spoonjoy.app/recipes/\(recipe.id)"))
 
         let cookbookShare = try resolver.shareCookbook(cookbook: cookbook)
@@ -378,9 +381,22 @@ struct OpenSearchShareCookIntentTests {
         let shoppingShare = try resolver.shareShoppingList(shoppingList: shoppingList)
         #expect(shoppingShare.domain == .shoppingList)
         #expect(shoppingShare.kind == .privateTransfer)
+        #expect(shoppingShare.isPrivateTransfer)
+        #expect(!shoppingShare.isPublicURL)
         #expect(shoppingShare.publicURL == nil)
         #expect(shoppingShare.privateTransferValue?.contains("domain=shopping-list") == true)
+        #expect(NativeIntentActionError.unresolvedCookbookEntity.description.contains("cookbook"))
+        #expect(NativeIntentActionError.shareUnavailable(.shoppingList).description.contains("shopping-list"))
 
+        #expect(throws: NativeIntentActionError.unresolvedRecipeEntity) {
+            try resolver.openRecipe(recipe: .placeholder)
+        }
+        #expect(throws: NativeIntentActionError.unresolvedCookbookEntity) {
+            try resolver.openCookbook(cookbook: .placeholder)
+        }
+        #expect(throws: NativeIntentActionError.unresolvedChefProfileEntity) {
+            try resolver.openProfile(profile: .placeholder)
+        }
         #expect(throws: NativeIntentActionError.invalidRecipeID("bad/recipe")) {
             try resolver.openRecipe(recipe: openSearchShareCookRecipeDescriptor(id: "bad/recipe"))
         }
@@ -401,6 +417,15 @@ struct OpenSearchShareCookIntentTests {
         }
         #expect(throws: NativeIntentActionError.invalidProfileIdentifier("bad..profile")) {
             try resolver.openProfile(profile: openSearchShareCookChefProfileDescriptor(username: "bad..profile"))
+        }
+        #expect(throws: NativeIntentActionError.invalidProfileIdentifier(profile.username)) {
+            try resolver.openProfile(profile: openSearchShareCookChefProfileDescriptor(
+                username: profile.username,
+                route: .profile(identifier: "other-chef")
+            ))
+        }
+        #expect(throws: NativeIntentActionError.shareUnavailable(.shoppingList)) {
+            try resolver.publicShareValue(route: .shoppingList, title: "Shopping List", subtitle: "Private")
         }
         #expect(throws: NativeIntentActionError.unresolvedShoppingListEntity) {
             try resolver.shareShoppingList(shoppingList: .placeholder)
@@ -467,8 +492,11 @@ private func openSearchShareCookCookbookDescriptor(
     )
 }
 
-private func openSearchShareCookChefProfileDescriptor(username: String) -> ChefProfileEntityDescriptor {
-    let route = AppRoute.profile(identifier: username)
+private func openSearchShareCookChefProfileDescriptor(
+    username: String,
+    route: AppRoute? = nil
+) -> ChefProfileEntityDescriptor {
+    let route = route ?? AppRoute.profile(identifier: username)
     let canonicalURL = URL(string: "https://spoonjoy.app/users/\(AppRoute.encodedProfileIdentifier(username))")!
     return ChefProfileEntityDescriptor(
         id: "profile_\(username)",
