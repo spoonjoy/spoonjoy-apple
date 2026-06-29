@@ -2,6 +2,10 @@ import SpoonjoyCore
 import Foundation
 import SwiftUI
 
+#if canImport(AppIntents)
+import AppIntents
+#endif
+
 struct PlatformNavigationView: View {
     private static let screenshotDisableSearchFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS"
 
@@ -40,6 +44,7 @@ struct PlatformNavigationView: View {
     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
     private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
     private let purgeCaptureDraftEntityIndexesHandler: @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
+    private let purgeChefProfileEntityIndexesHandler: @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
@@ -70,7 +75,8 @@ struct PlatformNavigationView: View {
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
         purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
         purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
-        purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
+        purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void,
+        purgeChefProfileEntityIndexes: @escaping @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void
     ) {
         _navigation = navigation
         _search = search
@@ -101,10 +107,11 @@ struct PlatformNavigationView: View {
         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
         self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
         self.purgeCaptureDraftEntityIndexesHandler = purgeCaptureDraftEntityIndexes
+        self.purgeChefProfileEntityIndexesHandler = purgeChefProfileEntityIndexes
     }
 
     var body: some View {
-        let spotlightDocuments = spotlightIndexDocuments
+        let spotlightPayload = spotlightIndexPayload
         NavigationSplitView {
             sidebar
                 .navigationTitle("Spoonjoy")
@@ -133,18 +140,25 @@ struct PlatformNavigationView: View {
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
             .task(id: spotlightIndexIdentity) {
-                await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
+                await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
             }
+#if canImport(AppIntents)
+            .spoonjoyEntityActivity(routeEntityIdentifier)
+#endif
             .task(id: contentState.environment.rawValue) {
                 if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                    await purgeShoppingEntityIndexesHandler(NativeShoppingEntityIndexPurgeRequest(
-                        identifiers: report.shoppingEntityPurgeIdentifiers,
-                        domainIdentifiers: report.shoppingEntityPurgeDomainIdentifiers
-                    ))
-                    await purgeSpoonEntityIndexesHandler(NativeSpoonEntityIndexPurgeRequest(
-                        identifiers: report.spoonEntityPurgeIdentifiers,
-                        domainIdentifiers: report.spoonEntityPurgeDomainIdentifiers
-                    ))
+                    for request in report.shoppingEntityPurgeRequests {
+                        await purgeShoppingEntityIndexesHandler(request)
+                    }
+                    for request in report.spoonEntityPurgeRequests {
+                        await purgeSpoonEntityIndexesHandler(request)
+                    }
+                    for request in report.captureDraftEntityPurgeRequests {
+                        await purgeCaptureDraftEntityIndexesHandler(request)
+                    }
+                    for request in report.chefProfileEntityPurgeRequests {
+                        await purgeChefProfileEntityIndexesHandler(request)
+                    }
                 }
             }
             .onChange(of: navigation.route) { _, route in
@@ -1249,9 +1263,10 @@ struct PlatformNavigationView: View {
     }
 
     private var spotlightIndexIdentity: String {
-        Self.spotlightIdentityComponent(
+        let payload = spotlightIndexPayload
+        return Self.spotlightIdentityComponent(
             [contentState.spotlightIndexScope?.identifierPrefix ?? "signed-out"] +
-                spotlightIndexDocuments.map { document in
+                payload.documents.map { document in
                     Self.spotlightIdentityComponent([
                         document.uniqueIdentifier,
                         document.domainIdentifier,
@@ -1265,18 +1280,144 @@ struct PlatformNavigationView: View {
     }
 
     private var spotlightIndexDocuments: [SpotlightIndexDocument] {
+        spotlightIndexPayload.documents
+    }
+
+    private var spotlightIndexPayload: SpotlightIndexPayload {
         guard let shoppingList = contentState.shoppingList,
               let scope = contentState.spotlightIndexScope else {
-            return []
+            return .empty
         }
 
-        return SpotlightIndexPlan.documents(
+        let spoonScope = SpoonEntityScope(accountID: scope.accountID, environment: scope.environment)
+        let recentSpoons = contentState.recipes.flatMap { recipe in
+            recipe.recentSpoons.compactMap { spoon -> SpoonEntityDescriptor? in
+                guard spoon.deletedAt == nil else {
+                    return nil
+                }
+                return SpoonEntityDescriptor(spoon: spoon, recipe: recipe, scope: spoonScope)
+            }
+        }
+        let captureDrafts = contentState.captureDraft.map { draft in
+            [
+                CaptureDraftEntityDescriptor(
+                    draft: draft,
+                    scope: CaptureDraftEntityScope(accountID: scope.accountID, environment: scope.environment),
+                    hasPendingImport: pendingCaptureImportMutation != nil
+                )
+            ]
+        } ?? []
+        let chefProfiles = contentState.cachedProfiles.map { cachedProfile in
+            let profile = cachedProfile.profile
+            let route = AppRoute.profile(identifier: profile.username)
+            let summary = "\(profile.username) on Spoonjoy"
+            return ChefProfileEntityDescriptor(
+                id: profile.id,
+                profileID: profile.id,
+                username: profile.username,
+                title: profile.username,
+                subtitle: profile.joinedLabel,
+                disambiguationLabel: summary,
+                route: route,
+                canonicalURL: profile.canonicalURL,
+                photoURL: profile.photoURL,
+                fellowChefsCount: 0,
+                kitchenVisitorsCount: 0,
+                interactionSummary: nil,
+                transferValue: ChefProfileEntityTransferValue(
+                    kind: .chefProfile,
+                    profileID: profile.id,
+                    username: profile.username,
+                    title: profile.username,
+                    routeIdentifier: route.stateIdentifier,
+                    canonicalURL: profile.canonicalURL,
+                    photoURL: profile.photoURL,
+                    userVisibleSummary: summary
+                )
+            )
+        }
+        let shoppingScope = ShoppingEntityScope(accountID: scope.accountID, environment: scope.environment)
+        let shoppingListEntity = ShoppingListEntityDescriptor(scope: shoppingScope, activeItems: shoppingList.activeItems)
+        let shoppingItems = shoppingList.activeItems.map { item in
+            ShoppingItemEntityDescriptor(item: item, scope: shoppingScope)
+        }
+        let documents = SpotlightIndexPlan.documents(
             recipes: contentState.recipes,
             cookbooks: contentState.cookbooks,
             shoppingList: shoppingList,
+            spoons: recentSpoons,
+            captureDrafts: captureDrafts,
+            chefProfiles: chefProfiles,
             scope: scope
         )
+
+        return SpotlightIndexPayload(
+            scope: scope,
+            documents: documents,
+            recipes: contentState.recipes.compactMap { try? RecipeEntityDescriptor(recipe: $0) },
+            cookbooks: contentState.cookbooks.compactMap { try? CookbookEntityDescriptor(cookbook: $0) },
+            shoppingLists: [shoppingListEntity],
+            shoppingItems: shoppingItems,
+            spoons: recentSpoons,
+            captureDrafts: captureDrafts,
+            chefProfiles: chefProfiles
+        )
     }
+
+#if canImport(AppIntents)
+    private var routeEntityIdentifier: EntityIdentifier? {
+        switch navigation.route {
+        case .recipeDetail(let id, _):
+            return EntityIdentifier(for: SpoonjoyRecipeEntity.self, identifier: id)
+        case .cookbookDetail(let id):
+            return EntityIdentifier(for: SpoonjoyCookbookEntity.self, identifier: id)
+        case .profile(let identifier), .profileGraph(let identifier, _, _):
+            guard let profileID = chefProfileEntityIdentifier(for: identifier) else {
+                return nil
+            }
+            return EntityIdentifier(for: SpoonjoyChefProfileEntity.self, identifier: profileID)
+        case .shoppingList:
+            guard let scope = contentState.spotlightIndexScope else {
+                return nil
+            }
+            return EntityIdentifier(
+                for: SpoonjoyShoppingListEntity.self,
+                identifier: ShoppingEntityCatalog.shoppingListEntityIdentifier(
+                    accountID: scope.accountID,
+                    environment: scope.environment
+                )
+            )
+        case .capture:
+            guard let scope = contentState.spotlightIndexScope,
+                  let draft = contentState.captureDraft else {
+                return nil
+            }
+            return EntityIdentifier(
+                for: SpoonjoyCaptureDraftEntity.self,
+                identifier: CaptureDraftEntityCatalog.captureDraftEntityIdentifier(
+                    draftID: draft.id,
+                    accountID: scope.accountID,
+                    environment: scope.environment
+                )
+            )
+        case .kitchen,
+             .recipes,
+             .cookbooks,
+             .recipeEditor,
+             .recipeCoverControls,
+             .search,
+             .settings,
+             .unknownLink:
+            return nil
+        }
+    }
+
+    private func chefProfileEntityIdentifier(for routeIdentifier: String) -> String? {
+        contentState.cachedProfiles.first { cachedProfile in
+            cachedProfile.profile.id == routeIdentifier || cachedProfile.profile.username == routeIdentifier
+        }?.profile.id
+    }
+#endif
 
     private var captureViewModel: CaptureDraftViewModel? {
         contentState.captureDraft.map(CaptureDraftViewModel.init(draft:))
@@ -1372,10 +1513,20 @@ struct PlatformNavigationView: View {
         try await queueMutation(mutation)
     }
 
-    private static func indexSpotlightIfAvailable(documents: [SpotlightIndexDocument]) async {
+    private static func indexSpotlightIfAvailable(payload: SpotlightIndexPayload) async {
 #if canImport(CoreSpotlight)
         if #available(iOS 27.0, macOS 27.0, *) {
-            try? await SpoonjoySpotlightIndexer().replaceAll(documents: documents)
+            let indexer = SpoonjoySpotlightIndexer()
+            try? await indexer.replaceAll(payload.documents, scope: payload.scope)
+            try? await indexer.replaceAllAppEntities(
+                recipes: payload.recipes.map(SpoonjoyRecipeEntity.init),
+                cookbooks: payload.cookbooks.map(SpoonjoyCookbookEntity.init),
+                shoppingLists: payload.shoppingLists.map(SpoonjoyShoppingListEntity.init),
+                shoppingItems: payload.shoppingItems.map(SpoonjoyShoppingItemEntity.init),
+                spoons: payload.spoons.map(SpoonjoySpoonEntity.init),
+                captureDrafts: payload.captureDrafts.map(SpoonjoyCaptureDraftEntity.init),
+                chefProfiles: payload.chefProfiles.map(SpoonjoyChefProfileEntity.init)
+            )
         }
 #endif
     }
@@ -1394,6 +1545,40 @@ struct PlatformNavigationView: View {
         }.joined()
     }
 }
+
+private struct SpotlightIndexPayload {
+    let scope: SpotlightIndexScope
+    let documents: [SpotlightIndexDocument]
+    let recipes: [RecipeEntityDescriptor]
+    let cookbooks: [CookbookEntityDescriptor]
+    let shoppingLists: [ShoppingListEntityDescriptor]
+    let shoppingItems: [ShoppingItemEntityDescriptor]
+    let spoons: [SpoonEntityDescriptor]
+    let captureDrafts: [CaptureDraftEntityDescriptor]
+    let chefProfiles: [ChefProfileEntityDescriptor]
+
+    static let empty = SpotlightIndexPayload(
+        scope: SpotlightIndexScope(accountID: "signed-out", environment: .production),
+        documents: [],
+        recipes: [],
+        cookbooks: [],
+        shoppingLists: [],
+        shoppingItems: [],
+        spoons: [],
+        captureDrafts: [],
+        chefProfiles: []
+    )
+}
+
+#if canImport(AppIntents)
+private extension View {
+    func spoonjoyEntityActivity(_ entityIdentifier: EntityIdentifier?) -> some View {
+        userActivity("app.spoonjoy.entity", isActive: entityIdentifier != nil) { activity in
+            activity.appEntityIdentifier = entityIdentifier
+        }
+    }
+}
+#endif
 
 private struct ActiveSearchSurfaceState: Equatable {
     let identity: String

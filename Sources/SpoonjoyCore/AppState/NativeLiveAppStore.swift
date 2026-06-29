@@ -11,10 +11,19 @@ public typealias NativeSettingsSurfaceFetchOperation = @Sendable (
 public struct NativeShoppingEntityIndexPurgeRequest: Equatable, Sendable {
     public let identifiers: [String]
     public let domainIdentifiers: [String]
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
 
-    public init(identifiers: [String], domainIdentifiers: [String]) {
+    public init(
+        identifiers: [String],
+        domainIdentifiers: [String],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) {
         self.identifiers = identifiers
         self.domainIdentifiers = domainIdentifiers
+        self.accountID = accountID
+        self.environment = environment
     }
 
     public var isEmpty: Bool {
@@ -27,10 +36,19 @@ public typealias NativeShoppingEntityIndexPurgeOperation = @Sendable (_ request:
 public struct NativeSpoonEntityIndexPurgeRequest: Equatable, Sendable {
     public let identifiers: [String]
     public let domainIdentifiers: [String]
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
 
-    public init(identifiers: [String], domainIdentifiers: [String]) {
+    public init(
+        identifiers: [String],
+        domainIdentifiers: [String],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) {
         self.identifiers = identifiers
         self.domainIdentifiers = domainIdentifiers
+        self.accountID = accountID
+        self.environment = environment
     }
 
     public var isEmpty: Bool {
@@ -43,10 +61,19 @@ public typealias NativeSpoonEntityIndexPurgeOperation = @Sendable (_ request: Na
 public struct NativeCaptureDraftEntityIndexPurgeRequest: Equatable, Sendable {
     public let identifiers: [String]
     public let domainIdentifiers: [String]
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
 
-    public init(identifiers: [String], domainIdentifiers: [String]) {
+    public init(
+        identifiers: [String],
+        domainIdentifiers: [String],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) {
         self.identifiers = identifiers
         self.domainIdentifiers = domainIdentifiers
+        self.accountID = accountID
+        self.environment = environment
     }
 
     public var isEmpty: Bool {
@@ -55,6 +82,31 @@ public struct NativeCaptureDraftEntityIndexPurgeRequest: Equatable, Sendable {
 }
 
 public typealias NativeCaptureDraftEntityIndexPurgeOperation = @Sendable (_ request: NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
+
+public struct NativeChefProfileEntityIndexPurgeRequest: Equatable, Sendable {
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
+
+    public init(
+        identifiers: [String],
+        domainIdentifiers: [String],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+        self.accountID = accountID
+        self.environment = environment
+    }
+
+    public var isEmpty: Bool {
+        identifiers.isEmpty && domainIdentifiers.isEmpty
+    }
+}
+
+public typealias NativeChefProfileEntityIndexPurgeOperation = @Sendable (_ request: NativeChefProfileEntityIndexPurgeRequest) async -> Void
 
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
@@ -77,6 +129,7 @@ public struct NativeLiveAppStoreDependencies {
     public let shoppingEntityIndexPurge: NativeShoppingEntityIndexPurgeOperation
     public let spoonEntityIndexPurge: NativeSpoonEntityIndexPurgeOperation
     public let captureDraftEntityIndexPurge: NativeCaptureDraftEntityIndexPurgeOperation
+    public let chefProfileEntityIndexPurge: NativeChefProfileEntityIndexPurgeOperation
     public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
@@ -98,6 +151,7 @@ public struct NativeLiveAppStoreDependencies {
         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
         spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
         captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
+        chefProfileEntityIndexPurge: @escaping NativeChefProfileEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
@@ -116,6 +170,7 @@ public struct NativeLiveAppStoreDependencies {
         self.shoppingEntityIndexPurge = shoppingEntityIndexPurge
         self.spoonEntityIndexPurge = spoonEntityIndexPurge
         self.captureDraftEntityIndexPurge = captureDraftEntityIndexPurge
+        self.chefProfileEntityIndexPurge = chefProfileEntityIndexPurge
         self.bootstrapMode = bootstrapMode
         self.now = now
     }
@@ -2016,7 +2071,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: currentAccountID,
                 environment: cacheEnvironment,
                 plan: purgePlan
-            ))
+            ), accountID: currentAccountID, environment: cacheEnvironment)
             let spoonIDs = currentContentState.recipes.flatMap { recipe in
                 recipe.recentSpoons.compactMap { spoon in
                     spoon.deletedAt == nil ? spoon.id : nil
@@ -2035,7 +2090,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: currentAccountID,
                 environment: cacheEnvironment,
                 plan: spoonPurgePlan
-            ))
+            ), accountID: currentAccountID, environment: cacheEnvironment)
             let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
             let captureDraftSnapshot = currentContentState.captureDraft.map { draft in
                 NativeAppSnapshot.bootstrap(
@@ -2059,18 +2114,40 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: currentAccountID,
                 environment: cacheEnvironment,
                 plan: captureDraftPurgePlan
-            ))
+            ), accountID: currentAccountID, environment: cacheEnvironment)
+            let chefProfileIDs = currentContentState.cachedProfiles.map(\.profile.id)
+            let chefProfilePurgePlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                profileIDs: chefProfileIDs
+            )
+            await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: chefProfilePurgePlan
+            ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: chefProfilePurgePlan
+            ), accountID: currentAccountID, environment: cacheEnvironment)
             try await dependencies.authSessionRepository.revokeAndLogout()
         }
         await bootstrap()
     }
 
-    public func purgeShoppingEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
+    public func purgeShoppingEntityIdentifiers(
+        _ identifiers: [String],
+        domainIdentifiers: [String] = [],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) async {
         let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
         let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
         let request = NativeShoppingEntityIndexPurgeRequest(
             identifiers: uniqueIdentifiers,
-            domainIdentifiers: uniqueDomainIdentifiers
+            domainIdentifiers: uniqueDomainIdentifiers,
+            accountID: accountID ?? self.accountID,
+            environment: environment ?? cacheEnvironment
         )
         guard !request.isEmpty else {
             return
@@ -2079,12 +2156,19 @@ public final class NativeLiveAppStore: ObservableObject {
         await dependencies.shoppingEntityIndexPurge(request)
     }
 
-    public func purgeSpoonEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
+    public func purgeSpoonEntityIdentifiers(
+        _ identifiers: [String],
+        domainIdentifiers: [String] = [],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) async {
         let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
         let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
         let request = NativeSpoonEntityIndexPurgeRequest(
             identifiers: uniqueIdentifiers,
-            domainIdentifiers: uniqueDomainIdentifiers
+            domainIdentifiers: uniqueDomainIdentifiers,
+            accountID: accountID ?? self.accountID,
+            environment: environment ?? cacheEnvironment
         )
         guard !request.isEmpty else {
             return
@@ -2093,18 +2177,46 @@ public final class NativeLiveAppStore: ObservableObject {
         await dependencies.spoonEntityIndexPurge(request)
     }
 
-    public func purgeCaptureDraftEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
+    public func purgeCaptureDraftEntityIdentifiers(
+        _ identifiers: [String],
+        domainIdentifiers: [String] = [],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) async {
         let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
         let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
         let request = NativeCaptureDraftEntityIndexPurgeRequest(
             identifiers: uniqueIdentifiers,
-            domainIdentifiers: uniqueDomainIdentifiers
+            domainIdentifiers: uniqueDomainIdentifiers,
+            accountID: accountID ?? self.accountID,
+            environment: environment ?? cacheEnvironment
         )
         guard !request.isEmpty else {
             return
         }
 
         await dependencies.captureDraftEntityIndexPurge(request)
+    }
+
+    public func purgeChefProfileEntityIdentifiers(
+        _ identifiers: [String],
+        domainIdentifiers: [String] = [],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) async {
+        let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
+        let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
+        let request = NativeChefProfileEntityIndexPurgeRequest(
+            identifiers: uniqueIdentifiers,
+            domainIdentifiers: uniqueDomainIdentifiers,
+            accountID: accountID ?? self.accountID,
+            environment: environment ?? cacheEnvironment
+        )
+        guard !request.isEmpty else {
+            return
+        }
+
+        await dependencies.chefProfileEntityIndexPurge(request)
     }
 
     private var optimisticRecipeChef: ChefSummary {
@@ -2515,7 +2627,27 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: previousCacheSnapshot.accountID,
                 environment: previousCacheSnapshot.environment,
                 plan: captureDraftPurgePlan
-            ))
+            ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            let profileIDs = previousCacheSnapshot.records.compactMap { record -> String? in
+                guard case NativeCacheDomain.profile(let id) = record.metadata.domain else {
+                    return nil
+                }
+                return id
+            }
+            let chefProfilePurgePlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                profileIDs: profileIDs
+            )
+            await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                plan: chefProfilePurgePlan
+            ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                plan: chefProfilePurgePlan
+            ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
         }
 
         if let appStateStore = dependencies.appStateStoreProvider() {
@@ -2535,15 +2667,17 @@ public final class NativeLiveAppStore: ObservableObject {
                         accountID: previousAppSnapshot.accountID,
                         environment: previousAppSnapshot.environment
                     )
+                    let previousAccountID = previousAppSnapshot.accountID ?? ""
+                    let previousEnvironment = previousAppSnapshot.environment ?? cacheEnvironment
                     await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
-                        accountID: previousAppSnapshot.accountID ?? "",
-                        environment: previousAppSnapshot.environment ?? cacheEnvironment,
+                        accountID: previousAccountID,
+                        environment: previousEnvironment,
                         plan: captureDraftPurgePlan
                     ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
-                        accountID: previousAppSnapshot.accountID ?? "",
-                        environment: previousAppSnapshot.environment ?? cacheEnvironment,
+                        accountID: previousAccountID,
+                        environment: previousEnvironment,
                         plan: captureDraftPurgePlan
-                    ))
+                    ), accountID: previousAppSnapshot.accountID, environment: previousAppSnapshot.environment)
                 }
             }
         }
@@ -2638,14 +2772,38 @@ public final class NativeLiveAppStore: ObservableObject {
         trigger: NativeSyncTriggerEvent
     ) async throws {
         let report = try await syncTriggerCoordinator.handle(trigger)
-        await purgeShoppingEntityIdentifiers(
-            report.shoppingEntityPurgeIdentifiers,
-            domainIdentifiers: report.shoppingEntityPurgeDomainIdentifiers
-        )
-        await purgeSpoonEntityIdentifiers(
-            report.spoonEntityPurgeIdentifiers,
-            domainIdentifiers: report.spoonEntityPurgeDomainIdentifiers
-        )
+        for request in report.shoppingEntityPurgeRequests {
+            await purgeShoppingEntityIdentifiers(
+                request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+        for request in report.spoonEntityPurgeRequests {
+            await purgeSpoonEntityIdentifiers(
+                request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+        for request in report.captureDraftEntityPurgeRequests {
+            await purgeCaptureDraftEntityIdentifiers(
+                request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+        for request in report.chefProfileEntityPurgeRequests {
+            await purgeChefProfileEntityIdentifiers(
+                request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
         clearDrainedCaptureImports(
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),

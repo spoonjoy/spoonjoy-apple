@@ -3592,8 +3592,16 @@ public struct NativeSyncReport: Equatable, Sendable {
     public let environment: NativeCacheEnvironment?
     public let shoppingEntityPurgeIdentifiers: [String]
     public let shoppingEntityPurgeDomainIdentifiers: [String]
+    public let shoppingEntityPurgeRequests: [NativeShoppingEntityIndexPurgeRequest]
     public let spoonEntityPurgeIdentifiers: [String]
     public let spoonEntityPurgeDomainIdentifiers: [String]
+    public let spoonEntityPurgeRequests: [NativeSpoonEntityIndexPurgeRequest]
+    public let captureDraftEntityPurgeIdentifiers: [String]
+    public let captureDraftEntityPurgeDomainIdentifiers: [String]
+    public let captureDraftEntityPurgeRequests: [NativeCaptureDraftEntityIndexPurgeRequest]
+    public let chefProfileEntityPurgeIdentifiers: [String]
+    public let chefProfileEntityPurgeDomainIdentifiers: [String]
+    public let chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest]
     public let drainedClientMutationIDs: [String]
     public let drainedMutations: [NativeQueuedMutation]
     public let conflicts: [NativeSyncConflict]
@@ -3608,8 +3616,16 @@ public struct NativeSyncReport: Equatable, Sendable {
         environment: NativeCacheEnvironment? = nil,
         shoppingEntityPurgeIdentifiers: [String] = [],
         shoppingEntityPurgeDomainIdentifiers: [String] = [],
+        shoppingEntityPurgeRequests: [NativeShoppingEntityIndexPurgeRequest] = [],
         spoonEntityPurgeIdentifiers: [String] = [],
         spoonEntityPurgeDomainIdentifiers: [String] = [],
+        spoonEntityPurgeRequests: [NativeSpoonEntityIndexPurgeRequest] = [],
+        captureDraftEntityPurgeIdentifiers: [String] = [],
+        captureDraftEntityPurgeDomainIdentifiers: [String] = [],
+        captureDraftEntityPurgeRequests: [NativeCaptureDraftEntityIndexPurgeRequest] = [],
+        chefProfileEntityPurgeIdentifiers: [String] = [],
+        chefProfileEntityPurgeDomainIdentifiers: [String] = [],
+        chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest] = [],
         drainedClientMutationIDs: [String],
         drainedMutations: [NativeQueuedMutation] = [],
         conflicts: [NativeSyncConflict],
@@ -3623,14 +3639,65 @@ public struct NativeSyncReport: Equatable, Sendable {
         self.environment = environment
         self.shoppingEntityPurgeIdentifiers = shoppingEntityPurgeIdentifiers
         self.shoppingEntityPurgeDomainIdentifiers = shoppingEntityPurgeDomainIdentifiers
+        self.shoppingEntityPurgeRequests = Self.purgeRequests(
+            explicit: shoppingEntityPurgeRequests,
+            fallbackIdentifiers: shoppingEntityPurgeIdentifiers,
+            fallbackDomainIdentifiers: shoppingEntityPurgeDomainIdentifiers,
+            accountID: accountID,
+            environment: environment,
+            makeRequest: { NativeShoppingEntityIndexPurgeRequest(identifiers: $0, domainIdentifiers: $1, accountID: $2, environment: $3) }
+        )
         self.spoonEntityPurgeIdentifiers = spoonEntityPurgeIdentifiers
         self.spoonEntityPurgeDomainIdentifiers = spoonEntityPurgeDomainIdentifiers
+        self.spoonEntityPurgeRequests = Self.purgeRequests(
+            explicit: spoonEntityPurgeRequests,
+            fallbackIdentifiers: spoonEntityPurgeIdentifiers,
+            fallbackDomainIdentifiers: spoonEntityPurgeDomainIdentifiers,
+            accountID: accountID,
+            environment: environment,
+            makeRequest: { NativeSpoonEntityIndexPurgeRequest(identifiers: $0, domainIdentifiers: $1, accountID: $2, environment: $3) }
+        )
+        self.captureDraftEntityPurgeIdentifiers = captureDraftEntityPurgeIdentifiers
+        self.captureDraftEntityPurgeDomainIdentifiers = captureDraftEntityPurgeDomainIdentifiers
+        self.captureDraftEntityPurgeRequests = Self.purgeRequests(
+            explicit: captureDraftEntityPurgeRequests,
+            fallbackIdentifiers: captureDraftEntityPurgeIdentifiers,
+            fallbackDomainIdentifiers: captureDraftEntityPurgeDomainIdentifiers,
+            accountID: accountID,
+            environment: environment,
+            makeRequest: { NativeCaptureDraftEntityIndexPurgeRequest(identifiers: $0, domainIdentifiers: $1, accountID: $2, environment: $3) }
+        )
+        self.chefProfileEntityPurgeIdentifiers = chefProfileEntityPurgeIdentifiers
+        self.chefProfileEntityPurgeDomainIdentifiers = chefProfileEntityPurgeDomainIdentifiers
+        self.chefProfileEntityPurgeRequests = Self.purgeRequests(
+            explicit: chefProfileEntityPurgeRequests,
+            fallbackIdentifiers: chefProfileEntityPurgeIdentifiers,
+            fallbackDomainIdentifiers: chefProfileEntityPurgeDomainIdentifiers,
+            accountID: accountID,
+            environment: environment,
+            makeRequest: { NativeChefProfileEntityIndexPurgeRequest(identifiers: $0, domainIdentifiers: $1, accountID: $2, environment: $3) }
+        )
         self.drainedClientMutationIDs = drainedClientMutationIDs
         self.drainedMutations = drainedMutations
         self.conflicts = conflicts
         self.blockers = blockers
         self.pausedReason = pausedReason
         self.retryAfterSeconds = retryAfterSeconds
+    }
+
+    private static func purgeRequests<Request>(
+        explicit: [Request],
+        fallbackIdentifiers: [String],
+        fallbackDomainIdentifiers: [String],
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        makeRequest: (_ identifiers: [String], _ domainIdentifiers: [String], _ accountID: String?, _ environment: NativeCacheEnvironment?) -> Request
+    ) -> [Request] {
+        guard explicit.isEmpty,
+              !fallbackIdentifiers.isEmpty || !fallbackDomainIdentifiers.isEmpty else {
+            return explicit
+        }
+        return [makeRequest(fallbackIdentifiers, fallbackDomainIdentifiers, accountID, environment)]
     }
 }
 
@@ -3797,39 +3864,67 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let queueEnvironment = bootstrapEnvironment ?? scope.environment
         var shoppingEntityPurgeIdentifiers: [String] = []
         var shoppingEntityPurgeDomainIdentifiers: [String] = []
+        var shoppingEntityPurgeRequests: [NativeShoppingEntityIndexPurgeRequest] = []
         var spoonEntityPurgeIdentifiers: [String] = []
         var spoonEntityPurgeDomainIdentifiers: [String] = []
+        var spoonEntityPurgeRequests: [NativeSpoonEntityIndexPurgeRequest] = []
+        var captureDraftEntityPurgeIdentifiers: [String] = []
+        var captureDraftEntityPurgeDomainIdentifiers: [String] = []
+        var captureDraftEntityPurgeRequests: [NativeCaptureDraftEntityIndexPurgeRequest] = []
+        var chefProfileEntityPurgeIdentifiers: [String] = []
+        var chefProfileEntityPurgeDomainIdentifiers: [String] = []
+        var chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest] = []
         if let accountScopePurge = Self.shoppingEntityAccountScopePurgePlan(
             previousSnapshot: previousSnapshot,
             nextAccountID: queueAccountID,
             nextEnvironment: queueEnvironment
         ) {
-            shoppingEntityPurgeIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeEntityIdentifiers(
+            let identifiers = ShoppingEntityCatalog.purgeEntityIdentifiers(
                 accountID: accountScopePurge.accountID,
                 environment: accountScopePurge.environment,
                 plan: accountScopePurge.plan
-            ))
-            shoppingEntityPurgeDomainIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeDomainIdentifiers(
+            )
+            let domainIdentifiers = ShoppingEntityCatalog.purgeDomainIdentifiers(
                 accountID: accountScopePurge.accountID,
                 environment: accountScopePurge.environment,
                 plan: accountScopePurge.plan
-            ))
+            )
+            shoppingEntityPurgeIdentifiers.append(contentsOf: identifiers)
+            shoppingEntityPurgeDomainIdentifiers.append(contentsOf: domainIdentifiers)
+            if !identifiers.isEmpty || !domainIdentifiers.isEmpty {
+                shoppingEntityPurgeRequests.append(NativeShoppingEntityIndexPurgeRequest(
+                    identifiers: identifiers,
+                    domainIdentifiers: domainIdentifiers,
+                    accountID: accountScopePurge.accountID,
+                    environment: accountScopePurge.environment
+                ))
+            }
         }
         if let accountScopePurge = Self.spoonEntityAccountScopePurgePlan(
             previousSnapshot: previousSnapshot,
             nextAccountID: queueAccountID,
             nextEnvironment: queueEnvironment
         ) {
-            spoonEntityPurgeIdentifiers.append(contentsOf: SpoonEntityCatalog.purgeEntityIdentifiers(
+            let identifiers = SpoonEntityCatalog.purgeEntityIdentifiers(
                 accountID: accountScopePurge.accountID,
                 environment: accountScopePurge.environment,
                 plan: accountScopePurge.plan
-            ))
-            spoonEntityPurgeDomainIdentifiers.append(contentsOf: SpoonEntityCatalog.purgeDomainIdentifiers(
+            )
+            let domainIdentifiers = SpoonEntityCatalog.purgeDomainIdentifiers(
                 accountID: accountScopePurge.accountID,
                 environment: accountScopePurge.environment,
                 plan: accountScopePurge.plan
-            ))
+            )
+            spoonEntityPurgeIdentifiers.append(contentsOf: identifiers)
+            spoonEntityPurgeDomainIdentifiers.append(contentsOf: domainIdentifiers)
+            if !identifiers.isEmpty || !domainIdentifiers.isEmpty {
+                spoonEntityPurgeRequests.append(NativeSpoonEntityIndexPurgeRequest(
+                    identifiers: identifiers,
+                    domainIdentifiers: domainIdentifiers,
+                    accountID: accountScopePurge.accountID,
+                    environment: accountScopePurge.environment
+                ))
+            }
         }
         let originalQueue: NativeMutationQueue
         if canReplayStoredQueue {
@@ -3967,6 +4062,14 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             deletingCachedRecordKeys: cachePatch.deletingCacheKeys
         )
         let removedCacheKeys = cachePatch.deletingCacheKeys
+        let currentShoppingRequestStart = shoppingEntityPurgeIdentifiers.count
+        let currentShoppingDomainRequestStart = shoppingEntityPurgeDomainIdentifiers.count
+        let currentSpoonRequestStart = spoonEntityPurgeIdentifiers.count
+        let currentSpoonDomainRequestStart = spoonEntityPurgeDomainIdentifiers.count
+        let currentCaptureDraftRequestStart = captureDraftEntityPurgeIdentifiers.count
+        let currentCaptureDraftDomainRequestStart = captureDraftEntityPurgeDomainIdentifiers.count
+        let currentChefProfileRequestStart = chefProfileEntityPurgeIdentifiers.count
+        let currentChefProfileDomainRequestStart = chefProfileEntityPurgeDomainIdentifiers.count
         if let queueAccountID, let queueEnvironment {
             let makeTombstonePurge = ShoppingEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeCacheDeletePurge = ShoppingEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:shoppingItemIDs:)
@@ -3974,6 +4077,11 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             let makeSpoonTombstonePurge = SpoonEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeSpoonCacheDeletePurge = SpoonEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:spoonIDs:)
             let purgeSpoonEntityIdentifiers = SpoonEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
+            let makeCaptureDraftCacheDeletePurge = CaptureDraftEntityIndexPurgePlan.cacheDeletePurge(deletedRecordDomains:accountID:environment:)
+            let purgeCaptureDraftEntityIdentifiers = CaptureDraftEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
+            let makeChefProfileTombstonePurge = ChefProfileEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
+            let makeChefProfileCacheDeletePurge = ChefProfileEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:profileIDs:)
+            let purgeChefProfileEntityIdentifiers = ChefProfileEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
             let shoppingItemTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.shoppingItem }
             let tombstonePurgePlan = makeTombstonePurge(shoppingItemTombstones, queueAccountID, queueEnvironment)
             shoppingEntityPurgeIdentifiers.append(contentsOf: purgeShoppingEntityIdentifiers(queueAccountID, queueEnvironment, tombstonePurgePlan))
@@ -4022,11 +4130,95 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     plan: spoonCacheDeletePurgePlan
                 ))
             }
+            let deletedCaptureDraftDomains = removedCacheKeys.compactMap { cacheKey -> NativeCacheDomain? in
+                let prefix = "capture-draft:"
+                guard cacheKey.hasPrefix(prefix) else {
+                    return nil
+                }
+                return .captureDraft(id: String(cacheKey.dropFirst(prefix.count)))
+            }
+            if !deletedCaptureDraftDomains.isEmpty {
+                let captureDraftCacheDeletePurgePlan = makeCaptureDraftCacheDeletePurge(deletedCaptureDraftDomains, queueAccountID, queueEnvironment)
+                captureDraftEntityPurgeIdentifiers.append(contentsOf: purgeCaptureDraftEntityIdentifiers(queueAccountID, queueEnvironment, captureDraftCacheDeletePurgePlan))
+                captureDraftEntityPurgeDomainIdentifiers.append(contentsOf: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+                    accountID: queueAccountID,
+                    environment: queueEnvironment,
+                    plan: captureDraftCacheDeletePurgePlan
+                ))
+            }
+            let chefProfileTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.profile }
+            let chefProfileTombstonePurgePlan = makeChefProfileTombstonePurge(chefProfileTombstones, queueAccountID, queueEnvironment)
+            chefProfileEntityPurgeIdentifiers.append(contentsOf: purgeChefProfileEntityIdentifiers(queueAccountID, queueEnvironment, chefProfileTombstonePurgePlan))
+            chefProfileEntityPurgeDomainIdentifiers.append(contentsOf: ChefProfileEntityCatalog.purgeDomainIdentifiers(
+                accountID: queueAccountID,
+                environment: queueEnvironment,
+                plan: chefProfileTombstonePurgePlan
+            ))
+            let deletedChefProfileIDs = removedCacheKeys.compactMap { cacheKey -> String? in
+                let prefix = "\(NativeSyncEntryKind.profile.rawValue):"
+                guard cacheKey.hasPrefix(prefix) else {
+                    return nil
+                }
+                return String(cacheKey.dropFirst(prefix.count))
+            }
+            if !deletedChefProfileIDs.isEmpty {
+                let chefProfileCacheDeletePurgePlan = makeChefProfileCacheDeletePurge(queueAccountID, queueEnvironment, deletedChefProfileIDs)
+                chefProfileEntityPurgeIdentifiers.append(contentsOf: purgeChefProfileEntityIdentifiers(queueAccountID, queueEnvironment, chefProfileCacheDeletePurgePlan))
+                chefProfileEntityPurgeDomainIdentifiers.append(contentsOf: ChefProfileEntityCatalog.purgeDomainIdentifiers(
+                    accountID: queueAccountID,
+                    environment: queueEnvironment,
+                    plan: chefProfileCacheDeletePurgePlan
+                ))
+            }
+            let currentShoppingIdentifiers = Array(shoppingEntityPurgeIdentifiers[currentShoppingRequestStart...])
+            let currentShoppingDomainIdentifiers = Array(shoppingEntityPurgeDomainIdentifiers[currentShoppingDomainRequestStart...])
+            if !currentShoppingIdentifiers.isEmpty || !currentShoppingDomainIdentifiers.isEmpty {
+                shoppingEntityPurgeRequests.append(NativeShoppingEntityIndexPurgeRequest(
+                    identifiers: Self.uniquePreservingOrder(currentShoppingIdentifiers),
+                    domainIdentifiers: Self.uniquePreservingOrder(currentShoppingDomainIdentifiers),
+                    accountID: queueAccountID,
+                    environment: queueEnvironment
+                ))
+            }
+            let currentSpoonIdentifiers = Array(spoonEntityPurgeIdentifiers[currentSpoonRequestStart...])
+            let currentSpoonDomainIdentifiers = Array(spoonEntityPurgeDomainIdentifiers[currentSpoonDomainRequestStart...])
+            if !currentSpoonIdentifiers.isEmpty || !currentSpoonDomainIdentifiers.isEmpty {
+                spoonEntityPurgeRequests.append(NativeSpoonEntityIndexPurgeRequest(
+                    identifiers: Self.uniquePreservingOrder(currentSpoonIdentifiers),
+                    domainIdentifiers: Self.uniquePreservingOrder(currentSpoonDomainIdentifiers),
+                    accountID: queueAccountID,
+                    environment: queueEnvironment
+                ))
+            }
+            let currentCaptureDraftIdentifiers = Array(captureDraftEntityPurgeIdentifiers[currentCaptureDraftRequestStart...])
+            let currentCaptureDraftDomainIdentifiers = Array(captureDraftEntityPurgeDomainIdentifiers[currentCaptureDraftDomainRequestStart...])
+            if !currentCaptureDraftIdentifiers.isEmpty || !currentCaptureDraftDomainIdentifiers.isEmpty {
+                captureDraftEntityPurgeRequests.append(NativeCaptureDraftEntityIndexPurgeRequest(
+                    identifiers: Self.uniquePreservingOrder(currentCaptureDraftIdentifiers),
+                    domainIdentifiers: Self.uniquePreservingOrder(currentCaptureDraftDomainIdentifiers),
+                    accountID: queueAccountID,
+                    environment: queueEnvironment
+                ))
+            }
+            let currentChefProfileIdentifiers = Array(chefProfileEntityPurgeIdentifiers[currentChefProfileRequestStart...])
+            let currentChefProfileDomainIdentifiers = Array(chefProfileEntityPurgeDomainIdentifiers[currentChefProfileDomainRequestStart...])
+            if !currentChefProfileIdentifiers.isEmpty || !currentChefProfileDomainIdentifiers.isEmpty {
+                chefProfileEntityPurgeRequests.append(NativeChefProfileEntityIndexPurgeRequest(
+                    identifiers: Self.uniquePreservingOrder(currentChefProfileIdentifiers),
+                    domainIdentifiers: Self.uniquePreservingOrder(currentChefProfileDomainIdentifiers),
+                    accountID: queueAccountID,
+                    environment: queueEnvironment
+                ))
+            }
         }
         shoppingEntityPurgeIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeIdentifiers)
         shoppingEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeDomainIdentifiers)
         spoonEntityPurgeIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeIdentifiers)
         spoonEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeDomainIdentifiers)
+        captureDraftEntityPurgeIdentifiers = Self.uniquePreservingOrder(captureDraftEntityPurgeIdentifiers)
+        captureDraftEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(captureDraftEntityPurgeDomainIdentifiers)
+        chefProfileEntityPurgeIdentifiers = Self.uniquePreservingOrder(chefProfileEntityPurgeIdentifiers)
+        chefProfileEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(chefProfileEntityPurgeDomainIdentifiers)
 
         return NativeSyncReport(
             trigger: trigger,
@@ -4035,8 +4227,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             environment: bootstrapEnvironment,
             shoppingEntityPurgeIdentifiers: shoppingEntityPurgeIdentifiers,
             shoppingEntityPurgeDomainIdentifiers: shoppingEntityPurgeDomainIdentifiers,
+            shoppingEntityPurgeRequests: shoppingEntityPurgeRequests,
             spoonEntityPurgeIdentifiers: spoonEntityPurgeIdentifiers,
             spoonEntityPurgeDomainIdentifiers: spoonEntityPurgeDomainIdentifiers,
+            spoonEntityPurgeRequests: spoonEntityPurgeRequests,
+            captureDraftEntityPurgeIdentifiers: captureDraftEntityPurgeIdentifiers,
+            captureDraftEntityPurgeDomainIdentifiers: captureDraftEntityPurgeDomainIdentifiers,
+            captureDraftEntityPurgeRequests: captureDraftEntityPurgeRequests,
+            chefProfileEntityPurgeIdentifiers: chefProfileEntityPurgeIdentifiers,
+            chefProfileEntityPurgeDomainIdentifiers: chefProfileEntityPurgeDomainIdentifiers,
+            chefProfileEntityPurgeRequests: chefProfileEntityPurgeRequests,
             drainedClientMutationIDs: drainedClientMutationIDs,
             drainedMutations: drainedMutations,
             conflicts: conflicts,

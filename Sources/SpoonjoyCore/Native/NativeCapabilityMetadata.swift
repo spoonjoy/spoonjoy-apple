@@ -40,6 +40,8 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "ClearCompletedShoppingItemsIntent",
             "ClearShoppingListIntent",
             "CaptureRecipeIntent",
+            "SpoonjoyAppShortcuts",
+            "SpoonjoyInteractionDonor",
             "SpoonjoyRecipeEntity",
             "SpoonjoyCookbookEntity",
             "SpoonjoyRecipeEntityQuery",
@@ -55,7 +57,7 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "SpoonjoyChefProfileEntity",
             "SpoonjoyChefProfileEntityQuery"
         ],
-        spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item"],
+        spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item", "spoon", "capture-draft", "chef-profile"],
         searchableScopes: ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
         shareActions: [
             "capture-recipe-url",

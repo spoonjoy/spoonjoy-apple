@@ -160,6 +160,76 @@ public struct ChefProfileEntityDescriptor: Equatable, Sendable {
     }
 }
 
+public struct ChefProfileEntityIndexPurgePlan: Equatable, Sendable {
+    public enum Reason: String, Codable, Equatable, Sendable {
+        case accountScopeChanged
+        case cacheDeleted
+        case tombstoneApplied
+    }
+
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+    public let reason: Reason
+
+    public init(identifiers: [String], domainIdentifiers: [String], reason: Reason) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+        self.reason = reason
+    }
+
+    public static func accountScopePurge(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        profileIDs: [String]
+    ) -> ChefProfileEntityIndexPurgePlan {
+        scopedPlan(accountID: accountID, environment: environment, profileIDs: profileIDs, includeDomain: true, reason: .accountScopeChanged)
+    }
+
+    public static func cacheDeletePurge(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        profileIDs: [String]
+    ) -> ChefProfileEntityIndexPurgePlan {
+        scopedPlan(accountID: accountID, environment: environment, profileIDs: profileIDs, includeDomain: false, reason: .cacheDeleted)
+    }
+
+    public static func tombstonePurge(
+        tombstones: [NativeSyncTombstone],
+        accountID: String,
+        environment: NativeCacheEnvironment
+    ) -> ChefProfileEntityIndexPurgePlan {
+        scopedPlan(
+            accountID: accountID,
+            environment: environment,
+            profileIDs: tombstones.compactMap { tombstone in
+                tombstone.resourceType == NativeSyncResourceType.profile ? tombstone.resourceID : nil
+            },
+            includeDomain: false,
+            reason: .tombstoneApplied
+        )
+    }
+
+    private static func scopedPlan(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        profileIDs: [String],
+        includeDomain: Bool,
+        reason: Reason
+    ) -> ChefProfileEntityIndexPurgePlan {
+        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
+        let identifiers = profileIDs.map { profileID in
+            SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: profileID, scope: spotlightScope)
+        }
+        let domainIdentifiers = includeDomain ? [SpotlightIndexPlan.chefProfileDomainIdentifier(scope: spotlightScope)] : []
+        return ChefProfileEntityIndexPurgePlan(identifiers: uniquePreservingOrder(identifiers), domainIdentifiers: domainIdentifiers, reason: reason)
+    }
+
+    private static func uniquePreservingOrder(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
+    }
+}
+
 public struct ChefProfileEntityCatalog: Sendable {
     private let scope: ChefProfileEntityScope?
     private let records: [ChefProfileRecord]
@@ -304,6 +374,30 @@ public struct ChefProfileEntityCatalog: Sendable {
             throw ChefProfileEntityCatalogError.invalidIdentifier(identifier)
         }
         return id
+    }
+
+    public static func purgeEntityIdentifiers(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        plan: ChefProfileEntityIndexPurgePlan
+    ) -> [String] {
+        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
+        let expectedPrefix = "\(spotlightScope.identifierPrefix)|\(SpotlightIndexType.chefProfile.rawValue)|"
+        guard plan.identifiers.allSatisfy({ $0.hasPrefix(expectedPrefix) }) else {
+            return []
+        }
+        return plan.identifiers
+    }
+
+    public static func purgeDomainIdentifiers(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        plan: ChefProfileEntityIndexPurgePlan
+    ) -> [String] {
+        let expectedDomain = SpotlightIndexPlan.chefProfileDomainIdentifier(
+            scope: SpotlightIndexScope(accountID: accountID, environment: environment)
+        )
+        return plan.domainIdentifiers.filter { $0 == expectedDomain }
     }
 
     private func ensureScopeAvailable() throws -> ChefProfileEntityScope {

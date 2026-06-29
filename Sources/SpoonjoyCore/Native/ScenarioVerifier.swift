@@ -93,6 +93,10 @@ public enum ScenarioVerifier {
                         "ClearCompletedShoppingItemsIntent",
                         "ClearShoppingListIntent",
                         "CaptureRecipeIntent",
+                        "SpoonjoyAppShortcuts",
+                        "AppShortcutsProvider",
+                        "SpoonjoyInteractionDonor",
+                        "IntentDonationManager",
                         "NativeIntentActionResolver",
                         "SpoonjoyIntentStateWriter",
                         "OpenURLIntent",
@@ -111,10 +115,12 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import CoreSpotlight",
                         "import CoreTransferable",
                         "import SpoonjoyCore",
                         "SpoonjoyRecipeEntity",
                         "SpoonjoyCookbookEntity",
+                        "IndexedEntity",
                         "SpoonjoyRecipeEntityQuery",
                         "SpoonjoyCookbookEntityQuery",
                         "RecipeCookbookEntityCatalog",
@@ -133,10 +139,12 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import CoreSpotlight",
                         "import CoreTransferable",
                         "import SpoonjoyCore",
                         "SpoonjoyShoppingListEntity",
                         "SpoonjoyShoppingItemEntity",
+                        "IndexedEntity",
                         "SpoonjoyShoppingListEntityQuery",
                         "SpoonjoyShoppingItemEntityQuery",
                         "ShoppingEntityCatalog",
@@ -155,9 +163,11 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import CoreSpotlight",
                         "import CoreTransferable",
                         "import SpoonjoyCore",
                         "SpoonjoySpoonEntity",
+                        "IndexedEntity",
                         "SpoonjoySpoonEntityQuery",
                         "SpoonEntityCatalog",
                         "EntityStringQuery",
@@ -175,9 +185,11 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import CoreSpotlight",
                         "import CoreTransferable",
                         "import SpoonjoyCore",
                         "SpoonjoyCaptureDraftEntity",
+                        "IndexedEntity",
                         "SpoonjoyCaptureDraftEntityQuery",
                         "CaptureDraftEntityCatalog",
                         "EntityStringQuery",
@@ -196,9 +208,11 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import CoreSpotlight",
                         "import CoreTransferable",
                         "import SpoonjoyCore",
                         "SpoonjoyChefProfileEntity",
+                        "IndexedEntity",
                         "SpoonjoyChefProfileEntityQuery",
                         "ChefProfileEntityCatalog",
                         "EntityStringQuery",
@@ -226,9 +240,15 @@ public enum ScenarioVerifier {
                         "CSSearchableItemAttributeSet",
                         "CSSearchableIndex.default()",
                         "indexSearchableItems",
+                        "indexAppEntities",
                         "SpotlightIndexType",
                         "shoppingListItem"
                     ]
+                ),
+                ScenarioCheck(
+                    name: "Spotlight semantic App Entities",
+                    status: .pass,
+                    detail: "AppShortcutsProvider, IntentDonationManager, IndexedEntity, indexAppEntities, and on-screen AppEntity annotations via AppEntityAnnotatable/appEntityIdentifier are source-verified."
                 ),
                 ScenarioCheck(
                     name: "deep link metadata",

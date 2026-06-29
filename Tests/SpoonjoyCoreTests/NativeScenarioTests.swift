@@ -791,6 +791,9 @@ struct NativeScenarioTests {
         let appIntentsPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
         let appEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift"
         let shoppingEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift"
+        let spoonEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift"
+        let captureDraftEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift"
+        let chefProfileEntitiesPath = "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift"
         let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
         let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
         let platformNavigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
@@ -843,8 +846,8 @@ struct NativeScenarioTests {
         #expect(!appIntentsSource.contains("func perform() async throws -> some IntentResult {\n        .result()\n    }"))
 
         for declaration in [
-            "struct SpoonjoyRecipeEntity: AppEntity, Transferable",
-            "struct SpoonjoyCookbookEntity: AppEntity, Transferable",
+            "struct SpoonjoyRecipeEntity: AppEntity, IndexedEntity, Transferable",
+            "struct SpoonjoyCookbookEntity: AppEntity, IndexedEntity, Transferable",
             "struct SpoonjoyRecipeEntityQuery: EntityQuery, EntityStringQuery",
             "struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery"
         ] {
@@ -861,8 +864,8 @@ struct NativeScenarioTests {
         #expect(appEntitiesSource.contains("scope.environment"))
 
         for declaration in [
-            "struct SpoonjoyShoppingListEntity: AppEntity, Transferable",
-            "struct SpoonjoyShoppingItemEntity: AppEntity, Transferable",
+            "struct SpoonjoyShoppingListEntity: AppEntity, IndexedEntity, Transferable",
+            "struct SpoonjoyShoppingItemEntity: AppEntity, IndexedEntity, Transferable",
             "struct SpoonjoyShoppingListEntityQuery: EntityQuery",
             "struct SpoonjoyShoppingItemEntityQuery: EntityQuery, EntityStringQuery"
         ] {
@@ -888,7 +891,15 @@ struct NativeScenarioTests {
             "SpotlightIndexDocument",
             "SpotlightIndexScope",
             "SpotlightIndexType",
-            "shoppingListItem"
+            "shoppingListItem",
+            "indexAppEntities",
+            "deleteAppEntities",
+            "CSSearchableIndex.isIndexingAvailable()",
+            "deleteSearchableItems(withIdentifiers:",
+            "deleteSearchableItems(withDomainIdentifiers:",
+            ".spoon",
+            ".captureDraft",
+            ".chefProfile"
         ] {
             #expect(spotlightSource.contains(declaration))
         }
@@ -898,8 +909,9 @@ struct NativeScenarioTests {
         #expect(spotlightSource.contains("import CoreSpotlight"))
         #expect(spotlightSource.contains("import SpoonjoyCore"))
         #expect(spotlightSource.contains("@available(iOS 27.0, macOS 27.0, *)"))
-        #expect(spotlightSource.contains("deleteAllSearchableItems"))
-        #expect(spotlightSource.contains("replaceAll(documents:"))
+        #expect(!spotlightSource.contains("deleteAllSearchableItems"))
+        #expect(!spotlightSource.contains("replaceAll(documents: [SpotlightIndexDocument])"))
+        #expect(spotlightSource.contains("replaceAll("))
         #expect(rootViewSource.contains("import CoreSpotlight"))
         #expect(rootViewSource.contains("onContinueUserActivity(CSSearchableItemActionType)"))
         #expect(rootViewSource.contains("CSSearchableItemActivityIdentifier"))
@@ -912,11 +924,19 @@ struct NativeScenarioTests {
         #expect(platformNavigationSource.contains("document.contentDescription"))
         #expect(platformNavigationSource.contains("document.keywords"))
         #expect(platformNavigationSource.contains("spotlightIdentityComponent"))
-        #expect(platformNavigationSource.contains("SpoonjoySpotlightIndexer().replaceAll("))
+        #expect(platformNavigationSource.contains("indexer.replaceAll("))
         #expect(platformNavigationSource.contains("spotlightIndexIdentity"))
 
         try assertSwiftSourcesTypecheck([appEntitiesPath, shoppingEntitiesPath, appIntentsPath])
-        try assertSwiftSourceTypechecks(spotlightPath)
+        try assertSwiftSourcesTypecheck([
+            appEntitiesPath,
+            shoppingEntitiesPath,
+            spoonEntitiesPath,
+            captureDraftEntitiesPath,
+            chefProfileEntitiesPath,
+            appIntentsPath,
+            spotlightPath
+        ])
     }
 
     @Test("AASA validation requires app IDs and every deep link route component")

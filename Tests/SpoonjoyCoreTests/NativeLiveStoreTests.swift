@@ -1781,24 +1781,28 @@ struct NativeLiveStoreTests {
                         SpotlightIndexPlan.shoppingListItemDomainIdentifier(
                             scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
                         )
-                    ]
-                )
-            ])
-            #expect(await spoonPurgeRecorder.requests() == [
-                NativeSpoonEntityIndexPurgeRequest(
-                    identifiers: [
-                        SpotlightIndexPlan.spoonUniqueIdentifier(
-                            spoonID: activeSpoon.id,
-                            scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
-                        )
                     ],
-                    domainIdentifiers: [
-                        SpotlightIndexPlan.spoonDomainIdentifier(
-                            scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
-                        )
-                    ]
+                    accountID: "client_live",
+                    environment: .production
                 )
             ])
+            let spoonRequests = await spoonPurgeRecorder.requests()
+            #expect(spoonRequests.contains(NativeSpoonEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.spoonUniqueIdentifier(
+                        spoonID: activeSpoon.id,
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ],
+                domainIdentifiers: [
+                    SpotlightIndexPlan.spoonDomainIdentifier(
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ],
+                accountID: "client_live",
+                environment: .production
+            )))
+            #expect(spoonRequests.allSatisfy { $0.accountID == "client_live" && $0.environment == .production })
         }
 
         try await withTemporaryLiveStoreDirectory { directory in
@@ -1833,21 +1837,23 @@ struct NativeLiveStoreTests {
 
             await liveStore.bootstrap()
 
-            #expect(await purgeRecorder.requests() == [
-                NativeShoppingEntityIndexPurgeRequest(
-                    identifiers: [
-                        SpotlightIndexPlan.shoppingListItemUniqueIdentifier(
-                            itemID: "item_previous_purge",
-                            scope: SpotlightIndexScope(accountID: "chef_previous", environment: .production)
-                        )
-                    ],
-                    domainIdentifiers: [
-                        SpotlightIndexPlan.shoppingListItemDomainIdentifier(
-                            scope: SpotlightIndexScope(accountID: "chef_previous", environment: .production)
-                        )
-                    ]
-                )
-            ])
+            let requests = await purgeRecorder.requests()
+            #expect(requests.contains(NativeShoppingEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.shoppingListItemUniqueIdentifier(
+                        itemID: "item_previous_purge",
+                        scope: SpotlightIndexScope(accountID: "chef_previous", environment: .production)
+                    )
+                ],
+                domainIdentifiers: [
+                    SpotlightIndexPlan.shoppingListItemDomainIdentifier(
+                        scope: SpotlightIndexScope(accountID: "chef_previous", environment: .production)
+                    )
+                ],
+                accountID: "chef_previous",
+                environment: .production
+            )))
+            #expect(requests.allSatisfy { $0.accountID == "chef_previous" && $0.environment == .production })
         }
     }
 
@@ -1886,7 +1892,9 @@ struct NativeLiveStoreTests {
                         scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
                     )
                 ],
-                domainIdentifiers: []
+                domainIdentifiers: [],
+                accountID: "client_live",
+                environment: .production
             )
             let expectedLogoutRequest = NativeCaptureDraftEntityIndexPurgeRequest(
                 identifiers: [
@@ -1899,7 +1907,9 @@ struct NativeLiveStoreTests {
                     SpotlightIndexPlan.captureDraftDomainIdentifier(
                         scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
                     )
-                ]
+                ],
+                accountID: "client_live",
+                environment: .production
             )
             let requests = await purgeRecorder.requests()
             #expect(requests.count == 2)
@@ -4597,8 +4607,7 @@ struct NativeLiveStoreTests {
                 "trustedAccountID",
                 "bindAccountID",
                 "shoppingEntityIndexPurge",
-                "shoppingEntityPurgeIdentifiers",
-                "shoppingEntityPurgeDomainIdentifiers",
+                "shoppingEntityPurgeRequests",
                 "purgeShoppingEntityIdentifiers",
                 "APIClientConfiguration",
                 "loadOrCreate",

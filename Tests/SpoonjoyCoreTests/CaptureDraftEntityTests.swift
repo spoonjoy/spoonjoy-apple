@@ -126,7 +126,8 @@ struct CaptureDraftEntityTests {
                     "purgeCaptureDraftEntityIndexesHandler"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift": [
-                    "func delete(identifiers: [String], domainIdentifiers: [String])",
+                    "accountID: String? = nil",
+                    "environment: NativeCacheEnvironment? = nil",
                     "deleteSearchableItems(withIdentifiers:",
                     "deleteSearchableItems(withDomainIdentifiers:"
                 ]

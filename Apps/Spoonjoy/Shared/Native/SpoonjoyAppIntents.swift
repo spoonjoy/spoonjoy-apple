@@ -23,6 +23,7 @@ struct OpenRecipeIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         let recipeID = try recipe.resolvedRecipeID()
         let action = try NativeIntentActionResolver().openRecipe(recipeID: recipeID)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening recipe in Spoonjoy")
     }
 }
@@ -46,6 +47,7 @@ struct StartCookModeIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         let recipeID = try recipe.resolvedRecipeID()
         let action = try NativeIntentActionResolver().startCookMode(recipeID: recipeID)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Starting cook mode in Spoonjoy")
     }
 }
@@ -85,6 +87,7 @@ struct AddShoppingListItemIntent: AppIntent {
             createdAt: createdAt
         )
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued \(name) in Spoonjoy")
     }
@@ -120,6 +123,7 @@ struct SetShoppingListItemCheckedIntent: AppIntent {
             createdAt: createdAt
         )
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Updated shopping item in Spoonjoy")
     }
@@ -155,6 +159,7 @@ struct AddRecipeIngredientsToShoppingListIntent: AppIntent {
             createdAt: createdAt
         )
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe ingredients in Spoonjoy")
     }
@@ -169,6 +174,7 @@ struct ClearCompletedShoppingItemsIntent: AppIntent {
         let createdAt = SpoonjoyIntentClock.timestamp()
         let action = NativeIntentActionResolver().clearCompletedShoppingItems(createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Cleared completed shopping items in Spoonjoy")
     }
@@ -183,6 +189,7 @@ struct ClearShoppingListIntent: AppIntent {
         let createdAt = SpoonjoyIntentClock.timestamp()
         let action = NativeIntentActionResolver().clearShoppingList(createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Cleared the Spoonjoy shopping list")
     }
@@ -211,8 +218,110 @@ struct CaptureRecipeIntent: AppIntent {
             createdAt: createdAt
         )
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Saved a Spoonjoy capture draft")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SpoonjoyAppShortcuts: AppShortcutsProvider {
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: OpenRecipeIntent(),
+            phrases: [
+                "Open a recipe in \(.applicationName)",
+                "Show my recipe in \(.applicationName)"
+            ],
+            shortTitle: "Open Recipe",
+            systemImageName: "book"
+        )
+        AppShortcut(
+            intent: StartCookModeIntent(),
+            phrases: [
+                "Start cooking in \(.applicationName)",
+                "Cook with \(.applicationName)"
+            ],
+            shortTitle: "Start Cooking",
+            systemImageName: "fork.knife"
+        )
+        AppShortcut(
+            intent: AddShoppingListItemIntent(),
+            phrases: [
+                "Add an item in \(.applicationName)",
+                "Add to my \(.applicationName) shopping list"
+            ],
+            shortTitle: "Add Shopping Item",
+            systemImageName: "cart.badge.plus"
+        )
+        AppShortcut(
+            intent: SetShoppingListItemCheckedIntent(),
+            phrases: [
+                "Update a shopping item in \(.applicationName)",
+                "Check off an item in \(.applicationName)"
+            ],
+            shortTitle: "Check Shopping Item",
+            systemImageName: "checkmark.circle"
+        )
+        AppShortcut(
+            intent: AddRecipeIngredientsToShoppingListIntent(),
+            phrases: [
+                "Add recipe ingredients in \(.applicationName)",
+                "Shop for a recipe in \(.applicationName)"
+            ],
+            shortTitle: "Add Recipe Ingredients",
+            systemImageName: "list.bullet.clipboard"
+        )
+        AppShortcut(
+            intent: ClearCompletedShoppingItemsIntent(),
+            phrases: [
+                "Clear completed shopping items in \(.applicationName)",
+                "Clean up my \(.applicationName) shopping list"
+            ],
+            shortTitle: "Clear Completed",
+            systemImageName: "checklist.checked"
+        )
+        AppShortcut(
+            intent: ClearShoppingListIntent(),
+            phrases: [
+                "Clear my shopping list in \(.applicationName)",
+                "Empty my \(.applicationName) shopping list"
+            ],
+            shortTitle: "Clear Shopping List",
+            systemImageName: "trash"
+        )
+        AppShortcut(
+            intent: CaptureRecipeIntent(),
+            phrases: [
+                "Capture a recipe in \(.applicationName)",
+                "Save a recipe to \(.applicationName)"
+            ],
+            shortTitle: "Capture Recipe",
+            systemImageName: "square.and.arrow.down"
+        )
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SpoonjoyInteractionDonor {
+    func donate(_ intent: some AppIntent) async throws {
+        _ = try await IntentDonationManager.shared.donate(intent: intent)
+    }
+
+    func donateBestEffort(_ intent: some AppIntent) async {
+        do {
+            try await donate(intent)
+        } catch {
+            return
+        }
+    }
+
+    func deleteDonations(matching entityIdentifier: EntityIdentifier) async throws {
+        try await IntentDonationManager.shared.deleteDonations(matching: IntentDonationMatchingPredicate.entityIdentifier(entityIdentifier))
+    }
+
+    func deleteDonations<Intent: AppIntent>(matching intentType: Intent.Type) async throws {
+        try await IntentDonationManager.shared.deleteDonations(matching: IntentDonationMatchingPredicate.intentType(intentType))
     }
 }
 

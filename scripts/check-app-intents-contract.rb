@@ -449,8 +449,7 @@ if domain == "shopping"
     /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)/,
     [
       "let report = try await syncTriggerCoordinator.handle(trigger)",
-      "report.shoppingEntityPurgeIdentifiers",
-      "report.shoppingEntityPurgeDomainIdentifiers"
+      "report.shoppingEntityPurgeRequests"
     ],
     failures
   )
@@ -461,9 +460,7 @@ if domain == "shopping"
     /\.task\(id: contentState\.environment\.rawValue\)/,
     [
       "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-      "NativeShoppingEntityIndexPurgeRequest",
-      "report.shoppingEntityPurgeIdentifiers",
-      "report.shoppingEntityPurgeDomainIdentifiers",
+      "report.shoppingEntityPurgeRequests",
       "purgeShoppingEntityIndexesHandler"
     ],
     failures
@@ -491,7 +488,8 @@ if domain == "shopping"
   require_tokens(
     spotlight_indexer,
     [
-      "func delete(identifiers: [String], domainIdentifiers: [String])",
+      "accountID: String? = nil",
+      "environment: NativeCacheEnvironment? = nil",
       "deleteSearchableItems(withIdentifiers:",
       "deleteSearchableItems(withDomainIdentifiers:"
     ],
@@ -727,8 +725,7 @@ if domain == "spoon"
     /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)/,
     [
       "let report = try await syncTriggerCoordinator.handle(trigger)",
-      "report.spoonEntityPurgeIdentifiers",
-      "report.spoonEntityPurgeDomainIdentifiers"
+      "report.spoonEntityPurgeRequests"
     ],
     failures
   )
@@ -739,9 +736,7 @@ if domain == "spoon"
     /\.task\(id: contentState\.environment\.rawValue\)/,
     [
       "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-      "NativeSpoonEntityIndexPurgeRequest",
-      "report.spoonEntityPurgeIdentifiers",
-      "report.spoonEntityPurgeDomainIdentifiers",
+      "report.spoonEntityPurgeRequests",
       "purgeSpoonEntityIndexesHandler"
     ],
     failures
@@ -769,7 +764,8 @@ if domain == "spoon"
   require_tokens(
     spotlight_indexer,
     [
-      "func delete(identifiers: [String], domainIdentifiers: [String])",
+      "accountID: String? = nil",
+      "environment: NativeCacheEnvironment? = nil",
       "deleteSearchableItems(withIdentifiers:",
       "deleteSearchableItems(withDomainIdentifiers:"
     ],
@@ -1190,7 +1186,8 @@ if domain == "capture-draft"
   require_tokens(
     spotlight,
     [
-      "func delete(identifiers: [String], domainIdentifiers: [String])",
+      "accountID: String? = nil",
+      "environment: NativeCacheEnvironment? = nil",
       "deleteSearchableItems(withIdentifiers:",
       "deleteSearchableItems(withDomainIdentifiers:"
     ],
@@ -1435,8 +1432,8 @@ if domain == "spotlight-shortcuts"
 
   require_body_tokens(
     platform_navigation,
-    "spotlightIndexDocuments",
-    /private\s+var\s+spotlightIndexDocuments:\s+\[SpotlightIndexDocument\]/,
+    "spotlightIndexPayload",
+    /private\s+var\s+spotlightIndexPayload:\s+SpotlightIndexPayload/,
     [
       "contentState.recipes",
       "contentState.cookbooks",
@@ -1445,6 +1442,77 @@ if domain == "spotlight-shortcuts"
       "contentState.captureDraft",
       "recentSpoons",
       "SpotlightIndexPlan.documents("
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    platform_navigation,
+    "routeEntityIdentifier",
+    /private\s+var\s+routeEntityIdentifier:\s+EntityIdentifier\?/,
+    [
+      "chefProfileEntityIdentifier(for:",
+      "EntityIdentifier(for: SpoonjoyChefProfileEntity.self, identifier: profileID)"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    platform_navigation,
+    "chefProfileEntityIdentifier",
+    /private\s+func\s+chefProfileEntityIdentifier\(for routeIdentifier: String\)\s*->\s*String\?/,
+    [
+      "cachedProfile.profile.id == routeIdentifier || cachedProfile.profile.username == routeIdentifier",
+      "?.profile.id"
+    ],
+    failures
+  )
+
+  require_nested_body_tokens(
+    root_view,
+    "platformNavigation",
+    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    "purgeShoppingEntityIndexes",
+    /purgeShoppingEntityIndexes:/,
+    [
+      "accountID: request.accountID",
+      "environment: request.environment"
+    ],
+    failures
+  )
+  require_nested_body_tokens(
+    root_view,
+    "platformNavigation",
+    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    "purgeSpoonEntityIndexes",
+    /purgeSpoonEntityIndexes:/,
+    [
+      "accountID: request.accountID",
+      "environment: request.environment"
+    ],
+    failures
+  )
+  require_nested_body_tokens(
+    root_view,
+    "platformNavigation",
+    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    "purgeCaptureDraftEntityIndexes",
+    /purgeCaptureDraftEntityIndexes:/,
+    [
+      "accountID: request.accountID",
+      "environment: request.environment"
+    ],
+    failures
+  )
+  require_nested_body_tokens(
+    root_view,
+    "platformNavigation",
+    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    "purgeChefProfileEntityIndexes",
+    /purgeChefProfileEntityIndexes:/,
+    [
+      "accountID: request.accountID",
+      "environment: request.environment"
     ],
     failures
   )

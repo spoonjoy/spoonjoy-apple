@@ -3,10 +3,11 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import CoreSpotlight
 import CoreTransferable
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyChefProfileEntity: AppEntity, Transferable {
+struct SpoonjoyChefProfileEntity: AppEntity, IndexedEntity, Transferable {
     typealias DefaultQuery = SpoonjoyChefProfileEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Chef Profile")
@@ -29,6 +30,23 @@ struct SpoonjoyChefProfileEntity: AppEntity, Transferable {
     var displayRepresentation: DisplayRepresentation {
         let subtitle = "\(descriptor.subtitle) - \(descriptor.disambiguationLabel)"
         return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
+    }
+
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = descriptor.title
+        attributes.contentDescription = descriptor.transferValue.userVisibleSummary
+        attributes.keywords = [
+            descriptor.username,
+            descriptor.subtitle,
+            descriptor.interactionSummary ?? "",
+            "\(descriptor.fellowChefsCount) fellow chefs",
+            "\(descriptor.kitchenVisitorsCount) kitchen visitors",
+            "chef profile",
+            "Spoonjoy"
+        ].filter { !$0.isEmpty }
+        attributes.contentURL = deepLinkURL
+        return attributes
     }
 
     static var transferRepresentation: some TransferRepresentation {

@@ -3,10 +3,11 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import CoreSpotlight
 import CoreTransferable
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyShoppingListEntity: AppEntity, Transferable {
+struct SpoonjoyShoppingListEntity: AppEntity, IndexedEntity, Transferable {
     typealias DefaultQuery = SpoonjoyShoppingListEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Shopping List")
@@ -31,13 +32,28 @@ struct SpoonjoyShoppingListEntity: AppEntity, Transferable {
         return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
     }
 
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = descriptor.title
+        attributes.contentDescription = descriptor.transferValue.userVisibleSummary
+        attributes.keywords = [
+            descriptor.title,
+            descriptor.subtitle,
+            "\(descriptor.activeItemCount) active items",
+            "shopping list",
+            "Spoonjoy"
+        ]
+        attributes.contentURL = deepLinkURL
+        return attributes
+    }
+
     static var transferRepresentation: some TransferRepresentation {
         ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
     }
 }
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyShoppingItemEntity: AppEntity, Transferable {
+struct SpoonjoyShoppingItemEntity: AppEntity, IndexedEntity, Transferable {
     typealias DefaultQuery = SpoonjoyShoppingItemEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Shopping Item")
@@ -60,6 +76,21 @@ struct SpoonjoyShoppingItemEntity: AppEntity, Transferable {
     var displayRepresentation: DisplayRepresentation {
         let subtitle = "\(descriptor.subtitle) - \(descriptor.disambiguationLabel)"
         return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
+    }
+
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = descriptor.title
+        attributes.contentDescription = descriptor.transferValue.userVisibleSummary
+        attributes.keywords = [
+            descriptor.title,
+            descriptor.subtitle,
+            descriptor.checked ? "checked shopping item" : "active shopping item",
+            "shopping item",
+            "Spoonjoy"
+        ]
+        attributes.contentURL = deepLinkURL
+        return attributes
     }
 
     static var transferRepresentation: some TransferRepresentation {

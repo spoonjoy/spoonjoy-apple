@@ -149,19 +149,33 @@ struct SpoonjoyRootView: View {
             purgeShoppingEntityIndexes: { request in
                 await liveStore.purgeShoppingEntityIdentifiers(
                     request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
                 )
             },
             purgeSpoonEntityIndexes: { request in
                 await liveStore.purgeSpoonEntityIdentifiers(
                     request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
                 )
             },
             purgeCaptureDraftEntityIndexes: { request in
                 await liveStore.purgeCaptureDraftEntityIdentifiers(
                     request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            },
+            purgeChefProfileEntityIndexes: { request in
+                await liveStore.purgeChefProfileEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
                 )
             }
         )
@@ -312,6 +326,9 @@ struct SpoonjoyRootView: View {
             captureDraftEntityIndexPurge: { request in
                 await Self.purgeCaptureDraftEntityIdentifiersIfAvailable(request)
             },
+            chefProfileEntityIndexPurge: { request in
+                await Self.purgeChefProfileEntityIdentifiersIfAvailable(request)
+            },
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
@@ -322,7 +339,9 @@ struct SpoonjoyRootView: View {
         if #available(iOS 27.0, macOS 27.0, *) {
             try? await SpoonjoySpotlightIndexer().delete(
                 identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
             )
         }
 #endif
@@ -333,7 +352,9 @@ struct SpoonjoyRootView: View {
         if #available(iOS 27.0, macOS 27.0, *) {
             try? await SpoonjoySpotlightIndexer().delete(
                 identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
             )
         }
 #endif
@@ -344,7 +365,22 @@ struct SpoonjoyRootView: View {
         if #available(iOS 27.0, macOS 27.0, *) {
             try? await SpoonjoySpotlightIndexer().delete(
                 identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
+    }
+
+    private static func purgeChefProfileEntityIdentifiersIfAvailable(_ request: NativeChefProfileEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
             )
         }
 #endif

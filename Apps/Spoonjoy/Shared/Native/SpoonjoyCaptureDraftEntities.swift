@@ -3,10 +3,11 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import CoreSpotlight
 import CoreTransferable
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyCaptureDraftEntity: AppEntity, Transferable {
+struct SpoonjoyCaptureDraftEntity: AppEntity, IndexedEntity, Transferable {
     typealias DefaultQuery = SpoonjoyCaptureDraftEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Capture Draft")
@@ -29,6 +30,22 @@ struct SpoonjoyCaptureDraftEntity: AppEntity, Transferable {
     var displayRepresentation: DisplayRepresentation {
         let subtitle = "\(descriptor.subtitle) - \(descriptor.disambiguationLabel)"
         return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
+    }
+
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = descriptor.title
+        attributes.contentDescription = descriptor.transferValue.userVisibleSummary
+        attributes.keywords = [
+            descriptor.title,
+            descriptor.subtitle,
+            descriptor.importReadiness.rawValue,
+            descriptor.hasPendingImport ? "pending import" : "ready import",
+            "capture draft",
+            "Spoonjoy"
+        ]
+        attributes.contentURL = deepLinkURL
+        return attributes
     }
 
     static var transferRepresentation: some TransferRepresentation {

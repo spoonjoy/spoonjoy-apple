@@ -226,8 +226,31 @@ struct NativeSyncEngineTests {
             SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_deleted", scope: nextScope)
         ])
         #expect(report.spoonEntityPurgeDomainIdentifiers == [
-            SpotlightIndexPlan.spoonDomainIdentifier(scope: previousScope)
+            SpotlightIndexPlan.spoonDomainIdentifier(scope: previousScope),
+            SpotlightIndexPlan.spoonDomainIdentifier(scope: nextScope)
         ])
+        #expect(report.shoppingEntityPurgeRequests.contains(NativeShoppingEntityIndexPurgeRequest(
+            identifiers: [
+                SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_previous_bread", scope: previousScope),
+                SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_previous_butter", scope: previousScope)
+            ],
+            domainIdentifiers: [
+                SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: previousScope)
+            ],
+            accountID: "chef_previous",
+            environment: .local
+        )))
+        #expect(report.spoonEntityPurgeRequests.contains(NativeSpoonEntityIndexPurgeRequest(
+            identifiers: [
+                SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: previousEmbeddedSpoon.id, scope: previousScope),
+                SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: previousStandaloneSpoon.id, scope: previousScope)
+            ],
+            domainIdentifiers: [
+                SpotlightIndexPlan.spoonDomainIdentifier(scope: previousScope)
+            ],
+            accountID: "chef_previous",
+            environment: .local
+        )))
         let snapshot = await store.loadSnapshot()
         #expect(snapshot.accountID == "chef_ari")
         #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])

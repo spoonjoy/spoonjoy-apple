@@ -3,10 +3,11 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import CoreSpotlight
 import CoreTransferable
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyRecipeEntity: AppEntity, Transferable {
+struct SpoonjoyRecipeEntity: AppEntity, IndexedEntity, Transferable {
     typealias DefaultQuery = SpoonjoyRecipeEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Recipe")
@@ -31,6 +32,21 @@ struct SpoonjoyRecipeEntity: AppEntity, Transferable {
         return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
     }
 
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = descriptor.title
+        attributes.contentDescription = descriptor.transferValue.userVisibleSummary
+        attributes.keywords = [
+            descriptor.title,
+            descriptor.chefUsername,
+            descriptor.subtitle,
+            "recipe",
+            "Spoonjoy"
+        ]
+        attributes.contentURL = deepLinkURL
+        return attributes
+    }
+
     static var transferRepresentation: some TransferRepresentation {
         ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
     }
@@ -44,7 +60,7 @@ struct SpoonjoyRecipeEntity: AppEntity, Transferable {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyCookbookEntity: AppEntity, Transferable {
+struct SpoonjoyCookbookEntity: AppEntity, IndexedEntity, Transferable {
     typealias DefaultQuery = SpoonjoyCookbookEntityQuery
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Cookbook")
@@ -67,6 +83,22 @@ struct SpoonjoyCookbookEntity: AppEntity, Transferable {
     var displayRepresentation: DisplayRepresentation {
         let subtitle = "\(descriptor.subtitle) - \(descriptor.disambiguationLabel)"
         return DisplayRepresentation(title: "\(descriptor.title)", subtitle: "\(subtitle)")
+    }
+
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = defaultAttributeSet
+        attributes.title = descriptor.title
+        attributes.contentDescription = descriptor.transferValue.userVisibleSummary
+        attributes.keywords = [
+            descriptor.title,
+            descriptor.chefUsername,
+            descriptor.subtitle,
+            "\(descriptor.recipeCount) recipes",
+            "cookbook",
+            "Spoonjoy"
+        ]
+        attributes.contentURL = deepLinkURL
+        return attributes
     }
 
     static var transferRepresentation: some TransferRepresentation {

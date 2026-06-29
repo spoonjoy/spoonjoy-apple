@@ -63,6 +63,7 @@ struct SpotlightShortcutTransferTests {
                     "public static func document(chefProfile:",
                     "public static func chefProfileUniqueIdentifier",
                     "public static func chefProfileDomainIdentifier",
+                    "public static func domainIdentifiers(scope:",
                     "userVisibleSummary",
                     "contentDescription"
                 ],
@@ -72,7 +73,15 @@ struct SpotlightShortcutTransferTests {
                     ".chefProfile",
                     "CSSearchableIndex.isIndexingAvailable()",
                     "indexAppEntities",
+                    "replaceAllAppEntities",
                     "deleteAppEntities",
+                    "deleteAppEntities(ofType:",
+                    "ShoppingEntityCatalog.shoppingItemEntityIdentifier",
+                    "SpoonEntityCatalog.spoonEntityIdentifier",
+                    "CaptureDraftEntityCatalog.captureDraftEntityIdentifier",
+                    "SpoonjoyShoppingListEntity.self",
+                    "SpoonjoyInteractionDonor()",
+                    ".deleteDonations(matching:",
                     "deleteSearchableItems(withIdentifiers:",
                     "deleteSearchableItems(withDomainIdentifiers:"
                 ],
@@ -92,6 +101,7 @@ struct SpotlightShortcutTransferTests {
                     "struct SpoonjoyInteractionDonor",
                     "IntentDonationManager.shared",
                     ".donate(intent:",
+                    "donateBestEffort(self)",
                     "deleteDonations(matching:",
                     "IntentDonationMatchingPredicate"
                 ],
@@ -152,7 +162,14 @@ struct SpotlightShortcutTransferTests {
                     "contentState.cachedProfiles",
                     "contentState.captureDraft",
                     "recentSpoons",
-                    "SpoonjoySpotlightIndexer().replaceAll("
+                    "chefProfileEntityIdentifier(for:",
+                    "cachedProfile.profile.id == routeIdentifier || cachedProfile.profile.username == routeIdentifier",
+                    "replaceAll(payload.documents, scope: payload.scope)",
+                    "replaceAllAppEntities"
+                ],
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
+                    "accountID: request.accountID",
+                    "environment: request.environment"
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
                     "NativeShoppingEntityIndexPurgeOperation",
@@ -277,12 +294,20 @@ struct SpotlightShortcutTransferTests {
     func spotlightIdentifiersStayScopedAndRejectMalformedPrivateRoutes() {
         let scope = SpotlightIndexScope(accountID: "account.ari@example.com", environment: .production)
         let shoppingIdentifier = SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_lemons", scope: scope)
-        let spoonIdentifier = SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_lemon", scope: scope)
+        let spoonIdentifier = SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_lemon", recipeID: "recipe_pasta", scope: scope)
         let captureIdentifier = SpotlightIndexPlan.captureDraftUniqueIdentifier(draftID: "draft_url", scope: scope)
 
         #expect(shoppingIdentifier == "production|account-ari-example-com|shopping-list-item|item_lemons")
-        #expect(spoonIdentifier == "production|account-ari-example-com|spoon|spoon_lemon")
+        #expect(spoonIdentifier == "production|account-ari-example-com|spoon|spoon_lemon~recipe_pasta")
         #expect(captureIdentifier == "production|account-ari-example-com|capture-draft|draft_url")
+        #expect(SpotlightIndexPlan.domainIdentifiers(scope: scope) == [
+            "app.spoonjoy.production.account-ari-example-com.recipe",
+            "app.spoonjoy.production.account-ari-example-com.cookbook",
+            "app.spoonjoy.production.account-ari-example-com.shopping-list-item",
+            "app.spoonjoy.production.account-ari-example-com.spoon",
+            "app.spoonjoy.production.account-ari-example-com.capture-draft",
+            "app.spoonjoy.production.account-ari-example-com.chef-profile"
+        ])
         #expect(SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.shopping-list-item")
         #expect(SpotlightIndexPlan.spoonDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.spoon")
         #expect(SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope) == "app.spoonjoy.production.account-ari-example-com.capture-draft")
@@ -290,6 +315,8 @@ struct SpotlightShortcutTransferTests {
         #expect(!spoonIdentifier.contains("@"))
         #expect(!captureIdentifier.contains("@"))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|shopping-list-item|../secret") == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|spoon|spoon_lemon~recipe_pasta") == .recipeDetail(id: "recipe_pasta", presentation: .detail))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|spoon|spoon_lemon") == .unknownLink)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|capture-draft|draft_url") == .capture)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|chef-profile|chef_jules") == .profile(identifier: "chef_jules"))
     }

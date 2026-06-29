@@ -110,8 +110,7 @@ struct SpoonEntityTests {
                     "NativeSpoonEntityIndexPurgeOperation",
                     "NativeSpoonEntityIndexPurgeRequest",
                     "spoonEntityIndexPurge",
-                    "spoonEntityPurgeIdentifiers",
-                    "spoonEntityPurgeDomainIdentifiers",
+                    "spoonEntityPurgeRequests",
                     "performSettingsSessionOperation",
                     "SpoonEntityIndexPurgePlan.accountScopePurge",
                     "SpoonEntityCatalog.purgeEntityIdentifiers(",
@@ -137,13 +136,12 @@ struct SpoonEntityTests {
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
                     "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-                    "NativeSpoonEntityIndexPurgeRequest",
-                    "report.spoonEntityPurgeIdentifiers",
-                    "report.spoonEntityPurgeDomainIdentifiers",
+                    "report.spoonEntityPurgeRequests",
                     "purgeSpoonEntityIndexesHandler"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift": [
-                    "func delete(identifiers: [String], domainIdentifiers: [String])",
+                    "accountID: String? = nil",
+                    "environment: NativeCacheEnvironment? = nil",
                     "deleteSearchableItems(withIdentifiers:",
                     "deleteSearchableItems(withDomainIdentifiers:"
                 ]
@@ -181,8 +179,7 @@ struct SpoonEntityTests {
                     pattern: #"func\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)"#,
                     requiredTokens: [
                         "let report = try await syncTriggerCoordinator.handle(trigger)",
-                        "report.spoonEntityPurgeIdentifiers",
-                        "report.spoonEntityPurgeDomainIdentifiers"
+                        "report.spoonEntityPurgeRequests"
                     ],
                     forbiddenTokens: []
                 ),
@@ -192,9 +189,7 @@ struct SpoonEntityTests {
                     pattern: #"\.task\(id: contentState\.environment\.rawValue\)"#,
                     requiredTokens: [
                         "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-                        "NativeSpoonEntityIndexPurgeRequest",
-                        "report.spoonEntityPurgeIdentifiers",
-                        "report.spoonEntityPurgeDomainIdentifiers",
+                        "report.spoonEntityPurgeRequests",
                         "purgeSpoonEntityIndexesHandler"
                     ],
                     forbiddenTokens: []
@@ -499,7 +494,7 @@ struct SpoonEntityTests {
         #expect(cacheDeletePlan.identifiers == [
             SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_ari_lemon", scope: spotlightScope)
         ])
-        #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
+        #expect(cacheDeletePlan.domainIdentifiers == [SpotlightIndexPlan.spoonDomainIdentifier(scope: spotlightScope)])
         #expect(cacheDeletePlan.reason == .cacheDeleted)
 
         let tombstonePlan = SpoonEntityIndexPurgePlan.tombstonePurge(
@@ -527,7 +522,7 @@ struct SpoonEntityTests {
         #expect(tombstonePlan.identifiers == [
             SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_ari_lemon", scope: spotlightScope)
         ])
-        #expect(tombstonePlan.domainIdentifiers.isEmpty)
+        #expect(tombstonePlan.domainIdentifiers == [SpotlightIndexPlan.spoonDomainIdentifier(scope: spotlightScope)])
         #expect(tombstonePlan.reason == .tombstoneApplied)
 
         #expect(SpoonEntityCatalog.purgeEntityIdentifiers(

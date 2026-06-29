@@ -201,7 +201,7 @@ public struct SpoonEntityIndexPurgePlan: Equatable, Sendable {
         environment: NativeCacheEnvironment,
         spoonIDs: [String]
     ) -> SpoonEntityIndexPurgePlan {
-        scopedPlan(accountID: accountID, environment: environment, spoonIDs: spoonIDs, includeDomain: false, reason: .cacheDeleted)
+        scopedPlan(accountID: accountID, environment: environment, spoonIDs: spoonIDs, includeDomain: true, reason: .cacheDeleted)
     }
 
     public static func tombstonePurge(
@@ -215,7 +215,7 @@ public struct SpoonEntityIndexPurgePlan: Equatable, Sendable {
             spoonIDs: tombstones.compactMap { tombstone in
                 tombstone.resourceType == NativeSyncResourceType.spoon ? tombstone.resourceID : nil
             },
-            includeDomain: false,
+            includeDomain: true,
             reason: .tombstoneApplied
         )
     }
