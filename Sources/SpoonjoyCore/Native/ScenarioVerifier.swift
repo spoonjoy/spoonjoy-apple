@@ -505,6 +505,7 @@ public enum ScenarioVerifier {
                 settingsTokenCreateOnlineOnlyCheck(),
                 settingsConnectionDisconnectOnlineOnlyCheck(),
                 settingsSecureHandoffCheck(),
+                profileSettingsSiriIntentsCheck(metadata: metadata),
                 notificationAPNsSurfaceCheck(rootURL: rootURL),
                 offlineStatusCheck(),
                 safeUnknownLinkCheck(),
@@ -1688,6 +1689,31 @@ public enum ScenarioVerifier {
         } catch {
             return ScenarioCheck(name: "settings secure handoff", status: .fail, detail: "Settings secure handoff failed: \(error)")
         }
+    }
+
+    static func profileSettingsSiriIntentsCheck(metadata: NativeCapabilityMetadata = .spoonjoy) -> ScenarioCheck {
+        let requiredIntents = [
+            "OpenSettingsIntent",
+            "UpdateProfileDisplayIntent",
+            "UpdateProfilePhotoIntent",
+            "RemoveProfilePhotoIntent",
+            "OpenAPITokensIntent",
+            "CreateAPITokenIntent",
+            "RevokeAPITokenIntent",
+            "OpenAccountConnectionsIntent",
+            "DisconnectAccountConnectionIntent",
+            "OpenPasskeysIntent",
+            "OpenPasswordIntent",
+            "LinkProviderIntent",
+            "LogoutIntent",
+            "RevokeCurrentSessionIntent"
+        ]
+        let missing = requiredIntents.filter { !metadata.appIntents.contains($0) }
+        return ScenarioCheck(
+            name: "Profile and settings Siri intents",
+            status: scenarioStatus(missing.isEmpty),
+            detail: "Profile and settings Siri intents cover UpdateProfileDisplayIntent, UpdateProfilePhotoIntent, CreateAPITokenIntent, RevokeAPITokenIntent, DisconnectAccountConnectionIntent, OpenPasskeysIntent, OpenPasswordIntent, LinkProviderIntent, LogoutIntent, and RevokeCurrentSessionIntent."
+        )
     }
 
     static func notificationAPNsSurfaceCheck(rootURL: URL) -> ScenarioCheck {

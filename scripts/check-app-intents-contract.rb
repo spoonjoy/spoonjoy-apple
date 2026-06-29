@@ -3674,7 +3674,9 @@ if domain == "profile-settings-intents"
         "@Parameter(title: \"Username\")",
         "let createdAt = SpoonjoyIntentClock.timestamp()",
         "NativeIntentActionResolver().updateProfileDisplay(",
-        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "performSettingsActionStatus(action, savedAt: createdAt)",
+        "status.dialogMessage(completed: \"Updated profile in Spoonjoy.\"",
+        "queued: \"Queued profile update in Spoonjoy.\"",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
         "OpenURLIntent(action.url)"
       ],
@@ -3685,7 +3687,9 @@ if domain == "profile-settings-intents"
         "@Parameter(title: \"Photo\")",
         "var photo: IntentFile",
         "NativeIntentActionResolver().updateProfilePhoto(",
-        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "performSettingsActionStatus(action, savedAt: createdAt)",
+        "status.dialogMessage(completed: \"Updated profile photo in Spoonjoy.\"",
+        "queued: \"Queued profile photo update in Spoonjoy.\"",
         "SettingsProfilePhotoStagingPolicy.webProfileParity",
         "OpenURLIntent(action.url)"
       ],
@@ -3695,7 +3699,9 @@ if domain == "profile-settings-intents"
       required: [
         "try await requestConfirmation(",
         "NativeIntentActionResolver().removeProfilePhoto(",
-        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "performSettingsActionStatus(action, savedAt: createdAt)",
+        "status.dialogMessage(completed: \"Removed profile photo in Spoonjoy.\"",
+        "queued: \"Queued profile photo removal in Spoonjoy.\"",
         "OpenURLIntent(action.url)"
       ],
       forbidden: ["ReturnsValue<String>", "token", "secret"]
@@ -3707,10 +3713,11 @@ if domain == "profile-settings-intents"
         "NativeIntentActionResolver().createAPIToken(",
         "SpoonjoyIntentStateWriter().settingsConnectivity()",
         "SettingsOnlineOnlyReason.apiTokenCreate.message",
+        "action.plan.userFacingMessage",
         "not queued",
         "OpenURLIntent(action.url)"
       ],
-      forbidden: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "rawToken", "tokenSecret", "revealedSecret", ".apply(action"]
+      forbidden: ["ReturnsValue<String>", "return .result(value:", "performSettingsAction(action)", "createdAPIToken", "rawToken", "tokenSecret", "revealedSecret", ".apply(action"]
     },
     "RevokeAPITokenIntent" => {
       required: [
@@ -3790,6 +3797,102 @@ if domain == "profile-settings-intents"
   end
 
   {
+    "settingsConnectivity" => {
+      pattern: /\bfunc\s+settingsConnectivity\(\)\s+async\s+throws\s+->\s+SettingsSurfaceConnectivity\b/,
+      required: [
+        "SpoonjoyIntentConnectivityProbe.settingsSurfaceConnectivity",
+        "return await connectivityProbe()"
+      ],
+      forbidden: ["return .online"]
+    },
+    "SpoonjoyIntentConnectivityProbe" => {
+      pattern: /\bprivate\s+enum\s+SpoonjoyIntentConnectivityProbe\b/,
+      required: [
+        "spoonjoyIntentIsOffline(error.code)",
+        "return .offline"
+      ],
+      forbidden: ["isOffline(error.code)"]
+    },
+    "spoonjoyIntentIsOffline" => {
+      pattern: /\bfunc\s+spoonjoyIntentIsOffline\(_ code: URLError\.Code\)\s+->\s+Bool/,
+      required: [
+        ".notConnectedToInternet",
+        ".networkConnectionLost",
+        ".cannotFindHost",
+        ".cannotConnectToHost",
+        ".timedOut",
+        ".internationalRoamingOff",
+        ".callIsActive",
+        ".dataNotAllowed"
+      ],
+      forbidden: [".dnsLookupFailed"]
+    },
+    "performSettingsAction" => {
+      pattern: /\bfunc\s+performSettingsAction\(_ action: NativeIntentSettingsAction\)\s+async\s+throws\s+->\s+SettingsActionOutcome\?/,
+      required: [
+        "executeSettingsAction(action).outcome"
+      ],
+      forbidden: ["captureCreatedAPIToken(envelope.data)"]
+    },
+    "executeSettingsAction" => {
+      pattern: /\bfunc\s+executeSettingsAction\(_ action: NativeIntentSettingsAction\)\s+async\s+throws\s+->\s+SpoonjoyIntentSettingsActionExecution/,
+      required: [
+        "action.plan.queuePreflightDecision",
+        "executeSettingsRequest",
+        "catch let error as APITransportError where error.isOffline",
+        "appendNativeMutation(offlineFallbackMutation)",
+        "applyNativeMutation(offlineFallbackMutation",
+        "status: .queued",
+        "status: .completed"
+      ],
+      forbidden: ["captureCreatedAPIToken(envelope.data)"]
+    },
+    "executeSettingsRequest" => {
+      pattern: /\bfunc\s+executeSettingsRequest\(/,
+      required: [
+        "let refresher = SpoonjoyIntentAPIRefresher(vault: authVault)",
+        "let configuration = try await refresher.validConfiguration()",
+        "URLSessionAPITransport(authenticationRefresher: refresher)"
+      ],
+      forbidden: ["authVault?.loadSession()", "URLSessionAPITransport()"]
+    },
+    "SpoonjoyIntentOAuthSupport" => {
+      pattern: /\bprivate\s+enum\s+SpoonjoyIntentOAuthSupport\b/,
+      required: [
+        "catch let error as URLError where spoonjoyIntentIsOffline(error.code)",
+        "kind: .offline"
+      ],
+      forbidden: ["isOffline(error.code)"]
+    },
+    "performSettingsSessionOperation" => {
+      pattern: /\bfunc\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)\s+async\s+throws\b/,
+      required: [
+        "OAuthRequests.revoke",
+        "clearClientID()"
+      ],
+      forbidden: ["case .logout, .revokeAndLogout:\n            try await authVault.clearSession()"]
+    }
+  }.each do |label, contract|
+    require_body_tokens(app_intents, label, contract.fetch(:pattern), contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, label, contract.fetch(:pattern), contract.fetch(:forbidden), failures)
+  end
+
+  require_body_tokens(
+    settings_entities,
+    "API token entity display",
+    /\bvar\s+displayRepresentation:\s+DisplayRepresentation\b/,
+    ["subtitle: \"\\(descriptor.subtitle)\""],
+    failures
+  )
+  forbid_body_tokens(
+    settings_entities,
+    "API token entity display",
+    /\bvar\s+displayRepresentation:\s+DisplayRepresentation\b/,
+    ["descriptor.disambiguationLabel"],
+    failures
+  )
+
+  {
     "openSettings resolver" => {
       pattern: /\bpublic\s+func\s+openSettings\(/,
       required: [
@@ -3820,6 +3923,7 @@ if domain == "profile-settings-intents"
         "SettingsActionPlanner(connectivity:",
         ".updateProfile(email: email, username: username, clientMutationID: mutationID)",
         "profileDisplayUpdate",
+        ".settingsAction(plan",
         "route: .settings",
         "DeepLinkURLBuilder.url(for: .settings)"
       ],
@@ -3831,6 +3935,7 @@ if domain == "profile-settings-intents"
         "SettingsProfilePhotoStagingPolicy.webProfileParity",
         ".uploadProfilePhoto(photo: stagedPhoto, clientMutationID: mutationID)",
         "profilePhotoUpload",
+        ".settingsAction(plan",
         "route: .settings"
       ],
       forbidden: ["photoPath: String"]
@@ -3840,6 +3945,7 @@ if domain == "profile-settings-intents"
       required: [
         ".removeProfilePhoto(clientMutationID: mutationID)",
         "profilePhotoRemove",
+        ".settingsAction(plan",
         "route: .settings"
       ],
       forbidden: ["TokenCredentialRequests.revokeToken"]
@@ -3849,10 +3955,10 @@ if domain == "profile-settings-intents"
       required: [
         ".createAPIToken(name: name, scopes: scopes)",
         "TokenCredentialRequests.createToken",
-        ".captureCreatedAPIToken",
+        "userFacingMessage",
         "DeepLinkURLBuilder.url(for: .settings)"
       ],
-      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+      forbidden: ["NativeQueuedMutation", ".nativeMutation(", ".captureCreatedAPIToken"]
     },
     "revokeAPIToken resolver" => {
       pattern: /\bpublic\s+func\s+revokeAPIToken\(/,

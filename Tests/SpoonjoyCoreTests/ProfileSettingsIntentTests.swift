@@ -261,7 +261,9 @@ struct ProfileSettingsIntentTests {
                         "@Parameter(title: \"Username\")",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
                         "NativeIntentActionResolver().updateProfileDisplay(",
-                        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+                        "performSettingsActionStatus(action, savedAt: createdAt)",
+                        "status.dialogMessage(completed: \"Updated profile in Spoonjoy.\"",
+                        "queued: \"Queued profile update in Spoonjoy.\"",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
                         "OpenURLIntent(action.url)"
                     ],
@@ -275,7 +277,9 @@ struct ProfileSettingsIntentTests {
                         "@Parameter(title: \"Photo\")",
                         "var photo: IntentFile",
                         "NativeIntentActionResolver().updateProfilePhoto(",
-                        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+                        "performSettingsActionStatus(action, savedAt: createdAt)",
+                        "status.dialogMessage(completed: \"Updated profile photo in Spoonjoy.\"",
+                        "queued: \"Queued profile photo update in Spoonjoy.\"",
                         "SettingsProfilePhotoStagingPolicy.webProfileParity",
                         "OpenURLIntent(action.url)"
                     ],
@@ -288,7 +292,9 @@ struct ProfileSettingsIntentTests {
                     requiredTokens: [
                         "try await requestConfirmation(",
                         "NativeIntentActionResolver().removeProfilePhoto(",
-                        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+                        "performSettingsActionStatus(action, savedAt: createdAt)",
+                        "status.dialogMessage(completed: \"Removed profile photo in Spoonjoy.\"",
+                        "queued: \"Queued profile photo removal in Spoonjoy.\"",
                         "OpenURLIntent(action.url)"
                     ],
                     forbiddenTokens: ["ReturnsValue<String>", "token", "secret"]
@@ -303,10 +309,11 @@ struct ProfileSettingsIntentTests {
                         "NativeIntentActionResolver().createAPIToken(",
                         "SpoonjoyIntentStateWriter().settingsConnectivity()",
                         "SettingsOnlineOnlyReason.apiTokenCreate.message",
+                        "action.plan.userFacingMessage",
                         "not queued",
                         "OpenURLIntent(action.url)"
                     ],
-                    forbiddenTokens: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "rawToken", "tokenSecret", "revealedSecret", ".apply(action"]
+                    forbiddenTokens: ["ReturnsValue<String>", "return .result(value:", "performSettingsAction(action)", "createdAPIToken", "rawToken", "tokenSecret", "revealedSecret", ".apply(action"]
                 ),
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
@@ -406,6 +413,106 @@ struct ProfileSettingsIntentTests {
         failures.append(contentsOf: profileSettingsIntentBodyContractFailures(
             contracts: [
                 (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "settingsConnectivity",
+                    pattern: #"func\s+settingsConnectivity\(\)\s+async\s+throws\s+->\s+SettingsSurfaceConnectivity"#,
+                    requiredTokens: [
+                        "SpoonjoyIntentConnectivityProbe.settingsSurfaceConnectivity",
+                        "return await connectivityProbe()"
+                    ],
+                    forbiddenTokens: ["return .online"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "SpoonjoyIntentConnectivityProbe",
+                    pattern: #"private\s+enum\s+SpoonjoyIntentConnectivityProbe"#,
+                    requiredTokens: [
+                        "spoonjoyIntentIsOffline(error.code)",
+                        "return .offline"
+                    ],
+                    forbiddenTokens: ["isOffline(error.code)"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "spoonjoyIntentIsOffline",
+                    pattern: #"func\s+spoonjoyIntentIsOffline\(_ code: URLError\.Code\)\s+->\s+Bool"#,
+                    requiredTokens: [
+                        ".notConnectedToInternet",
+                        ".networkConnectionLost",
+                        ".cannotFindHost",
+                        ".cannotConnectToHost",
+                        ".timedOut",
+                        ".internationalRoamingOff",
+                        ".callIsActive",
+                        ".dataNotAllowed"
+                    ],
+                    forbiddenTokens: [".dnsLookupFailed"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "performSettingsAction",
+                    pattern: #"func\s+performSettingsAction\(_ action: NativeIntentSettingsAction\)\s+async\s+throws\s+->\s+SettingsActionOutcome\?"#,
+                    requiredTokens: [
+                        "executeSettingsAction(action).outcome"
+                    ],
+                    forbiddenTokens: ["captureCreatedAPIToken(envelope.data)"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "executeSettingsAction",
+                    pattern: #"func\s+executeSettingsAction\(_ action: NativeIntentSettingsAction\)\s+async\s+throws\s+->\s+SpoonjoyIntentSettingsActionExecution"#,
+                    requiredTokens: [
+                        "action.plan.queuePreflightDecision",
+                        "executeSettingsRequest",
+                        "catch let error as APITransportError where error.isOffline",
+                        "appendNativeMutation(offlineFallbackMutation)",
+                        "applyNativeMutation(offlineFallbackMutation",
+                        "status: .queued",
+                        "status: .completed"
+                    ],
+                    forbiddenTokens: ["captureCreatedAPIToken(envelope.data)"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "executeSettingsRequest",
+                    pattern: #"func\s+executeSettingsRequest\("#,
+                    requiredTokens: [
+                        "let refresher = SpoonjoyIntentAPIRefresher(vault: authVault)",
+                        "let configuration = try await refresher.validConfiguration()",
+                        "URLSessionAPITransport(authenticationRefresher: refresher)"
+                    ],
+                    forbiddenTokens: ["authVault?.loadSession()", "URLSessionAPITransport()"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "SpoonjoyIntentOAuthSupport",
+                    pattern: #"private\s+enum\s+SpoonjoyIntentOAuthSupport"#,
+                    requiredTokens: [
+                        "catch let error as URLError where spoonjoyIntentIsOffline(error.code)",
+                        "kind: .offline"
+                    ],
+                    forbiddenTokens: ["isOffline(error.code)"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "performSettingsSessionOperation",
+                    pattern: #"func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)\s+async\s+throws"#,
+                    requiredTokens: [
+                        "OAuthRequests.revoke",
+                        "clearClientID()"
+                    ],
+                    forbiddenTokens: ["case .logout, .revokeAndLogout:\n            try await authVault.clearSession()"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift",
+                    label: "API token entity display",
+                    pattern: #"var\s+displayRepresentation:\s+DisplayRepresentation"#,
+                    requiredTokens: [
+                        "subtitle: \"\\(descriptor.subtitle)\""
+                    ],
+                    forbiddenTokens: ["descriptor.disambiguationLabel"]
+                ),
+                (
                     relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
                     label: "openSettings resolver",
                     pattern: #"public\s+func\s+openSettings\("#,
@@ -443,6 +550,7 @@ struct ProfileSettingsIntentTests {
                         "SettingsActionPlanner(connectivity:",
                         ".updateProfile(email: email, username: username, clientMutationID: mutationID)",
                         "profileDisplayUpdate",
+                        ".settingsAction(plan",
                         "route: .settings",
                         "DeepLinkURLBuilder.url(for: .settings)"
                     ],
@@ -456,6 +564,7 @@ struct ProfileSettingsIntentTests {
                         "SettingsProfilePhotoStagingPolicy.webProfileParity",
                         ".uploadProfilePhoto(photo: stagedPhoto, clientMutationID: mutationID)",
                         "profilePhotoUpload",
+                        ".settingsAction(plan",
                         "route: .settings"
                     ],
                     forbiddenTokens: ["photoPath: String"]
@@ -467,6 +576,7 @@ struct ProfileSettingsIntentTests {
                     requiredTokens: [
                         ".removeProfilePhoto(clientMutationID: mutationID)",
                         "profilePhotoRemove",
+                        ".settingsAction(plan",
                         "route: .settings"
                     ],
                     forbiddenTokens: ["TokenCredentialRequests.revokeToken"]
@@ -478,10 +588,10 @@ struct ProfileSettingsIntentTests {
                     requiredTokens: [
                         ".createAPIToken(name: name, scopes: scopes)",
                         "TokenCredentialRequests.createToken",
-                        ".captureCreatedAPIToken",
+                        "userFacingMessage",
                         "DeepLinkURLBuilder.url(for: .settings)"
                     ],
-                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation("]
+                    forbiddenTokens: ["NativeQueuedMutation", ".nativeMutation(", ".captureCreatedAPIToken"]
                 ),
                 (
                     relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",

@@ -1083,6 +1083,15 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         }
     }
 
+    public var profileDisplayUpdateValues: (email: String, username: String)? {
+        guard queueableKind == .profileDisplayUpdate,
+              let email = stringValue("email"),
+              let username = stringValue("username") else {
+            return nil
+        }
+        return (email, username)
+    }
+
     public func blocksDependencyKey(_ dependencyKey: String) -> Bool {
         self.dependencyKey == dependencyKey || dependentDependencyKeysBlockedWithThisMutation.contains(dependencyKey)
     }

@@ -3,6 +3,7 @@ import SpoonjoyCore
 
 #if canImport(AppIntents)
 import AppIntents
+import UniformTypeIdentifiers
 #if canImport(CoreSpotlight)
 import CoreSpotlight
 #endif
@@ -113,6 +114,308 @@ struct OpenProfileIntent: AppIntent {
         let action = try NativeIntentActionResolver().openProfile(profile: profile.descriptor)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening profile in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenSettingsIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Settings"
+    static let description = IntentDescription("Open Spoonjoy settings.")
+
+    func perform() async throws -> some IntentResult {
+        let action = NativeIntentActionResolver().openSettings()
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening settings in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct UpdateProfileDisplayIntent: AppIntent {
+    static let title: LocalizedStringResource = "Update Profile Display"
+    static let description = IntentDescription("Update your Spoonjoy profile display.")
+
+    @Parameter(title: "Email")
+    var email: String
+
+    @Parameter(title: "Username")
+    var username: String
+
+    init() {
+        email = ""
+        username = ""
+    }
+
+    init(email: String, username: String) {
+        self.email = email
+        self.username = username
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().updateProfileDisplay(
+            email: email,
+            username: username,
+            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
+            createdAt: createdAt
+        )
+        let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Updated profile in Spoonjoy.", queued: "Queued profile update in Spoonjoy."))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct UpdateProfilePhotoIntent: AppIntent {
+    static let title: LocalizedStringResource = "Update Profile Photo"
+    static let description = IntentDescription("Update your Spoonjoy profile photo.")
+
+    @Parameter(title: "Photo")
+    var photo: IntentFile
+
+    init() {
+        photo = IntentFile(data: Data(), filename: "profile-photo.jpg", type: .jpeg)
+    }
+
+    init(photo: IntentFile) {
+        self.photo = photo
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let contentType = photo.type?.preferredMIMEType ?? "application/octet-stream"
+        let media = NativeStagedMediaUpload(
+            localStageID: "intent-profile-photo-\(createdAt)",
+            fileName: photo.filename,
+            contentType: contentType,
+            data: photo.data
+        )
+        _ = SettingsProfilePhotoStagingPolicy.webProfileParity
+        let action = try NativeIntentActionResolver().updateProfilePhoto(
+            photo: media,
+            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
+            createdAt: createdAt
+        )
+        let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Updated profile photo in Spoonjoy.", queued: "Queued profile photo update in Spoonjoy."))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct RemoveProfilePhotoIntent: AppIntent {
+    static let title: LocalizedStringResource = "Remove Profile Photo"
+    static let description = IntentDescription("Remove your Spoonjoy profile photo.")
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().removeProfilePhoto(
+            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
+            createdAt: createdAt
+        )
+        let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Removed profile photo in Spoonjoy.", queued: "Queued profile photo removal in Spoonjoy."))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenAPITokensIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open API Tokens"
+    static let description = IntentDescription("Open Spoonjoy API token settings.")
+
+    func perform() async throws -> some IntentResult {
+        let action = NativeIntentActionResolver().openAPITokens()
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening API token settings in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct CreateAPITokenIntent: AppIntent {
+    static let title: LocalizedStringResource = "Create API Token"
+    static let description = IntentDescription("Create a Spoonjoy API token.")
+
+    @Parameter(title: "Name")
+    var name: String
+
+    @Parameter(title: "Scopes")
+    var scopes: [String]
+
+    init() {
+        name = ""
+        scopes = []
+    }
+
+    init(name: String, scopes: [String]) {
+        self.name = name
+        self.scopes = scopes
+    }
+
+    func perform() async throws -> some IntentResult {
+        let action = try NativeIntentActionResolver().createAPIToken(
+            name: name,
+            scopes: scopes,
+            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity()
+        )
+        let offlineMessage = SettingsOnlineOnlyReason.apiTokenCreate.message
+        let message = action.onlineOnlyReason?.message ?? action.plan.userFacingMessage ?? "Opening API token settings in Spoonjoy."
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct RevokeAPITokenIntent: AppIntent {
+    static let title: LocalizedStringResource = "Revoke API Token"
+    static let description = IntentDescription("Revoke a Spoonjoy API token.")
+
+    @Parameter(title: "API Token", requestValueDialog: "Which API token should be revoked?")
+    var token: SpoonjoyAPITokenEntity
+
+    init() {
+        token = SpoonjoyAPITokenEntity()
+    }
+
+    init(token: SpoonjoyAPITokenEntity) {
+        self.token = token
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let action = try NativeIntentActionResolver().revokeAPIToken(token: token.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+        let offlineMessage = SettingsOnlineOnlyReason.apiTokenRevoke.message
+        let message = action.onlineOnlyReason?.message ?? "Revoked API token in Spoonjoy."
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenAccountConnectionsIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Account Connections"
+    static let description = IntentDescription("Open Spoonjoy account connection settings.")
+
+    func perform() async throws -> some IntentResult {
+        let action = NativeIntentActionResolver().openAccountConnections()
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening account connections in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct DisconnectAccountConnectionIntent: AppIntent {
+    static let title: LocalizedStringResource = "Disconnect Account Connection"
+    static let description = IntentDescription("Disconnect a Spoonjoy account connection.")
+
+    @Parameter(title: "Connection", requestValueDialog: "Which connection should be disconnected?")
+    var connection: SpoonjoyAccountConnectionEntity
+
+    init() {
+        connection = SpoonjoyAccountConnectionEntity()
+    }
+
+    init(connection: SpoonjoyAccountConnectionEntity) {
+        self.connection = connection
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let action = try NativeIntentActionResolver().disconnectAccountConnection(connection: connection.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+        let offlineMessage = SettingsOnlineOnlyReason.oauthConnectionDisconnect.message
+        let message = action.onlineOnlyReason?.message ?? "Disconnected account connection in Spoonjoy."
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenPasskeysIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Passkeys"
+    static let description = IntentDescription("Open Spoonjoy passkey settings.")
+
+    func perform() async throws -> some IntentResult {
+        let plan = try NativeIntentActionResolver().openPasskeys(connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        if plan.onlineOnlyReason != nil {
+            return .result(dialog: "\(SettingsOnlineOnlyReason.credentialHandoff.message) This action was not queued.")
+        }
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(plan.secureHandoff.url), dialog: "Opening passkey settings in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenPasswordIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Password"
+    static let description = IntentDescription("Open Spoonjoy password settings.")
+
+    func perform() async throws -> some IntentResult {
+        let plan = try NativeIntentActionResolver().openPassword(connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        if plan.onlineOnlyReason != nil {
+            return .result(dialog: "\(SettingsOnlineOnlyReason.credentialHandoff.message) This action was not queued.")
+        }
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(plan.secureHandoff.url), dialog: "Opening password settings in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct LinkProviderIntent: AppIntent {
+    static let title: LocalizedStringResource = "Link Provider"
+    static let description = IntentDescription("Link a sign-in provider to Spoonjoy.")
+
+    @Parameter(title: "Provider")
+    var provider: SpoonjoySettingsAuthProviderOption
+
+    init() {
+        provider = .google
+    }
+
+    init(provider: SpoonjoySettingsAuthProviderOption) {
+        self.provider = provider
+    }
+
+    func perform() async throws -> some IntentResult {
+        let plan = try NativeIntentActionResolver().linkProvider(provider: provider.authProvider, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        if plan.onlineOnlyReason != nil {
+            return .result(dialog: "\(SettingsOnlineOnlyReason.credentialHandoff.message) This action was not queued.")
+        }
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(plan.secureHandoff.url), dialog: "Opening provider link in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct LogoutIntent: AppIntent {
+    static let title: LocalizedStringResource = "Log Out"
+    static let description = IntentDescription("Log out of Spoonjoy.")
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let action = try NativeIntentActionResolver().logout(connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+        let offlineMessage = SettingsOnlineOnlyReason.logout.message
+        let message = action.onlineOnlyReason?.message ?? "Logged out of Spoonjoy."
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct RevokeCurrentSessionIntent: AppIntent {
+    static let title: LocalizedStringResource = "Revoke Current Session"
+    static let description = IntentDescription("Revoke the current Spoonjoy session.")
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let action = try NativeIntentActionResolver().revokeCurrentSession(connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+        let offlineMessage = SettingsOnlineOnlyReason.sessionRevoke.message
+        let message = action.onlineOnlyReason?.message ?? "Revoked the current Spoonjoy session."
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
     }
 }
 
@@ -1056,6 +1359,20 @@ private enum SpoonjoyIntentShortcutBudget {
     static var shortcutsLibraryOnlyIntentNames: [String] {
         [
             String(describing: OpenProfileIntent()),
+            String(describing: OpenSettingsIntent()),
+            String(describing: UpdateProfileDisplayIntent()),
+            String(describing: UpdateProfilePhotoIntent()),
+            String(describing: RemoveProfilePhotoIntent()),
+            String(describing: OpenAPITokensIntent()),
+            String(describing: CreateAPITokenIntent()),
+            String(describing: RevokeAPITokenIntent()),
+            String(describing: OpenAccountConnectionsIntent()),
+            String(describing: DisconnectAccountConnectionIntent()),
+            String(describing: OpenPasskeysIntent()),
+            String(describing: OpenPasswordIntent()),
+            String(describing: LinkProviderIntent()),
+            String(describing: LogoutIntent()),
+            String(describing: RevokeCurrentSessionIntent()),
             String(describing: SetShoppingListItemCheckedIntent()),
             String(describing: RemoveShoppingListItemIntent()),
             String(describing: AddRecipeIngredientsToShoppingListIntent()),
@@ -1112,22 +1429,200 @@ private enum SpoonjoyIntentClock {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+private enum SpoonjoyIntentConnectivityProbe {
+    static func settingsSurfaceConnectivity() async -> SettingsSurfaceConnectivity {
+        var request = URLRequest(url: APIClientConfiguration.spoonjoyProduction.baseURL)
+        request.httpMethod = "HEAD"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 3
+
+        do {
+            _ = try await URLSession.shared.data(for: request)
+            return .online
+        } catch let error as URLError where spoonjoyIntentIsOffline(error.code) {
+            return .offline
+        } catch {
+            return .online
+        }
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+private struct SpoonjoyIntentAPIRefresher: APIAuthenticationRefresher {
+    private let refreshCoordinator: RefreshCoordinator
+    private let baseURL: URL
+
+    init(vault: any TokenVault, baseURL: URL = APIClientConfiguration.spoonjoyProduction.baseURL) {
+        self.baseURL = baseURL
+        self.refreshCoordinator = RefreshCoordinator(vault: vault) { clientID, refreshToken in
+            try await SpoonjoyIntentOAuthSupport.sendDecoded(
+                OAuthRequests.refreshToken(clientID: clientID, refreshToken: refreshToken),
+                configuration: APIClientConfiguration(baseURL: baseURL)
+            )
+        }
+    }
+
+    func validConfiguration() async throws -> APIClientConfiguration {
+        let session = try await refreshCoordinator.validSession(at: Date())
+        return APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
+    }
+
+    func refreshedConfiguration(
+        after _: APIError,
+        configuration: APIClientConfiguration
+    ) async throws -> APIClientConfiguration {
+        let session = try await refreshCoordinator.validSession(at: Date())
+        return APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: session.accessToken)
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+private enum SpoonjoyIntentOAuthSupport {
+    static func sendDecoded<Value: Decodable & Equatable>(
+        _ builder: APIRequestBuilder,
+        configuration: APIClientConfiguration
+    ) async throws -> Value {
+        let data = try await send(builder, configuration: configuration)
+        if let envelope = try? APIEnvelope<Value>.decode(data) {
+            return envelope.data
+        }
+
+        return try JSONDecoder().decode(Value.self, from: data)
+    }
+
+    private static func send(_ builder: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> Data {
+        let request = try builder.urlRequest(configuration: configuration)
+        guard let url = url(from: request.url, queryItems: request.queryItems) else {
+            throw spoonjoyIntentInvalidRequestURL()
+        }
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = request.method.rawValue
+        urlRequest.httpBody = request.body
+        for (name, value) in request.headers {
+            urlRequest.setValue(value, forHTTPHeaderField: name)
+        }
+
+        let response: (data: Data, urlResponse: URLResponse)
+        do {
+            response = try await URLSession.shared.data(for: urlRequest)
+        } catch let error as URLError where spoonjoyIntentIsOffline(error.code) {
+            throw APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: 1)
+            )
+        } catch {
+            throw error
+        }
+
+        guard let httpResponse = response.urlResponse as? HTTPURLResponse else {
+            throw APITransportError(
+                kind: .nonHTTPResponse,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        }
+
+        guard 200...299 ~= httpResponse.statusCode else {
+            throw APITransportError(
+                kind: .apiError,
+                requestID: httpResponse.value(forHTTPHeaderField: "X-Request-ID"),
+                statusCode: httpResponse.statusCode,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        }
+
+        return response.data
+    }
+
+    private static func url(from requestURL: APIRequestURL, queryItems: [URLQueryItem]) -> URL? {
+        guard var components = URLComponents(url: requestURL.baseURL, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        components.path = requestURL.path
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components.url
+    }
+
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+private enum SpoonjoyIntentSettingsActionStatus {
+    case completed
+    case queued
+
+    func dialogMessage(completed: String, queued: String) -> IntentDialog {
+        switch self {
+        case .completed:
+            IntentDialog(stringLiteral: completed)
+        case .queued:
+            IntentDialog(stringLiteral: queued)
+        }
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+private struct SpoonjoyIntentSettingsActionExecution {
+    let outcome: SettingsActionOutcome?
+    let status: SpoonjoyIntentSettingsActionStatus
+}
+
+private func spoonjoyIntentInvalidRequestURL() -> APITransportError {
+    APITransportError(
+        kind: .invalidRequestURL,
+        requestID: nil,
+        statusCode: nil,
+        apiError: nil,
+        retryDecision: .doNotRetry
+    )
+}
+
+private func spoonjoyIntentIsOffline(_ code: URLError.Code) -> Bool {
+    switch code {
+    case .notConnectedToInternet,
+         .networkConnectionLost,
+         .cannotFindHost,
+         .cannotConnectToHost,
+         .timedOut,
+         .internationalRoamingOff,
+         .callIsActive,
+         .dataNotAllowed:
+        true
+    default:
+        false
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 private struct SpoonjoyIntentStateWriter {
     private let store: NativeAppStateStore
     private let syncStore: any NativeSyncStore
+    private let cacheStore: NativeDurableCacheStore
     private let authVault: (any TokenVault)?
+    private let connectivityProbe: (@Sendable () async -> SettingsSurfaceConnectivity)?
 
     init(
         fileURL: URL = NativeAppStateLocation.defaultFileURL(),
         syncStore: (any NativeSyncStore)? = nil,
-        authVault: (any TokenVault)? = KeychainTokenVault()
+        cacheStore: NativeDurableCacheStore? = nil,
+        authVault: (any TokenVault)? = KeychainTokenVault(),
+        connectivityProbe: (@Sendable () async -> SettingsSurfaceConnectivity)? = nil
     ) throws {
         store = NativeAppStateStore(fileURL: fileURL)
         self.authVault = authVault
+        self.connectivityProbe = connectivityProbe
+        let appDirectory = fileURL.deletingLastPathComponent()
+        self.cacheStore = cacheStore ?? NativeDurableCacheStore(
+            fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
+        )
         if let syncStore {
             self.syncStore = syncStore
         } else {
-            let appDirectory = fileURL.deletingLastPathComponent()
             self.syncStore = try FileBackedNativeSyncStore(
                 fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
                 mediaResolver: NativeStagedMediaDirectory(
@@ -1152,6 +1647,8 @@ private struct SpoonjoyIntentStateWriter {
                 appliedMutation = mutation
             }
             try await applyNativeMutation(appliedMutation, savedAt: savedAt)
+        case .settingsAction(let plan, let route, let url):
+            try await performSettingsAction(NativeIntentSettingsAction(plan: plan, route: route, url: url))
         case .shoppingMutation(let mutation, _, _):
             try await appendNativeMutation(mutation)
             try await applyShoppingMutation(mutation, savedAt: savedAt)
@@ -1185,6 +1682,65 @@ private struct SpoonjoyIntentStateWriter {
         return scope.accountID
     }
 
+    func settingsConnectivity() async throws -> SettingsSurfaceConnectivity {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        _ = try await trustedIntentScope(from: syncSnapshot)
+        let connectivityProbe = self.connectivityProbe ?? SpoonjoyIntentConnectivityProbe.settingsSurfaceConnectivity
+        return await connectivityProbe()
+    }
+
+    @discardableResult
+    func performSettingsAction(_ action: NativeIntentSettingsAction) async throws -> SettingsActionOutcome? {
+        try await executeSettingsAction(action).outcome
+    }
+
+    func performSettingsActionStatus(_ action: NativeIntentAction, savedAt: String) async throws -> SpoonjoyIntentSettingsActionStatus {
+        switch action {
+        case .settingsAction(let plan, let route, let url):
+            return try await executeSettingsAction(NativeIntentSettingsAction(plan: plan, route: route, url: url)).status
+        default:
+            try await apply(action, savedAt: savedAt)
+            return .completed
+        }
+    }
+
+    private func executeSettingsAction(_ action: NativeIntentSettingsAction) async throws -> SpoonjoyIntentSettingsActionExecution {
+        guard action.onlineOnlyReason == nil else {
+            return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .completed)
+        }
+
+        let currentQueue = try await currentNativeMutationQueue()
+        if let preflight = action.plan.queuePreflightDecision(queuedMutations: currentQueue.mutations) {
+            switch preflight {
+            case .queueMutation(let mutation, drainImmediately: _):
+                try await appendNativeMutation(mutation)
+                try await applyNativeMutation(mutation, savedAt: mutation.createdAt)
+            }
+            return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .queued)
+        }
+
+        var outcome: SettingsActionOutcome?
+        if let request = action.plan.remoteRequestBuilder {
+            do {
+                outcome = try await executeSettingsRequest(
+                    request,
+                    responseHandling: action.plan.responseHandling
+                )
+            } catch let error as APITransportError where error.isOffline {
+                if let offlineFallbackMutation = action.plan.offlineFallbackMutation {
+                    try await appendNativeMutation(offlineFallbackMutation)
+                    try await applyNativeMutation(offlineFallbackMutation, savedAt: offlineFallbackMutation.createdAt)
+                    return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .queued)
+                }
+                throw error
+            }
+        }
+        if let sessionOperation = action.plan.sessionOperation {
+            try await performSettingsSessionOperation(sessionOperation)
+        }
+        return SpoonjoyIntentSettingsActionExecution(outcome: outcome, status: .completed)
+    }
+
     private func applyNativeMutation(_ mutation: NativeQueuedMutation, savedAt: String) async throws {
         switch mutation.queueableKind {
         case .shoppingAddItem, .shoppingCheckItem, .shoppingDeleteItem, .shoppingAddFromRecipe, .shoppingClearCompleted, .shoppingClearAll:
@@ -1193,9 +1749,87 @@ private struct SpoonjoyIntentStateWriter {
             var snapshot = try await loadSnapshot(savedAt: savedAt)
             snapshot = snapshot.recordingCaptureImportRetry(mutation, savedAt: savedAt)
             try store.save(snapshot)
+        case .profileDisplayUpdate, .profilePhotoUpload, .profilePhotoRemove:
+            try await applySettingsMutation(mutation, savedAt: savedAt)
         default:
             break
         }
+    }
+
+    private func applySettingsMutation(_ mutation: NativeQueuedMutation, savedAt: String) async throws {
+        switch mutation.queueableKind {
+        case .profileDisplayUpdate:
+            guard let values = mutation.profileDisplayUpdateValues else {
+                return
+            }
+            try await updateCachedSettingsAccount(savedAt: savedAt) { account in
+                SettingsAccountProfile(
+                    id: account.id,
+                    email: values.email,
+                    username: values.username,
+                    photoURL: account.photoURL,
+                    hasPassword: account.hasPassword,
+                    linkedProviders: account.linkedProviders,
+                    passkeys: account.passkeys
+                )
+            }
+        case .profilePhotoRemove:
+            try await updateCachedSettingsAccount(savedAt: savedAt) { account in
+                SettingsAccountProfile(
+                    id: account.id,
+                    email: account.email,
+                    username: account.username,
+                    photoURL: nil,
+                    hasPassword: account.hasPassword,
+                    linkedProviders: account.linkedProviders,
+                    passkeys: account.passkeys
+                )
+            }
+        case .profilePhotoUpload:
+            return
+        default:
+            return
+        }
+    }
+
+    private func updateCachedSettingsAccount(
+        savedAt: String,
+        transform: (SettingsAccountProfile) -> SettingsAccountProfile
+    ) async throws {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let fallback = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            createdAt: Date(),
+            records: [],
+            dismissedIndicators: []
+        )
+        let cacheRecord = try cacheStore.loadOrRecover(fallback: fallback)
+        let snapshot = cacheRecord.value
+        let records = try snapshot.records.map { record in
+            guard record.metadata.domain == .settings,
+                  case .settings(let account) = record.payload else {
+                return record
+            }
+            let metadata = NativeCacheRecordMetadata(
+                accountID: record.metadata.accountID,
+                environment: record.metadata.environment,
+                schemaVersion: record.metadata.schemaVersion,
+                domain: record.metadata.domain,
+                fetchedAt: record.metadata.fetchedAt,
+                lastValidatedAt: record.metadata.lastValidatedAt,
+                sourceEndpoint: record.metadata.sourceEndpoint,
+                serverRevision: .localRevision(savedAt)
+            )
+            return try NativeCacheRecord(
+                id: record.id,
+                metadata: metadata,
+                payload: .settings(account: transform(account))
+            )
+        }
+        try cacheStore.save(try snapshot.copy(records: records))
     }
 
     private func applyShoppingMutation(
@@ -1221,6 +1855,101 @@ private struct SpoonjoyIntentStateWriter {
             savedAt: savedAt
         )
         try store.save(snapshot)
+    }
+
+    private func executeSettingsRequest(
+        _ request: APIRequestBuilder,
+        responseHandling: SettingsActionResponseHandling
+    ) async throws -> SettingsActionOutcome? {
+        guard let authVault else {
+            throw NativeIntentActionError.authRequired
+        }
+        let refresher = SpoonjoyIntentAPIRefresher(vault: authVault)
+        let configuration = try await refresher.validConfiguration()
+        let transport = URLSessionAPITransport(authenticationRefresher: refresher)
+
+        switch responseHandling {
+        case .refreshOnly:
+            _ = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            return nil
+        case .captureCreatedAPIToken:
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: SettingsCreatedAPIToken.self
+            )
+            return .createdAPIToken(envelope.data)
+        }
+    }
+
+    private func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
+        guard let authVault else {
+            throw NativeIntentActionError.authRequired
+        }
+        switch operation {
+        case .logout:
+            try await authVault.clearSession()
+            try await authVault.clearClientID()
+        case .revokeAndLogout:
+            if let session = try await authVault.loadSession() {
+                try await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
+            }
+            try await authVault.clearSession()
+            try await authVault.clearClientID()
+        }
+    }
+
+    private func executeOAuthRequest(_ requestBuilder: APIRequestBuilder) async throws {
+        let apiRequest = try requestBuilder.urlRequest(configuration: APIClientConfiguration.spoonjoyProduction)
+        guard var components = URLComponents(url: apiRequest.url.baseURL, resolvingAgainstBaseURL: false) else {
+            throw spoonjoyIntentInvalidRequestURL()
+        }
+        components.path = apiRequest.url.path
+        components.queryItems = apiRequest.queryItems.isEmpty ? nil : apiRequest.queryItems
+        guard let url = components.url else {
+            throw spoonjoyIntentInvalidRequestURL()
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = apiRequest.method.rawValue
+        urlRequest.httpBody = apiRequest.body
+        for (name, value) in apiRequest.headers {
+            urlRequest.setValue(value, forHTTPHeaderField: name)
+        }
+
+        let (_, response) = try await URLSession.shared.data(for: urlRequest)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APITransportError(
+                kind: .nonHTTPResponse,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        }
+        guard 200...299 ~= httpResponse.statusCode else {
+            throw APITransportError(
+                kind: .apiError,
+                requestID: nil,
+                statusCode: httpResponse.statusCode,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        }
+    }
+
+    private func currentNativeMutationQueue() async throws -> NativeMutationQueue {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        if syncSnapshot.accountID == scope.accountID,
+           syncSnapshot.environment == scope.environment {
+            return try await syncStore.loadQueue()
+        }
+        return NativeMutationQueue()
     }
 
     private func appendNativeMutation(_ mutation: NativeQueuedMutation) async throws {

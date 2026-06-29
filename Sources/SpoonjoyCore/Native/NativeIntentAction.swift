@@ -26,6 +26,10 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case unresolvedSpoonEntity
     case unresolvedCaptureDraftEntity
     case unresolvedChefProfileEntity
+    case unresolvedAPITokenEntity
+    case unresolvedAccountConnectionEntity
+    case settingsProfilePhotoRejected(String)
+    case settingsActionUnavailable(String)
     case shareUnavailable(AppRoute)
 
     public var description: String {
@@ -80,6 +84,14 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Choose a Spoonjoy capture draft before running this Siri action."
         case .unresolvedChefProfileEntity:
             "Choose a Spoonjoy chef profile before running this Siri action."
+        case .unresolvedAPITokenEntity:
+            "Choose a Spoonjoy API token before running this Siri action."
+        case .unresolvedAccountConnectionEntity:
+            "Choose a Spoonjoy account connection before running this Siri action."
+        case .settingsProfilePhotoRejected(let reason):
+            "Spoonjoy could not use that profile photo: \(reason)."
+        case .settingsActionUnavailable(let reason):
+            reason
         case .shareUnavailable(let route):
             "Spoonjoy cannot create a native share value for \(route.stateIdentifier)."
         }
@@ -90,6 +102,7 @@ public enum NativeIntentAction: Equatable {
     case openRoute(AppRoute, url: URL)
     case addShoppingListItem(QueuedMutation, route: AppRoute, url: URL)
     case nativeMutation(NativeQueuedMutation, route: AppRoute, url: URL)
+    case settingsAction(SettingsActionPlan, route: AppRoute, url: URL)
     case shoppingMutation(NativeQueuedMutation, route: AppRoute, url: URL)
     case captureDraft(CaptureDraft, route: AppRoute, url: URL)
     case captureDraftDiscard(NativeQueuedMutation, draftID: String, draftImportSource: NativeMutationSource?, route: AppRoute, url: URL)
@@ -99,6 +112,7 @@ public enum NativeIntentAction: Equatable {
         case .openRoute(let route, _),
              .addShoppingListItem(_, let route, _),
              .nativeMutation(_, let route, _),
+             .settingsAction(_, let route, _),
              .shoppingMutation(_, let route, _),
              .captureDraft(_, let route, _),
              .captureDraftDiscard(_, _, _, let route, _):
@@ -111,6 +125,7 @@ public enum NativeIntentAction: Equatable {
         case .openRoute(_, let url),
              .addShoppingListItem(_, _, let url),
              .nativeMutation(_, _, let url),
+             .settingsAction(_, _, let url),
              .shoppingMutation(_, _, let url),
              .captureDraft(_, _, let url),
              .captureDraftDiscard(_, _, _, _, let url):
@@ -122,7 +137,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .addShoppingListItem(let mutation, _, _):
             mutation
-        case .openRoute, .nativeMutation, .shoppingMutation, .captureDraft, .captureDraftDiscard:
+        case .openRoute, .nativeMutation, .settingsAction, .shoppingMutation, .captureDraft, .captureDraftDiscard:
             nil
         }
     }
@@ -133,6 +148,8 @@ public enum NativeIntentAction: Equatable {
             try? NativeQueuedMutation.intentMutation(from: mutation)
         case .nativeMutation(let mutation, _, _):
             mutation
+        case .settingsAction:
+            nil
         case .shoppingMutation(let mutation, _, _):
             mutation
         case .captureDraftDiscard(let mutation, _, _, _, _):
@@ -146,7 +163,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .captureDraft(let draft, _, _):
             draft
-        case .openRoute, .addShoppingListItem, .nativeMutation, .shoppingMutation, .captureDraftDiscard:
+        case .openRoute, .addShoppingListItem, .nativeMutation, .settingsAction, .shoppingMutation, .captureDraftDiscard:
             nil
         }
     }
@@ -188,6 +205,130 @@ public struct NativeIntentShareValue: Equatable, Sendable {
     }
 }
 
+public struct APITokenEntityDescriptor: Equatable, Sendable {
+    public let id: String
+    public let credentialID: String
+    public let name: String
+    public let tokenPrefix: String
+    public let scopes: [String]
+    public let subtitle: String
+    public let disambiguationLabel: String
+    public let route: AppRoute
+    public let isPlaceholder: Bool
+
+    public init(
+        id: String,
+        credentialID: String,
+        name: String,
+        tokenPrefix: String,
+        scopes: [String],
+        subtitle: String,
+        disambiguationLabel: String,
+        route: AppRoute = .settings,
+        isPlaceholder: Bool = false
+    ) {
+        self.id = id
+        self.credentialID = credentialID
+        self.name = name
+        self.tokenPrefix = tokenPrefix
+        self.scopes = scopes
+        self.subtitle = subtitle
+        self.disambiguationLabel = disambiguationLabel
+        self.route = route
+        self.isPlaceholder = isPlaceholder
+    }
+
+    public static let placeholder = APITokenEntityDescriptor(
+        id: "api-token-placeholder",
+        credentialID: "",
+        name: "API Token",
+        tokenPrefix: "",
+        scopes: [],
+        subtitle: "Choose an API token",
+        disambiguationLabel: "Spoonjoy settings",
+        isPlaceholder: true
+    )
+}
+
+public struct AccountConnectionEntityDescriptor: Equatable, Sendable {
+    public let id: String
+    public let connectionID: String
+    public let clientName: String
+    public let resource: String?
+    public let scopes: [String]
+    public let subtitle: String
+    public let disambiguationLabel: String
+    public let route: AppRoute
+    public let isPlaceholder: Bool
+
+    public init(
+        id: String,
+        connectionID: String,
+        clientName: String,
+        resource: String?,
+        scopes: [String],
+        subtitle: String,
+        disambiguationLabel: String,
+        route: AppRoute = .settings,
+        isPlaceholder: Bool = false
+    ) {
+        self.id = id
+        self.connectionID = connectionID
+        self.clientName = clientName
+        self.resource = resource
+        self.scopes = scopes
+        self.subtitle = subtitle
+        self.disambiguationLabel = disambiguationLabel
+        self.route = route
+        self.isPlaceholder = isPlaceholder
+    }
+
+    public static let placeholder = AccountConnectionEntityDescriptor(
+        id: "account-connection-placeholder",
+        connectionID: "",
+        clientName: "Connection",
+        resource: nil,
+        scopes: [],
+        subtitle: "Choose a connection",
+        disambiguationLabel: "Spoonjoy settings",
+        isPlaceholder: true
+    )
+}
+
+public struct NativeIntentSettingsAction: Equatable, Sendable {
+    public let plan: SettingsActionPlan
+    public let route: AppRoute
+    public let url: URL
+
+    public init(plan: SettingsActionPlan, route: AppRoute, url: URL) {
+        self.plan = plan
+        self.route = route
+        self.url = url
+    }
+
+    public var onlineOnlyReason: SettingsOnlineOnlyReason? {
+        plan.onlineOnlyReason
+    }
+}
+
+public struct NativeIntentSettingsHandoffPlan: Equatable, Sendable {
+    public let plan: SettingsActionPlan
+    public let route: AppRoute
+    public let url: URL
+    public let secureHandoff: SettingsSecureHandoff
+
+    public init(plan: SettingsActionPlan, route: AppRoute, url: URL, secureHandoff: SettingsSecureHandoff) {
+        self.plan = plan
+        self.route = route
+        self.url = url
+        self.secureHandoff = secureHandoff
+    }
+
+    public var onlineOnlyReason: SettingsOnlineOnlyReason? {
+        plan.onlineOnlyReason
+    }
+}
+
 public struct NativeIntentActionResolver {
     public init() {}
 
@@ -206,6 +347,222 @@ public struct NativeIntentActionResolver {
 
     public func openProfile(profile: ChefProfileEntityDescriptor) throws -> NativeIntentAction {
         try openRoute(profileRoute(profile))
+    }
+
+    public func openSettings() -> NativeIntentAction {
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        return .openRoute(target.route, url: target.url)
+    }
+
+    public func updateProfileDisplay(
+        email: String,
+        username: String,
+        connectivity: SettingsSurfaceConnectivity,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let mutationID = "intent-settings-profile-display-\(stableToken(email))-\(stableToken(username))-\(stableToken(createdAt))"
+        let planner = SettingsActionPlanner(connectivity: connectivity, secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp, now: { createdAt })
+        let plan = try planner.plan(.updateProfile(email: email, username: username, clientMutationID: mutationID))
+        _ = try settingsMutation(from: plan, expectedKind: .profileDisplayUpdate)
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        return .settingsAction(plan, route: target.route, url: target.url)
+    }
+
+    public func updateProfilePhoto(
+        photo: NativeStagedMediaUpload,
+        connectivity: SettingsSurfaceConnectivity,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let stagedPhoto = photo
+        let stagedResult = SettingsProfilePhotoStagingPolicy.webProfileParity.stageReplacement(
+            existing: nil,
+            candidate: stagedPhoto
+        )
+        if let rejection = stagedResult.rejection {
+            throw NativeIntentActionError.settingsProfilePhotoRejected("\(rejection)")
+        }
+        guard let stagedPhoto = stagedResult.stagedPhoto else {
+            throw NativeIntentActionError.settingsProfilePhotoRejected("no staged image was available")
+        }
+        let mutationID = "intent-settings-profile-photo-\(stableToken(stagedPhoto.localStageID))-\(stableToken(createdAt))"
+        let planner = SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp,
+            now: { createdAt }
+        )
+        let plan = try planner.plan(.uploadProfilePhoto(photo: stagedPhoto, clientMutationID: mutationID))
+        _ = try settingsMutation(from: plan, expectedKind: .profilePhotoUpload)
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        return .settingsAction(plan, route: target.route, url: target.url)
+    }
+
+    public func removeProfilePhoto(
+        connectivity: SettingsSurfaceConnectivity,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let mutationID = "intent-settings-profile-photo-remove-\(stableToken(createdAt))"
+        let planner = SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp,
+            now: { createdAt }
+        )
+        let plan = try planner.plan(.removeProfilePhoto(clientMutationID: mutationID))
+        _ = try settingsMutation(from: plan, expectedKind: .profilePhotoRemove)
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        return .settingsAction(plan, route: target.route, url: target.url)
+    }
+
+    public func openAPITokens() -> NativeIntentAction {
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        return .openRoute(target.route, url: target.url)
+    }
+
+    public func createAPIToken(
+        name: String,
+        scopes: [String],
+        connectivity: SettingsSurfaceConnectivity
+    ) throws -> NativeIntentSettingsAction {
+        _ = try TokenCredentialRequests.createToken(name: name, scopes: scopes)
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
+        ).plan(.createAPIToken(name: name, scopes: scopes))
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        if plan.onlineOnlyReason != nil {
+            return NativeIntentSettingsAction(
+                plan: plan,
+                route: target.route,
+                url: target.url
+            )
+        }
+        return NativeIntentSettingsAction(
+            plan: SettingsActionPlan(userFacingMessage: "Open Spoonjoy settings to create the API token so the one-time credential is shown in the app."),
+            route: target.route,
+            url: target.url
+        )
+    }
+
+    public func revokeAPIToken(
+        token: APITokenEntityDescriptor,
+        connectivity: SettingsSurfaceConnectivity
+    ) throws -> NativeIntentSettingsAction {
+        let credentialID = try tokenIDForMutation(token)
+        _ = TokenCredentialRequests.revokeToken(credentialID: credentialID)
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
+        ).plan(.revokeAPIToken(credentialID: credentialID))
+        guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.apiTokenRevoke else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected API token revoke plan.")
+        }
+        return NativeIntentSettingsAction(
+            plan: plan,
+            route: .settings,
+            url: DeepLinkURLBuilder.url(for: .settings)
+        )
+    }
+
+    public func openAccountConnections() -> NativeIntentAction {
+        let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
+        return .openRoute(target.route, url: target.url)
+    }
+
+    public func disconnectAccountConnection(
+        connection: AccountConnectionEntityDescriptor,
+        connectivity: SettingsSurfaceConnectivity
+    ) throws -> NativeIntentSettingsAction {
+        let connectionID = try accountConnectionIDForMutation(connection)
+        _ = PrivateAccountRequests.disconnectConnection(connectionID: connectionID)
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
+        ).plan(.disconnectOAuthConnection(connectionID: connectionID))
+        guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.oauthConnectionDisconnect else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected account connection disconnect plan.")
+        }
+        return NativeIntentSettingsAction(
+            plan: plan,
+            route: .settings,
+            url: DeepLinkURLBuilder.url(for: .settings)
+        )
+    }
+
+    public func openPasskeys(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsHandoffPlan {
+        let secureHandoffRoutes = SettingsSecureHandoffRoutes.spoonjoyApp
+        let expectedURL = "https://spoonjoy.app/account/settings#passkeys"
+        let handoff = secureHandoffRoutes.handoff(target: .passkeys)
+        guard handoff.url.absoluteString == expectedURL else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected passkey handoff route.")
+        }
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: secureHandoffRoutes
+        ).plan(.managePasskeys)
+        return try settingsHandoffPlan(plan, fallbackHandoff: handoff)
+    }
+
+    public func openPassword(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsHandoffPlan {
+        let secureHandoffRoutes = SettingsSecureHandoffRoutes.spoonjoyApp
+        let expectedURL = "https://spoonjoy.app/account/settings#password"
+        let handoff = secureHandoffRoutes.handoff(target: .password)
+        guard handoff.url.absoluteString == expectedURL else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected password handoff route.")
+        }
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: secureHandoffRoutes
+        ).plan(.managePassword)
+        return try settingsHandoffPlan(plan, fallbackHandoff: handoff)
+    }
+
+    public func linkProvider(
+        provider: SettingsAuthProvider,
+        connectivity: SettingsSurfaceConnectivity
+    ) throws -> NativeIntentSettingsHandoffPlan {
+        let secureHandoffRoutes = SettingsSecureHandoffRoutes.spoonjoyApp
+        let expectedURLPrefix = "https://spoonjoy.app/auth/"
+        let handoff = secureHandoffRoutes.handoff(target: .providerLink(provider))
+        guard handoff.url.absoluteString.hasPrefix(expectedURLPrefix) else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected provider handoff route.")
+        }
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: secureHandoffRoutes
+        ).plan(.linkProvider(provider))
+        return try settingsHandoffPlan(plan, fallbackHandoff: handoff)
+    }
+
+    public func logout(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsAction {
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
+        ).plan(.logout)
+        guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.logout else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected logout plan.")
+        }
+        guard plan.sessionOperation != nil || plan.onlineOnlyReason != nil else {
+            throw NativeIntentActionError.settingsActionUnavailable("Logout plan is missing its sessionOperation.")
+        }
+        return NativeIntentSettingsAction(
+            plan: plan,
+            route: .settings,
+            url: plan.secureHandoff?.url ?? DeepLinkURLBuilder.url(for: .settings)
+        )
+    }
+
+    public func revokeCurrentSession(connectivity: SettingsSurfaceConnectivity) throws -> NativeIntentSettingsAction {
+        let plan = try SettingsActionPlanner(
+            connectivity: connectivity,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes.spoonjoyApp
+        ).plan(.revokeSession)
+        guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.sessionRevoke else {
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected session revoke plan.")
+        }
+        return NativeIntentSettingsAction(
+            plan: plan,
+            route: .settings,
+            url: DeepLinkURLBuilder.url(for: .settings)
+        )
     }
 
     public func searchSpoonjoy(query: String, scope: SearchScope) -> NativeIntentAction {
@@ -817,6 +1174,51 @@ public struct NativeIntentActionResolver {
             throw NativeIntentActionError.unresolvedCaptureDraftEntity
         }
         return captureDraft
+    }
+
+    private func settingsMutation(
+        from plan: SettingsActionPlan,
+        expectedKind: NativeQueuedMutationKind
+    ) throws -> NativeQueuedMutation {
+        guard let mutation = plan.queuedMutation ?? plan.offlineFallbackMutation,
+              mutation.queueableKind == expectedKind else {
+            throw NativeIntentActionError.settingsActionUnavailable("Settings action did not produce \(expectedKind.rawValue).")
+        }
+        return mutation
+    }
+
+    private func settingsHandoffPlan(
+        _ plan: SettingsActionPlan,
+        fallbackHandoff: SettingsSecureHandoff
+    ) throws -> NativeIntentSettingsHandoffPlan {
+        NativeIntentSettingsHandoffPlan(
+            plan: plan,
+            route: .settings,
+            url: DeepLinkURLBuilder.url(for: .settings),
+            secureHandoff: plan.secureHandoff ?? fallbackHandoff
+        )
+    }
+
+    private func tokenIDForMutation(_ token: APITokenEntityDescriptor) throws -> String {
+        guard !token.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedAPITokenEntity
+        }
+        let credentialID = try canonicalObjectID(token.credentialID, invalidError: .unresolvedAPITokenEntity)
+        guard token.route == .settings else {
+            throw NativeIntentActionError.unresolvedAPITokenEntity
+        }
+        return credentialID
+    }
+
+    private func accountConnectionIDForMutation(_ connection: AccountConnectionEntityDescriptor) throws -> String {
+        guard !connection.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedAccountConnectionEntity
+        }
+        let connectionID = try canonicalObjectID(connection.connectionID, invalidError: .unresolvedAccountConnectionEntity)
+        guard connection.route == .settings else {
+            throw NativeIntentActionError.unresolvedAccountConnectionEntity
+        }
+        return connectionID
     }
 
     private func canonicalRecipeID(_ recipeID: String) throws -> String {
