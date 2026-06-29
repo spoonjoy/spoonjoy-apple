@@ -4196,6 +4196,7 @@ if domain == "notification-intents"
       "NativeIntentActionResolver().openNotificationAPNsStatus(",
       "SpoonjoyIntentStateWriter",
       "notificationAPNsSurfaceData()",
+      "notificationAPNsHasCachedPreferences()",
       "notificationAPNsConnectivity()",
       "performNotificationAPNsActionStatus",
       "SpoonjoyIntentClock.timestamp()",
@@ -4314,8 +4315,12 @@ if domain == "notification-intents"
       pattern: /\bstruct\s+ReadNotificationPreferencesIntent\s*:\s*AppIntent\b/,
       required: [
         "ReturnsValue<String>",
-        "let data = try await SpoonjoyIntentStateWriter().notificationAPNsSurfaceData()",
+        "let stateWriter = try SpoonjoyIntentStateWriter()",
+        "let connectivity = try await stateWriter.notificationAPNsConnectivity()",
+        "let data = try await stateWriter.notificationAPNsSurfaceData()",
         "NativeIntentActionResolver().readNotificationPreferences(",
+        "hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences()",
+        "connectivity: connectivity",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
         "return .result(value: summary.value"
       ],
@@ -4340,10 +4345,24 @@ if domain == "notification-intents"
         "@Parameter(title: \"Forks\")",
         "@Parameter(title: \"Cookbook Saves\")",
         "@Parameter(title: \"Fellow-Chef Cooks\")",
+        "var spoons: Bool?",
+        "var forks: Bool?",
+        "var cookbookSaves: Bool?",
+        "var fellowChefCooks: Bool?",
         "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "let stateWriter = try SpoonjoyIntentStateWriter()",
+        "let connectivity = try await stateWriter.notificationAPNsConnectivity()",
+        "let data = try await stateWriter.notificationAPNsSurfaceData()",
+        "let requiresCurrentPreferences = spoons == nil || forks == nil || cookbookSaves == nil || fellowChefCooks == nil",
+        "hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences()",
         "SettingsNotificationPreferences(",
+        "spoons ?? data.preferences.notifySpoonOnMyRecipe",
+        "forks ?? data.preferences.notifyForkOfMyRecipe",
+        "cookbookSaves ?? data.preferences.notifyCookbookSaveOfMine",
+        "fellowChefCooks ?? data.preferences.notifyFellowChefOriginCook",
         "NativeIntentActionResolver().updateNotificationPreferences(",
-        "connectivity: try await SpoonjoyIntentStateWriter().notificationAPNsConnectivity()",
+        "connectivity: connectivity",
+        "deliveryCapability: data.deliveryCapability",
         "performNotificationAPNsActionStatus(action, savedAt: createdAt)",
         "status.dialogMessage(completed: \"Updated notification preferences in Spoonjoy.\"",
         "queued: \"Queued notification preference update in Spoonjoy.\"",
@@ -4362,7 +4381,11 @@ if domain == "notification-intents"
         "requestDeviceRegistrationAction",
         "registrationAction(",
         "var deviceToken",
-        "@Parameter(title: \"Device Token\")"
+        "@Parameter(title: \"Device Token\")",
+        "spoons = true",
+        "forks = true",
+        "cookbookSaves = true",
+        "fellowChefCooks = true"
       ]
     },
     "OpenNotificationAPNsStatusIntent" => {
@@ -4395,6 +4418,7 @@ if domain == "notification-intents"
       pattern: /\bprivate\s+struct\s+SpoonjoyIntentStateWriter\b/,
       required: [
         "func notificationAPNsSurfaceData() async throws -> NotificationAPNsSurfaceData",
+        "func notificationAPNsHasCachedPreferences() async throws -> Bool",
         "func notificationAPNsConnectivity() async throws -> NotificationAPNsSurfaceConnectivity",
         "func performNotificationAPNsActionStatus(_ action: NativeIntentNotificationAction, savedAt: String) async throws -> SpoonjoyIntentSettingsActionStatus",
         "executeNotificationAPNsAction(action)",
@@ -4427,6 +4451,8 @@ if domain == "notification-intents"
       required: [
         "SettingsNotificationPreferences",
         "NativeIntentNotificationPreferencesSummary",
+        "hasCachedPreferences",
+        "settingsActionUnavailable",
         "notifySpoonOnMyRecipe",
         "notifyForkOfMyRecipe",
         "notifyCookbookSaveOfMine",
@@ -4434,7 +4460,24 @@ if domain == "notification-intents"
       ],
       forbidden: [
         "NativeQueuedMutation",
-        "APIRequestBuilder"
+        "APIRequestBuilder",
+        "try!"
+      ]
+    },
+    "partial updateNotificationPreferences resolver" => {
+      pattern: /\bpublic\s+func\s+updateNotificationPreferences\(\s*currentPreferences:/,
+      required: [
+        "spoons ?? currentPreferences.notifySpoonOnMyRecipe",
+        "forks ?? currentPreferences.notifyForkOfMyRecipe",
+        "cookbookSaves ?? currentPreferences.notifyCookbookSaveOfMine",
+        "fellowChefCooks ?? currentPreferences.notifyFellowChefOriginCook",
+        "return try updateNotificationPreferences("
+      ],
+      forbidden: [
+        "spoons ?? true",
+        "forks ?? true",
+        "cookbookSaves ?? true",
+        "fellowChefCooks ?? true"
       ]
     },
     "updateNotificationPreferences resolver" => {

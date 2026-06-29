@@ -39,6 +39,7 @@ struct NotificationIntentTests {
                     "NativeIntentActionResolver().openNotificationAPNsStatus(",
                     "SpoonjoyIntentStateWriter",
                     "notificationAPNsSurfaceData()",
+                    "notificationAPNsHasCachedPreferences()",
                     "notificationAPNsConnectivity()",
                     "performNotificationAPNsActionStatus",
                     "SpoonjoyIntentClock.timestamp()",
@@ -167,8 +168,12 @@ struct NotificationIntentTests {
                     pattern: #"struct\s+ReadNotificationPreferencesIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
                         "ReturnsValue<String>",
-                        "let data = try await SpoonjoyIntentStateWriter().notificationAPNsSurfaceData()",
+                        "let stateWriter = try SpoonjoyIntentStateWriter()",
+                        "let connectivity = try await stateWriter.notificationAPNsConnectivity()",
+                        "let data = try await stateWriter.notificationAPNsSurfaceData()",
                         "NativeIntentActionResolver().readNotificationPreferences(",
+                        "hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences()",
+                        "connectivity: connectivity",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
                         "return .result(value: summary.value"
                     ],
@@ -195,10 +200,24 @@ struct NotificationIntentTests {
                         "@Parameter(title: \"Forks\")",
                         "@Parameter(title: \"Cookbook Saves\")",
                         "@Parameter(title: \"Fellow-Chef Cooks\")",
+                        "var spoons: Bool?",
+                        "var forks: Bool?",
+                        "var cookbookSaves: Bool?",
+                        "var fellowChefCooks: Bool?",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
+                        "let stateWriter = try SpoonjoyIntentStateWriter()",
+                        "let connectivity = try await stateWriter.notificationAPNsConnectivity()",
+                        "let data = try await stateWriter.notificationAPNsSurfaceData()",
+                        "let requiresCurrentPreferences = spoons == nil || forks == nil || cookbookSaves == nil || fellowChefCooks == nil",
+                        "hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences()",
                         "SettingsNotificationPreferences(",
+                        "spoons ?? data.preferences.notifySpoonOnMyRecipe",
+                        "forks ?? data.preferences.notifyForkOfMyRecipe",
+                        "cookbookSaves ?? data.preferences.notifyCookbookSaveOfMine",
+                        "fellowChefCooks ?? data.preferences.notifyFellowChefOriginCook",
                         "NativeIntentActionResolver().updateNotificationPreferences(",
-                        "connectivity: try await SpoonjoyIntentStateWriter().notificationAPNsConnectivity()",
+                        "connectivity: connectivity",
+                        "deliveryCapability: data.deliveryCapability",
                         "performNotificationAPNsActionStatus(action, savedAt: createdAt)",
                         "status.dialogMessage(completed: \"Updated notification preferences in Spoonjoy.\"",
                         "queued: \"Queued notification preference update in Spoonjoy.\"",
@@ -217,7 +236,11 @@ struct NotificationIntentTests {
                         "requestDeviceRegistrationAction",
                         "registrationAction(",
                         "var deviceToken",
-                        "@Parameter(title: \"Device Token\")"
+                        "@Parameter(title: \"Device Token\")",
+                        "spoons = true",
+                        "forks = true",
+                        "cookbookSaves = true",
+                        "fellowChefCooks = true"
                     ]
                 ),
                 (
@@ -254,6 +277,7 @@ struct NotificationIntentTests {
                     pattern: #"private\s+struct\s+SpoonjoyIntentStateWriter"#,
                     requiredTokens: [
                         "func notificationAPNsSurfaceData() async throws -> NotificationAPNsSurfaceData",
+                        "func notificationAPNsHasCachedPreferences() async throws -> Bool",
                         "func notificationAPNsConnectivity() async throws -> NotificationAPNsSurfaceConnectivity",
                         "func performNotificationAPNsActionStatus(_ action: NativeIntentNotificationAction, savedAt: String) async throws -> SpoonjoyIntentSettingsActionStatus",
                         "executeNotificationAPNsAction(action)",
@@ -286,6 +310,8 @@ struct NotificationIntentTests {
                     requiredTokens: [
                         "SettingsNotificationPreferences",
                         "NativeIntentNotificationPreferencesSummary",
+                        "hasCachedPreferences",
+                        "settingsActionUnavailable",
                         "notifySpoonOnMyRecipe",
                         "notifyForkOfMyRecipe",
                         "notifyCookbookSaveOfMine",
@@ -293,7 +319,26 @@ struct NotificationIntentTests {
                     ],
                     forbiddenTokens: [
                         "NativeQueuedMutation",
-                        "APIRequestBuilder"
+                        "APIRequestBuilder",
+                        "try!"
+                    ]
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
+                    label: "partial updateNotificationPreferences resolver",
+                    pattern: #"public\s+func\s+updateNotificationPreferences\(\s*currentPreferences:"#,
+                    requiredTokens: [
+                        "spoons ?? currentPreferences.notifySpoonOnMyRecipe",
+                        "forks ?? currentPreferences.notifyForkOfMyRecipe",
+                        "cookbookSaves ?? currentPreferences.notifyCookbookSaveOfMine",
+                        "fellowChefCooks ?? currentPreferences.notifyFellowChefOriginCook",
+                        "return try updateNotificationPreferences("
+                    ],
+                    forbiddenTokens: [
+                        "spoons ?? true",
+                        "forks ?? true",
+                        "cookbookSaves ?? true",
+                        "fellowChefCooks ?? true"
                     ]
                 ),
                 (
@@ -422,6 +467,60 @@ struct NotificationIntentTests {
             ]
         )
         #expect(developmentRegister.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister)
+    }
+
+    @Test("notification resolver rejects unavailable offline preference reads")
+    func notificationResolverRejectsUnavailableOfflinePreferenceReads() throws {
+        let resolver = NativeIntentActionResolver()
+        let data = NotificationAPNsSurfaceData(
+            preferences: .disabled,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            source: .cache(serverRevision: nil, lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000))
+        )
+
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable offline until Spoonjoy has cached them.")) {
+            try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .offline)
+        }
+
+        let liveData = NotificationAPNsSurfaceData(
+            preferences: .disabled,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            deliveryCapability: .developmentOnly(blocker: .localValidation),
+            source: .live(requestID: "req_notifications", validatedAt: Date(timeIntervalSince1970: 1_782_899_000))
+        )
+        let summary = try resolver.readNotificationPreferences(data: liveData, hasCachedPreferences: false, connectivity: .online)
+        #expect(summary.preferences == .disabled)
+    }
+
+    @Test("notification resolver merges partial Siri updates with current preferences")
+    func notificationResolverMergesPartialSiriUpdatesWithCurrentPreferences() throws {
+        let resolver = NativeIntentActionResolver()
+        let current = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: false,
+            notifyFellowChefOriginCook: true
+        )
+
+        let action = try resolver.updateNotificationPreferences(
+            currentPreferences: current,
+            spoons: nil,
+            forks: true,
+            cookbookSaves: nil,
+            fellowChefCooks: nil,
+            connectivity: .offline,
+            createdAt: "2026-06-29T14:02:00.000Z"
+        )
+        let mutation = try #require(action.plan.queuedMutation)
+        #expect(mutation.notificationPreferenceUpdateValues == SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: true,
+            notifyCookbookSaveOfMine: false,
+            notifyFellowChefOriginCook: true
+        ))
     }
 }
 

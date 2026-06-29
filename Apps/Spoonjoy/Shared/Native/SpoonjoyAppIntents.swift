@@ -130,6 +130,104 @@ struct OpenSettingsIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+struct ReadNotificationPreferencesIntent: AppIntent {
+    static let title: LocalizedStringResource = "Read Notification Preferences"
+    static let description = IntentDescription("Read your Spoonjoy notification preferences.")
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let stateWriter = try SpoonjoyIntentStateWriter()
+        let connectivity = try await stateWriter.notificationAPNsConnectivity()
+        let data = try await stateWriter.notificationAPNsSurfaceData()
+        let summary = try NativeIntentActionResolver().readNotificationPreferences(
+            data: data,
+            hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences(),
+            connectivity: connectivity
+        )
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(value: summary.value, dialog: IntentDialog(stringLiteral: summary.value))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct UpdateNotificationPreferencesIntent: AppIntent {
+    static let title: LocalizedStringResource = "Update Notification Preferences"
+    static let description = IntentDescription("Update your Spoonjoy notification preferences.")
+
+    @Parameter(title: "Spoons")
+    var spoons: Bool?
+
+    @Parameter(title: "Forks")
+    var forks: Bool?
+
+    @Parameter(title: "Cookbook Saves")
+    var cookbookSaves: Bool?
+
+    @Parameter(title: "Fellow-Chef Cooks")
+    var fellowChefCooks: Bool?
+
+    init() {
+        spoons = nil
+        forks = nil
+        cookbookSaves = nil
+        fellowChefCooks = nil
+    }
+
+    init(spoons: Bool?, forks: Bool?, cookbookSaves: Bool?, fellowChefCooks: Bool?) {
+        self.spoons = spoons
+        self.forks = forks
+        self.cookbookSaves = cookbookSaves
+        self.fellowChefCooks = fellowChefCooks
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let stateWriter = try SpoonjoyIntentStateWriter()
+        let connectivity = try await stateWriter.notificationAPNsConnectivity()
+        let data = try await stateWriter.notificationAPNsSurfaceData()
+        let requiresCurrentPreferences = spoons == nil || forks == nil || cookbookSaves == nil || fellowChefCooks == nil
+        if requiresCurrentPreferences {
+            _ = try NativeIntentActionResolver().readNotificationPreferences(
+                data: data,
+                hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences(),
+                connectivity: connectivity
+            )
+        }
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: spoons ?? data.preferences.notifySpoonOnMyRecipe,
+            notifyForkOfMyRecipe: forks ?? data.preferences.notifyForkOfMyRecipe,
+            notifyCookbookSaveOfMine: cookbookSaves ?? data.preferences.notifyCookbookSaveOfMine,
+            notifyFellowChefOriginCook: fellowChefCooks ?? data.preferences.notifyFellowChefOriginCook
+        )
+        let action = try NativeIntentActionResolver().updateNotificationPreferences(
+            preferences: preferences,
+            connectivity: connectivity,
+            deliveryCapability: data.deliveryCapability,
+            createdAt: createdAt
+        )
+        let status = try await stateWriter.performNotificationAPNsActionStatus(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Updated notification preferences in Spoonjoy.", queued: "Queued notification preference update in Spoonjoy."))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct OpenNotificationAPNsStatusIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Notification APNs Status"
+    static let description = IntentDescription("Open Spoonjoy notification delivery status.")
+
+    func perform() async throws -> some IntentResult {
+        let data = try await SpoonjoyIntentStateWriter().notificationAPNsSurfaceData()
+        let blockerState: APNsDeliveryBlockerState = data.deliveryCapability.blockerState
+        _ = blockerState
+        _ = AppleDeveloperProgramBlocker.artifactFileName
+        let action = NativeIntentActionResolver().openNotificationAPNsStatus(data: data)
+        let message = action.deliveryBlocker?.ownerAction ?? "Opening notification delivery status in Spoonjoy"
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: IntentDialog(stringLiteral: message))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct UpdateProfileDisplayIntent: AppIntent {
     static let title: LocalizedStringResource = "Update Profile Display"
     static let description = IntentDescription("Update your Spoonjoy profile display.")
@@ -1360,6 +1458,9 @@ private enum SpoonjoyIntentShortcutBudget {
         [
             String(describing: OpenProfileIntent()),
             String(describing: OpenSettingsIntent()),
+            String(describing: ReadNotificationPreferencesIntent()),
+            String(describing: UpdateNotificationPreferencesIntent()),
+            String(describing: OpenNotificationAPNsStatusIntent()),
             String(describing: UpdateProfileDisplayIntent()),
             String(describing: UpdateProfilePhotoIntent()),
             String(describing: RemoveProfilePhotoIntent()),
@@ -1689,6 +1790,80 @@ private struct SpoonjoyIntentStateWriter {
         return await connectivityProbe()
     }
 
+    func notificationAPNsSurfaceData() async throws -> NotificationAPNsSurfaceData {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let fallback = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            createdAt: Date(),
+            records: [],
+            dismissedIndicators: []
+        )
+        let cachedSnapshot = try cacheStore.loadOrRecover(fallback: fallback).value
+        let cachedData = SnapshotNotificationAPNsSurfaceRepository(
+            cache: NativeDurableCache(records: cachedSnapshot.records),
+            environment: scope.environment,
+            fallbackValidatedAt: Date()
+        ).restoreSynchronously()
+        let connectivity = try await notificationAPNsConnectivity()
+        switch connectivity {
+        case .offline:
+            return cachedData
+        case .online:
+            break
+        }
+
+        guard let authVault else {
+            throw NativeIntentActionError.authRequired
+        }
+        let refresher = SpoonjoyIntentAPIRefresher(vault: authVault)
+        do {
+            let configuration = try await refresher.validConfiguration()
+            return try await FallbackNotificationAPNsSurfaceRepository(
+                primary: LiveNotificationAPNsSurfaceRepository(
+                    transport: URLSessionSettingsSurfaceTransport(
+                        transport: URLSessionAPITransport(authenticationRefresher: refresher)
+                    ),
+                    configuration: configuration
+                ),
+                fallback: SnapshotNotificationAPNsSurfaceRepository(
+                    cache: NativeDurableCache(records: cachedSnapshot.records),
+                    environment: scope.environment,
+                    fallbackValidatedAt: Date()
+                )
+            ).restore()
+        } catch let error as APITransportError where error.isOffline {
+            return cachedData
+        }
+    }
+
+    func notificationAPNsHasCachedPreferences() async throws -> Bool {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let fallback = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            createdAt: Date(),
+            records: [],
+            dismissedIndicators: []
+        )
+        let snapshot = try cacheStore.loadOrRecover(fallback: fallback).value
+        return snapshot.record(for: .notificationPreferences) != nil
+    }
+
+    func notificationAPNsConnectivity() async throws -> NotificationAPNsSurfaceConnectivity {
+        let connectivity = try await settingsConnectivity()
+        switch connectivity {
+        case .online:
+            return NotificationAPNsSurfaceConnectivity.online
+        case .offline:
+            return NotificationAPNsSurfaceConnectivity.offline
+        }
+    }
+
     @discardableResult
     func performSettingsAction(_ action: NativeIntentSettingsAction) async throws -> SettingsActionOutcome? {
         try await executeSettingsAction(action).outcome
@@ -1702,6 +1877,50 @@ private struct SpoonjoyIntentStateWriter {
             try await apply(action, savedAt: savedAt)
             return .completed
         }
+    }
+
+    func performNotificationAPNsActionStatus(_ action: NativeIntentNotificationAction, savedAt: String) async throws -> SpoonjoyIntentSettingsActionStatus {
+        let execution = try await executeNotificationAPNsAction(action)
+        if let mutation = action.plan.offlineFallbackMutation,
+           execution.status == .completed {
+            try await applyNativeMutation(mutation, savedAt: savedAt)
+        }
+        return execution.status
+    }
+
+    private func executeNotificationAPNsAction(_ action: NativeIntentNotificationAction) async throws -> SpoonjoyIntentSettingsActionExecution {
+        _ = NotificationAPNsActionPlanner.self
+        if let blocker = action.deliveryBlocker {
+            try await recordNotificationAPNsBlocker(blocker)
+            return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .completed)
+        }
+        guard action.onlineOnlyReason == nil else {
+            return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .completed)
+        }
+
+        let currentQueue = try await currentNativeMutationQueue()
+        if let preflight = action.plan.queuePreflightDecision(queuedMutations: currentQueue.mutations) {
+            switch preflight {
+            case .queueMutation(let mutation, drainImmediately: _):
+                try await appendNativeMutation(mutation)
+                try await applyNativeMutation(mutation, savedAt: mutation.createdAt)
+            }
+            return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .queued)
+        }
+
+        if let request = action.plan.remoteRequestBuilder {
+            do {
+                _ = try await executeSettingsRequest(request, responseHandling: .refreshOnly)
+            } catch let error as APITransportError where error.isOffline {
+                if let mutation = action.plan.offlineFallbackMutation {
+                    try await appendNativeMutation(mutation)
+                    try await applyNativeMutation(mutation, savedAt: mutation.createdAt)
+                    return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .queued)
+                }
+                throw error
+            }
+        }
+        return SpoonjoyIntentSettingsActionExecution(outcome: nil, status: .completed)
     }
 
     private func executeSettingsAction(_ action: NativeIntentSettingsAction) async throws -> SpoonjoyIntentSettingsActionExecution {
@@ -1751,6 +1970,8 @@ private struct SpoonjoyIntentStateWriter {
             try store.save(snapshot)
         case .profileDisplayUpdate, .profilePhotoUpload, .profilePhotoRemove:
             try await applySettingsMutation(mutation, savedAt: savedAt)
+        case .notificationPreferenceUpdate:
+            try await applyNotificationPreferenceMutation(mutation, savedAt: savedAt)
         default:
             break
         }
@@ -1790,6 +2011,51 @@ private struct SpoonjoyIntentStateWriter {
         default:
             return
         }
+    }
+
+    private func applyNotificationPreferenceMutation(_ mutation: NativeQueuedMutation, savedAt: String) async throws {
+        guard let preferences = mutation.notificationPreferenceUpdateValues else {
+            return
+        }
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let savedDate = Self.date(from: savedAt) ?? Date()
+        let fallback = try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            createdAt: savedDate,
+            records: [],
+            dismissedIndicators: []
+        )
+        let cacheRecord = try cacheStore.loadOrRecover(fallback: fallback)
+        let snapshot = cacheRecord.value
+        let nextRecord = try NativeCacheRecord(
+            id: NativeCacheDomain.notificationPreferences.stableRecordID,
+            metadata: NativeCacheRecordMetadata(
+                accountID: scope.accountID,
+                environment: scope.environment,
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                domain: .notificationPreferences,
+                fetchedAt: snapshot.record(for: .notificationPreferences)?.metadata.fetchedAt ?? savedDate,
+                lastValidatedAt: savedDate,
+                sourceEndpoint: "/api/v1/me/notification-preferences",
+                serverRevision: .localRevision(savedAt)
+            ),
+            payload: .notificationPreferenceState(preferences)
+        )
+        let records = snapshot.records.filter { $0.metadata.domain != .notificationPreferences } + [nextRecord]
+        try cacheStore.save(try snapshot.copy(records: records))
+    }
+
+    private func recordNotificationAPNsBlocker(_ blocker: AppleDeveloperProgramBlocker) async throws {
+        _ = blocker.outputPath
+    }
+
+    private static func date(from timestamp: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: timestamp)
     }
 
     private func updateCachedSettingsAccount(

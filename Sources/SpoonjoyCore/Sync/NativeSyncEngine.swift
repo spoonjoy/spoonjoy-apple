@@ -1092,6 +1092,22 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         return (email, username)
     }
 
+    public var notificationPreferenceUpdateValues: SettingsNotificationPreferences? {
+        guard queueableKind == .notificationPreferenceUpdate,
+              let notifySpoonOnMyRecipe = boolValue("notifySpoonOnMyRecipe"),
+              let notifyForkOfMyRecipe = boolValue("notifyForkOfMyRecipe"),
+              let notifyCookbookSaveOfMine = boolValue("notifyCookbookSaveOfMine"),
+              let notifyFellowChefOriginCook = boolValue("notifyFellowChefOriginCook") else {
+            return nil
+        }
+        return SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: notifySpoonOnMyRecipe,
+            notifyForkOfMyRecipe: notifyForkOfMyRecipe,
+            notifyCookbookSaveOfMine: notifyCookbookSaveOfMine,
+            notifyFellowChefOriginCook: notifyFellowChefOriginCook
+        )
+    }
+
     public func blocksDependencyKey(_ dependencyKey: String) -> Bool {
         self.dependencyKey == dependencyKey || dependentDependencyKeysBlockedWithThisMutation.contains(dependencyKey)
     }

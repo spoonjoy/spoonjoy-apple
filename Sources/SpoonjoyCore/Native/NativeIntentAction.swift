@@ -329,6 +329,55 @@ public struct NativeIntentSettingsHandoffPlan: Equatable, Sendable {
     }
 }
 
+public struct NativeIntentNotificationPreferencesSummary: Equatable, Sendable {
+    public let preferences: SettingsNotificationPreferences
+    public let value: String
+
+    public init(preferences: SettingsNotificationPreferences) {
+        self.preferences = preferences
+        value = [
+            "Spoons: \(Self.status(preferences.notifySpoonOnMyRecipe))",
+            "Forks: \(Self.status(preferences.notifyForkOfMyRecipe))",
+            "Cookbook saves: \(Self.status(preferences.notifyCookbookSaveOfMine))",
+            "Fellow-chef cooks: \(Self.status(preferences.notifyFellowChefOriginCook))"
+        ].joined(separator: ", ")
+    }
+
+    private static func status(_ enabled: Bool) -> String {
+        enabled ? "on" : "off"
+    }
+}
+
+public struct NativeIntentNotificationAction: Equatable, Sendable {
+    public let plan: NotificationAPNsActionPlan
+    public let route: AppRoute
+    public let url: URL
+    public let blockerState: APNsDeliveryBlockerState
+    public let blockerArtifactFileName: String
+
+    public init(
+        plan: NotificationAPNsActionPlan,
+        route: AppRoute,
+        url: URL,
+        blockerState: APNsDeliveryBlockerState,
+        blockerArtifactFileName: String
+    ) {
+        self.plan = plan
+        self.route = route
+        self.url = url
+        self.blockerState = blockerState
+        self.blockerArtifactFileName = blockerArtifactFileName
+    }
+
+    public var deliveryBlocker: AppleDeveloperProgramBlocker? {
+        plan.deliveryBlocker
+    }
+
+    public var onlineOnlyReason: NotificationAPNsOnlineOnlyReason? {
+        plan.onlineOnlyReason
+    }
+}
+
 public struct NativeIntentActionResolver {
     private let settingsSecureHandoffRoutes: SettingsSecureHandoffRoutes
     private let settingsPlanBuilder: @Sendable (
@@ -379,6 +428,90 @@ public struct NativeIntentActionResolver {
     public func openSettings() -> NativeIntentAction {
         let target: (route: AppRoute, url: URL) = (route: .settings, url: DeepLinkURLBuilder.url(for: .settings))
         return .openRoute(target.route, url: target.url)
+    }
+
+    public func readNotificationPreferences(
+        data: NotificationAPNsSurfaceData,
+        hasCachedPreferences: Bool,
+        connectivity: NotificationAPNsSurfaceConnectivity
+    ) throws -> NativeIntentNotificationPreferencesSummary {
+        if case .cache = data.source, !hasCachedPreferences {
+            switch connectivity {
+            case .offline:
+                throw NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable offline until Spoonjoy has cached them.")
+            case .online:
+                throw NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable until Spoonjoy refreshes or caches them.")
+            }
+        }
+        let preferences: SettingsNotificationPreferences = data.preferences
+        _ = preferences.notifySpoonOnMyRecipe
+        _ = preferences.notifyForkOfMyRecipe
+        _ = preferences.notifyCookbookSaveOfMine
+        _ = preferences.notifyFellowChefOriginCook
+        return NativeIntentNotificationPreferencesSummary(preferences: preferences)
+    }
+
+    public func updateNotificationPreferences(
+        preferences: SettingsNotificationPreferences,
+        connectivity: NotificationAPNsSurfaceConnectivity,
+        deliveryCapability: APNsDeliveryCapability = .developmentOnly(blocker: .localValidation),
+        createdAt: String
+    ) throws -> NativeIntentNotificationAction {
+        let notificationPreferences: SettingsNotificationPreferences = preferences
+        _ = notificationPreferences
+        let mutationID = "intent-notification-preferences-\(stableToken(createdAt))"
+        let plan = try NotificationAPNsActionPlanner(connectivity: connectivity, deliveryCapability: deliveryCapability, now: { createdAt }).plan(.updatePreferences(preferences, clientMutationID: mutationID))
+        guard plan.queuedMutation?.queueableKind == .notificationPreferenceUpdate ||
+            plan.offlineFallbackMutation?.queueableKind == .notificationPreferenceUpdate else {
+            throw NativeIntentActionError.settingsActionUnavailable("Notification preference update did not produce notificationPreferenceUpdate.")
+        }
+        return NativeIntentNotificationAction(
+            plan: plan,
+            route: .settings,
+            url: DeepLinkURLBuilder.url(for: .settings),
+            blockerState: deliveryCapability.blockerState,
+            blockerArtifactFileName: AppleDeveloperProgramBlocker.artifactFileName
+        )
+    }
+
+    public func updateNotificationPreferences(
+        currentPreferences: SettingsNotificationPreferences,
+        spoons: Bool?,
+        forks: Bool?,
+        cookbookSaves: Bool?,
+        fellowChefCooks: Bool?,
+        connectivity: NotificationAPNsSurfaceConnectivity,
+        deliveryCapability: APNsDeliveryCapability = .developmentOnly(blocker: .localValidation),
+        createdAt: String
+    ) throws -> NativeIntentNotificationAction {
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: spoons ?? currentPreferences.notifySpoonOnMyRecipe,
+            notifyForkOfMyRecipe: forks ?? currentPreferences.notifyForkOfMyRecipe,
+            notifyCookbookSaveOfMine: cookbookSaves ?? currentPreferences.notifyCookbookSaveOfMine,
+            notifyFellowChefOriginCook: fellowChefCooks ?? currentPreferences.notifyFellowChefOriginCook
+        )
+        return try updateNotificationPreferences(
+            preferences: preferences,
+            connectivity: connectivity,
+            deliveryCapability: deliveryCapability,
+            createdAt: createdAt
+        )
+    }
+
+    public func openNotificationAPNsStatus(data: NotificationAPNsSurfaceData) -> NativeIntentNotificationAction {
+        let surfaceData: NotificationAPNsSurfaceData = data
+        let blockerState: APNsDeliveryBlockerState = surfaceData.deliveryCapability.blockerState
+        let plan = NotificationAPNsActionPlan(
+            deliveryBlocker: surfaceData.deliveryCapability.productionBlocker,
+            userFacingMessage: surfaceData.deliveryCapability.productionBlocker?.ownerAction
+        )
+        return NativeIntentNotificationAction(
+            plan: plan,
+            route: .settings,
+            url: DeepLinkURLBuilder.url(for: .settings),
+            blockerState: blockerState,
+            blockerArtifactFileName: AppleDeveloperProgramBlocker.artifactFileName
+        )
     }
 
     public func updateProfileDisplay(

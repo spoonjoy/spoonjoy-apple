@@ -300,6 +300,7 @@ public enum ScenarioVerifier {
                     detail: "CaptureRecipeIntent, SubmitCaptureImportIntent, OpenCaptureDraftIntent, and DiscardCaptureDraftIntent use capture-draft App Entities, confirmations, owner checks, pending import reuse, and the same native offline import queue as the app UI."
                 ),
                 profileSettingsSiriIntentsCheck(metadata: metadata),
+                notificationSiriIntentsCheck(metadata: metadata),
                 ScenarioCheck(
                     name: "deep link metadata",
                     status: deepLinkCheckStatus(metadata),
@@ -1714,6 +1715,52 @@ public enum ScenarioVerifier {
             name: "Profile and settings Siri intents",
             status: scenarioStatus(missing.isEmpty),
             detail: "Profile and settings Siri intents cover UpdateProfileDisplayIntent, UpdateProfilePhotoIntent, CreateAPITokenIntent, RevokeAPITokenIntent, DisconnectAccountConnectionIntent, OpenPasskeysIntent, OpenPasswordIntent, LinkProviderIntent, LogoutIntent, and RevokeCurrentSessionIntent."
+        )
+    }
+
+    static func notificationSiriIntentsCheck(metadata: NativeCapabilityMetadata = .spoonjoy) -> ScenarioCheck {
+        let requiredIntents = [
+            "ReadNotificationPreferencesIntent",
+            "UpdateNotificationPreferencesIntent",
+            "OpenNotificationAPNsStatusIntent"
+        ]
+        let missing = requiredIntents.filter { !metadata.appIntents.contains($0) }
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+        let data = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            deliveryCapability: .developmentOnly(blocker: AppleDeveloperProgramBlocker.localValidation),
+            source: .cache(serverRevision: .localRevision("scenario-notification-intents"), lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000))
+        )
+        let resolver = NativeIntentActionResolver()
+        let readSummary = try? resolver.readNotificationPreferences(
+            data: data,
+            hasCachedPreferences: true,
+            connectivity: .offline
+        )
+        let updateAction = try? resolver.updateNotificationPreferences(
+            preferences: preferences,
+            connectivity: .offline,
+            createdAt: settingsScenarioTimestamp()
+        )
+        let statusAction = resolver.openNotificationAPNsStatus(data: data)
+        let status = scenarioStatus(missing.isEmpty &&
+            readSummary?.preferences == preferences &&
+            updateAction?.plan.queuedMutation?.queueableKind == .notificationPreferenceUpdate &&
+            updateAction?.route == .settings &&
+            statusAction.blockerState == APNsDeliveryBlockerState.developmentOnly(AppleDeveloperProgramBlocker.localValidation) &&
+            statusAction.blockerArtifactFileName == AppleDeveloperProgramBlocker.artifactFileName)
+
+        return ScenarioCheck(
+            name: "Notification Siri intents",
+            status: status,
+            detail: "ReadNotificationPreferencesIntent, UpdateNotificationPreferencesIntent, and OpenNotificationAPNsStatusIntent expose notification preferences and AppleDeveloperProgram APNs blocker status without adding permission, token registration, production push delivery, comments, social, mail, or messaging Siri surfaces."
         )
     }
 
