@@ -1,0 +1,206 @@
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Apple-native capability metadata is complete.",
+      "name" : "native metadata",
+      "status" : "pass"
+    },
+    {
+      "detail" : "AppIntents integration source is present.",
+      "name" : "app intents source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Recipe App Entity and cookbook App Entity integration source is present.",
+      "name" : "recipe App Entity source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Shopping list App Entity and shopping item App Entity integration source is present.",
+      "name" : "shopping list App Entity and shopping item App Entity source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Spoon cook-log App Entity integration source is present.",
+      "name" : "spoon cook-log App Entity source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Capture draft App Entity integration source is present.",
+      "name" : "capture draft App Entity source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Chef profile App Entity integration source is present for existing profiles, fellow chefs, and kitchen visitors.",
+      "name" : "chef profile App Entity source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "CoreSpotlight integration source is present.",
+      "name" : "spotlight source",
+      "status" : "pass"
+    },
+    {
+      "detail" : "AppShortcutsProvider, IntentDonationManager, IndexedEntity, indexAppEntities, and on-screen AppEntity annotations via AppEntityAnnotatable\/appEntityIdentifier are source-verified.",
+      "name" : "Spotlight semantic App Entities",
+      "status" : "pass"
+    },
+    {
+      "detail" : "OpenCookbookIntent, OpenProfileIntent, SearchSpoonjoyIntent, ShareRecipeIntent, ShareCookbookIntent, ShareShoppingListIntent, and ContinueCookModeIntent use App Entities, public share URLs where manifest-classified, and private shopping-list transfer values.",
+      "name" : "Open\/search\/share\/cook Siri intents",
+      "status" : "pass"
+    },
+    {
+      "detail" : "AddShoppingListItemIntent, SetShoppingListItemCheckedIntent, RemoveShoppingListItemIntent, ClearCompletedShoppingItemsIntent, ClearShoppingListIntent, and AddRecipeIngredientsToShoppingListIntent use shopping\/recipe App Entities, destructive confirmations, and the same native offline mutation queue as the app UI.",
+      "name" : "Shopping Siri intents",
+      "status" : "pass"
+    },
+    {
+      "detail" : "ForkRecipeIntent, SaveRecipeToCookbookIntent, RemoveRecipeFromCookbookIntent, DeleteRecipeIntent, and AddRecipeIngredientsToShoppingListIntent use recipe\/cookbook App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI.",
+      "name" : "Recipe action Siri intents",
+      "status" : "pass"
+    },
+    {
+      "detail" : "LogCookIntent, EditCookLogIntent, DeleteCookLogIntent, and CreateCoverFromSpoonIntent use recipe\/spoon App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI.",
+      "name" : "Spoon cook-log Siri intents",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Associated-domain and custom-scheme routes are declared.",
+      "name" : "deep link metadata",
+      "status" : "pass"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 14-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+      "OpenRecipeIntent",
+      "OpenCookbookIntent",
+      "OpenProfileIntent",
+      "SearchSpoonjoyIntent",
+      "ShareRecipeIntent",
+      "ShareCookbookIntent",
+      "ShareShoppingListIntent",
+      "StartCookModeIntent",
+      "ContinueCookModeIntent",
+      "ForkRecipeIntent",
+      "SaveRecipeToCookbookIntent",
+      "RemoveRecipeFromCookbookIntent",
+      "DeleteRecipeIntent",
+      "LogCookIntent",
+      "EditCookLogIntent",
+      "DeleteCookLogIntent",
+      "CreateCoverFromSpoonIntent",
+      "AddShoppingListItemIntent",
+      "SetShoppingListItemCheckedIntent",
+      "RemoveShoppingListItemIntent",
+      "AddRecipeIngredientsToShoppingListIntent",
+      "ClearCompletedShoppingItemsIntent",
+      "ClearShoppingListIntent",
+      "CaptureRecipeIntent",
+      "SpoonjoyAppShortcuts",
+      "SpoonjoyInteractionDonor",
+      "SpoonjoyRecipeEntity",
+      "SpoonjoyCookbookEntity",
+      "SpoonjoyRecipeEntityQuery",
+      "SpoonjoyCookbookEntityQuery",
+      "SpoonjoyShoppingListEntity",
+      "SpoonjoyShoppingItemEntity",
+      "SpoonjoyShoppingListEntityQuery",
+      "SpoonjoyShoppingItemEntityQuery",
+      "SpoonjoySpoonEntity",
+      "SpoonjoySpoonEntityQuery",
+      "SpoonjoyCaptureDraftEntity",
+      "SpoonjoyCaptureDraftEntityQuery",
+      "SpoonjoyChefProfileEntity",
+      "SpoonjoyChefProfileEntityQuery"
+    ],
+    "associatedDomains" : [
+      "applinks:spoonjoy.app"
+    ],
+    "deepLinkRoutes" : [
+      "https:\/\/spoonjoy.app\/",
+      "https:\/\/spoonjoy.app\/recipes",
+      "https:\/\/spoonjoy.app\/recipes\/{id}",
+      "https:\/\/spoonjoy.app\/recipes\/{id}\/edit",
+      "https:\/\/spoonjoy.app\/recipes\/{id}#cook",
+      "https:\/\/spoonjoy.app\/recipes\/{id}?mode=cook",
+      "https:\/\/spoonjoy.app\/cookbooks",
+      "https:\/\/spoonjoy.app\/cookbooks\/{id}",
+      "https:\/\/spoonjoy.app\/users\/{identifier}",
+      "https:\/\/spoonjoy.app\/users\/{identifier}\/fellow-chefs?page={page}",
+      "https:\/\/spoonjoy.app\/users\/{identifier}\/kitchen-visitors?page={page}",
+      "https:\/\/spoonjoy.app\/shopping-list",
+      "https:\/\/spoonjoy.app\/search",
+      "https:\/\/spoonjoy.app\/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+      "https:\/\/spoonjoy.app\/recipes\/new",
+      "https:\/\/spoonjoy.app\/account\/settings",
+      "spoonjoy:\/\/kitchen",
+      "spoonjoy:\/\/recipes",
+      "spoonjoy:\/\/recipes\/{id}",
+      "spoonjoy:\/\/recipes\/{id}\/edit",
+      "spoonjoy:\/\/recipes\/{id}\/covers",
+      "spoonjoy:\/\/recipes\/{id}\/cook",
+      "spoonjoy:\/\/recipes\/new\/edit",
+      "spoonjoy:\/\/cookbooks",
+      "spoonjoy:\/\/cookbooks\/{id}",
+      "spoonjoy:\/\/users\/{identifier}",
+      "spoonjoy:\/\/users\/{identifier}\/fellow-chefs?page={page}",
+      "spoonjoy:\/\/users\/{identifier}\/kitchen-visitors?page={page}",
+      "spoonjoy:\/\/shopping-list",
+      "spoonjoy:\/\/search",
+      "spoonjoy:\/\/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
+      "spoonjoy:\/\/capture",
+      "spoonjoy:\/\/settings"
+    ],
+    "offlineFlows" : [
+      "fixture-offline-restore",
+      "shopping-queue-replay",
+      "cook-mode-progress-restore",
+      "capture-draft-offline",
+      "capture-import-offline-retry",
+      "provider-secret-blocked-import"
+    ],
+    "searchableScopes" : [
+      "all",
+      "recipes",
+      "cookbooks",
+      "chefs",
+      "shopping-list"
+    ],
+    "shareActions" : [
+      "capture-recipe-url",
+      "capture-recipe-text",
+      "capture-recipe-camera",
+      "capture-recipe-photo-library",
+      "capture-recipe-json-ld",
+      "capture-recipe-video-url",
+      "recipe-import-submit",
+      "share-recipe",
+      "share-cookbook",
+      "native-shopping-list-transfer"
+    ],
+    "spotlightIndexedTypes" : [
+      "recipe",
+      "cookbook",
+      "shopping-list-item",
+      "spoon",
+      "capture-draft",
+      "chef-profile"
+    ],
+    "urlSchemes" : [
+      "spoonjoy"
+    ]
+  },
+  "ok" : true,
+  "stage" : "native-metadata"
+}

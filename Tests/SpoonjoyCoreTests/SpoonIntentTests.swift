@@ -60,6 +60,7 @@ struct SpoonIntentTests {
                     "public func deleteCookLog(",
                     "public func createCoverFromSpoon(",
                     "currentChefID: String",
+                    "NativeIntentActionError.emptySpoonLog",
                     "NativeIntentActionError.spoonOwnershipRequired",
                     "NativeIntentActionError.recipeOwnershipRequired",
                     ".spoonCreate",
@@ -223,6 +224,8 @@ struct SpoonIntentTests {
                     pattern: #"public\s+func\s+logCook\("#,
                     requiredTokens: [
                         "let recipeID = try recipeIDForMutation(recipe)",
+                        "guard normalizedNote != nil || normalizedNextTime != nil else",
+                        "throw NativeIntentActionError.emptySpoonLog",
                         ".spoonCreate(",
                         "route: .recipeDetail(id: recipeID, presentation: .detail)",
                         "DeepLinkURLBuilder.url(for: route)"
@@ -307,10 +310,21 @@ struct SpoonIntentTests {
         let photographedSpoon = spoonIntentSpoonDescriptor()
         let coverlessSpoon = spoonIntentSpoonDescriptor(photoURL: nil)
 
+        #expect(NativeIntentActionError.emptySpoonLog.description == "Add a note or next-time thought before logging this cook from Siri.")
+        #expect(throws: NativeIntentActionError.emptySpoonLog) {
+            try resolver.logCook(
+                recipe: recipe,
+                note: "  ",
+                nextTime: nil,
+                cookedAt: "2026-06-29T14:59:00.000Z",
+                createdAt: "2026-06-29T14:59:00.000Z"
+            )
+        }
+
         let logAction = try resolver.logCook(
             recipe: recipe,
-            note: nil,
-            nextTime: nil,
+            note: "  Loved this from Siri  ",
+            nextTime: "  Try basil next time.  ",
             cookedAt: nil,
             createdAt: "2026-06-29T15:00:00.000Z"
         )
@@ -323,8 +337,8 @@ struct SpoonIntentTests {
             path: "/api/v1/recipes/recipe_lemon_pantry_pasta/spoons",
             expected: [
                 "clientMutationId": "intent-spoon-log-recipe_lemon_pantry_pasta-2026-06-29T15-00-00-000Z",
-                "note": NSNull(),
-                "nextTime": NSNull(),
+                "note": "Loved this from Siri",
+                "nextTime": "Try basil next time.",
                 "cookedAt": "2026-06-29T15:00:00.000Z",
                 "photoUrl": NSNull(),
                 "useAsRecipeCover": false
@@ -387,6 +401,125 @@ struct SpoonIntentTests {
             ]
         )
     }
+
+    @Test("spoon intent resolver rejects invalid ownership and route edge cases")
+    func spoonIntentResolverRejectsInvalidOwnershipAndRouteEdgeCases() throws {
+        let resolver = NativeIntentActionResolver()
+        let recipe = spoonIntentRecipeDescriptor()
+        let photographedSpoon = spoonIntentSpoonDescriptor()
+
+        #expect(NativeIntentActionError.invalidSpoonID("spoon/unsafe").description == "Cook log ID spoon/unsafe is not safe for a native route.")
+        #expect(NativeIntentActionError.spoonOwnershipRequired(spoonID: "spoon_ari_lemon").description == "Only the cook who logged spoon_ari_lemon can update it from Siri.")
+
+        let fallbackEditAction = try resolver.editCookLog(
+            spoon: photographedSpoon,
+            note: " \n\t ",
+            nextTime: "  Even more lemon zest.  ",
+            cookedAt: "  2026-06-02T10:00:00.000Z  ",
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-29T15:04:00.000Z"
+        )
+        let fallbackEditMutation = try #require(fallbackEditAction.nativeQueuedMutation)
+        try spoonIntentAssertJSONRequest(
+            try spoonIntentRequest(from: fallbackEditMutation),
+            method: .patch,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta/spoons/spoon_ari_lemon",
+            expected: [
+                "clientMutationId": "intent-spoon-edit-spoon_ari_lemon-2026-06-29T15-04-00-000Z",
+                "note": "Loved this with extra lemon.",
+                "nextTime": "Even more lemon zest.",
+                "cookedAt": "2026-06-02T10:00:00.000Z",
+                "photoUrl": "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg"
+            ]
+        )
+
+        let deleteAction = try resolver.deleteCookLog(
+            spoon: photographedSpoon,
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-29T15:05:00.000Z"
+        )
+        let deleteMutation = try #require(deleteAction.nativeQueuedMutation)
+        #expect(deleteMutation.queueableKind == .spoonDelete)
+        #expect(deleteAction.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+        spoonIntentAssertNoBodyRequest(
+            try spoonIntentRequest(from: deleteMutation),
+            method: .delete,
+            path: "/api/v1/recipes/recipe_lemon_pantry_pasta/spoons/spoon_ari_lemon",
+            headers: [
+                "Accept": "application/json",
+                "Authorization": "Bearer sj_private_token",
+                "X-Client-Mutation-Id": "intent-spoon-delete-spoon_ari_lemon-2026-06-29T15-05-00-000Z"
+            ]
+        )
+
+        #expect(throws: NativeIntentActionError.unresolvedSpoonEntity) {
+            try resolver.editCookLog(
+                spoon: .placeholder,
+                note: nil,
+                nextTime: nil,
+                cookedAt: nil,
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-29T15:06:00.000Z"
+            )
+        }
+
+        #expect(throws: NativeIntentActionError.invalidSpoonID("spoon/unsafe")) {
+            try resolver.deleteCookLog(
+                spoon: spoonIntentSpoonDescriptor(spoonID: "spoon/unsafe"),
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-29T15:07:00.000Z"
+            )
+        }
+
+        #expect(throws: NativeIntentActionError.invalidRecipeID("recipe_lemon_pantry_pasta")) {
+            try resolver.deleteCookLog(
+                spoon: spoonIntentSpoonDescriptor(route: .recipes),
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-29T15:08:00.000Z"
+            )
+        }
+
+        #expect(throws: NativeIntentActionError.spoonOwnershipRequired(spoonID: "spoon_ari_lemon")) {
+            try resolver.editCookLog(
+                spoon: photographedSpoon,
+                note: "Not mine",
+                nextTime: nil,
+                cookedAt: nil,
+                currentChefID: "chef_jules",
+                createdAt: "2026-06-29T15:09:00.000Z"
+            )
+        }
+
+        #expect(throws: NativeIntentActionError.spoonOwnershipRequired(spoonID: "spoon_ari_lemon")) {
+            try resolver.deleteCookLog(
+                spoon: photographedSpoon,
+                currentChefID: "chef_jules",
+                createdAt: "2026-06-29T15:10:00.000Z"
+            )
+        }
+
+        #expect(throws: NativeIntentActionError.recipeOwnershipRequired(recipeID: "recipe_lemon_pantry_pasta")) {
+            try resolver.createCoverFromSpoon(
+                recipe: recipe,
+                spoon: photographedSpoon,
+                activate: true,
+                generateEditorial: false,
+                currentChefID: "chef_jules",
+                createdAt: "2026-06-29T15:11:00.000Z"
+            )
+        }
+
+        #expect(throws: NativeIntentActionError.invalidRecipeID("recipe_other")) {
+            try resolver.createCoverFromSpoon(
+                recipe: recipe,
+                spoon: spoonIntentSpoonDescriptor(recipeID: "recipe_other"),
+                activate: true,
+                generateEditorial: false,
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-29T15:12:00.000Z"
+            )
+        }
+    }
 }
 
 private let spoonIntentConfiguration = APIClientConfiguration(
@@ -420,30 +553,40 @@ private func spoonIntentRecipeDescriptor() -> RecipeEntityDescriptor {
     )
 }
 
-private func spoonIntentSpoonDescriptor(photoURL: URL? = URL(string: "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg")) -> SpoonEntityDescriptor {
-    let route = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+private func spoonIntentSpoonDescriptor(
+    id: String = "production|account_ari|spoon|spoon_ari_lemon",
+    spoonID: String = "spoon_ari_lemon",
+    recipeID: String = "recipe_lemon_pantry_pasta",
+    chefID: String = "chef_ari",
+    route: AppRoute? = nil,
+    photoURL: URL? = URL(string: "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg"),
+    note: String? = "Loved this with extra lemon.",
+    nextTime: String? = "Use more lemon zest.",
+    cookedAt: String? = "2026-06-01T10:00:00.000Z"
+) -> SpoonEntityDescriptor {
+    let resolvedRoute = route ?? AppRoute.recipeDetail(id: recipeID, presentation: .detail)
     return SpoonEntityDescriptor(
-        id: "production|account_ari|spoon|spoon_ari_lemon",
-        spoonID: "spoon_ari_lemon",
-        recipeID: "recipe_lemon_pantry_pasta",
+        id: id,
+        spoonID: spoonID,
+        recipeID: recipeID,
         recipeTitle: "Lemon Pantry Pasta",
-        chefID: "chef_ari",
+        chefID: chefID,
         chefUsername: "ari",
         title: "Lemon Pantry Pasta cook log",
         subtitle: "Loved this with extra lemon.",
         disambiguationLabel: "Lemon Pantry Pasta by ari",
-        route: route,
+        route: resolvedRoute,
         photoURL: photoURL,
-        note: "Loved this with extra lemon.",
-        nextTime: "Use more lemon zest.",
-        cookedAt: "2026-06-01T10:00:00.000Z",
+        note: note,
+        nextTime: nextTime,
+        cookedAt: cookedAt,
         transferValue: SpoonEntityTransferValue(
             kind: .spoon,
-            rawResourceID: "spoon_ari_lemon",
-            recipeID: "recipe_lemon_pantry_pasta",
+            rawResourceID: spoonID,
+            recipeID: recipeID,
             recipeTitle: "Lemon Pantry Pasta",
             title: "Lemon Pantry Pasta cook log",
-            routeIdentifier: route.stateIdentifier,
+            routeIdentifier: resolvedRoute.stateIdentifier,
             publicURL: nil,
             privateTransferValue: "schema=app.spoonjoy.spoon-entity.v1;domain=spoon;title=Lemon Pantry Pasta cook log",
             userVisibleSummary: "Lemon Pantry Pasta: Loved this with extra lemon."
@@ -472,6 +615,21 @@ private func spoonIntentAssertJSONRequest(
     ])
     #expect(request.responseCachePolicy == .privateNoStore)
     #expect(NSDictionary(dictionary: try spoonIntentJSONBody(from: request)).isEqual(to: expected))
+}
+
+private func spoonIntentAssertNoBodyRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    headers: [String: String]
+) {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.queryItems.isEmpty)
+    #expect(request.headers == headers)
+    #expect(request.body == nil)
+    #expect(request.responseCachePolicy == .privateNoStore)
 }
 
 private func spoonIntentJSONBody(from request: APIRequest) throws -> [String: Any] {

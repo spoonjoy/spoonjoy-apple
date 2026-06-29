@@ -9,6 +9,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case invalidScaleFactor(Double)
     case emptyShoppingItem
     case emptyCaptureSource
+    case emptySpoonLog
     case authRequired
     case recipeOwnershipRequired(recipeID: String)
     case spoonOwnershipRequired(spoonID: String)
@@ -40,6 +41,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Shopping item name must be non-empty."
         case .emptyCaptureSource:
             "Capture source must include text or a URL."
+        case .emptySpoonLog:
+            "Add a note or next-time thought before logging this cook from Siri."
         case .authRequired:
             "Sign in to Spoonjoy before queueing this Siri action."
         case .recipeOwnershipRequired(let recipeID):
@@ -325,6 +328,11 @@ public struct NativeIntentActionResolver {
         createdAt: String
     ) throws -> NativeIntentAction {
         let recipeID = try recipeIDForMutation(recipe)
+        let normalizedNote = normalizedText(note)
+        let normalizedNextTime = normalizedText(nextTime)
+        guard normalizedNote != nil || normalizedNextTime != nil else {
+            throw NativeIntentActionError.emptySpoonLog
+        }
         let mutationID = "intent-spoon-log-\(stableToken(recipeID))-\(stableToken(createdAt))"
         let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
         let loggedAt = normalizedText(cookedAt) ?? createdAt
@@ -332,8 +340,8 @@ public struct NativeIntentActionResolver {
             .spoonCreate(
                 recipeID: recipeID,
                 clientMutationID: mutationID,
-                note: normalizedText(note),
-                nextTime: normalizedText(nextTime),
+                note: normalizedNote,
+                nextTime: normalizedNextTime,
                 cookedAt: loggedAt,
                 photoURL: nil,
                 useAsRecipeCover: false,

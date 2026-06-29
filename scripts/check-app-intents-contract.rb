@@ -2313,6 +2313,7 @@ if domain == "spoon-intents"
       "public func deleteCookLog(",
       "public func createCoverFromSpoon(",
       "currentChefID: String",
+      "NativeIntentActionError.emptySpoonLog",
       "NativeIntentActionError.spoonOwnershipRequired",
       "NativeIntentActionError.recipeOwnershipRequired",
       ".spoonCreate",
@@ -2329,6 +2330,8 @@ if domain == "spoon-intents"
       pattern: /\bpublic\s+func\s+logCook\(/,
       required: [
         "let recipeID = try recipeIDForMutation(recipe)",
+        "guard normalizedNote != nil || normalizedNextTime != nil else",
+        "throw NativeIntentActionError.emptySpoonLog",
         ".spoonCreate(",
         "route: .recipeDetail(id: recipeID, presentation: .detail)",
         "DeepLinkURLBuilder.url(for: route)"
