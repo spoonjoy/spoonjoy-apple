@@ -10,8 +10,10 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case emptyShoppingItem
     case emptyCaptureSource
     case emptySpoonLog
+    case emptyCookbookTitle
     case authRequired
     case recipeOwnershipRequired(recipeID: String)
+    case cookbookOwnershipRequired(cookbookID: String)
     case spoonOwnershipRequired(spoonID: String)
     case spoonPhotoRequired(spoonID: String)
     case captureDraftOwnershipRequired(draftID: String)
@@ -46,10 +48,14 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Capture source must include text or a URL."
         case .emptySpoonLog:
             "Add a note or next-time thought before logging this cook from Siri."
+        case .emptyCookbookTitle:
+            "Add a cookbook title before queueing this Siri action."
         case .authRequired:
             "Sign in to Spoonjoy before queueing this Siri action."
         case .recipeOwnershipRequired(let recipeID):
             "Only the recipe owner can update \(recipeID) from Siri."
+        case .cookbookOwnershipRequired(let cookbookID):
+            "Only the cookbook owner can update \(cookbookID) from Siri."
         case .spoonOwnershipRequired(let spoonID):
             "Only the cook who logged \(spoonID) can update it from Siri."
         case .spoonPhotoRequired(let spoonID):
@@ -291,15 +297,116 @@ public struct NativeIntentActionResolver {
         )
     }
 
-    public func removeRecipeFromCookbook(
+    public func createCookbook(
+        title: String,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        _ = try canonicalObjectID(currentChefID, invalidError: .authRequired)
+        let title = normalizedCookbookTitle(title)
+        guard !title.isEmpty else {
+            throw NativeIntentActionError.emptyCookbookTitle
+        }
+        let mutationID = "intent-cookbook-create-\(stableToken(title))-\(stableToken(createdAt))"
+        return .nativeMutation(
+            .cookbookCreate(
+                clientMutationID: mutationID,
+                title: title,
+                createdAt: createdAt
+            ),
+            route: .cookbooks,
+            url: DeepLinkURLBuilder.url(for: .cookbooks)
+        )
+    }
+
+    public func renameCookbook(
+        cookbook: CookbookEntityDescriptor,
+        title: String,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let cookbookID = try cookbookIDForMutation(cookbook)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))
+        guard cookbook.chefID == chefID else {
+            throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)
+        }
+        let title = normalizedCookbookTitle(title)
+        guard !title.isEmpty else {
+            throw NativeIntentActionError.emptyCookbookTitle
+        }
+        let mutationID = "intent-cookbook-rename-\(stableToken(cookbookID))-\(stableToken(createdAt))"
+        return .nativeMutation(
+            .cookbookUpdate(
+                cookbookID: cookbookID,
+                title: title,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .cookbookDetail(id: cookbookID),
+            url: DeepLinkURLBuilder.url(for: .cookbookDetail(id: cookbookID))
+        )
+    }
+
+    public func deleteCookbook(
+        cookbook: CookbookEntityDescriptor,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let cookbookID = try cookbookIDForMutation(cookbook)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))
+        guard cookbook.chefID == chefID else {
+            throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)
+        }
+        let mutationID = "intent-cookbook-delete-\(stableToken(cookbookID))-\(stableToken(createdAt))"
+        return .nativeMutation(
+            .cookbookDelete(
+                cookbookID: cookbookID,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .cookbooks,
+            url: DeepLinkURLBuilder.url(for: .cookbooks)
+        )
+    }
+
+    public func addRecipeToCookbook(
         recipe: RecipeEntityDescriptor,
         cookbook: CookbookEntityDescriptor,
+        currentChefID: String,
         createdAt: String
     ) throws -> NativeIntentAction {
         let recipeID = try recipeIDForMutation(recipe)
         let cookbookID = try cookbookIDForMutation(cookbook)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))
+        guard cookbook.chefID == chefID else {
+            throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)
+        }
+        let mutationID = "intent-cookbook-add-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
+        return .nativeMutation(
+            .cookbookAddRecipe(
+                cookbookID: cookbookID,
+                recipeID: recipeID,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .cookbookDetail(id: cookbookID),
+            url: DeepLinkURLBuilder.url(for: .cookbookDetail(id: cookbookID))
+        )
+    }
+
+    public func removeRecipeFromCookbook(
+        recipe: RecipeEntityDescriptor,
+        cookbook: CookbookEntityDescriptor,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let recipeID = try recipeIDForMutation(recipe)
+        let cookbookID = try cookbookIDForMutation(cookbook)
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))
+        guard cookbook.chefID == chefID else {
+            throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)
+        }
         let mutationID = "intent-cookbook-remove-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
-        let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
         return .nativeMutation(
             .cookbookRemoveRecipe(
                 cookbookID: cookbookID,
@@ -307,8 +414,8 @@ public struct NativeIntentActionResolver {
                 clientMutationID: mutationID,
                 createdAt: createdAt
             ),
-            route: route,
-            url: DeepLinkURLBuilder.url(for: route)
+            route: .cookbookDetail(id: cookbookID),
+            url: DeepLinkURLBuilder.url(for: .cookbookDetail(id: cookbookID))
         )
     }
 
@@ -778,6 +885,10 @@ public struct NativeIntentActionResolver {
     private func normalizedRecipeTitle(_ value: String, fallback: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
+    }
+
+    private func normalizedCookbookTitle(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func publicShareValue(

@@ -214,6 +214,7 @@ struct RecipeActionIntentTests {
         let removeAction = try resolver.removeRecipeFromCookbook(
             recipe: recipe,
             cookbook: cookbook,
+            currentChefID: " chef_ari ",
             createdAt: "2026-06-16T15:03:00.000Z"
         )
         let deleteAction = try resolver.deleteRecipe(
@@ -268,8 +269,8 @@ struct RecipeActionIntentTests {
             ]
         )
 
-        #expect(removeAction.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
-        #expect(removeAction.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+        #expect(removeAction.route == .cookbookDetail(id: "cookbook_weeknights"))
+        #expect(removeAction.url == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
         #expect(removeMutation.queueableKind == .cookbookRemoveRecipe)
         #expect(removeMutation.clientMutationID == "intent-cookbook-remove-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T15-03-00-000Z")
         try recipeActionIntentAssertJSONRequest(
@@ -321,6 +322,7 @@ struct RecipeActionIntentTests {
             try resolver.removeRecipeFromCookbook(
                 recipe: recipeActionIntentRecipeDescriptor(id: "bad/recipe", route: .recipeDetail(id: "bad/recipe", presentation: .detail)),
                 cookbook: cookbook,
+                currentChefID: "chef_ari",
                 createdAt: "2026-06-16T15:13:00.000Z"
             )
         }
@@ -335,7 +337,16 @@ struct RecipeActionIntentTests {
             try resolver.removeRecipeFromCookbook(
                 recipe: recipe,
                 cookbook: recipeActionIntentCookbookDescriptor(id: "bad/cookbook", route: .cookbookDetail(id: "bad/cookbook")),
+                currentChefID: "chef_ari",
                 createdAt: "2026-06-16T15:15:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.removeRecipeFromCookbook(
+                recipe: recipe,
+                cookbook: cookbook,
+                currentChefID: "chef_jules",
+                createdAt: "2026-06-16T15:15:30.000Z"
             )
         }
         #expect(throws: NativeIntentActionError.recipeOwnershipRequired(recipeID: "recipe_lemon_pantry_pasta")) {
@@ -399,6 +410,7 @@ private func recipeActionIntentCookbookDescriptor(
     return CookbookEntityDescriptor(
         id: id,
         title: "Weeknights",
+        chefID: "chef_ari",
         chefUsername: "ari",
         subtitle: "ari - 12 recipes",
         disambiguationLabel: "Weeknights by ari",

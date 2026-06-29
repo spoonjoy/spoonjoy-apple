@@ -144,6 +144,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 public struct CookbookEntityDescriptor: Equatable, Sendable {
     public let id: String
     public let title: String
+    public let chefID: String
     public let chefUsername: String
     public let subtitle: String
     public let disambiguationLabel: String
@@ -157,6 +158,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
     public static let placeholder = CookbookEntityDescriptor(
         id: "cookbook-placeholder",
         title: "Cookbook",
+        chefID: "chef-placeholder",
         chefUsername: "Spoonjoy",
         subtitle: "Spoonjoy cookbook",
         disambiguationLabel: "Spoonjoy cookbook",
@@ -183,6 +185,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
         self.init(
             id: cookbook.id,
             title: cookbook.title,
+            chefID: cookbook.chef.id,
             chefUsername: cookbook.chef.username,
             subtitle: "\(cookbook.chef.username) - \(cookbook.recipeCount) \(Self.recipeCountLabel(cookbook.recipeCount))",
             disambiguationLabel: summary,
@@ -207,6 +210,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
     public init(
         id: String,
         title: String,
+        chefID: String,
         chefUsername: String,
         subtitle: String,
         disambiguationLabel: String,
@@ -218,6 +222,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
     ) {
         self.id = id
         self.title = title
+        self.chefID = chefID
         self.chefUsername = chefUsername
         self.subtitle = subtitle
         self.disambiguationLabel = disambiguationLabel

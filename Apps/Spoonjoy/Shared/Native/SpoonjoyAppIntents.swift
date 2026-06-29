@@ -333,6 +333,125 @@ struct SaveRecipeToCookbookIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+struct CreateCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Create Cookbook"
+    static let description = IntentDescription("Create a Spoonjoy cookbook.")
+
+    @Parameter(title: "Title")
+    var title: String
+
+    init() {
+        title = ""
+    }
+
+    init(title: String) {
+        self.title = title
+    }
+
+    func perform() async throws -> some IntentResult {
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().createCookbook(title: title, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook creation in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct RenameCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Rename Cookbook"
+    static let description = IntentDescription("Rename one of your Spoonjoy cookbooks.")
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    @Parameter(title: "Title")
+    var title: String
+
+    init() {
+        cookbook = SpoonjoyCookbookEntity()
+        title = ""
+    }
+
+    init(cookbook: SpoonjoyCookbookEntity, title: String) {
+        self.cookbook = cookbook
+        self.title = title
+    }
+
+    func perform() async throws -> some IntentResult {
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor, title: title, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook rename in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct DeleteCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Delete Cookbook"
+    static let description = IntentDescription("Delete one of your Spoonjoy cookbooks.")
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    init() {
+        cookbook = SpoonjoyCookbookEntity()
+    }
+
+    init(cookbook: SpoonjoyCookbookEntity) {
+        self.cookbook = cookbook
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().deleteCookbook(cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook deletion in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct AddRecipeToCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Add Recipe to Cookbook"
+    static let description = IntentDescription("Add a Spoonjoy recipe to one of your cookbooks.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+        cookbook = SpoonjoyCookbookEntity()
+    }
+
+    init(recipe: SpoonjoyRecipeEntity, cookbook: SpoonjoyCookbookEntity) {
+        self.recipe = recipe
+        self.cookbook = cookbook
+    }
+
+    func perform() async throws -> some IntentResult {
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().addRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook recipe add in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct RemoveRecipeFromCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Remove Recipe from Cookbook"
     static let description = IntentDescription("Remove a Spoonjoy recipe from a cookbook.")
@@ -355,8 +474,9 @@ struct RemoveRecipeFromCookbookIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
         let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, createdAt: createdAt)
+        let action = try NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
 
@@ -941,6 +1061,10 @@ private enum SpoonjoyIntentShortcutBudget {
             String(describing: ClearCompletedShoppingItemsIntent()),
             String(describing: ClearShoppingListIntent()),
             String(describing: ForkRecipeIntent()),
+            String(describing: CreateCookbookIntent()),
+            String(describing: RenameCookbookIntent()),
+            String(describing: DeleteCookbookIntent()),
+            String(describing: AddRecipeToCookbookIntent()),
             String(describing: SaveRecipeToCookbookIntent()),
             String(describing: RemoveRecipeFromCookbookIntent()),
             String(describing: DeleteRecipeIntent()),

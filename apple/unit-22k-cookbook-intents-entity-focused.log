@@ -1,0 +1,120 @@
+Another instance of SwiftPM (PID: 42649) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...[0/1] Planning build
+Building for debugging...
+[0/5] Write swift-version--58304C5D6DBC2206.txt
+[2/86] Compiling SpoonjoyCore PaginationCursor.swift
+[3/86] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[4/86] Compiling SpoonjoyCore ShoppingListAPI.swift
+[5/86] Compiling SpoonjoyCore ShoppingListRequests.swift
+[6/86] Compiling SpoonjoyCore AppNavigationState.swift
+[7/86] Compiling SpoonjoyCore AppRoute.swift
+[8/86] Compiling SpoonjoyCore DeepLinkRouter.swift
+[9/86] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[10/86] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[11/94] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[12/94] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[13/94] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[14/94] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[15/94] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[16/94] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[17/94] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[18/94] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[19/94] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[20/94] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[21/94] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[22/94] Compiling SpoonjoyCore ScreenViewModels.swift
+[23/94] Compiling SpoonjoyCore SearchState.swift
+[24/94] Compiling SpoonjoyCore AuthSessionState.swift
+[25/94] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[26/94] Compiling SpoonjoyCore KeychainTokenVault.swift
+[27/94] Compiling SpoonjoyCore NativeAuthSession.swift
+[28/94] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[29/94] Compiling SpoonjoyCore OAuthPKCE.swift
+[30/94] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[31/94] Compiling SpoonjoyCore OAuthRequests.swift
+[32/94] Compiling SpoonjoyCore OAuthResponses.swift
+[33/94] Compiling SpoonjoyCore RefreshCoordinator.swift
+[34/94] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[35/94] Compiling SpoonjoyCore TokenVault.swift
+[36/94] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[37/94] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[38/94] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[39/94] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[40/94] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[41/94] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[42/94] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[43/94] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[44/94] Compiling SpoonjoyCore NativeSharePayload.swift
+[45/94] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[46/94] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[47/94] Emitting module SpoonjoyCore
+[48/94] Compiling SpoonjoyCore NativeIntentAction.swift
+[49/94] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[50/94] Compiling SpoonjoyCore ScenarioCommand.swift
+[51/94] Compiling SpoonjoyCore ScenarioReport.swift
+[52/94] Compiling SpoonjoyCore ScenarioVerifier.swift
+[53/94] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[54/94] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[55/94] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[56/94] Compiling SpoonjoyCore APIClient.swift
+[57/94] Compiling SpoonjoyCore APIEnvelope.swift
+[58/94] Compiling SpoonjoyCore APIError.swift
+[59/94] Compiling SpoonjoyCore APIRequestBuilder.swift
+[60/94] Compiling SpoonjoyCore APIRequestSupport.swift
+[61/94] Compiling SpoonjoyCore APIRetryPolicy.swift
+[62/94] Compiling SpoonjoyCore APITransport.swift
+[63/94] Compiling SpoonjoyCore JSONValue.swift
+[64/94] Compiling SpoonjoyCore NativeAPIRequests.swift
+[65/94] Compiling SpoonjoyCore CaptureDraft.swift
+[66/94] Compiling SpoonjoyCore CookModeProgress.swift
+[67/94] Compiling SpoonjoyCore KitchenFixtureState.swift
+[68/94] Compiling SpoonjoyCore SettingsState.swift
+[69/94] Compiling SpoonjoyCore ShoppingListState.swift
+[70/94] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[71/94] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[72/94] Compiling SpoonjoyCore DeepLinkManifest.swift
+[73/94] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[74/94] Compiling SpoonjoyCore NativeDurableCache.swift
+[75/94] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[76/94] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[77/94] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[78/94] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[79/94] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[80/94] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[81/94] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[82/94] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[83/94] Compiling SpoonjoyCore JSONFileStore.swift
+[84/94] Compiling SpoonjoyCore MutationQueue.swift
+[85/94] Compiling SpoonjoyCore OfflineSnapshot.swift
+[86/94] Compiling SpoonjoyCore SyncCheckpoint.swift
+[87/94] Compiling SpoonjoyCore RecipeCookbook.swift
+[88/94] Compiling SpoonjoyCore SpoonjoyCore.swift
+[89/94] Compiling SpoonjoyCore NativeSyncEngine.swift
+[90/94] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[91/96] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[92/96] Emitting module SpoonjoyScenarioVerifier
+[93/96] Compiling SpoonjoyScenarioVerifier main.swift
+[93/95] Linking SpoonjoyScenarioVerifier
+[94/95] Applying SpoonjoyScenarioVerifier
+Build complete! (7.50s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Recipe and cookbook App Entity contracts" started.
+◇ Test "entity catalog loads persisted sync store snapshots" started.
+◇ Test "entity catalog trims identifiers and reports missing cached entities" started.
+◇ Test "recipe and cookbook entity sources exist with AppIntents contracts" started.
+◇ Test "entity descriptors cover placeholder sparse recipe and singular cookbook display edges" started.
+◇ Test "cookbook entities resolve from native sync cached records and expose transfer values" started.
+◇ Test "recipe entities resolve from native sync cached records and expose transfer values" started.
+◇ Test "entity search disambiguates same-title recipes and cookbooks deterministically" started.
+◇ Test "entity catalog honors sync account environment and tombstone boundaries" started.
+✔ Test "entity catalog trims identifiers and reports missing cached entities" passed after 0.030 seconds.
+✔ Test "entity catalog loads persisted sync store snapshots" passed after 0.030 seconds.
+✔ Test "entity descriptors cover placeholder sparse recipe and singular cookbook display edges" passed after 0.030 seconds.
+✔ Test "entity search disambiguates same-title recipes and cookbooks deterministically" passed after 0.030 seconds.
+✔ Test "recipe entities resolve from native sync cached records and expose transfer values" passed after 0.030 seconds.
+✔ Test "cookbook entities resolve from native sync cached records and expose transfer values" passed after 0.031 seconds.
+✔ Test "entity catalog honors sync account environment and tombstone boundaries" passed after 0.032 seconds.
+✔ Test "recipe and cookbook entity sources exist with AppIntents contracts" passed after 0.056 seconds.
+✔ Suite "Recipe and cookbook App Entity contracts" passed after 0.057 seconds.
+✔ Test run with 8 tests in 1 suite passed after 0.057 seconds.

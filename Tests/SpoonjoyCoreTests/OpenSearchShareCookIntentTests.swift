@@ -473,6 +473,7 @@ private func openSearchShareCookCookbookDescriptor(
     return CookbookEntityDescriptor(
         id: id,
         title: title,
+        chefID: "chef_ari",
         chefUsername: "ari",
         subtitle: "ari - 2 recipes",
         disambiguationLabel: "\(title) by ari",

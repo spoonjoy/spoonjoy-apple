@@ -104,6 +104,13 @@ struct SpoonjoyCookbookEntity: AppEntity, IndexedEntity, Transferable {
     static var transferRepresentation: some TransferRepresentation {
         ProxyRepresentation(exporting: \.descriptor.transferValue.userVisibleSummary)
     }
+
+    func resolvedCookbookID() throws -> String {
+        guard !descriptor.isPlaceholder else {
+            throw NativeIntentActionError.unresolvedCookbookEntity
+        }
+        return descriptor.id
+    }
 }
 
 @available(iOS 27.0, macOS 27.0, *)
