@@ -41,7 +41,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -634,6 +634,236 @@ if domain == "shopping"
       "String-only shopping App Intent",
       "TODO Shopping AppEntity",
       "eventually add shopping entities"
+    ],
+    failures
+  )
+end
+
+if domain == "spoon"
+  core_entities = ROOT.join("Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift")
+  app_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  live_store = ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift")
+  sync_engine = ROOT.join("Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift")
+  platform_navigation = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+  spotlight_indexer = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [core_entities, app_entities, metadata, verifier, live_store, sync_engine, platform_navigation, spotlight_indexer, project].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    core_entities,
+    [
+      "SpoonEntityCatalog",
+      "SpoonEntityCatalogError",
+      "SpoonEntityKind",
+      "SpoonEntityTransferValue",
+      "SpoonEntityScope",
+      "SpoonEntityDescriptor",
+      "SpoonEntityIndexPurgePlan",
+      "isPlaceholder",
+      "spoonEntity(id:",
+      "spoonEntities(for identifiers:",
+      "spoonEntities(matching string:",
+      "suggestedSpoonEntities",
+      "public static func loading(",
+      "loadSnapshot()",
+      "NativeSyncSnapshot",
+      "NativeSyncCachedRecord",
+      "NativeSyncEntryKind.recipe",
+      "NativeSyncEntryKind.spoon",
+      "NativeSyncResourceType.spoon",
+      "tombstones",
+      "accountID",
+      "environment",
+      "spoonEntityIdentifier(spoonID:accountID:environment:",
+      "resolvedSpoonID(from:accountID:environment:",
+      "public static func purgeEntityIdentifiers(",
+      "purgeDomainIdentifiers(",
+      "accountScopePurge(accountID:environment:spoonIDs:",
+      "tombstonePurge(tombstones:accountID:environment:",
+      "cacheDeletePurge(accountID:environment:spoonIDs:",
+      "domainIdentifiers",
+      "SpotlightIndexPlan.spoonUniqueIdentifier",
+      "SpotlightIndexPlan.spoonDomainIdentifier",
+      "Recipe",
+      "RecipeDetailRecentSpoon",
+      "recentSpoons",
+      "deletedAt",
+      "cookedAt",
+      "note",
+      "nextTime",
+      "photoURL",
+      "AppRoute.recipeDetail",
+      "NativeSharePayload.privateSpoon",
+      "privateTransferValue",
+      "debugFields"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    live_store,
+    "performSettingsSessionOperation",
+    /\bfunc\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/,
+    [
+      "case .logout, .revokeAndLogout",
+      "SpoonEntityIndexPurgePlan.accountScopePurge",
+      "SpoonEntityCatalog.purgeEntityIdentifiers(",
+      "SpoonEntityCatalog.purgeDomainIdentifiers(",
+      "purgeSpoonEntityIdentifiers",
+      "cacheEnvironment"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    live_store,
+    "bootstrapFromLiveAPI consumes spoon sync purge report",
+    /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)/,
+    [
+      "let report = try await syncTriggerCoordinator.handle(trigger)",
+      "report.spoonEntityPurgeIdentifiers",
+      "report.spoonEntityPurgeDomainIdentifiers"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    platform_navigation,
+    "foreground sync consumes spoon sync purge report",
+    /\.task\(id: contentState\.environment\.rawValue\)/,
+    [
+      "let report = try? await syncTriggerCoordinator.handle(.foreground)",
+      "NativeSpoonEntityIndexPurgeRequest",
+      "report.spoonEntityPurgeIdentifiers",
+      "report.spoonEntityPurgeDomainIdentifiers",
+      "purgeSpoonEntityIndexesHandler"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    sync_engine,
+    "bootstrapAndDrain scoped spoon tombstone purge",
+    /\bpublic\s+func\s+bootstrapAndDrain\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger,\s*scope: NativeSyncExecutionScope\s*\)/,
+    [
+      "case .success(let cursor, let tombstones)",
+      "SpoonEntityIndexPurgePlan.tombstonePurge",
+      "spoonEntityAccountScopePurgePlan",
+      "spoonEntityPurgeIdentifiers",
+      "spoonEntityPurgeDomainIdentifiers",
+      "previousSnapshot",
+      "SpoonEntityCatalog.purgeEntityIdentifiers(",
+      "SpoonEntityCatalog.purgeDomainIdentifiers(",
+      "NativeSyncResourceType.spoon",
+      "removedCacheKeys"
+    ],
+    failures
+  )
+
+  require_tokens(
+    spotlight_indexer,
+    [
+      "func delete(identifiers: [String], domainIdentifiers: [String])",
+      "deleteSearchableItems(withIdentifiers:",
+      "deleteSearchableItems(withDomainIdentifiers:"
+    ],
+    failures
+  )
+
+  require_tokens(
+    app_entities,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "import CoreTransferable",
+      "import SpoonjoyCore",
+      "@available(iOS 27.0, macOS 27.0, *)",
+      "struct SpoonjoySpoonEntity: AppEntity",
+      "struct SpoonjoySpoonEntityQuery: EntityQuery, EntityStringQuery",
+      "typealias DefaultQuery = SpoonjoySpoonEntityQuery",
+      "static let typeDisplayRepresentation",
+      "var displayRepresentation",
+      "DisplayRepresentation",
+      "TypeDisplayRepresentation",
+      "entities(for identifiers: [String]) async throws",
+      "entities(matching string: String) async throws",
+      "suggestedEntities() async throws",
+      "SpoonEntityCatalog",
+      "SpoonEntityDescriptor",
+      "Transferable",
+      "TransferRepresentation",
+      "SpoonEntityTransferValue",
+      "resolvedSpoonID() throws",
+      "NativeIntentActionError.unresolvedSpoonEntity",
+      "descriptor.isPlaceholder",
+      "DeepLinkURLBuilder.url(for:",
+      "NativeAppStateLocation.defaultFileURL()",
+      "FileBackedNativeSyncStore",
+      "loadSnapshot()",
+      "trustedIntentScope",
+      "KeychainTokenVault()",
+      "scope.accountID",
+      "scope.environment"
+    ],
+    failures
+  )
+
+  require_patterns(
+    app_entities,
+    {
+      "SpoonjoySpoonEntity AppEntity declaration" => /\bstruct\s+SpoonjoySpoonEntity\s*:\s*AppEntity\b/,
+      "spoon query declaration" => /\bstruct\s+SpoonjoySpoonEntityQuery\s*:\s*EntityQuery\s*,\s*EntityStringQuery\b/
+    },
+    failures
+  )
+  require_nested_body_tokens(app_entities, "SpoonjoySpoonEntityQuery", /\bstruct\s+SpoonjoySpoonEntityQuery\b/, "identifier query", /func\s+entities\(for identifiers: \[String\]\)/, ["SpoonEntityCatalog.loading(syncStore:", "spoonEntities(for: identifiers)", "SpoonjoySpoonEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoySpoonEntityQuery", /\bstruct\s+SpoonjoySpoonEntityQuery\b/, "string query", /func\s+entities\(matching string: String\)/, ["SpoonEntityCatalog.loading(syncStore:", "spoonEntities(matching: string)", "SpoonjoySpoonEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoySpoonEntityQuery", /\bstruct\s+SpoonjoySpoonEntityQuery\b/, "suggestions query", /func\s+suggestedEntities\(\)/, ["SpoonEntityCatalog.loading(syncStore:", "suggestedSpoonEntities", "SpoonjoySpoonEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoySpoonEntity", /\bstruct\s+SpoonjoySpoonEntity\b/, "display representation", /var\s+displayRepresentation:\s+DisplayRepresentation/, ["descriptor.title", "descriptor.subtitle", "descriptor.disambiguationLabel"], failures)
+
+  require_tokens(
+    metadata,
+    [
+      "SpoonjoySpoonEntity",
+      "SpoonjoySpoonEntityQuery"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "spoon cook-log App Entity",
+      "SpoonEntityCatalog",
+      "SpoonjoySpoonEntity"
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  forbid_tokens(
+    app_entities,
+    [
+      "ShoppingListState.decodeFromBundle()",
+      "comment App Entity",
+      "feed App Entity",
+      "reaction App Entity",
+      "TODO Spoon AppEntity",
+      "eventually add spoon entities"
     ],
     failures
   )

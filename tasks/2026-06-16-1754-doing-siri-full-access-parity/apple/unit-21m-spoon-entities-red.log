@@ -1,0 +1,363 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:449:17: error: cannot find type 'SpoonEntityCatalog' in scope
+447 |         spoons: [RecipeDetailRecentSpoon]? = nil,
+448 |         tombstones: [NativeSyncTombstone] = []
+449 |     ) throws -> SpoonEntityCatalog {
+    |                 `- error: cannot find type 'SpoonEntityCatalog' in scope
+450 |         SpoonEntityCatalog(
+451 |             syncSnapshot: try syncSnapshot(recipes: recipes, spoons: spoons, tombstones: tombstones),
+[4/6] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:449:17: error: cannot find type 'SpoonEntityCatalog' in scope
+447 |         spoons: [RecipeDetailRecentSpoon]? = nil,
+448 |         tombstones: [NativeSyncTombstone] = []
+449 |     ) throws -> SpoonEntityCatalog {
+    |                 `- error: cannot find type 'SpoonEntityCatalog' in scope
+450 |         SpoonEntityCatalog(
+451 |             syncSnapshot: try syncSnapshot(recipes: recipes, spoons: spoons, tombstones: tombstones),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:231:29: error: cannot find 'SpoonEntityCatalog' in scope
+229 |         let spoon = try await catalog.spoonEntity(id: "spoon_ari_lemon")
+230 | 
+231 |         #expect(spoon.id == SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_ari", environment: .production))
+    |                             `- error: cannot find 'SpoonEntityCatalog' in scope
+232 |         #expect(spoon.spoonID == "spoon_ari_lemon")
+233 |         #expect(spoon.recipeID == "recipe_lemon_pantry_pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:231:138: error: cannot infer contextual base in reference to member 'production'
+229 |         let spoon = try await catalog.spoonEntity(id: "spoon_ari_lemon")
+230 | 
+231 |         #expect(spoon.id == SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_ari", environment: .production))
+    |                                                                                                                                          `- error: cannot infer contextual base in reference to member 'production'
+232 |         #expect(spoon.spoonID == "spoon_ari_lemon")
+233 |         #expect(spoon.recipeID == "recipe_lemon_pantry_pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:239:33: error: cannot infer contextual base in reference to member 'recipeDetail'
+237 |         #expect(spoon.subtitle == "Loved this with extra lemon.")
+238 |         #expect(spoon.disambiguationLabel == "Lemon Pantry Pasta by ari")
+239 |         #expect(spoon.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                 `- error: cannot infer contextual base in reference to member 'recipeDetail'
+240 |         #expect(spoon.photoURL == URL(string: "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg"))
+241 |         #expect(!spoon.isPlaceholder)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:239:94: error: cannot infer contextual base in reference to member 'detail'
+237 |         #expect(spoon.subtitle == "Loved this with extra lemon.")
+238 |         #expect(spoon.disambiguationLabel == "Lemon Pantry Pasta by ari")
+239 |         #expect(spoon.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                                                                              `- error: cannot infer contextual base in reference to member 'detail'
+240 |         #expect(spoon.photoURL == URL(string: "https://spoonjoy.app/photos/spoons/spoon_ari_lemon.jpg"))
+241 |         #expect(!spoon.isPlaceholder)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:244:35: error: cannot infer contextual base in reference to member 'spoon'
+242 | 
+243 |         let transfer = spoon.transferValue
+244 |         #expect(transfer.kind == .spoon)
+    |                                   `- error: cannot infer contextual base in reference to member 'spoon'
+245 |         #expect(transfer.rawResourceID == "spoon_ari_lemon")
+246 |         #expect(transfer.recipeID == "recipe_lemon_pantry_pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:254:21: error: cannot find 'SpoonEntityCatalog' in scope
+252 |         #expect(transfer.userVisibleSummary == "Lemon Pantry Pasta: Loved this with extra lemon.")
+253 |         #expect(transfer.debugFields.isEmpty)
+254 |         #expect(try SpoonEntityCatalog.resolvedSpoonID(from: spoon.id, accountID: "account_ari", environment: .production) == "spoon_ari_lemon")
+    |                     `- error: cannot find 'SpoonEntityCatalog' in scope
+255 | 
+256 |         let matches = try await catalog.spoonEntities(matching: "  lemon  ")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:254:112: error: cannot infer contextual base in reference to member 'production'
+252 |         #expect(transfer.userVisibleSummary == "Lemon Pantry Pasta: Loved this with extra lemon.")
+253 |         #expect(transfer.debugFields.isEmpty)
+254 |         #expect(try SpoonEntityCatalog.resolvedSpoonID(from: spoon.id, accountID: "account_ari", environment: .production) == "spoon_ari_lemon")
+    |                                                                                                                `- error: cannot infer contextual base in reference to member 'production'
+255 | 
+256 |         let matches = try await catalog.spoonEntities(matching: "  lemon  ")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:257:29: error: cannot infer key path type from context; consider explicitly specifying a root type
+255 | 
+256 |         let matches = try await catalog.spoonEntities(matching: "  lemon  ")
+257 |         #expect(matches.map(\.spoonID) == ["spoon_ari_lemon"])
+    |                             `- error: cannot infer key path type from context; consider explicitly specifying a root type
+258 | 
+259 |         let suggested = try await catalog.suggestedSpoonEntities(limit: 10)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:260:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+258 | 
+259 |         let suggested = try await catalog.suggestedSpoonEntities(limit: 10)
+260 |         #expect(suggested.map(\.spoonID) == ["spoon_ari_lemon", "spoon_bea_toast"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+261 | 
+262 |         let byIdentifier = try await catalog.spoonEntities(for: [suggested[1].id, suggested[0].id])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:263:34: error: cannot infer key path type from context; consider explicitly specifying a root type
+261 | 
+262 |         let byIdentifier = try await catalog.spoonEntities(for: [suggested[1].id, suggested[0].id])
+263 |         #expect(byIdentifier.map(\.spoonID) == ["spoon_bea_toast", "spoon_ari_lemon"])
+    |                                  `- error: cannot infer key path type from context; consider explicitly specifying a root type
+264 | 
+265 |         let rawIdentifierBatch = try await catalog.spoonEntities(for: ["spoon_ari_lemon"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:277:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+275 | 
+276 |         let suggested = try await catalog.suggestedSpoonEntities(limit: 10)
+277 |         #expect(suggested.map(\.spoonID) == ["spoon_saffron"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+278 |         #expect(suggested.first?.recipeTitle == "Saffron Rice")
+279 |         #expect(suggested.first?.subtitle == "Weeknight saffron test.")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:282:29: error: cannot infer key path type from context; consider explicitly specifying a root type
+280 | 
+281 |         let matches = try await catalog.spoonEntities(matching: "saff")
+282 |         #expect(matches.map(\.spoonID) == ["spoon_saffron"])
+    |                             `- error: cannot infer key path type from context; consider explicitly specifying a root type
+283 | 
+284 |         let fixtureMatches = try await catalog.spoonEntities(matching: "lemon")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:310:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+308 | 
+309 |         let suggested = try await catalog.suggestedSpoonEntities(limit: 10)
+310 |         #expect(suggested.map(\.spoonID) == ["spoon_live"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+311 |         #expect(try await catalog.spoonEntities(matching: "deleted").isEmpty)
+312 |         #expect(try await catalog.spoonEntities(matching: "tombstoned").isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:315:75: error: cannot infer contextual base in reference to member 'local'
+313 | 
+314 |         let wrongAccountCatalog = try Self.spoonCatalog(currentAccountID: "account_other")
+315 |         let wrongEnvironmentCatalog = try Self.spoonCatalog(environment: .local)
+    |                                                                           `- error: cannot infer contextual base in reference to member 'local'
+316 | 
+317 |         #expect(try await wrongAccountCatalog.suggestedSpoonEntities(limit: 10).isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:322:38: error: cannot find 'SpoonEntityCatalogError' in scope
+320 |         #expect(try await wrongEnvironmentCatalog.spoonEntities(matching: "lemon").isEmpty)
+321 | 
+322 |         await spoonExpectAsyncThrows(SpoonEntityCatalogError.self) {
+    |                                      `- error: cannot find 'SpoonEntityCatalogError' in scope
+323 |             _ = try await wrongAccountCatalog.spoonEntity(id: "spoon_ari_lemon")
+324 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:322:15: error: generic parameter 'E' could not be inferred
+320 |         #expect(try await wrongEnvironmentCatalog.spoonEntities(matching: "lemon").isEmpty)
+321 | 
+322 |         await spoonExpectAsyncThrows(SpoonEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+323 |             _ = try await wrongAccountCatalog.spoonEntity(id: "spoon_ari_lemon")
+324 |         }
+    :
+670 | }
+671 | 
+672 | private func spoonExpectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'spoonExpectAsyncThrows'
+673 |     _ expectedError: E.Type,
+674 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:325:38: error: cannot find 'SpoonEntityCatalogError' in scope
+323 |             _ = try await wrongAccountCatalog.spoonEntity(id: "spoon_ari_lemon")
+324 |         }
+325 |         await spoonExpectAsyncThrows(SpoonEntityCatalogError.self) {
+    |                                      `- error: cannot find 'SpoonEntityCatalogError' in scope
+326 |             _ = try await wrongEnvironmentCatalog.spoonEntity(id: "spoon_ari_lemon")
+327 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:325:15: error: generic parameter 'E' could not be inferred
+323 |             _ = try await wrongAccountCatalog.spoonEntity(id: "spoon_ari_lemon")
+324 |         }
+325 |         await spoonExpectAsyncThrows(SpoonEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+326 |             _ = try await wrongEnvironmentCatalog.spoonEntity(id: "spoon_ari_lemon")
+327 |         }
+    :
+670 | }
+671 | 
+672 | private func spoonExpectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'spoonExpectAsyncThrows'
+673 |     _ expectedError: E.Type,
+674 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:329:29: error: cannot find 'SpoonEntityCatalog' in scope
+327 |         }
+328 | 
+329 |         let wrongScopedID = SpoonEntityCatalog.spoonEntityIdentifier(
+    |                             `- error: cannot find 'SpoonEntityCatalog' in scope
+330 |             spoonID: "spoon_ari_lemon",
+331 |             accountID: "account_other",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:332:27: error: cannot infer contextual base in reference to member 'production'
+330 |             spoonID: "spoon_ari_lemon",
+331 |             accountID: "account_other",
+332 |             environment: .production
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+333 |         )
+334 |         let wrongScopedBatch = try await catalog.spoonEntities(for: [wrongScopedID])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:369:21: error: cannot find 'SpoonEntityScope' in scope
+367 |     @Test("spoon entity purge plans cover logout account-switch cache-delete and tombstones")
+368 |     func spoonEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
+369 |         let scope = SpoonEntityScope(accountID: "account_ari", environment: .production)
+    |                     `- error: cannot find 'SpoonEntityScope' in scope
+370 |         #expect(scope.domainIdentifier == "spoon:production:account_ari")
+371 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:369:78: error: cannot infer contextual base in reference to member 'production'
+367 |     @Test("spoon entity purge plans cover logout account-switch cache-delete and tombstones")
+368 |     func spoonEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
+369 |         let scope = SpoonEntityScope(accountID: "account_ari", environment: .production)
+    |                                                                              `- error: cannot infer contextual base in reference to member 'production'
+370 |         #expect(scope.domainIdentifier == "spoon:production:account_ari")
+371 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:372:26: error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+370 |         #expect(scope.domainIdentifier == "spoon:production:account_ari")
+371 | 
+372 |         let logoutPlan = SpoonEntityIndexPurgePlan.accountScopePurge(
+    |                          `- error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+373 |             accountID: scope.accountID,
+374 |             environment: scope.environment,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:378:13: error: cannot find 'SpoonEntityCatalog' in scope
+376 |         )
+377 |         #expect(logoutPlan.identifiers == [
+378 |             SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment),
+    |             `- error: cannot find 'SpoonEntityCatalog' in scope
+379 |             SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_bea_toast", accountID: scope.accountID, environment: scope.environment)
+380 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:379:13: error: cannot find 'SpoonEntityCatalog' in scope
+377 |         #expect(logoutPlan.identifiers == [
+378 |             SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment),
+379 |             SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_bea_toast", accountID: scope.accountID, environment: scope.environment)
+    |             `- error: cannot find 'SpoonEntityCatalog' in scope
+380 |         ])
+381 |         #expect(logoutPlan.domainIdentifiers == [scope.domainIdentifier])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:382:39: error: cannot infer contextual base in reference to member 'accountScopeChanged'
+380 |         ])
+381 |         #expect(logoutPlan.domainIdentifiers == [scope.domainIdentifier])
+382 |         #expect(logoutPlan.reason == .accountScopeChanged)
+    |                                       `- error: cannot infer contextual base in reference to member 'accountScopeChanged'
+383 | 
+384 |         let cacheDeletePlan = SpoonEntityIndexPurgePlan.cacheDeletePurge(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:384:31: error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+382 |         #expect(logoutPlan.reason == .accountScopeChanged)
+383 | 
+384 |         let cacheDeletePlan = SpoonEntityIndexPurgePlan.cacheDeletePurge(
+    |                               `- error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+385 |             accountID: scope.accountID,
+386 |             environment: scope.environment,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:390:13: error: cannot find 'SpoonEntityCatalog' in scope
+388 |         )
+389 |         #expect(cacheDeletePlan.identifiers == [
+390 |             SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment)
+    |             `- error: cannot find 'SpoonEntityCatalog' in scope
+391 |         ])
+392 |         #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:393:44: error: cannot infer contextual base in reference to member 'cacheDeleted'
+391 |         ])
+392 |         #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
+393 |         #expect(cacheDeletePlan.reason == .cacheDeleted)
+    |                                            `- error: cannot infer contextual base in reference to member 'cacheDeleted'
+394 | 
+395 |         let tombstonePlan = SpoonEntityIndexPurgePlan.tombstonePurge(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:395:29: error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+393 |         #expect(cacheDeletePlan.reason == .cacheDeleted)
+394 | 
+395 |         let tombstonePlan = SpoonEntityIndexPurgePlan.tombstonePurge(
+    |                             `- error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+396 |             tombstones: [
+397 |                 NativeSyncTombstone(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:418:13: error: cannot find 'SpoonEntityCatalog' in scope
+416 |         )
+417 |         #expect(tombstonePlan.identifiers == [
+418 |             SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: scope.accountID, environment: scope.environment)
+    |             `- error: cannot find 'SpoonEntityCatalog' in scope
+419 |         ])
+420 |         #expect(tombstonePlan.domainIdentifiers.isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:421:42: error: cannot infer contextual base in reference to member 'tombstoneApplied'
+419 |         ])
+420 |         #expect(tombstonePlan.domainIdentifiers.isEmpty)
+421 |         #expect(tombstonePlan.reason == .tombstoneApplied)
+    |                                          `- error: cannot infer contextual base in reference to member 'tombstoneApplied'
+422 | 
+423 |         #expect(SpoonEntityCatalog.purgeEntityIdentifiers(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:423:17: error: cannot find 'SpoonEntityCatalog' in scope
+421 |         #expect(tombstonePlan.reason == .tombstoneApplied)
+422 | 
+423 |         #expect(SpoonEntityCatalog.purgeEntityIdentifiers(
+    |                 `- error: cannot find 'SpoonEntityCatalog' in scope
+424 |             accountID: scope.accountID,
+425 |             environment: scope.environment,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:426:19: error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+424 |             accountID: scope.accountID,
+425 |             environment: scope.environment,
+426 |             plan: SpoonEntityIndexPurgePlan(
+    |                   `- error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+427 |                 identifiers: [SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_other", environment: .production)],
+428 |                 domainIdentifiers: ["spoon:production:account_other"],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:427:31: error: cannot find 'SpoonEntityCatalog' in scope
+425 |             environment: scope.environment,
+426 |             plan: SpoonEntityIndexPurgePlan(
+427 |                 identifiers: [SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_other", environment: .production)],
+    |                               `- error: cannot find 'SpoonEntityCatalog' in scope
+428 |                 domainIdentifiers: ["spoon:production:account_other"],
+429 |                 reason: .cacheDeleted
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:427:142: error: cannot infer contextual base in reference to member 'production'
+425 |             environment: scope.environment,
+426 |             plan: SpoonEntityIndexPurgePlan(
+427 |                 identifiers: [SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_other", environment: .production)],
+    |                                                                                                                                              `- error: cannot infer contextual base in reference to member 'production'
+428 |                 domainIdentifiers: ["spoon:production:account_other"],
+429 |                 reason: .cacheDeleted
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:429:26: error: cannot infer contextual base in reference to member 'cacheDeleted'
+427 |                 identifiers: [SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_other", environment: .production)],
+428 |                 domainIdentifiers: ["spoon:production:account_other"],
+429 |                 reason: .cacheDeleted
+    |                          `- error: cannot infer contextual base in reference to member 'cacheDeleted'
+430 |             )
+431 |         ).isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:432:17: error: cannot find 'SpoonEntityCatalog' in scope
+430 |             )
+431 |         ).isEmpty)
+432 |         #expect(SpoonEntityCatalog.purgeDomainIdentifiers(
+    |                 `- error: cannot find 'SpoonEntityCatalog' in scope
+433 |             accountID: scope.accountID,
+434 |             environment: scope.environment,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:435:19: error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+433 |             accountID: scope.accountID,
+434 |             environment: scope.environment,
+435 |             plan: SpoonEntityIndexPurgePlan(
+    |                   `- error: cannot find 'SpoonEntityIndexPurgePlan' in scope
+436 |                 identifiers: [],
+437 |                 domainIdentifiers: ["spoon:production:account_other"],
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:438:26: error: cannot infer contextual base in reference to member 'accountScopeChanged'
+436 |                 identifiers: [],
+437 |                 domainIdentifiers: ["spoon:production:account_other"],
+438 |                 reason: .accountScopeChanged
+    |                          `- error: cannot infer contextual base in reference to member 'accountScopeChanged'
+439 |             )
+440 |         ).isEmpty)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/SpoonEntityTests.swift:450:9: error: cannot find 'SpoonEntityCatalog' in scope
+448 |         tombstones: [NativeSyncTombstone] = []
+449 |     ) throws -> SpoonEntityCatalog {
+450 |         SpoonEntityCatalog(
+    |         `- error: cannot find 'SpoonEntityCatalog' in scope
+451 |             syncSnapshot: try syncSnapshot(recipes: recipes, spoons: spoons, tombstones: tombstones),
+452 |             currentAccountID: currentAccountID,
+error: fatalError

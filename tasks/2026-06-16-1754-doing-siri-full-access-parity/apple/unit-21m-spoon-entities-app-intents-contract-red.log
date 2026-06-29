@@ -1,0 +1,26 @@
+FAIL: missing Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift
+missing Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift
+Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift performSettingsSessionOperation missing SpoonEntityIndexPurgePlan.accountScopePurge
+Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift performSettingsSessionOperation missing SpoonEntityCatalog.purgeEntityIdentifiers(
+Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift performSettingsSessionOperation missing SpoonEntityCatalog.purgeDomainIdentifiers(
+Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift performSettingsSessionOperation missing purgeSpoonEntityIdentifiers
+Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift bootstrapFromLiveAPI consumes spoon sync purge report missing report.spoonEntityPurgeIdentifiers
+Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift bootstrapFromLiveAPI consumes spoon sync purge report missing report.spoonEntityPurgeDomainIdentifiers
+Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift foreground sync consumes spoon sync purge report missing NativeSpoonEntityIndexPurgeRequest
+Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift foreground sync consumes spoon sync purge report missing report.spoonEntityPurgeIdentifiers
+Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift foreground sync consumes spoon sync purge report missing report.spoonEntityPurgeDomainIdentifiers
+Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift foreground sync consumes spoon sync purge report missing purgeSpoonEntityIndexesHandler
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing SpoonEntityIndexPurgePlan.tombstonePurge
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing spoonEntityAccountScopePurgePlan
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing spoonEntityPurgeIdentifiers
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing spoonEntityPurgeDomainIdentifiers
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing SpoonEntityCatalog.purgeEntityIdentifiers(
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing SpoonEntityCatalog.purgeDomainIdentifiers(
+Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift bootstrapAndDrain scoped spoon tombstone purge missing NativeSyncResourceType.spoon
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoySpoonEntity
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoySpoonEntityQuery
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing spoon cook-log App Entity
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing SpoonEntityCatalog
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing SpoonjoySpoonEntity
+Spoonjoy.xcodeproj target Spoonjoy iOS missing Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift
+Spoonjoy.xcodeproj target Spoonjoy macOS missing Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift
