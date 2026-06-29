@@ -454,6 +454,9 @@ struct CookbookIntentTests {
         #expect(throws: NativeIntentActionError.unresolvedCookbookEntity) {
             try resolver.renameCookbook(cookbook: .placeholder, title: "Dinner", currentChefID: "chef_ari", createdAt: "2026-06-16T16:12:00.000Z")
         }
+        #expect(throws: NativeIntentActionError.emptyCookbookTitle) {
+            try resolver.renameCookbook(cookbook: cookbook, title: " \n ", currentChefID: "chef_ari", createdAt: "2026-06-16T16:12:30.000Z")
+        }
         #expect(throws: NativeIntentActionError.invalidCookbookID("cookbook_weeknights")) {
             try resolver.deleteCookbook(
                 cookbook: cookbookIntentCookbookDescriptor(route: .cookbooks),
