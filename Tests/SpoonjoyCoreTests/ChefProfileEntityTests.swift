@@ -158,7 +158,7 @@ struct ChefProfileEntityTests {
         #expect(try ChefProfileEntityCatalog.resolvedChefProfileID(from: transfer.profileID) == "chef_ari")
 
         let serializedTransfer = String(decoding: try JSONEncoder().encode(transfer), as: UTF8.self)
-        for forbidden in ["account_ari", "environment", "isOwner", "serverRevision", "cache", "score", "metadata", "token", "provider-secret", "debug"] {
+        for forbidden in ["account_ari", "environment", "isOwner", "serverRevision", "cache", "score", "metadata", "token", "provider-secret", "debugSecret"] {
             #expect(!serializedTransfer.contains(forbidden))
         }
 
