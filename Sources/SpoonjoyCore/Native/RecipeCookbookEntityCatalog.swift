@@ -82,7 +82,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 
     public init(recipe: Recipe) throws {
         let route = AppRoute.recipeDetail(id: recipe.id, presentation: .detail)
-        let sharePayload = try NativeSharePayload.publicRecipe(recipe)
+        _ = try NativeSharePayload.publicRecipe(recipe)
         self.init(
             id: recipe.id,
             title: recipe.title,
@@ -90,7 +90,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
             subtitle: Self.recipeSubtitle(chefUsername: recipe.chef.username, servings: recipe.servings),
             disambiguationLabel: "\(recipe.title) by \(recipe.chef.username)",
             route: route,
-            canonicalURL: sharePayload.publicURL ?? recipe.canonicalURL,
+            canonicalURL: recipe.canonicalURL,
             imageURL: recipe.coverImageURL,
             transferValue: RecipeCookbookEntityTransferValue(
                 kind: .recipe,
@@ -98,7 +98,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
                 title: recipe.title,
                 chefUsername: recipe.chef.username,
                 routeIdentifier: route.stateIdentifier,
-                canonicalURL: sharePayload.publicURL ?? recipe.canonicalURL,
+                canonicalURL: recipe.canonicalURL,
                 imageURL: recipe.coverImageURL,
                 userVisibleSummary: "\(recipe.title) by \(recipe.chef.username)"
             )
@@ -173,7 +173,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
 
     public init(cookbook: Cookbook) throws {
         let route = AppRoute.cookbookDetail(id: cookbook.id)
-        let sharePayload = try NativeSharePayload.publicCookbook(cookbook)
+        _ = try NativeSharePayload.publicCookbook(cookbook)
         let summary = "\(cookbook.title) by \(cookbook.chef.username)"
         self.init(
             id: cookbook.id,
@@ -182,7 +182,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
             subtitle: "\(cookbook.chef.username) - \(cookbook.recipeCount) \(Self.recipeCountLabel(cookbook.recipeCount))",
             disambiguationLabel: summary,
             route: route,
-            canonicalURL: sharePayload.publicURL ?? cookbook.canonicalURL,
+            canonicalURL: cookbook.canonicalURL,
             imageURL: cookbook.cover.primaryImageURL,
             recipeCount: cookbook.recipeCount,
             transferValue: RecipeCookbookEntityTransferValue(
@@ -191,7 +191,7 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
                 title: cookbook.title,
                 chefUsername: cookbook.chef.username,
                 routeIdentifier: route.stateIdentifier,
-                canonicalURL: sharePayload.publicURL ?? cookbook.canonicalURL,
+                canonicalURL: cookbook.canonicalURL,
                 imageURL: cookbook.cover.primaryImageURL,
                 userVisibleSummary: summary
             )
