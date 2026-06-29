@@ -95,7 +95,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents", "cookbook-intents", "profile-settings-intents"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents", "cookbook-intents", "profile-settings-intents", "notification-intents"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -4089,6 +4089,439 @@ if domain == "profile-settings-intents"
     ],
     failures
   )
+end
+
+if domain == "notification-intents"
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  notification_repo = ROOT.join("Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceRepository.swift")
+  notification_view_model = ROOT.join("Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift")
+  settings_repo = ROOT.join("Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift")
+  native_api = ROOT.join("Sources/SpoonjoyCore/API/NativeAPIRequests.swift")
+  sync_engine = ROOT.join("Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [
+    app_intents,
+    notification_repo,
+    notification_view_model,
+    settings_repo,
+    native_api,
+    sync_engine,
+    intent_action,
+    metadata,
+    verifier,
+    project
+  ].each do |path|
+    require_file(path, failures)
+  end
+
+  notification_forbidden_tokens = [
+    "struct EnableNotificationsIntent",
+    "struct DisableNotificationsIntent",
+    "struct RequestNotificationPermissionIntent",
+    "struct RequestPushNotificationPermissionIntent",
+    "struct RegisterAPNsDeviceIntent",
+    "struct RegisterAPNSDeviceIntent",
+    "struct RevokeAPNsDeviceIntent",
+    "struct RevokeAPNSDeviceIntent",
+    "@Parameter(title: \"Device Token\")",
+    "@Parameter(title: \"APNs Token\")",
+    "var deviceToken: String",
+    "var apnsToken: String",
+    "NotificationAPNsDeviceBridge",
+    "requestNotificationPermission",
+    "requestDeviceRegistrationAction",
+    "registrationAction(",
+    "planDeviceTokenAcquisition",
+    ".requestPermission",
+    ".registerDevice(",
+    ".revokeDevice(",
+    "requestAuthorization",
+    "registerForRemoteNotifications",
+    "didRegisterForRemoteNotifications",
+    "sendPushNotification",
+    "deliverPushNotification",
+    "productionAPNsAvailable = true",
+    "CommentIntent",
+    "FeedIntent",
+    "MessageIntent",
+    "MailIntent",
+    "social-feed",
+    "/comments",
+    "/feeds",
+    "/messages",
+    "mailto:",
+    "MessageUI",
+    "TODO NotificationIntent",
+    "eventually add notification intents"
+  ]
+
+  notification_forbidden_capability_tokens = [
+    "EnableNotificationsIntent",
+    "DisableNotificationsIntent",
+    "RequestNotificationPermissionIntent",
+    "RequestPushNotificationPermissionIntent",
+    "RegisterAPNsDeviceIntent",
+    "RegisterAPNSDeviceIntent",
+    "RevokeAPNsDeviceIntent",
+    "RevokeAPNSDeviceIntent",
+    "SendTestPushNotificationIntent",
+    "APNsProductionDeliveryAvailable",
+    "productionDeliveryReady",
+    "productionAPNsAvailable = true",
+    "fakeAPNsDelivery",
+    "sendTestPushNotification",
+    "sendPushNotification",
+    "deliverPushNotification",
+    "TestFlightAvailable"
+  ]
+
+  require_tokens(
+    app_intents,
+    [
+      "struct ReadNotificationPreferencesIntent: AppIntent",
+      "struct UpdateNotificationPreferencesIntent: AppIntent",
+      "struct OpenNotificationAPNsStatusIntent: AppIntent",
+      "@Parameter(title: \"Spoons\")",
+      "@Parameter(title: \"Forks\")",
+      "@Parameter(title: \"Cookbook Saves\")",
+      "@Parameter(title: \"Fellow-Chef Cooks\")",
+      "SettingsNotificationPreferences(",
+      "NativeIntentActionResolver().readNotificationPreferences(",
+      "NativeIntentActionResolver().updateNotificationPreferences(",
+      "NativeIntentActionResolver().openNotificationAPNsStatus(",
+      "SpoonjoyIntentStateWriter",
+      "notificationAPNsSurfaceData()",
+      "notificationAPNsConnectivity()",
+      "performNotificationAPNsActionStatus",
+      "SpoonjoyIntentClock.timestamp()",
+      "SpoonjoyInteractionDonor",
+      "OpenURLIntent(action.url)",
+      "ReturnsValue<String>",
+      "APNsDeliveryBlockerState",
+      "AppleDeveloperProgramBlocker.artifactFileName",
+      "String(describing: ReadNotificationPreferencesIntent())",
+      "String(describing: UpdateNotificationPreferencesIntent())",
+      "String(describing: OpenNotificationAPNsStatusIntent())"
+    ],
+    failures
+  )
+
+  require_tokens(
+    notification_repo,
+    [
+      "NotificationAPNsSurfaceData",
+      "APNsRegistrationSummary",
+      "APNsPermissionState",
+      "APNsDeliveryCapability",
+      "AppleDeveloperProgramBlocker",
+      "apple-developer-program-blocker-apns.json"
+    ],
+    failures
+  )
+
+  require_tokens(
+    notification_view_model,
+    [
+      "NotificationAPNsActionPlanner",
+      "NotificationAPNsActionPlan",
+      "NotificationAPNsSurfaceConnectivity",
+      "case updatePreferences",
+      "case requestPermission",
+      "case registerDevice",
+      "case revokeDevice",
+      "NotificationAPNsOnlineOnlyReason",
+      "NativeOfflineAction.apnsPermissionPrompt",
+      "NativeOfflineAction.apnsDeviceTokenAcquisition",
+      "APNsDeliveryBlockerState"
+    ],
+    failures
+  )
+
+  require_tokens(
+    settings_repo,
+    [
+      "SettingsNotificationPreferences",
+      "notifySpoonOnMyRecipe",
+      "notifyForkOfMyRecipe",
+      "notifyCookbookSaveOfMine",
+      "notifyFellowChefOriginCook"
+    ],
+    failures
+  )
+
+  require_tokens(
+    native_api,
+    [
+      "public static func notificationPreferences()",
+      "public static func updateNotificationPreferences(",
+      "public static func registerAPNSDevice(",
+      "public static func revokeAPNSDevice("
+    ],
+    failures
+  )
+
+  require_tokens(
+    sync_engine,
+    [
+      ".notificationPreferenceUpdate",
+      ".apnsDeviceRegister",
+      ".apnsDeviceRevoke",
+      ".apnsPermissionPrompt",
+      ".apnsDeviceTokenAcquisition"
+    ],
+    failures
+  )
+
+  require_tokens(
+    intent_action,
+    [
+      "public struct NativeIntentNotificationPreferencesSummary",
+      "public struct NativeIntentNotificationAction",
+      "public func readNotificationPreferences(",
+      "public func updateNotificationPreferences(",
+      "public func openNotificationAPNsStatus(",
+      "NotificationAPNsActionPlanner",
+      "NotificationAPNsSurfaceConnectivity",
+      "NotificationAPNsActionPlan",
+      ".updatePreferences(preferences, clientMutationID: mutationID)",
+      "SettingsNotificationPreferences",
+      "APNsDeliveryBlockerState",
+      "AppleDeveloperProgramBlocker.artifactFileName",
+      "DeepLinkURLBuilder.url(for: .settings)"
+    ],
+    failures
+  )
+
+  if app_intents.file?
+    allowed_notification_intents = [
+      "ReadNotificationPreferencesIntent",
+      "UpdateNotificationPreferencesIntent",
+      "OpenNotificationAPNsStatusIntent"
+    ]
+    uncommented_swift(app_intents.read).scan(/\bstruct\s+([A-Za-z0-9_]*(?:Notification|APNs|APNS|Push)[A-Za-z0-9_]*)\s*:\s*AppIntent\b/) do |match|
+      name = match.fetch(0)
+      failures << "#{relative(app_intents)} contains forbidden notification/APNs Siri App Intent #{name}" unless allowed_notification_intents.include?(name)
+    end
+  end
+
+  {
+    "ReadNotificationPreferencesIntent" => {
+      pattern: /\bstruct\s+ReadNotificationPreferencesIntent\s*:\s*AppIntent\b/,
+      required: [
+        "ReturnsValue<String>",
+        "let data = try await SpoonjoyIntentStateWriter().notificationAPNsSurfaceData()",
+        "NativeIntentActionResolver().readNotificationPreferences(",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "return .result(value: summary.value"
+      ],
+      forbidden: [
+        "try await requestConfirmation(",
+        "OpenURLIntent",
+        "NativeQueuedMutation",
+        "NotificationAPNsDeviceBridge",
+        ".requestPermission",
+        ".registerDevice(",
+        ".revokeDevice(",
+        "planDeviceTokenAcquisition",
+        "requestNotificationPermission",
+        "requestDeviceRegistrationAction",
+        "registrationAction("
+      ]
+    },
+    "UpdateNotificationPreferencesIntent" => {
+      pattern: /\bstruct\s+UpdateNotificationPreferencesIntent\s*:\s*AppIntent\b/,
+      required: [
+        "@Parameter(title: \"Spoons\")",
+        "@Parameter(title: \"Forks\")",
+        "@Parameter(title: \"Cookbook Saves\")",
+        "@Parameter(title: \"Fellow-Chef Cooks\")",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "SettingsNotificationPreferences(",
+        "NativeIntentActionResolver().updateNotificationPreferences(",
+        "connectivity: try await SpoonjoyIntentStateWriter().notificationAPNsConnectivity()",
+        "performNotificationAPNsActionStatus(action, savedAt: createdAt)",
+        "status.dialogMessage(completed: \"Updated notification preferences in Spoonjoy.\"",
+        "queued: \"Queued notification preference update in Spoonjoy.\"",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: [
+        "try await requestConfirmation(",
+        "NotificationAPNsDeviceBridge",
+        ".requestPermission",
+        ".registerDevice(",
+        ".revokeDevice(",
+        "planDeviceTokenAcquisition",
+        "requestAuthorization",
+        "registerForRemoteNotifications",
+        "requestNotificationPermission",
+        "requestDeviceRegistrationAction",
+        "registrationAction(",
+        "var deviceToken",
+        "@Parameter(title: \"Device Token\")"
+      ]
+    },
+    "OpenNotificationAPNsStatusIntent" => {
+      pattern: /\bstruct\s+OpenNotificationAPNsStatusIntent\s*:\s*AppIntent\b/,
+      required: [
+        "let data = try await SpoonjoyIntentStateWriter().notificationAPNsSurfaceData()",
+        "NativeIntentActionResolver().openNotificationAPNsStatus(",
+        "APNsDeliveryBlockerState",
+        "AppleDeveloperProgramBlocker.artifactFileName",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: [
+        "NotificationAPNsDeviceBridge",
+        ".requestPermission",
+        ".registerDevice(",
+        ".revokeDevice(",
+        "planDeviceTokenAcquisition",
+        "requestAuthorization",
+        "registerForRemoteNotifications",
+        "requestNotificationPermission",
+        "requestDeviceRegistrationAction",
+        "registrationAction(",
+        "revokeAPNSDevice",
+        "sendPushNotification",
+        "deliverPushNotification"
+      ]
+    },
+    "SpoonjoyIntentStateWriter" => {
+      pattern: /\bprivate\s+struct\s+SpoonjoyIntentStateWriter\b/,
+      required: [
+        "func notificationAPNsSurfaceData() async throws -> NotificationAPNsSurfaceData",
+        "func notificationAPNsConnectivity() async throws -> NotificationAPNsSurfaceConnectivity",
+        "func performNotificationAPNsActionStatus(_ action: NativeIntentNotificationAction, savedAt: String) async throws -> SpoonjoyIntentSettingsActionStatus",
+        "executeNotificationAPNsAction(action)",
+        "NotificationAPNsActionPlanner",
+        "recordNotificationAPNsBlocker"
+      ],
+      forbidden: ["return .online"]
+    },
+    "SpoonjoyIntentShortcutBudget" => {
+      pattern: /\bprivate\s+enum\s+SpoonjoyIntentShortcutBudget\b/,
+      required: [
+        "String(describing: ReadNotificationPreferencesIntent())",
+        "String(describing: UpdateNotificationPreferencesIntent())",
+        "String(describing: OpenNotificationAPNsStatusIntent())"
+      ],
+      forbidden: [
+        "AppShortcut(intent: ReadNotificationPreferencesIntent",
+        "AppShortcut(intent: UpdateNotificationPreferencesIntent",
+        "AppShortcut(intent: OpenNotificationAPNsStatusIntent"
+      ]
+    }
+  }.each do |label, contract|
+    require_body_tokens(app_intents, label, contract.fetch(:pattern), contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, label, contract.fetch(:pattern), contract.fetch(:forbidden), failures)
+  end
+
+  {
+    "readNotificationPreferences resolver" => {
+      pattern: /\bpublic\s+func\s+readNotificationPreferences\(/,
+      required: [
+        "SettingsNotificationPreferences",
+        "NativeIntentNotificationPreferencesSummary",
+        "notifySpoonOnMyRecipe",
+        "notifyForkOfMyRecipe",
+        "notifyCookbookSaveOfMine",
+        "notifyFellowChefOriginCook"
+      ],
+      forbidden: [
+        "NativeQueuedMutation",
+        "APIRequestBuilder"
+      ]
+    },
+    "updateNotificationPreferences resolver" => {
+      pattern: /\bpublic\s+func\s+updateNotificationPreferences\(/,
+      required: [
+        "SettingsNotificationPreferences",
+        "NotificationAPNsActionPlanner(connectivity: connectivity",
+        ".updatePreferences(preferences, clientMutationID: mutationID)",
+        "notificationPreferenceUpdate",
+        "route: .settings",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: [
+        "requestAuthorization",
+        "registerForRemoteNotifications",
+        ".apnsDeviceRegister",
+        ".apnsDeviceRevoke"
+      ]
+    },
+    "openNotificationAPNsStatus resolver" => {
+      pattern: /\bpublic\s+func\s+openNotificationAPNsStatus\(/,
+      required: [
+        "NotificationAPNsSurfaceData",
+        "APNsDeliveryBlockerState",
+        "AppleDeveloperProgramBlocker.artifactFileName",
+        "route: .settings",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: [
+        "requestAuthorization",
+        "registerForRemoteNotifications",
+        "sendPushNotification",
+        "deliverPushNotification"
+      ]
+    }
+  }.each do |label, contract|
+    require_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:required), failures)
+    forbid_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    metadata,
+    [
+      "ReadNotificationPreferencesIntent",
+      "UpdateNotificationPreferencesIntent",
+      "OpenNotificationAPNsStatusIntent"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Notification Siri intents",
+      "ReadNotificationPreferencesIntent",
+      "UpdateNotificationPreferencesIntent",
+      "OpenNotificationAPNsStatusIntent",
+      "AppleDeveloperProgramBlocker"
+    ],
+    failures
+  )
+
+  require_tokens(
+    app_intents,
+    [
+      "String(describing: ReadNotificationPreferencesIntent())",
+      "String(describing: UpdateNotificationPreferencesIntent())",
+      "String(describing: OpenNotificationAPNsStatusIntent())"
+    ],
+    failures
+  )
+
+  if project.file?
+    [
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift"
+    ].each do |relative_source|
+      require_project_source_membership(project_path, relative_source, ["Spoonjoy iOS", "Spoonjoy macOS"], failures)
+    end
+  end
+
+  [app_intents, intent_action].each do |path|
+    forbid_tokens(path, notification_forbidden_tokens, failures)
+  end
+
+  [metadata, verifier].each do |path|
+    forbid_tokens(path, notification_forbidden_capability_tokens, failures)
+  end
 end
 
 fail_check(failures.join("\n")) unless failures.empty?

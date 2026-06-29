@@ -1,0 +1,63 @@
+FAIL: Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct ReadNotificationPreferencesIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct UpdateNotificationPreferencesIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct OpenNotificationAPNsStatusIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing @Parameter(title: "Spoons")
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing @Parameter(title: "Forks")
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing @Parameter(title: "Cookbook Saves")
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing @Parameter(title: "Fellow-Chef Cooks")
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing SettingsNotificationPreferences(
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing NativeIntentActionResolver().readNotificationPreferences(
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing NativeIntentActionResolver().updateNotificationPreferences(
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing NativeIntentActionResolver().openNotificationAPNsStatus(
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing notificationAPNsSurfaceData()
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing notificationAPNsConnectivity()
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing performNotificationAPNsActionStatus
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing APNsDeliveryBlockerState
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing AppleDeveloperProgramBlocker.artifactFileName
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: ReadNotificationPreferencesIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: UpdateNotificationPreferencesIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenNotificationAPNsStatusIntent())
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public struct NativeIntentNotificationPreferencesSummary
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public struct NativeIntentNotificationAction
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func readNotificationPreferences(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func updateNotificationPreferences(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func openNotificationAPNsStatus(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing NotificationAPNsActionPlanner
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing NotificationAPNsSurfaceConnectivity
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing NotificationAPNsActionPlan
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .updatePreferences(preferences, clientMutationID: mutationID)
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing SettingsNotificationPreferences
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing APNsDeliveryBlockerState
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing AppleDeveloperProgramBlocker.artifactFileName
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for ReadNotificationPreferencesIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for ReadNotificationPreferencesIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateNotificationPreferencesIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for UpdateNotificationPreferencesIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenNotificationAPNsStatusIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for OpenNotificationAPNsStatusIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentStateWriter missing func notificationAPNsSurfaceData() async throws -> NotificationAPNsSurfaceData
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentStateWriter missing func notificationAPNsConnectivity() async throws -> NotificationAPNsSurfaceConnectivity
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentStateWriter missing func performNotificationAPNsActionStatus(_ action: NativeIntentNotificationAction, savedAt: String) async throws -> SpoonjoyIntentSettingsActionStatus
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentStateWriter missing executeNotificationAPNsAction(action)
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentStateWriter missing NotificationAPNsActionPlanner
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentStateWriter missing recordNotificationAPNsBlocker
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: ReadNotificationPreferencesIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: UpdateNotificationPreferencesIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: OpenNotificationAPNsStatusIntent())
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for readNotificationPreferences resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for readNotificationPreferences resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateNotificationPreferences resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for updateNotificationPreferences resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openNotificationAPNsStatus resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for openNotificationAPNsStatus resolver
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing ReadNotificationPreferencesIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing UpdateNotificationPreferencesIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing OpenNotificationAPNsStatusIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Notification Siri intents
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing ReadNotificationPreferencesIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing UpdateNotificationPreferencesIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing OpenNotificationAPNsStatusIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: ReadNotificationPreferencesIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: UpdateNotificationPreferencesIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: OpenNotificationAPNsStatusIntent())
+expected red status: 1
