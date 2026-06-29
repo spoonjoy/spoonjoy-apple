@@ -41,7 +41,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -864,6 +864,174 @@ if domain == "spoon"
       "reaction App Entity",
       "TODO Spoon AppEntity",
       "eventually add spoon entities"
+    ],
+    failures
+  )
+end
+
+if domain == "chef-profile"
+  core_entities = ROOT.join("Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift")
+  app_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [core_entities, app_entities, metadata, verifier, intent_action, project].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    core_entities,
+    [
+      "ChefProfileEntityCatalog",
+      "ChefProfileEntityCatalogError",
+      "ChefProfileEntityKind",
+      "ChefProfileEntityTransferValue",
+      "ChefProfileEntityScope",
+      "ChefProfileEntityDescriptor",
+      "isPlaceholder",
+      "chefProfileEntity(id:",
+      "chefProfileEntities(for identifiers:",
+      "chefProfileEntities(matching string:",
+      "suggestedChefProfileEntities",
+      "public static func loading(",
+      "NativeSyncSnapshot",
+      "NativeSyncCachedRecord",
+      "NativeSyncEntryKind.profile",
+      "NativeSyncEntryKind.recipe",
+      "NativeDurableCacheSnapshot",
+      "NativeDurableCacheStore",
+      "NativeCachePayload.profile",
+      "NativeCacheDomain.profile",
+      "accountID",
+      "environment",
+      "ProfileSurfaceResult",
+      "ProfileSurfaceData",
+      "ProfileSummary",
+      "ProfileGraphPage",
+      "ProfileGraphRow",
+      "ProfileGraphDirection.fellowChefs",
+      "ProfileGraphDirection.kitchenVisitors",
+      "interactionSummary",
+      "fellowChefs",
+      "kitchenVisitors",
+      "public static func resolvedChefProfileID(",
+      "AppRoute.profile",
+      "DeepLinkURLBuilder.url(for:",
+      "canonicalURL",
+      "transferValue",
+      "debugFields"
+    ],
+    failures
+  )
+
+  require_tokens(
+    app_entities,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "import CoreTransferable",
+      "import SpoonjoyCore",
+      "@available(iOS 27.0, macOS 27.0, *)",
+      "struct SpoonjoyChefProfileEntity: AppEntity",
+      "struct SpoonjoyChefProfileEntityQuery: EntityQuery, EntityStringQuery",
+      "typealias DefaultQuery = SpoonjoyChefProfileEntityQuery",
+      "static let typeDisplayRepresentation",
+      "var displayRepresentation",
+      "DisplayRepresentation",
+      "TypeDisplayRepresentation",
+      "entities(for identifiers: [String]) async throws",
+      "entities(matching string: String) async throws",
+      "suggestedEntities() async throws",
+      "ChefProfileEntityCatalog",
+      "ChefProfileEntityDescriptor",
+      "Transferable",
+      "TransferRepresentation",
+      "ChefProfileEntityTransferValue",
+      "resolvedChefProfileID() throws",
+      "NativeIntentActionError.unresolvedChefProfileEntity",
+      "descriptor.isPlaceholder",
+      "DeepLinkURLBuilder.url(for:",
+      "NativeAppStateLocation.defaultFileURL()",
+      "FileBackedNativeSyncStore",
+      "NativeDurableCacheStore",
+      "trustedIntentScope",
+      "KeychainTokenVault()",
+      "scope.accountID",
+      "scope.environment"
+    ],
+    failures
+  )
+
+  require_patterns(
+    app_entities,
+    {
+      "SpoonjoyChefProfileEntity AppEntity declaration" => /\bstruct\s+SpoonjoyChefProfileEntity\s*:\s*AppEntity\b/,
+      "chef profile query declaration" => /\bstruct\s+SpoonjoyChefProfileEntityQuery\s*:\s*EntityQuery\s*,\s*EntityStringQuery\b/
+    },
+    failures
+  )
+  require_nested_body_tokens(app_entities, "SpoonjoyChefProfileEntityQuery", /\bstruct\s+SpoonjoyChefProfileEntityQuery\b/, "identifier query", /func\s+entities\(for identifiers: \[String\]\)/, ["ChefProfileEntityCatalog.loading(", "chefProfileEntities(for: identifiers)", "SpoonjoyChefProfileEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyChefProfileEntityQuery", /\bstruct\s+SpoonjoyChefProfileEntityQuery\b/, "string query", /func\s+entities\(matching string: String\)/, ["ChefProfileEntityCatalog.loading(", "chefProfileEntities(matching: string)", "SpoonjoyChefProfileEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyChefProfileEntityQuery", /\bstruct\s+SpoonjoyChefProfileEntityQuery\b/, "suggestions query", /func\s+suggestedEntities\(\)/, ["ChefProfileEntityCatalog.loading(", "suggestedChefProfileEntities", "SpoonjoyChefProfileEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyChefProfileEntity", /\bstruct\s+SpoonjoyChefProfileEntity\b/, "display representation", /var\s+displayRepresentation:\s+DisplayRepresentation/, ["descriptor.title", "descriptor.subtitle", "descriptor.disambiguationLabel"], failures)
+
+  require_tokens(
+    metadata,
+    [
+      "SpoonjoyChefProfileEntity",
+      "SpoonjoyChefProfileEntityQuery"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "chef profile App Entity",
+      "ChefProfileEntityCatalog",
+      "SpoonjoyChefProfileEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    intent_action,
+    [
+      "unresolvedChefProfileEntity",
+      "Choose a Spoonjoy chef profile before running this Siri action."
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  forbid_tokens(
+    app_entities,
+    [
+      "@Parameter(title: \"Chef ID\")",
+      "@Parameter(title: \"Profile ID\")",
+      "var chefID: String",
+      "var profileID: String",
+      "String-only chef profile App Intent",
+      "SpoonjoyFollowEntity",
+      "FollowEntity",
+      "comment App Entity",
+      "feed App Entity",
+      "message App Entity",
+      "mail App Entity",
+      "privateTransferValue",
+      "TODO ChefProfile AppEntity",
+      "eventually add chef profile entities"
     ],
     failures
   )
