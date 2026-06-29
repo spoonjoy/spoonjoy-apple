@@ -33,7 +33,7 @@ struct ShoppingEntityTests {
                     "shoppingItemEntities(for identifiers:",
                     "shoppingItemEntities(matching string:",
                     "suggestedShoppingItemEntities",
-                    "loading(syncStore:",
+                    "public static func loading(",
                     "loadSnapshot()",
                     "NativeSyncSnapshot",
                     "NativeSyncCachedRecord",
@@ -42,17 +42,17 @@ struct ShoppingEntityTests {
                     "tombstones",
                     "accountID",
                     "environment",
-                    "scopedIdentifier(accountID:environment:",
-                    "shoppingListEntityIdentifier(accountID:environment:",
-                    "shoppingItemEntityIdentifier(itemID:accountID:environment:",
-                    "resolvedShoppingItemID(from:accountID:environment:",
-                    "purgeEntityIdentifiers(accountID:environment:",
+                    "private static func scopedIdentifier(",
+                    "public static func shoppingListEntityIdentifier(",
+                    "public static func shoppingItemEntityIdentifier(",
+                    "public static func resolvedShoppingItemID(",
+                    "public static func purgeEntityIdentifiers(",
                     "purgeDomainIdentifiers(",
                     "SpotlightIndexPlan.shoppingListItemUniqueIdentifier",
                     "SpotlightIndexPlan.shoppingListItemDomainIdentifier",
-                    "accountScopePurge(accountID:environment:shoppingItemIDs:",
-                    "tombstonePurge(tombstones:accountID:environment:",
-                    "cacheDeletePurge(accountID:environment:shoppingItemIDs:",
+                    "public static func accountScopePurge(",
+                    "public static func tombstonePurge(",
+                    "public static func cacheDeletePurge(",
                     "domainIdentifiers",
                     "ShoppingListState",
                     "ShoppingListItem",
@@ -385,6 +385,80 @@ struct ShoppingEntityTests {
         #expect(lemons.transferValue.publicURL == nil)
     }
 
+    @Test("shopping entity coverage edges preserve placeholder loading and identifier behavior")
+    func shoppingEntityCoverageEdgesPreservePlaceholderLoadingAndIdentifierBehavior() async throws {
+        #expect(ShoppingListEntityDescriptor.placeholder.isPlaceholder)
+        #expect(ShoppingItemEntityDescriptor.placeholder.isPlaceholder)
+        #expect(ShoppingEntityScope(accountID: "account_ari", environment: .production).domainIdentifier == "shopping:production:account_ari")
+        #expect(NativeIntentActionError.unresolvedShoppingItemEntity.description == "Choose a Spoonjoy shopping item before running this Siri action.")
+
+        let emptyCatalog = try Self.shoppingCatalog(items: [])
+        let emptyList = try await emptyCatalog.shoppingListEntity()
+        #expect(!emptyList.isPlaceholder)
+        #expect(emptyList.subtitle == "0 active items")
+        #expect(emptyList.transferValue.userVisibleSummary == "0 active items")
+        #expect(try await emptyCatalog.shoppingItemEntities(matching: " ").isEmpty)
+        #expect(try await emptyCatalog.suggestedShoppingItemEntities(limit: -1).isEmpty)
+
+        let oil = Self.shoppingItem(
+            id: "item_oil",
+            name: "oil",
+            quantity: nil,
+            unit: nil,
+            sortIndex: 0
+        )
+        let oneItemCatalog = try Self.shoppingCatalog(items: [oil])
+        let oneItemList = try await oneItemCatalog.shoppingListEntity()
+        #expect(oneItemList.subtitle == "1 active item")
+        let oilEntityID = ShoppingEntityCatalog.shoppingItemEntityIdentifier(
+            itemID: "item_oil",
+            accountID: "account_ari",
+            environment: .production
+        )
+        let oilEntity = try await oneItemCatalog.shoppingItemEntity(id: oilEntityID)
+        #expect(!oilEntity.isPlaceholder)
+        #expect(oilEntity.transferValue.userVisibleSummary == "oil")
+
+        let tiedCatalog = try Self.shoppingCatalog(items: [
+            Self.shoppingItem(id: "item_b", name: "basil", quantity: 1, unit: "bunch", sortIndex: 0),
+            Self.shoppingItem(id: "item_a", name: "apples", quantity: 2, unit: "each", sortIndex: 0)
+        ])
+        #expect(try await tiedCatalog.suggestedShoppingItemEntities(limit: 10).map(\.itemID) == ["item_a", "item_b"])
+        #expect(try await tiedCatalog.shoppingItemEntities(matching: "each").map(\.itemID) == ["item_a"])
+
+        let loadedStore = InMemoryNativeSyncStore(
+            accountID: "account_ari",
+            environment: .production,
+            checkpoint: try NativeSyncCheckpoint(
+                globalCursor: PaginationCursor(rawValue: "shopping-load-global"),
+                shoppingCursor: ShoppingSyncCursor(rawValue: "shopping-load-shopping"),
+                updatedAt: "2026-06-01T01:00:00.000Z"
+            ),
+            queue: NativeMutationQueue(),
+            cachedRecords: try [oil].map { item in
+                NativeSyncCachedRecord(
+                    kind: .shoppingItem,
+                    resourceID: item.id,
+                    payload: try Self.shoppingJSONValue(item),
+                    serverRevision: .updatedAt(item.updatedAt)
+                )
+            }
+        )
+        let loadedCatalog = try await ShoppingEntityCatalog.loading(
+            syncStore: loadedStore,
+            currentAccountID: "account_ari",
+            environment: .production
+        )
+        #expect(try await loadedCatalog.suggestedShoppingItemEntities().map(\.itemID) == ["item_oil"])
+
+        await shoppingExpectAsyncThrows(ShoppingEntityCatalogError.self) {
+            _ = try await oneItemCatalog.shoppingItemEntity(id: "item_missing")
+        }
+        await shoppingExpectAsyncThrows(ShoppingEntityCatalogError.self) {
+            _ = try await oneItemCatalog.shoppingItemEntity(id: "../item_oil")
+        }
+    }
+
     @Test("shopping entity purge plans cover logout account-switch cache-delete and tombstones")
     func shoppingEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
         let scope = ShoppingEntityScope(accountID: "account_ari", environment: .production)
@@ -450,6 +524,30 @@ struct ShoppingEntityTests {
         ])
         #expect(tombstonePlan.domainIdentifiers.isEmpty)
         #expect(tombstonePlan.reason == .tombstoneApplied)
+
+        #expect(ShoppingEntityCatalog.username(from: "chef_ari") == "chef_ari")
+        #expect(ShoppingEntityCatalog.purgeEntityIdentifiers(
+            accountID: scope.accountID,
+            environment: scope.environment,
+            plan: ShoppingEntityIndexPurgePlan(
+                identifiers: [ShoppingEntityCatalog.shoppingItemEntityIdentifier(
+                    itemID: "item_lemons",
+                    accountID: scope.accountID,
+                    environment: scope.environment
+                )],
+                domainIdentifiers: ["app.spoonjoy.production.other.shopping-list-item"],
+                reason: .cacheDeleted
+            )
+        ).isEmpty)
+        #expect(ShoppingEntityCatalog.purgeDomainIdentifiers(
+            accountID: scope.accountID,
+            environment: scope.environment,
+            plan: ShoppingEntityIndexPurgePlan(
+                identifiers: [],
+                domainIdentifiers: ["app.spoonjoy.production.other.shopping-list-item"],
+                reason: .accountScopeChanged
+            )
+        ).isEmpty)
     }
 
     private static func shoppingCatalog(

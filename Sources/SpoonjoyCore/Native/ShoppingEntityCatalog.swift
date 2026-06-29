@@ -278,18 +278,6 @@ public struct ShoppingEntityIndexPurgePlan: Equatable, Sendable {
         )
     }
 
-    public static var accountScopePurgeFunction: @Sendable (String, NativeCacheEnvironment, [String]) -> ShoppingEntityIndexPurgePlan {
-        ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)
-    }
-
-    public static var cacheDeletePurgeFunction: @Sendable (String, NativeCacheEnvironment, [String]) -> ShoppingEntityIndexPurgePlan {
-        ShoppingEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:shoppingItemIDs:)
-    }
-
-    public static var tombstonePurgeFunction: @Sendable ([NativeSyncTombstone], String, NativeCacheEnvironment) -> ShoppingEntityIndexPurgePlan {
-        ShoppingEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
-    }
-
     private static func scopedPlan(
         accountID: String,
         environment: NativeCacheEnvironment,
@@ -358,10 +346,6 @@ public struct ShoppingEntityCatalog: Sendable {
         )
     }
 
-    public static var loadingFunction: @Sendable (any NativeSyncStore, String?, NativeCacheEnvironment) async throws -> ShoppingEntityCatalog {
-        ShoppingEntityCatalog.loading(syncStore:currentAccountID:environment:)
-    }
-
     public func shoppingListEntity() async throws -> ShoppingListEntityDescriptor {
         try ShoppingListEntityDescriptor(scope: ensureScopeAvailable(), activeItems: activeItems)
     }
@@ -419,14 +403,6 @@ public struct ShoppingEntityCatalog: Sendable {
         scopedIdentifier(accountID: accountID, environment: environment, resourceKind: "shopping-item", resourceID: itemID)
     }
 
-    public static var shoppingListEntityIdentifierFunction: @Sendable (String, NativeCacheEnvironment) -> String {
-        ShoppingEntityCatalog.shoppingListEntityIdentifier(accountID:environment:)
-    }
-
-    public static var shoppingItemEntityIdentifierFunction: @Sendable (String, String, NativeCacheEnvironment) -> String {
-        ShoppingEntityCatalog.shoppingItemEntityIdentifier(itemID:accountID:environment:)
-    }
-
     public static func resolvedShoppingItemID(
         from identifier: String,
         accountID: String,
@@ -442,10 +418,6 @@ public struct ShoppingEntityCatalog: Sendable {
             throw ShoppingEntityCatalogError.invalidIdentifier(identifier)
         }
         return parts[3]
-    }
-
-    public static var resolvedShoppingItemIDFunction: @Sendable (String, String, NativeCacheEnvironment) throws -> String {
-        ShoppingEntityCatalog.resolvedShoppingItemID(from:accountID:environment:)
     }
 
     public static func purgeEntityIdentifiers(
@@ -472,10 +444,6 @@ public struct ShoppingEntityCatalog: Sendable {
         return plan.domainIdentifiers.filter { $0 == expectedDomain }
     }
 
-    public static var purgeEntityIdentifiersFunction: @Sendable (String, NativeCacheEnvironment, ShoppingEntityIndexPurgePlan) -> [String] {
-        ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
-    }
-
     public static func username(from accountID: String) -> String {
         let prefix = "account_"
         guard accountID.hasPrefix(prefix) else {
@@ -491,10 +459,6 @@ public struct ShoppingEntityCatalog: Sendable {
         resourceID: String
     ) -> String {
         "\(resourceKind):\(environment.rawValue):\(accountID):\(resourceID)"
-    }
-
-    private static var scopedIdentifierFunction: @Sendable (String, NativeCacheEnvironment, String, String) -> String {
-        ShoppingEntityCatalog.scopedIdentifier(accountID:environment:resourceKind:resourceID:)
     }
 
     private func ensureScopeAvailable() throws -> ShoppingEntityScope {

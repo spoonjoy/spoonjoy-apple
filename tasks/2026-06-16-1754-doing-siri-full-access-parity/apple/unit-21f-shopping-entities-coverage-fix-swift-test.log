@@ -1,0 +1,20 @@
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Shopping App Entity contracts" started.
+◇ Test "shopping entity purge plans cover logout account-switch cache-delete and tombstones" started.
+◇ Test "shopping entity sources exist with AppIntents contracts" started.
+◇ Test "shopping entity coverage edges preserve placeholder loading and identifier behavior" started.
+◇ Test "shopping entity transfer values filter private and debug-only fields" started.
+◇ Test "shopping entity lookup uses supplied sync snapshot records instead of fixture fallback" started.
+◇ Test "shopping entity lookup filters deleted, tombstoned, and wrong-scope data" started.
+◇ Test "shopping entities resolve from scoped native sync cache records" started.
+✔ Test "shopping entity purge plans cover logout account-switch cache-delete and tombstones" passed after 0.001 seconds.
+✔ Test "shopping entity transfer values filter private and debug-only fields" passed after 0.010 seconds.
+✔ Test "shopping entity lookup uses supplied sync snapshot records instead of fixture fallback" passed after 0.010 seconds.
+✔ Test "shopping entity lookup filters deleted, tombstoned, and wrong-scope data" passed after 0.011 seconds.
+✔ Test "shopping entities resolve from scoped native sync cache records" passed after 0.012 seconds.
+✔ Test "shopping entity coverage edges preserve placeholder loading and identifier behavior" passed after 0.015 seconds.
+✔ Test "shopping entity sources exist with AppIntents contracts" passed after 0.191 seconds.
+✔ Suite "Shopping App Entity contracts" passed after 0.191 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.192 seconds.
