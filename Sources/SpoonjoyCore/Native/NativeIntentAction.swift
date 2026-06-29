@@ -8,6 +8,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case emptyCaptureSource
     case authRequired
     case unresolvedRecipeEntity
+    case unresolvedShoppingItemEntity
 
     public var description: String {
         switch self {
@@ -25,6 +26,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Sign in to Spoonjoy before queueing this Siri action."
         case .unresolvedRecipeEntity:
             "Choose a Spoonjoy recipe before running this Siri action."
+        case .unresolvedShoppingItemEntity:
+            "Choose a Spoonjoy shopping item before running this Siri action."
         }
     }
 }

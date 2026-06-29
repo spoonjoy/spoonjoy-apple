@@ -3590,6 +3590,8 @@ public struct NativeSyncReport: Equatable, Sendable {
     public let bootstrapCursor: PaginationCursor?
     public let accountID: String?
     public let environment: NativeCacheEnvironment?
+    public let shoppingEntityPurgeIdentifiers: [String]
+    public let shoppingEntityPurgeDomainIdentifiers: [String]
     public let drainedClientMutationIDs: [String]
     public let drainedMutations: [NativeQueuedMutation]
     public let conflicts: [NativeSyncConflict]
@@ -3602,6 +3604,8 @@ public struct NativeSyncReport: Equatable, Sendable {
         bootstrapCursor: PaginationCursor?,
         accountID: String? = nil,
         environment: NativeCacheEnvironment? = nil,
+        shoppingEntityPurgeIdentifiers: [String] = [],
+        shoppingEntityPurgeDomainIdentifiers: [String] = [],
         drainedClientMutationIDs: [String],
         drainedMutations: [NativeQueuedMutation] = [],
         conflicts: [NativeSyncConflict],
@@ -3613,6 +3617,8 @@ public struct NativeSyncReport: Equatable, Sendable {
         self.bootstrapCursor = bootstrapCursor
         self.accountID = accountID
         self.environment = environment
+        self.shoppingEntityPurgeIdentifiers = shoppingEntityPurgeIdentifiers
+        self.shoppingEntityPurgeDomainIdentifiers = shoppingEntityPurgeDomainIdentifiers
         self.drainedClientMutationIDs = drainedClientMutationIDs
         self.drainedMutations = drainedMutations
         self.conflicts = conflicts
@@ -3754,11 +3760,13 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let bootstrapCursor: PaginationCursor?
         let bootstrapAccountID: String?
         let bootstrapEnvironment: NativeCacheEnvironment?
+        let bootstrapTombstones: [NativeSyncTombstone]
         switch bootstrapResult {
         case .success(let cursor, let tombstones):
             bootstrapCursor = cursor
             bootstrapAccountID = nil
             bootstrapEnvironment = nil
+            bootstrapTombstones = tombstones
             for tombstone in tombstones {
                 try await store.appendTombstone(tombstone)
             }
@@ -3771,15 +3779,34 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 try await store.saveCheckpoint(checkpoint)
             }
         case .syncData(let syncData):
-            _ = try await store.apply(syncData: syncData, validatedAt: clock())
+            let applyResult = try await store.apply(syncData: syncData, validatedAt: clock())
             bootstrapCursor = syncData.nextCursor
             bootstrapAccountID = syncData.freshness.accountID
             bootstrapEnvironment = syncData.freshness.environment
+            bootstrapTombstones = applyResult.tombstones
         }
 
         let canReplayStoredQueue = Self.canReuseStoredState(previousSnapshot, scope: scope)
         let queueAccountID = bootstrapAccountID ?? scope.expectedAccountID
         let queueEnvironment = bootstrapEnvironment ?? scope.environment
+        var shoppingEntityPurgeIdentifiers: [String] = []
+        var shoppingEntityPurgeDomainIdentifiers: [String] = []
+        if let accountScopePurge = Self.shoppingEntityAccountScopePurgePlan(
+            previousSnapshot: previousSnapshot,
+            nextAccountID: queueAccountID,
+            nextEnvironment: queueEnvironment
+        ) {
+            shoppingEntityPurgeIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeEntityIdentifiers(
+                accountID: accountScopePurge.accountID,
+                environment: accountScopePurge.environment,
+                plan: accountScopePurge.plan
+            ))
+            shoppingEntityPurgeDomainIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeDomainIdentifiers(
+                accountID: accountScopePurge.accountID,
+                environment: accountScopePurge.environment,
+                plan: accountScopePurge.plan
+            ))
+        }
         let originalQueue: NativeMutationQueue
         if canReplayStoredQueue {
             originalQueue = try await store.loadQueue()
@@ -3915,12 +3942,46 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             upsertingCachedRecords: cachePatch.upserting,
             deletingCachedRecordKeys: cachePatch.deletingCacheKeys
         )
+        let removedCacheKeys = cachePatch.deletingCacheKeys
+        if let queueAccountID, let queueEnvironment {
+            let makeTombstonePurge = ShoppingEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
+            let makeCacheDeletePurge = ShoppingEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:shoppingItemIDs:)
+            let purgeShoppingEntityIdentifiers = ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
+            let shoppingItemTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.shoppingItem }
+            let tombstonePurgePlan = makeTombstonePurge(shoppingItemTombstones, queueAccountID, queueEnvironment)
+            shoppingEntityPurgeIdentifiers.append(contentsOf: purgeShoppingEntityIdentifiers(queueAccountID, queueEnvironment, tombstonePurgePlan))
+            shoppingEntityPurgeDomainIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeDomainIdentifiers(
+                accountID: queueAccountID,
+                environment: queueEnvironment,
+                plan: tombstonePurgePlan
+            ))
+            let deletedShoppingItemIDs = removedCacheKeys.compactMap { cacheKey -> String? in
+                let prefix = "\(NativeSyncEntryKind.shoppingItem.rawValue):"
+                guard cacheKey.hasPrefix(prefix) else {
+                    return nil
+                }
+                return String(cacheKey.dropFirst(prefix.count))
+            }
+            if !deletedShoppingItemIDs.isEmpty {
+                let cacheDeletePurgePlan = makeCacheDeletePurge(queueAccountID, queueEnvironment, deletedShoppingItemIDs)
+                shoppingEntityPurgeIdentifiers.append(contentsOf: purgeShoppingEntityIdentifiers(queueAccountID, queueEnvironment, cacheDeletePurgePlan))
+                shoppingEntityPurgeDomainIdentifiers.append(contentsOf: ShoppingEntityCatalog.purgeDomainIdentifiers(
+                    accountID: queueAccountID,
+                    environment: queueEnvironment,
+                    plan: cacheDeletePurgePlan
+                ))
+            }
+        }
+        shoppingEntityPurgeIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeIdentifiers)
+        shoppingEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeDomainIdentifiers)
 
         return NativeSyncReport(
             trigger: trigger,
             bootstrapCursor: bootstrapCursor,
             accountID: bootstrapAccountID,
             environment: bootstrapEnvironment,
+            shoppingEntityPurgeIdentifiers: shoppingEntityPurgeIdentifiers,
+            shoppingEntityPurgeDomainIdentifiers: shoppingEntityPurgeDomainIdentifiers,
             drainedClientMutationIDs: drainedClientMutationIDs,
             drainedMutations: drainedMutations,
             conflicts: conflicts,
@@ -3936,6 +3997,38 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
 
         return min(current, candidate)
+    }
+
+    private static func shoppingEntityAccountScopePurgePlan(
+        previousSnapshot: NativeSyncSnapshot,
+        nextAccountID: String?,
+        nextEnvironment: NativeCacheEnvironment?
+    ) -> (accountID: String, environment: NativeCacheEnvironment, plan: ShoppingEntityIndexPurgePlan)? {
+        guard let previousAccountID = previousSnapshot.accountID,
+              let previousEnvironment = previousSnapshot.environment,
+              let nextAccountID,
+              let nextEnvironment,
+              (previousAccountID != nextAccountID || previousEnvironment != nextEnvironment) else {
+            return nil
+        }
+
+        let shoppingItemIDs = previousSnapshot.cachedRecords.compactMap { record in
+            record.kind == .shoppingItem ? record.resourceID : nil
+        }
+        return (
+            accountID: previousAccountID,
+            environment: previousEnvironment,
+            plan: ShoppingEntityIndexPurgePlan.accountScopePurge(
+                accountID: previousAccountID,
+                environment: previousEnvironment,
+                shoppingItemIDs: shoppingItemIDs
+            )
+        )
+    }
+
+    private static func uniquePreservingOrder(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 
     private static func drainedRecipeCachePatch(

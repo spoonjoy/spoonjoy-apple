@@ -8,6 +8,22 @@ public typealias NativeSettingsSurfaceFetchOperation = @Sendable (
     _ cache: NativeDurableCache
 ) async throws -> SettingsSurfaceResult
 
+public struct NativeShoppingEntityIndexPurgeRequest: Equatable, Sendable {
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+
+    public init(identifiers: [String], domainIdentifiers: [String]) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+    }
+
+    public var isEmpty: Bool {
+        identifiers.isEmpty && domainIdentifiers.isEmpty
+    }
+}
+
+public typealias NativeShoppingEntityIndexPurgeOperation = @Sendable (_ request: NativeShoppingEntityIndexPurgeRequest) async -> Void
+
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
     case restoreCacheOnly
@@ -26,6 +42,7 @@ public struct NativeLiveAppStoreDependencies {
     public let recipeEditorAPITransport: @Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport
     public let settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
     public let stagedMediaDirectory: NativeStagedMediaDirectory?
+    public let shoppingEntityIndexPurge: NativeShoppingEntityIndexPurgeOperation
     public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
@@ -44,6 +61,7 @@ public struct NativeLiveAppStoreDependencies {
         },
         settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
+        shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
@@ -59,6 +77,7 @@ public struct NativeLiveAppStoreDependencies {
         self.recipeEditorAPITransport = recipeEditorAPITransport
         self.settingsSurfaceFetch = settingsSurfaceFetch
         self.stagedMediaDirectory = stagedMediaDirectory
+        self.shoppingEntityIndexPurge = shoppingEntityIndexPurge
         self.bootstrapMode = bootstrapMode
         self.now = now
     }
@@ -1947,9 +1966,36 @@ public final class NativeLiveAppStore: ObservableObject {
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
         case .logout, .revokeAndLogout:
+            let currentAccountID = accountID
+            let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
+            let makePurgePlan = ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)
+            let purgePlan = makePurgePlan(currentAccountID, cacheEnvironment, shoppingItemIDs)
+            await purgeShoppingEntityIdentifiers(ShoppingEntityCatalog.purgeEntityIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: purgePlan
+            ), domainIdentifiers: ShoppingEntityCatalog.purgeDomainIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: purgePlan
+            ))
             try await dependencies.authSessionRepository.revokeAndLogout()
         }
         await bootstrap()
+    }
+
+    public func purgeShoppingEntityIdentifiers(_ identifiers: [String], domainIdentifiers: [String] = []) async {
+        let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
+        let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
+        let request = NativeShoppingEntityIndexPurgeRequest(
+            identifiers: uniqueIdentifiers,
+            domainIdentifiers: uniqueDomainIdentifiers
+        )
+        guard !request.isEmpty else {
+            return
+        }
+
+        await dependencies.shoppingEntityIndexPurge(request)
     }
 
     private var optimisticRecipeChef: ChefSummary {
@@ -2399,6 +2445,10 @@ public final class NativeLiveAppStore: ObservableObject {
         trigger: NativeSyncTriggerEvent
     ) async throws {
         let report = try await syncTriggerCoordinator.handle(trigger)
+        await purgeShoppingEntityIdentifiers(
+            report.shoppingEntityPurgeIdentifiers,
+            domainIdentifiers: report.shoppingEntityPurgeDomainIdentifiers
+        )
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
         clearDrainedCaptureImports(
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
@@ -2509,6 +2559,11 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {
         bootstrapState.replacingContent(content)
+    }
+
+    private static func uniquePreservingOrder(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 
     private var accountID: String {

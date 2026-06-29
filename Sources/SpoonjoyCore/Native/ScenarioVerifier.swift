@@ -126,6 +126,28 @@ public enum ScenarioVerifier {
                     ]
                 ),
                 sourceCheck(
+                    name: "shopping list App Entity and shopping item App Entity source",
+                    detail: "Shopping list App Entity and shopping item App Entity integration source is present.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoyShoppingListEntity",
+                        "SpoonjoyShoppingItemEntity",
+                        "SpoonjoyShoppingListEntityQuery",
+                        "SpoonjoyShoppingItemEntityQuery",
+                        "ShoppingEntityCatalog",
+                        "EntityStringQuery",
+                        "FileBackedNativeSyncStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
                     name: "spotlight source",
                     detail: "CoreSpotlight integration source is present.",
                     rootURL: rootURL,

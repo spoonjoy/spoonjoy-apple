@@ -367,10 +367,11 @@ if domain == "shopping"
   verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
   live_store = ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift")
   sync_engine = ROOT.join("Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift")
+  spotlight_indexer = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift")
   project_path = ROOT.join("Spoonjoy.xcodeproj")
   project = project_path.join("project.pbxproj")
 
-  [core_entities, app_entities, app_intents, metadata, verifier, live_store, sync_engine, project].each do |path|
+  [core_entities, app_entities, app_intents, metadata, verifier, live_store, sync_engine, spotlight_indexer, project].each do |path|
     require_file(path, failures)
   end
 
@@ -405,6 +406,9 @@ if domain == "shopping"
       "shoppingItemEntityIdentifier(itemID:accountID:environment:",
       "resolvedShoppingItemID(from:accountID:environment:",
       "purgeEntityIdentifiers(accountID:environment:",
+      "purgeDomainIdentifiers(",
+      "SpotlightIndexPlan.shoppingListItemUniqueIdentifier",
+      "SpotlightIndexPlan.shoppingListItemDomainIdentifier",
       "accountScopePurge(accountID:environment:shoppingItemIDs:",
       "tombstonePurge(tombstones:accountID:environment:",
       "cacheDeletePurge(accountID:environment:shoppingItemIDs:",
@@ -431,9 +435,36 @@ if domain == "shopping"
     [
       "case .logout, .revokeAndLogout",
       "ShoppingEntityIndexPurgePlan.accountScopePurge",
-      "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+      "ShoppingEntityCatalog.purgeEntityIdentifiers(",
+      "ShoppingEntityCatalog.purgeDomainIdentifiers(",
       "purgeShoppingEntityIdentifiers",
       "cacheEnvironment"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    live_store,
+    "bootstrapFromLiveAPI consumes sync purge report",
+    /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)/,
+    [
+      "let report = try await syncTriggerCoordinator.handle(trigger)",
+      "report.shoppingEntityPurgeIdentifiers",
+      "report.shoppingEntityPurgeDomainIdentifiers"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"),
+    "foreground sync consumes sync purge report",
+    /\.task\(id: contentState\.environment\.rawValue\)/,
+    [
+      "let report = try? await syncTriggerCoordinator.handle(.foreground)",
+      "NativeShoppingEntityIndexPurgeRequest",
+      "report.shoppingEntityPurgeIdentifiers",
+      "report.shoppingEntityPurgeDomainIdentifiers",
+      "purgeShoppingEntityIndexesHandler"
     ],
     failures
   )
@@ -445,9 +476,24 @@ if domain == "shopping"
     [
       "case .success(let cursor, let tombstones)",
       "ShoppingEntityIndexPurgePlan.tombstonePurge",
-      "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+      "shoppingEntityAccountScopePurgePlan",
+      "shoppingEntityPurgeIdentifiers",
+      "shoppingEntityPurgeDomainIdentifiers",
+      "previousSnapshot",
+      "ShoppingEntityCatalog.purgeEntityIdentifiers(",
+      "ShoppingEntityCatalog.purgeDomainIdentifiers(",
       "NativeSyncResourceType.shoppingItem",
       "removedCacheKeys"
+    ],
+    failures
+  )
+
+  require_tokens(
+    spotlight_indexer,
+    [
+      "func delete(identifiers: [String], domainIdentifiers: [String])",
+      "deleteSearchableItems(withIdentifiers:",
+      "deleteSearchableItems(withDomainIdentifiers:"
     ],
     failures
   )

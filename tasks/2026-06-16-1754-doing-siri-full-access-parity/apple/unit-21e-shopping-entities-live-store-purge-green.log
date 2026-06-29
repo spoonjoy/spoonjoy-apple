@@ -1,0 +1,11 @@
+Another instance of SwiftPM (PID: 70091) is already running using '/Users/arimendelow/Projects/spoonjoy-apple/.build', waiting until that process has finished execution...Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "live store purges shopping entity indexes on logout and account switch" started.
+✔ Test "live store purges shopping entity indexes on logout and account switch" passed after 0.013 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.013 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.013 seconds.

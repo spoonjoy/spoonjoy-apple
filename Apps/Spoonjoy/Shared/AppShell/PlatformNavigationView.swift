@@ -37,6 +37,7 @@ struct PlatformNavigationView: View {
     private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
+    private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
@@ -64,7 +65,8 @@ struct PlatformNavigationView: View {
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
-        syncTriggerCoordinator: NativeSyncTriggerCoordinator
+        syncTriggerCoordinator: NativeSyncTriggerCoordinator,
+        purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
     ) {
         _navigation = navigation
         _search = search
@@ -92,6 +94,7 @@ struct PlatformNavigationView: View {
         self.recordSearchSurfacePageHandler = recordSearchSurfacePage
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
         self.syncTriggerCoordinator = syncTriggerCoordinator
+        self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
     }
 
     var body: some View {
@@ -127,7 +130,12 @@ struct PlatformNavigationView: View {
                 await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
             }
             .task(id: contentState.environment.rawValue) {
-                _ = try? await syncTriggerCoordinator.handle(.foreground)
+                if let report = try? await syncTriggerCoordinator.handle(.foreground) {
+                    await purgeShoppingEntityIndexesHandler(NativeShoppingEntityIndexPurgeRequest(
+                        identifiers: report.shoppingEntityPurgeIdentifiers,
+                        domainIdentifiers: report.shoppingEntityPurgeDomainIdentifiers
+                    ))
+                }
             }
             .onChange(of: navigation.route) { _, route in
                 if !routeKeepsSearchFocus(route) {

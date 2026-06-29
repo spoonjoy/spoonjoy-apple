@@ -140,6 +140,50 @@ struct NativeSyncEngineTests {
         #expect(snapshot.queue.mutations.isEmpty)
     }
 
+    @Test("bootstrap account switch reports previous shopping entity purge identifiers")
+    func bootstrapAccountSwitchReportsPreviousShoppingEntityPurgeIdentifiers() async throws {
+        let previousItems = [
+            Self.shoppingItem(id: "item_previous_bread", name: "bread", quantity: 1, unit: "loaf"),
+            Self.shoppingItem(id: "item_previous_butter", name: "butter", quantity: 2, unit: "sticks")
+        ]
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_previous",
+            environment: .local,
+            checkpoint: nil,
+            queue: NativeMutationQueue(),
+            cachedRecords: try previousItems.map { item in
+                NativeSyncCachedRecord(
+                    kind: .shoppingItem,
+                    resourceID: item.id,
+                    payload: try Self.jsonValue(item),
+                    serverRevision: .updatedAt(item.updatedAt)
+                )
+            }
+        )
+        let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
+        let transport = RecordingNativeSyncTransport(
+            bootstrap: .syncData(syncData),
+            mutationResults: []
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+        let previousScope = SpotlightIndexScope(accountID: "chef_previous", environment: .local)
+        let nextScope = SpotlightIndexScope(accountID: "chef_ari", environment: .local)
+
+        #expect(report.shoppingEntityPurgeIdentifiers == [
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_previous_bread", scope: previousScope),
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_previous_butter", scope: previousScope),
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_deleted", scope: nextScope)
+        ])
+        #expect(report.shoppingEntityPurgeDomainIdentifiers == [
+            SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: previousScope)
+        ])
+        let snapshot = await store.loadSnapshot()
+        #expect(snapshot.accountID == "chef_ari")
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+    }
+
     @Test("native sync checkpoints validate global and shopping cursors")
     func nativeSyncCheckpointsValidateGlobalAndShoppingCursors() throws {
         let checkpoint = try NativeSyncCheckpoint(

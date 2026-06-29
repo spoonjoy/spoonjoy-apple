@@ -145,7 +145,13 @@ struct SpoonjoyRootView: View {
             searchSurfaceRepository: { context in
                 liveStore.searchSurfaceRepository(context: context)
             },
-            syncTriggerCoordinator: liveStore.syncTriggerCoordinator
+            syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
+            purgeShoppingEntityIndexes: { request in
+                await liveStore.purgeShoppingEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers
+                )
+            }
         )
     }
 
@@ -285,9 +291,23 @@ struct SpoonjoyRootView: View {
                 ).fetchSettingsSurface(accountID: accountID, environment: environment)
             },
             stagedMediaDirectory: stagedMediaDirectory,
+            shoppingEntityIndexPurge: { request in
+                await Self.purgeShoppingEntityIdentifiersIfAvailable(request)
+            },
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
+    }
+
+    private static func purgeShoppingEntityIdentifiersIfAvailable(_ request: NativeShoppingEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers
+            )
+        }
+#endif
     }
 
 #if DEBUG

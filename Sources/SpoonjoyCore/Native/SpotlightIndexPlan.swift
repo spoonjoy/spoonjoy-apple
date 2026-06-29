@@ -122,6 +122,14 @@ public enum SpotlightIndexPlan {
         )
     }
 
+    public static func shoppingListItemUniqueIdentifier(itemID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.shoppingListItem.rawValue)|\(itemID)"
+    }
+
+    public static func shoppingListItemDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.shoppingListItem.rawValue)"
+    }
+
     public static func route(uniqueIdentifier: String) -> AppRoute {
         let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
         guard parts.count == 4,

@@ -64,6 +64,36 @@ struct SpoonjoySpotlightIndexer {
         }
     }
 
+    func delete(identifiers: [String], domainIdentifiers: [String]) async throws {
+        guard !identifiers.isEmpty || !domainIdentifiers.isEmpty else {
+            return
+        }
+
+        if !identifiers.isEmpty {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                CSSearchableIndex.default().deleteSearchableItems(withIdentifiers: identifiers) { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+
+        if !domainIdentifiers.isEmpty {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: domainIdentifiers) { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+    }
+
     func index(
         recipes: [Recipe],
         cookbooks: [Cookbook],

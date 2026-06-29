@@ -95,24 +95,25 @@ struct SetShoppingListItemCheckedIntent: AppIntent {
     static let title: LocalizedStringResource = "Set Shopping Item Checked"
     static let description = IntentDescription("Check or uncheck a Spoonjoy shopping-list item.")
 
-    @Parameter(title: "Item ID")
-    var itemID: String
+    @Parameter(title: "Shopping Item", requestValueDialog: "Which Spoonjoy shopping item?")
+    var item: SpoonjoyShoppingItemEntity
 
     @Parameter(title: "Checked")
     var checked: Bool
 
     init() {
-        itemID = ""
+        item = SpoonjoyShoppingItemEntity()
         checked = true
     }
 
-    init(itemID: String, checked: Bool) {
-        self.itemID = itemID
+    init(item: SpoonjoyShoppingItemEntity, checked: Bool) {
+        self.item = item
         self.checked = checked
     }
 
     func perform() async throws -> some IntentResult {
         let createdAt = SpoonjoyIntentClock.timestamp()
+        let itemID = try item.resolvedShoppingItemID()
         let action = try NativeIntentActionResolver().setShoppingListItemChecked(
             itemID: itemID,
             checked: checked,

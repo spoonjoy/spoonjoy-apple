@@ -14,7 +14,8 @@ struct ShoppingEntityTests {
                 "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift",
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
-                "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift"
+                "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",
+                "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
             ],
             requiredTokens: [
                 "Sources/SpoonjoyCore/Native/ShoppingEntityCatalog.swift": [
@@ -46,6 +47,9 @@ struct ShoppingEntityTests {
                     "shoppingItemEntityIdentifier(itemID:accountID:environment:",
                     "resolvedShoppingItemID(from:accountID:environment:",
                     "purgeEntityIdentifiers(accountID:environment:",
+                    "purgeDomainIdentifiers(",
+                    "SpotlightIndexPlan.shoppingListItemUniqueIdentifier",
+                    "SpotlightIndexPlan.shoppingListItemDomainIdentifier",
                     "accountScopePurge(accountID:environment:shoppingItemIDs:",
                     "tombstonePurge(tombstones:accountID:environment:",
                     "cacheDeletePurge(accountID:environment:shoppingItemIDs:",
@@ -117,9 +121,15 @@ struct ShoppingEntityTests {
                     "SpoonjoyShoppingItemEntity"
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
+                    "NativeShoppingEntityIndexPurgeOperation",
+                    "NativeShoppingEntityIndexPurgeRequest",
+                    "shoppingEntityIndexPurge",
+                    "shoppingEntityPurgeIdentifiers",
+                    "shoppingEntityPurgeDomainIdentifiers",
                     "performSettingsSessionOperation",
                     "ShoppingEntityIndexPurgePlan.accountScopePurge",
-                    "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+                    "ShoppingEntityCatalog.purgeEntityIdentifiers(",
+                    "ShoppingEntityCatalog.purgeDomainIdentifiers(",
                     "purgeShoppingEntityIdentifiers",
                     "logout",
                     "revokeAndLogout",
@@ -128,10 +138,21 @@ struct ShoppingEntityTests {
                 "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift": [
                     "bootstrapAndDrain",
                     "ShoppingEntityIndexPurgePlan.tombstonePurge",
-                    "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+                    "ShoppingEntityIndexPurgePlan.accountScopePurge",
+                    "shoppingEntityAccountScopePurgePlan",
+                    "shoppingEntityPurgeIdentifiers",
+                    "shoppingEntityPurgeDomainIdentifiers",
+                    "previousSnapshot",
+                    "ShoppingEntityCatalog.purgeEntityIdentifiers(",
+                    "ShoppingEntityCatalog.purgeDomainIdentifiers(",
                     "NativeSyncResourceType.shoppingItem",
                     "tombstones",
                     "removedCacheKeys"
+                ],
+                "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift": [
+                    "func delete(identifiers: [String], domainIdentifiers: [String])",
+                    "deleteSearchableItems(withIdentifiers:",
+                    "deleteSearchableItems(withDomainIdentifiers:"
                 ]
             ],
             forbiddenTokens: [
@@ -151,9 +172,34 @@ struct ShoppingEntityTests {
                     requiredTokens: [
                         "case .logout, .revokeAndLogout",
                         "ShoppingEntityIndexPurgePlan.accountScopePurge",
-                        "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+                        "ShoppingEntityCatalog.purgeEntityIdentifiers(",
+                        "ShoppingEntityCatalog.purgeDomainIdentifiers(",
                         "purgeShoppingEntityIdentifiers",
                         "cacheEnvironment"
+                    ],
+                    forbiddenTokens: []
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+                    label: "bootstrapFromLiveAPI consumes sync purge report",
+                    pattern: #"func\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)"#,
+                    requiredTokens: [
+                        "let report = try await syncTriggerCoordinator.handle(trigger)",
+                        "report.shoppingEntityPurgeIdentifiers",
+                        "report.shoppingEntityPurgeDomainIdentifiers"
+                    ],
+                    forbiddenTokens: []
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                    label: "foreground sync consumes sync purge report",
+                    pattern: #"\.task\(id: contentState\.environment\.rawValue\)"#,
+                    requiredTokens: [
+                        "let report = try? await syncTriggerCoordinator.handle(.foreground)",
+                        "NativeShoppingEntityIndexPurgeRequest",
+                        "report.shoppingEntityPurgeIdentifiers",
+                        "report.shoppingEntityPurgeDomainIdentifiers",
+                        "purgeShoppingEntityIndexesHandler"
                     ],
                     forbiddenTokens: []
                 ),
@@ -164,7 +210,12 @@ struct ShoppingEntityTests {
                     requiredTokens: [
                         "case .success(let cursor, let tombstones)",
                         "ShoppingEntityIndexPurgePlan.tombstonePurge",
-                        "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+                        "shoppingEntityAccountScopePurgePlan",
+                        "shoppingEntityPurgeIdentifiers",
+                        "shoppingEntityPurgeDomainIdentifiers",
+                        "previousSnapshot",
+                        "ShoppingEntityCatalog.purgeEntityIdentifiers(",
+                        "ShoppingEntityCatalog.purgeDomainIdentifiers(",
                         "NativeSyncResourceType.shoppingItem",
                         "removedCacheKeys"
                     ],
@@ -337,6 +388,7 @@ struct ShoppingEntityTests {
     @Test("shopping entity purge plans cover logout account-switch cache-delete and tombstones")
     func shoppingEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
         let scope = ShoppingEntityScope(accountID: "account_ari", environment: .production)
+        let spotlightScope = SpotlightIndexScope(accountID: scope.accountID, environment: scope.environment)
         let logoutPlan = ShoppingEntityIndexPurgePlan.accountScopePurge(
             accountID: scope.accountID,
             environment: scope.environment,
@@ -344,12 +396,21 @@ struct ShoppingEntityTests {
         )
 
         #expect(logoutPlan.identifiers == [
-            ShoppingEntityCatalog.shoppingListEntityIdentifier(accountID: "account_ari", environment: .production),
-            ShoppingEntityCatalog.shoppingItemEntityIdentifier(itemID: "item_lemons", accountID: "account_ari", environment: .production),
-            ShoppingEntityCatalog.shoppingItemEntityIdentifier(itemID: "item_spaghetti", accountID: "account_ari", environment: .production)
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_lemons", scope: spotlightScope),
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_spaghetti", scope: spotlightScope)
         ])
-        #expect(logoutPlan.domainIdentifiers.contains(scope.domainIdentifier))
+        #expect(logoutPlan.domainIdentifiers == [
+            SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: spotlightScope)
+        ])
         #expect(logoutPlan.reason == .accountScopeChanged)
+        #expect(SpotlightIndexPlan.document(
+            shoppingListItem: Self.shoppingItem(id: "item_lemons", name: "lemons", quantity: 2, unit: "each", sortIndex: 0),
+            scope: spotlightScope
+        ).uniqueIdentifier == logoutPlan.identifiers.first)
+        #expect(SpotlightIndexPlan.document(
+            shoppingListItem: Self.shoppingItem(id: "item_lemons", name: "lemons", quantity: 2, unit: "each", sortIndex: 0),
+            scope: spotlightScope
+        ).domainIdentifier == logoutPlan.domainIdentifiers.first)
 
         let cacheDeletePlan = ShoppingEntityIndexPurgePlan.cacheDeletePurge(
             accountID: scope.accountID,
@@ -357,9 +418,9 @@ struct ShoppingEntityTests {
             shoppingItemIDs: ["item_parmesan"]
         )
         #expect(cacheDeletePlan.identifiers == [
-            ShoppingEntityCatalog.shoppingListEntityIdentifier(accountID: "account_ari", environment: .production),
-            ShoppingEntityCatalog.shoppingItemEntityIdentifier(itemID: "item_parmesan", accountID: "account_ari", environment: .production)
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_parmesan", scope: spotlightScope)
         ])
+        #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
         #expect(cacheDeletePlan.reason == .cacheDeleted)
 
         let tombstonePlan = ShoppingEntityIndexPurgePlan.tombstonePurge(
@@ -385,8 +446,9 @@ struct ShoppingEntityTests {
             environment: scope.environment
         )
         #expect(tombstonePlan.identifiers == [
-            ShoppingEntityCatalog.shoppingItemEntityIdentifier(itemID: "item_lemons", accountID: "account_ari", environment: .production)
+            SpotlightIndexPlan.shoppingListItemUniqueIdentifier(itemID: "item_lemons", scope: spotlightScope)
         ])
+        #expect(tombstonePlan.domainIdentifiers.isEmpty)
         #expect(tombstonePlan.reason == .tombstoneApplied)
     }
 
