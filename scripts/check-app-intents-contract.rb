@@ -41,7 +41,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook"]
+supported_domains = ["recipe-cookbook", "shopping"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -354,6 +354,240 @@ if domain == "recipe-cookbook"
       "cookbook-entity",
       "String-only recipe App Intent",
       "TODO AppEntity"
+    ],
+    failures
+  )
+end
+
+if domain == "shopping"
+  core_entities = ROOT.join("Sources/SpoonjoyCore/Native/ShoppingEntityCatalog.swift")
+  app_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift")
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  live_store = ROOT.join("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift")
+  sync_engine = ROOT.join("Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [core_entities, app_entities, app_intents, metadata, verifier, live_store, sync_engine, project].each do |path|
+    require_file(path, failures)
+  end
+
+  require_tokens(
+    core_entities,
+    [
+      "ShoppingEntityCatalog",
+      "ShoppingEntityCatalogError",
+      "ShoppingEntityKind",
+      "ShoppingEntityTransferValue",
+      "ShoppingEntityScope",
+      "ShoppingListEntityDescriptor",
+      "ShoppingItemEntityDescriptor",
+      "ShoppingEntityIndexPurgePlan",
+      "isPlaceholder",
+      "shoppingListEntity()",
+      "shoppingItemEntity(id:",
+      "shoppingItemEntities(for identifiers:",
+      "shoppingItemEntities(matching string:",
+      "suggestedShoppingItemEntities",
+      "loading(syncStore:",
+      "loadSnapshot()",
+      "NativeSyncSnapshot",
+      "NativeSyncCachedRecord",
+      "NativeSyncEntryKind.shoppingItem",
+      "NativeSyncResourceType.shoppingItem",
+      "tombstones",
+      "accountID",
+      "environment",
+      "scopedIdentifier(accountID:environment:",
+      "shoppingListEntityIdentifier(accountID:environment:",
+      "shoppingItemEntityIdentifier(itemID:accountID:environment:",
+      "resolvedShoppingItemID(from:accountID:environment:",
+      "purgeEntityIdentifiers(accountID:environment:",
+      "accountScopePurge(accountID:environment:shoppingItemIDs:",
+      "tombstonePurge(tombstones:accountID:environment:",
+      "cacheDeletePurge(accountID:environment:shoppingItemIDs:",
+      "domainIdentifiers",
+      "ShoppingListState",
+      "ShoppingListItem",
+      "activeItems",
+      "deletedAt",
+      "checked",
+      "displayQuantity",
+      "AppRoute.shoppingList",
+      "NativeSharePayload.privateShoppingList",
+      "NativeSharePayload.privateShoppingItem",
+      "privateTransferValue",
+      "debugFields"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    live_store,
+    "performSettingsSessionOperation",
+    /\bfunc\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/,
+    [
+      "case .logout, .revokeAndLogout",
+      "ShoppingEntityIndexPurgePlan.accountScopePurge",
+      "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+      "purgeShoppingEntityIdentifiers",
+      "cacheEnvironment"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    sync_engine,
+    "bootstrapAndDrain scoped tombstone purge",
+    /\bpublic\s+func\s+bootstrapAndDrain\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger,\s*scope: NativeSyncExecutionScope\s*\)/,
+    [
+      "case .success(let cursor, let tombstones)",
+      "ShoppingEntityIndexPurgePlan.tombstonePurge",
+      "ShoppingEntityCatalog.purgeEntityIdentifiers(accountID:environment:",
+      "NativeSyncResourceType.shoppingItem",
+      "removedCacheKeys"
+    ],
+    failures
+  )
+
+  require_tokens(
+    app_entities,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "import CoreTransferable",
+      "import SpoonjoyCore",
+      "@available(iOS 27.0, macOS 27.0, *)",
+      "struct SpoonjoyShoppingListEntity: AppEntity",
+      "struct SpoonjoyShoppingItemEntity: AppEntity",
+      "struct SpoonjoyShoppingListEntityQuery: EntityQuery",
+      "struct SpoonjoyShoppingItemEntityQuery: EntityQuery, EntityStringQuery",
+      "typealias DefaultQuery = SpoonjoyShoppingListEntityQuery",
+      "typealias DefaultQuery = SpoonjoyShoppingItemEntityQuery",
+      "static let typeDisplayRepresentation",
+      "var displayRepresentation",
+      "DisplayRepresentation",
+      "TypeDisplayRepresentation",
+      "entities(for identifiers: [String]) async throws",
+      "entities(matching string: String) async throws",
+      "suggestedEntities() async throws",
+      "ShoppingEntityCatalog",
+      "ShoppingListEntityDescriptor",
+      "ShoppingItemEntityDescriptor",
+      "Transferable",
+      "TransferRepresentation",
+      "ShoppingEntityTransferValue",
+      "resolvedShoppingItemID() throws",
+      "NativeIntentActionError.unresolvedShoppingItemEntity",
+      "descriptor.isPlaceholder",
+      "NativeAppStateLocation.defaultFileURL()",
+      "FileBackedNativeSyncStore",
+      "loadSnapshot()",
+      "trustedIntentScope",
+      "KeychainTokenVault()",
+      "scope.accountID",
+      "scope.environment"
+    ],
+    failures
+  )
+
+  require_patterns(
+    app_entities,
+    {
+      "SpoonjoyShoppingListEntity AppEntity declaration" => /\bstruct\s+SpoonjoyShoppingListEntity\s*:\s*AppEntity\b/,
+      "SpoonjoyShoppingItemEntity AppEntity declaration" => /\bstruct\s+SpoonjoyShoppingItemEntity\s*:\s*AppEntity\b/,
+      "shopping list query declaration" => /\bstruct\s+SpoonjoyShoppingListEntityQuery\s*:\s*EntityQuery\b/,
+      "shopping item query declaration" => /\bstruct\s+SpoonjoyShoppingItemEntityQuery\s*:\s*EntityQuery\s*,\s*EntityStringQuery\b/
+    },
+    failures
+  )
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingListEntityQuery", /\bstruct\s+SpoonjoyShoppingListEntityQuery\b/, "identifier query", /func\s+entities\(for identifiers: \[String\]\)/, ["ShoppingEntityCatalog.loading(syncStore:", "shoppingListEntity()", "SpoonjoyShoppingListEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingListEntityQuery", /\bstruct\s+SpoonjoyShoppingListEntityQuery\b/, "suggestions query", /func\s+suggestedEntities\(\)/, ["ShoppingEntityCatalog.loading(syncStore:", "shoppingListEntity()", "SpoonjoyShoppingListEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingItemEntityQuery", /\bstruct\s+SpoonjoyShoppingItemEntityQuery\b/, "identifier query", /func\s+entities\(for identifiers: \[String\]\)/, ["ShoppingEntityCatalog.loading(syncStore:", "shoppingItemEntities(for: identifiers)", "SpoonjoyShoppingItemEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingItemEntityQuery", /\bstruct\s+SpoonjoyShoppingItemEntityQuery\b/, "string query", /func\s+entities\(matching string: String\)/, ["ShoppingEntityCatalog.loading(syncStore:", "shoppingItemEntities(matching: string)", "SpoonjoyShoppingItemEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingItemEntityQuery", /\bstruct\s+SpoonjoyShoppingItemEntityQuery\b/, "suggestions query", /func\s+suggestedEntities\(\)/, ["ShoppingEntityCatalog.loading(syncStore:", "suggestedShoppingItemEntities", "SpoonjoyShoppingItemEntity"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingListEntity", /\bstruct\s+SpoonjoyShoppingListEntity\b/, "display representation", /var\s+displayRepresentation:\s+DisplayRepresentation/, ["descriptor.title", "descriptor.subtitle", "descriptor.disambiguationLabel"], failures)
+  require_nested_body_tokens(app_entities, "SpoonjoyShoppingItemEntity", /\bstruct\s+SpoonjoyShoppingItemEntity\b/, "display representation", /var\s+displayRepresentation:\s+DisplayRepresentation/, ["descriptor.title", "descriptor.subtitle", "descriptor.disambiguationLabel"], failures)
+
+  require_tokens(
+    app_intents,
+    [
+      "@Parameter(title: \"Shopping Item\", requestValueDialog:",
+      "var item: SpoonjoyShoppingItemEntity",
+      "try item.resolvedShoppingItemID()"
+    ],
+    failures
+  )
+  require_body_tokens(
+    app_intents,
+    "SetShoppingListItemCheckedIntent",
+    /\bstruct\s+SetShoppingListItemCheckedIntent\s*:\s*AppIntent\b/,
+    [
+      "@Parameter(title: \"Shopping Item\", requestValueDialog:",
+      "var item: SpoonjoyShoppingItemEntity",
+      "try item.resolvedShoppingItemID()"
+    ],
+    failures
+  )
+  forbid_body_tokens(
+    app_intents,
+    "SetShoppingListItemCheckedIntent",
+    /\bstruct\s+SetShoppingListItemCheckedIntent\s*:\s*AppIntent\b/,
+    [
+      "@Parameter(title: \"Item ID\")",
+      "var itemID: String"
+    ],
+    failures
+  )
+
+  require_tokens(
+    metadata,
+    [
+      "SpoonjoyShoppingListEntity",
+      "SpoonjoyShoppingItemEntity",
+      "SpoonjoyShoppingListEntityQuery",
+      "SpoonjoyShoppingItemEntityQuery"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "shopping list App Entity",
+      "shopping item App Entity",
+      "ShoppingEntityCatalog",
+      "SpoonjoyShoppingListEntity",
+      "SpoonjoyShoppingItemEntity"
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  forbid_tokens(
+    app_intents,
+    [
+      "@Parameter(title: \"Item ID\")",
+      "var itemID: String",
+      "String-only shopping App Intent",
+      "TODO Shopping AppEntity",
+      "eventually add shopping entities"
     ],
     failures
   )
