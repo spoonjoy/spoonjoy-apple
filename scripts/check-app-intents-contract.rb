@@ -95,7 +95,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents", "cookbook-intents"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents", "cookbook-intents", "profile-settings-intents"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -3384,6 +3384,520 @@ if domain == "capture-import-intents"
       failures
     )
   end
+end
+
+if domain == "profile-settings-intents"
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  profile_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift")
+  settings_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift")
+  settings_view_model = ROOT.join("Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift")
+  api_requests = ROOT.join("Sources/SpoonjoyCore/API/NativeAPIRequests.swift")
+  sync_engine = ROOT.join("Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [
+    app_intents,
+    profile_entities,
+    settings_entities,
+    settings_view_model,
+    api_requests,
+    sync_engine,
+    intent_action,
+    metadata,
+    verifier,
+    project
+  ].each do |path|
+    require_file(path, failures)
+  end
+
+  profile_settings_forbidden_tokens = [
+    "@Parameter(title: \"Token ID\")",
+    "@Parameter(title: \"Connection ID\")",
+    "var tokenID: String",
+    "var credentialID: String",
+    "var connectionID: String",
+    "String-only profile settings App Intent",
+    "CommentIntent",
+    "FeedIntent",
+    "MessageIntent",
+    "MailIntent",
+    "social-feed",
+    "/comments",
+    "/feeds",
+    "/messages",
+    "mailto:",
+    "MFMailComposeViewController",
+    "MessageUI",
+    "TODO ProfileSettingsIntent",
+    "eventually add profile settings intents"
+  ]
+
+  require_tokens(
+    app_intents,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "struct OpenProfileIntent: AppIntent",
+      "struct OpenSettingsIntent: AppIntent",
+      "struct UpdateProfileDisplayIntent: AppIntent",
+      "struct UpdateProfilePhotoIntent: AppIntent",
+      "struct RemoveProfilePhotoIntent: AppIntent",
+      "struct OpenAPITokensIntent: AppIntent",
+      "struct CreateAPITokenIntent: AppIntent",
+      "struct RevokeAPITokenIntent: AppIntent",
+      "struct OpenAccountConnectionsIntent: AppIntent",
+      "struct DisconnectAccountConnectionIntent: AppIntent",
+      "struct OpenPasskeysIntent: AppIntent",
+      "struct OpenPasswordIntent: AppIntent",
+      "struct LinkProviderIntent: AppIntent",
+      "struct LogoutIntent: AppIntent",
+      "struct RevokeCurrentSessionIntent: AppIntent",
+      "var profile: SpoonjoyChefProfileEntity",
+      "var token: SpoonjoyAPITokenEntity",
+      "var connection: SpoonjoyAccountConnectionEntity",
+      "SpoonjoySettingsAuthProviderOption",
+      "IntentFile",
+      "SpoonjoyIntentStateWriter",
+      "SpoonjoyIntentClock.timestamp()",
+      "SpoonjoyInteractionDonor",
+      "requestConfirmation(",
+      "OpenURLIntent(action.url)",
+      "OpenURLIntent(plan.secureHandoff.url)",
+      "String(describing: OpenSettingsIntent())",
+      "String(describing: UpdateProfileDisplayIntent())",
+      "String(describing: UpdateProfilePhotoIntent())",
+      "String(describing: RemoveProfilePhotoIntent())",
+      "String(describing: OpenAPITokensIntent())",
+      "String(describing: CreateAPITokenIntent())",
+      "String(describing: RevokeAPITokenIntent())",
+      "String(describing: OpenAccountConnectionsIntent())",
+      "String(describing: DisconnectAccountConnectionIntent())",
+      "String(describing: OpenPasskeysIntent())",
+      "String(describing: OpenPasswordIntent())",
+      "String(describing: LinkProviderIntent())",
+      "String(describing: LogoutIntent())",
+      "String(describing: RevokeCurrentSessionIntent())"
+    ],
+    failures
+  )
+
+  if app_intents.file?
+    app_intents_content = uncommented_swift(app_intents.read)
+    shortcut_count = app_intents_content.scan("AppShortcut(").length
+    failures << "#{relative(app_intents)} declares #{shortcut_count} App Shortcuts, above Apple limit 10" if shortcut_count > 10
+    shortcuts_body = declaration_body(app_intents_content, /\bstruct\s+SpoonjoyAppShortcuts\s*:\s*AppShortcutsProvider\b/)
+    if shortcuts_body
+      [
+        "UpdateProfileDisplayIntent",
+        "UpdateProfilePhotoIntent",
+        "RemoveProfilePhotoIntent",
+        "OpenAPITokensIntent",
+        "CreateAPITokenIntent",
+        "RevokeAPITokenIntent",
+        "OpenAccountConnectionsIntent",
+        "DisconnectAccountConnectionIntent",
+        "OpenPasskeysIntent",
+        "OpenPasswordIntent",
+        "LinkProviderIntent",
+        "LogoutIntent",
+        "RevokeCurrentSessionIntent"
+      ].each do |intent_name|
+        failures << "#{relative(app_intents)} promotes library-only #{intent_name} into AppShortcuts" if shortcuts_body.include?("#{intent_name}(")
+      end
+    else
+      failures << "#{relative(app_intents)} missing body for SpoonjoyAppShortcuts"
+    end
+  end
+
+  require_tokens(
+    profile_entities,
+    [
+      "struct SpoonjoyChefProfileEntity: AppEntity",
+      "NativeIntentActionError.unresolvedChefProfileEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    settings_entities,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "import SpoonjoyCore",
+      "struct SpoonjoyAPITokenEntity: AppEntity",
+      "struct SpoonjoyAPITokenEntityQuery: EntityQuery, EntityStringQuery",
+      "struct SpoonjoyAccountConnectionEntity: AppEntity",
+      "struct SpoonjoyAccountConnectionEntityQuery: EntityQuery, EntityStringQuery",
+      "struct SpoonjoySettingsAuthProviderOption: AppEnum",
+      "resolvedCredentialID() throws",
+      "resolvedConnectionID() throws",
+      "tokenPrefix",
+      "revealedSecret",
+      "NativeIntentActionError.unresolvedAPITokenEntity",
+      "NativeIntentActionError.unresolvedAccountConnectionEntity"
+    ],
+    failures
+  )
+
+  require_patterns(
+    settings_entities,
+    {
+      "API token AppEntity declaration" => /\bstruct\s+SpoonjoyAPITokenEntity\s*:\s*AppEntity\b/,
+      "API token query declaration" => /\bstruct\s+SpoonjoyAPITokenEntityQuery\s*:\s*EntityQuery\s*,\s*EntityStringQuery\b/,
+      "account connection AppEntity declaration" => /\bstruct\s+SpoonjoyAccountConnectionEntity\s*:\s*AppEntity\b/,
+      "account connection query declaration" => /\bstruct\s+SpoonjoyAccountConnectionEntityQuery\s*:\s*EntityQuery\s*,\s*EntityStringQuery\b/
+    },
+    failures
+  )
+
+  require_tokens(
+    settings_view_model,
+    [
+      "case updateProfile(email: String, username: String, clientMutationID: String)",
+      "case uploadProfilePhoto(photo: NativeStagedMediaUpload, clientMutationID: String)",
+      "case removeProfilePhoto(clientMutationID: String)",
+      "case createAPIToken(name: String, scopes: [String])",
+      "case revokeAPIToken(credentialID: String)",
+      "case disconnectOAuthConnection(connectionID: String)",
+      "case managePasskeys",
+      "case managePassword",
+      "case linkProvider(SettingsAuthProvider)",
+      "case logout",
+      "case revokeSession",
+      "SettingsOnlineOnlyReason",
+      ".apiTokenCreate",
+      ".apiTokenRevoke",
+      ".oauthConnectionDisconnect",
+      ".logout",
+      ".sessionRevoke",
+      ".credentialHandoff",
+      "TokenCredentialRequests.createToken",
+      "TokenCredentialRequests.revokeToken",
+      "PrivateAccountRequests.disconnectConnection",
+      "credentialHandoff(.passkeys",
+      "credentialHandoff(.password",
+      "credentialHandoff(.providerLink(provider)",
+      "secureHandoffRoutes.handoff(target: target)"
+    ],
+    failures
+  )
+
+  require_tokens(
+    api_requests,
+    [
+      "public static func updateProfile(",
+      "public static func uploadProfilePhoto(",
+      "public static func removeProfilePhoto()",
+      "public static func disconnectConnection(",
+      "public static func listTokens()",
+      "public static func createToken(",
+      "public static func revokeToken("
+    ],
+    failures
+  )
+
+  require_tokens(
+    sync_engine,
+    [
+      ".profileDisplayUpdate",
+      ".profilePhotoUpload",
+      ".profilePhotoRemove",
+      ".apiTokenCreate",
+      ".apiTokenRevoke",
+      ".providerConnectionDisconnect",
+      ".passkeyOrPasswordChange",
+      ".providerLink",
+      ".logout",
+      ".sessionRevoke"
+    ],
+    failures
+  )
+
+  require_tokens(
+    intent_action,
+    [
+      "case unresolvedAPITokenEntity",
+      "case unresolvedAccountConnectionEntity",
+      "public func openSettings(",
+      "public func updateProfileDisplay(",
+      "public func updateProfilePhoto(",
+      "public func removeProfilePhoto(",
+      "public func openAPITokens(",
+      "public func createAPIToken(",
+      "public func revokeAPIToken(",
+      "public func openAccountConnections(",
+      "public func disconnectAccountConnection(",
+      "public func openPasskeys(",
+      "public func openPassword(",
+      "public func linkProvider(",
+      "public func logout(",
+      "public func revokeCurrentSession(",
+      "SettingsActionPlanner",
+      "SettingsSurfaceConnectivity",
+      "SettingsSecureHandoffRoutes.spoonjoyApp",
+      "DeepLinkURLBuilder.url(for: .settings)"
+    ],
+    failures
+  )
+
+  {
+    "UpdateProfileDisplayIntent" => {
+      required: [
+        "@Parameter(title: \"Email\")",
+        "@Parameter(title: \"Username\")",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "NativeIntentActionResolver().updateProfileDisplay(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["ReturnsValue<String>", "token", "secret"]
+    },
+    "UpdateProfilePhotoIntent" => {
+      required: [
+        "@Parameter(title: \"Photo\")",
+        "var photo: IntentFile",
+        "NativeIntentActionResolver().updateProfilePhoto(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "SettingsProfilePhotoStagingPolicy.webProfileParity",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var photoPath: String", "@Parameter(title: \"Photo Path\")"]
+    },
+    "RemoveProfilePhotoIntent" => {
+      required: [
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().removeProfilePhoto(",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["ReturnsValue<String>", "token", "secret"]
+    },
+    "CreateAPITokenIntent" => {
+      required: [
+        "@Parameter(title: \"Name\")",
+        "@Parameter(title: \"Scopes\")",
+        "NativeIntentActionResolver().createAPIToken(",
+        "SpoonjoyIntentStateWriter().settingsConnectivity()",
+        "SettingsOnlineOnlyReason.apiTokenCreate.message",
+        "not queued",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["ReturnsValue<String>", "return .result(value:", "createdAPIToken", "tokenSecret", ".apply(action"]
+    },
+    "RevokeAPITokenIntent" => {
+      required: [
+        "@Parameter(title: \"API Token\", requestValueDialog:",
+        "var token: SpoonjoyAPITokenEntity",
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().revokeAPIToken(token: token.descriptor",
+        "SpoonjoyIntentStateWriter().settingsConnectivity()",
+        "SettingsOnlineOnlyReason.apiTokenRevoke.message",
+        "not queued"
+      ],
+      forbidden: ["var credentialID: String", "@Parameter(title: \"Credential ID\")", ".apply(action"]
+    },
+    "DisconnectAccountConnectionIntent" => {
+      required: [
+        "@Parameter(title: \"Connection\", requestValueDialog:",
+        "var connection: SpoonjoyAccountConnectionEntity",
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().disconnectAccountConnection(connection: connection.descriptor",
+        "SpoonjoyIntentStateWriter().settingsConnectivity()",
+        "SettingsOnlineOnlyReason.oauthConnectionDisconnect.message",
+        "not queued"
+      ],
+      forbidden: ["var connectionID: String", "@Parameter(title: \"Connection ID\")", ".apply(action"]
+    },
+    "OpenPasskeysIntent" => {
+      required: [
+        "NativeIntentActionResolver().openPasskeys(",
+        "SettingsOnlineOnlyReason.credentialHandoff.message",
+        "not queued",
+        "OpenURLIntent(plan.secureHandoff.url)"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation"]
+    },
+    "LogoutIntent" => {
+      required: [
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().logout(",
+        "SettingsOnlineOnlyReason.logout.message",
+        "not queued"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation"]
+    },
+    "RevokeCurrentSessionIntent" => {
+      required: [
+        "try await requestConfirmation(",
+        "NativeIntentActionResolver().revokeCurrentSession(",
+        "SettingsOnlineOnlyReason.sessionRevoke.message",
+        "not queued"
+      ],
+      forbidden: [".apply(action", "NativeQueuedMutation"]
+    }
+  }.each do |intent_name, contract|
+    pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
+    require_body_tokens(app_intents, intent_name, pattern, contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, intent_name, pattern, contract.fetch(:forbidden), failures)
+  end
+
+  {
+    "updateProfileDisplay resolver" => {
+      pattern: /\bpublic\s+func\s+updateProfileDisplay\(/,
+      required: [
+        "SettingsActionPlanner(connectivity:",
+        ".updateProfile(email: email, username: username, clientMutationID: mutationID)",
+        "profileDisplayUpdate",
+        "route: .settings",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: ["TokenCredentialRequests.createToken", "tokenSecret"]
+    },
+    "updateProfilePhoto resolver" => {
+      pattern: /\bpublic\s+func\s+updateProfilePhoto\(/,
+      required: [
+        "SettingsProfilePhotoStagingPolicy.webProfileParity",
+        ".uploadProfilePhoto(photo: stagedPhoto, clientMutationID: mutationID)",
+        "profilePhotoUpload",
+        "route: .settings"
+      ],
+      forbidden: ["photoPath: String"]
+    },
+    "removeProfilePhoto resolver" => {
+      pattern: /\bpublic\s+func\s+removeProfilePhoto\(/,
+      required: [
+        ".removeProfilePhoto(clientMutationID: mutationID)",
+        "profilePhotoRemove",
+        "route: .settings"
+      ],
+      forbidden: ["TokenCredentialRequests.revokeToken"]
+    },
+    "createAPIToken resolver" => {
+      pattern: /\bpublic\s+func\s+createAPIToken\(/,
+      required: [
+        ".createAPIToken(name: name, scopes: scopes)",
+        "TokenCredentialRequests.createToken",
+        ".captureCreatedAPIToken",
+        "DeepLinkURLBuilder.url(for: .settings)"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    },
+    "revokeAPIToken resolver" => {
+      pattern: /\bpublic\s+func\s+revokeAPIToken\(/,
+      required: [
+        "let credentialID = try tokenIDForMutation(token)",
+        ".revokeAPIToken(credentialID: credentialID)",
+        "SettingsOnlineOnlyReason.apiTokenRevoke",
+        "TokenCredentialRequests.revokeToken"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    },
+    "disconnectAccountConnection resolver" => {
+      pattern: /\bpublic\s+func\s+disconnectAccountConnection\(/,
+      required: [
+        "let connectionID = try accountConnectionIDForMutation(connection)",
+        ".disconnectOAuthConnection(connectionID: connectionID)",
+        "SettingsOnlineOnlyReason.oauthConnectionDisconnect",
+        "PrivateAccountRequests.disconnectConnection"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    },
+    "credential handoff resolver" => {
+      pattern: /\bpublic\s+func\s+openPasskeys\(/,
+      required: [
+        ".managePasskeys",
+        "secureHandoffRoutes.handoff(target: .passkeys)",
+        "https://spoonjoy.app/account/settings#passkeys"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    },
+    "logout resolver" => {
+      pattern: /\bpublic\s+func\s+logout\(/,
+      required: [
+        ".logout",
+        "SettingsOnlineOnlyReason.logout",
+        "sessionOperation"
+      ],
+      forbidden: ["NativeQueuedMutation", ".nativeMutation("]
+    }
+  }.each do |label, contract|
+    require_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:required), failures)
+    forbid_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    metadata,
+    [
+      "OpenSettingsIntent",
+      "UpdateProfileDisplayIntent",
+      "UpdateProfilePhotoIntent",
+      "RemoveProfilePhotoIntent",
+      "OpenAPITokensIntent",
+      "CreateAPITokenIntent",
+      "RevokeAPITokenIntent",
+      "OpenAccountConnectionsIntent",
+      "DisconnectAccountConnectionIntent",
+      "OpenPasskeysIntent",
+      "OpenPasswordIntent",
+      "LinkProviderIntent",
+      "LogoutIntent",
+      "RevokeCurrentSessionIntent",
+      "SpoonjoyAPITokenEntity",
+      "SpoonjoyAccountConnectionEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Profile and settings Siri intents",
+      "UpdateProfileDisplayIntent",
+      "UpdateProfilePhotoIntent",
+      "CreateAPITokenIntent",
+      "RevokeAPITokenIntent",
+      "DisconnectAccountConnectionIntent",
+      "OpenPasskeysIntent",
+      "OpenPasswordIntent",
+      "LinkProviderIntent",
+      "LogoutIntent",
+      "RevokeCurrentSessionIntent"
+    ],
+    failures
+  )
+
+  if project.file?
+    [
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift",
+      "Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift"
+    ].each do |relative_source|
+      require_project_source_membership(project_path, relative_source, ["Spoonjoy iOS", "Spoonjoy macOS"], failures)
+    end
+  end
+
+  [app_intents, intent_action].each do |path|
+    forbid_tokens(path, profile_settings_forbidden_tokens, failures)
+  end
+
+  forbid_tokens(
+    settings_entities,
+    [
+      "StringCredentialSecret",
+      "createdToken",
+      "createdAPIToken.token",
+      "rawToken",
+      "tokenSecret",
+      "revealedSecret: String",
+      "secretValue"
+    ],
+    failures
+  )
 end
 
 fail_check(failures.join("\n")) unless failures.empty?
