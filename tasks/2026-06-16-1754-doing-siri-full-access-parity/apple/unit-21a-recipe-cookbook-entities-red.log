@@ -1,0 +1,421 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:379:51: error: cannot find type 'RecipeCookbookEntityCatalog' in scope
+377 |     }
+378 | 
+379 |     private static func entityCatalog() throws -> RecipeCookbookEntityCatalog {
+    |                                                   `- error: cannot find type 'RecipeCookbookEntityCatalog' in scope
+380 |         RecipeCookbookEntityCatalog(
+381 |             syncSnapshot: try syncSnapshot(),
+[4/6] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:379:51: error: cannot find type 'RecipeCookbookEntityCatalog' in scope
+377 |     }
+378 | 
+379 |     private static func entityCatalog() throws -> RecipeCookbookEntityCatalog {
+    |                                                   `- error: cannot find type 'RecipeCookbookEntityCatalog' in scope
+380 |         RecipeCookbookEntityCatalog(
+381 |             syncSnapshot: try syncSnapshot(),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:130:33: error: cannot infer contextual base in reference to member 'recipeDetail'
+128 |         #expect(lemon.subtitle == "ari - 4")
+129 |         #expect(lemon.disambiguationLabel == "Lemon Pantry Pasta by ari")
+130 |         #expect(lemon.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                 `- error: cannot infer contextual base in reference to member 'recipeDetail'
+131 |         #expect(lemon.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"))
+132 |         #expect(lemon.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:130:94: error: cannot infer contextual base in reference to member 'detail'
+128 |         #expect(lemon.subtitle == "ari - 4")
+129 |         #expect(lemon.disambiguationLabel == "Lemon Pantry Pasta by ari")
+130 |         #expect(lemon.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+    |                                                                                              `- error: cannot infer contextual base in reference to member 'detail'
+131 |         #expect(lemon.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"))
+132 |         #expect(lemon.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:135:35: error: cannot infer contextual base in reference to member 'recipe'
+133 | 
+134 |         let transfer = lemon.transferValue
+135 |         #expect(transfer.kind == .recipe)
+    |                                   `- error: cannot infer contextual base in reference to member 'recipe'
+136 |         #expect(transfer.id == lemon.id)
+137 |         #expect(transfer.title == lemon.title)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:146:29: error: cannot infer key path type from context; consider explicitly specifying a root type
+144 | 
+145 |         let matches = try await catalog.recipeEntities(matching: "  lemon  ")
+146 |         #expect(matches.map(\.id) == ["recipe_lemon_pantry_pasta"])
+    |                             `- error: cannot infer key path type from context; consider explicitly specifying a root type
+147 | 
+148 |         let byIdentifier = try await catalog.recipeEntities(for: ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:149:34: error: cannot infer key path type from context; consider explicitly specifying a root type
+147 | 
+148 |         let byIdentifier = try await catalog.recipeEntities(for: ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
+149 |         #expect(byIdentifier.map(\.id) == ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
+    |                                  `- error: cannot infer key path type from context; consider explicitly specifying a root type
+150 | 
+151 |         let suggested = try await catalog.suggestedRecipeEntities(limit: 10)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:152:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+150 | 
+151 |         let suggested = try await catalog.suggestedRecipeEntities(limit: 10)
+152 |         #expect(suggested.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_toast"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+153 |     }
+154 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:165:38: error: cannot infer contextual base in reference to member 'cookbookDetail'
+163 |         #expect(weeknights.subtitle == "ari - 2 recipes")
+164 |         #expect(weeknights.disambiguationLabel == "Weeknights by ari")
+165 |         #expect(weeknights.route == .cookbookDetail(id: "cookbook_weeknights"))
+    |                                      `- error: cannot infer contextual base in reference to member 'cookbookDetail'
+166 |         #expect(weeknights.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_weeknights"))
+167 |         #expect(weeknights.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:171:35: error: cannot infer contextual base in reference to member 'cookbook'
+169 | 
+170 |         let transfer = weeknights.transferValue
+171 |         #expect(transfer.kind == .cookbook)
+    |                                   `- error: cannot infer contextual base in reference to member 'cookbook'
+172 |         #expect(transfer.id == weeknights.id)
+173 |         #expect(transfer.title == weeknights.title)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:182:29: error: cannot infer key path type from context; consider explicitly specifying a root type
+180 | 
+181 |         let matches = try await catalog.cookbookEntities(matching: "  inbox  ")
+182 |         #expect(matches.map(\.id) == ["cookbook_no_covers"])
+    |                             `- error: cannot infer key path type from context; consider explicitly specifying a root type
+183 | 
+184 |         let byIdentifier = try await catalog.cookbookEntities(for: ["cookbook_no_covers", "cookbook_weeknights"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:185:34: error: cannot infer key path type from context; consider explicitly specifying a root type
+183 | 
+184 |         let byIdentifier = try await catalog.cookbookEntities(for: ["cookbook_no_covers", "cookbook_weeknights"])
+185 |         #expect(byIdentifier.map(\.id) == ["cookbook_no_covers", "cookbook_weeknights"])
+    |                                  `- error: cannot infer key path type from context; consider explicitly specifying a root type
+186 | 
+187 |         let suggested = try await catalog.suggestedCookbookEntities(limit: 10)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:188:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+186 | 
+187 |         let suggested = try await catalog.suggestedCookbookEntities(limit: 10)
+188 |         #expect(suggested.map(\.id) == ["cookbook_weeknights", "cookbook_no_covers"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+189 |     }
+190 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:210:23: error: cannot find 'RecipeCookbookEntityCatalog' in scope
+208 |             chef: secondChef
+209 |         )
+210 |         let catalog = RecipeCookbookEntityCatalog(
+    |                       `- error: cannot find 'RecipeCookbookEntityCatalog' in scope
+211 |             syncSnapshot: try Self.syncSnapshot(records: [
+212 |                 NativeSyncCachedRecord(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:242:35: error: cannot infer key path type from context; consider explicitly specifying a root type
+240 | 
+241 |         let recipeMatches = try await catalog.recipeEntities(matching: "lemon pantry")
+242 |         #expect(recipeMatches.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_lemon_pantry_pasta_bea"])
+    |                                   `- error: cannot infer key path type from context; consider explicitly specifying a root type
+243 |         #expect(recipeMatches.map(\.disambiguationLabel) == [
+244 |             "Lemon Pantry Pasta by ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:243:35: error: cannot infer key path type from context; consider explicitly specifying a root type
+241 |         let recipeMatches = try await catalog.recipeEntities(matching: "lemon pantry")
+242 |         #expect(recipeMatches.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_lemon_pantry_pasta_bea"])
+243 |         #expect(recipeMatches.map(\.disambiguationLabel) == [
+    |                                   `- error: cannot infer key path type from context; consider explicitly specifying a root type
+244 |             "Lemon Pantry Pasta by ari",
+245 |             "Lemon Pantry Pasta by bea"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:249:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+247 | 
+248 |         let cookbookMatches = try await catalog.cookbookEntities(matching: "weeknight")
+249 |         #expect(cookbookMatches.map(\.id) == ["cookbook_weeknights", "cookbook_weeknights_bea"])
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+250 |         #expect(cookbookMatches.map(\.disambiguationLabel) == [
+251 |             "Weeknights by ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:250:37: error: cannot infer key path type from context; consider explicitly specifying a root type
+248 |         let cookbookMatches = try await catalog.cookbookEntities(matching: "weeknight")
+249 |         #expect(cookbookMatches.map(\.id) == ["cookbook_weeknights", "cookbook_weeknights_bea"])
+250 |         #expect(cookbookMatches.map(\.disambiguationLabel) == [
+    |                                     `- error: cannot infer key path type from context; consider explicitly specifying a root type
+251 |             "Weeknights by ari",
+252 |             "Weeknights by bea"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:266:33: error: cannot find 'RecipeCookbookEntityCatalog' in scope
+264 |             cachedRecords: snapshot.cachedRecords
+265 |         )
+266 |         let catalog = try await RecipeCookbookEntityCatalog.loading(
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalog' in scope
+267 |             syncStore: store,
+268 |             currentAccountID: "account_ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:283:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+281 |         #expect(tomato.id == "recipe_tomato_toast")
+282 | 
+283 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+284 |             _ = try await catalog.recipeEntity(id: "")
+285 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:283:15: error: generic parameter 'E' could not be inferred
+281 |         #expect(tomato.id == "recipe_tomato_toast")
+282 | 
+283 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+284 |             _ = try await catalog.recipeEntity(id: "")
+285 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:286:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+284 |             _ = try await catalog.recipeEntity(id: "")
+285 |         }
+286 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+287 |             _ = try await catalog.cookbookEntity(id: "../cookbook_weeknights")
+288 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:286:15: error: generic parameter 'E' could not be inferred
+284 |             _ = try await catalog.recipeEntity(id: "")
+285 |         }
+286 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+287 |             _ = try await catalog.cookbookEntity(id: "../cookbook_weeknights")
+288 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:289:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+287 |             _ = try await catalog.cookbookEntity(id: "../cookbook_weeknights")
+288 |         }
+289 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+290 |             _ = try await catalog.recipeEntity(id: "recipe_missing")
+291 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:289:15: error: generic parameter 'E' could not be inferred
+287 |             _ = try await catalog.cookbookEntity(id: "../cookbook_weeknights")
+288 |         }
+289 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+290 |             _ = try await catalog.recipeEntity(id: "recipe_missing")
+291 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:292:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+290 |             _ = try await catalog.recipeEntity(id: "recipe_missing")
+291 |         }
+292 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+293 |             _ = try await catalog.cookbookEntity(id: "cookbook_missing")
+294 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:292:15: error: generic parameter 'E' could not be inferred
+290 |             _ = try await catalog.recipeEntity(id: "recipe_missing")
+291 |         }
+292 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+293 |             _ = try await catalog.cookbookEntity(id: "cookbook_missing")
+294 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:337:23: error: cannot find 'RecipeCookbookEntityCatalog' in scope
+335 |             ]
+336 |         )
+337 |         let catalog = RecipeCookbookEntityCatalog(
+    |                       `- error: cannot find 'RecipeCookbookEntityCatalog' in scope
+338 |             syncSnapshot: snapshot,
+339 |             currentAccountID: "account_ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:345:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+343 |         #expect(try await catalog.suggestedRecipeEntities(limit: 10).isEmpty)
+344 |         #expect(try await catalog.suggestedCookbookEntities(limit: 10).isEmpty)
+345 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+346 |             _ = try await catalog.recipeEntity(id: recipe.id)
+347 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:345:15: error: generic parameter 'E' could not be inferred
+343 |         #expect(try await catalog.suggestedRecipeEntities(limit: 10).isEmpty)
+344 |         #expect(try await catalog.suggestedCookbookEntities(limit: 10).isEmpty)
+345 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+346 |             _ = try await catalog.recipeEntity(id: recipe.id)
+347 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:348:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+346 |             _ = try await catalog.recipeEntity(id: recipe.id)
+347 |         }
+348 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+349 |             _ = try await catalog.cookbookEntity(id: cookbook.id)
+350 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:348:15: error: generic parameter 'E' could not be inferred
+346 |             _ = try await catalog.recipeEntity(id: recipe.id)
+347 |         }
+348 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+349 |             _ = try await catalog.cookbookEntity(id: cookbook.id)
+350 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:352:35: error: cannot find 'RecipeCookbookEntityCatalog' in scope
+350 |         }
+351 | 
+352 |         let wrongAccountCatalog = RecipeCookbookEntityCatalog(
+    |                                   `- error: cannot find 'RecipeCookbookEntityCatalog' in scope
+353 |             syncSnapshot: try Self.syncSnapshot(),
+354 |             currentAccountID: "account_other",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:357:39: error: cannot find 'RecipeCookbookEntityCatalog' in scope
+355 |             environment: NativeCacheEnvironment.production
+356 |         )
+357 |         let wrongEnvironmentCatalog = RecipeCookbookEntityCatalog(
+    |                                       `- error: cannot find 'RecipeCookbookEntityCatalog' in scope
+358 |             syncSnapshot: try Self.syncSnapshot(),
+359 |             currentAccountID: "account_ari",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:365:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+363 |         #expect(try await wrongAccountCatalog.suggestedRecipeEntities(limit: 10).isEmpty)
+364 |         #expect(try await wrongEnvironmentCatalog.suggestedCookbookEntities(limit: 10).isEmpty)
+365 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+366 |             _ = try await wrongAccountCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+367 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:365:15: error: generic parameter 'E' could not be inferred
+363 |         #expect(try await wrongAccountCatalog.suggestedRecipeEntities(limit: 10).isEmpty)
+364 |         #expect(try await wrongEnvironmentCatalog.suggestedCookbookEntities(limit: 10).isEmpty)
+365 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+366 |             _ = try await wrongAccountCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+367 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:368:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+366 |             _ = try await wrongAccountCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+367 |         }
+368 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+369 |             _ = try await wrongAccountCatalog.cookbookEntity(id: "cookbook_weeknights")
+370 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:368:15: error: generic parameter 'E' could not be inferred
+366 |             _ = try await wrongAccountCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+367 |         }
+368 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+369 |             _ = try await wrongAccountCatalog.cookbookEntity(id: "cookbook_weeknights")
+370 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:371:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+369 |             _ = try await wrongAccountCatalog.cookbookEntity(id: "cookbook_weeknights")
+370 |         }
+371 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+372 |             _ = try await wrongEnvironmentCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+373 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:371:15: error: generic parameter 'E' could not be inferred
+369 |             _ = try await wrongAccountCatalog.cookbookEntity(id: "cookbook_weeknights")
+370 |         }
+371 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+372 |             _ = try await wrongEnvironmentCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+373 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:374:33: error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+372 |             _ = try await wrongEnvironmentCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+373 |         }
+374 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |                                 `- error: cannot find 'RecipeCookbookEntityCatalogError' in scope
+375 |             _ = try await wrongEnvironmentCatalog.cookbookEntity(id: "cookbook_weeknights")
+376 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:374:15: error: generic parameter 'E' could not be inferred
+372 |             _ = try await wrongEnvironmentCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+373 |         }
+374 |         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+375 |             _ = try await wrongEnvironmentCatalog.cookbookEntity(id: "cookbook_weeknights")
+376 |         }
+    :
+509 | }
+510 | 
+511 | private func expectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'expectAsyncThrows'
+512 |     _ expectedError: E.Type,
+513 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeCookbookEntityTests.swift:380:9: error: cannot find 'RecipeCookbookEntityCatalog' in scope
+378 | 
+379 |     private static func entityCatalog() throws -> RecipeCookbookEntityCatalog {
+380 |         RecipeCookbookEntityCatalog(
+    |         `- error: cannot find 'RecipeCookbookEntityCatalog' in scope
+381 |             syncSnapshot: try syncSnapshot(),
+382 |             currentAccountID: "account_ari",
+error: fatalError
+swift test exit status: 1
