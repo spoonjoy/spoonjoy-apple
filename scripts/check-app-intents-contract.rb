@@ -95,7 +95,7 @@ until args.empty?
   end
 end
 
-supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents"]
+supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents", "cookbook-intents"]
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -2709,6 +2709,337 @@ if domain == "open-search-share-cook"
       ],
       failures
     )
+  end
+end
+
+if domain == "cookbook-intents"
+  app_intents = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift")
+  recipe_entities = ROOT.join("Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift")
+  recipe_catalog = ROOT.join("Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift")
+  intent_action = ROOT.join("Sources/SpoonjoyCore/Native/NativeIntentAction.swift")
+  metadata = ROOT.join("Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift")
+  verifier = ROOT.join("Sources/SpoonjoyCore/Native/ScenarioVerifier.swift")
+  project_path = ROOT.join("Spoonjoy.xcodeproj")
+  project = project_path.join("project.pbxproj")
+
+  [app_intents, recipe_entities, recipe_catalog, intent_action, metadata, verifier, project].each do |path|
+    require_file(path, failures)
+  end
+
+  cookbook_forbidden_tokens = [
+    "@Parameter(title: \"Recipe ID\")",
+    "@Parameter(title: \"Cookbook ID\")",
+    "var recipeID: String",
+    "var cookbookID: String",
+    "String-only cookbook App Intent",
+    "CommentIntent",
+    "FeedIntent",
+    "MessageIntent",
+    "MailIntent",
+    "social-feed",
+    "/comments",
+    "/feeds",
+    "/messages",
+    "mailto:",
+    "MessageUI",
+    "TODO CookbookIntent",
+    "eventually add cookbook intents"
+  ]
+
+  require_tokens(
+    app_intents,
+    [
+      "#if canImport(AppIntents)",
+      "import AppIntents",
+      "struct CreateCookbookIntent: AppIntent",
+      "struct RenameCookbookIntent: AppIntent",
+      "struct DeleteCookbookIntent: AppIntent",
+      "struct AddRecipeToCookbookIntent: AppIntent",
+      "struct RemoveRecipeFromCookbookIntent: AppIntent",
+      "var cookbook: SpoonjoyCookbookEntity",
+      "var recipe: SpoonjoyRecipeEntity",
+      "SpoonjoyIntentStateWriter",
+      "SpoonjoyIntentClock.timestamp()",
+      "SpoonjoyInteractionDonor",
+      "String(describing: CreateCookbookIntent())",
+      "String(describing: RenameCookbookIntent())",
+      "String(describing: DeleteCookbookIntent())",
+      "String(describing: AddRecipeToCookbookIntent())",
+      "String(describing: RemoveRecipeFromCookbookIntent())"
+    ],
+    failures
+  )
+
+  if app_intents.file?
+    app_intents_content = uncommented_swift(app_intents.read)
+    shortcut_count = app_intents_content.scan("AppShortcut(").length
+    failures << "#{relative(app_intents)} declares #{shortcut_count} App Shortcuts, above Apple limit 10" if shortcut_count > 10
+    shortcuts_body = declaration_body(app_intents_content, /\bstruct\s+SpoonjoyAppShortcuts\s*:\s*AppShortcutsProvider\b/)
+    if shortcuts_body
+      [
+        "CreateCookbookIntent",
+        "RenameCookbookIntent",
+        "DeleteCookbookIntent",
+        "AddRecipeToCookbookIntent",
+        "RemoveRecipeFromCookbookIntent"
+      ].each do |intent_name|
+        failures << "#{relative(app_intents)} promotes library-only #{intent_name} into AppShortcuts" if shortcuts_body.include?("#{intent_name}(")
+      end
+    else
+      failures << "#{relative(app_intents)} missing body for SpoonjoyAppShortcuts"
+    end
+  end
+
+  require_body_tokens(
+    app_intents,
+    "SpoonjoyIntentShortcutBudget",
+    /\bprivate\s+enum\s+SpoonjoyIntentShortcutBudget\b/,
+    [
+      "String(describing: CreateCookbookIntent())",
+      "String(describing: RenameCookbookIntent())",
+      "String(describing: DeleteCookbookIntent())",
+      "String(describing: AddRecipeToCookbookIntent())",
+      "String(describing: RemoveRecipeFromCookbookIntent())"
+    ],
+    failures
+  )
+
+  {
+    "CreateCookbookIntent" => {
+      required: [
+        "@Parameter(title: \"Title\")",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "NativeIntentActionResolver().createCookbook(title: title",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
+    },
+    "RenameCookbookIntent" => {
+      required: [
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+        "var cookbook: SpoonjoyCookbookEntity",
+        "@Parameter(title: \"Title\")",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
+    },
+    "DeleteCookbookIntent" => {
+      required: [
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+        "var cookbook: SpoonjoyCookbookEntity",
+        "try await requestConfirmation(",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "NativeIntentActionResolver().deleteCookbook(cookbook: cookbook.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
+    },
+    "AddRecipeToCookbookIntent" => {
+      required: [
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
+        "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+        "var cookbook: SpoonjoyCookbookEntity",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "NativeIntentActionResolver().addRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]
+    },
+    "RemoveRecipeFromCookbookIntent" => {
+      required: [
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
+        "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+        "var cookbook: SpoonjoyCookbookEntity",
+        "try await requestConfirmation(",
+        "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
+        "let createdAt = SpoonjoyIntentClock.timestamp()",
+        "NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
+        "currentChefID: currentChefID",
+        "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
+        "await SpoonjoyInteractionDonor().donateBestEffort(self)",
+        "OpenURLIntent(action.url)"
+      ],
+      forbidden: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]
+    }
+  }.each do |intent_name, contract|
+    pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
+    require_body_tokens(app_intents, intent_name, pattern, contract.fetch(:required), failures)
+    forbid_body_tokens(app_intents, intent_name, pattern, contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    recipe_entities,
+    [
+      "struct SpoonjoyCookbookEntity: AppEntity",
+      "struct SpoonjoyRecipeEntity: AppEntity",
+      "NativeIntentActionError.unresolvedCookbookEntity",
+      "NativeIntentActionError.unresolvedRecipeEntity"
+    ],
+    failures
+  )
+
+  require_tokens(
+    recipe_catalog,
+    [
+      "public let chefID: String",
+      "chefID: cookbook.chef.id",
+      "chefID: \"chef-placeholder\""
+    ],
+    failures
+  )
+
+  require_tokens(
+    intent_action,
+    [
+      "case emptyCookbookTitle",
+      "case cookbookOwnershipRequired(cookbookID: String)",
+      "public func createCookbook(",
+      "public func renameCookbook(",
+      "public func deleteCookbook(",
+      "public func addRecipeToCookbook(",
+      "public func removeRecipeFromCookbook(",
+      "currentChefID: String",
+      ".cookbookCreate",
+      ".cookbookUpdate",
+      ".cookbookDelete",
+      ".cookbookAddRecipe",
+      ".cookbookRemoveRecipe",
+      "DeepLinkURLBuilder.url(for:"
+    ],
+    failures
+  )
+
+  {
+    "createCookbook resolver" => {
+      pattern: /\bpublic\s+func\s+createCookbook\(/,
+      required: [
+        "try canonicalObjectID(currentChefID, invalidError: .authRequired)",
+        "let title = normalizedCookbookTitle(title)",
+        "guard !title.isEmpty else",
+        "throw NativeIntentActionError.emptyCookbookTitle",
+        ".cookbookCreate(",
+        "route: .cookbooks",
+        "DeepLinkURLBuilder.url(for: .cookbooks)"
+      ],
+      forbidden: ["cookbookID: String", "recipeID: String"]
+    },
+    "renameCookbook resolver" => {
+      pattern: /\bpublic\s+func\s+renameCookbook\(/,
+      required: [
+        "let cookbookID = try cookbookIDForMutation(cookbook)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
+        "guard cookbook.chefID == chefID else",
+        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
+        "let title = normalizedCookbookTitle(title)",
+        "guard !title.isEmpty else",
+        "throw NativeIntentActionError.emptyCookbookTitle",
+        ".cookbookUpdate(",
+        "route: .cookbookDetail(id: cookbookID)"
+      ],
+      forbidden: ["cookbookID: String", "recipeID: String"]
+    },
+    "deleteCookbook resolver" => {
+      pattern: /\bpublic\s+func\s+deleteCookbook\(/,
+      required: [
+        "let cookbookID = try cookbookIDForMutation(cookbook)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
+        "guard cookbook.chefID == chefID else",
+        ".cookbookDelete(",
+        "route: .cookbooks",
+        "DeepLinkURLBuilder.url(for: .cookbooks)"
+      ],
+      forbidden: ["cookbookID: String", "recipeID: String"]
+    },
+    "addRecipeToCookbook resolver" => {
+      pattern: /\bpublic\s+func\s+addRecipeToCookbook\(/,
+      required: [
+        "let recipeID = try recipeIDForMutation(recipe)",
+        "let cookbookID = try cookbookIDForMutation(cookbook)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
+        "guard cookbook.chefID == chefID else",
+        ".cookbookAddRecipe(",
+        "route: .cookbookDetail(id: cookbookID)"
+      ],
+      forbidden: ["recipeID: String", "cookbookID: String"]
+    },
+    "removeRecipeFromCookbook resolver" => {
+      pattern: /\bpublic\s+func\s+removeRecipeFromCookbook\(/,
+      required: [
+        "let recipeID = try recipeIDForMutation(recipe)",
+        "let cookbookID = try cookbookIDForMutation(cookbook)",
+        "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
+        "guard cookbook.chefID == chefID else",
+        ".cookbookRemoveRecipe(",
+        "route: .cookbookDetail(id: cookbookID)"
+      ],
+      forbidden: ["recipeID: String", "cookbookID: String"]
+    },
+    "normalizedCookbookTitle helper" => {
+      pattern: /\bprivate\s+func\s+normalizedCookbookTitle\(/,
+      required: ["trimmingCharacters(in: .whitespacesAndNewlines)"],
+      forbidden: []
+    }
+  }.each do |label, contract|
+    require_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:required), failures)
+    forbid_body_tokens(intent_action, label, contract.fetch(:pattern), contract.fetch(:forbidden), failures)
+  end
+
+  require_tokens(
+    metadata,
+    [
+      "CreateCookbookIntent",
+      "RenameCookbookIntent",
+      "DeleteCookbookIntent",
+      "AddRecipeToCookbookIntent",
+      "RemoveRecipeFromCookbookIntent"
+    ],
+    failures
+  )
+
+  require_tokens(
+    verifier,
+    [
+      "Cookbook Siri intents",
+      "CreateCookbookIntent",
+      "RenameCookbookIntent",
+      "DeleteCookbookIntent",
+      "AddRecipeToCookbookIntent",
+      "RemoveRecipeFromCookbookIntent"
+    ],
+    failures
+  )
+
+  if project.file?
+    require_project_source_membership(
+      project_path,
+      "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+      ["Spoonjoy iOS", "Spoonjoy macOS"],
+      failures
+    )
+  end
+
+  [app_intents, intent_action].each do |path|
+    forbid_tokens(path, cookbook_forbidden_tokens, failures)
   end
 end
 
