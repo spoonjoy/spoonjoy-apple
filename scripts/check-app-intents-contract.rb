@@ -2968,6 +2968,7 @@ if domain == "cookbook-intents"
         "let cookbookID = try cookbookIDForMutation(cookbook)",
         "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
         "guard cookbook.chefID == chefID else",
+        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
         ".cookbookDelete(",
         "route: .cookbooks",
         "DeepLinkURLBuilder.url(for: .cookbooks)"
@@ -2981,6 +2982,7 @@ if domain == "cookbook-intents"
         "let cookbookID = try cookbookIDForMutation(cookbook)",
         "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
         "guard cookbook.chefID == chefID else",
+        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
         ".cookbookAddRecipe(",
         "route: .cookbookDetail(id: cookbookID)"
       ],
@@ -2993,6 +2995,7 @@ if domain == "cookbook-intents"
         "let cookbookID = try cookbookIDForMutation(cookbook)",
         "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
         "guard cookbook.chefID == chefID else",
+        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
         ".cookbookRemoveRecipe(",
         "route: .cookbookDetail(id: cookbookID)"
       ],

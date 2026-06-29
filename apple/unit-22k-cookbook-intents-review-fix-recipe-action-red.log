@@ -14,7 +14,7 @@ Building for debugging...
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionIntentTests.swift:264:38: error: cannot infer contextual base in reference to member 'recipeDetail'
 262 |         )
-263 | 
+263 |
 264 |         #expect(saveAction.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
     |                                      `- error: cannot infer contextual base in reference to member 'recipeDetail'
 265 |         #expect(saveAction.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
@@ -22,7 +22,7 @@ Building for debugging...
 
 /Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/RecipeActionIntentTests.swift:264:99: error: cannot infer contextual base in reference to member 'detail'
 262 |         )
-263 | 
+263 |
 264 |         #expect(saveAction.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
     |                                                                                                   `- error: cannot infer contextual base in reference to member 'detail'
 265 |         #expect(saveAction.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))

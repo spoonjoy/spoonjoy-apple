@@ -255,6 +255,7 @@ struct CookbookIntentTests {
                         "let cookbookID = try cookbookIDForMutation(cookbook)",
                         "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
                         "guard cookbook.chefID == chefID else",
+                        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
                         ".cookbookDelete(",
                         "route: .cookbooks",
                         "DeepLinkURLBuilder.url(for: .cookbooks)"
@@ -270,6 +271,7 @@ struct CookbookIntentTests {
                         "let cookbookID = try cookbookIDForMutation(cookbook)",
                         "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
                         "guard cookbook.chefID == chefID else",
+                        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
                         ".cookbookAddRecipe(",
                         "route: .cookbookDetail(id: cookbookID)"
                     ],
@@ -284,6 +286,7 @@ struct CookbookIntentTests {
                         "let cookbookID = try cookbookIDForMutation(cookbook)",
                         "let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))",
                         "guard cookbook.chefID == chefID else",
+                        "throw NativeIntentActionError.cookbookOwnershipRequired(cookbookID: cookbookID)",
                         ".cookbookRemoveRecipe(",
                         "route: .cookbookDetail(id: cookbookID)"
                     ],
@@ -303,6 +306,297 @@ struct CookbookIntentTests {
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
     }
+
+    @Test("cookbook intent resolver queues exact owner-safe REST mutations")
+    func cookbookIntentResolverQueuesExactOwnerSafeRESTMutations() throws {
+        let resolver = NativeIntentActionResolver()
+        let recipe = cookbookIntentRecipeDescriptor()
+        let cookbook = cookbookIntentCookbookDescriptor()
+
+        let createAction = try resolver.createCookbook(
+            title: " Weeknight Joy ",
+            currentChefID: " chef_ari ",
+            createdAt: "2026-06-16T16:00:00.000Z"
+        )
+        let renameAction = try resolver.renameCookbook(
+            cookbook: cookbook,
+            title: " Dinner Parties ",
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-16T16:01:00.000Z"
+        )
+        let deleteAction = try resolver.deleteCookbook(
+            cookbook: cookbook,
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-16T16:02:00.000Z"
+        )
+        let addAction = try resolver.addRecipeToCookbook(
+            recipe: recipe,
+            cookbook: cookbook,
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-16T16:03:00.000Z"
+        )
+        let removeAction = try resolver.removeRecipeFromCookbook(
+            recipe: recipe,
+            cookbook: cookbook,
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-16T16:04:00.000Z"
+        )
+        let saveAction = try resolver.saveRecipeToCookbook(
+            recipe: recipe,
+            cookbook: cookbook,
+            currentChefID: "chef_ari",
+            createdAt: "2026-06-16T16:05:00.000Z"
+        )
+
+        let createMutation = try #require(createAction.nativeQueuedMutation)
+        let renameMutation = try #require(renameAction.nativeQueuedMutation)
+        let deleteMutation = try #require(deleteAction.nativeQueuedMutation)
+        let addMutation = try #require(addAction.nativeQueuedMutation)
+        let removeMutation = try #require(removeAction.nativeQueuedMutation)
+        let saveMutation = try #require(saveAction.nativeQueuedMutation)
+
+        #expect(createAction.route == .cookbooks)
+        #expect(createAction.url == URL(string: "spoonjoy://cookbooks"))
+        #expect(createMutation.queueableKind == .cookbookCreate)
+        #expect(createMutation.clientMutationID == "intent-cookbook-create-Weeknight-Joy-2026-06-16T16-00-00-000Z")
+        try cookbookIntentAssertJSONRequest(
+            try cookbookIntentRequest(from: createMutation),
+            method: .post,
+            path: "/api/v1/cookbooks",
+            expected: [
+                "clientMutationId": "intent-cookbook-create-Weeknight-Joy-2026-06-16T16-00-00-000Z",
+                "title": "Weeknight Joy"
+            ]
+        )
+
+        #expect(renameAction.route == .cookbookDetail(id: "cookbook_weeknights"))
+        #expect(renameAction.url == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
+        #expect(renameMutation.queueableKind == .cookbookUpdate)
+        #expect(renameMutation.clientMutationID == "intent-cookbook-rename-cookbook_weeknights-2026-06-16T16-01-00-000Z")
+        try cookbookIntentAssertJSONRequest(
+            try cookbookIntentRequest(from: renameMutation),
+            method: .patch,
+            path: "/api/v1/cookbooks/cookbook_weeknights",
+            expected: [
+                "clientMutationId": "intent-cookbook-rename-cookbook_weeknights-2026-06-16T16-01-00-000Z",
+                "title": "Dinner Parties"
+            ]
+        )
+
+        #expect(deleteAction.route == .cookbooks)
+        #expect(deleteAction.url == URL(string: "spoonjoy://cookbooks"))
+        #expect(deleteMutation.queueableKind == .cookbookDelete)
+        #expect(deleteMutation.clientMutationID == "intent-cookbook-delete-cookbook_weeknights-2026-06-16T16-02-00-000Z")
+        cookbookIntentAssertNoBodyRequest(
+            try cookbookIntentRequest(from: deleteMutation),
+            method: .delete,
+            path: "/api/v1/cookbooks/cookbook_weeknights",
+            queryItems: [
+                URLQueryItem(
+                    name: "clientMutationId",
+                    value: "intent-cookbook-delete-cookbook_weeknights-2026-06-16T16-02-00-000Z"
+                )
+            ]
+        )
+
+        #expect(addAction.route == .cookbookDetail(id: "cookbook_weeknights"))
+        #expect(addAction.url == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
+        #expect(addMutation.queueableKind == .cookbookAddRecipe)
+        #expect(addMutation.clientMutationID == "intent-cookbook-add-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T16-03-00-000Z")
+        try cookbookIntentAssertJSONRequest(
+            try cookbookIntentRequest(from: addMutation),
+            method: .post,
+            path: "/api/v1/cookbooks/cookbook_weeknights/recipes/recipe_lemon_pantry_pasta",
+            expected: [
+                "clientMutationId": "intent-cookbook-add-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T16-03-00-000Z"
+            ]
+        )
+
+        #expect(removeAction.route == .cookbookDetail(id: "cookbook_weeknights"))
+        #expect(removeAction.url == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
+        #expect(removeMutation.queueableKind == .cookbookRemoveRecipe)
+        #expect(removeMutation.clientMutationID == "intent-cookbook-remove-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T16-04-00-000Z")
+        try cookbookIntentAssertJSONRequest(
+            try cookbookIntentRequest(from: removeMutation),
+            method: .delete,
+            path: "/api/v1/cookbooks/cookbook_weeknights/recipes/recipe_lemon_pantry_pasta",
+            expected: [
+                "clientMutationId": "intent-cookbook-remove-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T16-04-00-000Z"
+            ]
+        )
+
+        #expect(saveAction.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+        #expect(saveAction.url == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
+        #expect(saveMutation.queueableKind == .cookbookAddRecipe)
+        #expect(saveMutation.clientMutationID == "intent-cookbook-save-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T16-05-00-000Z")
+        try cookbookIntentAssertJSONRequest(
+            try cookbookIntentRequest(from: saveMutation),
+            method: .post,
+            path: "/api/v1/cookbooks/cookbook_weeknights/recipes/recipe_lemon_pantry_pasta",
+            expected: [
+                "clientMutationId": "intent-cookbook-save-cookbook_weeknights-recipe_lemon_pantry_pasta-2026-06-16T16-05-00-000Z"
+            ]
+        )
+    }
+
+    @Test("cookbook intent resolver rejects unresolved unsafe empty and non-owner mutations")
+    func cookbookIntentResolverRejectsUnresolvedUnsafeEmptyAndNonOwnerMutations() throws {
+        let resolver = NativeIntentActionResolver()
+        let recipe = cookbookIntentRecipeDescriptor()
+        let cookbook = cookbookIntentCookbookDescriptor()
+
+        #expect(throws: NativeIntentActionError.authRequired) {
+            try resolver.createCookbook(title: "Weeknights", currentChefID: "bad/chef", createdAt: "2026-06-16T16:10:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.emptyCookbookTitle) {
+            try resolver.createCookbook(title: " \n ", currentChefID: "chef_ari", createdAt: "2026-06-16T16:11:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.unresolvedCookbookEntity) {
+            try resolver.renameCookbook(cookbook: .placeholder, title: "Dinner", currentChefID: "chef_ari", createdAt: "2026-06-16T16:12:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.invalidCookbookID("cookbook_weeknights")) {
+            try resolver.deleteCookbook(
+                cookbook: cookbookIntentCookbookDescriptor(route: .cookbooks),
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-16T16:13:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.invalidRecipeID("bad/recipe")) {
+            try resolver.addRecipeToCookbook(
+                recipe: cookbookIntentRecipeDescriptor(id: "bad/recipe", route: .recipeDetail(id: "bad/recipe", presentation: .detail)),
+                cookbook: cookbook,
+                currentChefID: "chef_ari",
+                createdAt: "2026-06-16T16:14:00.000Z"
+            )
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.renameCookbook(cookbook: cookbook, title: "Dinner", currentChefID: "chef_jules", createdAt: "2026-06-16T16:15:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.deleteCookbook(cookbook: cookbook, currentChefID: "chef_jules", createdAt: "2026-06-16T16:16:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.addRecipeToCookbook(recipe: recipe, cookbook: cookbook, currentChefID: "chef_jules", createdAt: "2026-06-16T16:17:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.removeRecipeFromCookbook(recipe: recipe, cookbook: cookbook, currentChefID: "chef_jules", createdAt: "2026-06-16T16:18:00.000Z")
+        }
+        #expect(throws: NativeIntentActionError.cookbookOwnershipRequired(cookbookID: "cookbook_weeknights")) {
+            try resolver.saveRecipeToCookbook(recipe: recipe, cookbook: cookbook, currentChefID: "chef_jules", createdAt: "2026-06-16T16:19:00.000Z")
+        }
+    }
+}
+
+private let cookbookIntentConfiguration = APIClientConfiguration(
+    baseURL: URL(string: "https://spoonjoy.app")!,
+    bearerToken: "sj_private_token"
+)
+
+private func cookbookIntentRecipeDescriptor(
+    id: String = "recipe_lemon_pantry_pasta",
+    chefID: String = "chef_ari",
+    route: AppRoute? = nil
+) -> RecipeEntityDescriptor {
+    let route = route ?? .recipeDetail(id: id, presentation: .detail)
+    let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
+    return RecipeEntityDescriptor(
+        id: id,
+        title: "Lemon Pantry Pasta",
+        chefID: chefID,
+        chefUsername: "ari",
+        subtitle: "ari - 4 servings",
+        disambiguationLabel: "Lemon Pantry Pasta by ari",
+        route: route,
+        canonicalURL: canonicalURL,
+        imageURL: URL(string: "https://spoonjoy.app/photos/lemon-pasta.jpg"),
+        transferValue: RecipeCookbookEntityTransferValue(
+            kind: .recipe,
+            id: id,
+            title: "Lemon Pantry Pasta",
+            chefUsername: "ari",
+            routeIdentifier: route.stateIdentifier,
+            canonicalURL: canonicalURL,
+            imageURL: URL(string: "https://spoonjoy.app/photos/lemon-pasta.jpg"),
+            userVisibleSummary: "Lemon Pantry Pasta by ari"
+        )
+    )
+}
+
+private func cookbookIntentCookbookDescriptor(
+    id: String = "cookbook_weeknights",
+    chefID: String = "chef_ari",
+    route: AppRoute? = nil
+) -> CookbookEntityDescriptor {
+    let route = route ?? .cookbookDetail(id: id)
+    let canonicalURL = URL(string: "https://spoonjoy.app/cookbooks/\(id)")!
+    return CookbookEntityDescriptor(
+        id: id,
+        title: "Weeknights",
+        chefID: chefID,
+        chefUsername: "ari",
+        subtitle: "ari - 12 recipes",
+        disambiguationLabel: "Weeknights by ari",
+        route: route,
+        canonicalURL: canonicalURL,
+        imageURL: URL(string: "https://spoonjoy.app/photos/weeknights.jpg"),
+        recipeCount: 12,
+        transferValue: RecipeCookbookEntityTransferValue(
+            kind: .cookbook,
+            id: id,
+            title: "Weeknights",
+            chefUsername: "ari",
+            routeIdentifier: route.stateIdentifier,
+            canonicalURL: canonicalURL,
+            imageURL: URL(string: "https://spoonjoy.app/photos/weeknights.jpg"),
+            userVisibleSummary: "Weeknights by ari"
+        )
+    )
+}
+
+private func cookbookIntentRequest(from mutation: NativeQueuedMutation) throws -> APIRequest {
+    try mutation.requestBuilder().urlRequest(configuration: cookbookIntentConfiguration)
+}
+
+private func cookbookIntentAssertJSONRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    expected: [String: Any]
+) throws {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.queryItems.isEmpty)
+    #expect(request.headers == [
+        "Accept": "application/json",
+        "Authorization": "Bearer sj_private_token",
+        "Content-Type": "application/json"
+    ])
+    #expect(request.responseCachePolicy == .privateNoStore)
+    #expect(NSDictionary(dictionary: try cookbookIntentJSONBody(from: request)).isEqual(to: expected))
+}
+
+private func cookbookIntentAssertNoBodyRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    queryItems: [URLQueryItem]
+) {
+    #expect(request.method == method)
+    #expect(request.url.baseURL.absoluteString == "https://spoonjoy.app")
+    #expect(request.url.path == path)
+    #expect(request.queryItems == queryItems)
+    #expect(request.headers == [
+        "Accept": "application/json",
+        "Authorization": "Bearer sj_private_token"
+    ])
+    #expect(request.body == nil)
+    #expect(request.responseCachePolicy == .privateNoStore)
+}
+
+private func cookbookIntentJSONBody(from request: APIRequest) throws -> [String: Any] {
+    let body = try #require(request.body)
+    return try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 }
 
 private func cookbookIntentForbiddenProductTokens() -> [String] {
