@@ -1852,6 +1852,63 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store purges capture draft entity indexes on logout")
+    func liveStorePurgesCaptureDraftEntityIndexesOnLogout() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: nil)
+            let captureDraft = try CaptureDraft.localText(
+                id: "draft_logout_purge",
+                rawText: "logout capture draft",
+                createdAt: Self.isoString(Self.now)
+            )
+            let purgeRecorder = CapturingCaptureDraftEntityIndexPurge()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_capture_logout_purge", title: "Capture Logout Purge"),
+                    shoppingItem: nil
+                ))),
+                captureDraftEntityIndexPurge: { request in
+                    await purgeRecorder.purge(request)
+                }
+            )
+
+            await liveStore.bootstrap()
+            liveStore.recordCaptureDraft(captureDraft)
+            try await liveStore.performSettingsSessionOperation(.logout)
+
+            let expectedCacheDeleteRequest = NativeCaptureDraftEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.captureDraftUniqueIdentifier(
+                        draftID: captureDraft.id,
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ],
+                domainIdentifiers: []
+            )
+            let expectedLogoutRequest = NativeCaptureDraftEntityIndexPurgeRequest(
+                identifiers: [
+                    SpotlightIndexPlan.captureDraftUniqueIdentifier(
+                        draftID: captureDraft.id,
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ],
+                domainIdentifiers: [
+                    SpotlightIndexPlan.captureDraftDomainIdentifier(
+                        scope: SpotlightIndexScope(accountID: "client_live", environment: .production)
+                    )
+                ]
+            )
+            let requests = await purgeRecorder.requests()
+            #expect(requests.count == 2)
+            #expect(requests.contains(expectedCacheDeleteRequest))
+            #expect(requests.contains(expectedLogoutRequest))
+        }
+    }
+
+    @MainActor
     @Test("live store executes capture import requests and prepends imported recipes")
     func liveStoreExecutesCaptureImportRequestsAndPrependsImportedRecipes() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -5071,6 +5128,18 @@ private actor CapturingSpoonEntityIndexPurge {
     }
 }
 
+private actor CapturingCaptureDraftEntityIndexPurge {
+    private var recordedRequests: [NativeCaptureDraftEntityIndexPurgeRequest] = []
+
+    func purge(_ request: NativeCaptureDraftEntityIndexPurgeRequest) {
+        recordedRequests.append(request)
+    }
+
+    func requests() -> [NativeCaptureDraftEntityIndexPurgeRequest] {
+        recordedRequests
+    }
+}
+
 private struct ThrowingLiveStoreSyncTransport: NativeSyncTransport {
     let error: APITransportError
 
@@ -5289,6 +5358,7 @@ private extension NativeLiveStoreTests {
         stagedMediaDirectory: NativeStagedMediaDirectory? = nil,
         shoppingEntityIndexPurge: @escaping NativeShoppingEntityIndexPurgeOperation = { _ in },
         spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
+        captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -5307,6 +5377,7 @@ private extension NativeLiveStoreTests {
             stagedMediaDirectory: stagedMediaDirectory,
             shoppingEntityIndexPurge: shoppingEntityIndexPurge,
             spoonEntityIndexPurge: spoonEntityIndexPurge,
+            captureDraftEntityIndexPurge: captureDraftEntityIndexPurge,
             bootstrapMode: bootstrapMode,
             now: { Self.now }
         ))

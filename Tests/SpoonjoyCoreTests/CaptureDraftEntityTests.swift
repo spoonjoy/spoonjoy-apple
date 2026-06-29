@@ -409,6 +409,149 @@ struct CaptureDraftEntityTests {
         ).isEmpty)
     }
 
+    @Test("capture draft entity coverage edges preserve labels loading and fail-closed behavior")
+    func captureDraftEntityCoverageEdgesPreserveLabelsLoadingAndFailClosedBehavior() async throws {
+        let createdAt = "2026-06-02T13:00:00.000Z"
+        let scoped = CaptureDraftEntityScope(accountID: "account_ari", environment: .production)
+        #expect(scoped.domainIdentifier == "capture-draft:production:account_ari")
+        #expect(CaptureDraftEntityDescriptor.placeholder.isPlaceholder)
+        #expect(CaptureDraftEntityDescriptor.placeholder.transferValue.debugFields.isEmpty)
+        #expect(NativeIntentActionError.unresolvedCaptureDraftEntity.description == "Choose a Spoonjoy capture draft before running this Siri action.")
+
+        let drafts: [CaptureDraft] = [
+            try CaptureDraft.importURL(id: "draft_url", url: URL(string: "https://example.com/url")!, createdAt: createdAt),
+            CaptureDraft(id: "draft_image", source: .image, rawText: "scanned card", imageAssetIdentifier: "asset-image", createdAt: createdAt),
+            try CaptureDraft.cameraImage(id: "draft_camera", assetIdentifier: "asset-camera", recognizedText: "camera card", createdAt: createdAt),
+            try CaptureDraft.photoLibraryImage(id: "draft_photo", assetIdentifier: "asset-photo", recognizedText: "photo card", createdAt: createdAt),
+            try CaptureDraft.jsonLD(id: "draft_json", jsonLD: .object(["name": .string("Cake")]), sourceURL: URL(string: "https://example.com/json")!, createdAt: createdAt),
+            try CaptureDraft.videoURL(id: "draft_video", url: URL(string: "https://example.com/video")!, createdAt: createdAt)
+        ]
+        let subtitles = drafts.map { CaptureDraftEntityDescriptor(draft: $0, scope: scoped, hasPendingImport: false).subtitle }
+        #expect(subtitles == [
+            "URL draft",
+            "Image draft",
+            "Camera image draft",
+            "Photo library image draft",
+            "JSON-LD draft",
+            "Video URL draft"
+        ])
+
+        let noScopeCatalog = CaptureDraftEntityCatalog(
+            appSnapshot: Self.appSnapshot(captureDraft: drafts[0]),
+            cacheSnapshot: nil,
+            currentAccountID: nil,
+            environment: .production
+        )
+        #expect(try await noScopeCatalog.captureDraftEntities(matching: "anything").isEmpty)
+        #expect(try await noScopeCatalog.suggestedCaptureDraftEntities(limit: 1).isEmpty)
+        await captureDraftExpectAsyncThrows(CaptureDraftEntityCatalogError.self) {
+            _ = try await noScopeCatalog.captureDraftEntity(id: drafts[0].id)
+        }
+
+        let duplicateCache = try Self.cacheRecord(
+            id: "draft_b",
+            source: .text("cache duplicate"),
+            fetchedAt: Self.instant(createdAt)
+        )
+        let sortedCatalog = try Self.catalog(
+            appSnapshot: nil,
+            cacheSnapshot: Self.cacheSnapshot(records: [
+                try Self.cacheRecord(id: "draft_b", source: .text("B"), fetchedAt: Self.instant(createdAt)),
+                try Self.cacheRecord(id: "draft_a", source: .text("A"), fetchedAt: Self.instant(createdAt)),
+                try Self.cacheRecord(id: "draft_bad_url", source: .shareSheetURL("http://[::1"), fetchedAt: Self.instant(createdAt)),
+                duplicateCache
+            ])
+        )
+        let scopedDraftAIdentifier = CaptureDraftEntityCatalog.captureDraftEntityIdentifier(
+            draftID: "draft_a",
+            accountID: "account_ari",
+            environment: .production
+        )
+        #expect(try await sortedCatalog.suggestedCaptureDraftEntities(limit: -1).isEmpty)
+        #expect(try await sortedCatalog.suggestedCaptureDraftEntities(limit: 10).map(\.captureDraftID) == ["draft_a", "draft_b"])
+        #expect(try await sortedCatalog.captureDraftEntities(matching: "").map(\.captureDraftID) == ["draft_a", "draft_b"])
+        #expect(try await sortedCatalog.captureDraftEntities(matching: "zz-no-match").isEmpty)
+        #expect(try await sortedCatalog.captureDraftEntities(for: [
+            scopedDraftAIdentifier,
+            "capture-draft:production:account_ari:missing"
+        ]).map(\.captureDraftID) == ["draft_a"])
+        #expect(try await sortedCatalog.captureDraftEntity(id: scopedDraftAIdentifier).captureDraftID == "draft_a")
+        #expect(try await sortedCatalog.captureDraftEntity(id: "  draft_a  ").captureDraftID == "draft_a")
+        await captureDraftExpectAsyncThrows(CaptureDraftEntityCatalogError.self) {
+            _ = try await sortedCatalog.captureDraftEntity(id: ".")
+        }
+
+        let mismatchedPlan = CaptureDraftEntityIndexPurgePlan(
+            identifiers: [SpotlightIndexPlan.captureDraftUniqueIdentifier(
+                draftID: "draft_a",
+                scope: SpotlightIndexScope(accountID: "account_other", environment: .production)
+            )],
+            domainIdentifiers: [],
+            reason: .cacheDeleted
+        )
+        #expect(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+            accountID: "account_ari",
+            environment: .production,
+            plan: mismatchedPlan
+        ).isEmpty)
+        #expect(CaptureDraftEntityIndexPurgePlan.draftDiscardPurge(
+            draftID: "draft_missing_scope",
+            accountID: nil,
+            environment: .production
+        ).identifiers.isEmpty)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.captureDraftUniqueIdentifier(
+            draftID: "draft_a",
+            scope: SpotlightIndexScope(accountID: "account_ari", environment: .production)
+        )) == .capture)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.captureDraftUniqueIdentifier(
+            draftID: "draft/unsafe",
+            scope: SpotlightIndexScope(accountID: "account_ari", environment: .production)
+        )) == .unknownLink)
+    }
+
+    @Test("capture draft entity catalog loads from file backed stores")
+    func captureDraftEntityCatalogLoadsFromFileBackedStores() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("capture-draft-entity-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+        let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("native-durable-cache.json"))
+        let appDraft = try CaptureDraft.localText(
+            id: "draft_file_app",
+            rawText: "Loaded from app store",
+            createdAt: "2026-06-02T14:00:00.000Z"
+        )
+        try appStateStore.save(Self.appSnapshot(captureDraft: appDraft))
+        try cacheStore.save(try Self.cacheSnapshot(records: [
+            Self.cacheRecord(
+                id: "draft_file_cache",
+                source: .shareSheetURL("https://example.com/file-cache"),
+                fetchedAt: Self.instant("2026-06-02T14:01:00.000Z")
+            )
+        ]))
+
+        let catalog = try await CaptureDraftEntityCatalog.loading(
+            appStateStore: appStateStore,
+            cacheStore: cacheStore,
+            currentAccountID: "account_ari",
+            environment: .production,
+            now: Self.instant("2026-06-02T14:02:00.000Z")
+        )
+
+        #expect(try await catalog.captureDraftEntity(id: "draft_file_app").title == "Loaded from app store")
+        #expect(try await catalog.captureDraftEntity(id: "draft_file_cache").title == "example.com")
+
+        let signedOutCatalog = try await CaptureDraftEntityCatalog.loading(
+            appStateStore: NativeAppStateStore(fileURL: directory.appendingPathComponent("signed-out-state.json")),
+            cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("signed-out-cache.json")),
+            currentAccountID: nil,
+            environment: .local,
+            now: Self.instant("2026-06-02T14:03:00.000Z")
+        )
+        #expect(try await signedOutCatalog.suggestedCaptureDraftEntities().isEmpty)
+    }
+
     private static func catalog(
         appSnapshot: NativeAppSnapshot?,
         cacheSnapshot: NativeDurableCacheSnapshot? = nil,
