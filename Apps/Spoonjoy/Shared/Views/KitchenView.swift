@@ -69,7 +69,7 @@ struct RecipeLead: View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack(alignment: .bottomLeading) {
                 RecipeCoverImage(url: recipe.coverImageURL)
-                .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
+                .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .overlay(KitchenTableTheme.photoOverlay)
                 .accessibilityLabel("\(recipe.title) cover image")
@@ -92,6 +92,14 @@ struct RecipeLead: View {
                     .buttonStyle(.bordered)
             }
         }
+    }
+
+    private var coverHeight: CGFloat {
+#if os(macOS)
+        220
+#else
+        260
+#endif
     }
 }
 

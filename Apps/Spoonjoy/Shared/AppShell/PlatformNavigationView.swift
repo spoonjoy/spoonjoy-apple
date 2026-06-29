@@ -101,8 +101,7 @@ struct PlatformNavigationView: View {
                 .navigationTitle("Spoonjoy")
         } detail: {
             NavigationStack {
-                detailContent
-                    .safeAreaPadding(.bottom, shellOfflineStatusContentReserve)
+                detailContentWithShellStatus
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
                     .navigationBarTitleDisplayMode(.large)
@@ -124,14 +123,6 @@ struct PlatformNavigationView: View {
                 }
             }
             .spoonjoyToolbar(navigation: $navigation, search: $search)
-            .safeAreaInset(edge: .bottom) {
-                if shouldShowShellOfflineStatus {
-                    OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal)
-                    .background(KitchenTableTheme.bone.opacity(0.94))
-                }
-            }
             .task(id: spotlightIndexIdentity) {
                 await Self.indexSpotlightIfAvailable(documents: spotlightDocuments)
             }
@@ -150,18 +141,6 @@ struct PlatformNavigationView: View {
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
 #endif
-    }
-
-    private var shellOfflineStatusContentReserve: CGFloat {
-        guard shouldShowShellOfflineStatus else {
-            return 0
-        }
-        switch offlineIndicatorState.display {
-        case .dismissed:
-            return 0
-        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
-            return 96
-        }
     }
 
     private var shouldShowShellOfflineStatus: Bool {
@@ -192,6 +171,28 @@ struct PlatformNavigationView: View {
         case .kitchen, .recipes, .recipeDetail(_, .cook), .capture, .unknownLink:
             false
         }
+    }
+
+    @ViewBuilder private var detailContentWithShellStatus: some View {
+        VStack(spacing: 0) {
+            detailContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if shouldShowShellOfflineStatus {
+                shellOfflineStatusBar
+            }
+        }
+    }
+
+    private var shellOfflineStatusBar: some View {
+        OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+            .background(KitchenTableTheme.bone.opacity(0.98))
+            .overlay(alignment: .top) {
+                Divider()
+            }
     }
 
     private var sidebar: some View {

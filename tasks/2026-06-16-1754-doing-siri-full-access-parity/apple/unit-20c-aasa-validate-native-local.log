@@ -1,0 +1,144 @@
+COMMAND: scripts/validate-native-local.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity
+EXIT: 0
+SUMMARY: full native local matrix completed successfully for Unit 20c AASA/native-link validation after fail-closed Team ID ambiguity and broad warning-scan hardening.
+{
+  "ok": true,
+  "generatedAt": "2026-06-29T02:13:02Z",
+  "stepCount": 22,
+  "failed": [],
+  "warningScanCommand": "scripts/fail-on-warning.rb --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-version.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-bundle-check.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-swift-test.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-test.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/coverage-json-path.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-enforce.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-scenario.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-project-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-generator-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-design-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-kitchen-surfaces-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-cook-shopping-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-search-capture-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-launch-screenshot-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-aasa.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-review.log",
+  "steps": [
+    {
+      "name": "xcode version",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-version.log",
+      "blockerPath": null
+    },
+    {
+      "name": "ruby bundle check",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-bundle-check.log",
+      "blockerPath": null
+    },
+    {
+      "name": "swift tests",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-swift-test.log",
+      "blockerPath": null
+    },
+    {
+      "name": "swift coverage test",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-test.log",
+      "blockerPath": null
+    },
+    {
+      "name": "swift coverage path",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/coverage-json-path.log",
+      "blockerPath": null
+    },
+    {
+      "name": "coverage enforcement",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-enforce.log",
+      "blockerPath": null
+    },
+    {
+      "name": "native scenario final",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-scenario.log",
+      "blockerPath": null
+    },
+    {
+      "name": "xcode project contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-project-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "xcode generator contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-generator-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "native design contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-design-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "kitchen surfaces contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-kitchen-surfaces-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "cook shopping contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-cook-shopping-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "search capture settings contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-search-capture-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "launch screenshot contract",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-launch-screenshot-contract.log",
+      "blockerPath": null
+    },
+    {
+      "name": "AASA validation or blocker",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-aasa.log",
+      "blockerPath": null
+    },
+    {
+      "name": "iOS app bundle",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+      "blockerPath": null
+    },
+    {
+      "name": "macOS app bundle",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log",
+      "blockerPath": null
+    },
+    {
+      "name": "macOS launch smoke",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log",
+      "blockerPath": null
+    },
+    {
+      "name": "iOS simulator smoke",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios.log",
+      "blockerPath": null
+    },
+    {
+      "name": "screenshots and design review",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
+      "blockerPath": null
+    },
+    {
+      "name": "design review validation",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-review.log",
+      "blockerPath": null
+    },
+    {
+      "name": "warning scan",
+      "status": "pass",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-warning-scan.log",
+      "blockerPath": null
+    }
+  ]
+}

@@ -58,6 +58,8 @@ search_capture_account_id="chef_search_capture"
 capture_account_id="$kitchen_capture_account_id"
 settings_capture_focus="profile"
 search_capture_disable_focus="0"
+proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
+proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
 if [[ "$screenshot_route" == "settings" ]]; then
   capture_account_id="$settings_capture_account_id"
   if [[ "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
@@ -512,7 +514,7 @@ wait_for_screenshot_proof() {
   local proof_path="$1"
   local expected_route="$2"
   local expected_focus="$3"
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 "$proof_attempts"); do
     if ruby -rjson -e '
       path, expected_route, expected_focus = ARGV
       proof = JSON.parse(File.read(path))
@@ -521,7 +523,7 @@ wait_for_screenshot_proof() {
     ' "$proof_path" "$expected_route" "$expected_focus" >/dev/null 2>&1; then
       return 0
     fi
-    sleep 0.5
+    sleep "$proof_sleep_seconds"
   done
   return 1
 }

@@ -245,7 +245,34 @@ else
     run_required "design review validation" "$apple_dir/matrix-design-review.log" ruby scripts/validate-design-review.rb "$artifact_root/design-review.json" || overall_status=1
   fi
 fi
-run_required "warning scan" "$apple_dir/matrix-warning-scan.log" scripts/fail-on-warning.rb --log "$apple_dir/matrix-swift-test.log" "$apple_dir/matrix-coverage-test.log" "$apple_dir/matrix-final-scenario.log" "$apple_dir/matrix-xcodebuild-macos.log" "$apple_dir/matrix-smoke-macos.log" || overall_status=1
+matrix_warning_logs=(
+  "$apple_dir/matrix-xcode-version.log"
+  "$apple_dir/matrix-bundle-check.log"
+  "$apple_dir/matrix-swift-test.log"
+  "$apple_dir/matrix-coverage-test.log"
+  "$coverage_json_path"
+  "$apple_dir/matrix-coverage-enforce.log"
+  "$apple_dir/matrix-final-scenario.log"
+  "$apple_dir/matrix-project-contract.log"
+  "$apple_dir/matrix-generator-contract.log"
+  "$apple_dir/matrix-native-design-contract.log"
+  "$apple_dir/matrix-kitchen-surfaces-contract.log"
+  "$apple_dir/matrix-cook-shopping-contract.log"
+  "$apple_dir/matrix-search-capture-contract.log"
+  "$apple_dir/matrix-launch-screenshot-contract.log"
+  "$apple_dir/matrix-aasa.log"
+  "$apple_dir/matrix-xcodebuild-ios.log"
+  "$apple_dir/matrix-xcodebuild-macos.log"
+  "$apple_dir/matrix-smoke-macos.log"
+  "$apple_dir/matrix-smoke-ios.log"
+  "$apple_dir/matrix-capture.log"
+  "$apple_dir/matrix-design-review.log"
+)
+matrix_warning_args=()
+for matrix_warning_log in "${matrix_warning_logs[@]}"; do
+  matrix_warning_args+=(--log "$matrix_warning_log")
+done
+run_required "warning scan" "$apple_dir/matrix-warning-scan.log" scripts/fail-on-warning.rb "${matrix_warning_args[@]}" || overall_status=1
 
 ruby -rjson -rtime -e '
   results_path, matrix_path, artifact_root = ARGV

@@ -1,9 +1,0 @@
-{
-  "capability": "XcodePlatform",
-  "blocked": true,
-  "command": "screenshots skipped after app-bundle XcodePlatform blocker",
-  "timeoutSeconds": 30,
-  "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform.log",
-  "reason": "Local Xcode platform or pre-parse state blocked app bundle validation.",
-  "ownerAction": "Install the required Xcode platform/runtime and rerun app bundle validation."
-}

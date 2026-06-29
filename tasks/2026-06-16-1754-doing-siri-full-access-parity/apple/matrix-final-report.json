@@ -101,18 +101,48 @@
       "status" : "pass"
     },
     {
-      "detail" : "Search state trims queries and preserves native searchable scopes.",
+      "detail" : "NativeShellContentState search surface view model restores cached search results and keeps shopping-list search auth explicit.",
       "name" : "search",
       "status" : "pass"
     },
     {
-      "detail" : "Capture creates a local draft and rejects production-write claims.",
-      "name" : "capture draft creation",
+      "detail" : "Capture creates import-ready drafts, queues offline import retry, and exposes provider secret blocker state.",
+      "name" : "capture import submission",
       "status" : "pass"
     },
     {
       "detail" : "Settings exposes auth, environment, shopping permissions, and cook text size.",
       "name" : "settings state",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Settings renders account profile, notification preferences, API token metadata, OAuth connection state, and native offline status.",
+      "name" : "settings token connection surface",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Settings profile update plans native PATCH \/api\/v1\/me with an offline queue fallback.",
+      "name" : "settings profile update",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Settings token create is native REST when online and disabled rather than queued offline.",
+      "name" : "settings token create online-only",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Settings OAuth connection disconnect never enters the offline mutation queue.",
+      "name" : "settings connection disconnect online-only",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Settings credential actions route to secure web handoff URLs while native token\/profile actions stay REST-backed.",
+      "name" : "settings secure handoff",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Notification APNs behavior restores cached preferences\/status, blocks production APNs without AppleDeveloperProgram, and keeps permission\/token acquisition online-only.",
+      "name" : "notification APNs surface",
       "status" : "pass"
     },
     {
@@ -136,12 +166,12 @@
       "status" : "pass"
     },
     {
-      "detail" : "Search surface includes native searchable scopes and typed result rows.",
+      "detail" : "Search surface renders the search surface view model with native sections, cached results, and offline status.",
       "name" : "search surface source",
       "status" : "pass"
     },
     {
-      "detail" : "Capture surface creates local-only drafts without claiming server recipe writes.",
+      "detail" : "Capture surface creates native drafts and submits import-ready sources.",
       "name" : "capture surface source",
       "status" : "pass"
     },
@@ -184,7 +214,11 @@
       "https:\/\/spoonjoy.app\/recipes\/{id}?mode=cook",
       "https:\/\/spoonjoy.app\/cookbooks",
       "https:\/\/spoonjoy.app\/cookbooks\/{id}",
+      "https:\/\/spoonjoy.app\/users\/{identifier}",
+      "https:\/\/spoonjoy.app\/users\/{identifier}\/fellow-chefs?page={page}",
+      "https:\/\/spoonjoy.app\/users\/{identifier}\/kitchen-visitors?page={page}",
       "https:\/\/spoonjoy.app\/shopping-list",
+      "https:\/\/spoonjoy.app\/search",
       "https:\/\/spoonjoy.app\/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
       "https:\/\/spoonjoy.app\/recipes\/new",
       "https:\/\/spoonjoy.app\/account\/settings",
@@ -197,13 +231,19 @@
       "spoonjoy:\/\/recipes\/new\/edit",
       "spoonjoy:\/\/cookbooks",
       "spoonjoy:\/\/cookbooks\/{id}",
+      "spoonjoy:\/\/users\/{identifier}",
+      "spoonjoy:\/\/users\/{identifier}\/fellow-chefs?page={page}",
+      "spoonjoy:\/\/users\/{identifier}\/kitchen-visitors?page={page}",
       "spoonjoy:\/\/shopping-list",
+      "spoonjoy:\/\/search",
       "spoonjoy:\/\/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
       "spoonjoy:\/\/capture",
       "spoonjoy:\/\/settings"
     ],
     "offlineFlows" : [
       "blocker",
+      "capture-draft-offline",
+      "capture-import-offline-retry",
       "conflict",
       "cook-mode-progress-restore",
       "destructive-confirmation",
@@ -212,6 +252,7 @@
       "live-store-source",
       "live-synced",
       "offline-stale",
+      "provider-secret-blocked-import",
       "queued-work",
       "restoring-cache",
       "shopping-queue-replay",
@@ -227,7 +268,14 @@
     ],
     "shareActions" : [
       "capture-recipe-url",
-      "share-recipe"
+      "capture-recipe-text",
+      "capture-recipe-camera",
+      "capture-recipe-photo-library",
+      "capture-recipe-json-ld",
+      "capture-recipe-video-url",
+      "recipe-import-submit",
+      "share-recipe",
+      "share-cookbook"
     ],
     "spotlightIndexedTypes" : [
       "recipe",

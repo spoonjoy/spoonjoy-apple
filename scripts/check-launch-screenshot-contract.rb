@@ -968,7 +968,9 @@ PY
     env: {
       "HOME" => script_root.join("home").to_s,
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
-      "SPOONJOY_CONTRACT_WRONG_SEARCH_PROOF" => "1"
+      "SPOONJOY_CONTRACT_WRONG_SEARCH_PROOF" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "2",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.05"
     },
     chdir: script_root
   )
@@ -992,7 +994,9 @@ PY
     env: {
       "HOME" => script_root.join("home").to_s,
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
-      "SPOONJOY_CONTRACT_SKIP_SEARCH_PROOF" => "1"
+      "SPOONJOY_CONTRACT_SKIP_SEARCH_PROOF" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "2",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.05"
     },
     chdir: script_root
   )
@@ -1076,7 +1080,9 @@ PY
     env: {
       "HOME" => script_root.join("home").to_s,
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
-      "SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF" => "1"
+      "SPOONJOY_CONTRACT_WRONG_SCREENSHOT_PROOF" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "2",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.05"
     },
     chdir: script_root
   )

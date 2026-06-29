@@ -872,17 +872,29 @@ struct NativeScenarioTests {
         try withTemporaryDirectory { directory in
             let completeFixture = directory.appendingPathComponent("complete-aasa.json")
             let missingComponentFixture = directory.appendingPathComponent("missing-component-aasa.json")
+            let placeholderAppIDFixture = directory.appendingPathComponent("placeholder-app-id-aasa.json")
+            let ambiguousTeamFixture = directory.appendingPathComponent("ambiguous-team-aasa.json")
             let validRoot = directory.appendingPathComponent("valid", isDirectory: true)
             let missingRoot = directory.appendingPathComponent("missing", isDirectory: true)
+            let placeholderRoot = directory.appendingPathComponent("placeholder", isDirectory: true)
+            let ambiguousRoot = directory.appendingPathComponent("ambiguous", isDirectory: true)
+            let ambiguousOverrideRoot = directory.appendingPathComponent("ambiguous-override", isDirectory: true)
             let nonSuccessfulRoot = directory.appendingPathComponent("non-successful", isDirectory: true)
+            let invalidTeamRoot = directory.appendingPathComponent("invalid-team", isDirectory: true)
             let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
 
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy.Spoonjoy","743GT2AJ24.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: completeFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy.Spoonjoy","743GT2AJ24.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
             """.write(to: missingComponentFixture, atomically: true, encoding: .utf8)
+            try """
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            """.write(to: placeholderAppIDFixture, atomically: true, encoding: .utf8)
+            try """
+            {"applinks":{"apps":[],"details":[{"appIDs":["A123456789.app.spoonjoy.Spoonjoy","A123456789.app.spoonjoy.Spoonjoy.mac","B123456789.app.spoonjoy.Spoonjoy","B123456789.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            """.write(to: ambiguousTeamFixture, atomically: true, encoding: .utf8)
 
             let valid = try runProcess(
                 "/usr/bin/ruby",
@@ -896,6 +908,30 @@ struct NativeScenarioTests {
                 environment: ["SPOONJOY_AASA_FIXTURE_PATH": missingComponentFixture.path],
                 currentDirectoryURL: repoURL
             )
+            let placeholder = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", placeholderRoot.path],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": placeholderAppIDFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let ambiguous = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", ambiguousRoot.path],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": ambiguousTeamFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let ambiguousOverride = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [
+                    script.path,
+                    "--artifact-root",
+                    ambiguousOverrideRoot.path,
+                    "--team-id",
+                    "A123456789"
+                ],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": ambiguousTeamFixture.path],
+                currentDirectoryURL: repoURL
+            )
             let nonSuccessful = try runProcess(
                 "/usr/bin/ruby",
                 arguments: [script.path, "--artifact-root", nonSuccessfulRoot.path],
@@ -905,12 +941,38 @@ struct NativeScenarioTests {
                 ],
                 currentDirectoryURL: repoURL
             )
+            let invalidTeam = try runProcess(
+                "/usr/bin/ruby",
+                arguments: [script.path, "--artifact-root", invalidTeamRoot.path, "--team-id", "TEAMID"],
+                environment: ["SPOONJOY_AASA_FIXTURE_PATH": completeFixture.path],
+                currentDirectoryURL: repoURL
+            )
+            let validValidation = try String(
+                contentsOf: validRoot.appendingPathComponent("aasa-validation.json"),
+                encoding: .utf8
+            )
             let missingBlocker = try String(
                 contentsOf: missingRoot.appendingPathComponent("aasa-production-blocker.json"),
                 encoding: .utf8
             )
+            let placeholderBlocker = try String(
+                contentsOf: placeholderRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+            let ambiguousBlocker = try String(
+                contentsOf: ambiguousRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+            let ambiguousOverrideBlocker = try String(
+                contentsOf: ambiguousOverrideRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
             let nonSuccessfulBlocker = try String(
                 contentsOf: nonSuccessfulRoot.appendingPathComponent("aasa-production-blocker.json"),
+                encoding: .utf8
+            )
+            let invalidTeamBlocker = try String(
+                contentsOf: invalidTeamRoot.appendingPathComponent("aasa-production-blocker.json"),
                 encoding: .utf8
             )
 
@@ -918,17 +980,52 @@ struct NativeScenarioTests {
             #expect(valid.output.contains("aasa validation ok"))
             #expect(FileManager.default.fileExists(atPath: validRoot.appendingPathComponent("aasa-validation.json").path))
             #expect(!FileManager.default.fileExists(atPath: validRoot.appendingPathComponent("aasa-production-blocker.json").path))
+            #expect(validValidation.contains(#""expectedAppleTeamID": null"#))
+            #expect(validValidation.contains(#""validatedAppleTeamID": "743GT2AJ24""#))
+            #expect(validValidation.contains(#""requiredBundleIDs""#))
             #expect(missing.exitCode == 0)
             #expect(missing.output.contains("aasa production blocked"))
             #expect(!FileManager.default.fileExists(atPath: missingRoot.appendingPathComponent("aasa-validation.json").path))
             #expect(missingBlocker.contains(#""capability": "AASAProductionValidation""#))
             #expect(missingBlocker.contains("AASA endpoint is missing required route components."))
             #expect(missingBlocker.contains(#""/": "/account/settings""#))
+            #expect(placeholder.exitCode == 0)
+            #expect(placeholder.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: placeholderRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(placeholderBlocker.contains("AASA endpoint is missing valid app IDs for bundle identifiers: app.spoonjoy.Spoonjoy, app.spoonjoy.Spoonjoy.mac."))
+            #expect(placeholderBlocker.contains(#""validatedAppleTeamID": null"#))
+            #expect(placeholderBlocker.contains(#""missingAppIDBundles""#))
+            #expect(placeholderBlocker.contains(#""app.spoonjoy.Spoonjoy.mac""#))
+            #expect(ambiguous.exitCode == 0)
+            #expect(ambiguous.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: ambiguousRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(ambiguousBlocker.contains("AASA endpoint publishes multiple common valid Apple Team IDs"))
+            #expect(ambiguousBlocker.contains(#""validatedAppleTeamID": null"#))
+            #expect(ambiguousBlocker.contains(#""discoveredCommonAppleTeamIDs""#))
+            #expect(ambiguousBlocker.contains(#""ambiguousAppleTeamIDs""#))
+            #expect(ambiguousBlocker.contains(#""A123456789""#))
+            #expect(ambiguousBlocker.contains(#""B123456789""#))
+            #expect(ambiguousOverride.exitCode == 0)
+            #expect(ambiguousOverride.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: ambiguousOverrideRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(ambiguousOverrideBlocker.contains("AASA endpoint publishes multiple common valid Apple Team IDs"))
+            #expect(ambiguousOverrideBlocker.contains(#""expectedAppleTeamID": "A123456789""#))
+            #expect(ambiguousOverrideBlocker.contains(#""validatedAppleTeamID": "A123456789""#))
+            #expect(ambiguousOverrideBlocker.contains(#""ambiguousAppleTeamIDs""#))
+            #expect(ambiguousOverrideBlocker.contains(#""A123456789""#))
+            #expect(ambiguousOverrideBlocker.contains(#""B123456789""#))
             #expect(nonSuccessful.exitCode == 0)
             #expect(nonSuccessful.output.contains("aasa production blocked"))
             #expect(!FileManager.default.fileExists(atPath: nonSuccessfulRoot.appendingPathComponent("aasa-validation.json").path))
             #expect(nonSuccessfulBlocker.contains("AASA endpoint returned HTTP 404"))
             #expect(nonSuccessfulBlocker.contains(#""successfulStatus": false"#))
+            #expect(invalidTeam.exitCode == 0)
+            #expect(invalidTeam.output.contains("aasa production blocked"))
+            #expect(!FileManager.default.fileExists(atPath: invalidTeamRoot.appendingPathComponent("aasa-validation.json").path))
+            #expect(invalidTeamBlocker.contains("Apple Developer Team ID must be 10 alphanumeric characters."))
+            #expect(invalidTeamBlocker.contains(#""appleTeamIDValidationError": "Apple Developer Team ID must be 10 alphanumeric characters.""#))
+            #expect(invalidTeamBlocker.contains(#""capability": "AASAProductionValidation""#))
+            #expect(invalidTeamBlocker.contains(#""outputPath""#))
         }
     }
 
