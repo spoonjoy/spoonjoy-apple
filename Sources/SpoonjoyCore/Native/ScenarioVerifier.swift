@@ -94,6 +94,10 @@ public enum ScenarioVerifier {
                         "ShareShoppingListIntent",
                         "StartCookModeIntent",
                         "ContinueCookModeIntent",
+                        "ForkRecipeIntent",
+                        "SaveRecipeToCookbookIntent",
+                        "RemoveRecipeFromCookbookIntent",
+                        "DeleteRecipeIntent",
                         "AddShoppingListItemIntent",
                         "SetShoppingListItemCheckedIntent",
                         "RemoveShoppingListItemIntent",
@@ -267,6 +271,11 @@ public enum ScenarioVerifier {
                     name: "Shopping Siri intents",
                     status: .pass,
                     detail: "AddShoppingListItemIntent, SetShoppingListItemCheckedIntent, RemoveShoppingListItemIntent, ClearCompletedShoppingItemsIntent, ClearShoppingListIntent, and AddRecipeIngredientsToShoppingListIntent use shopping/recipe App Entities, destructive confirmations, and the same native offline mutation queue as the app UI."
+                ),
+                ScenarioCheck(
+                    name: "Recipe action Siri intents",
+                    status: .pass,
+                    detail: "ForkRecipeIntent, SaveRecipeToCookbookIntent, RemoveRecipeFromCookbookIntent, DeleteRecipeIntent, and AddRecipeIngredientsToShoppingListIntent use recipe/cookbook App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI."
                 ),
                 ScenarioCheck(
                     name: "deep link metadata",

@@ -268,6 +268,128 @@ struct ContinueCookModeIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+struct ForkRecipeIntent: AppIntent {
+    static let title: LocalizedStringResource = "Fork Recipe"
+    static let description = IntentDescription("Create a Spoonjoy variation of a recipe.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    @Parameter(title: "Title")
+    var titleOverride: String
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+        titleOverride = ""
+    }
+
+    init(recipe: SpoonjoyRecipeEntity, titleOverride: String = "") {
+        self.recipe = recipe
+        self.titleOverride = titleOverride
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor, title: titleOverride, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe fork in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SaveRecipeToCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Save Recipe to Cookbook"
+    static let description = IntentDescription("Save a Spoonjoy recipe to a cookbook.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+        cookbook = SpoonjoyCookbookEntity()
+    }
+
+    init(recipe: SpoonjoyRecipeEntity, cookbook: SpoonjoyCookbookEntity) {
+        self.recipe = recipe
+        self.cookbook = cookbook
+    }
+
+    func perform() async throws -> some IntentResult {
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook save in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct RemoveRecipeFromCookbookIntent: AppIntent {
+    static let title: LocalizedStringResource = "Remove Recipe from Cookbook"
+    static let description = IntentDescription("Remove a Spoonjoy recipe from a cookbook.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    var cookbook: SpoonjoyCookbookEntity
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+        cookbook = SpoonjoyCookbookEntity()
+    }
+
+    init(recipe: SpoonjoyRecipeEntity, cookbook: SpoonjoyCookbookEntity) {
+        self.recipe = recipe
+        self.cookbook = cookbook
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook removal in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct DeleteRecipeIntent: AppIntent {
+    static let title: LocalizedStringResource = "Delete Recipe"
+    static let description = IntentDescription("Delete one of your Spoonjoy recipes.")
+
+    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    var recipe: SpoonjoyRecipeEntity
+
+    init() {
+        recipe = SpoonjoyRecipeEntity()
+    }
+
+    init(recipe: SpoonjoyRecipeEntity) {
+        self.recipe = recipe
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await requestConfirmation()
+        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+        let createdAt = SpoonjoyIntentClock.timestamp()
+        let action = try NativeIntentActionResolver().deleteRecipe(recipe: recipe.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyInteractionDonor().donateBestEffort(self)
+
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe deletion in Spoonjoy")
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct AddShoppingListItemIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Shopping Item"
     static let description = IntentDescription("Add an item to the Spoonjoy shopping list.")
@@ -579,7 +701,11 @@ private enum SpoonjoyIntentShortcutBudget {
             String(describing: RemoveShoppingListItemIntent()),
             String(describing: AddRecipeIngredientsToShoppingListIntent()),
             String(describing: ClearCompletedShoppingItemsIntent()),
-            String(describing: ClearShoppingListIntent())
+            String(describing: ClearShoppingListIntent()),
+            String(describing: ForkRecipeIntent()),
+            String(describing: SaveRecipeToCookbookIntent()),
+            String(describing: RemoveRecipeFromCookbookIntent()),
+            String(describing: DeleteRecipeIntent())
         ]
     }
 }
@@ -646,6 +772,9 @@ private struct SpoonjoyIntentStateWriter {
             let nativeMutation = try NativeQueuedMutation.intentMutation(from: mutation)
             try await appendNativeMutation(nativeMutation)
             try await applyShoppingMutation(nativeMutation, savedAt: savedAt, legacyQueuedMutation: mutation)
+        case .nativeMutation(let mutation, _, _):
+            try await appendNativeMutation(mutation)
+            try await applyNativeMutation(mutation, savedAt: savedAt)
         case .shoppingMutation(let mutation, _, _):
             try await appendNativeMutation(mutation)
             try await applyShoppingMutation(mutation, savedAt: savedAt)
@@ -660,6 +789,21 @@ private struct SpoonjoyIntentStateWriter {
             snapshot = snapshot.updatingCaptureDraft(draft, savedAt: savedAt)
             try store.save(snapshot)
         case .openRoute:
+            break
+        }
+    }
+
+    func currentAccountID() async throws -> String {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        return scope.accountID
+    }
+
+    private func applyNativeMutation(_ mutation: NativeQueuedMutation, savedAt: String) async throws {
+        switch mutation.queueableKind {
+        case .shoppingAddItem, .shoppingCheckItem, .shoppingDeleteItem, .shoppingAddFromRecipe, .shoppingClearCompleted, .shoppingClearAll:
+            try await applyShoppingMutation(mutation, savedAt: savedAt)
+        default:
             break
         }
     }

@@ -443,6 +443,7 @@ private func openSearchShareCookRecipeDescriptor(
     return RecipeEntityDescriptor(
         id: id,
         title: title,
+        chefID: "chef_ari",
         chefUsername: "ari",
         subtitle: "ari",
         disambiguationLabel: "\(title) by ari",

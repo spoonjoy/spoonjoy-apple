@@ -50,6 +50,7 @@ public struct RecipeCookbookEntityTransferValue: Codable, Equatable, Sendable {
 public struct RecipeEntityDescriptor: Equatable, Sendable {
     public let id: String
     public let title: String
+    public let chefID: String
     public let chefUsername: String
     public let subtitle: String
     public let disambiguationLabel: String
@@ -62,6 +63,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
     public static let placeholder = RecipeEntityDescriptor(
         id: "recipe-placeholder",
         title: "Recipe",
+        chefID: "chef-placeholder",
         chefUsername: "Spoonjoy",
         subtitle: "Spoonjoy recipe",
         disambiguationLabel: "Spoonjoy recipe",
@@ -86,6 +88,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
         self.init(
             id: recipe.id,
             title: recipe.title,
+            chefID: recipe.chef.id,
             chefUsername: recipe.chef.username,
             subtitle: Self.recipeSubtitle(chefUsername: recipe.chef.username, servings: recipe.servings),
             disambiguationLabel: "\(recipe.title) by \(recipe.chef.username)",
@@ -109,6 +112,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
     public init(
         id: String,
         title: String,
+        chefID: String,
         chefUsername: String,
         subtitle: String,
         disambiguationLabel: String,
@@ -119,6 +123,7 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
     ) {
         self.id = id
         self.title = title
+        self.chefID = chefID
         self.chefUsername = chefUsername
         self.subtitle = subtitle
         self.disambiguationLabel = disambiguationLabel

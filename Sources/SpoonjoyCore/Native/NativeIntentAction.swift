@@ -9,6 +9,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
     case emptyShoppingItem
     case emptyCaptureSource
     case authRequired
+    case recipeOwnershipRequired(recipeID: String)
     case unresolvedRecipeEntity
     case unresolvedCookbookEntity
     case unresolvedShoppingListEntity
@@ -36,6 +37,8 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
             "Capture source must include text or a URL."
         case .authRequired:
             "Sign in to Spoonjoy before queueing this Siri action."
+        case .recipeOwnershipRequired(let recipeID):
+            "Only the recipe owner can update \(recipeID) from Siri."
         case .unresolvedRecipeEntity:
             "Choose a Spoonjoy recipe before running this Siri action."
         case .unresolvedCookbookEntity:
@@ -59,6 +62,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
 public enum NativeIntentAction: Equatable {
     case openRoute(AppRoute, url: URL)
     case addShoppingListItem(QueuedMutation, route: AppRoute, url: URL)
+    case nativeMutation(NativeQueuedMutation, route: AppRoute, url: URL)
     case shoppingMutation(NativeQueuedMutation, route: AppRoute, url: URL)
     case captureDraft(CaptureDraft, route: AppRoute, url: URL)
 
@@ -66,6 +70,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .openRoute(let route, _),
              .addShoppingListItem(_, let route, _),
+             .nativeMutation(_, let route, _),
              .shoppingMutation(_, let route, _),
              .captureDraft(_, let route, _):
             route
@@ -76,6 +81,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .openRoute(_, let url),
              .addShoppingListItem(_, _, let url),
+             .nativeMutation(_, _, let url),
              .shoppingMutation(_, _, let url),
              .captureDraft(_, _, let url):
             url
@@ -86,7 +92,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .addShoppingListItem(let mutation, _, _):
             mutation
-        case .openRoute, .shoppingMutation, .captureDraft:
+        case .openRoute, .nativeMutation, .shoppingMutation, .captureDraft:
             nil
         }
     }
@@ -95,6 +101,8 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .addShoppingListItem(let mutation, _, _):
             try? NativeQueuedMutation.intentMutation(from: mutation)
+        case .nativeMutation(let mutation, _, _):
+            mutation
         case .shoppingMutation(let mutation, _, _):
             mutation
         case .openRoute, .captureDraft:
@@ -106,7 +114,7 @@ public enum NativeIntentAction: Equatable {
         switch self {
         case .captureDraft(let draft, _, _):
             draft
-        case .openRoute, .addShoppingListItem, .shoppingMutation:
+        case .openRoute, .addShoppingListItem, .nativeMutation, .shoppingMutation:
             nil
         }
     }
@@ -213,6 +221,90 @@ public struct NativeIntentActionResolver {
             title: shoppingList.title,
             subtitle: shoppingList.subtitle,
             privateTransferValue: shoppingList.transferValue.privateTransferValue
+        )
+    }
+
+    public func forkRecipe(
+        recipe: RecipeEntityDescriptor,
+        title: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let id = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
+        let titleOverride = normalizedRecipeTitle(title, fallback: "\(recipe.title), my version")
+        let mutationID = "intent-recipe-fork-\(stableToken(id))-\(stableToken(createdAt))"
+        return .nativeMutation(
+            .recipeFork(
+                recipeID: id,
+                clientMutationID: mutationID,
+                titleOverride: titleOverride,
+                createdAt: createdAt
+            ),
+            route: .recipes,
+            url: DeepLinkURLBuilder.url(for: .recipes)
+        )
+    }
+
+    public func saveRecipeToCookbook(
+        recipe: RecipeEntityDescriptor,
+        cookbook: CookbookEntityDescriptor,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let recipeID = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
+        let cookbookID = try cookbookDetailRoute(cookbook).cookbookIDForMutation()
+        let mutationID = "intent-cookbook-save-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
+        let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
+        return .nativeMutation(
+            .cookbookAddRecipe(
+                cookbookID: cookbookID,
+                recipeID: recipeID,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: route,
+            url: DeepLinkURLBuilder.url(for: route)
+        )
+    }
+
+    public func removeRecipeFromCookbook(
+        recipe: RecipeEntityDescriptor,
+        cookbook: CookbookEntityDescriptor,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let recipeID = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
+        let cookbookID = try cookbookDetailRoute(cookbook).cookbookIDForMutation()
+        let mutationID = "intent-cookbook-remove-\(stableToken(cookbookID))-\(stableToken(recipeID))-\(stableToken(createdAt))"
+        let route = AppRoute.recipeDetail(id: recipeID, presentation: .detail)
+        return .nativeMutation(
+            .cookbookRemoveRecipe(
+                cookbookID: cookbookID,
+                recipeID: recipeID,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: route,
+            url: DeepLinkURLBuilder.url(for: route)
+        )
+    }
+
+    public func deleteRecipe(
+        recipe: RecipeEntityDescriptor,
+        currentChefID: String,
+        createdAt: String
+    ) throws -> NativeIntentAction {
+        let recipeID = try recipeDetailRoute(recipe, presentation: .detail).recipeIDForMutation()
+        let chefID = try canonicalObjectID(currentChefID, invalidError: .recipeOwnershipRequired(recipeID: recipeID))
+        guard recipe.chefID == chefID else {
+            throw NativeIntentActionError.recipeOwnershipRequired(recipeID: recipeID)
+        }
+        let mutationID = "intent-recipe-delete-\(stableToken(recipeID))-\(stableToken(createdAt))"
+        return .nativeMutation(
+            .recipeDelete(
+                recipeID: recipeID,
+                clientMutationID: mutationID,
+                createdAt: createdAt
+            ),
+            route: .recipes,
+            url: DeepLinkURLBuilder.url(for: .recipes)
         )
     }
 
@@ -409,6 +501,11 @@ public struct NativeIntentActionResolver {
         .openRoute(route, url: DeepLinkURLBuilder.url(for: route))
     }
 
+    private func normalizedRecipeTitle(_ value: String, fallback: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
+    }
+
     func publicShareValue(
         route: AppRoute,
         title: String,
@@ -474,4 +571,20 @@ public struct NativeIntentActionResolver {
         return token.split(separator: "-").joined(separator: "-")
     }
 
+}
+
+private extension AppRoute {
+    func recipeIDForMutation() throws -> String {
+        guard case .recipeDetail(let id, _) = self else {
+            throw NativeIntentActionError.invalidRecipeID(stateIdentifier)
+        }
+        return id
+    }
+
+    func cookbookIDForMutation() throws -> String {
+        guard case .cookbookDetail(let id) = self else {
+            throw NativeIntentActionError.invalidCookbookID(stateIdentifier)
+        }
+        return id
+    }
 }
