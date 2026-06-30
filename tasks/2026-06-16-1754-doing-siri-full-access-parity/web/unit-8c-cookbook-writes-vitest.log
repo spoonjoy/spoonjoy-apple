@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/api-v1-cookbooks.test.ts (11 tests) 304ms
+ ✓ test/lib/spoonjoy-api-cookbook-notification.test.ts (4 tests) 73ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  17:53:02
+   Duration  2.06s (transform 402ms, setup 151ms, import 966ms, tests 377ms, environment 333ms)
+
