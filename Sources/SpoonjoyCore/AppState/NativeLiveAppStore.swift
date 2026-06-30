@@ -108,6 +108,31 @@ public struct NativeChefProfileEntityIndexPurgeRequest: Equatable, Sendable {
 
 public typealias NativeChefProfileEntityIndexPurgeOperation = @Sendable (_ request: NativeChefProfileEntityIndexPurgeRequest) async -> Void
 
+public struct NativeRecipeCookbookEntityIndexPurgeRequest: Equatable, Sendable {
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+    public let accountID: String?
+    public let environment: NativeCacheEnvironment?
+
+    public init(
+        identifiers: [String],
+        domainIdentifiers: [String],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+        self.accountID = accountID
+        self.environment = environment
+    }
+
+    public var isEmpty: Bool {
+        identifiers.isEmpty && domainIdentifiers.isEmpty
+    }
+}
+
+public typealias NativeRecipeCookbookEntityIndexPurgeOperation = @Sendable (_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
+
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
     case restoreCacheOnly
@@ -130,6 +155,7 @@ public struct NativeLiveAppStoreDependencies {
     public let spoonEntityIndexPurge: NativeSpoonEntityIndexPurgeOperation
     public let captureDraftEntityIndexPurge: NativeCaptureDraftEntityIndexPurgeOperation
     public let chefProfileEntityIndexPurge: NativeChefProfileEntityIndexPurgeOperation
+    public let recipeCookbookEntityIndexPurge: NativeRecipeCookbookEntityIndexPurgeOperation
     public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
@@ -152,6 +178,7 @@ public struct NativeLiveAppStoreDependencies {
         spoonEntityIndexPurge: @escaping NativeSpoonEntityIndexPurgeOperation = { _ in },
         captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
         chefProfileEntityIndexPurge: @escaping NativeChefProfileEntityIndexPurgeOperation = { _ in },
+        recipeCookbookEntityIndexPurge: @escaping NativeRecipeCookbookEntityIndexPurgeOperation = { _ in },
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
@@ -171,6 +198,7 @@ public struct NativeLiveAppStoreDependencies {
         self.spoonEntityIndexPurge = spoonEntityIndexPurge
         self.captureDraftEntityIndexPurge = captureDraftEntityIndexPurge
         self.chefProfileEntityIndexPurge = chefProfileEntityIndexPurge
+        self.recipeCookbookEntityIndexPurge = recipeCookbookEntityIndexPurge
         self.bootstrapMode = bootstrapMode
         self.now = now
     }
@@ -1238,6 +1266,8 @@ public struct NativeShellContentState {
             return .etag(value)
         case .tombstone(let value):
             return .localRevision(value)
+        case .optimistic(let value):
+            return .localRevision("optimistic:\(value)")
         case nil:
             return nil
         }
@@ -2129,6 +2159,21 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: cacheEnvironment,
                 plan: chefProfilePurgePlan
             ), accountID: currentAccountID, environment: cacheEnvironment)
+            let recipeCookbookPurgePlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                recipeIDs: currentContentState.recipes.map(\.id),
+                cookbookIDs: currentContentState.cookbooks.map(\.id)
+            )
+            await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: recipeCookbookPurgePlan
+            ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                plan: recipeCookbookPurgePlan
+            ), accountID: currentAccountID, environment: cacheEnvironment)
             try await dependencies.authSessionRepository.revokeAndLogout()
         }
         await bootstrap()
@@ -2216,6 +2261,27 @@ public final class NativeLiveAppStore: ObservableObject {
         }
 
         await dependencies.chefProfileEntityIndexPurge(request)
+    }
+
+    public func purgeRecipeCookbookEntityIdentifiers(
+        _ identifiers: [String],
+        domainIdentifiers: [String] = [],
+        accountID: String? = nil,
+        environment: NativeCacheEnvironment? = nil
+    ) async {
+        let uniqueIdentifiers = Self.uniquePreservingOrder(identifiers)
+        let uniqueDomainIdentifiers = Self.uniquePreservingOrder(domainIdentifiers)
+        let request = NativeRecipeCookbookEntityIndexPurgeRequest(
+            identifiers: uniqueIdentifiers,
+            domainIdentifiers: uniqueDomainIdentifiers,
+            accountID: accountID ?? self.accountID,
+            environment: environment ?? cacheEnvironment
+        )
+        guard !request.isEmpty else {
+            return
+        }
+
+        await dependencies.recipeCookbookEntityIndexPurge(request)
     }
 
     private var optimisticRecipeChef: ChefSummary {
@@ -2647,6 +2713,41 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: previousCacheSnapshot.environment,
                 plan: chefProfilePurgePlan
             ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            let recipeIDs = previousCacheSnapshot.records.flatMap { record -> [String] in
+                switch record.payload {
+                case .recipeCatalog(let recipeIDs):
+                    return recipeIDs
+                case .recipeDetail(let id, _):
+                    return [id]
+                default:
+                    return []
+                }
+            }
+            let cookbookIDs = previousCacheSnapshot.records.flatMap { record -> [String] in
+                switch record.payload {
+                case .cookbookList(let cookbookIDs):
+                    return cookbookIDs
+                case .cookbookDetail(let id, _):
+                    return [id]
+                default:
+                    return []
+                }
+            }
+            let recipeCookbookPurgePlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                recipeIDs: Self.uniquePreservingOrder(recipeIDs),
+                cookbookIDs: Self.uniquePreservingOrder(cookbookIDs)
+            )
+            await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                plan: recipeCookbookPurgePlan
+            ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+                accountID: previousCacheSnapshot.accountID,
+                environment: previousCacheSnapshot.environment,
+                plan: recipeCookbookPurgePlan
+            ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
         }
 
         if let appStateStore = dependencies.appStateStoreProvider() {
@@ -2803,6 +2904,14 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: request.environment
             )
         }
+        for request in report.recipeCookbookEntityPurgeRequests {
+            await purgeRecipeCookbookEntityIdentifiers(
+                request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
         clearDrainedCaptureImports(
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
@@ -2810,7 +2919,7 @@ public final class NativeLiveAppStore: ObservableObject {
         )
         try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
         let drainedOverlayMutations = report.drainedMutations.filter {
-            !$0.mutatesRecipeCache && !$0.mutatesShoppingCache
+            !$0.mutatesRecipeCache && !$0.mutatesShoppingCache && !$0.mutatesCookbookCache
         }
         let restoredContent = try await restoreFromCache(
             authSessionState: boundAuthState,

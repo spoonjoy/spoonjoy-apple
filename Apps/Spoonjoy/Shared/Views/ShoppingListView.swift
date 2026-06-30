@@ -13,13 +13,16 @@ struct ShoppingListView: View {
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     init(
         viewModel: ShoppingSurfaceViewModel,
-        actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced }
+        actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.actionDidPlan = actionDidPlan
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
     var body: some View {
@@ -157,7 +160,7 @@ struct ShoppingListView: View {
     @ViewBuilder private var statusBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             if viewModel.offlineIndicator.display != .synced {
-                OfflineStatusView(display: viewModel.offlineIndicator.display)
+                OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
             if let queuedWorkSummary = viewModel.queuedWorkSummary {
                 Label(queuedWorkSummary, systemImage: "arrow.triangle.2.circlepath")

@@ -186,11 +186,12 @@ write_xcode_screenshot_blocker() {
   ruby -rjson -e '
     source_path, screenshot_path, design_review_blocked_path = ARGV
     source = JSON.parse(File.read(source_path))
+    capture_log_path = File.join(File.dirname(screenshot_path), "matrix-capture.log")
     screenshot_blocker = source.merge(
       "capability" => "XcodePlatform",
       "blocked" => true,
       "command" => "screenshots skipped after app-bundle XcodePlatform blocker",
-      "outputPath" => screenshot_path.sub(/-blocker\.json\z/, ".log")
+      "outputPath" => capture_log_path
     )
     File.write(screenshot_path, JSON.pretty_generate(screenshot_blocker) + "\n")
     design_review_blocked = {

@@ -20,7 +20,7 @@ public struct CaptureDraftEntityScope: Codable, Equatable, Hashable, Sendable {
     }
 
     public var domainIdentifier: String {
-        "capture-draft:\(environment.rawValue):\(accountID)"
+        "capture-draft:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID)"
     }
 }
 
@@ -432,7 +432,7 @@ public struct CaptureDraftEntityCatalog: Sendable {
         accountID: String,
         environment: NativeCacheEnvironment
     ) -> String {
-        "capture-draft:\(environment.rawValue):\(accountID):\(draftID)"
+        "capture-draft:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID):\(draftID)"
     }
 
     public static func resolvedCaptureDraftID(
@@ -441,14 +441,15 @@ public struct CaptureDraftEntityCatalog: Sendable {
         environment: NativeCacheEnvironment
     ) throws -> String {
         let parts = identifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 4,
+        guard parts.count == 5,
               parts[0] == "capture-draft",
               parts[1] == environment.rawValue,
-              parts[2] == accountID,
-              !parts[3].isEmpty else {
+              parts[2] == "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)",
+              parts[3] == accountID,
+              !parts[4].isEmpty else {
             throw CaptureDraftEntityCatalogError.invalidIdentifier(identifier)
         }
-        return parts[3]
+        return parts[4]
     }
 
     public static func purgeEntityIdentifiers(

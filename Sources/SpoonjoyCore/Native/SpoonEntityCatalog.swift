@@ -21,7 +21,7 @@ public struct SpoonEntityScope: Codable, Equatable, Hashable, Sendable {
     }
 
     public var domainIdentifier: String {
-        "spoon:\(environment.rawValue):\(accountID)"
+        "spoon:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID)"
     }
 }
 
@@ -350,7 +350,7 @@ public struct SpoonEntityCatalog: Sendable {
     }
 
     public static func spoonEntityIdentifier(spoonID: String, accountID: String, environment: NativeCacheEnvironment) -> String {
-        "spoon:\(environment.rawValue):\(accountID):\(spoonID)"
+        "spoon:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID):\(spoonID)"
     }
 
     public static func resolvedSpoonID(
@@ -359,15 +359,16 @@ public struct SpoonEntityCatalog: Sendable {
         environment: NativeCacheEnvironment
     ) throws -> String {
         let parts = identifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 4,
+        guard parts.count == 5,
               parts[0] == "spoon",
               parts[1] == environment.rawValue,
-              parts[2] == accountID,
-              !parts[3].isEmpty
+              parts[2] == "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)",
+              parts[3] == accountID,
+              !parts[4].isEmpty
         else {
             throw SpoonEntityCatalogError.invalidIdentifier(identifier)
         }
-        return parts[3]
+        return parts[4]
     }
 
     public static func purgeEntityIdentifiers(

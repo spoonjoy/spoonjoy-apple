@@ -394,7 +394,7 @@ struct ShoppingEntityTests {
     func shoppingEntityCoverageEdgesPreservePlaceholderLoadingAndIdentifierBehavior() async throws {
         #expect(ShoppingListEntityDescriptor.placeholder.isPlaceholder)
         #expect(ShoppingItemEntityDescriptor.placeholder.isPlaceholder)
-        #expect(ShoppingEntityScope(accountID: "account_ari", environment: .production).domainIdentifier == "shopping:production:account_ari")
+        #expect(ShoppingEntityScope(accountID: "account_ari", environment: .production).domainIdentifier == "shopping:production:schema2:account_ari")
         #expect(NativeIntentActionError.unresolvedShoppingItemEntity.description == "Choose a Spoonjoy shopping item before running this Siri action.")
 
         let emptyCatalog = try Self.shoppingCatalog(items: [])

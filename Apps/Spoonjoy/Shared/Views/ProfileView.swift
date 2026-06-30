@@ -5,6 +5,7 @@ struct ProfileRouteView: View {
     let identifier: String
     let viewModel: ProfileChefGraphSurfaceViewModel
     let openRoute: (AppRoute) -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var profile: ProfileViewModel?
     @State private var errorMessage: String?
@@ -12,7 +13,7 @@ struct ProfileRouteView: View {
     var body: some View {
         Group {
             if let profile {
-                ProfileView(viewModel: profile, openRoute: openRoute)
+                ProfileView(viewModel: profile, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "person.crop.circle")
                     .font(KitchenTableTheme.bodyNote)
@@ -47,6 +48,7 @@ struct ProfileRouteView: View {
 struct ProfileView: View {
     let viewModel: ProfileViewModel
     let openRoute: (AppRoute) -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     var body: some View {
         ScrollView {
@@ -67,7 +69,7 @@ struct ProfileView: View {
     @ViewBuilder private var statusBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             if viewModel.offlineIndicator.display != .synced {
-                OfflineStatusView(display: viewModel.offlineIndicator.display)
+                OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
             if let conflictBanner = viewModel.conflictBanner {
                 Label(conflictBanner.message, systemImage: "exclamationmark.triangle")
@@ -312,6 +314,7 @@ struct ProfileGraphRouteView: View {
     let page: Int
     let viewModel: ProfileChefGraphSurfaceViewModel
     let openRoute: (AppRoute) -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var graph: ProfileGraphViewModel?
     @State private var errorMessage: String?
@@ -319,7 +322,7 @@ struct ProfileGraphRouteView: View {
     var body: some View {
         Group {
             if let graph {
-                ProfileGraphList(viewModel: graph, openRoute: openRoute)
+                ProfileGraphList(viewModel: graph, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "person.2")
                     .font(KitchenTableTheme.bodyNote)
@@ -354,6 +357,7 @@ struct ProfileGraphRouteView: View {
 private struct ProfileGraphList: View {
     let viewModel: ProfileGraphViewModel
     let openRoute: (AppRoute) -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     var body: some View {
         List {
@@ -384,7 +388,7 @@ private struct ProfileGraphList: View {
         .background(KitchenTableTheme.bone)
         .overlay(alignment: .bottomLeading) {
             if viewModel.offlineIndicator.display != .synced {
-                OfflineStatusView(display: viewModel.offlineIndicator.display)
+                OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
                     .padding()
             }
         }

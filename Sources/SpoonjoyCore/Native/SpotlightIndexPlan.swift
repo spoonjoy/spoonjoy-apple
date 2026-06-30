@@ -54,18 +54,24 @@ public struct SpotlightIndexDocument: Equatable, Sendable {
 public struct SpotlightIndexScope: Equatable, Sendable {
     public let accountID: String
     public let environment: NativeCacheEnvironment
+    public let schemaVersion: Int
 
-    public init(accountID: String, environment: NativeCacheEnvironment) {
+    public init(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        schemaVersion: Int = NativeDurableCacheSnapshot.currentSchemaVersion
+    ) {
         self.accountID = accountID
         self.environment = environment
+        self.schemaVersion = schemaVersion
     }
 
     public var identifierPrefix: String {
-        "\(environment.rawValue)|\(Self.safeComponent(accountID))"
+        "\(environment.rawValue)|schema\(schemaVersion)|\(Self.safeComponent(accountID))"
     }
 
     public var domainPrefix: String {
-        "app.spoonjoy.\(environment.rawValue).\(Self.safeComponent(accountID))"
+        "app.spoonjoy.schema\(schemaVersion).\(environment.rawValue).\(Self.safeComponent(accountID))"
     }
 
     private static func safeComponent(_ value: String) -> String {
@@ -186,6 +192,22 @@ public enum SpotlightIndexPlan {
         "\(scope.identifierPrefix)|\(SpotlightIndexType.shoppingListItem.rawValue)|\(itemID)"
     }
 
+    public static func recipeUniqueIdentifier(recipeID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.recipe.rawValue)|\(recipeID)"
+    }
+
+    public static func recipeDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.recipe.rawValue)"
+    }
+
+    public static func cookbookUniqueIdentifier(cookbookID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.cookbook.rawValue)|\(cookbookID)"
+    }
+
+    public static func cookbookDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.cookbook.rawValue)"
+    }
+
     public static func shoppingListItemDomainIdentifier(scope: SpotlightIndexScope) -> String {
         "\(scope.domainPrefix).\(SpotlightIndexType.shoppingListItem.rawValue)"
     }
@@ -224,16 +246,15 @@ public enum SpotlightIndexPlan {
         }
     }
 
-    public static func route(uniqueIdentifier: String) -> AppRoute {
+    public static func route(uniqueIdentifier: String, scope: SpotlightIndexScope) -> AppRoute {
         let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 4,
-              NativeCacheEnvironment(rawValue: parts[0]) != nil,
-              isSafeObjectID(parts[1]),
-              let type = SpotlightIndexType(rawValue: parts[2]) else {
+        guard parts.count == 5,
+              "\(parts[0])|\(parts[1])|\(parts[2])" == scope.identifierPrefix,
+              let type = SpotlightIndexType(rawValue: parts[3]) else {
             return .unknownLink
         }
 
-        let id = parts[3]
+        let id = parts[4]
         switch type {
         case .recipe:
             guard isSafeObjectID(id) else { return .unknownLink }

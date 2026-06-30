@@ -455,23 +455,23 @@ struct SpoonEntityTests {
     @Test("spoon entity spotlight and intent error edges stay private and fail closed")
     func spoonEntitySpotlightAndIntentErrorEdgesStayPrivateAndFailClosed() {
         let emptyScope = SpotlightIndexScope(accountID: "", environment: .production)
-        #expect(emptyScope.identifierPrefix == "production|unbound")
-        #expect(emptyScope.domainPrefix == "app.spoonjoy.production.unbound")
+        #expect(emptyScope.identifierPrefix == "production|schema2|unbound")
+        #expect(emptyScope.domainPrefix == "app.spoonjoy.schema2.production.unbound")
 
         let safeScope = SpotlightIndexScope(accountID: "account_ari", environment: .production)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.spoonUniqueIdentifier(
             spoonID: "spoon_ari_lemon",
             scope: safeScope
-        )) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account_ari|recipe|../unsafe") == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account_ari|cookbook|../unsafe") == .unknownLink)
+        ), scope: safeScope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|schema2|account_ari|recipe|../unsafe", scope: safeScope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|schema2|account_ari|cookbook|../unsafe", scope: safeScope) == .unknownLink)
         #expect(NativeIntentActionError.unresolvedSpoonEntity.description == "Choose a Spoonjoy cook log before running this Siri action.")
     }
 
     @Test("spoon entity purge plans cover logout account-switch cache-delete and tombstones")
     func spoonEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
         let scope = SpoonEntityScope(accountID: "account_ari", environment: .production)
-        #expect(scope.domainIdentifier == "spoon:production:account_ari")
+        #expect(scope.domainIdentifier == "spoon:production:schema2:account_ari")
 
         let logoutPlan = SpoonEntityIndexPurgePlan.accountScopePurge(
             accountID: scope.accountID,
@@ -530,7 +530,7 @@ struct SpoonEntityTests {
             environment: scope.environment,
             plan: SpoonEntityIndexPurgePlan(
                 identifiers: [SpoonEntityCatalog.spoonEntityIdentifier(spoonID: "spoon_ari_lemon", accountID: "account_other", environment: .production)],
-                domainIdentifiers: ["spoon:production:account_other"],
+                domainIdentifiers: ["spoon:production:schema2:account_other"],
                 reason: .cacheDeleted
             )
         ).isEmpty)
@@ -539,7 +539,7 @@ struct SpoonEntityTests {
             environment: scope.environment,
             plan: SpoonEntityIndexPurgePlan(
                 identifiers: [],
-                domainIdentifiers: ["spoon:production:account_other"],
+                domainIdentifiers: ["spoon:production:schema2:account_other"],
                 reason: .accountScopeChanged
             )
         ).isEmpty)

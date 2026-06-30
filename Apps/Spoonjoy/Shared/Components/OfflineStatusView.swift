@@ -3,9 +3,9 @@ import SwiftUI
 
 struct OfflineStatusView: View {
     let display: OfflineIndicatorDisplay
-    var onDismiss: (() -> Void)?
+    var onDismiss: (@MainActor @Sendable () -> Void)?
 
-    init(display: OfflineIndicatorDisplay, onDismiss: (() -> Void)? = nil) {
+    init(display: OfflineIndicatorDisplay, onDismiss: (@MainActor @Sendable () -> Void)? = nil) {
         self.display = display
         self.onDismiss = onDismiss
     }
@@ -19,13 +19,15 @@ struct OfflineStatusView: View {
                     .accessibilityLabel(label)
 
                 if display.informationalOnly, display != .synced {
-                    Button {
-                        onDismiss?()
-                    } label: {
-                        Image(systemName: "xmark.circle")
+                    if let onDismiss {
+                        Button {
+                            onDismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Hide offline status")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Hide offline status")
                 }
             }
             .padding(.vertical, 4)

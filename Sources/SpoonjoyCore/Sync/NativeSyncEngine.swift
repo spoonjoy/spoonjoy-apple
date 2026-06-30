@@ -3589,6 +3589,7 @@ public enum NativeServerRevision: Codable, Equatable, Sendable {
     case updatedAt(String)
     case tombstone(String)
     case etag(String)
+    case optimistic(String)
 }
 
 public enum NativeSyncConflictKind: Equatable, Sendable {
@@ -3634,6 +3635,9 @@ public struct NativeSyncReport: Equatable, Sendable {
     public let chefProfileEntityPurgeIdentifiers: [String]
     public let chefProfileEntityPurgeDomainIdentifiers: [String]
     public let chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest]
+    public let recipeCookbookEntityPurgeIdentifiers: [String]
+    public let recipeCookbookEntityPurgeDomainIdentifiers: [String]
+    public let recipeCookbookEntityPurgeRequests: [NativeRecipeCookbookEntityIndexPurgeRequest]
     public let drainedClientMutationIDs: [String]
     public let drainedMutations: [NativeQueuedMutation]
     public let conflicts: [NativeSyncConflict]
@@ -3658,6 +3662,9 @@ public struct NativeSyncReport: Equatable, Sendable {
         chefProfileEntityPurgeIdentifiers: [String] = [],
         chefProfileEntityPurgeDomainIdentifiers: [String] = [],
         chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest] = [],
+        recipeCookbookEntityPurgeIdentifiers: [String] = [],
+        recipeCookbookEntityPurgeDomainIdentifiers: [String] = [],
+        recipeCookbookEntityPurgeRequests: [NativeRecipeCookbookEntityIndexPurgeRequest] = [],
         drainedClientMutationIDs: [String],
         drainedMutations: [NativeQueuedMutation] = [],
         conflicts: [NativeSyncConflict],
@@ -3708,6 +3715,16 @@ public struct NativeSyncReport: Equatable, Sendable {
             accountID: accountID,
             environment: environment,
             makeRequest: { NativeChefProfileEntityIndexPurgeRequest(identifiers: $0, domainIdentifiers: $1, accountID: $2, environment: $3) }
+        )
+        self.recipeCookbookEntityPurgeIdentifiers = recipeCookbookEntityPurgeIdentifiers
+        self.recipeCookbookEntityPurgeDomainIdentifiers = recipeCookbookEntityPurgeDomainIdentifiers
+        self.recipeCookbookEntityPurgeRequests = Self.purgeRequests(
+            explicit: recipeCookbookEntityPurgeRequests,
+            fallbackIdentifiers: recipeCookbookEntityPurgeIdentifiers,
+            fallbackDomainIdentifiers: recipeCookbookEntityPurgeDomainIdentifiers,
+            accountID: accountID,
+            environment: environment,
+            makeRequest: { NativeRecipeCookbookEntityIndexPurgeRequest(identifiers: $0, domainIdentifiers: $1, accountID: $2, environment: $3) }
         )
         self.drainedClientMutationIDs = drainedClientMutationIDs
         self.drainedMutations = drainedMutations
@@ -3782,6 +3799,9 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             if mutation.queueableKind == .recipeImportSubmit {
                 return try await sendRecipeImportSubmit(mutation, configuration: configuration)
             }
+            if mutation.queueableKind == .coverRegenerate || mutation.queueableKind == .coverFromSpoon {
+                return try await sendProviderCoverMutation(mutation, configuration: configuration)
+            }
             let envelope = try await apiTransport.send(
                 try mutation.requestBuilder(),
                 configuration: configuration,
@@ -3808,11 +3828,32 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         return .success(serverRevision: nil)
     }
 
+    private func sendProviderCoverMutation(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        let envelope = try await apiTransport.send(
+            try mutation.requestBuilder(),
+            configuration: configuration,
+            decode: JSONValue.self
+        )
+        if let providerSecretResourceID = Self.providerSecretBlockerResourceID(in: envelope.data, defaultResourceID: "recipe-covers") {
+            return .blocked(
+                .providerSecret(resourceID: providerSecretResourceID),
+                message: "ProviderSecret is required before Spoonjoy can finish cover generation."
+            )
+        }
+        return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
+    }
+
     private static func mutationResult(
         for error: APITransportError,
         mutation: NativeQueuedMutation
     ) throws -> NativeSyncMutationResult {
         let message = error.apiError?.message ?? "Native sync request failed."
+
+        if mutation.queueableKind == .coverRegenerate || mutation.queueableKind == .coverFromSpoon,
+           let apiError = error.apiError,
+           let providerSecretResourceID = coverProviderSecretBlockerResourceID(in: apiError) {
+            return .blocked(.providerSecret(resourceID: providerSecretResourceID), message: message)
+        }
 
         if error.statusCode == 401 {
             return .authFailure(message: message)
@@ -3830,6 +3871,54 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         }
 
         throw error
+    }
+
+    private static func coverProviderSecretBlockerResourceID(in apiError: APIError) -> String? {
+        if let resourceID = providerSecretBlockerResourceID(in: .object(apiError.details), defaultResourceID: "recipe-covers") {
+            return resourceID
+        }
+        return apiError.code.lowercased().contains("provider_secret") ? "recipe-covers" : nil
+    }
+
+    private static func providerSecretBlockerResourceID(in value: JSONValue, defaultResourceID: String) -> String? {
+        switch value {
+        case .object(let object):
+            if isProviderSecretBlocker(object) {
+                return normalizedProviderSecretResourceID(object["resource"], defaultResourceID: defaultResourceID)
+            }
+            if case .array(let blockers)? = object["blockers"] {
+                for blocker in blockers {
+                    if let resourceID = providerSecretBlockerResourceID(in: blocker, defaultResourceID: defaultResourceID) {
+                        return resourceID
+                    }
+                }
+            }
+            return nil
+        case .array(let values):
+            for value in values {
+                if let resourceID = providerSecretBlockerResourceID(in: value, defaultResourceID: defaultResourceID) {
+                    return resourceID
+                }
+            }
+            return nil
+        case .string, .number, .bool, .null:
+            return nil
+        }
+    }
+
+    private static func isProviderSecretBlocker(_ object: [String: JSONValue]) -> Bool {
+        guard case .string(let capability)? = object["capability"] else {
+            return false
+        }
+        return capability.caseInsensitiveCompare("ProviderSecret") == .orderedSame
+    }
+
+    private static func normalizedProviderSecretResourceID(_ value: JSONValue?, defaultResourceID: String) -> String {
+        guard case .string(let resourceID)? = value else {
+            return defaultResourceID
+        }
+        let trimmed = resourceID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? defaultResourceID : trimmed
     }
 }
 
@@ -3908,6 +3997,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         var chefProfileEntityPurgeIdentifiers: [String] = []
         var chefProfileEntityPurgeDomainIdentifiers: [String] = []
         var chefProfileEntityPurgeRequests: [NativeChefProfileEntityIndexPurgeRequest] = []
+        var recipeCookbookEntityPurgeIdentifiers: [String] = []
+        var recipeCookbookEntityPurgeDomainIdentifiers: [String] = []
+        var recipeCookbookEntityPurgeRequests: [NativeRecipeCookbookEntityIndexPurgeRequest] = []
         if let accountScopePurge = Self.shoppingEntityAccountScopePurgePlan(
             previousSnapshot: previousSnapshot,
             nextAccountID: queueAccountID,
@@ -3953,6 +4045,32 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             spoonEntityPurgeDomainIdentifiers.append(contentsOf: domainIdentifiers)
             if !identifiers.isEmpty || !domainIdentifiers.isEmpty {
                 spoonEntityPurgeRequests.append(NativeSpoonEntityIndexPurgeRequest(
+                    identifiers: identifiers,
+                    domainIdentifiers: domainIdentifiers,
+                    accountID: accountScopePurge.accountID,
+                    environment: accountScopePurge.environment
+                ))
+            }
+        }
+        if let accountScopePurge = Self.recipeCookbookEntityAccountScopePurgePlan(
+            previousSnapshot: previousSnapshot,
+            nextAccountID: queueAccountID,
+            nextEnvironment: queueEnvironment
+        ) {
+            let identifiers = RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+                accountID: accountScopePurge.accountID,
+                environment: accountScopePurge.environment,
+                plan: accountScopePurge.plan
+            )
+            let domainIdentifiers = RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+                accountID: accountScopePurge.accountID,
+                environment: accountScopePurge.environment,
+                plan: accountScopePurge.plan
+            )
+            recipeCookbookEntityPurgeIdentifiers.append(contentsOf: identifiers)
+            recipeCookbookEntityPurgeDomainIdentifiers.append(contentsOf: domainIdentifiers)
+            if !identifiers.isEmpty || !domainIdentifiers.isEmpty {
+                recipeCookbookEntityPurgeRequests.append(NativeRecipeCookbookEntityIndexPurgeRequest(
                     identifiers: identifiers,
                     domainIdentifiers: domainIdentifiers,
                     accountID: accountScopePurge.accountID,
@@ -4102,6 +4220,8 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let currentSpoonDomainRequestStart = spoonEntityPurgeDomainIdentifiers.count
         let currentChefProfileRequestStart = chefProfileEntityPurgeIdentifiers.count
         let currentChefProfileDomainRequestStart = chefProfileEntityPurgeDomainIdentifiers.count
+        let currentRecipeCookbookRequestStart = recipeCookbookEntityPurgeIdentifiers.count
+        let currentRecipeCookbookDomainRequestStart = recipeCookbookEntityPurgeDomainIdentifiers.count
         if let queueAccountID, let queueEnvironment {
             let makeTombstonePurge = ShoppingEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeCacheDeletePurge = ShoppingEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:shoppingItemIDs:)
@@ -4112,6 +4232,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             let makeChefProfileTombstonePurge = ChefProfileEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
             let makeChefProfileCacheDeletePurge = ChefProfileEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:profileIDs:)
             let purgeChefProfileEntityIdentifiers = ChefProfileEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
+            let makeRecipeCookbookTombstonePurge = RecipeCookbookEntityIndexPurgePlan.tombstonePurge(tombstones:accountID:environment:)
+            let makeRecipeCookbookCacheDeletePurge = RecipeCookbookEntityIndexPurgePlan.cacheDeletePurge(accountID:environment:recipeIDs:cookbookIDs:)
+            let purgeRecipeCookbookEntityIdentifiers = RecipeCookbookEntityCatalog.purgeEntityIdentifiers(accountID:environment:plan:)
             let shoppingItemTombstones = bootstrapTombstones.filter { $0.resourceType == NativeSyncResourceType.shoppingItem }
             let tombstonePurgePlan = makeTombstonePurge(shoppingItemTombstones, queueAccountID, queueEnvironment)
             shoppingEntityPurgeIdentifiers.append(contentsOf: purgeShoppingEntityIdentifiers(queueAccountID, queueEnvironment, tombstonePurgePlan))
@@ -4184,6 +4307,44 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     plan: chefProfileCacheDeletePurgePlan
                 ))
             }
+            let recipeCookbookTombstones = bootstrapTombstones.filter {
+                $0.resourceType == NativeSyncResourceType.recipe || $0.resourceType == NativeSyncResourceType.cookbook
+            }
+            let recipeCookbookTombstonePurgePlan = makeRecipeCookbookTombstonePurge(recipeCookbookTombstones, queueAccountID, queueEnvironment)
+            recipeCookbookEntityPurgeIdentifiers.append(contentsOf: purgeRecipeCookbookEntityIdentifiers(queueAccountID, queueEnvironment, recipeCookbookTombstonePurgePlan))
+            recipeCookbookEntityPurgeDomainIdentifiers.append(contentsOf: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+                accountID: queueAccountID,
+                environment: queueEnvironment,
+                plan: recipeCookbookTombstonePurgePlan
+            ))
+            let deletedRecipeIDs = removedCacheKeys.compactMap { cacheKey -> String? in
+                let prefix = "\(NativeSyncEntryKind.recipe.rawValue):"
+                guard cacheKey.hasPrefix(prefix) else {
+                    return nil
+                }
+                return String(cacheKey.dropFirst(prefix.count))
+            }
+            let deletedCookbookIDs = removedCacheKeys.compactMap { cacheKey -> String? in
+                let prefix = "\(NativeSyncEntryKind.cookbook.rawValue):"
+                guard cacheKey.hasPrefix(prefix) else {
+                    return nil
+                }
+                return String(cacheKey.dropFirst(prefix.count))
+            }
+            if !deletedRecipeIDs.isEmpty || !deletedCookbookIDs.isEmpty {
+                let recipeCookbookCacheDeletePurgePlan = makeRecipeCookbookCacheDeletePurge(
+                    queueAccountID,
+                    queueEnvironment,
+                    deletedRecipeIDs,
+                    deletedCookbookIDs
+                )
+                recipeCookbookEntityPurgeIdentifiers.append(contentsOf: purgeRecipeCookbookEntityIdentifiers(queueAccountID, queueEnvironment, recipeCookbookCacheDeletePurgePlan))
+                recipeCookbookEntityPurgeDomainIdentifiers.append(contentsOf: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+                    accountID: queueAccountID,
+                    environment: queueEnvironment,
+                    plan: recipeCookbookCacheDeletePurgePlan
+                ))
+            }
             let currentShoppingIdentifiers = Array(shoppingEntityPurgeIdentifiers[currentShoppingRequestStart...])
             let currentShoppingDomainIdentifiers = Array(shoppingEntityPurgeDomainIdentifiers[currentShoppingDomainRequestStart...])
             if !currentShoppingIdentifiers.isEmpty || !currentShoppingDomainIdentifiers.isEmpty {
@@ -4214,6 +4375,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     environment: queueEnvironment
                 ))
             }
+            let currentRecipeCookbookIdentifiers = Array(recipeCookbookEntityPurgeIdentifiers[currentRecipeCookbookRequestStart...])
+            let currentRecipeCookbookDomainIdentifiers = Array(recipeCookbookEntityPurgeDomainIdentifiers[currentRecipeCookbookDomainRequestStart...])
+            if !currentRecipeCookbookIdentifiers.isEmpty || !currentRecipeCookbookDomainIdentifiers.isEmpty {
+                recipeCookbookEntityPurgeRequests.append(NativeRecipeCookbookEntityIndexPurgeRequest(
+                    identifiers: Self.uniquePreservingOrder(currentRecipeCookbookIdentifiers),
+                    domainIdentifiers: Self.uniquePreservingOrder(currentRecipeCookbookDomainIdentifiers),
+                    accountID: queueAccountID,
+                    environment: queueEnvironment
+                ))
+            }
         }
         shoppingEntityPurgeIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeIdentifiers)
         shoppingEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(shoppingEntityPurgeDomainIdentifiers)
@@ -4221,6 +4392,8 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         spoonEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(spoonEntityPurgeDomainIdentifiers)
         chefProfileEntityPurgeIdentifiers = Self.uniquePreservingOrder(chefProfileEntityPurgeIdentifiers)
         chefProfileEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(chefProfileEntityPurgeDomainIdentifiers)
+        recipeCookbookEntityPurgeIdentifiers = Self.uniquePreservingOrder(recipeCookbookEntityPurgeIdentifiers)
+        recipeCookbookEntityPurgeDomainIdentifiers = Self.uniquePreservingOrder(recipeCookbookEntityPurgeDomainIdentifiers)
 
         return NativeSyncReport(
             trigger: trigger,
@@ -4239,6 +4412,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             chefProfileEntityPurgeIdentifiers: chefProfileEntityPurgeIdentifiers,
             chefProfileEntityPurgeDomainIdentifiers: chefProfileEntityPurgeDomainIdentifiers,
             chefProfileEntityPurgeRequests: chefProfileEntityPurgeRequests,
+            recipeCookbookEntityPurgeIdentifiers: recipeCookbookEntityPurgeIdentifiers,
+            recipeCookbookEntityPurgeDomainIdentifiers: recipeCookbookEntityPurgeDomainIdentifiers,
+            recipeCookbookEntityPurgeRequests: recipeCookbookEntityPurgeRequests,
             drainedClientMutationIDs: drainedClientMutationIDs,
             drainedMutations: drainedMutations,
             conflicts: conflicts,
@@ -4317,9 +4493,44 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         )
     }
 
+    private static func recipeCookbookEntityAccountScopePurgePlan(
+        previousSnapshot: NativeSyncSnapshot,
+        nextAccountID: String?,
+        nextEnvironment: NativeCacheEnvironment?
+    ) -> (accountID: String, environment: NativeCacheEnvironment, plan: RecipeCookbookEntityIndexPurgePlan)? {
+        guard let previousAccountID = previousSnapshot.accountID,
+              let previousEnvironment = previousSnapshot.environment,
+              let nextAccountID,
+              let nextEnvironment,
+              (previousAccountID != nextAccountID || previousEnvironment != nextEnvironment) else {
+            return nil
+        }
+
+        let recipeIDs = previousSnapshot.cachedRecords.compactMap { record in
+            record.kind == .recipe ? record.resourceID : nil
+        }
+        let cookbookIDs = previousSnapshot.cachedRecords.compactMap { record in
+            record.kind == .cookbook ? record.resourceID : nil
+        }
+        return (
+            accountID: previousAccountID,
+            environment: previousEnvironment,
+            plan: RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
+                accountID: previousAccountID,
+                environment: previousEnvironment,
+                recipeIDs: recipeIDs,
+                cookbookIDs: cookbookIDs
+            )
+        )
+    }
+
     private static func uniquePreservingOrder(_ values: [String]) -> [String] {
         var seen = Set<String>()
         return values.filter { seen.insert($0).inserted }
+    }
+
+    private static func optimisticRevision(for drainedMutations: [NativeQueuedMutation]) -> NativeServerRevision? {
+        drainedMutations.first.map { .optimistic($0.clientMutationID) }
     }
 
     private static func drainedRecipeCachePatch(
@@ -4348,7 +4559,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 kind: .recipe,
                 resourceID: recipe.id,
                 payload: try JSONValue.encoded(recipe),
-                serverRevision: .updatedAt(recipe.updatedAt)
+                serverRevision: optimisticRevision(for: drainedMutations)
             )
         }
         return (upserts, deletedCacheKeys)
@@ -4395,7 +4606,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 kind: .shoppingItem,
                 resourceID: item.id,
                 payload: try JSONValue.encoded(item),
-                serverRevision: .updatedAt(item.updatedAt)
+                serverRevision: optimisticRevision(for: drainedMutations)
             )
         }
         return (upserts, deletedCacheKeys)
@@ -4427,7 +4638,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 kind: .cookbook,
                 resourceID: cookbook.id,
                 payload: try JSONValue.encoded(cookbook),
-                serverRevision: .updatedAt(cookbook.updatedAt)
+                serverRevision: optimisticRevision(for: drainedMutations)
             )
         }
         return (upserts, deletedCacheKeys)

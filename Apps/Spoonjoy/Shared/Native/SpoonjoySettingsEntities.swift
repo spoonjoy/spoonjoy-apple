@@ -260,7 +260,7 @@ private struct SpoonjoySettingsEntitySource {
     }
 
     private func scopedIdentifier(kind: String, rawID: String, scope: SettingsScope) -> String {
-        "\(scope.environment.rawValue)|\(scope.accountID)|\(kind)|\(rawID)"
+        "\(scope.environment.rawValue)|schema\(NativeDurableCacheSnapshot.currentSchemaVersion)|\(scope.accountID)|\(kind)|\(rawID)"
     }
 
     private func settingsDisambiguation(scope: SettingsScope) -> String {

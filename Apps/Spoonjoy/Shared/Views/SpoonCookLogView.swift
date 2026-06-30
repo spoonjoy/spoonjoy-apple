@@ -15,6 +15,7 @@ struct SpoonCookLogView: View {
     let actionDidPlan: @MainActor (SpoonCookLogMutationPlan) async throws -> Void
     let draftDidChange: @MainActor (SpoonCookLogDraftState?) -> Void
     let conflictDidRequestReview: @MainActor (String) async throws -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var note: String
     @State private var nextTime: String
@@ -32,12 +33,14 @@ struct SpoonCookLogView: View {
         draft: SpoonCookLogDraftState? = nil,
         actionDidPlan: @escaping @MainActor (SpoonCookLogMutationPlan) async throws -> Void,
         draftDidChange: @escaping @MainActor (SpoonCookLogDraftState?) -> Void = { _ in },
-        conflictDidRequestReview: @escaping @MainActor (String) async throws -> Void = { _ in }
+        conflictDidRequestReview: @escaping @MainActor (String) async throws -> Void = { _ in },
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.actionDidPlan = actionDidPlan
         self.draftDidChange = draftDidChange
         self.conflictDidRequestReview = conflictDidRequestReview
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _note = State(initialValue: draft?.note ?? "")
         _nextTime = State(initialValue: draft?.nextTime ?? "")
         _useAsRecipeCover = State(initialValue: draft?.useAsRecipeCover ?? false)
@@ -100,7 +103,7 @@ struct SpoonCookLogView: View {
 
     @ViewBuilder private var statusMessages: some View {
         if viewModel.offlineIndicator.display != .synced {
-            OfflineStatusView(display: viewModel.offlineIndicator.display)
+            OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
         }
         if let conflictBanner = viewModel.conflictBanner {
             HStack(alignment: .firstTextBaseline, spacing: 10) {

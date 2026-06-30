@@ -344,9 +344,17 @@ struct SpoonjoySpotlightIndexer {
             }
             switch parsed.type {
             case .recipe:
-                result.recipes.append(parsed.resourceID)
+                result.recipes.append(RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+                    recipeID: parsed.resourceID,
+                    accountID: accountID,
+                    environment: environment
+                ))
             case .cookbook:
-                result.cookbooks.append(parsed.resourceID)
+                result.cookbooks.append(RecipeCookbookEntityCatalog.cookbookEntityIdentifier(
+                    cookbookID: parsed.resourceID,
+                    accountID: accountID,
+                    environment: environment
+                ))
             case .shoppingListItem:
                 result.shoppingItems.append(ShoppingEntityCatalog.shoppingItemEntityIdentifier(
                     itemID: parsed.resourceID,
@@ -379,13 +387,13 @@ struct SpoonjoySpotlightIndexer {
         scope: SpotlightIndexScope
     ) -> (type: SpotlightIndexType, resourceID: String)? {
         let parts = identifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 4,
-              "\(parts[0])|\(parts[1])" == scope.identifierPrefix,
-              let type = SpotlightIndexType(rawValue: parts[2]) else {
+        guard parts.count == 5,
+              "\(parts[0])|\(parts[1])|\(parts[2])" == scope.identifierPrefix,
+              let type = SpotlightIndexType(rawValue: parts[3]) else {
             return nil
         }
 
-        let rawResourceID = parts[3]
+        let rawResourceID = parts[4]
         switch type {
         case .spoon:
             let routeParts = rawResourceID.split(separator: "~", omittingEmptySubsequences: false).map(String.init)

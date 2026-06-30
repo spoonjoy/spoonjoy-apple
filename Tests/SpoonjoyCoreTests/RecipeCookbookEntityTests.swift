@@ -17,11 +17,19 @@ struct RecipeCookbookEntityTests {
             requiredTokens: [
                 "Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift": [
                     "RecipeCookbookEntityCatalog",
+                    "RecipeCookbookEntityScope",
+                    "RecipeCookbookEntityIndexPurgePlan",
                     "RecipeEntityDescriptor",
                     "CookbookEntityDescriptor",
                     "RecipeCookbookEntityTransferValue",
                     "RecipeCookbookEntityKind",
                     "isPlaceholder",
+                    "entityIdentifier",
+                    "recipeEntityIdentifier(recipeID:",
+                    "cookbookEntityIdentifier(cookbookID:",
+                    "resolvedRecipeID(from:",
+                    "resolvedCookbookID(from:",
+                    "NativeDurableCacheSnapshot.currentSchemaVersion",
                     "recipeEntity(id:",
                     "cookbookEntity(id:",
                     "recipeEntities(for identifiers:",
@@ -60,6 +68,7 @@ struct RecipeCookbookEntityTests {
                     "typealias DefaultQuery = SpoonjoyRecipeEntityQuery",
                     "typealias DefaultQuery = SpoonjoyCookbookEntityQuery",
                     "static let typeDisplayRepresentation",
+                    "var id: String { descriptor.entityIdentifier }",
                     "var displayRepresentation",
                     "DisplayRepresentation",
                     "TypeDisplayRepresentation",
@@ -122,8 +131,13 @@ struct RecipeCookbookEntityTests {
     func recipeEntitiesResolveFromNativeSyncCachedRecordsAndExposeTransferValues() async throws {
         let catalog = try Self.entityCatalog()
 
-        let lemon = try await catalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+        let lemon = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier("recipe_lemon_pantry_pasta"))
         #expect(lemon.id == "recipe_lemon_pantry_pasta")
+        #expect(lemon.entityIdentifier == RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+            recipeID: "recipe_lemon_pantry_pasta",
+            accountID: "account_ari",
+            environment: .production
+        ))
         #expect(lemon.title == "Lemon Pantry Pasta")
         #expect(lemon.chefUsername == "ari")
         #expect(lemon.subtitle == "ari - 4")
@@ -146,14 +160,18 @@ struct RecipeCookbookEntityTests {
         let matches = try await catalog.recipeEntities(matching: "  lemon  ")
         #expect(matches.map(\.id) == ["recipe_lemon_pantry_pasta"])
 
-        let byIdentifier = try await catalog.recipeEntities(for: ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
+        let byIdentifier = try await catalog.recipeEntities(for: [
+            RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_tomato_toast", accountID: "account_ari", environment: .production),
+            RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_lemon_pantry_pasta", accountID: "account_ari", environment: .production)
+        ])
         #expect(byIdentifier.map(\.id) == ["recipe_tomato_toast", "recipe_lemon_pantry_pasta"])
 
         let mixedStaleBatch = try await catalog.recipeEntities(for: [
-            "recipe_missing_from_old_shortcut",
-            "  recipe_lemon_pantry_pasta  ",
-            "recipe_deleted_from_old_donation",
-            "recipe_tomato_toast"
+            RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_missing_from_old_shortcut", accountID: "account_ari", environment: .production),
+            "  \(RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_lemon_pantry_pasta", accountID: "account_ari", environment: .production))  ",
+            RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_deleted_from_old_donation", accountID: "account_ari", environment: .production),
+            RecipeCookbookEntityCatalog.recipeEntityIdentifier(recipeID: "recipe_tomato_toast", accountID: "account_ari", environment: .production),
+            "recipe_raw_legacy_id"
         ])
         #expect(mixedStaleBatch.map(\.id) == ["recipe_lemon_pantry_pasta", "recipe_tomato_toast"])
 
@@ -165,8 +183,13 @@ struct RecipeCookbookEntityTests {
     func cookbookEntitiesResolveFromNativeSyncCachedRecordsAndExposeTransferValues() async throws {
         let catalog = try Self.entityCatalog()
 
-        let weeknights = try await catalog.cookbookEntity(id: "cookbook_weeknights")
+        let weeknights = try await catalog.cookbookEntity(id: Self.cookbookEntityIdentifier("cookbook_weeknights"))
         #expect(weeknights.id == "cookbook_weeknights")
+        #expect(weeknights.entityIdentifier == RecipeCookbookEntityCatalog.cookbookEntityIdentifier(
+            cookbookID: "cookbook_weeknights",
+            accountID: "account_ari",
+            environment: .production
+        ))
         #expect(weeknights.title == "Weeknights")
         #expect(weeknights.chefUsername == "ari")
         #expect(weeknights.subtitle == "ari - 2 recipes")
@@ -190,14 +213,18 @@ struct RecipeCookbookEntityTests {
         let matches = try await catalog.cookbookEntities(matching: "  inbox  ")
         #expect(matches.map(\.id) == ["cookbook_no_covers"])
 
-        let byIdentifier = try await catalog.cookbookEntities(for: ["cookbook_no_covers", "cookbook_weeknights"])
+        let byIdentifier = try await catalog.cookbookEntities(for: [
+            RecipeCookbookEntityCatalog.cookbookEntityIdentifier(cookbookID: "cookbook_no_covers", accountID: "account_ari", environment: .production),
+            RecipeCookbookEntityCatalog.cookbookEntityIdentifier(cookbookID: "cookbook_weeknights", accountID: "account_ari", environment: .production)
+        ])
         #expect(byIdentifier.map(\.id) == ["cookbook_no_covers", "cookbook_weeknights"])
 
         let mixedStaleBatch = try await catalog.cookbookEntities(for: [
-            "cookbook_missing_from_old_shortcut",
-            "  cookbook_weeknights  ",
-            "cookbook_deleted_from_old_donation",
-            "cookbook_no_covers"
+            RecipeCookbookEntityCatalog.cookbookEntityIdentifier(cookbookID: "cookbook_missing_from_old_shortcut", accountID: "account_ari", environment: .production),
+            "  \(RecipeCookbookEntityCatalog.cookbookEntityIdentifier(cookbookID: "cookbook_weeknights", accountID: "account_ari", environment: .production))  ",
+            RecipeCookbookEntityCatalog.cookbookEntityIdentifier(cookbookID: "cookbook_deleted_from_old_donation", accountID: "account_ari", environment: .production),
+            RecipeCookbookEntityCatalog.cookbookEntityIdentifier(cookbookID: "cookbook_no_covers", accountID: "account_ari", environment: .production),
+            "cookbook_raw_legacy_id"
         ])
         #expect(mixedStaleBatch.map(\.id) == ["cookbook_weeknights", "cookbook_no_covers"])
 
@@ -286,8 +313,8 @@ struct RecipeCookbookEntityTests {
             environment: NativeCacheEnvironment.production
         )
 
-        #expect(try await catalog.recipeEntity(id: "recipe_lemon_pantry_pasta").title == "Lemon Pantry Pasta")
-        #expect(try await catalog.cookbookEntity(id: "cookbook_weeknights").title == "Weeknights")
+        #expect(try await catalog.recipeEntity(id: Self.recipeEntityIdentifier("recipe_lemon_pantry_pasta")).title == "Lemon Pantry Pasta")
+        #expect(try await catalog.cookbookEntity(id: Self.cookbookEntityIdentifier("cookbook_weeknights")).title == "Weeknights")
     }
 
     @Test("entity descriptors cover placeholder sparse recipe and singular cookbook display edges")
@@ -333,13 +360,19 @@ struct RecipeCookbookEntityTests {
         #expect(RecipeEntityDescriptor.placeholder.isPlaceholder)
         #expect(CookbookEntityDescriptor.placeholder.isPlaceholder)
 
-        let recipe = try await catalog.recipeEntity(id: "recipe_plain_toast")
+        let unscopedRecipe = try RecipeEntityDescriptor(recipe: sparseRecipe)
+        #expect(unscopedRecipe.entityIdentifier == sparseRecipe.id)
+
+        let unscopedCookbook = try CookbookEntityDescriptor(cookbook: singularCookbook)
+        #expect(unscopedCookbook.entityIdentifier == singularCookbook.id)
+
+        let recipe = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier("recipe_plain_toast"))
         #expect(!recipe.isPlaceholder)
         #expect(recipe.subtitle == "ari")
         #expect(recipe.canonicalURL == sparseRecipe.canonicalURL)
         #expect(recipe.transferValue.canonicalURL == sparseRecipe.canonicalURL)
 
-        let cookbook = try await catalog.cookbookEntity(id: "cookbook_one_recipe")
+        let cookbook = try await catalog.cookbookEntity(id: Self.cookbookEntityIdentifier("cookbook_one_recipe"))
         #expect(!cookbook.isPlaceholder)
         #expect(cookbook.subtitle == "ari - 1 recipe")
         #expect(cookbook.recipeCount == 1)
@@ -357,7 +390,7 @@ struct RecipeCookbookEntityTests {
     func entityCatalogTrimsIdentifiersAndReportsMissingCachedEntities() async throws {
         let catalog = try Self.entityCatalog()
 
-        let tomato = try await catalog.recipeEntity(id: "  recipe_tomato_toast  ")
+        let tomato = try await catalog.recipeEntity(id: "  \(Self.recipeEntityIdentifier("recipe_tomato_toast"))  ")
         #expect(tomato.id == "recipe_tomato_toast")
 
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
@@ -367,10 +400,16 @@ struct RecipeCookbookEntityTests {
             _ = try await catalog.cookbookEntity(id: "../cookbook_weeknights")
         }
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await catalog.recipeEntity(id: "recipe_missing")
+            _ = try await catalog.recipeEntity(id: "recipe_tomato_toast")
         }
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await catalog.cookbookEntity(id: "cookbook_missing")
+            _ = try await catalog.cookbookEntity(id: "cookbook_weeknights")
+        }
+        await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+            _ = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier("recipe_missing"))
+        }
+        await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
+            _ = try await catalog.cookbookEntity(id: Self.cookbookEntityIdentifier("cookbook_missing"))
         }
     }
 
@@ -425,10 +464,10 @@ struct RecipeCookbookEntityTests {
         #expect(try await catalog.recipeEntities(for: [recipe.id]).isEmpty)
         #expect(try await catalog.cookbookEntities(for: [cookbook.id]).isEmpty)
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await catalog.recipeEntity(id: recipe.id)
+            _ = try await catalog.recipeEntity(id: Self.recipeEntityIdentifier(recipe.id))
         }
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await catalog.cookbookEntity(id: cookbook.id)
+            _ = try await catalog.cookbookEntity(id: Self.cookbookEntityIdentifier(cookbook.id))
         }
 
         let wrongAccountCatalog = RecipeCookbookEntityCatalog(
@@ -445,17 +484,104 @@ struct RecipeCookbookEntityTests {
         #expect(try await wrongAccountCatalog.suggestedRecipeEntities(limit: 10).isEmpty)
         #expect(try await wrongEnvironmentCatalog.suggestedCookbookEntities(limit: 10).isEmpty)
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await wrongAccountCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+            _ = try await wrongAccountCatalog.recipeEntity(id: Self.recipeEntityIdentifier("recipe_lemon_pantry_pasta"))
         }
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await wrongAccountCatalog.cookbookEntity(id: "cookbook_weeknights")
+            _ = try await wrongAccountCatalog.cookbookEntity(id: Self.cookbookEntityIdentifier("cookbook_weeknights"))
         }
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await wrongEnvironmentCatalog.recipeEntity(id: "recipe_lemon_pantry_pasta")
+            _ = try await wrongEnvironmentCatalog.recipeEntity(id: Self.recipeEntityIdentifier("recipe_lemon_pantry_pasta"))
         }
         await expectAsyncThrows(RecipeCookbookEntityCatalogError.self) {
-            _ = try await wrongEnvironmentCatalog.cookbookEntity(id: "cookbook_weeknights")
+            _ = try await wrongEnvironmentCatalog.cookbookEntity(id: Self.cookbookEntityIdentifier("cookbook_weeknights"))
         }
+    }
+
+    @Test("recipe cookbook entity purge plans cover logout account switch cache delete and tombstones")
+    func recipeCookbookEntityPurgePlansCoverLogoutAccountSwitchCacheDeleteAndTombstones() throws {
+        let scope = SpotlightIndexScope(accountID: "account_ari", environment: .production)
+
+        let logoutPlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
+            accountID: "account_ari",
+            environment: .production,
+            recipeIDs: ["recipe_lemon_pantry_pasta"],
+            cookbookIDs: ["cookbook_weeknights"]
+        )
+        #expect(logoutPlan.identifiers == [
+            SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: "recipe_lemon_pantry_pasta", scope: scope),
+            SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: "cookbook_weeknights", scope: scope)
+        ])
+        #expect(logoutPlan.domainIdentifiers == [
+            SpotlightIndexPlan.recipeDomainIdentifier(scope: scope),
+            SpotlightIndexPlan.cookbookDomainIdentifier(scope: scope)
+        ])
+
+        let cacheDeletePlan = RecipeCookbookEntityIndexPurgePlan.cacheDeletePurge(
+            accountID: "account_ari",
+            environment: .production,
+            recipeIDs: ["recipe_lemon_pantry_pasta"],
+            cookbookIDs: ["cookbook_weeknights"]
+        )
+        #expect(cacheDeletePlan.identifiers == [
+            SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: "recipe_lemon_pantry_pasta", scope: scope),
+            SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: "cookbook_weeknights", scope: scope)
+        ])
+        #expect(cacheDeletePlan.domainIdentifiers.isEmpty)
+
+        let tombstonePlan = RecipeCookbookEntityIndexPurgePlan.tombstonePurge(
+            tombstones: [
+                NativeSyncTombstone(
+                    resourceType: .recipe,
+                    resourceID: "recipe_lemon_pantry_pasta",
+                    parentResourceID: nil,
+                    title: "Lemon Pantry Pasta",
+                    deletedAt: "2026-06-29T00:00:00.000Z",
+                    updatedAt: "2026-06-29T00:00:00.000Z"
+                ),
+                NativeSyncTombstone(
+                    resourceType: .cookbook,
+                    resourceID: "cookbook_weeknights",
+                    parentResourceID: nil,
+                    title: "Weeknights",
+                    deletedAt: "2026-06-29T00:00:00.000Z",
+                    updatedAt: "2026-06-29T00:00:00.000Z"
+                )
+            ],
+            accountID: "account_ari",
+            environment: .production
+        )
+        #expect(tombstonePlan.identifiers == [
+            SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: "recipe_lemon_pantry_pasta", scope: scope),
+            SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: "cookbook_weeknights", scope: scope)
+        ])
+        #expect(tombstonePlan.domainIdentifiers.isEmpty)
+
+        #expect(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+            accountID: "account_ari",
+            environment: .production,
+            plan: logoutPlan
+        ) == logoutPlan.identifiers)
+        #expect(RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+            accountID: "account_ari",
+            environment: .production,
+            plan: logoutPlan
+        ) == logoutPlan.domainIdentifiers)
+
+        let wrongScopePlan = RecipeCookbookEntityIndexPurgePlan(
+            identifiers: [
+                SpotlightIndexPlan.recipeUniqueIdentifier(
+                    recipeID: "recipe_other",
+                    scope: SpotlightIndexScope(accountID: "account_other", environment: .production)
+                )
+            ],
+            domainIdentifiers: [],
+            reason: .cacheDeleted
+        )
+        #expect(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+            accountID: "account_ari",
+            environment: .production,
+            plan: wrongScopePlan
+        ).isEmpty)
     }
 
     private static func entityCatalog() throws -> RecipeCookbookEntityCatalog {
@@ -463,6 +589,22 @@ struct RecipeCookbookEntityTests {
             syncSnapshot: try syncSnapshot(),
             currentAccountID: "account_ari",
             environment: NativeCacheEnvironment.production
+        )
+    }
+
+    private static func recipeEntityIdentifier(_ recipeID: String) -> String {
+        RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+            recipeID: recipeID,
+            accountID: "account_ari",
+            environment: .production
+        )
+    }
+
+    private static func cookbookEntityIdentifier(_ cookbookID: String) -> String {
+        RecipeCookbookEntityCatalog.cookbookEntityIdentifier(
+            cookbookID: cookbookID,
+            accountID: "account_ari",
+            environment: .production
         )
     }
 

@@ -1242,7 +1242,7 @@
       "blocked": true,
       "command": "xcodebuild -checkFirstLaunchStatus (exit 69)",
       "timeoutSeconds": 180,
-      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
       "reason": "Local Xcode preflight command failed before app bundle validation.",
       "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
       "path": "apple/matrix-xcode-platform-blocker.json"
@@ -1252,7 +1252,7 @@
       "blocked": true,
       "command": "screenshots skipped after app-bundle XcodePlatform blocker",
       "timeoutSeconds": 180,
-      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform.log",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
       "reason": "Local Xcode preflight command failed before app bundle validation.",
       "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
       "path": "apple/matrix-screenshots-xcode-platform-blocker.json"
@@ -1306,7 +1306,7 @@
         {
           "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
           "exists": true,
-          "bytes": 566,
+          "bytes": 504,
           "nonEmpty": true
         },
         {
@@ -1379,7 +1379,7 @@
         {
           "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
           "exists": true,
-          "bytes": 566,
+          "bytes": 504,
           "nonEmpty": true
         },
         {
@@ -1472,13 +1472,13 @@
     {
       "path": "apple/matrix-swift-test.log",
       "exists": true,
-      "bytes": 107230,
+      "bytes": 116287,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-coverage-test.log",
       "exists": true,
-      "bytes": 115831,
+      "bytes": 116287,
       "nonEmpty": true
     },
     {
@@ -1598,13 +1598,13 @@
     {
       "path": "apple/validation-matrix.jsonl",
       "exists": true,
-      "bytes": 18584,
+      "bytes": 14800,
       "nonEmpty": true
     },
     {
       "path": "apple/validation-matrix.json",
       "exists": true,
-      "bytes": 25009,
+      "bytes": 20862,
       "nonEmpty": true
     },
     {

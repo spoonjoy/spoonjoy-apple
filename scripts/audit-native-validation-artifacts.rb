@@ -315,6 +315,14 @@ def validate_blocker_contract(blocker, label, failures, artifact_root, expected_
 
   output_relative = artifact_relative_from_value(blocker["outputPath"], artifact_root)
   failures << "#{label} outputPath is outside the task artifact root: #{blocker["outputPath"].inspect}" if blocker.key?("outputPath") && output_relative.nil?
+  if output_relative
+    output_path = artifact_root.join(output_relative)
+    if !output_path.file?
+      failures << "#{label} outputPath does not exist: #{output_relative}"
+    elsif output_path.size.zero?
+      failures << "#{label} outputPath is empty: #{output_relative}"
+    end
+  end
 end
 
 required_red = REQUIRED_RED_PATTERNS.map { |relative_path| artifact_entry(artifact_root, relative_path) }

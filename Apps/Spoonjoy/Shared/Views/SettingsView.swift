@@ -217,7 +217,8 @@ struct SettingsView: View {
                         performNotificationAPNsAction: performNotificationAPNsAction,
                         requestNotificationPermission: requestNotificationPermission,
                         requestDeviceRegistrationAction: requestDeviceRegistrationAction,
-                        openNotificationSettings: openNotificationSettings
+                        openNotificationSettings: openNotificationSettings,
+                        onDismissOfflineIndicator: onDismissOfflineIndicator
                     )
                 }
             } else if let notifications = surface.notificationDraft {

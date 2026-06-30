@@ -15,7 +15,7 @@ struct SpoonjoyRecipeEntity: AppEntity, IndexedEntity, Transferable {
 
     let descriptor: RecipeEntityDescriptor
 
-    var id: String { descriptor.id }
+    var id: String { descriptor.entityIdentifier }
     var transferValue: RecipeCookbookEntityTransferValue { descriptor.transferValue }
     var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
 
@@ -68,7 +68,7 @@ struct SpoonjoyCookbookEntity: AppEntity, IndexedEntity, Transferable {
 
     let descriptor: CookbookEntityDescriptor
 
-    var id: String { descriptor.id }
+    var id: String { descriptor.entityIdentifier }
     var transferValue: RecipeCookbookEntityTransferValue { descriptor.transferValue }
     var deepLinkURL: URL { DeepLinkURLBuilder.url(for: descriptor.route) }
 

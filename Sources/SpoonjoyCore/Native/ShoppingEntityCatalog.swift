@@ -22,7 +22,7 @@ public struct ShoppingEntityScope: Codable, Equatable, Hashable, Sendable {
     }
 
     public var domainIdentifier: String {
-        "shopping:\(environment.rawValue):\(accountID)"
+        "shopping:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID)"
     }
 }
 
@@ -409,15 +409,16 @@ public struct ShoppingEntityCatalog: Sendable {
         environment: NativeCacheEnvironment
     ) throws -> String {
         let parts = identifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 4,
+        guard parts.count == 5,
               parts[0] == "shopping-item",
               parts[1] == environment.rawValue,
-              parts[2] == accountID,
-              !parts[3].isEmpty
+              parts[2] == "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)",
+              parts[3] == accountID,
+              !parts[4].isEmpty
         else {
             throw ShoppingEntityCatalogError.invalidIdentifier(identifier)
         }
-        return parts[3]
+        return parts[4]
     }
 
     public static func purgeEntityIdentifiers(
@@ -458,7 +459,7 @@ public struct ShoppingEntityCatalog: Sendable {
         resourceKind: String,
         resourceID: String
     ) -> String {
-        "\(resourceKind):\(environment.rawValue):\(accountID):\(resourceID)"
+        "\(resourceKind):\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID):\(resourceID)"
     }
 
     private func ensureScopeAvailable() throws -> ShoppingEntityScope {

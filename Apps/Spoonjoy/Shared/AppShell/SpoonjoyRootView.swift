@@ -177,6 +177,14 @@ struct SpoonjoyRootView: View {
                     accountID: request.accountID,
                     environment: request.environment
                 )
+            },
+            purgeRecipeCookbookEntityIndexes: { request in
+                await liveStore.purgeRecipeCookbookEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
             }
         )
     }
@@ -222,7 +230,12 @@ struct SpoonjoyRootView: View {
     }
 
     private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
-        let route = SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier)
+        let route: AppRoute
+        if let scope = liveStore.spotlightIndexScope {
+            route = SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier, scope: scope)
+        } else {
+            route = .unknownLink
+        }
         search.apply(route: route)
         navigation.navigate(to: route)
         liveStore.recordingOpenedRoute(route)
@@ -329,6 +342,9 @@ struct SpoonjoyRootView: View {
             chefProfileEntityIndexPurge: { request in
                 await Self.purgeChefProfileEntityIdentifiersIfAvailable(request)
             },
+            recipeCookbookEntityIndexPurge: { request in
+                await Self.purgeRecipeCookbookEntityIdentifiersIfAvailable(request)
+            },
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
@@ -374,6 +390,19 @@ struct SpoonjoyRootView: View {
     }
 
     private static func purgeChefProfileEntityIdentifiersIfAvailable(_ request: NativeChefProfileEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
+    }
+
+    private static func purgeRecipeCookbookEntityIdentifiersIfAvailable(_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
         if #available(iOS 27.0, macOS 27.0, *) {
             try? await SpoonjoySpotlightIndexer().delete(

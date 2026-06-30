@@ -9,6 +9,7 @@ struct RecipeCoverControlsRouteView: View {
     let connectivity: RecipeCoverControlsConnectivity
     let performCoverAction: @MainActor @Sendable (RecipeCoverControlsMutationPlan) async throws -> Void
     let close: () -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var recipe: Recipe?
     @State private var data: RecipeCoverControlsData?
@@ -29,7 +30,8 @@ struct RecipeCoverControlsRouteView: View {
                     providerBlocker: providerBlocker,
                     connectivity: connectivity,
                     runAction: runAction,
-                    close: close
+                    close: close,
+                    onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
             } else if let loadMessage {
                 Label(loadMessage, systemImage: "photo.on.rectangle")
@@ -117,6 +119,7 @@ struct RecipeCoverControlsView: View {
     let connectivity: RecipeCoverControlsConnectivity
     let runAction: @MainActor (RecipeCoverControlsAction) -> Void
     let close: () -> Void
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     var body: some View {
         ScrollView {
@@ -178,7 +181,7 @@ struct RecipeCoverControlsView: View {
 
     private func providerBlockerBanner(_ blocker: RecipeCoverProviderBlockerDisplay) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            OfflineStatusView(display: blocker.offlineIndicatorDisplay)
+            OfflineStatusView(display: blocker.offlineIndicatorDisplay, onDismiss: onDismissOfflineIndicator)
             Text(blocker.message)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.tomato)
@@ -265,7 +268,7 @@ struct RecipeCoverControlsView: View {
                             .foregroundStyle(KitchenTableTheme.charcoal)
                     }
                     if let providerBlocker = cover.providerBlocker {
-                        OfflineStatusView(display: providerBlocker.offlineIndicatorDisplay)
+                        OfflineStatusView(display: providerBlocker.offlineIndicatorDisplay, onDismiss: onDismissOfflineIndicator)
                         Text(providerBlocker.message)
                             .font(KitchenTableTheme.uiLabel)
                             .foregroundStyle(KitchenTableTheme.tomato)

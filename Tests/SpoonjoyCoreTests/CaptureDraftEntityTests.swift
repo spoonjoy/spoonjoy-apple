@@ -414,7 +414,7 @@ struct CaptureDraftEntityTests {
     func captureDraftEntityCoverageEdgesPreserveLabelsLoadingAndFailClosedBehavior() async throws {
         let createdAt = "2026-06-02T13:00:00.000Z"
         let scoped = CaptureDraftEntityScope(accountID: "account_ari", environment: .production)
-        #expect(scoped.domainIdentifier == "capture-draft:production:account_ari")
+        #expect(scoped.domainIdentifier == "capture-draft:production:schema2:account_ari")
         #expect(CaptureDraftEntityDescriptor.placeholder.isPlaceholder)
         #expect(CaptureDraftEntityDescriptor.placeholder.transferValue.debugFields.isEmpty)
         #expect(NativeIntentActionError.unresolvedCaptureDraftEntity.description == "Choose a Spoonjoy capture draft before running this Siri action.")
@@ -489,7 +489,7 @@ struct CaptureDraftEntityTests {
         #expect(try await sortedCatalog.captureDraftEntities(matching: "zz-no-match").isEmpty)
         #expect(try await sortedCatalog.captureDraftEntities(for: [
             scopedDraftAIdentifier,
-            "capture-draft:production:account_ari:missing"
+            "capture-draft:production:schema2:account_ari:missing"
         ]).map(\.captureDraftID) == ["draft_a"])
         #expect(try await sortedCatalog.captureDraftEntity(id: scopedDraftAIdentifier).captureDraftID == "draft_a")
         #expect(try await sortedCatalog.captureDraftEntity(id: "  draft_a  ").captureDraftID == "draft_a")
@@ -515,14 +515,15 @@ struct CaptureDraftEntityTests {
             accountID: nil,
             environment: .production
         ).identifiers.isEmpty)
+        let scope = SpotlightIndexScope(accountID: "account_ari", environment: .production)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.captureDraftUniqueIdentifier(
             draftID: "draft_a",
-            scope: SpotlightIndexScope(accountID: "account_ari", environment: .production)
-        )) == .capture)
+            scope: scope
+        ), scope: scope) == .capture)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.captureDraftUniqueIdentifier(
             draftID: "draft/unsafe",
-            scope: SpotlightIndexScope(accountID: "account_ari", environment: .production)
-        )) == .unknownLink)
+            scope: scope
+        ), scope: scope) == .unknownLink)
     }
 
     @Test("capture draft entity catalog loads from file backed stores")

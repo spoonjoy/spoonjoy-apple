@@ -554,7 +554,7 @@ private func spoonIntentRecipeDescriptor() -> RecipeEntityDescriptor {
 }
 
 private func spoonIntentSpoonDescriptor(
-    id: String = "production|account_ari|spoon|spoon_ari_lemon",
+    id: String = "spoon:production:schema2:account_ari:spoon_ari_lemon",
     spoonID: String = "spoon_ari_lemon",
     recipeID: String = "recipe_lemon_pantry_pasta",
     chefID: String = "chef_ari",

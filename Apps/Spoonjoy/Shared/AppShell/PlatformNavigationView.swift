@@ -45,6 +45,7 @@ struct PlatformNavigationView: View {
     private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
     private let purgeCaptureDraftEntityIndexesHandler: @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
     private let purgeChefProfileEntityIndexesHandler: @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void
+    private let purgeRecipeCookbookEntityIndexesHandler: @Sendable (NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
@@ -76,7 +77,8 @@ struct PlatformNavigationView: View {
         purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
         purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
         purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void,
-        purgeChefProfileEntityIndexes: @escaping @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void
+        purgeChefProfileEntityIndexes: @escaping @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void,
+        purgeRecipeCookbookEntityIndexes: @escaping @Sendable (NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
     ) {
         _navigation = navigation
         _search = search
@@ -108,6 +110,7 @@ struct PlatformNavigationView: View {
         self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
         self.purgeCaptureDraftEntityIndexesHandler = purgeCaptureDraftEntityIndexes
         self.purgeChefProfileEntityIndexesHandler = purgeChefProfileEntityIndexes
+        self.purgeRecipeCookbookEntityIndexesHandler = purgeRecipeCookbookEntityIndexes
     }
 
     var body: some View {
@@ -158,6 +161,9 @@ struct PlatformNavigationView: View {
                     }
                     for request in report.chefProfileEntityPurgeRequests {
                         await purgeChefProfileEntityIndexesHandler(request)
+                    }
+                    for request in report.recipeCookbookEntityPurgeRequests {
+                        await purgeRecipeCookbookEntityIndexesHandler(request)
                     }
                 }
             }
@@ -275,7 +281,8 @@ struct PlatformNavigationView: View {
                 performSpoonCookLogAction: performSpoonCookLogAction,
                 recordSpoonCookLogDraft: recordSpoonCookLogDraft(_:forRecipeID:),
                 discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
-                performShoppingAction: performShoppingAction
+                performShoppingAction: performShoppingAction,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .recipeDetail(let id, .cook):
             CookModeRouteView(
@@ -297,7 +304,9 @@ struct PlatformNavigationView: View {
                     mutationDidPlan: handleRecipeEditorPlan,
                     mutationsDidQueue: queueMutations,
                     conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
-                    close: openRoute
+                    close: openRoute,
+                    shellOfflineIndicatorState: offlineIndicatorState,
+                    onDismissOfflineIndicator: dismissOfflineIndicator
                 )
             } else {
                 ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "Recipe unavailable.")
@@ -312,26 +321,30 @@ struct PlatformNavigationView: View {
                 performCoverAction: performCoverAction,
                 close: {
                     openRecipe(id)
-                }
+                },
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .cookbooks:
             CookbooksView(
                 viewModel: cookbookSurfaceViewModel,
                 openRoute: openRoute,
-                performCookbookAction: performCookbookAction
+                performCookbookAction: performCookbookAction,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .cookbookDetail(let id):
             CookbookDetailRouteView(
                 cookbookID: id,
                 viewModel: cookbookSurfaceViewModel,
                 openRoute: openRoute,
-                performCookbookAction: performCookbookAction
+                performCookbookAction: performCookbookAction,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case AppRoute.profile(let identifier):
             ProfileRouteView(
                 identifier: identifier,
                 viewModel: profileSurfaceViewModel(identifier: identifier),
-                openRoute: openRoute
+                openRoute: openRoute,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case AppRoute.profileGraph(let identifier, let direction, let page):
             ProfileGraphRouteView(
@@ -339,12 +352,14 @@ struct PlatformNavigationView: View {
                 direction: direction,
                 page: page,
                 viewModel: profileSurfaceViewModel(identifier: identifier),
-                openRoute: openRoute
+                openRoute: openRoute,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
-                actionDidPlan: performShoppingAction
+                actionDidPlan: performShoppingAction,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .search(let query, let scope):
             let routeSearch = normalizedSearch(SearchState(query: query, scope: scope))
@@ -352,7 +367,8 @@ struct PlatformNavigationView: View {
                 search: $search,
                 viewModel: searchViewModel(for: routeSearch),
                 openRoute: openRoute,
-                searchTask: performSearch
+                searchTask: performSearch,
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
             .onAppear {
                 search.apply(route: routeSearch.route)
@@ -1194,7 +1210,8 @@ struct PlatformNavigationView: View {
             performNotificationAPNsAction: performNotificationAPNsAction,
             requestNotificationPermission: requestNotificationPermission,
             requestDeviceRegistrationAction: requestDeviceRegistrationAction,
-            openNotificationSettings: openNotificationSettings
+            openNotificationSettings: openNotificationSettings,
+            onDismissOfflineIndicator: dismissOfflineIndicator
         )
     }
 
@@ -1352,11 +1369,12 @@ struct PlatformNavigationView: View {
             scope: scope
         )
 
+        let recipeCookbookScope = RecipeCookbookEntityScope(accountID: scope.accountID, environment: scope.environment)
         return SpotlightIndexPayload(
             scope: scope,
             documents: documents,
-            recipes: contentState.recipes.compactMap { try? RecipeEntityDescriptor(recipe: $0) },
-            cookbooks: contentState.cookbooks.compactMap { try? CookbookEntityDescriptor(cookbook: $0) },
+            recipes: contentState.recipes.compactMap { try? RecipeEntityDescriptor(recipe: $0, scope: recipeCookbookScope) },
+            cookbooks: contentState.cookbooks.compactMap { try? CookbookEntityDescriptor(cookbook: $0, scope: recipeCookbookScope) },
             shoppingLists: [shoppingListEntity],
             shoppingItems: shoppingItems,
             spoons: recentSpoons,
@@ -1373,9 +1391,29 @@ struct PlatformNavigationView: View {
 
         switch navigation.route {
         case .recipeDetail(let id, _):
-            return EntityIdentifier(for: SpoonjoyRecipeEntity.self, identifier: id)
+            guard let scope = contentState.spotlightIndexScope else {
+                return nil
+            }
+            return EntityIdentifier(
+                for: SpoonjoyRecipeEntity.self,
+                identifier: RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+                    recipeID: id,
+                    accountID: scope.accountID,
+                    environment: scope.environment
+                )
+            )
         case .cookbookDetail(let id):
-            return EntityIdentifier(for: SpoonjoyCookbookEntity.self, identifier: id)
+            guard let scope = contentState.spotlightIndexScope else {
+                return nil
+            }
+            return EntityIdentifier(
+                for: SpoonjoyCookbookEntity.self,
+                identifier: RecipeCookbookEntityCatalog.cookbookEntityIdentifier(
+                    cookbookID: id,
+                    accountID: scope.accountID,
+                    environment: scope.environment
+                )
+            )
         case .profile(let identifier), .profileGraph(let identifier, _, _):
             guard let profileID = chefProfileEntityIdentifier(for: identifier) else {
                 return nil

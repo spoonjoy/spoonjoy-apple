@@ -322,6 +322,137 @@ struct APITransportTests {
         #expect(capturedRequest.url?.absoluteString == "https://spoonjoy.app/api/v1/recipes/import")
     }
 
+    @Test("URLSession native sync transport returns typed cover provider-secret blockers")
+    func urlSessionNativeSyncTransportReturnsTypedCoverProviderSecretBlockers() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.coverProviderSecretBlockerEnvelope(requestID: "req_cover_blocked")
+                )),
+                .success(Self.response(
+                    statusCode: 400,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_cover_error_blocked",
+                        code: "provider_secret",
+                        message: "Provider secret is missing.",
+                        status: 400,
+                        details: #""capability": "ProviderSecret", "resource": "recipe-covers""#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 400,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_cover_error_code_blocked",
+                        code: "provider_secret_missing",
+                        message: "Provider secret code fallback.",
+                        status: 400
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.coverArrayProviderSecretBlockerEnvelope(requestID: "req_cover_array_blocked")
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.coverObjectWithoutProviderSecretEnvelope(requestID: "req_cover_object_no_blocker")
+                )),
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.coverArrayWithoutProviderSecretEnvelope(requestID: "req_cover_no_blocker")
+                ))
+            ]
+        )
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let envelopeBlocker = try await transport.send(
+            .coverRegenerate(
+                recipeID: "recipe_lemon",
+                coverID: "cover_editorial",
+                activateWhenReady: true,
+                clientMutationID: "cm_cover_blocked",
+                createdAt: "2026-06-16T12:06:00.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+        let errorBlocker = try await transport.send(
+            .coverFromSpoon(
+                recipeID: "recipe_lemon",
+                spoonID: "spoon_cooked",
+                clientMutationID: "cm_cover_from_spoon_blocked",
+                activate: true,
+                generateEditorial: true,
+                createdAt: "2026-06-16T12:06:30.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+        let codeFallbackBlocker = try await transport.send(
+            .coverRegenerate(
+                recipeID: "recipe_lemon",
+                coverID: "cover_missing_secret",
+                activateWhenReady: false,
+                clientMutationID: "cm_cover_error_code_blocked",
+                createdAt: "2026-06-16T12:07:00.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+        let arrayDefaultBlocker = try await transport.send(
+            .coverFromSpoon(
+                recipeID: "recipe_lemon",
+                spoonID: "spoon_cooked_again",
+                clientMutationID: "cm_cover_array_blocked",
+                activate: false,
+                generateEditorial: true,
+                createdAt: "2026-06-16T12:07:30.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+        let objectNoBlocker = try await transport.send(
+            .coverRegenerate(
+                recipeID: "recipe_lemon",
+                coverID: "cover_object_no_blocker",
+                activateWhenReady: false,
+                clientMutationID: "cm_cover_object_no_blocker",
+                createdAt: "2026-06-16T12:08:00.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+        let arrayNoBlocker = try await transport.send(
+            .coverRegenerate(
+                recipeID: "recipe_lemon",
+                coverID: "cover_no_blocker",
+                activateWhenReady: true,
+                clientMutationID: "cm_cover_no_blocker",
+                createdAt: "2026-06-16T12:08:30.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+
+        #expect(envelopeBlocker == .blocked(
+            .providerSecret(resourceID: "recipe-covers"),
+            message: "ProviderSecret is required before Spoonjoy can finish cover generation."
+        ))
+        #expect(errorBlocker == .blocked(
+            .providerSecret(resourceID: "recipe-covers"),
+            message: "Provider secret is missing."
+        ))
+        #expect(codeFallbackBlocker == .blocked(
+            .providerSecret(resourceID: "recipe-covers"),
+            message: "Provider secret code fallback."
+        ))
+        #expect(arrayDefaultBlocker == .blocked(
+            .providerSecret(resourceID: "recipe-covers"),
+            message: "ProviderSecret is required before Spoonjoy can finish cover generation."
+        ))
+        #expect(objectNoBlocker == .success(serverRevision: nil, idRemaps: []))
+        #expect(arrayNoBlocker == .success(serverRevision: nil, idRemaps: []))
+    }
+
     @Test("URLSession native sync transport drains accepted recipe imports without blockers")
     func urlSessionNativeSyncTransportDrainsAcceptedRecipeImportsWithoutBlockers() async throws {
         let session = RecordingURLSession(
@@ -1793,6 +1924,62 @@ struct APITransportTests {
                 }
               ]
             }
+            """
+        )
+    }
+
+    private static func coverProviderSecretBlockerEnvelope(requestID: String) -> Data {
+        successEnvelope(
+            requestID: requestID,
+            data: """
+            {
+              "cover": null,
+              "blockers": [
+                {
+                  "capability": "ProviderSecret",
+                  "provider": "openai",
+                  "resource": "recipe-covers"
+                }
+              ]
+            }
+            """
+        )
+    }
+
+    private static func coverArrayProviderSecretBlockerEnvelope(requestID: String) -> Data {
+        successEnvelope(
+            requestID: requestID,
+            data: """
+            [
+              { "capability": "OtherCapability", "resource": "ignored" },
+              { "capability": "ProviderSecret" }
+            ]
+            """
+        )
+    }
+
+    private static func coverObjectWithoutProviderSecretEnvelope(requestID: String) -> Data {
+        successEnvelope(
+            requestID: requestID,
+            data: """
+            {
+              "cover": { "id": "cover_server" },
+              "blockers": [
+                { "capability": "OtherCapability", "resource": "ignored" }
+              ]
+            }
+            """
+        )
+    }
+
+    private static func coverArrayWithoutProviderSecretEnvelope(requestID: String) -> Data {
+        successEnvelope(
+            requestID: requestID,
+            data: """
+            [
+              "not-a-blocker",
+              { "capability": "OtherCapability", "resource": "ignored" }
+            ]
             """
         )
     }

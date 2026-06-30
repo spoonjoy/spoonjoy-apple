@@ -136,6 +136,7 @@ struct NativeSyncEngineTests {
         let persistedItem = try Self.shoppingItem(from: persistedItemRecord.payload)
         #expect(persistedItem.name == "lemons")
         #expect(persistedItem.quantity == 4)
+        #expect(persistedItemRecord.serverRevision == .optimistic("cm_after_bootstrap"))
         #expect(snapshot.tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
         #expect(snapshot.queue.mutations.isEmpty)
     }
@@ -267,6 +268,10 @@ struct NativeSyncEngineTests {
         let captureDomain = SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope)
         let chefIdentifier = SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_jules", scope: scope)
         let chefDomain = SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope)
+        let recipeIdentifier = SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: "recipe_lemon", scope: scope)
+        let cookbookIdentifier = SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: "cookbook_weeknight", scope: scope)
+        let recipeDomain = SpotlightIndexPlan.recipeDomainIdentifier(scope: scope)
+        let cookbookDomain = SpotlightIndexPlan.cookbookDomainIdentifier(scope: scope)
 
         let report = NativeSyncReport(
             trigger: .networkRecovered,
@@ -281,6 +286,8 @@ struct NativeSyncEngineTests {
             captureDraftEntityPurgeDomainIdentifiers: [captureDomain],
             chefProfileEntityPurgeIdentifiers: [chefIdentifier],
             chefProfileEntityPurgeDomainIdentifiers: [chefDomain],
+            recipeCookbookEntityPurgeIdentifiers: [recipeIdentifier, cookbookIdentifier],
+            recipeCookbookEntityPurgeDomainIdentifiers: [recipeDomain, cookbookDomain],
             drainedClientMutationIDs: [],
             conflicts: [],
             pausedReason: nil,
@@ -319,9 +326,23 @@ struct NativeSyncEngineTests {
                 environment: .production
             )
         ])
+        #expect(report.recipeCookbookEntityPurgeRequests == [
+            NativeRecipeCookbookEntityIndexPurgeRequest(
+                identifiers: [recipeIdentifier, cookbookIdentifier],
+                domainIdentifiers: [recipeDomain, cookbookDomain],
+                accountID: "chef_ari",
+                environment: .production
+            )
+        ])
 
         let explicitCaptureRequest = NativeCaptureDraftEntityIndexPurgeRequest(
             identifiers: ["explicit-capture"],
+            domainIdentifiers: [],
+            accountID: "explicit",
+            environment: .local
+        )
+        let explicitRecipeCookbookRequest = NativeRecipeCookbookEntityIndexPurgeRequest(
+            identifiers: ["explicit-recipe"],
             domainIdentifiers: [],
             accountID: "explicit",
             environment: .local
@@ -333,6 +354,8 @@ struct NativeSyncEngineTests {
             environment: .production,
             captureDraftEntityPurgeIdentifiers: [captureIdentifier],
             captureDraftEntityPurgeRequests: [explicitCaptureRequest],
+            recipeCookbookEntityPurgeIdentifiers: [recipeIdentifier],
+            recipeCookbookEntityPurgeRequests: [explicitRecipeCookbookRequest],
             drainedClientMutationIDs: [],
             conflicts: [],
             pausedReason: nil,
@@ -340,6 +363,7 @@ struct NativeSyncEngineTests {
         )
 
         #expect(explicitReport.captureDraftEntityPurgeRequests == [explicitCaptureRequest])
+        #expect(explicitReport.recipeCookbookEntityPurgeRequests == [explicitRecipeCookbookRequest])
     }
 
     @Test("native sync checkpoints validate global and shopping cursors")
@@ -1876,6 +1900,7 @@ struct NativeSyncEngineTests {
         #expect(optimisticCreated.map(\.id) == ["recipe_server_created"])
         #expect(optimisticCreated.first?.steps.map(\.id) == ["step_server_created"])
         #expect(optimisticCreated.first?.steps.first?.ingredients.map(\.id) == ["ingredient_server_zucchini", "ingredient_server_apple"])
+        #expect(persistedRecord.serverRevision == .optimistic("cm_recipe_create_local"))
         #expect(persistedRecipe.id == "recipe_server_created")
         #expect(persistedRecipe.title == "Offline Toast Edited")
         #expect(persistedRecipe.servings == "4")
@@ -1936,6 +1961,7 @@ struct NativeSyncEngineTests {
         ])
         #expect(try await store.loadQueue().mutations.isEmpty)
         #expect(optimisticCreated.map(\.id) == ["cookbook_server_created"])
+        #expect(persistedRecord.serverRevision == .optimistic("cm_cookbook_create_local"))
         #expect(persistedCookbook.id == "cookbook_server_created")
         #expect(persistedCookbook.title == "Offline Cookbooks Edited")
         #expect(try await store.cachedRecord(kind: .cookbook, resourceID: "cookbook_local_cm_cookbook_create_local") == nil)
