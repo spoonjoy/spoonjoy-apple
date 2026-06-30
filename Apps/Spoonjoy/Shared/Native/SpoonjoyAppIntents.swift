@@ -2296,18 +2296,18 @@ private struct SpoonjoyIntentStateWriter {
     }
 
     private func loadScopedAppSnapshot(scope: (accountID: String, environment: NativeCacheEnvironment)) -> NativeAppSnapshot? {
-        let savedAt = Self.isoString(Date())
+        let savedAt = SpoonjoyIntentClock.timestamp()
         let fallback = NativeAppSnapshot.bootstrap(
             shoppingList: nil,
             accountID: scope.accountID,
             environment: scope.environment,
             savedAt: savedAt
         )
-        guard let snapshot = try? store.loadOrCreate(fallback: fallback).value,
-              snapshot.isScoped(accountID: scope.accountID, environment: scope.environment) else {
+        guard let record = try? store.loadOrCreate(fallback: fallback),
+              record.value.isScoped(accountID: scope.accountID, environment: scope.environment) else {
             return nil
         }
-        return snapshot
+        return record.value
     }
 
     private func loadScopedCacheSnapshot(scope: (accountID: String, environment: NativeCacheEnvironment)) -> NativeDurableCacheSnapshot? {
