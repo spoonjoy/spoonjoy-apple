@@ -248,6 +248,130 @@ struct SpotlightShortcutTransferTests {
                 "EntityIdentifier"
             ]
         ))
+        failures.append(contentsOf: spotlightShortcutBodyContractFailures(
+            contracts: [
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteDonations domain dispatch",
+                    pattern: #"private\s+func\s+deleteDonations\("#,
+                    requiredTokens: [
+                        "if domainTypes.contains(.recipe)",
+                        "try await deleteRecipeDomainDonations(using: donor)",
+                        "if domainTypes.contains(.cookbook)",
+                        "try await deleteCookbookDomainDonations(using: donor)",
+                        "if domainTypes.contains(.shoppingListItem)",
+                        "try await deleteShoppingDomainDonations(using: donor)",
+                        "if domainTypes.contains(.spoon)",
+                        "try await deleteSpoonDomainDonations(using: donor)",
+                        "if domainTypes.contains(.captureDraft)",
+                        "try await deleteCaptureDraftDomainDonations(using: donor)",
+                        "if domainTypes.contains(.chefProfile)",
+                        "try await deleteChefProfileDomainDonations(using: donor)"
+                    ]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteRecipeDomainDonations",
+                    pattern: #"private\s+func\s+deleteRecipeDomainDonations\("#,
+                    requiredTokens: [
+                        "OpenRecipeIntent.self",
+                        "SearchSpoonjoyIntent.self",
+                        "ShareRecipeIntent.self",
+                        "StartCookModeIntent.self",
+                        "ContinueCookModeIntent.self",
+                        "ForkRecipeIntent.self",
+                        "SaveRecipeToCookbookIntent.self",
+                        "RemoveRecipeFromCookbookIntent.self",
+                        "DeleteRecipeIntent.self",
+                        "AddRecipeToCookbookIntent.self",
+                        "AddRecipeIngredientsToShoppingListIntent.self",
+                        "LogCookIntent.self",
+                        "EditCookLogIntent.self",
+                        "DeleteCookLogIntent.self",
+                        "CreateCoverFromSpoonIntent.self"
+                    ]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteCookbookDomainDonations",
+                    pattern: #"private\s+func\s+deleteCookbookDomainDonations\("#,
+                    requiredTokens: [
+                        "OpenCookbookIntent.self",
+                        "SearchSpoonjoyIntent.self",
+                        "ShareCookbookIntent.self",
+                        "SaveRecipeToCookbookIntent.self",
+                        "CreateCookbookIntent.self",
+                        "RenameCookbookIntent.self",
+                        "DeleteCookbookIntent.self",
+                        "AddRecipeToCookbookIntent.self",
+                        "RemoveRecipeFromCookbookIntent.self"
+                    ]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteShoppingDomainDonations",
+                    pattern: #"private\s+func\s+deleteShoppingDomainDonations\("#,
+                    requiredTokens: [
+                        "SearchSpoonjoyIntent.self",
+                        "ShareShoppingListIntent.self",
+                        "AddShoppingListItemIntent.self",
+                        "SetShoppingListItemCheckedIntent.self",
+                        "RemoveShoppingListItemIntent.self",
+                        "AddRecipeIngredientsToShoppingListIntent.self",
+                        "ClearCompletedShoppingItemsIntent.self",
+                        "ClearShoppingListIntent.self"
+                    ]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteSpoonDomainDonations",
+                    pattern: #"private\s+func\s+deleteSpoonDomainDonations\("#,
+                    requiredTokens: [
+                        "LogCookIntent.self",
+                        "EditCookLogIntent.self",
+                        "DeleteCookLogIntent.self",
+                        "CreateCoverFromSpoonIntent.self"
+                    ]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteCaptureDraftDomainDonations",
+                    pattern: #"private\s+func\s+deleteCaptureDraftDomainDonations\("#,
+                    requiredTokens: [
+                        "CaptureRecipeIntent.self",
+                        "SubmitCaptureImportIntent.self",
+                        "OpenCaptureDraftIntent.self",
+                        "DiscardCaptureDraftIntent.self"
+                    ]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift",
+                    label: "deleteChefProfileDomainDonations",
+                    pattern: #"private\s+func\s+deleteChefProfileDomainDonations\("#,
+                    requiredTokens: [
+                        "OpenProfileIntent.self",
+                        "SearchSpoonjoyIntent.self",
+                        "OpenSettingsIntent.self",
+                        "ReadNotificationPreferencesIntent.self",
+                        "UpdateNotificationPreferencesIntent.self",
+                        "OpenNotificationAPNsStatusIntent.self",
+                        "UpdateProfileDisplayIntent.self",
+                        "UpdateProfilePhotoIntent.self",
+                        "RemoveProfilePhotoIntent.self",
+                        "OpenAPITokensIntent.self",
+                        "CreateAPITokenIntent.self",
+                        "RevokeAPITokenIntent.self",
+                        "OpenAccountConnectionsIntent.self",
+                        "DisconnectAccountConnectionIntent.self",
+                        "OpenPasskeysIntent.self",
+                        "OpenPasswordIntent.self",
+                        "LinkProviderIntent.self",
+                        "LogoutIntent.self",
+                        "RevokeCurrentSessionIntent.self"
+                    ]
+                )
+            ]
+        ))
         failures.append(contentsOf: spotlightShortcutSourcePatternFailures(
             patterns: [
                 (
@@ -432,6 +556,27 @@ private func spotlightShortcutSourcePatternFailures(
     }
 }
 
+private func spotlightShortcutBodyContractFailures(
+    contracts: [(relativePath: String, label: String, pattern: String, requiredTokens: [String])]
+) -> [String] {
+    var failures: [String] = []
+    for contract in contracts {
+        guard let source = try? spotlightShortcutReadRepoFile(contract.relativePath) else {
+            failures.append("\(contract.relativePath) missing")
+            continue
+        }
+        let uncommented = spotlightShortcutUncommentedSwift(source)
+        guard let body = spotlightShortcutDeclarationBody(in: uncommented, pattern: contract.pattern) else {
+            failures.append("\(contract.relativePath) missing body for \(contract.label)")
+            continue
+        }
+        for token in contract.requiredTokens where !body.contains(token) {
+            failures.append("\(contract.relativePath) \(contract.label) missing \(token)")
+        }
+    }
+    return failures.sorted()
+}
+
 private func spotlightShortcutSharedSourceTokenFailures(label: String, requiredTokens: [String]) -> [String] {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         .appendingPathComponent("Apps/Spoonjoy/Shared")
@@ -452,6 +597,31 @@ private func spotlightShortcutSharedSourceTokenFailures(label: String, requiredT
     return requiredTokens.compactMap { token in
         uncommented.contains(token) ? nil : "Apps/Spoonjoy/Shared missing \(label) token \(token)"
     }
+}
+
+private func spotlightShortcutDeclarationBody(in content: String, pattern: String) -> String? {
+    guard let declarationRange = content.range(of: pattern, options: .regularExpression),
+          let openBrace = content[declarationRange.upperBound...].firstIndex(of: "{")
+    else {
+        return nil
+    }
+
+    var depth = 0
+    var index = openBrace
+    while index < content.endIndex {
+        let character = content[index]
+        if character == "{" {
+            depth += 1
+        } else if character == "}" {
+            depth -= 1
+            if depth == 0 {
+                return String(content[content.index(after: openBrace)..<index])
+            }
+        }
+        index = content.index(after: index)
+    }
+
+    return nil
 }
 
 private func spotlightShortcutReadRepoFile(_ relativePath: String) throws -> String {

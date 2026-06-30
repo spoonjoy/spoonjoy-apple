@@ -303,19 +303,100 @@ struct SpoonjoySpotlightIndexer {
         }
 
         if domainTypes.contains(.recipe) {
-            try await donor.deleteDonations(matching: OpenRecipeIntent.self)
-            try await donor.deleteDonations(matching: StartCookModeIntent.self)
-            try await donor.deleteDonations(matching: AddRecipeIngredientsToShoppingListIntent.self)
+            try await deleteRecipeDomainDonations(using: donor)
+        }
+        if domainTypes.contains(.cookbook) {
+            try await deleteCookbookDomainDonations(using: donor)
         }
         if domainTypes.contains(.shoppingListItem) {
-            try await donor.deleteDonations(matching: AddShoppingListItemIntent.self)
-            try await donor.deleteDonations(matching: SetShoppingListItemCheckedIntent.self)
-            try await donor.deleteDonations(matching: ClearCompletedShoppingItemsIntent.self)
-            try await donor.deleteDonations(matching: ClearShoppingListIntent.self)
+            try await deleteShoppingDomainDonations(using: donor)
+        }
+        if domainTypes.contains(.spoon) {
+            try await deleteSpoonDomainDonations(using: donor)
         }
         if domainTypes.contains(.captureDraft) {
-            try await donor.deleteDonations(matching: CaptureRecipeIntent.self)
+            try await deleteCaptureDraftDomainDonations(using: donor)
         }
+        if domainTypes.contains(.chefProfile) {
+            try await deleteChefProfileDomainDonations(using: donor)
+        }
+    }
+
+    private func deleteRecipeDomainDonations(using donor: SpoonjoyInteractionDonor) async throws {
+        try await donor.deleteDonations(matching: OpenRecipeIntent.self)
+        try await donor.deleteDonations(matching: SearchSpoonjoyIntent.self)
+        try await donor.deleteDonations(matching: ShareRecipeIntent.self)
+        try await donor.deleteDonations(matching: StartCookModeIntent.self)
+        try await donor.deleteDonations(matching: ContinueCookModeIntent.self)
+        try await donor.deleteDonations(matching: ForkRecipeIntent.self)
+        try await donor.deleteDonations(matching: SaveRecipeToCookbookIntent.self)
+        try await donor.deleteDonations(matching: RemoveRecipeFromCookbookIntent.self)
+        try await donor.deleteDonations(matching: DeleteRecipeIntent.self)
+        try await donor.deleteDonations(matching: AddRecipeToCookbookIntent.self)
+        try await donor.deleteDonations(matching: AddRecipeIngredientsToShoppingListIntent.self)
+        try await donor.deleteDonations(matching: LogCookIntent.self)
+        try await donor.deleteDonations(matching: EditCookLogIntent.self)
+        try await donor.deleteDonations(matching: DeleteCookLogIntent.self)
+        try await donor.deleteDonations(matching: CreateCoverFromSpoonIntent.self)
+    }
+
+    private func deleteCookbookDomainDonations(using donor: SpoonjoyInteractionDonor) async throws {
+        try await donor.deleteDonations(matching: OpenCookbookIntent.self)
+        try await donor.deleteDonations(matching: SearchSpoonjoyIntent.self)
+        try await donor.deleteDonations(matching: ShareCookbookIntent.self)
+        try await donor.deleteDonations(matching: SaveRecipeToCookbookIntent.self)
+        try await donor.deleteDonations(matching: CreateCookbookIntent.self)
+        try await donor.deleteDonations(matching: RenameCookbookIntent.self)
+        try await donor.deleteDonations(matching: DeleteCookbookIntent.self)
+        try await donor.deleteDonations(matching: AddRecipeToCookbookIntent.self)
+        try await donor.deleteDonations(matching: RemoveRecipeFromCookbookIntent.self)
+    }
+
+    private func deleteShoppingDomainDonations(using donor: SpoonjoyInteractionDonor) async throws {
+        try await donor.deleteDonations(matching: SearchSpoonjoyIntent.self)
+        try await donor.deleteDonations(matching: ShareShoppingListIntent.self)
+        try await donor.deleteDonations(matching: AddShoppingListItemIntent.self)
+        try await donor.deleteDonations(matching: SetShoppingListItemCheckedIntent.self)
+        try await donor.deleteDonations(matching: RemoveShoppingListItemIntent.self)
+        try await donor.deleteDonations(matching: AddRecipeIngredientsToShoppingListIntent.self)
+        try await donor.deleteDonations(matching: ClearCompletedShoppingItemsIntent.self)
+        try await donor.deleteDonations(matching: ClearShoppingListIntent.self)
+    }
+
+    private func deleteSpoonDomainDonations(using donor: SpoonjoyInteractionDonor) async throws {
+        try await donor.deleteDonations(matching: LogCookIntent.self)
+        try await donor.deleteDonations(matching: EditCookLogIntent.self)
+        try await donor.deleteDonations(matching: DeleteCookLogIntent.self)
+        try await donor.deleteDonations(matching: CreateCoverFromSpoonIntent.self)
+    }
+
+    private func deleteCaptureDraftDomainDonations(using donor: SpoonjoyInteractionDonor) async throws {
+        try await donor.deleteDonations(matching: CaptureRecipeIntent.self)
+        try await donor.deleteDonations(matching: SubmitCaptureImportIntent.self)
+        try await donor.deleteDonations(matching: OpenCaptureDraftIntent.self)
+        try await donor.deleteDonations(matching: DiscardCaptureDraftIntent.self)
+    }
+
+    private func deleteChefProfileDomainDonations(using donor: SpoonjoyInteractionDonor) async throws {
+        try await donor.deleteDonations(matching: OpenProfileIntent.self)
+        try await donor.deleteDonations(matching: SearchSpoonjoyIntent.self)
+        try await donor.deleteDonations(matching: OpenSettingsIntent.self)
+        try await donor.deleteDonations(matching: ReadNotificationPreferencesIntent.self)
+        try await donor.deleteDonations(matching: UpdateNotificationPreferencesIntent.self)
+        try await donor.deleteDonations(matching: OpenNotificationAPNsStatusIntent.self)
+        try await donor.deleteDonations(matching: UpdateProfileDisplayIntent.self)
+        try await donor.deleteDonations(matching: UpdateProfilePhotoIntent.self)
+        try await donor.deleteDonations(matching: RemoveProfilePhotoIntent.self)
+        try await donor.deleteDonations(matching: OpenAPITokensIntent.self)
+        try await donor.deleteDonations(matching: CreateAPITokenIntent.self)
+        try await donor.deleteDonations(matching: RevokeAPITokenIntent.self)
+        try await donor.deleteDonations(matching: OpenAccountConnectionsIntent.self)
+        try await donor.deleteDonations(matching: DisconnectAccountConnectionIntent.self)
+        try await donor.deleteDonations(matching: OpenPasskeysIntent.self)
+        try await donor.deleteDonations(matching: OpenPasswordIntent.self)
+        try await donor.deleteDonations(matching: LinkProviderIntent.self)
+        try await donor.deleteDonations(matching: LogoutIntent.self)
+        try await donor.deleteDonations(matching: RevokeCurrentSessionIntent.self)
     }
 
     private func indexedTypes(matchingDomainIdentifiers domainIdentifiers: [String]) -> Set<SpotlightIndexType> {
