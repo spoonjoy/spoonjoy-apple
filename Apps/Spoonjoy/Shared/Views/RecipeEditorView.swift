@@ -8,6 +8,8 @@ struct RecipeEditorView: View {
     let mutationsDidQueue: @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     let conflictDidDiscardLocalChange: @MainActor @Sendable (RecipeEditorConflict) async throws -> Void
     let close: @MainActor @Sendable (AppRoute) -> Void
+    let shellOfflineIndicatorState: OfflineIndicatorState?
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var draft: RecipeEditorDraft
     @State private var blockedMessage: String?
@@ -22,13 +24,17 @@ struct RecipeEditorView: View {
         mutationDidPlan: @escaping @MainActor @Sendable (RecipeEditorMutationPlan) async throws -> Void,
         mutationsDidQueue: @escaping @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         conflictDidDiscardLocalChange: @escaping @MainActor @Sendable (RecipeEditorConflict) async throws -> Void,
-        close: @escaping @MainActor @Sendable (AppRoute) -> Void
+        close: @escaping @MainActor @Sendable (AppRoute) -> Void,
+        shellOfflineIndicatorState: OfflineIndicatorState? = nil,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.mutationDidPlan = mutationDidPlan
         self.mutationsDidQueue = mutationsDidQueue
         self.conflictDidDiscardLocalChange = conflictDidDiscardLocalChange
         self.close = close
+        self.shellOfflineIndicatorState = shellOfflineIndicatorState
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _draft = State(initialValue: viewModel.draft)
     }
 
@@ -172,11 +178,21 @@ struct RecipeEditorView: View {
             Button("Cancel", role: .cancel) {}
         }
         .safeAreaInset(edge: .bottom) {
-            OfflineStatusView(display: offlineDisplayOverride ?? activeViewModel.offlineIndicator.display)
+            OfflineStatusView(display: offlineDisplayOverride ?? effectiveOfflineIndicator(activeViewModel.offlineIndicator.display), onDismiss: onDismissOfflineIndicator)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
                 .background(KitchenTableTheme.bone.opacity(0.94))
         }
+    }
+
+    private func effectiveOfflineIndicator(_ localDisplay: OfflineIndicatorDisplay) -> OfflineIndicatorDisplay {
+        guard let shellOfflineIndicatorState,
+              localDisplay.informationalOnly,
+              !shellOfflineIndicatorState.display.informationalOnly
+        else {
+            return localDisplay
+        }
+        return shellOfflineIndicatorState.display
     }
 
     private var activeViewModel: RecipeEditorViewModel {

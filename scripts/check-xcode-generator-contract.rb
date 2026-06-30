@@ -113,7 +113,8 @@ matrix = ROOT.join("scripts/validate-native-local.sh").read
   "ruby/setup-ruby@v1",
   "bundler-cache: true",
   'xcode_version="$(xcodebuild -version)"',
-  'test "$first_line" = "Xcode 26.5"',
+  'minimum_xcode_version="26.5"',
+  'version="${first_line#Xcode }"',
   "bundle exec ruby scripts/check-xcode-project-contract.rb",
   "bundle exec ruby scripts/check-xcode-generator-contract.rb"
 ].each do |token|
@@ -122,7 +123,8 @@ end
 fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep")
 fail_check("local matrix must not pipe xcodebuild -version into grep -q") if matrix.include?("xcodebuild -version | grep")
 fail_check("local matrix missing captured xcodebuild version check") unless matrix.include?('xcode_version="$(xcodebuild -version)"') &&
-  matrix.include?('test "$first_line" = "Xcode 26.5"')
+  matrix.include?('minimum_xcode_version="26.5"') &&
+  matrix.include?('version="${first_line#Xcode }"')
 
 local_matrix = LOCAL_MATRIX.read
 [

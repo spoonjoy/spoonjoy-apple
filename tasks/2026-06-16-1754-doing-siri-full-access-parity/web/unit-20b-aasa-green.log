@@ -1,0 +1,11 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/route-shell-coverage.test.ts (13 tests) 569ms
+ ✓ test/routes/aasa-contract.test.ts (7 tests) 34ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed (20)
+   Start at  18:13:59
+   Duration  1.29s (transform 341ms, setup 122ms, import 74ms, tests 603ms, environment 272ms)
+

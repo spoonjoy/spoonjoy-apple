@@ -1,0 +1,12 @@
+FAIL: missing Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift
+missing Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoyChefProfileEntity
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing SpoonjoyChefProfileEntityQuery
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing chef profile App Entity
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing ChefProfileEntityCatalog
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing SpoonjoyChefProfileEntity
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing unresolvedChefProfileEntity
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing Choose a Spoonjoy chef profile before running this Siri action.
+Spoonjoy.xcodeproj target Spoonjoy iOS missing Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift
+Spoonjoy.xcodeproj target Spoonjoy macOS missing Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift
+red as expected (exit 1)

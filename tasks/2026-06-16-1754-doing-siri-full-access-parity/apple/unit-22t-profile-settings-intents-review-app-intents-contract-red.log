@@ -1,0 +1,20 @@
+FAIL: Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift CreateAPITokenIntent missing action.plan.userFacingMessage
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift CreateAPITokenIntent contains forbidden performSettingsAction(action)
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift settingsConnectivity missing SpoonjoyIntentConnectivityProbe.settingsSurfaceConnectivity
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift settingsConnectivity missing return await connectivityProbe()
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift settingsConnectivity contains forbidden return .online
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsAction missing action.plan.queuePreflightDecision
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsAction missing catch let error as APITransportError where error.isOffline
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsAction missing appendNativeMutation(offlineFallbackMutation)
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsAction missing applyNativeMutation(offlineFallbackMutation
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsSessionOperation missing OAuthRequests.revoke
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsSessionOperation missing clearClientID()
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift performSettingsSessionOperation contains forbidden case .logout, .revokeAndLogout:
+            try await authVault.clearSession()
+Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift API token entity display missing subtitle: "\(descriptor.subtitle)"
+Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift API token entity display contains forbidden descriptor.disambiguationLabel
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift updateProfileDisplay resolver missing .settingsAction(plan
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift updateProfilePhoto resolver missing .settingsAction(plan
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift removeProfilePhoto resolver missing .settingsAction(plan
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift createAPIToken resolver missing userFacingMessage
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift createAPIToken resolver contains forbidden .captureCreatedAPIToken

@@ -1,0 +1,33 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Emitting module SpoonjoyCore
+[4/7] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[5/9] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[6/9] Compiling SpoonjoyCore NativeSyncEngine.swift
+[6/11] Write Objects.LinkFileList
+[7/13] Linking SpoonjoyScenarioVerifier
+[8/13] Applying SpoonjoyScenarioVerifier
+[10/13] Emitting module SpoonjoyCoreTests
+[11/13] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[11/13] Write Objects.LinkFileList
+[12/13] Linking SpoonjoyApplePackageTests
+Build complete! (6.05s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Shopping App Entity contracts" started.
+◇ Test "shopping entity transfer values filter private and debug-only fields" started.
+◇ Test "shopping entities resolve from scoped native sync cache records" started.
+◇ Test "shopping entity purge plans cover logout account-switch cache-delete and tombstones" started.
+◇ Test "shopping entity lookup uses supplied sync snapshot records instead of fixture fallback" started.
+◇ Test "shopping entity lookup filters deleted, tombstoned, and wrong-scope data" started.
+◇ Test "shopping entity sources exist with AppIntents contracts" started.
+✔ Test "shopping entity purge plans cover logout account-switch cache-delete and tombstones" passed after 0.001 seconds.
+✔ Test "shopping entity lookup uses supplied sync snapshot records instead of fixture fallback" passed after 0.005 seconds.
+✔ Test "shopping entity transfer values filter private and debug-only fields" passed after 0.005 seconds.
+✔ Test "shopping entities resolve from scoped native sync cache records" passed after 0.005 seconds.
+✔ Test "shopping entity lookup filters deleted, tombstoned, and wrong-scope data" passed after 0.005 seconds.
+✔ Test "shopping entity sources exist with AppIntents contracts" passed after 0.153 seconds.
+✔ Suite "Shopping App Entity contracts" passed after 0.153 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.153 seconds.

@@ -1,0 +1,49 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/developers-playground.test.tsx (38 tests) 4643ms
+     ✓ copies generated playground values and reports clipboard failures  1770ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  433ms
+     ✓ handles OAuth callback validation failures and redirect submissions  315ms
+ ✓ test/routes/api-v1-account-settings.test.ts (9 tests) 944ms
+ ❯ test/routes/api-v1-shell.test.ts (19 tests | 1 failed) 114ms
+     ✓ is registered before the legacy /api/* catch-all route 5ms
+     ✓ serves the exact discovery envelope with request IDs and CORS headers 7ms
+     ✓ treats a missing splat param as the v1 root 3ms
+     ✓ serves anonymous health and generated request IDs 5ms
+     ✓ types Workers waitUntil context for future API v1 telemetry scheduling 3ms
+     ✓ exposes a bound waitUntil scheduler from API v1 route args 3ms
+     ✓ omits the API v1 scheduler when waitUntil is unavailable 2ms
+     ✓ does not schedule API v1 telemetry when PostHog is disabled 3ms
+     ✓ serves authenticated health with principal summary and scopes 9ms
+     ✓ returns the v1 error envelope and Retry-After when the rate limiter denies a request before auth 3ms
+     ✓ returns invalid_token for optional-auth routes when a bad bearer is present 5ms
+     ✓ normalizes unexpected optional-auth failures to internal_error 6ms
+     ✓ serves the OpenAPI shell document 10ms
+     ✓ handles CORS preflight for any v1 path 3ms
+     × returns stable envelopes for unknown endpoints, unsupported methods, and malformed JSON 5ms
+     ✓ exports the full v1 error status map 2ms
+     ✓ serializes error details and internal fallback errors 3ms
+     ✓ validates JSON request body shape and byte limits directly 5ms
+     ✓ normalizes unexpected optional-auth failures into internal errors 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/api-v1-shell.test.ts > /api/v1 shell > returns stable envelopes for unknown endpoints, unsupported methods, and malformed JSON
+TypeError: 'TRACE' HTTP method is unsupported.
+ ❯ new Request node_modules/.pnpm/undici@7.20.0/node_modules/undici/lib/web/fetch/request.js:384:17
+ ❯ test/routes/api-v1-shell.test.ts:377:52
+    375|     });
+    376|
+    377|     const unsupportedVerb = await action(routeArgs(new UndiciRequest("…
+       |                                                    ^
+    378|       method: "TRACE",
+    379|       headers: { "X-Request-Id": "req_trace_unknown" },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 65 passed (66)
+   Start at  20:51:46
+   Duration  8.22s (transform 636ms, setup 166ms, import 1.62s, tests 5.70s, environment 403ms)

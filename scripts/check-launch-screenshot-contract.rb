@@ -23,6 +23,16 @@ REQUIRED_REVIEW_FIELDS = [
   "noOverlap"
 ].freeze
 
+ACCESSIBILITY_REVIEW_FIELDS = [
+  "dynamicType",
+  "voiceOverLabels",
+  "keyboardNavigation",
+  "reduceMotion",
+  "contrast",
+  "kitchenTableHierarchy",
+  "noOverlap"
+].freeze
+
 SCRIPT_CONTRACTS = {
   "scripts/smoke-macos.sh" => {
     syntax: ["bash", "-n"],
@@ -110,6 +120,8 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS",
       "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
+      "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+      "wait_for_accessibility_proof",
       "validate_screenshot_surface_proof",
       "settingsSignedInSurface",
       "settingsVisualFocus",
@@ -270,6 +282,91 @@ rescue JSON::ParserError => error
   {}
 end
 
+def accessibility_source(route)
+  case route
+  when "kitchen"
+    "KitchenView"
+  when "search"
+    "SearchView"
+  when "settings"
+    "SettingsView"
+  else
+    "KitchenView"
+  end
+end
+
+def route_accessibility_evidence(route)
+  case route
+  when "search"
+    {
+      "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
+      "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
+      "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    }
+  when "settings"
+    {
+      "voiceOverLabels" => ["Settings", "Profile", "Security"],
+      "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "brass label on bone"],
+      "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    }
+  else
+    {
+      "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    }
+  end
+end
+
+def add_accessibility_proofs!(root, manifest, stem)
+  route = manifest["screenshotRoute"]
+  return unless route
+
+  relative_paths = [
+    "apple/#{stem}-accessibility-proof-ios.json",
+    "apple/#{stem}-accessibility-proof-macos.json"
+  ]
+  manifest["accessibilityProofArtifacts"] = relative_paths
+  relative_paths.zip(["ios", "macos"]).each do |relative_path, platform|
+    proof_path = root.join(relative_path)
+    proof_path.dirname.mkpath
+    proof_path.write(JSON.pretty_generate(
+      ACCESSIBILITY_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+        "platform" => platform,
+        "route" => route,
+        "source" => accessibility_source(route),
+        "emittedBy" => "SpoonjoyApp",
+        "bundleIdentifier" => platform == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy",
+        "minimumTargetSize" => 44,
+        "textFits" => true,
+        "noTinyClusters" => true,
+        "observedDynamicTypeSize" => "large",
+        "observedReduceMotion" => false,
+        "routeEvidence" => route_accessibility_evidence(route),
+        "offlineIndicatorProof" => {
+          "source" => "OfflineStatusView",
+          "visibleStates" => ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"],
+          "dismissibleStates" => ["offline", "stale"],
+          "severeStates" => ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"],
+          "hiddenStates" => ["synced", "dismissed"],
+          "voiceOverLabel" => true,
+          "dismissButtonLabel" => "Hide offline status",
+          "severityCorrect" => true
+        }
+      )
+    ) + "\n")
+  end
+end
+
 SCRIPT_CONTRACTS.each do |relative_path, contract|
   path = ROOT.join(relative_path)
   unless path.file?
@@ -394,6 +491,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "bad-blocker.json" => [bad_blocker, false, "invalid blocker"]
   }.each do |filename, (manifest, expected_success, label)|
     path = temp_root.join(filename)
+    add_accessibility_proofs!(temp_root, manifest, filename.delete_suffix(".json"))
     path.write(JSON.pretty_generate(manifest))
     if (proof_artifacts = manifest["settingsSurfaceProofArtifacts"])
       proof_artifacts.each do |proof_relative_path|
@@ -456,7 +554,9 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",
-        "design-review.json"
+        "design-review.json",
+        "apple/unit-16f-screenshot-contract-accessibility-proof-ios.json",
+        "apple/unit-16f-screenshot-contract-accessibility-proof-macos.json"
       ],
       "reason" => "Screenshot capture was blocked by CoreSimulator.",
       "ownerAction" => "Install and boot an iPhone simulator runtime."
@@ -727,12 +827,51 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   write_executable(bin_dir.join("xcrun"), <<~'SH')
     #!/usr/bin/env bash
     set -euo pipefail
+    write_accessibility_proof() {
+      local output_path="$1"
+      local route="$2"
+      local platform="$3"
+      local bundle="$4"
+      local source="$5"
+      if [[ "${SPOONJOY_CONTRACT_SKIP_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
+        return 0
+      fi
+      if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
+        source="WrongAccessibilityView"
+      fi
+      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      case "$route" in
+        search)
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+        settings)
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","Form","Section"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+      esac
+      mkdir -p "$(dirname "$output_path")"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
+    }
     case "$*" in
       simctl\ get_app_container\ *)
         mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
         printf '%s\n' "$PWD/ios-container"
         ;;
       simctl\ launch\ *)
+        if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}" ]]; then
+          accessibility_route="kitchen"
+          accessibility_source="KitchenView"
+          case "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}" in
+            chef_search_capture)
+              accessibility_route="search"
+              accessibility_source="SearchView"
+              ;;
+            chef_settings_capture)
+              accessibility_route="settings"
+              accessibility_source="SettingsView"
+              ;;
+          esac
+          write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy.Spoonjoy" "$accessibility_source"
+        fi
         if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH:-}" ]]; then
           account_id="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
           if [[ "$account_id" == "chef_search_capture" ]]; then
@@ -828,7 +967,32 @@ PY
   write_executable(bin_dir.join("open"), <<~'SH')
     #!/usr/bin/env bash
     set -euo pipefail
+    write_accessibility_proof() {
+      local output_path="$1"
+      local route="$2"
+      local platform="$3"
+      local bundle="$4"
+      local source="$5"
+      if [[ "${SPOONJOY_CONTRACT_SKIP_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
+        return 0
+      fi
+      if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
+        source="WrongAccessibilityView"
+      fi
+      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      case "$route" in
+        search)
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+        settings)
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","Form","Section"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          ;;
+      esac
+      mkdir -p "$(dirname "$output_path")"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
+    }
     proof_path=""
+    accessibility_proof_path=""
     focus="profile"
     account_id=""
     while [[ $# -gt 0 ]]; do
@@ -838,6 +1002,7 @@ PY
           case "$env_pair" in
             SPOONJOY_SCREENSHOT_ACCOUNT_ID=*) account_id="${env_pair#SPOONJOY_SCREENSHOT_ACCOUNT_ID=}" ;;
             SPOONJOY_SCREENSHOT_PROOF_PATH=*) proof_path="${env_pair#SPOONJOY_SCREENSHOT_PROOF_PATH=}" ;;
+            SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=*) accessibility_proof_path="${env_pair#SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=}" ;;
             SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=*) focus="${env_pair#SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=}" ;;
           esac
           shift 2
@@ -879,6 +1044,21 @@ PY
         printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
       fi
     fi
+    if [[ -n "$accessibility_proof_path" ]]; then
+      accessibility_route="kitchen"
+      accessibility_source="KitchenView"
+      case "$account_id" in
+        chef_search_capture)
+          accessibility_route="search"
+          accessibility_source="SearchView"
+          ;;
+        chef_settings_capture)
+          accessibility_route="settings"
+          accessibility_source="SettingsView"
+          ;;
+      esac
+      write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.Spoonjoy.mac" "$accessibility_source"
+    fi
   SH
   write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
   write_executable(bin_dir.join("swift"), "#!/usr/bin/env bash\nprintf '67890\\n'\n")
@@ -913,9 +1093,67 @@ PY
   record_failure("kitchen screenshot route mismatch") unless kitchen_review["screenshotRoute"] == "kitchen"
   record_failure("kitchen screenshot missing signed-in surface flag") unless kitchen_review["kitchenSignedInSurface"] == true
   record_failure("kitchen screenshot account seed mismatch") unless kitchen_review["kitchenSeedAccountID"] == "chef_kitchen_capture"
+  record_failure("kitchen screenshot missing accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length >= 2
+  kitchen_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
+    proof = assert_json(artifact_root.join(relative_path), "kitchen accessibility proof artifact")
+    record_failure("kitchen accessibility proof source mismatch") unless proof["source"] == "KitchenView"
+    record_failure("kitchen accessibility proof missing offline proof") unless proof["offlineIndicatorProof"].is_a?(Hash)
+  end
   kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  missing_accessibility_root = temp_root.join("missing-accessibility-proof-artifacts")
+  missing_accessibility_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      missing_accessibility_root,
+      "--unit-slug",
+      "unit-contract"
+    ],
+    "screenshot missing accessibility proof lane",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_SKIP_ACCESSIBILITY_PROOF" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "2",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.05"
+    },
+    chdir: script_root
+  )
+  assert_missing(missing_accessibility_root.join("design-review.json"), "screenshot missing accessibility proof lane")
+  missing_accessibility_blocked_review = assert_json(missing_accessibility_root.join("design-review-blocked.json"), "screenshot missing accessibility proof lane")
+  record_failure("missing accessibility proof lane did not block screenshot success") unless missing_accessibility_blocked_review["blocked"] == true
+
+  wrong_accessibility_root = temp_root.join("wrong-accessibility-proof-artifacts")
+  wrong_accessibility_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      wrong_accessibility_root,
+      "--unit-slug",
+      "unit-contract"
+    ],
+    "screenshot wrong accessibility proof lane",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "2",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.05"
+    },
+    chdir: script_root
+  )
+  assert_missing(wrong_accessibility_root.join("design-review.json"), "screenshot wrong accessibility proof lane")
+  wrong_accessibility_blocked_review = assert_json(wrong_accessibility_root.join("design-review-blocked.json"), "screenshot wrong accessibility proof lane")
+  record_failure("wrong accessibility proof lane did not block screenshot success") unless wrong_accessibility_blocked_review["blocked"] == true
 
   assert_status(
     true,

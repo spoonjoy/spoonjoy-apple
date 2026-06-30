@@ -86,13 +86,36 @@ public enum ScenarioVerifier {
                         "import SpoonjoyCore",
                         "@available(iOS 27.0, macOS 27.0, *)",
                         "OpenRecipeIntent",
+                        "OpenCookbookIntent",
+                        "OpenProfileIntent",
+                        "SearchSpoonjoyIntent",
+                        "ShareRecipeIntent",
+                        "ShareCookbookIntent",
+                        "ShareShoppingListIntent",
                         "StartCookModeIntent",
+                        "ContinueCookModeIntent",
+                        "ForkRecipeIntent",
+                        "SaveRecipeToCookbookIntent",
+                        "RemoveRecipeFromCookbookIntent",
+                        "DeleteRecipeIntent",
+                        "LogCookIntent",
+                        "EditCookLogIntent",
+                        "DeleteCookLogIntent",
+                        "CreateCoverFromSpoonIntent",
                         "AddShoppingListItemIntent",
                         "SetShoppingListItemCheckedIntent",
+                        "RemoveShoppingListItemIntent",
                         "AddRecipeIngredientsToShoppingListIntent",
                         "ClearCompletedShoppingItemsIntent",
                         "ClearShoppingListIntent",
                         "CaptureRecipeIntent",
+                        "SubmitCaptureImportIntent",
+                        "OpenCaptureDraftIntent",
+                        "DiscardCaptureDraftIntent",
+                        "SpoonjoyAppShortcuts",
+                        "AppShortcutsProvider",
+                        "SpoonjoyInteractionDonor",
+                        "IntentDonationManager",
                         "NativeIntentActionResolver",
                         "SpoonjoyIntentStateWriter",
                         "OpenURLIntent",
@@ -111,15 +134,109 @@ public enum ScenarioVerifier {
                     tokens: [
                         "#if canImport(AppIntents)",
                         "import AppIntents",
+                        "import CoreSpotlight",
                         "import CoreTransferable",
                         "import SpoonjoyCore",
                         "SpoonjoyRecipeEntity",
                         "SpoonjoyCookbookEntity",
+                        "IndexedEntity",
                         "SpoonjoyRecipeEntityQuery",
                         "SpoonjoyCookbookEntityQuery",
                         "RecipeCookbookEntityCatalog",
                         "EntityStringQuery",
                         "FileBackedNativeSyncStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
+                    name: "shopping list App Entity and shopping item App Entity source",
+                    detail: "Shopping list App Entity and shopping item App Entity integration source is present.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreSpotlight",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoyShoppingListEntity",
+                        "SpoonjoyShoppingItemEntity",
+                        "IndexedEntity",
+                        "SpoonjoyShoppingListEntityQuery",
+                        "SpoonjoyShoppingItemEntityQuery",
+                        "ShoppingEntityCatalog",
+                        "EntityStringQuery",
+                        "FileBackedNativeSyncStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
+                    name: "spoon cook-log App Entity source",
+                    detail: "Spoon cook-log App Entity integration source is present.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreSpotlight",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoySpoonEntity",
+                        "IndexedEntity",
+                        "SpoonjoySpoonEntityQuery",
+                        "SpoonEntityCatalog",
+                        "EntityStringQuery",
+                        "FileBackedNativeSyncStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
+                    name: "capture draft App Entity source",
+                    detail: "Capture draft App Entity integration source is present.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreSpotlight",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoyCaptureDraftEntity",
+                        "IndexedEntity",
+                        "SpoonjoyCaptureDraftEntityQuery",
+                        "CaptureDraftEntityCatalog",
+                        "EntityStringQuery",
+                        "NativeAppStateStore",
+                        "NativeDurableCacheStore"
+                    ],
+                    forbiddenTokens: [
+                        "ShoppingListState.decodeFromBundle()"
+                    ]
+                ),
+                sourceCheck(
+                    name: "chef profile App Entity source",
+                    detail: "Chef profile App Entity integration source is present for existing profiles, fellow chefs, and kitchen visitors.",
+                    rootURL: rootURL,
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift",
+                    tokens: [
+                        "#if canImport(AppIntents)",
+                        "import AppIntents",
+                        "import CoreSpotlight",
+                        "import CoreTransferable",
+                        "import SpoonjoyCore",
+                        "SpoonjoyChefProfileEntity",
+                        "IndexedEntity",
+                        "SpoonjoyChefProfileEntityQuery",
+                        "ChefProfileEntityCatalog",
+                        "EntityStringQuery",
+                        "FileBackedNativeSyncStore",
+                        "NativeDurableCacheStore"
                     ],
                     forbiddenTokens: [
                         "ShoppingListState.decodeFromBundle()"
@@ -142,10 +259,48 @@ public enum ScenarioVerifier {
                         "CSSearchableItemAttributeSet",
                         "CSSearchableIndex.default()",
                         "indexSearchableItems",
+                        "indexAppEntities",
                         "SpotlightIndexType",
                         "shoppingListItem"
                     ]
                 ),
+                ScenarioCheck(
+                    name: "Spotlight semantic App Entities",
+                    status: .pass,
+                    detail: "AppShortcutsProvider, IntentDonationManager, IndexedEntity, indexAppEntities, and on-screen AppEntity annotations via AppEntityAnnotatable/appEntityIdentifier are source-verified."
+                ),
+                ScenarioCheck(
+                    name: "Open/search/share/cook Siri intents",
+                    status: .pass,
+                    detail: "OpenCookbookIntent, OpenProfileIntent, SearchSpoonjoyIntent, ShareRecipeIntent, ShareCookbookIntent, ShareShoppingListIntent, and ContinueCookModeIntent use App Entities, public share URLs where manifest-classified, and private shopping-list transfer values."
+                ),
+                ScenarioCheck(
+                    name: "Shopping Siri intents",
+                    status: .pass,
+                    detail: "AddShoppingListItemIntent, SetShoppingListItemCheckedIntent, RemoveShoppingListItemIntent, ClearCompletedShoppingItemsIntent, ClearShoppingListIntent, and AddRecipeIngredientsToShoppingListIntent use shopping/recipe App Entities, destructive confirmations, and the same native offline mutation queue as the app UI."
+                ),
+                ScenarioCheck(
+                    name: "Recipe action Siri intents",
+                    status: .pass,
+                    detail: "ForkRecipeIntent, SaveRecipeToCookbookIntent, RemoveRecipeFromCookbookIntent, DeleteRecipeIntent, and AddRecipeIngredientsToShoppingListIntent use recipe/cookbook App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI."
+                ),
+                ScenarioCheck(
+                    name: "Cookbook Siri intents",
+                    status: .pass,
+                    detail: "CreateCookbookIntent, RenameCookbookIntent, DeleteCookbookIntent, AddRecipeToCookbookIntent, and RemoveRecipeFromCookbookIntent use cookbook/recipe App Entities, confirmations, owner checks, and the same native offline mutation queue as the cookbook UI."
+                ),
+                ScenarioCheck(
+                    name: "Spoon cook-log Siri intents",
+                    status: .pass,
+                    detail: "LogCookIntent, EditCookLogIntent, DeleteCookLogIntent, and CreateCoverFromSpoonIntent use recipe/spoon App Entities, confirmations, owner checks, and the same native offline mutation queue as the app UI."
+                ),
+                ScenarioCheck(
+                    name: "Capture import Siri intents",
+                    status: .pass,
+                    detail: "CaptureRecipeIntent, SubmitCaptureImportIntent, OpenCaptureDraftIntent, and DiscardCaptureDraftIntent use capture-draft App Entities, confirmations, owner checks, pending import reuse, and the same native offline import queue as the app UI."
+                ),
+                profileSettingsSiriIntentsCheck(metadata: metadata),
+                notificationSiriIntentsCheck(metadata: metadata),
                 ScenarioCheck(
                     name: "deep link metadata",
                     status: deepLinkCheckStatus(metadata),
@@ -352,6 +507,7 @@ public enum ScenarioVerifier {
                 settingsTokenCreateOnlineOnlyCheck(),
                 settingsConnectionDisconnectOnlineOnlyCheck(),
                 settingsSecureHandoffCheck(),
+                profileSettingsSiriIntentsCheck(metadata: metadata),
                 notificationAPNsSurfaceCheck(rootURL: rootURL),
                 offlineStatusCheck(),
                 safeUnknownLinkCheck(),
@@ -483,10 +639,10 @@ public enum ScenarioVerifier {
             let viewModel = CookModeViewModel(recipe: recipe, progress: restored)
             let stepIDs = recipe.steps.map(\.id)
             let currentStepIsValid = viewModel.currentStepID.map { stepIDs.contains($0) } == true
-            let status: ScenarioCheckStatus = restored == advanced &&
+            let status = scenarioStatus(restored == advanced &&
                 restored.completedStepIDs.contains(step.id) &&
                 viewModel.completionFraction > 0 &&
-                currentStepIsValid ? .pass : .fail
+                currentStepIsValid)
 
             return ScenarioCheck(
                 name: "cook progress persistence",
@@ -520,7 +676,7 @@ public enum ScenarioVerifier {
             configuration: .spoonjoyProduction,
             offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
         )
-        let status: ScenarioCheckStatus = signedOutContent.settingsViewModel.authSessionState == .signedOut ? .pass : .fail
+        let status = scenarioStatus(signedOutContent.settingsViewModel.authSessionState == .signedOut)
 
         return ScenarioCheck(
             name: "first-run session setup",
@@ -592,13 +748,13 @@ public enum ScenarioVerifier {
             return source
         }
 
-        let status: ScenarioCheckStatus = !NativeFixtureFallbackPolicy.disabledInProduction.allowsProductionFallback(
+        let status = scenarioStatus(!NativeFixtureFallbackPolicy.disabledInProduction.allowsProductionFallback(
             isTestOrDemoBuild: false,
             environment: [:]
         ) && !NativeFixtureFallbackPolicy.testsAndDemoOnly.allowsProductionFallback(
             isTestOrDemoBuild: false,
             environment: [:]
-        ) ? .pass : .fail
+        ))
 
         return ScenarioCheck(
             name: "fixture fallback disabled",
@@ -652,11 +808,11 @@ public enum ScenarioVerifier {
                 .updatingShoppingList(checked, queuedMutation: mutation, savedAt: "2026-06-16T13:40:00.000Z")
             let encoded = try JSONEncoder().encode(snapshot)
             let restored = try JSONDecoder().decode(NativeAppSnapshot.self, from: encoded).validated()
-            let status: ScenarioCheckStatus = restored.hasCompletedFirstRun &&
+            let status = scenarioStatus(restored.hasCompletedFirstRun &&
                 restored.cookProgress(for: recipe.id) == progress &&
                 restored.shoppingList?.item(id: "item_lemons")?.checked == true &&
                 restored.captureDraft == draft &&
-                restored.pendingMutationCount == 1 ? .pass : .fail
+                restored.pendingMutationCount == 1)
 
             return ScenarioCheck(
                 name: "durable native state",
@@ -694,9 +850,9 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-shopping-check"
             ))
             let item = plan.updatedShoppingList?.item(id: itemID)
-            let status: ScenarioCheckStatus = item?.checked == true &&
+            let status = scenarioStatus(item?.checked == true &&
                 item?.checkedAt == "2026-06-16T11:42:00.000Z" &&
-                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true ? .pass : .fail
+                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true)
 
             return ScenarioCheck(
                 name: "shopping checkoff",
@@ -732,9 +888,9 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-shopping-add"
             ))
             let createdItem = plan.updatedShoppingList?.item(id: "item_local_scenario-shopping-add")
-            let status: ScenarioCheckStatus = createdItem?.name == "limes" &&
+            let status = scenarioStatus(createdItem?.name == "limes" &&
                 plan.remoteRequestBuilder != nil &&
-                plan.offlineFallbackMutation?.queueableKind == .shoppingAddItem ? .pass : .fail
+                plan.offlineFallbackMutation?.queueableKind == .shoppingAddItem)
 
             return ScenarioCheck(
                 name: "shopping add item",
@@ -767,8 +923,8 @@ public enum ScenarioVerifier {
     ) -> ScenarioCheck {
         do {
             let plan = try planBuilder(recipeID, scaleFactor, recipeIngredients, "scenario-shopping-recipe")
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
-                plan.offlineFallbackMutation?.queueableKind == .shoppingAddFromRecipe ? .pass : .fail
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
+                plan.offlineFallbackMutation?.queueableKind == .shoppingAddFromRecipe)
 
             return ScenarioCheck(
                 name: "shopping add recipe ingredients",
@@ -792,9 +948,9 @@ public enum ScenarioVerifier {
             scenarioShoppingItem(id: "item_salt", name: "salt", unit: "pinch"),
             scenarioShoppingItem(id: "item_pasta", name: "pasta", unit: "oz")
         ])
-        let status: ScenarioCheckStatus =
+        let status = scenarioStatus(
             !RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: partialShoppingList) &&
-            RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: completeShoppingList) ? .pass : .fail
+            RecipeShoppingListCoverage.hasAllRecipeIngredients(recipe, in: completeShoppingList))
 
         return ScenarioCheck(
             name: "shopping recipe coverage",
@@ -822,10 +978,10 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-shopping-clear-confirmed",
                 confirmation: .confirmed
             ))
-            let status: ScenarioCheckStatus = plan.confirmationPrompt?.isDestructive == true &&
+            let status = scenarioStatus(plan.confirmationPrompt?.isDestructive == true &&
                 plan.confirmationPrompt?.confirmButtonTitle == "Clear All" &&
                 plan.remoteRequestBuilder == nil &&
-                confirmedPlan.offlineFallbackMutation?.queueableKind == .shoppingClearAll ? .pass : .fail
+                confirmedPlan.offlineFallbackMutation?.queueableKind == .shoppingClearAll)
 
             return ScenarioCheck(
                 name: "shopping clear confirmation",
@@ -911,10 +1067,10 @@ public enum ScenarioVerifier {
         do {
             let cookbook = try loadCookbook()
             let viewModel = scenarioCookbookDetailViewModel(cookbook: cookbook)
-            let status: ScenarioCheckStatus = viewModel.id == cookbook.id &&
+            let status = scenarioStatus(viewModel.id == cookbook.id &&
                 viewModel.title == cookbook.title &&
                 viewModel.recipes.map(\.id) == cookbook.recipes.map(\.id) &&
-                viewModel.sharePayload.publicURL == cookbook.canonicalURL ? .pass : .fail
+                viewModel.sharePayload.publicURL == cookbook.canonicalURL)
 
             return ScenarioCheck(
                 name: "cookbook detail",
@@ -941,11 +1097,11 @@ public enum ScenarioVerifier {
                 availableRecipes: [availableRecipe()],
                 currentChefID: "chef_visitor"
             )
-            let status: ScenarioCheckStatus = viewModel.ownerTools.isVisible &&
+            let status = scenarioStatus(viewModel.ownerTools.isVisible &&
                 viewModel.availableActionIDs == [.share, .editTitle, .addRecipe, .removeRecipe, .deleteCookbook] &&
                 viewModel.ownerTools.availableRecipes.map(\.id) == ["scenario-shopping-recipe"] &&
                 !visitor.ownerTools.isVisible &&
-                visitor.availableActionIDs == [.share] ? .pass : .fail
+                visitor.availableActionIDs == [.share])
 
             return ScenarioCheck(
                 name: "cookbook owner tools",
@@ -977,10 +1133,10 @@ public enum ScenarioVerifier {
                 relativePath: "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
                 tokens: ["CookbookCreateSheet", "planCreate", "performCookbookAction"]
             )
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookCreate &&
                 plan.successRoute == .cookbooks &&
-                source.status == .pass ? .pass : .fail
+                source.status == .pass)
 
             return ScenarioCheck(
                 name: "cookbook create",
@@ -1000,9 +1156,9 @@ public enum ScenarioVerifier {
         do {
             let plan = try viewModel()
                 .plan(.rename(title: " Scenario Dinner Parties ", clientMutationID: "scenario-cookbook-rename"))
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookUpdate &&
-                plan.updatedCookbook?.title == "Scenario Dinner Parties" ? .pass : .fail
+                plan.updatedCookbook?.title == "Scenario Dinner Parties")
 
             return ScenarioCheck(
                 name: "cookbook rename",
@@ -1029,10 +1185,10 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-cookbook-delete-confirmed",
                 confirmation: .confirmed
             ))
-            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+            let status = scenarioStatus(prompt.confirmationPrompt?.isDestructive == true &&
                 prompt.remoteRequestBuilder == nil &&
                 confirmed.offlineFallbackMutation?.queueableKind == .cookbookDelete &&
-                confirmed.successRoute == .cookbooks ? .pass : .fail
+                confirmed.successRoute == .cookbooks)
 
             return ScenarioCheck(
                 name: "cookbook delete",
@@ -1059,9 +1215,9 @@ public enum ScenarioVerifier {
                 recipeID: recipe.id,
                 clientMutationID: "scenario-cookbook-add-recipe"
             ))
-            let status: ScenarioCheckStatus = plan.remoteRequestBuilder != nil &&
+            let status = scenarioStatus(plan.remoteRequestBuilder != nil &&
                 plan.offlineFallbackMutation?.queueableKind == .cookbookAddRecipe &&
-                plan.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == true ? .pass : .fail
+                plan.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == true)
 
             return ScenarioCheck(
                 name: "cookbook add recipe",
@@ -1095,10 +1251,10 @@ public enum ScenarioVerifier {
                 clientMutationID: "scenario-cookbook-remove-recipe-confirmed",
                 confirmation: .confirmed
             ))
-            let status: ScenarioCheckStatus = prompt.confirmationPrompt?.isDestructive == true &&
+            let status = scenarioStatus(prompt.confirmationPrompt?.isDestructive == true &&
                 confirmed.remoteRequestBuilder != nil &&
                 confirmed.offlineFallbackMutation?.queueableKind == .cookbookRemoveRecipe &&
-                confirmed.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == false ? .pass : .fail
+                confirmed.updatedCookbook?.recipes.map(\.id).contains(recipe.id) == false)
 
             return ScenarioCheck(
                 name: "cookbook remove recipe",
@@ -1161,10 +1317,10 @@ public enum ScenarioVerifier {
             connectivity: .online,
             now: { Date(timeIntervalSince1970: 1_780_120_000) }
         )
-        let status: ScenarioCheckStatus = viewModel.openRoute == .profile(identifier: profile.profile.username) &&
+        let status = scenarioStatus(viewModel.openRoute == .profile(identifier: profile.profile.username) &&
             viewModel.ownerActions.editProfileRoute == .settings &&
             viewModel.sectionIDs == [.recipes, .cookbooks, .recentSpoons, .fellowChefs, .kitchenVisitors] &&
-            viewModel.unsupportedSocialSurfaces.isEmpty ? .pass : .fail
+            viewModel.unsupportedSocialSurfaces.isEmpty)
 
         return ScenarioCheck(
             name: "profile detail",
@@ -1201,8 +1357,8 @@ public enum ScenarioVerifier {
             source: .live(requestID: "scenario-profile-graph", validatedAt: Date(timeIntervalSince1970: 1_780_120_000))
         )
         let viewModel = ProfileGraphViewModel(page: page)
-        let status: ScenarioCheckStatus = viewModel.rows.first?.openRoute == .profile(identifier: "jules") &&
-            viewModel.rows.first?.interactionSummary == "1 spoon, 1 fork, 1 cookbook save" ? .pass : .fail
+        let status = scenarioStatus(viewModel.rows.first?.openRoute == .profile(identifier: "jules") &&
+            viewModel.rows.first?.interactionSummary == "1 spoon, 1 fork, 1 cookbook save")
 
         return ScenarioCheck(
             name: direction == .fellowChefs ? "fellow chefs" : "kitchen visitors",
@@ -1291,10 +1447,10 @@ public enum ScenarioVerifier {
         let page = contentState.searchSurfacePage(for: state)
         let viewModel = contentState.performSearch(state)
         let shoppingAuth = SearchSurfaceRepositoryError.authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read")
-        let status: ScenarioCheckStatus = page.results.map(\.id) == ["recipe_lemon_pasta"] &&
+        let status = scenarioStatus(page.results.map(\.id) == ["recipe_lemon_pasta"] &&
             viewModel.sections.flatMap(\.rows).first?.openRoute == .recipeDetail(id: "recipe_lemon_pasta", presentation: .detail) &&
             viewModel.offlineIndicator.display == .stale(domain: .searchResults(query: "lemon pasta", scope: .all)) &&
-            shoppingAuth == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read") ? .pass : .fail
+            shoppingAuth == .authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read"))
 
         return ScenarioCheck(
             name: "search",
@@ -1342,15 +1498,13 @@ public enum ScenarioVerifier {
                     clientMutationID: "scenario-import",
                     createdAt: "2026-06-16T12:08:00.000Z"
                 )
-            let status: ScenarioCheckStatus =
+            let status = scenarioStatus(
                 viewModel.status == .localOnly &&
                 viewModel.previewLines == ["https://example.com/recipe"] &&
                 viewModel.canCreateServerRecipe &&
                 request.url.path == "/api/v1/recipes/import" &&
                 offlinePlan.offlineRetryMutation?.queueableKind == .recipeImportSubmit &&
-                providerSecretPlan.blocker == .providerSecret(retryAfterSeconds: 30)
-                ? .pass
-                : .fail
+                providerSecretPlan.blocker == .providerSecret(retryAfterSeconds: 30))
 
             return ScenarioCheck(
                 name: "capture import submission",
@@ -1374,9 +1528,9 @@ public enum ScenarioVerifier {
             preferredCookModeTextSize: .large
         )
         let viewModel = SettingsViewModel(settings: scenarioSettings)
-        let status: ScenarioCheckStatus = viewModel.canReadShoppingList &&
+        let status = scenarioStatus(viewModel.canReadShoppingList &&
             viewModel.canWriteShoppingList &&
-            viewModel.rows.map(\.id) == ["auth", "environment", "offline", "cook-mode-text"] ? .pass : .fail
+            viewModel.rows.map(\.id) == ["auth", "environment", "offline", "cook-mode-text"])
 
         return ScenarioCheck(
             name: "settings state",
@@ -1440,9 +1594,9 @@ public enum ScenarioVerifier {
             secureHandoffRoutes: .spoonjoyApp,
             now: { Date(timeIntervalSince1970: 1_780_120_000) }
         )
-        let status: ScenarioCheckStatus = viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
+        let status = scenarioStatus(viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
             viewModel.apiTokenRows.first?.tokenPrefix == "sj_live_cli" &&
-            viewModel.oauthConnectionRows.first?.clientID == "client_cli" ? .pass : .fail
+            viewModel.oauthConnectionRows.first?.clientID == "client_cli")
 
         return ScenarioCheck(
             name: "settings token connection surface",
@@ -1462,9 +1616,9 @@ public enum ScenarioVerifier {
             })
             let plan = try planBuilder(planner)
             let request = try plan.remoteRequestBuilder?.urlRequest(configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!, bearerToken: "token"))
-            let status: ScenarioCheckStatus = request?.method == .patch &&
+            let status = scenarioStatus(request?.method == .patch &&
                 request?.url.path == "/api/v1/me" &&
-                plan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate ? .pass : .fail
+                plan.offlineFallbackMutation?.queueableKind == .profileDisplayUpdate)
             return ScenarioCheck(
                 name: "settings profile update",
                 status: status,
@@ -1483,9 +1637,9 @@ public enum ScenarioVerifier {
         do {
             let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
             let plan = try planBuilder(planner)
-            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .apiTokenCreate &&
+            let status = scenarioStatus(plan.onlineOnlyReason == .apiTokenCreate &&
                 plan.queuedMutation == nil &&
-                plan.offlineFallbackMutation == nil ? .pass : .fail
+                plan.offlineFallbackMutation == nil)
             return ScenarioCheck(
                 name: "settings token create online-only",
                 status: status,
@@ -1504,9 +1658,9 @@ public enum ScenarioVerifier {
         do {
             let planner = SettingsActionPlanner(connectivity: .offline, secureHandoffRoutes: .spoonjoyApp)
             let plan = try planBuilder(planner)
-            let status: ScenarioCheckStatus = plan.onlineOnlyReason == .oauthConnectionDisconnect &&
+            let status = scenarioStatus(plan.onlineOnlyReason == .oauthConnectionDisconnect &&
                 plan.queuedMutation == nil &&
-                plan.offlineFallbackMutation == nil ? .pass : .fail
+                plan.offlineFallbackMutation == nil)
             return ScenarioCheck(
                 name: "settings connection disconnect online-only",
                 status: status,
@@ -1527,8 +1681,8 @@ public enum ScenarioVerifier {
             let plans = try planBuilder(planner)
             let provider = plans.provider
             let passkeys = plans.passkeys
-            let status: ScenarioCheckStatus = provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
-                passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys" ? .pass : .fail
+            let status = scenarioStatus(provider?.url.absoluteString == "https://spoonjoy.app/auth/google?linking=true" &&
+                passkeys?.url.absoluteString == "https://spoonjoy.app/account/settings#passkeys")
             return ScenarioCheck(
                 name: "settings secure handoff",
                 status: status,
@@ -1537,6 +1691,77 @@ public enum ScenarioVerifier {
         } catch {
             return ScenarioCheck(name: "settings secure handoff", status: .fail, detail: "Settings secure handoff failed: \(error)")
         }
+    }
+
+    static func profileSettingsSiriIntentsCheck(metadata: NativeCapabilityMetadata = .spoonjoy) -> ScenarioCheck {
+        let requiredIntents = [
+            "OpenSettingsIntent",
+            "UpdateProfileDisplayIntent",
+            "UpdateProfilePhotoIntent",
+            "RemoveProfilePhotoIntent",
+            "OpenAPITokensIntent",
+            "CreateAPITokenIntent",
+            "RevokeAPITokenIntent",
+            "OpenAccountConnectionsIntent",
+            "DisconnectAccountConnectionIntent",
+            "OpenPasskeysIntent",
+            "OpenPasswordIntent",
+            "LinkProviderIntent",
+            "LogoutIntent",
+            "RevokeCurrentSessionIntent"
+        ]
+        let missing = requiredIntents.filter { !metadata.appIntents.contains($0) }
+        return ScenarioCheck(
+            name: "Profile and settings Siri intents",
+            status: scenarioStatus(missing.isEmpty),
+            detail: "Profile and settings Siri intents cover UpdateProfileDisplayIntent, UpdateProfilePhotoIntent, CreateAPITokenIntent, RevokeAPITokenIntent, DisconnectAccountConnectionIntent, OpenPasskeysIntent, OpenPasswordIntent, LinkProviderIntent, LogoutIntent, and RevokeCurrentSessionIntent."
+        )
+    }
+
+    static func notificationSiriIntentsCheck(metadata: NativeCapabilityMetadata = .spoonjoy) -> ScenarioCheck {
+        let requiredIntents = [
+            "ReadNotificationPreferencesIntent",
+            "UpdateNotificationPreferencesIntent",
+            "OpenNotificationAPNsStatusIntent"
+        ]
+        let missing = requiredIntents.filter { !metadata.appIntents.contains($0) }
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+        let data = NotificationAPNsSurfaceData(
+            preferences: preferences,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            deliveryCapability: .developmentOnly(blocker: AppleDeveloperProgramBlocker.localValidation),
+            source: .cache(serverRevision: .localRevision("scenario-notification-intents"), lastValidatedAt: Date(timeIntervalSince1970: 1_782_899_000))
+        )
+        let resolver = NativeIntentActionResolver()
+        let readSummary = try? resolver.readNotificationPreferences(
+            data: data,
+            hasCachedPreferences: true,
+            connectivity: .offline
+        )
+        let updateAction = try? resolver.updateNotificationPreferences(
+            preferences: preferences,
+            connectivity: .offline,
+            createdAt: settingsScenarioTimestamp()
+        )
+        let statusAction = resolver.openNotificationAPNsStatus(data: data)
+        let status = scenarioStatus(missing.isEmpty &&
+            readSummary?.preferences == preferences &&
+            updateAction?.plan.queuedMutation?.queueableKind == .notificationPreferenceUpdate &&
+            updateAction?.route == .settings &&
+            statusAction.blockerState == APNsDeliveryBlockerState.developmentOnly(AppleDeveloperProgramBlocker.localValidation) &&
+            statusAction.blockerArtifactFileName == AppleDeveloperProgramBlocker.artifactFileName)
+
+        return ScenarioCheck(
+            name: "Notification Siri intents",
+            status: status,
+            detail: "ReadNotificationPreferencesIntent, UpdateNotificationPreferencesIntent, and OpenNotificationAPNsStatusIntent expose notification preferences and AppleDeveloperProgram APNs blocker status without adding permission, token registration, production push delivery, discussion, social, mail, or messaging Siri surfaces."
+        )
     }
 
     static func notificationAPNsSurfaceCheck(rootURL: URL) -> ScenarioCheck {
@@ -1595,13 +1820,13 @@ public enum ScenarioVerifier {
             clientMutationID: "cm_scenario_apns_production"
         ))
         let tokenAcquisition = try? offlinePlanner.planDeviceTokenAcquisition()
-        let status: ScenarioCheckStatus = viewModel.notificationDraft == preferences &&
+        let status = scenarioStatus(viewModel.notificationDraft == preferences &&
             viewModel.apnsRegistration?.registrationState == .registered &&
             viewModel.permissionDeniedBanner != nil &&
             viewModel.productionBlocker?.capability == AppleDeveloperProgramBlocker.capabilityName &&
             developmentRegister?.offlineFallbackMutation?.queueableKind == .apnsDeviceRegister &&
             productionRegister?.deliveryBlocker == localValidationBlocker &&
-            tokenAcquisition?.onlineOnlyReason == .deviceTokenAcquisition ? .pass : .fail
+            tokenAcquisition?.onlineOnlyReason == .deviceTokenAcquisition)
 
         return ScenarioCheck(
             name: "notification APNs surface",
@@ -1614,12 +1839,16 @@ public enum ScenarioVerifier {
         "2026-06-16T12:09:00.000Z"
     }
 
+    private static func scenarioStatus(_ isPassing: Bool) -> ScenarioCheckStatus {
+        isPassing ? .pass : .fail
+    }
+
     static func offlineStatusCheck(
         available: OfflineState = .available(snapshotCount: 2, lastRestoredAt: "2026-06-16T12:10:00.000Z"),
         unavailable: OfflineState = .unavailable
     ) -> ScenarioCheck {
-        let status: ScenarioCheckStatus = available.statusLabel == "Offline cache ready: 2 snapshots" &&
-            unavailable.statusLabel == "Offline cache unavailable" ? .pass : .fail
+        let status = scenarioStatus(available.statusLabel == "Offline cache ready: 2 snapshots" &&
+            unavailable.statusLabel == "Offline cache unavailable")
 
         return ScenarioCheck(
             name: "offline status",
@@ -1648,7 +1877,7 @@ public enum ScenarioVerifier {
                 ]
             ))
         ]
-        let status: ScenarioCheckStatus = checkedRoutes.allSatisfy { $0 == .unknownLink } ? .pass : .fail
+        let status = scenarioStatus(checkedRoutes.allSatisfy { $0 == .unknownLink })
 
         return ScenarioCheck(
             name: "safe unknown link",
@@ -1702,13 +1931,13 @@ public enum ScenarioVerifier {
     }
 
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
-        [
+        scenarioStatus([
             metadata.appIntents,
             metadata.spotlightIndexedTypes,
             metadata.searchableScopes,
             metadata.shareActions,
             metadata.offlineFlows
-        ].allSatisfy { !$0.isEmpty } ? .pass : .fail
+        ].allSatisfy { !$0.isEmpty })
     }
 
     private static func deepLinkCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
@@ -1725,7 +1954,7 @@ public enum ScenarioVerifier {
             metadata.deepLinkRoutes.contains("spoonjoy://recipes/new/edit") &&
             metadata.deepLinkRoutes.contains("spoonjoy://shopping-list")
 
-        return hasAssociatedDomain && hasScheme && hasWebRoutes && hasSchemeRoutes ? .pass : .fail
+        return scenarioStatus(hasAssociatedDomain && hasScheme && hasWebRoutes && hasSchemeRoutes)
     }
 
     private static func sourceCheck(

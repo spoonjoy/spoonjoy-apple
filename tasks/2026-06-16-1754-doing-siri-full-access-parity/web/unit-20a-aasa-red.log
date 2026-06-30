@@ -1,0 +1,34 @@
+
+ RUN  v4.0.18 /private/tmp/spoonjoy-aasa-red.OXT4xY
+
+ ❯ test/routes/aasa-contract.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/routes/aasa-contract.test.ts [ test/routes/aasa-contract.test.ts ]
+Error: Failed to resolve import "~/lib/web-route-manifest.server" from "test/routes/aasa-contract.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /private/tmp/spoonjoy-aasa-red.OXT4xY/test/routes/aasa-contract.test.ts:10:7
+  7  |    appleTeamID,
+  8  |    buildAppleAppSiteAssociation
+  9  |  } from "~/lib/web-route-manifest.server";
+     |          ^
+  10 |  import { loader } from "~/routes/well-known.apple-app-site-association";
+  11 |  const ALLOWED_CATEGORIES = /* @__PURE__ */ new Set([
+ ❯ TransformPluginContext._formatLog ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:28999:43
+ ❯ TransformPluginContext.error ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:28996:14
+ ❯ normalizeUrl ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:27119:18
+ ❯ ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:27177:32
+ ❯ TransformPluginContext.transform ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:27145:4
+ ❯ EnvironmentPluginContainer.transform ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:28797:14
+ ❯ loadAndTransform ../../../Users/arimendelow/Projects/spoonjoy-v2/node_modules/.pnpm/vite@7.3.1_@types+node@22.19.21_jiti@2.6.1_lightningcss@1.30.2_tsx@4.21.0/node_modules/vite/dist/node/chunks/config.js:22670:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  18:14:16
+   Duration  328ms (transform 31ms, setup 77ms, import 0ms, tests 0ms, environment 135ms)
+
+expected red status: 1

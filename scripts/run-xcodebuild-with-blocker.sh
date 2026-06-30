@@ -55,19 +55,21 @@ classify_blocker() {
 
 write_blocker() {
   local command_string="$1"
+  local reason="${2:-Local Xcode platform or pre-parse state blocked app bundle validation.}"
+  local owner_action="${3:-Install the required Xcode platform/runtime and rerun app bundle validation.}"
   ruby -rjson -e '
-    path, command, timeout_seconds, output_path = ARGV
+    path, command, timeout_seconds, output_path, reason, owner_action = ARGV
     blocker = {
       capability: "XcodePlatform",
       blocked: true,
       command: command,
       timeoutSeconds: Integer(timeout_seconds),
       outputPath: output_path,
-      reason: "Local Xcode platform or pre-parse state blocked app bundle validation.",
-      ownerAction: "Install the required Xcode platform/runtime and rerun app bundle validation."
+      reason: reason,
+      ownerAction: owner_action
     }
     File.write(path, JSON.pretty_generate(blocker) + "\n")
-  ' "$blocker_path" "$command_string" "$timeout_seconds" "$output_path"
+  ' "$blocker_path" "$command_string" "$timeout_seconds" "$output_path" "$reason" "$owner_action"
 }
 
 run_with_timeout() {
@@ -94,26 +96,31 @@ PY
 }
 
 preflight_status=0
+preflight_command=""
 : > "$output_path"
 set +e
+preflight_command="xcodebuild -version"
 run_with_timeout xcodebuild -version
 preflight_status=$?
 if [[ "$preflight_status" -eq 0 ]]; then
+  preflight_command="xcode-select -p"
   run_with_timeout xcode-select -p
   preflight_status=$?
 fi
 if [[ "$preflight_status" -eq 0 ]]; then
+  preflight_command="xcodebuild -checkFirstLaunchStatus"
   run_with_timeout xcodebuild -checkFirstLaunchStatus
   preflight_status=$?
 fi
 set -e
 
 if [[ "$preflight_status" -ne 0 ]]; then
-  if classify_blocker; then
-    write_blocker "xcodebuild preflight"
-    exit 0
-  fi
-  exit "$preflight_status"
+  printf '\nXcode preflight command failed: %s (exit %s)\n' "$preflight_command" "$preflight_status" >> "$output_path"
+  write_blocker \
+    "$preflight_command (exit $preflight_status)" \
+    "Local Xcode preflight command failed before app bundle validation." \
+    "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation."
+  exit 0
 fi
 
 command=("$@")

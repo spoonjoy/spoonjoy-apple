@@ -1,0 +1,18 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/developers-playground.test.tsx (38 tests) 4798ms
+     ✓ sends generated multipart operations with selected files and safety reconfirmation  313ms
+     ✓ copies generated playground values and reports clipboard failures  1774ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  435ms
+     ✓ handles OAuth callback validation failures and redirect submissions  335ms
+ ✓ test/routes/api-v1-account-settings.test.ts (9 tests) 989ms
+ ✓ test/docs/native-dogfood-docs.test.tsx (6 tests) 114ms
+ ✓ test/docs/developer-platform-guide.test.ts (2 tests) 118ms
+ ✓ test/lib/api-v1-openapi.server.test.ts (10 tests) 98ms
+ ✓ test/docs/developer-platform-docs.test.ts (6 tests) 26ms
+
+ Test Files  6 passed (6)
+      Tests  71 passed (71)
+   Start at  20:17:57
+   Duration  10.12s (transform 674ms, setup 337ms, import 2.08s, tests 6.14s, environment 887ms)

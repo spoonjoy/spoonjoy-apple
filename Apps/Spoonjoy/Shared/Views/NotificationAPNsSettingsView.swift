@@ -11,6 +11,7 @@ struct NotificationAPNsSettingsView: View {
     var requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState
     var requestDeviceRegistrationAction: @MainActor @Sendable (String) async throws -> NotificationAPNsAction
     var openNotificationSettings: @MainActor @Sendable () -> Void
+    var onDismissOfflineIndicator: @MainActor @Sendable () -> Void = {}
 
     @State private var notifySpoonOnMyRecipe = false
     @State private var notifyForkOfMyRecipe = false
@@ -149,7 +150,7 @@ struct NotificationAPNsSettingsView: View {
                 Text(notificationActionError)
                     .foregroundStyle(KitchenTableTheme.tomato)
             }
-            OfflineStatusView(display: viewModel.offlineIndicator.display)
+            OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
         }
     }
 

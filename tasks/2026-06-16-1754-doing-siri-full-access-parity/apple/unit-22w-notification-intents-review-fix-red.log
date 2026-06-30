@@ -1,0 +1,126 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NotificationIntentTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:439:53: error: extra arguments at positions #2, #3 in call
+437 | 
+438 |         #expect(throws: NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable offline until Spoonjoy has cached them.")) {
+439 |             try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .offline)
+    |                                                     `- error: extra arguments at positions #2, #3 in call
+440 |         }
+441 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift:433:17: note: 'readNotificationPreferences(data:)' declared here
+ 431 |     }
+ 432 | 
+ 433 |     public func readNotificationPreferences(data: NotificationAPNsSurfaceData) -> NativeIntentNotificationPreferencesSummary {
+     |                 `- note: 'readNotificationPreferences(data:)' declared here
+ 434 |         let preferences: SettingsNotificationPreferences = data.preferences
+ 435 |         _ = preferences.notifySpoonOnMyRecipe
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:439:110: error: cannot infer contextual base in reference to member 'offline'
+437 | 
+438 |         #expect(throws: NativeIntentActionError.settingsActionUnavailable("Notification preferences are unavailable offline until Spoonjoy has cached them.")) {
+439 |             try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .offline)
+    |                                                                                                              `- error: cannot infer contextual base in reference to member 'offline'
+440 |         }
+441 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:442:63: error: extra arguments at positions #2, #3 in call
+440 |         }
+441 | 
+442 |         let summary = try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .online)
+    |                                                               `- error: extra arguments at positions #2, #3 in call
+443 |         #expect(summary.preferences == .disabled)
+444 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift:433:17: note: 'readNotificationPreferences(data:)' declared here
+ 431 |     }
+ 432 | 
+ 433 |     public func readNotificationPreferences(data: NotificationAPNsSurfaceData) -> NativeIntentNotificationPreferencesSummary {
+     |                 `- note: 'readNotificationPreferences(data:)' declared here
+ 434 |         let preferences: SettingsNotificationPreferences = data.preferences
+ 435 |         _ = preferences.notifySpoonOnMyRecipe
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:442:120: error: cannot infer contextual base in reference to member 'online'
+440 |         }
+441 | 
+442 |         let summary = try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .online)
+    |                                                                                                                        `- error: cannot infer contextual base in reference to member 'online'
+443 |         #expect(summary.preferences == .disabled)
+444 |     }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:443:41: error: cannot infer contextual base in reference to member 'disabled'
+441 | 
+442 |         let summary = try resolver.readNotificationPreferences(data: data, hasCachedPreferences: false, connectivity: .online)
+443 |         #expect(summary.preferences == .disabled)
+    |                                         `- error: cannot infer contextual base in reference to member 'disabled'
+444 |     }
+445 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:456:64: error: extra arguments at positions #1, #2, #3, #4, #5 in call
+454 |         )
+455 | 
+456 |         let action = try resolver.updateNotificationPreferences(
+    |                                                                `- error: extra arguments at positions #1, #2, #3, #4, #5 in call
+457 |             currentPreferences: current,
+458 |             spoons: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift:442:17: note: 'updateNotificationPreferences(preferences:connectivity:deliveryCapability:createdAt:)' declared here
+ 440 |     }
+ 441 | 
+ 442 |     public func updateNotificationPreferences(
+     |                 `- note: 'updateNotificationPreferences(preferences:connectivity:deliveryCapability:createdAt:)' declared here
+ 443 |         preferences: SettingsNotificationPreferences,
+ 444 |         connectivity: NotificationAPNsSurfaceConnectivity,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:457:13: error: missing argument for parameter 'preferences' in call
+455 | 
+456 |         let action = try resolver.updateNotificationPreferences(
+457 |             currentPreferences: current,
+    |             `- error: missing argument for parameter 'preferences' in call
+458 |             spoons: nil,
+459 |             forks: true,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Sources/SpoonjoyCore/Native/NativeIntentAction.swift:442:17: note: 'updateNotificationPreferences(preferences:connectivity:deliveryCapability:createdAt:)' declared here
+ 440 |     }
+ 441 | 
+ 442 |     public func updateNotificationPreferences(
+     |                 `- note: 'updateNotificationPreferences(preferences:connectivity:deliveryCapability:createdAt:)' declared here
+ 443 |         preferences: SettingsNotificationPreferences,
+ 444 |         connectivity: NotificationAPNsSurfaceConnectivity,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:458:21: error: 'nil' requires a contextual type
+456 |         let action = try resolver.updateNotificationPreferences(
+457 |             currentPreferences: current,
+458 |             spoons: nil,
+    |                     `- error: 'nil' requires a contextual type
+459 |             forks: true,
+460 |             cookbookSaves: nil,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:460:28: error: 'nil' requires a contextual type
+458 |             spoons: nil,
+459 |             forks: true,
+460 |             cookbookSaves: nil,
+    |                            `- error: 'nil' requires a contextual type
+461 |             fellowChefCooks: nil,
+462 |             connectivity: .offline,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:461:30: error: 'nil' requires a contextual type
+459 |             forks: true,
+460 |             cookbookSaves: nil,
+461 |             fellowChefCooks: nil,
+    |                              `- error: 'nil' requires a contextual type
+462 |             connectivity: .offline,
+463 |             createdAt: "2026-06-29T14:02:00.000Z"
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/NotificationIntentTests.swift:465:24: error: no calls to throwing functions occur within 'try' expression
+463 |             createdAt: "2026-06-29T14:02:00.000Z"
+464 |         )
+465 |         let mutation = try #require(action.plan.queuedMutation)
+    |                        `- error: no calls to throwing functions occur within 'try' expression
+466 |         #expect(mutation.notificationPreferenceUpdateValues == SettingsNotificationPreferences(
+467 |             notifySpoonOnMyRecipe: true,
+error: fatalError
+expected red status: 1

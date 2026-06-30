@@ -1,0 +1,16 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (3.72s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Spotlight, App Shortcuts, and transfer integration contracts" started.
+◇ Test "source contracts wire semantic Spotlight, App Shortcuts, donations, on-screen annotations, and transfers" started.
+✔ Test "source contracts wire semantic Spotlight, App Shortcuts, donations, on-screen annotations, and transfers" passed after 0.228 seconds.
+✔ Suite "Spotlight, App Shortcuts, and transfer integration contracts" passed after 0.228 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.228 seconds.

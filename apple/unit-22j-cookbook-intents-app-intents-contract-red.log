@@ -1,0 +1,57 @@
+FAIL: Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct CreateCookbookIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct RenameCookbookIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct DeleteCookbookIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct AddRecipeToCookbookIntent: AppIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: CreateCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: RenameCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: DeleteCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: AddRecipeToCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: CreateCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: RenameCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: DeleteCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: AddRecipeToCookbookIntent())
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RenameCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for RenameCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DeleteCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DeleteCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for AddRecipeToCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for AddRecipeToCookbookIntent
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift RemoveRecipeFromCookbookIntent missing let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift RemoveRecipeFromCookbookIntent missing currentChefID: currentChefID
+Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift missing NativeIntentActionError.unresolvedCookbookEntity
+Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift missing chefID: cookbook.chef.id
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing case emptyCookbookTitle
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing case cookbookOwnershipRequired(cookbookID: String)
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func createCookbook(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func renameCookbook(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func deleteCookbook(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func addRecipeToCookbook(
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .cookbookCreate
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .cookbookUpdate
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .cookbookDelete
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for renameCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for renameCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for deleteCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for deleteCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for addRecipeToCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for addRecipeToCookbook resolver
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift removeRecipeFromCookbook resolver missing let chefID = try canonicalObjectID(currentChefID, invalidError: .cookbookOwnershipRequired(cookbookID: cookbookID))
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift removeRecipeFromCookbook resolver missing guard cookbook.chefID == chefID else
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift removeRecipeFromCookbook resolver missing route: .cookbookDetail(id: cookbookID)
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for normalizedCookbookTitle helper
+Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for normalizedCookbookTitle helper
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing CreateCookbookIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing RenameCookbookIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing DeleteCookbookIntent
+Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing AddRecipeToCookbookIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Cookbook Siri intents
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing CreateCookbookIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing RenameCookbookIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing DeleteCookbookIntent
+Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing AddRecipeToCookbookIntent
+
+expected red status: 1

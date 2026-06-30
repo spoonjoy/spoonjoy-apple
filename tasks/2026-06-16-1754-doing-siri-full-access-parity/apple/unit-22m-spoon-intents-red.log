@@ -1,0 +1,198 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/88] Compiling SpoonjoyCore OAuthPKCE.swift
+[4/88] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[5/88] Compiling SpoonjoyCore OAuthRequests.swift
+[6/88] Compiling SpoonjoyCore OAuthResponses.swift
+[7/88] Compiling SpoonjoyCore RefreshCoordinator.swift
+[8/88] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[9/88] Compiling SpoonjoyCore TokenVault.swift
+[10/88] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[11/88] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[12/96] Compiling SpoonjoyCore APIClient.swift
+[13/96] Compiling SpoonjoyCore APIEnvelope.swift
+[14/96] Compiling SpoonjoyCore APIError.swift
+[15/96] Compiling SpoonjoyCore APIRequestBuilder.swift
+[16/96] Compiling SpoonjoyCore APIRequestSupport.swift
+[17/96] Compiling SpoonjoyCore APIRetryPolicy.swift
+[18/96] Compiling SpoonjoyCore APITransport.swift
+[19/96] Compiling SpoonjoyCore JSONValue.swift
+[20/96] Compiling SpoonjoyCore NativeAPIRequests.swift
+[21/96] Emitting module SpoonjoyCore
+[22/96] Compiling SpoonjoyCore CaptureDraft.swift
+[23/96] Compiling SpoonjoyCore CookModeProgress.swift
+[24/96] Compiling SpoonjoyCore KitchenFixtureState.swift
+[25/96] Compiling SpoonjoyCore SettingsState.swift
+[26/96] Compiling SpoonjoyCore ShoppingListState.swift
+[27/96] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[28/96] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[29/96] Compiling SpoonjoyCore DeepLinkManifest.swift
+[30/96] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[31/96] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[32/96] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[33/96] Compiling SpoonjoyCore ScreenViewModels.swift
+[34/96] Compiling SpoonjoyCore SearchState.swift
+[35/96] Compiling SpoonjoyCore AuthSessionState.swift
+[36/96] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[37/96] Compiling SpoonjoyCore KeychainTokenVault.swift
+[38/96] Compiling SpoonjoyCore NativeAuthSession.swift
+[39/96] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[40/96] Compiling SpoonjoyCore PaginationCursor.swift
+[41/96] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[42/96] Compiling SpoonjoyCore ShoppingListAPI.swift
+[43/96] Compiling SpoonjoyCore ShoppingListRequests.swift
+[44/96] Compiling SpoonjoyCore AppNavigationState.swift
+[45/96] Compiling SpoonjoyCore AppRoute.swift
+[46/96] Compiling SpoonjoyCore DeepLinkRouter.swift
+[47/96] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[48/96] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[49/96] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[50/96] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[51/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[52/96] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[53/96] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[54/96] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[55/96] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[56/96] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[57/96] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[58/96] Compiling SpoonjoyCore NativeDurableCache.swift
+[59/96] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[60/96] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[61/96] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[62/96] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[63/96] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[64/96] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[65/96] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[66/96] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[67/96] Compiling SpoonjoyCore NativeIntentAction.swift
+[68/96] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[69/96] Compiling SpoonjoyCore ScenarioCommand.swift
+[70/96] Compiling SpoonjoyCore ScenarioReport.swift
+[71/96] Compiling SpoonjoyCore ScenarioVerifier.swift
+[72/96] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[73/96] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[74/96] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[75/96] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[76/96] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[77/96] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[78/96] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[79/96] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[80/96] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[81/96] Compiling SpoonjoyCore NativeSharePayload.swift
+[82/96] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[83/96] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[84/96] Compiling SpoonjoyCore JSONFileStore.swift
+[85/96] Compiling SpoonjoyCore MutationQueue.swift
+[86/96] Compiling SpoonjoyCore OfflineSnapshot.swift
+[87/96] Compiling SpoonjoyCore SyncCheckpoint.swift
+[88/96] Compiling SpoonjoyCore RecipeCookbook.swift
+[89/96] Compiling SpoonjoyCore SpoonjoyCore.swift
+[90/96] Compiling SpoonjoyCore NativeSyncEngine.swift
+[91/96] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[92/99] Compiling SpoonjoyScenarioVerifier main.swift
+[93/129] Emitting module SpoonjoyScenarioVerifier
+[94/129] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[94/136] Linking SpoonjoyScenarioVerifier
+[95/136] Applying SpoonjoyScenarioVerifier
+[97/136] Emitting module SpoonjoyCoreTests
+[98/140] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[99/140] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[100/140] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[101/140] Compiling SpoonjoyCoreTests RecipeActionIntentTests.swift
+[102/140] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[103/140] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[104/140] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[105/140] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[106/140] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[107/140] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[108/140] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[109/140] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[110/140] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[111/140] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[112/140] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[113/140] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[114/140] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[115/140] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[116/140] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[117/140] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[118/140] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[119/140] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[120/140] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[121/140] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[122/140] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[123/140] Compiling SpoonjoyCoreTests APITransportTests.swift
+[124/140] Compiling SpoonjoyCoreTests AppStateTests.swift
+[125/140] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[126/140] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[127/140] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[128/140] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[129/140] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[130/140] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[131/140] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[132/140] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[133/140] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[134/140] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[135/140] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[136/140] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[137/140] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[138/140] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[139/142] Emitting module SpoonjoyApplePackageTests
+[140/142] Compiling SpoonjoyApplePackageTests runner.swift
+[140/142] Write Objects.LinkFileList
+[141/142] Linking SpoonjoyApplePackageTests
+Build complete! (30.47s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Spoon cook-log Siri intent contracts" started.
+◇ Test "spoon Siri intents require entity-backed queueable actions" started.
+✘ Test "spoon Siri intents require entity-backed queueable actions" recorded an issue at SpoonIntentTests.swift:300:9: Expectation failed: (failures → ["Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LogCookIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct EditCookLogIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct DeleteCookLogIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct CreateCoverFromSpoonIntent: AppIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var spoon: SpoonjoySpoonEntity", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LogCookIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: EditCookLogIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: DeleteCookLogIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: CreateCoverFromSpoonIntent())", "Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing public let chefID: String", "Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing chefID: spoon.chefID", "Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing chefID: \"chef-placeholder\"", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func logCook(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func editCookLog(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func deleteCookLog(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func createCoverFromSpoon(", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing NativeIntentActionError.spoonOwnershipRequired", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonCreate", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonUpdate", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonDelete", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .coverFromSpoon", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LogCookIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing EditCookLogIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing DeleteCookLogIntent", "Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing CreateCoverFromSpoonIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Spoon cook-log Siri intents", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LogCookIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing EditCookLogIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing DeleteCookLogIntent", "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing CreateCoverFromSpoonIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: LogCookIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: EditCookLogIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: DeleteCookLogIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: CreateCoverFromSpoonIntent())", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogCookIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for EditCookLogIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DeleteCookLogIntent", "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateCoverFromSpoonIntent", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logCook resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for editCookLog resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for deleteCookLog resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createCoverFromSpoon resolver", "Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for spoonIDForMutation helper"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct LogCookIntent: AppIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct EditCookLogIntent: AppIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct DeleteCookLogIntent: AppIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing struct CreateCoverFromSpoonIntent: AppIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing var spoon: SpoonjoySpoonEntity
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: LogCookIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: EditCookLogIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: DeleteCookLogIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing String(describing: CreateCoverFromSpoonIntent())
+  Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing public let chefID: String
+  Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing chefID: spoon.chefID
+  Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift missing chefID: "chef-placeholder"
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func logCook(
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func editCookLog(
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func deleteCookLog(
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing public func createCoverFromSpoon(
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing NativeIntentActionError.spoonOwnershipRequired
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonCreate
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonUpdate
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .spoonDelete
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing .coverFromSpoon
+  Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing LogCookIntent
+  Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing EditCookLogIntent
+  Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing DeleteCookLogIntent
+  Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift missing CreateCoverFromSpoonIntent
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing Spoon cook-log Siri intents
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing LogCookIntent
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing EditCookLogIntent
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing DeleteCookLogIntent
+  Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing CreateCoverFromSpoonIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: LogCookIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: EditCookLogIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: DeleteCookLogIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift SpoonjoyIntentShortcutBudget missing String(describing: CreateCoverFromSpoonIntent())
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for LogCookIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for EditCookLogIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for DeleteCookLogIntent
+  Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift missing body for CreateCoverFromSpoonIntent
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for logCook resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for editCookLog resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for deleteCookLog resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for createCoverFromSpoon resolver
+  Sources/SpoonjoyCore/Native/NativeIntentAction.swift missing body for spoonIDForMutation helper
+✘ Test "spoon Siri intents require entity-backed queueable actions" failed after 0.093 seconds with 1 issue.
+✘ Suite "Spoon cook-log Siri intent contracts" failed after 0.093 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.093 seconds with 1 issue.
+expected red status: 1

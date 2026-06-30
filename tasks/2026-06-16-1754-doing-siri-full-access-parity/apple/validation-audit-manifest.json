@@ -1,0 +1,1905 @@
+{
+  "ok": true,
+  "schemaVersion": 1,
+  "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity",
+  "requiredRedArtifacts": [
+    {
+      "path": "apple/unit-11a-native-api-red.log",
+      "exists": true,
+      "bytes": 99693,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-12a-transport-red.log",
+      "exists": true,
+      "bytes": 15475,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-13a-auth-red.log",
+      "exists": true,
+      "bytes": 16808,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-14a-cache-red.log",
+      "exists": true,
+      "bytes": 17072,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-15a-sync-engine-red.log",
+      "exists": true,
+      "bytes": 279591,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-16a-live-store-red.log",
+      "exists": true,
+      "bytes": 25233,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-16d-screenshot-contract-red.log",
+      "exists": true,
+      "bytes": 1109,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-17d-cook-mode-red.log",
+      "exists": true,
+      "bytes": 9960,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-17g-recipe-editor-red.log",
+      "exists": true,
+      "bytes": 58855,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-17j-recipe-actions-red.log",
+      "exists": true,
+      "bytes": 29226,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-17m-shopping-surface-red.log",
+      "exists": true,
+      "bytes": 30165,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-18a-spoon-logs-red.log",
+      "exists": true,
+      "bytes": 74969,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-18g-capture-import-red.log",
+      "exists": true,
+      "bytes": 13638,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-18j-sharing-red.log",
+      "exists": true,
+      "bytes": 26285,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-19a-cookbooks-red.log",
+      "exists": true,
+      "bytes": 66002,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-19d-profiles-red.log",
+      "exists": true,
+      "bytes": 167193,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-19g-settings-tokens-red.log",
+      "exists": true,
+      "bytes": 99663,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-19j-notifications-red.log",
+      "exists": true,
+      "bytes": 33523,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-19m-search-surface-red.log",
+      "exists": true,
+      "bytes": 87397,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-21a-recipe-cookbook-entities-red.log",
+      "exists": true,
+      "bytes": 26951,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-21d-shopping-entities-red.log",
+      "exists": true,
+      "bytes": 35032,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-21j-spotlight-shortcuts-red.log",
+      "exists": true,
+      "bytes": 27849,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-21m-spoon-entities-red.log",
+      "exists": true,
+      "bytes": 25491,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-21p-capture-draft-entities-red.log",
+      "exists": true,
+      "bytes": 28382,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22a-open-search-share-cook-intents-red.log",
+      "exists": true,
+      "bytes": 14413,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22d-shopping-intents-red.log",
+      "exists": true,
+      "bytes": 11074,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22g-recipe-action-intents-red.log",
+      "exists": true,
+      "bytes": 15611,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22m-spoon-intents-red.log",
+      "exists": true,
+      "bytes": 17395,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22p-capture-import-intents-red.log",
+      "exists": true,
+      "bytes": 12512,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22s-profile-settings-intents-red.log",
+      "exists": true,
+      "bytes": 30381,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-22v-notification-intents-red.log",
+      "exists": true,
+      "bytes": 21664,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-23a-design-red.log",
+      "exists": true,
+      "bytes": 1908,
+      "nonEmpty": true
+    }
+  ],
+  "documentedHistoricalRedArtifacts": [
+    {
+      "path": "apple/unit-18d-cover-controls-red.log",
+      "exists": false,
+      "documentedIn": "tasks/2026-06-16-1754-doing-siri-full-access-parity.md",
+      "note": "The doing doc records the Unit 18d red/green contract, but this specific red log was not present in git history under either artifact root."
+    }
+  ],
+  "requiredGreenArtifacts": [
+    {
+      "name": "unit-11b native API implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-11b-native-api-green.log",
+          "exists": true,
+          "bytes": 3191,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-12b transport implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-12b-transport-green.log",
+          "exists": true,
+          "bytes": 2774,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-13b auth implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-13b-auth-green.log",
+          "exists": true,
+          "bytes": 8116,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-14b cache implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-14b-cache-green.log",
+          "exists": true,
+          "bytes": 7569,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-15b sync implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-15b-sync-engine-green.log",
+          "exists": true,
+          "bytes": 5446,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-16b live-store implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-16b-owner-scope-focused.log",
+          "exists": true,
+          "bytes": 23218,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-16e screenshot/smoke implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-16e-screenshot-contract-green.log",
+          "exists": true,
+          "bytes": 30,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17e cook mode implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-17e-cook-mode-green.log",
+          "exists": true,
+          "bytes": 2371,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17h recipe editor implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-17h-recipe-editor-green.log",
+          "exists": true,
+          "bytes": 1619,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17k recipe actions implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-17k-recipe-actions-green.log",
+          "exists": true,
+          "bytes": 1141,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17n shopping implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-17n-shopping-surface-green.log",
+          "exists": true,
+          "bytes": 1267,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-17n-shopping-review-fix-green.log",
+          "exists": true,
+          "bytes": 21260,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18a spoon implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-18a-spoon-logs-green.log",
+          "exists": true,
+          "bytes": 2332,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18e cover implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-18e-photo-rejection-preserves-draft-focused.log",
+          "exists": true,
+          "bytes": 8574,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-18d-review-fixes-live-store.log",
+          "exists": true,
+          "bytes": 8882,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18h capture/import implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-18h-capture-import-green.log",
+          "exists": true,
+          "bytes": 29956,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18k sharing implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-18k-sharing-focused.log",
+          "exists": true,
+          "bytes": 8187,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19b cookbooks implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-19b-cookbooks-green.log",
+          "exists": true,
+          "bytes": 1432,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19e profiles implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-19e-profiles-green.log",
+          "exists": true,
+          "bytes": 2445,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19h settings/tokens implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-19h-settings-focused-after-v2-api.log",
+          "exists": true,
+          "bytes": 1971,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19k notifications implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-19k-notifications-green.log",
+          "exists": true,
+          "bytes": 7301,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19n search implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-19n-search-surface-green.log",
+          "exists": true,
+          "bytes": 6872,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-20c AASA implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-20c-aasa-production-validation.log",
+          "exists": true,
+          "bytes": 93,
+          "nonEmpty": true
+        },
+        {
+          "path": "aasa-validation.json",
+          "exists": true,
+          "bytes": 2970,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21b recipe cookbook entities",
+      "alternatives": [
+        {
+          "path": "apple/unit-21b-recipe-cookbook-entities-green.log",
+          "exists": true,
+          "bytes": 2177,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21e shopping entities",
+      "alternatives": [
+        {
+          "path": "apple/unit-21e-shopping-entities-app-intents-contract.log",
+          "exists": true,
+          "bytes": 34,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21l spotlight shortcuts",
+      "alternatives": [
+        {
+          "path": "apple/unit-21l-spotlight-shortcuts-app-intents-contract.log",
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21n spoon entities",
+      "alternatives": [
+        {
+          "path": "apple/unit-21n-spoon-entities-green.log",
+          "exists": true,
+          "bytes": 1770,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21q capture draft entities",
+      "alternatives": [
+        {
+          "path": "apple/unit-21q-capture-draft-entities-green.log",
+          "exists": true,
+          "bytes": 1375,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22b open/search/share/cook intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22b-open-search-share-cook-intents-green.log",
+          "exists": true,
+          "bytes": 1665,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22e shopping intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22e-shopping-intents-green.log",
+          "exists": true,
+          "bytes": 658,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22h recipe action intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22h-recipe-action-intents-green.log",
+          "exists": true,
+          "bytes": 490,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22n spoon intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22n-spoon-intents-green.log",
+          "exists": true,
+          "bytes": 972,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22q capture/import intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22q-capture-import-intents-green.log",
+          "exists": true,
+          "bytes": 592,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22t profile/settings intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22t-profile-settings-intents-green.log",
+          "exists": true,
+          "bytes": 576,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22w notification intents",
+      "alternatives": [
+        {
+          "path": "apple/unit-22w-notification-intents-green.log",
+          "exists": true,
+          "bytes": 1298,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-23b design implementation",
+      "alternatives": [
+        {
+          "path": "apple/unit-23b-design-screenshots.log",
+          "exists": true,
+          "bytes": 124,
+          "nonEmpty": true
+        },
+        {
+          "path": "design-review.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        }
+      ],
+      "satisfied": true
+    }
+  ],
+  "requiredMatrixArtifacts": [
+    {
+      "name": "unit-11c native API matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-11c-native-api-coverage-enforce.log",
+          "exists": true,
+          "bytes": 33,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-11c-native-api-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-12c transport matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-12c-transport-coverage-enforce.log",
+          "exists": true,
+          "bytes": 33,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-12c-transport-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-13c auth matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-13c-auth-coverage-enforce.log",
+          "exists": true,
+          "bytes": 31,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-13c-auth-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-14c cache matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-14c-cache-coverage-enforce.log",
+          "exists": true,
+          "bytes": 31,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-14c-cache-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-15c sync matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-15c-sync-engine-coverage-enforce.log",
+          "exists": true,
+          "bytes": 33,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-15c-sync-engine-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-16c live-store matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-16c-live-store-coverage-enforce.log",
+          "exists": true,
+          "bytes": 33,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-16c-live-store-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-16f screenshot matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-16f-screenshot-contract-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17c recipe catalog matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-17c-recipe-catalog-detail-coverage-enforce.log",
+          "exists": true,
+          "bytes": 33,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-17c-recipe-catalog-detail-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17f cook mode matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-17f-cook-mode-coverage-enforce.log",
+          "exists": true,
+          "bytes": 33,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-17f-cook-mode-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17i recipe editor matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-17i-recipe-editor-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-17i-recipe-editor-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-17l recipe actions matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-17l-recipe-actions-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-17l-recipe-actions-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18c spoon matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-18c-spoon-logs-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-18c-spoon-logs-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18i capture/import matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-18i-capture-import-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-18i-capture-import-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-18l sharing matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-18l-sharing-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-18l-sharing-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19c cookbooks matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-19c-cookbooks-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-19c-cookbooks-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19f profiles matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-19f-profiles-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-19f-profiles-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19i settings matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-19i-settings-tokens-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-19i-settings-tokens-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19l notifications matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-19l-notifications-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-19l-notifications-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-19o search matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-19o-search-surface-coverage-enforce.log",
+          "exists": true,
+          "bytes": 35,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-19o-search-surface-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21c recipe cookbook entities matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-21c-recipe-cookbook-entities-app-intents-contract.log",
+          "exists": true,
+          "bytes": 41,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-21c-recipe-cookbook-entities-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21f shopping entities matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-21f-shopping-entities-app-intents-contract.log",
+          "exists": true,
+          "bytes": 34,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-21f-shopping-entities-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21l spotlight privacy matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-21l-spotlight-shortcuts-app-intents-contract.log",
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-21l-spotlight-shortcuts-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21o spoon entities matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-21o-spoon-entities-app-intents-contract.log",
+          "exists": true,
+          "bytes": 31,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-21o-spoon-entities-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-21r capture draft entities matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-21r-capture-draft-entities-app-intents-contract.log",
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-21r-capture-draft-entities-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22c open/search/share/cook intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22c-open-search-share-cook-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 48,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22c-open-search-share-cook-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22f shopping intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22f-shopping-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 42,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22f-shopping-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22i recipe action intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22i-recipe-action-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22i-recipe-action-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22o spoon intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22o-spoon-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22o-spoon-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22r capture/import intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22r-capture-import-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 48,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22r-capture-import-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22u profile/settings intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22u-profile-settings-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 50,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22u-profile-settings-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-22x notification intents matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-22x-notification-intents-app-intents-contract.log",
+          "exists": true,
+          "bytes": 46,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-22x-notification-intents-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "unit-23c design matrix",
+      "alternatives": [
+        {
+          "path": "apple/unit-23c-design-design-review.log",
+          "exists": true,
+          "bytes": 17,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-23c-design-warning-scan.log",
+          "exists": true,
+          "bytes": 16,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    }
+  ],
+  "requiredScenarioArtifacts": [
+    {
+      "path": "apple/matrix-final-scenario.log",
+      "exists": true,
+      "bytes": 5546,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-final-report.json",
+      "exists": true,
+      "bytes": 12617,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-21l-spotlight-shortcuts-scenario-final.log",
+      "exists": true,
+      "bytes": 175,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-23c-design-scenario-final.log",
+      "exists": true,
+      "bytes": 39,
+      "nonEmpty": true
+    }
+  ],
+  "requiredBlockerArtifacts": [
+    {
+      "capability": "XcodePlatform",
+      "blocked": true,
+      "command": "xcodebuild -checkFirstLaunchStatus (exit 69)",
+      "timeoutSeconds": 180,
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+      "reason": "Local Xcode preflight command failed before app bundle validation.",
+      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
+      "path": "apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "capability": "XcodePlatform",
+      "blocked": true,
+      "command": "screenshots skipped after app-bundle XcodePlatform blocker",
+      "timeoutSeconds": 180,
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
+      "reason": "Local Xcode preflight command failed before app bundle validation.",
+      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
+      "path": "apple/matrix-screenshots-xcode-platform-blocker.json"
+    },
+    {
+      "blocked": true,
+      "capability": "AppleDeveloperProgram",
+      "command": "xcrun notarytool history --team-id <SPOONJOY_TEAM_ID> && xcodebuild -showBuildSettings -project Spoonjoy.xcodeproj -scheme Spoonjoy | rg 'DEVELOPMENT_TEAM|CODE_SIGN_ENTITLEMENTS|aps-environment'",
+      "outputPath": "apple/apple-developer-program-blocker-apns.json",
+      "reason": "Production APNs delivery and TestFlight validation require a paid Apple Developer Program team, push notification entitlement, signing profile, and production device-token validation. The current native app can model notification preferences, restore cached APNs registration state, and queue safe register/revoke requests, but it must not claim production APNs delivery without that account capability.",
+      "ownerAction": "Enroll or attach Spoonjoy to a paid Apple Developer Program account, configure the app identifier with Push Notifications, set DEVELOPMENT_TEAM and aps-environment entitlements, then rerun the APNs/TestFlight validation matrix.",
+      "path": "apple/apple-developer-program-blocker-apns.json"
+    },
+    {
+      "blocked": true,
+      "capability": "ProviderSecret",
+      "command": "Set OPENAI_API_KEY and rerun the recipe import mutation.",
+      "domain": "recipe-import",
+      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-import.json",
+      "ownerAction": "Provide OPENAI_API_KEY for local recipe import extraction and ingredient parsing.",
+      "reason": "Recipe import requires a provider secret for extraction or ingredient parsing.",
+      "path": "web/provider-secret-blocker-recipe-import.json"
+    },
+    {
+      "blocked": true,
+      "capability": "ProviderSecret",
+      "command": "Set OPENAI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY and rerun the recipe cover mutation.",
+      "domain": "recipe-covers",
+      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-covers.json",
+      "ownerAction": "Provide OPENAI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY for local recipe cover editorial generation.",
+      "reason": "Recipe cover editorial image generation requires an image provider secret.",
+      "path": "web/provider-secret-blocker-recipe-covers.json"
+    }
+  ],
+  "requiredScreenshotArtifacts": [
+    {
+      "name": "final screenshots or canonical blocker",
+      "alternatives": [
+        {
+          "path": "apple/matrix-capture.log",
+          "exists": true,
+          "bytes": 72,
+          "nonEmpty": true
+        },
+        {
+          "path": "screenshots/ios-mobile.png",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        },
+        {
+          "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
+          "exists": true,
+          "bytes": 504,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/matrix-screenshots-core-simulator-blocker.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        },
+        {
+          "path": "apple/matrix-screenshots-macos-launch-blocker.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final design review success or blocker",
+      "alternatives": [
+        {
+          "path": "design-review.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        },
+        {
+          "path": "design-review-blocked.json",
+          "exists": true,
+          "bytes": 707,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    }
+  ],
+  "requiredSourceTestMappings": [
+    {
+      "source": "scripts/validate-native-local.sh",
+      "tests": [
+        "scripts/check-native-final-matrix-contract.rb"
+      ],
+      "status": "pass",
+      "output": "native final matrix contract ok\n"
+    },
+    {
+      "source": "scripts/audit-native-validation-artifacts.rb",
+      "tests": [
+        "apple/unit-26a-validation-audit.log"
+      ],
+      "status": "self-audited"
+    }
+  ],
+  "requiredDesignReviewBlockedArtifacts": [
+    {
+      "name": "final screenshots or canonical blocker",
+      "alternatives": [
+        {
+          "path": "apple/matrix-capture.log",
+          "exists": true,
+          "bytes": 72,
+          "nonEmpty": true
+        },
+        {
+          "path": "screenshots/ios-mobile.png",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        },
+        {
+          "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
+          "exists": true,
+          "bytes": 504,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/matrix-screenshots-core-simulator-blocker.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        },
+        {
+          "path": "apple/matrix-screenshots-macos-launch-blocker.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final design review success or blocker",
+      "alternatives": [
+        {
+          "path": "design-review.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
+        },
+        {
+          "path": "design-review-blocked.json",
+          "exists": true,
+          "bytes": 707,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    }
+  ],
+  "requiredSpotlightPrivacyArtifacts": [
+    {
+      "name": "Spotlight privacy source contract",
+      "alternatives": [
+        {
+          "path": "apple/unit-21l-spotlight-shortcuts-app-intents-contract.log",
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "Spotlight privacy Swift evidence",
+      "alternatives": [
+        {
+          "path": "apple/unit-21l-spotlight-shortcuts-swift-test.log",
+          "exists": true,
+          "bytes": 1680,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/unit-21l-spotlight-shortcuts-review-fix-focused.log",
+          "exists": true,
+          "bytes": 26994,
+          "nonEmpty": true
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "Spotlight privacy current final App Intents evidence",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-spotlight-shortcuts.log",
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-spotlight-shortcuts.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    }
+  ],
+  "requiredFinalMatrixArtifacts": [
+    {
+      "path": "apple/matrix-swift-test.log",
+      "exists": true,
+      "bytes": 107686,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-coverage-test.log",
+      "exists": true,
+      "bytes": 116287,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-coverage-enforce.log",
+      "exists": true,
+      "bytes": 35,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-final-scenario.log",
+      "exists": true,
+      "bytes": 5546,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-project-contract.log",
+      "exists": true,
+      "bytes": 26,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-generator-contract.log",
+      "exists": true,
+      "bytes": 28,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-native-design-contract.log",
+      "exists": true,
+      "bytes": 35,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-kitchen-surfaces-contract.log",
+      "exists": true,
+      "bytes": 40,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-cook-shopping-contract.log",
+      "exists": true,
+      "bytes": 39,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-search-capture-contract.log",
+      "exists": true,
+      "bytes": 45,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-capture.log",
+      "exists": true,
+      "bytes": 72,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-design-review.log",
+      "exists": true,
+      "bytes": 25,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-xcode-version.log",
+      "exists": true,
+      "bytes": 32,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-xcodebuild-ios.log",
+      "exists": true,
+      "bytes": 153,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-xcodebuild-macos.log",
+      "exists": true,
+      "bytes": 77,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-smoke-ios.log",
+      "exists": true,
+      "bytes": 80,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-smoke-ios-inner.log",
+      "exists": true,
+      "bytes": 86,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-smoke-macos.log",
+      "exists": true,
+      "bytes": 79,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-smoke-macos-inner.log",
+      "exists": true,
+      "bytes": 85,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-stale-blocker-scan.log",
+      "exists": true,
+      "bytes": 22,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-warning-scan.log",
+      "exists": true,
+      "bytes": 16,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/validation-matrix.jsonl",
+      "exists": true,
+      "bytes": 14800,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/validation-matrix.json",
+      "exists": true,
+      "bytes": 21009,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/unit-26b-native-full-validation-validate-native-local.log",
+      "exists": true,
+      "bytes": 193,
+      "nonEmpty": true
+    }
+  ],
+  "requiredFinalAppIntentsArtifacts": [
+    {
+      "name": "final App Intents recipe-cookbook",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-recipe-cookbook.log",
+          "exists": true,
+          "bytes": 41,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-recipe-cookbook.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents shopping",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-shopping.log",
+          "exists": true,
+          "bytes": 34,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-shopping.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents spoon",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-spoon.log",
+          "exists": true,
+          "bytes": 31,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-spoon.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents capture-draft",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-capture-draft.log",
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-capture-draft.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents chef-profile",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-chef-profile.log",
+          "exists": true,
+          "bytes": 38,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-chef-profile.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents spotlight-shortcuts",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-spotlight-shortcuts.log",
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-spotlight-shortcuts.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents open-search-share-cook",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-open-search-share-cook.log",
+          "exists": true,
+          "bytes": 48,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-open-search-share-cook.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents recipe-action",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-recipe-action.log",
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-recipe-action.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents shopping-intents",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-shopping-intents.log",
+          "exists": true,
+          "bytes": 42,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-shopping-intents.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents spoon-intents",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-spoon-intents.log",
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-spoon-intents.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents capture-import-intents",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-capture-import-intents.log",
+          "exists": true,
+          "bytes": 48,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-capture-import-intents.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents cookbook-intents",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-cookbook-intents.log",
+          "exists": true,
+          "bytes": 42,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-cookbook-intents.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents profile-settings-intents",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-profile-settings-intents.log",
+          "exists": true,
+          "bytes": 50,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-profile-settings-intents.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    },
+    {
+      "name": "final App Intents notification-intents",
+      "alternatives": [
+        {
+          "path": "apple/matrix-appintents-notification-intents.log",
+          "exists": true,
+          "bytes": 46,
+          "nonEmpty": true
+        },
+        {
+          "path": "apple/appintents-sdk-blocker-notification-intents.json",
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false,
+          "expectedCapability": "AppIntentsSDK",
+          "validBlocker": false
+        }
+      ],
+      "satisfied": true
+    }
+  ],
+  "staleNoncanonicalBlockers": [
+
+  ],
+  "failures": [
+
+  ]
+}

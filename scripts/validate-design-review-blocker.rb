@@ -8,11 +8,6 @@ require "set"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 DEFAULT_ARTIFACT_ROOT = ROOT.join("tasks/2026-06-15-2314-doing-native-app-skeleton")
-REQUIRED_SKIPPED_ARTIFACTS = Set[
-  "screenshots/ios-mobile.png",
-  "screenshots/macos-desktop.png",
-  "design-review.json"
-].freeze
 CAPABILITY_BY_BASENAME = {
   "screenshots-xcode-platform-blocker.json" => "XcodePlatform",
   "screenshots-core-simulator-blocker.json" => "CoreSimulator",
@@ -37,6 +32,16 @@ end.parse!
 def fail_check(message)
   warn "FAIL: #{message}"
   exit 1
+end
+
+def required_skipped_artifacts(unit_slug)
+  Set[
+    "screenshots/ios-mobile.png",
+    "screenshots/macos-desktop.png",
+    "design-review.json",
+    "apple/#{unit_slug}-accessibility-proof-ios.json",
+    "apple/#{unit_slug}-accessibility-proof-macos.json"
+  ]
 end
 
 path = Pathname.new(ARGV.fetch(0) { fail_check("usage: validate-design-review-blocker.rb <design-review-blocked.json> --artifact-root PATH --unit-slug SLUG") }).expand_path
@@ -94,6 +99,13 @@ fail_check("#{source_path} blocked must be true") unless source_blocker.fetch("b
 fail_check("#{source_path} capability must match #{expected_capability}") unless source_blocker.fetch("capability") == expected_capability
 
 skipped_artifacts = Set.new(manifest.fetch("skippedArtifacts"))
-fail_check("#{path} skippedArtifacts must exactly name skipped success artifacts") unless skipped_artifacts == REQUIRED_SKIPPED_ARTIFACTS
+fail_check("#{path} skippedArtifacts must exactly name skipped success artifacts") unless skipped_artifacts == required_skipped_artifacts(unit_slug)
+
+skipped_artifacts.each do |relative_artifact|
+  artifact_path = artifact_root.join(relative_artifact).cleanpath
+  if artifact_path.exist?
+    fail_check("#{path} stale success artifact must be absent when blocked: #{relative_artifact}")
+  end
+end
 
 puts "design review blocker ok"

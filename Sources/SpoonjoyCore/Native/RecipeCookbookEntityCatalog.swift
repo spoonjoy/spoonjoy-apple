@@ -1,5 +1,10 @@
 import Foundation
 
+private func uniquePreservingOrder(_ values: [String]) -> [String] {
+    var seen = Set<String>()
+    return values.filter { seen.insert($0).inserted }
+}
+
 public enum RecipeCookbookEntityKind: String, Codable, Equatable, Sendable {
     case recipe
     case cookbook
@@ -11,6 +16,105 @@ public enum RecipeCookbookEntityCatalogError: Error, Equatable, Sendable {
     case recipeNotFound(String)
     case cookbookNotFound(String)
     case undecodableRecord(kind: NativeSyncEntryKind, resourceID: String)
+}
+
+public struct RecipeCookbookEntityScope: Equatable, Sendable {
+    public let accountID: String
+    public let environment: NativeCacheEnvironment
+
+    public init(accountID: String, environment: NativeCacheEnvironment) {
+        self.accountID = accountID
+        self.environment = environment
+    }
+}
+
+public struct RecipeCookbookEntityIndexPurgePlan: Equatable, Sendable {
+    public enum Reason: String, Codable, Equatable, Sendable {
+        case accountScopeChanged
+        case cacheDeleted
+        case tombstoneApplied
+    }
+
+    public let identifiers: [String]
+    public let domainIdentifiers: [String]
+    public let reason: Reason
+
+    public init(identifiers: [String], domainIdentifiers: [String], reason: Reason) {
+        self.identifiers = identifiers
+        self.domainIdentifiers = domainIdentifiers
+        self.reason = reason
+    }
+
+    public static func accountScopePurge(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        recipeIDs: [String],
+        cookbookIDs: [String]
+    ) -> RecipeCookbookEntityIndexPurgePlan {
+        scopedPlan(
+            accountID: accountID,
+            environment: environment,
+            recipeIDs: recipeIDs,
+            cookbookIDs: cookbookIDs,
+            includeDomain: true,
+            reason: .accountScopeChanged
+        )
+    }
+
+    public static func cacheDeletePurge(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        recipeIDs: [String],
+        cookbookIDs: [String]
+    ) -> RecipeCookbookEntityIndexPurgePlan {
+        scopedPlan(
+            accountID: accountID,
+            environment: environment,
+            recipeIDs: recipeIDs,
+            cookbookIDs: cookbookIDs,
+            includeDomain: false,
+            reason: .cacheDeleted
+        )
+    }
+
+    public static func tombstonePurge(
+        tombstones: [NativeSyncTombstone],
+        accountID: String,
+        environment: NativeCacheEnvironment
+    ) -> RecipeCookbookEntityIndexPurgePlan {
+        scopedPlan(
+            accountID: accountID,
+            environment: environment,
+            recipeIDs: tombstones.compactMap { $0.resourceType == .recipe ? $0.resourceID : nil },
+            cookbookIDs: tombstones.compactMap { $0.resourceType == .cookbook ? $0.resourceID : nil },
+            includeDomain: false,
+            reason: .tombstoneApplied
+        )
+    }
+
+    private static func scopedPlan(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        recipeIDs: [String],
+        cookbookIDs: [String],
+        includeDomain: Bool,
+        reason: Reason
+    ) -> RecipeCookbookEntityIndexPurgePlan {
+        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
+        let identifiers = recipeIDs.map { SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: $0, scope: spotlightScope) } +
+            cookbookIDs.map { SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: $0, scope: spotlightScope) }
+        let domainIdentifiers = includeDomain
+            ? [
+                SpotlightIndexPlan.recipeDomainIdentifier(scope: spotlightScope),
+                SpotlightIndexPlan.cookbookDomainIdentifier(scope: spotlightScope)
+            ]
+            : []
+        return RecipeCookbookEntityIndexPurgePlan(
+            identifiers: uniquePreservingOrder(identifiers),
+            domainIdentifiers: uniquePreservingOrder(domainIdentifiers),
+            reason: reason
+        )
+    }
 }
 
 public struct RecipeCookbookEntityTransferValue: Codable, Equatable, Sendable {
@@ -49,7 +153,9 @@ public struct RecipeCookbookEntityTransferValue: Codable, Equatable, Sendable {
 
 public struct RecipeEntityDescriptor: Equatable, Sendable {
     public let id: String
+    public let entityIdentifier: String
     public let title: String
+    public let chefID: String
     public let chefUsername: String
     public let subtitle: String
     public let disambiguationLabel: String
@@ -61,7 +167,9 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 
     public static let placeholder = RecipeEntityDescriptor(
         id: "recipe-placeholder",
+        entityIdentifier: "recipe-placeholder",
         title: "Recipe",
+        chefID: "chef-placeholder",
         chefUsername: "Spoonjoy",
         subtitle: "Spoonjoy recipe",
         disambiguationLabel: "Spoonjoy recipe",
@@ -80,12 +188,20 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
         )
     )
 
-    public init(recipe: Recipe) throws {
+    public init(recipe: Recipe, scope: RecipeCookbookEntityScope? = nil) throws {
         let route = AppRoute.recipeDetail(id: recipe.id, presentation: .detail)
         _ = try NativeSharePayload.publicRecipe(recipe)
         self.init(
             id: recipe.id,
+            entityIdentifier: scope.map {
+                RecipeCookbookEntityCatalog.recipeEntityIdentifier(
+                    recipeID: recipe.id,
+                    accountID: $0.accountID,
+                    environment: $0.environment
+                )
+            } ?? recipe.id,
             title: recipe.title,
+            chefID: recipe.chef.id,
             chefUsername: recipe.chef.username,
             subtitle: Self.recipeSubtitle(chefUsername: recipe.chef.username, servings: recipe.servings),
             disambiguationLabel: "\(recipe.title) by \(recipe.chef.username)",
@@ -108,7 +224,9 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 
     public init(
         id: String,
+        entityIdentifier: String? = nil,
         title: String,
+        chefID: String,
         chefUsername: String,
         subtitle: String,
         disambiguationLabel: String,
@@ -118,7 +236,9 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
         transferValue: RecipeCookbookEntityTransferValue
     ) {
         self.id = id
+        self.entityIdentifier = entityIdentifier ?? id
         self.title = title
+        self.chefID = chefID
         self.chefUsername = chefUsername
         self.subtitle = subtitle
         self.disambiguationLabel = disambiguationLabel
@@ -138,7 +258,9 @@ public struct RecipeEntityDescriptor: Equatable, Sendable {
 
 public struct CookbookEntityDescriptor: Equatable, Sendable {
     public let id: String
+    public let entityIdentifier: String
     public let title: String
+    public let chefID: String
     public let chefUsername: String
     public let subtitle: String
     public let disambiguationLabel: String
@@ -151,7 +273,9 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
 
     public static let placeholder = CookbookEntityDescriptor(
         id: "cookbook-placeholder",
+        entityIdentifier: "cookbook-placeholder",
         title: "Cookbook",
+        chefID: "chef-placeholder",
         chefUsername: "Spoonjoy",
         subtitle: "Spoonjoy cookbook",
         disambiguationLabel: "Spoonjoy cookbook",
@@ -171,13 +295,21 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
         )
     )
 
-    public init(cookbook: Cookbook) throws {
+    public init(cookbook: Cookbook, scope: RecipeCookbookEntityScope? = nil) throws {
         let route = AppRoute.cookbookDetail(id: cookbook.id)
         _ = try NativeSharePayload.publicCookbook(cookbook)
         let summary = "\(cookbook.title) by \(cookbook.chef.username)"
         self.init(
             id: cookbook.id,
+            entityIdentifier: scope.map {
+                RecipeCookbookEntityCatalog.cookbookEntityIdentifier(
+                    cookbookID: cookbook.id,
+                    accountID: $0.accountID,
+                    environment: $0.environment
+                )
+            } ?? cookbook.id,
             title: cookbook.title,
+            chefID: cookbook.chef.id,
             chefUsername: cookbook.chef.username,
             subtitle: "\(cookbook.chef.username) - \(cookbook.recipeCount) \(Self.recipeCountLabel(cookbook.recipeCount))",
             disambiguationLabel: summary,
@@ -201,7 +333,9 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
 
     public init(
         id: String,
+        entityIdentifier: String? = nil,
         title: String,
+        chefID: String,
         chefUsername: String,
         subtitle: String,
         disambiguationLabel: String,
@@ -212,7 +346,9 @@ public struct CookbookEntityDescriptor: Equatable, Sendable {
         transferValue: RecipeCookbookEntityTransferValue
     ) {
         self.id = id
+        self.entityIdentifier = entityIdentifier ?? id
         self.title = title
+        self.chefID = chefID
         self.chefUsername = chefUsername
         self.subtitle = subtitle
         self.disambiguationLabel = disambiguationLabel
@@ -232,6 +368,7 @@ public struct RecipeCookbookEntityCatalog: Sendable {
     private let recipes: [Recipe]
     private let cookbooks: [Cookbook]
     private let scopeAvailable: Bool
+    private let scope: RecipeCookbookEntityScope?
 
     public init(
         syncSnapshot: NativeSyncSnapshot,
@@ -240,11 +377,13 @@ public struct RecipeCookbookEntityCatalog: Sendable {
     ) {
         scopeAvailable = syncSnapshot.accountID == currentAccountID && syncSnapshot.environment == environment
         guard scopeAvailable else {
+            scope = nil
             recipes = []
             cookbooks = []
             return
         }
 
+        scope = currentAccountID.map { RecipeCookbookEntityScope(accountID: $0, environment: environment) }
         let tombstonedRecipes = Set(syncSnapshot.tombstones.compactMap { tombstone in
             tombstone.resourceType == .recipe ? tombstone.resourceID : nil
         })
@@ -269,51 +408,55 @@ public struct RecipeCookbookEntityCatalog: Sendable {
     }
 
     public func recipeEntity(id: String) async throws -> RecipeEntityDescriptor {
-        try ensureScopeAvailable()
-        let id = try canonicalIdentifier(id)
+        let scope = try ensureScopeAvailable()
+        let id = try scopedRecipeIdentifier(id)
         guard let recipe = recipes.first(where: { $0.id == id }) else {
             throw RecipeCookbookEntityCatalogError.recipeNotFound(id)
         }
-        return try RecipeEntityDescriptor(recipe: recipe)
+        return try RecipeEntityDescriptor(recipe: recipe, scope: scope)
     }
 
     public func cookbookEntity(id: String) async throws -> CookbookEntityDescriptor {
-        try ensureScopeAvailable()
-        let id = try canonicalIdentifier(id)
+        let scope = try ensureScopeAvailable()
+        let id = try scopedCookbookIdentifier(id)
         guard let cookbook = cookbooks.first(where: { $0.id == id }) else {
             throw RecipeCookbookEntityCatalogError.cookbookNotFound(id)
         }
-        return try CookbookEntityDescriptor(cookbook: cookbook)
+        return try CookbookEntityDescriptor(cookbook: cookbook, scope: scope)
     }
 
     public func recipeEntities(for identifiers: [String]) async throws -> [RecipeEntityDescriptor] {
-        try ensureScopeAvailable()
+        let scope = try ensureScopeAvailable()
         var entities: [RecipeEntityDescriptor] = []
         for identifier in identifiers {
-            let id = try canonicalIdentifier(identifier)
+            guard let id = try? scopedRecipeIdentifier(identifier) else {
+                continue
+            }
             guard let recipe = recipes.first(where: { $0.id == id }) else {
                 continue
             }
-            entities.append(try RecipeEntityDescriptor(recipe: recipe))
+            entities.append(try RecipeEntityDescriptor(recipe: recipe, scope: scope))
         }
         return entities
     }
 
     public func cookbookEntities(for identifiers: [String]) async throws -> [CookbookEntityDescriptor] {
-        try ensureScopeAvailable()
+        let scope = try ensureScopeAvailable()
         var entities: [CookbookEntityDescriptor] = []
         for identifier in identifiers {
-            let id = try canonicalIdentifier(identifier)
+            guard let id = try? scopedCookbookIdentifier(identifier) else {
+                continue
+            }
             guard let cookbook = cookbooks.first(where: { $0.id == id }) else {
                 continue
             }
-            entities.append(try CookbookEntityDescriptor(cookbook: cookbook))
+            entities.append(try CookbookEntityDescriptor(cookbook: cookbook, scope: scope))
         }
         return entities
     }
 
     public func recipeEntities(matching string: String) async throws -> [RecipeEntityDescriptor] {
-        try ensureScopeAvailable()
+        let scope = try ensureScopeAvailable()
         let query = normalizedQuery(string)
         let matches = query.isEmpty ? recipes : recipes.filter { recipe in
             recipe.title.localizedCaseInsensitiveContains(query) ||
@@ -321,54 +464,122 @@ public struct RecipeCookbookEntityCatalog: Sendable {
                 recipe.description?.localizedCaseInsensitiveContains(query) == true ||
                 recipe.servings?.localizedCaseInsensitiveContains(query) == true
         }
-        return try matches.map(RecipeEntityDescriptor.init)
+        return try matches.map { try RecipeEntityDescriptor(recipe: $0, scope: scope) }
     }
 
     public func cookbookEntities(matching string: String) async throws -> [CookbookEntityDescriptor] {
-        try ensureScopeAvailable()
+        let scope = try ensureScopeAvailable()
         let query = normalizedQuery(string)
         let matches = query.isEmpty ? cookbooks : cookbooks.filter { cookbook in
             cookbook.title.localizedCaseInsensitiveContains(query) ||
                 cookbook.chef.username.localizedCaseInsensitiveContains(query) ||
                 cookbook.recipes.contains { $0.title.localizedCaseInsensitiveContains(query) }
         }
-        return try matches.map(CookbookEntityDescriptor.init)
+        return try matches.map { try CookbookEntityDescriptor(cookbook: $0, scope: scope) }
     }
 
     public func suggestedRecipeEntities(limit: Int = 10) async throws -> [RecipeEntityDescriptor] {
         guard scopeAvailable else {
             return []
         }
-        return try recipes.prefix(max(0, limit)).map(RecipeEntityDescriptor.init)
+        return try recipes.prefix(max(0, limit)).map { try RecipeEntityDescriptor(recipe: $0, scope: scope) }
     }
 
     public func suggestedCookbookEntities(limit: Int = 10) async throws -> [CookbookEntityDescriptor] {
         guard scopeAvailable else {
             return []
         }
-        return try cookbooks.prefix(max(0, limit)).map(CookbookEntityDescriptor.init)
+        return try cookbooks.prefix(max(0, limit)).map { try CookbookEntityDescriptor(cookbook: $0, scope: scope) }
     }
 
-    private func ensureScopeAvailable() throws {
-        guard scopeAvailable else {
+    public static func recipeEntityIdentifier(recipeID: String, accountID: String, environment: NativeCacheEnvironment) -> String {
+        "recipe:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID):\(recipeID)"
+    }
+
+    public static func cookbookEntityIdentifier(cookbookID: String, accountID: String, environment: NativeCacheEnvironment) -> String {
+        "cookbook:\(environment.rawValue):schema\(NativeDurableCacheSnapshot.currentSchemaVersion):\(accountID):\(cookbookID)"
+    }
+
+    public static func resolvedRecipeID(
+        from identifier: String,
+        accountID: String,
+        environment: NativeCacheEnvironment
+    ) throws -> String {
+        let parts = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: ":", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard parts.count == 5,
+              parts[0] == "recipe",
+              parts[1] == environment.rawValue,
+              parts[2] == "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)",
+              parts[3] == accountID,
+              !parts[4].isEmpty else {
+            throw RecipeCookbookEntityCatalogError.invalidIdentifier(identifier)
+        }
+        return parts[4]
+    }
+
+    public static func resolvedCookbookID(
+        from identifier: String,
+        accountID: String,
+        environment: NativeCacheEnvironment
+    ) throws -> String {
+        let parts = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: ":", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard parts.count == 5,
+              parts[0] == "cookbook",
+              parts[1] == environment.rawValue,
+              parts[2] == "schema\(NativeDurableCacheSnapshot.currentSchemaVersion)",
+              parts[3] == accountID,
+              !parts[4].isEmpty else {
+            throw RecipeCookbookEntityCatalogError.invalidIdentifier(identifier)
+        }
+        return parts[4]
+    }
+
+    public static func purgeEntityIdentifiers(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        plan: RecipeCookbookEntityIndexPurgePlan
+    ) -> [String] {
+        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
+        let recipePrefix = "\(spotlightScope.identifierPrefix)|\(SpotlightIndexType.recipe.rawValue)|"
+        let cookbookPrefix = "\(spotlightScope.identifierPrefix)|\(SpotlightIndexType.cookbook.rawValue)|"
+        guard plan.identifiers.allSatisfy({ $0.hasPrefix(recipePrefix) || $0.hasPrefix(cookbookPrefix) }) else {
+            return []
+        }
+        return plan.identifiers
+    }
+
+    public static func purgeDomainIdentifiers(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        plan: RecipeCookbookEntityIndexPurgePlan
+    ) -> [String] {
+        let spotlightScope = SpotlightIndexScope(accountID: accountID, environment: environment)
+        let expectedDomains = Set([
+            SpotlightIndexPlan.recipeDomainIdentifier(scope: spotlightScope),
+            SpotlightIndexPlan.cookbookDomainIdentifier(scope: spotlightScope)
+        ])
+        return plan.domainIdentifiers.filter { expectedDomains.contains($0) }
+    }
+
+    private func ensureScopeAvailable() throws -> RecipeCookbookEntityScope {
+        guard scopeAvailable, let scope else {
             throw RecipeCookbookEntityCatalogError.unavailableForScope(accountID: nil, environment: nil)
         }
+        return scope
     }
 
-    private func canonicalIdentifier(_ rawValue: String) throws -> String {
-        let id = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            !id.isEmpty,
-            !id.contains("/"),
-            !id.contains("\\"),
-            !id.contains(".."),
-            id != ".",
-            id != "..",
-            id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil
-        else {
-            throw RecipeCookbookEntityCatalogError.invalidIdentifier(rawValue)
-        }
-        return id
+    private func scopedRecipeIdentifier(_ rawValue: String) throws -> String {
+        let scope = try ensureScopeAvailable()
+        return try Self.resolvedRecipeID(from: rawValue, accountID: scope.accountID, environment: scope.environment)
+    }
+
+    private func scopedCookbookIdentifier(_ rawValue: String) throws -> String {
+        let scope = try ensureScopeAvailable()
+        return try Self.resolvedCookbookID(from: rawValue, accountID: scope.accountID, environment: scope.environment)
     }
 
     private func normalizedQuery(_ rawValue: String) -> String {

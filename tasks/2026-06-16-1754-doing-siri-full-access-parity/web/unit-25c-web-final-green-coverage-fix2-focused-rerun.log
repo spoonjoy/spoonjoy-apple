@@ -1,0 +1,15 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ✓ test/routes/developers-playground.test.tsx (39 tests) 4794ms
+     ✓ copies generated playground values and reports clipboard failures  1771ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  446ms
+     ✓ handles OAuth callback validation failures and redirect submissions  325ms
+ ✓ test/routes/api-v1-account-settings.test.ts (9 tests) 1026ms
+ ✓ test/routes/api-v1-telemetry.test.ts (24 tests) 387ms
+ ✓ test/routes/api-v1-shell.test.ts (19 tests) 117ms
+
+ Test Files  4 passed (4)
+      Tests  91 passed (91)
+   Start at  21:05:04
+   Duration  9.56s (transform 652ms, setup 217ms, import 2.01s, tests 6.32s, environment 561ms)

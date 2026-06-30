@@ -145,7 +145,47 @@ struct SpoonjoyRootView: View {
             searchSurfaceRepository: { context in
                 liveStore.searchSurfaceRepository(context: context)
             },
-            syncTriggerCoordinator: liveStore.syncTriggerCoordinator
+            syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
+            purgeShoppingEntityIndexes: { request in
+                await liveStore.purgeShoppingEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            },
+            purgeSpoonEntityIndexes: { request in
+                await liveStore.purgeSpoonEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            },
+            purgeCaptureDraftEntityIndexes: { request in
+                await liveStore.purgeCaptureDraftEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            },
+            purgeChefProfileEntityIndexes: { request in
+                await liveStore.purgeChefProfileEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            },
+            purgeRecipeCookbookEntityIndexes: { request in
+                await liveStore.purgeRecipeCookbookEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         )
     }
 
@@ -190,7 +230,12 @@ struct SpoonjoyRootView: View {
     }
 
     private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
-        let route = SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier)
+        let route: AppRoute
+        if let scope = liveStore.bootstrapState.contentState.spotlightIndexScope {
+            route = SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier, scope: scope)
+        } else {
+            route = .unknownLink
+        }
         search.apply(route: route)
         navigation.navigate(to: route)
         liveStore.recordingOpenedRoute(route)
@@ -285,9 +330,89 @@ struct SpoonjoyRootView: View {
                 ).fetchSettingsSurface(accountID: accountID, environment: environment)
             },
             stagedMediaDirectory: stagedMediaDirectory,
+            shoppingEntityIndexPurge: { request in
+                await Self.purgeShoppingEntityIdentifiersIfAvailable(request)
+            },
+            spoonEntityIndexPurge: { request in
+                await Self.purgeSpoonEntityIdentifiersIfAvailable(request)
+            },
+            captureDraftEntityIndexPurge: { request in
+                await Self.purgeCaptureDraftEntityIdentifiersIfAvailable(request)
+            },
+            chefProfileEntityIndexPurge: { request in
+                await Self.purgeChefProfileEntityIdentifiersIfAvailable(request)
+            },
+            recipeCookbookEntityIndexPurge: { request in
+                await Self.purgeRecipeCookbookEntityIdentifiersIfAvailable(request)
+            },
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
+    }
+
+    private static func purgeShoppingEntityIdentifiersIfAvailable(_ request: NativeShoppingEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
+    }
+
+    private static func purgeSpoonEntityIdentifiersIfAvailable(_ request: NativeSpoonEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
+    }
+
+    private static func purgeCaptureDraftEntityIdentifiersIfAvailable(_ request: NativeCaptureDraftEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
+    }
+
+    private static func purgeChefProfileEntityIdentifiersIfAvailable(_ request: NativeChefProfileEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
+    }
+
+    private static func purgeRecipeCookbookEntityIdentifiersIfAvailable(_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async {
+#if canImport(CoreSpotlight)
+        if #available(iOS 27.0, macOS 27.0, *) {
+            try? await SpoonjoySpotlightIndexer().delete(
+                identifiers: request.identifiers,
+                domainIdentifiers: request.domainIdentifiers,
+                accountID: request.accountID,
+                environment: request.environment
+            )
+        }
+#endif
     }
 
 #if DEBUG

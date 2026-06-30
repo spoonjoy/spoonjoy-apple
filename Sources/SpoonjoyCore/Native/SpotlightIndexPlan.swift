@@ -3,7 +3,10 @@ import Foundation
 public enum SpotlightIndexType: String, Equatable, Sendable {
     case recipe
     case cookbook
+    case spoon
     case shoppingListItem = "shopping-list-item"
+    case captureDraft = "capture-draft"
+    case chefProfile = "chef-profile"
 }
 
 public struct SpotlightIndexDocument: Equatable, Sendable {
@@ -23,11 +26,12 @@ public struct SpotlightIndexDocument: Equatable, Sendable {
         title: String,
         contentDescription: String,
         keywords: [String],
-        route: AppRoute
+        route: AppRoute,
+        uniqueIdentifierResourceID: String? = nil
     ) {
         self.type = type
         self.id = id
-        uniqueIdentifier = "\(scope.identifierPrefix)|\(type.rawValue)|\(id)"
+        uniqueIdentifier = "\(scope.identifierPrefix)|\(type.rawValue)|\(uniqueIdentifierResourceID ?? id)"
         domainIdentifier = "\(scope.domainPrefix).\(type.rawValue)"
         self.title = title
         self.contentDescription = contentDescription
@@ -50,18 +54,24 @@ public struct SpotlightIndexDocument: Equatable, Sendable {
 public struct SpotlightIndexScope: Equatable, Sendable {
     public let accountID: String
     public let environment: NativeCacheEnvironment
+    public let schemaVersion: Int
 
-    public init(accountID: String, environment: NativeCacheEnvironment) {
+    public init(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        schemaVersion: Int = NativeDurableCacheSnapshot.currentSchemaVersion
+    ) {
         self.accountID = accountID
         self.environment = environment
+        self.schemaVersion = schemaVersion
     }
 
     public var identifierPrefix: String {
-        "\(environment.rawValue)|\(Self.safeComponent(accountID))"
+        "\(environment.rawValue)|schema\(schemaVersion)|\(Self.safeComponent(accountID))"
     }
 
     public var domainPrefix: String {
-        "app.spoonjoy.\(environment.rawValue).\(Self.safeComponent(accountID))"
+        "app.spoonjoy.schema\(schemaVersion).\(environment.rawValue).\(Self.safeComponent(accountID))"
     }
 
     private static func safeComponent(_ value: String) -> String {
@@ -73,15 +83,30 @@ public struct SpotlightIndexScope: Equatable, Sendable {
 }
 
 public enum SpotlightIndexPlan {
+    public static let searchableTypes: [SpotlightIndexType] = [
+        .recipe,
+        .cookbook,
+        .shoppingListItem,
+        .spoon,
+        .captureDraft,
+        .chefProfile
+    ]
+
     public static func documents(
         recipes: [Recipe],
         cookbooks: [Cookbook],
         shoppingList: ShoppingListState,
+        spoons: [SpoonEntityDescriptor] = [],
+        captureDrafts: [CaptureDraftEntityDescriptor] = [],
+        chefProfiles: [ChefProfileEntityDescriptor] = [],
         scope: SpotlightIndexScope
     ) -> [SpotlightIndexDocument] {
         recipes.map { document(recipe: $0, scope: scope) } +
             cookbooks.map { document(cookbook: $0, scope: scope) } +
-            shoppingList.activeItems.map { document(shoppingListItem: $0, scope: scope) }
+            shoppingList.activeItems.map { document(shoppingListItem: $0, scope: scope) } +
+            spoons.map { document(spoon: $0, scope: scope) } +
+            captureDrafts.map { document(captureDraft: $0, scope: scope) } +
+            chefProfiles.map { document(chefProfile: $0, scope: scope) }
     }
 
     public static func document(recipe: Recipe, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
@@ -122,16 +147,114 @@ public enum SpotlightIndexPlan {
         )
     }
 
-    public static func route(uniqueIdentifier: String) -> AppRoute {
+    public static func document(spoon: SpoonEntityDescriptor, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
+        SpotlightIndexDocument(
+            type: .spoon,
+            id: spoon.spoonID,
+            scope: scope,
+            title: spoon.title,
+            contentDescription: spoon.transferValue.userVisibleSummary,
+            keywords: [spoon.recipeTitle, spoon.chefUsername, spoon.subtitle],
+            route: spoon.route,
+            uniqueIdentifierResourceID: spoonUniqueIdentifierResourceID(spoonID: spoon.spoonID, recipeID: spoon.recipeID)
+        )
+    }
+
+    public static func document(captureDraft: CaptureDraftEntityDescriptor, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
+        SpotlightIndexDocument(
+            type: .captureDraft,
+            id: captureDraft.captureDraftID,
+            scope: scope,
+            title: captureDraft.title,
+            contentDescription: captureDraft.transferValue.userVisibleSummary,
+            keywords: [captureDraft.subtitle, captureDraft.importReadiness.rawValue],
+            route: captureDraft.route
+        )
+    }
+
+    public static func document(chefProfile: ChefProfileEntityDescriptor, scope: SpotlightIndexScope) -> SpotlightIndexDocument {
+        SpotlightIndexDocument(
+            type: .chefProfile,
+            id: chefProfile.profileID,
+            scope: scope,
+            title: chefProfile.title,
+            contentDescription: chefProfile.transferValue.userVisibleSummary,
+            keywords: [
+                chefProfile.username,
+                chefProfile.subtitle,
+                chefProfile.interactionSummary ?? ""
+            ].filter { !$0.isEmpty },
+            route: chefProfile.route
+        )
+    }
+
+    public static func shoppingListItemUniqueIdentifier(itemID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.shoppingListItem.rawValue)|\(itemID)"
+    }
+
+    public static func recipeUniqueIdentifier(recipeID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.recipe.rawValue)|\(recipeID)"
+    }
+
+    public static func recipeDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.recipe.rawValue)"
+    }
+
+    public static func cookbookUniqueIdentifier(cookbookID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.cookbook.rawValue)|\(cookbookID)"
+    }
+
+    public static func cookbookDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.cookbook.rawValue)"
+    }
+
+    public static func shoppingListItemDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.shoppingListItem.rawValue)"
+    }
+
+    public static func spoonUniqueIdentifier(spoonID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.spoon.rawValue)|\(spoonID)"
+    }
+
+    public static func spoonUniqueIdentifier(spoonID: String, recipeID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.spoon.rawValue)|\(spoonUniqueIdentifierResourceID(spoonID: spoonID, recipeID: recipeID))"
+    }
+
+    public static func spoonDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.spoon.rawValue)"
+    }
+
+    public static func captureDraftUniqueIdentifier(draftID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.captureDraft.rawValue)|\(draftID)"
+    }
+
+    public static func captureDraftDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.captureDraft.rawValue)"
+    }
+
+    public static func chefProfileUniqueIdentifier(profileID: String, scope: SpotlightIndexScope) -> String {
+        "\(scope.identifierPrefix)|\(SpotlightIndexType.chefProfile.rawValue)|\(profileID)"
+    }
+
+    public static func chefProfileDomainIdentifier(scope: SpotlightIndexScope) -> String {
+        "\(scope.domainPrefix).\(SpotlightIndexType.chefProfile.rawValue)"
+    }
+
+    public static func domainIdentifiers(scope: SpotlightIndexScope) -> [String] {
+        searchableTypes.map { type in
+            "\(scope.domainPrefix).\(type.rawValue)"
+        }
+    }
+
+    public static func route(uniqueIdentifier: String, scope: SpotlightIndexScope) -> AppRoute {
         let parts = uniqueIdentifier.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count == 4,
-              NativeCacheEnvironment(rawValue: parts[0]) != nil,
-              isSafeObjectID(parts[1]),
-              let type = SpotlightIndexType(rawValue: parts[2]) else {
+        guard parts.count == 5,
+              "\(parts[0])|\(parts[1])|\(parts[2])" == scope.identifierPrefix,
+              let type = SpotlightIndexType(rawValue: parts[3]) else {
             return .unknownLink
         }
 
-        let id = parts[3]
+        let id = parts[4]
         switch type {
         case .recipe:
             guard isSafeObjectID(id) else { return .unknownLink }
@@ -139,14 +262,32 @@ public enum SpotlightIndexPlan {
         case .cookbook:
             guard isSafeObjectID(id) else { return .unknownLink }
             return .cookbookDetail(id: id)
+        case .spoon:
+            let routeParts = id.split(separator: "~", omittingEmptySubsequences: false).map(String.init)
+            guard routeParts.count == 2,
+                  isSafeObjectID(routeParts[0]),
+                  isSafeObjectID(routeParts[1]) else {
+                return .unknownLink
+            }
+            return .recipeDetail(id: routeParts[1], presentation: .detail)
         case .shoppingListItem:
             guard isSafeObjectID(id) else { return .unknownLink }
             return .shoppingList
+        case .captureDraft:
+            guard isSafeObjectID(id) else { return .unknownLink }
+            return .capture
+        case .chefProfile:
+            guard AppRoute.isSafeProfileIdentifier(id) else { return .unknownLink }
+            return AppRoute.profile(identifier: id)
         }
     }
 
     private static func recipeCountLabel(_ recipeCount: Int) -> String {
         recipeCount == 1 ? "recipe" : "recipes"
+    }
+
+    private static func spoonUniqueIdentifierResourceID(spoonID: String, recipeID: String) -> String {
+        "\(spoonID)~\(recipeID)"
     }
 
     private static func isSafeObjectID(_ id: String) -> Bool {

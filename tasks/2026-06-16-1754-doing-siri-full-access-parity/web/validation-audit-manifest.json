@@ -1,0 +1,1617 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-30T04:44:10Z",
+  "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity",
+  "webArtifactDir": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web",
+  "requiredRedArtifacts": [
+    {
+      "path": "web/unit-1a-contract-red.log",
+      "acceptedPaths": [
+        "web/unit-1a-contract-red.log"
+      ],
+      "unit": "1a",
+      "kind": "red",
+      "description": "REST v1 contract registry red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2a-me-red.log",
+      "acceptedPaths": [
+        "web/unit-2a-me-red.log"
+      ],
+      "unit": "2a",
+      "kind": "red",
+      "description": "native account/token API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3a-users-search-red.log",
+      "acceptedPaths": [
+        "web/unit-3a-users-search-red.log"
+      ],
+      "unit": "3a",
+      "kind": "red",
+      "description": "user/search API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4a-recipe-writes-red.log",
+      "acceptedPaths": [
+        "web/unit-4a-recipe-writes-red.log"
+      ],
+      "unit": "4a",
+      "kind": "red",
+      "description": "recipe write API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5a-recipe-steps-red.log",
+      "acceptedPaths": [
+        "web/unit-5a-recipe-steps-red.log"
+      ],
+      "unit": "5a",
+      "kind": "red",
+      "description": "recipe step API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6a-covers-red.log",
+      "acceptedPaths": [
+        "web/unit-6a-covers-red.log"
+      ],
+      "unit": "6a",
+      "kind": "red",
+      "description": "recipe cover API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7a-spoons-red.log",
+      "acceptedPaths": [
+        "web/unit-7a-spoons-red.log"
+      ],
+      "unit": "7a",
+      "kind": "red",
+      "description": "spoon cook-log API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8a-cookbook-writes-red.log",
+      "acceptedPaths": [
+        "web/unit-8a-cookbook-writes-red.log"
+      ],
+      "unit": "8a",
+      "kind": "red",
+      "description": "cookbook write API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9a-shopping-parity-red.log",
+      "acceptedPaths": [
+        "web/unit-9a-shopping-parity-red.log"
+      ],
+      "unit": "9a",
+      "kind": "red",
+      "description": "shopping API parity red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10a-sync-red.log",
+      "acceptedPaths": [
+        "web/unit-10a-sync-red.log"
+      ],
+      "unit": "10a",
+      "kind": "red",
+      "description": "native sync API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10d-recipe-import-red.log",
+      "acceptedPaths": [
+        "web/unit-10d-recipe-import-red.log"
+      ],
+      "unit": "10d",
+      "kind": "red",
+      "description": "recipe import API red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20a-aasa-red.log",
+      "acceptedPaths": [
+        "web/unit-20a-aasa-red.log"
+      ],
+      "unit": "20a",
+      "kind": "red",
+      "description": "AASA route contract red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20a-route-manifest-red.log",
+      "acceptedPaths": [
+        "web/unit-20a-route-manifest-red.log"
+      ],
+      "unit": "20a",
+      "kind": "red",
+      "description": "web route manifest red tests",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24a-docs-red.log",
+      "acceptedPaths": [
+        "web/unit-24a-docs-red.log"
+      ],
+      "unit": "24a",
+      "kind": "red",
+      "description": "native dogfood docs red tests",
+      "allowEmpty": false
+    }
+  ],
+  "requiredGreenArtifacts": [
+    {
+      "path": "web/unit-1b-contract-green.log",
+      "acceptedPaths": [
+        "web/unit-1b-contract-green.log"
+      ],
+      "unit": "1b",
+      "kind": "implementation-green",
+      "description": "REST v1 contract registry implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2b-me-green.log",
+      "acceptedPaths": [
+        "web/unit-2b-me-green.log"
+      ],
+      "unit": "2b",
+      "kind": "implementation-green",
+      "description": "native account API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3b-users-search-green.log",
+      "acceptedPaths": [
+        "web/unit-3b-users-search-green.log"
+      ],
+      "unit": "3b",
+      "kind": "implementation-green",
+      "description": "user/search API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4b-recipe-writes-green.log",
+      "acceptedPaths": [
+        "web/unit-4b-recipe-writes-green.log"
+      ],
+      "unit": "4b",
+      "kind": "implementation-green",
+      "description": "recipe write API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5b-recipe-steps-green.log",
+      "acceptedPaths": [
+        "web/unit-5b-recipe-steps-green.log"
+      ],
+      "unit": "5b",
+      "kind": "implementation-green",
+      "description": "recipe step API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6b-covers-green.log",
+      "acceptedPaths": [
+        "web/unit-6b-covers-green.log"
+      ],
+      "unit": "6b",
+      "kind": "implementation-green",
+      "description": "recipe cover API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7b-spoons-green.log",
+      "acceptedPaths": [
+        "web/unit-7b-spoons-green.log"
+      ],
+      "unit": "7b",
+      "kind": "implementation-green",
+      "description": "spoon cook-log API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8b-cookbook-writes-green.log",
+      "acceptedPaths": [
+        "web/unit-8b-cookbook-writes-green.log"
+      ],
+      "unit": "8b",
+      "kind": "implementation-green",
+      "description": "cookbook write API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9b-shopping-parity-green.log",
+      "acceptedPaths": [
+        "web/unit-9b-shopping-parity-green.log"
+      ],
+      "unit": "9b",
+      "kind": "implementation-green",
+      "description": "shopping API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10b-sync-green.log",
+      "acceptedPaths": [
+        "web/unit-10b-sync-green.log"
+      ],
+      "unit": "10b",
+      "kind": "implementation-green",
+      "description": "native sync API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10e-recipe-import-green.log",
+      "acceptedPaths": [
+        "web/unit-10e-recipe-import-green.log"
+      ],
+      "unit": "10e",
+      "kind": "implementation-green",
+      "description": "recipe import API implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20b-aasa-green.log",
+      "acceptedPaths": [
+        "web/unit-20b-aasa-green.log"
+      ],
+      "unit": "20b",
+      "kind": "implementation-green",
+      "description": "AASA route implementation green",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24b-docs-green.log",
+      "acceptedPaths": [
+        "web/unit-24b-docs-green.log"
+      ],
+      "unit": "24b",
+      "kind": "implementation-green",
+      "description": "native dogfood docs implementation green",
+      "allowEmpty": false
+    }
+  ],
+  "requiredMatrixArtifacts": [
+    {
+      "path": "web/unit-1c-contract-vitest.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-vitest.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-focused",
+      "description": "1c web-focused artifact for unit-1c-contract",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-1c-contract-route-coverage.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-route-coverage.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-route-coverage",
+      "description": "1c web-route-coverage artifact for unit-1c-contract",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-1c-contract-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-docs-drift.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-docs-drift",
+      "description": "1c web-docs-drift artifact for unit-1c-contract",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-1c-contract-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-api-playground-generate.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-playground-generate",
+      "description": "1c web-playground-generate artifact for unit-1c-contract",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-1c-contract-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-api-playground-drift.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-playground-generate",
+      "description": "1c web-playground-generate artifact for unit-1c-contract",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-1c-contract-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-typecheck.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-typecheck",
+      "description": "1c web-typecheck artifact for unit-1c-contract",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-1c-contract-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-1c-contract-warning-scan.log"
+      ],
+      "unit": "1c",
+      "kind": "matrix:web-warning-scan",
+      "description": "1c web-warning-scan artifact for unit-1c-contract",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2c-account-vitest.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-vitest.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-focused",
+      "description": "2c web-focused artifact for unit-2c-account",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2c-account-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-docs-drift.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-docs-drift",
+      "description": "2c web-docs-drift artifact for unit-2c-account",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2c-account-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-api-playground-generate.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-playground-generate",
+      "description": "2c web-playground-generate artifact for unit-2c-account",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2c-account-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-api-playground-drift.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-playground-generate",
+      "description": "2c web-playground-generate artifact for unit-2c-account",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-2c-account-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-typecheck.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-typecheck",
+      "description": "2c web-typecheck artifact for unit-2c-account",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2c-account-coverage.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-coverage.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-coverage-full",
+      "description": "2c web-coverage-full artifact for unit-2c-account",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-2c-account-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-2c-account-warning-scan.log"
+      ],
+      "unit": "2c",
+      "kind": "matrix:web-warning-scan",
+      "description": "2c web-warning-scan artifact for unit-2c-account",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3c-users-search-vitest.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-vitest.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-focused",
+      "description": "3c web-focused artifact for unit-3c-users-search",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3c-users-search-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-docs-drift.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-docs-drift",
+      "description": "3c web-docs-drift artifact for unit-3c-users-search",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3c-users-search-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-api-playground-generate.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-playground-generate",
+      "description": "3c web-playground-generate artifact for unit-3c-users-search",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3c-users-search-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-api-playground-drift.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-playground-generate",
+      "description": "3c web-playground-generate artifact for unit-3c-users-search",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-3c-users-search-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-typecheck.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-typecheck",
+      "description": "3c web-typecheck artifact for unit-3c-users-search",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3c-users-search-coverage.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-coverage.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-coverage-full",
+      "description": "3c web-coverage-full artifact for unit-3c-users-search",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-3c-users-search-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-3c-users-search-warning-scan.log"
+      ],
+      "unit": "3c",
+      "kind": "matrix:web-warning-scan",
+      "description": "3c web-warning-scan artifact for unit-3c-users-search",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-vitest.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-vitest.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-focused",
+      "description": "4c web-focused artifact for unit-4c-recipe-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-docs-drift.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-docs-drift",
+      "description": "4c web-docs-drift artifact for unit-4c-recipe-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-api-playground-generate.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-playground-generate",
+      "description": "4c web-playground-generate artifact for unit-4c-recipe-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-api-playground-drift.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-playground-generate",
+      "description": "4c web-playground-generate artifact for unit-4c-recipe-writes",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-typecheck.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-typecheck",
+      "description": "4c web-typecheck artifact for unit-4c-recipe-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-coverage.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-coverage.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-coverage-full",
+      "description": "4c web-coverage-full artifact for unit-4c-recipe-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-4c-recipe-writes-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-4c-recipe-writes-warning-scan.log"
+      ],
+      "unit": "4c",
+      "kind": "matrix:web-warning-scan",
+      "description": "4c web-warning-scan artifact for unit-4c-recipe-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-vitest.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-vitest.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-focused",
+      "description": "5c web-focused artifact for unit-5c-recipe-steps",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-docs-drift.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-docs-drift",
+      "description": "5c web-docs-drift artifact for unit-5c-recipe-steps",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-api-playground-generate.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-playground-generate",
+      "description": "5c web-playground-generate artifact for unit-5c-recipe-steps",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-api-playground-drift.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-playground-generate",
+      "description": "5c web-playground-generate artifact for unit-5c-recipe-steps",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-typecheck.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-typecheck",
+      "description": "5c web-typecheck artifact for unit-5c-recipe-steps",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-coverage.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-coverage.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-coverage-full",
+      "description": "5c web-coverage-full artifact for unit-5c-recipe-steps",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-5c-recipe-steps-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-5c-recipe-steps-warning-scan.log"
+      ],
+      "unit": "5c",
+      "kind": "matrix:web-warning-scan",
+      "description": "5c web-warning-scan artifact for unit-5c-recipe-steps",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6c-covers-vitest.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-vitest.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-focused",
+      "description": "6c web-focused artifact for unit-6c-covers",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6c-covers-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-docs-drift.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-docs-drift",
+      "description": "6c web-docs-drift artifact for unit-6c-covers",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6c-covers-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-api-playground-generate.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-playground-generate",
+      "description": "6c web-playground-generate artifact for unit-6c-covers",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6c-covers-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-api-playground-drift.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-playground-generate",
+      "description": "6c web-playground-generate artifact for unit-6c-covers",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-6c-covers-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-typecheck.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-typecheck",
+      "description": "6c web-typecheck artifact for unit-6c-covers",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6c-covers-coverage.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-coverage.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-coverage-full",
+      "description": "6c web-coverage-full artifact for unit-6c-covers",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-6c-covers-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-6c-covers-warning-scan.log"
+      ],
+      "unit": "6c",
+      "kind": "matrix:web-warning-scan",
+      "description": "6c web-warning-scan artifact for unit-6c-covers",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7c-spoons-vitest.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-vitest.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-focused",
+      "description": "7c web-focused artifact for unit-7c-spoons",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7c-spoons-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-docs-drift.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-docs-drift",
+      "description": "7c web-docs-drift artifact for unit-7c-spoons",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7c-spoons-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-api-playground-generate.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-playground-generate",
+      "description": "7c web-playground-generate artifact for unit-7c-spoons",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7c-spoons-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-api-playground-drift.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-playground-generate",
+      "description": "7c web-playground-generate artifact for unit-7c-spoons",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-7c-spoons-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-typecheck.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-typecheck",
+      "description": "7c web-typecheck artifact for unit-7c-spoons",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7c-spoons-coverage.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-coverage.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-coverage-full",
+      "description": "7c web-coverage-full artifact for unit-7c-spoons",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-7c-spoons-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-7c-spoons-warning-scan.log"
+      ],
+      "unit": "7c",
+      "kind": "matrix:web-warning-scan",
+      "description": "7c web-warning-scan artifact for unit-7c-spoons",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-vitest.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-vitest.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-focused",
+      "description": "8c web-focused artifact for unit-8c-cookbook-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-docs-drift.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-docs-drift",
+      "description": "8c web-docs-drift artifact for unit-8c-cookbook-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-api-playground-generate.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-playground-generate",
+      "description": "8c web-playground-generate artifact for unit-8c-cookbook-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-api-playground-drift.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-playground-generate",
+      "description": "8c web-playground-generate artifact for unit-8c-cookbook-writes",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-typecheck.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-typecheck",
+      "description": "8c web-typecheck artifact for unit-8c-cookbook-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-coverage.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-coverage.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-coverage-full",
+      "description": "8c web-coverage-full artifact for unit-8c-cookbook-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-8c-cookbook-writes-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-8c-cookbook-writes-warning-scan.log"
+      ],
+      "unit": "8c",
+      "kind": "matrix:web-warning-scan",
+      "description": "8c web-warning-scan artifact for unit-8c-cookbook-writes",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-vitest.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-vitest.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-focused",
+      "description": "9c web-focused artifact for unit-9c-shopping-parity",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-docs-drift.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-docs-drift",
+      "description": "9c web-docs-drift artifact for unit-9c-shopping-parity",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-api-playground-generate.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-playground-generate",
+      "description": "9c web-playground-generate artifact for unit-9c-shopping-parity",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-api-playground-drift.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-playground-generate",
+      "description": "9c web-playground-generate artifact for unit-9c-shopping-parity",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-typecheck.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-typecheck",
+      "description": "9c web-typecheck artifact for unit-9c-shopping-parity",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-coverage.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-coverage.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-coverage-full",
+      "description": "9c web-coverage-full artifact for unit-9c-shopping-parity",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-9c-shopping-parity-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-9c-shopping-parity-warning-scan.log"
+      ],
+      "unit": "9c",
+      "kind": "matrix:web-warning-scan",
+      "description": "9c web-warning-scan artifact for unit-9c-shopping-parity",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-vitest.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-vitest.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-focused",
+      "description": "10c web-focused artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-route-coverage.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-route-coverage.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-route-coverage",
+      "description": "10c web-route-coverage artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-docs-drift.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-docs-drift",
+      "description": "10c web-docs-drift artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-api-playground-generate.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-playground-generate",
+      "description": "10c web-playground-generate artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-api-playground-drift.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-playground-generate",
+      "description": "10c web-playground-generate artifact for unit-10c-sync",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-10c-sync-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-typecheck.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-typecheck",
+      "description": "10c web-typecheck artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-coverage.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-coverage.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-coverage-full",
+      "description": "10c web-coverage-full artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10c-sync-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-10c-sync-warning-scan.log"
+      ],
+      "unit": "10c",
+      "kind": "matrix:web-warning-scan",
+      "description": "10c web-warning-scan artifact for unit-10c-sync",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-vitest.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-vitest.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-focused",
+      "description": "10f web-focused artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-route-coverage.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-route-coverage.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-route-coverage",
+      "description": "10f web-route-coverage artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-docs-drift.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-docs-drift",
+      "description": "10f web-docs-drift artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-api-playground-generate.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-playground-generate",
+      "description": "10f web-playground-generate artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-api-playground-drift.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-playground-generate",
+      "description": "10f web-playground-generate artifact for unit-10f-recipe-import",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-10f-recipe-import-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-typecheck.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-typecheck",
+      "description": "10f web-typecheck artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-coverage.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-coverage.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-coverage-full",
+      "description": "10f web-coverage-full artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-10f-recipe-import-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-10f-recipe-import-warning-scan.log"
+      ],
+      "unit": "10f",
+      "kind": "matrix:web-warning-scan",
+      "description": "10f web-warning-scan artifact for unit-10f-recipe-import",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20c-aasa-vitest.log",
+      "acceptedPaths": [
+        "web/unit-20c-aasa-vitest.log",
+        "web/unit-20c-aasa-green.log"
+      ],
+      "unit": "20c",
+      "kind": "matrix:web-focused",
+      "description": "20c web-focused artifact for unit-20c-aasa",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20c-aasa-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-20c-aasa-typecheck.log"
+      ],
+      "unit": "20c",
+      "kind": "matrix:web-typecheck",
+      "description": "20c web-typecheck artifact for unit-20c-aasa",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20c-aasa-build.log",
+      "acceptedPaths": [
+        "web/unit-20c-aasa-build.log"
+      ],
+      "unit": "20c",
+      "kind": "matrix:web-build",
+      "description": "20c web-build artifact for unit-20c-aasa",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20c-aasa-coverage.log",
+      "acceptedPaths": [
+        "web/unit-20c-aasa-coverage.log"
+      ],
+      "unit": "20c",
+      "kind": "matrix:web-coverage-full",
+      "description": "20c web-coverage-full artifact for unit-20c-aasa",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-20c-aasa-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-20c-aasa-warning-scan.log"
+      ],
+      "unit": "20c",
+      "kind": "matrix:web-warning-scan",
+      "description": "20c web-warning-scan artifact for unit-20c-aasa",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24c-docs-route-coverage.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-route-coverage.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-route-coverage",
+      "description": "24c web-route-coverage artifact for unit-24c-docs",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24c-docs-docs-drift.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-docs-drift.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-docs-drift",
+      "description": "24c web-docs-drift artifact for unit-24c-docs",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24c-docs-api-playground-generate.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-api-playground-generate.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-playground-generate",
+      "description": "24c web-playground-generate artifact for unit-24c-docs",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24c-docs-api-playground-drift.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-api-playground-drift.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-playground-generate",
+      "description": "24c web-playground-generate artifact for unit-24c-docs",
+      "allowEmpty": true
+    },
+    {
+      "path": "web/unit-24c-docs-typecheck.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-typecheck.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-typecheck",
+      "description": "24c web-typecheck artifact for unit-24c-docs",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24c-docs-build.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-build.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-build",
+      "description": "24c web-build artifact for unit-24c-docs",
+      "allowEmpty": false
+    },
+    {
+      "path": "web/unit-24c-docs-warning-scan.log",
+      "acceptedPaths": [
+        "web/unit-24c-docs-warning-scan.log"
+      ],
+      "unit": "24c",
+      "kind": "matrix:web-warning-scan",
+      "description": "24c web-warning-scan artifact for unit-24c-docs",
+      "allowEmpty": false
+    }
+  ],
+  "requiredBlockerArtifacts": [
+    {
+      "path": "web/provider-secret-blocker-recipe-covers.json",
+      "acceptedPaths": [
+        "web/provider-secret-blocker-recipe-covers.json"
+      ],
+      "unit": "6c",
+      "kind": "blocker",
+      "description": "recipe cover provider secret blocker",
+      "allowEmpty": false,
+      "expectedCapability": "ProviderSecret"
+    },
+    {
+      "path": "web/provider-secret-blocker-recipe-import.json",
+      "acceptedPaths": [
+        "web/provider-secret-blocker-recipe-import.json"
+      ],
+      "unit": "10f",
+      "kind": "blocker",
+      "description": "recipe import provider secret blocker",
+      "allowEmpty": false,
+      "expectedCapability": "ProviderSecret"
+    }
+  ],
+  "requiredSourceTestMappings": [
+    {
+      "source": "app/lib/api-v1-contract.server.ts",
+      "tests": [
+        "test/config/api-v1-route-coverage.test.ts",
+        "test/docs/developer-platform-docs.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-1c-contract-route-coverage.log"
+      ]
+    },
+    {
+      "source": "app/lib/api-v1-openapi.server.ts",
+      "tests": [
+        "test/lib/api-v1-openapi.server.test.ts",
+        "test/routes/api-v1-openapi.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-24c-docs-docs-drift.log"
+      ]
+    },
+    {
+      "source": "app/lib/api-v1.server.ts",
+      "tests": [
+        "test/routes/api-v1-shell.test.ts",
+        "test/routes/api-v1-telemetry.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-4c-recipe-writes-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/api-v1-recipe-writes.server.ts",
+      "tests": [
+        "test/lib/api-v1-recipe-writes.server.test.ts",
+        "test/routes/api-v1-recipe-writes.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-4a-recipe-writes-red.log",
+        "web/unit-4b-recipe-writes-green.log",
+        "web/unit-4c-recipe-writes-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/api-v1-recipe-steps.server.ts",
+      "tests": [
+        "test/lib/api-v1-recipe-steps.server.test.ts",
+        "test/routes/api-v1-recipe-steps.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-5a-recipe-steps-red.log",
+        "web/unit-5b-recipe-steps-green.log",
+        "web/unit-5c-recipe-steps-vitest.log"
+      ]
+    },
+    {
+      "source": "app/routes/api.v1.$.ts",
+      "tests": [
+        "test/routes/api-v1-recipes.test.ts",
+        "test/routes/api-v1-tokens.test.ts",
+        "test/routes/api-v1-search.test.ts",
+        "test/routes/api-v1-recipe-covers.test.ts",
+        "test/routes/api-v1-recipe-spoons.test.ts",
+        "test/routes/api-v1-cookbooks.test.ts",
+        "test/routes/api-v1-shopping-mutations.test.ts",
+        "test/routes/api-v1-shopping-sync.test.ts",
+        "test/routes/api-v1-recipe-import.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-10f-recipe-import-route-coverage.log"
+      ]
+    },
+    {
+      "source": "app/lib/spoonjoy-api.server.ts",
+      "tests": [
+        "test/routes/api-v1-recipes.test.ts",
+        "test/routes/api-v1-recipe-spoons.test.ts",
+        "test/routes/api-v1-cookbooks.test.ts",
+        "test/routes/api-v1-shopping-mutations.test.ts",
+        "test/routes/api-v1-shopping-sync.test.ts",
+        "test/routes/api-v1-recipe-import.test.ts",
+        "test/lib/spoonjoy-api-spoons.test.ts",
+        "test/lib/spoonjoy-api-cookbook-notification.test.ts",
+        "test/lib/spoonjoy-api-import.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-4a-recipe-writes-red.log",
+        "web/unit-4b-recipe-writes-green.log",
+        "web/unit-10f-recipe-import-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/spoonjoy-api-request.server.ts",
+      "tests": [
+        "test/lib/spoonjoy-api-request.server.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-1c-contract-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/recipe-fork.server.ts",
+      "tests": [
+        "test/lib/recipe-fork.server.test.ts",
+        "test/routes/api-v1-recipe-writes.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-4a-recipe-writes-red.log",
+        "web/unit-4b-recipe-writes-green.log",
+        "web/unit-4c-recipe-writes-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/account-settings.server.ts",
+      "tests": [
+        "test/routes/api-v1-account-settings.test.ts",
+        "test/routes/api-v1-tokens.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-2a-me-red.log",
+        "web/unit-2b-me-green.log",
+        "web/unit-2c-account-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/search.server.ts",
+      "tests": [
+        "test/routes/api-v1-search.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-3a-users-search-red.log",
+        "web/unit-3b-users-search-green.log",
+        "web/unit-3c-users-search-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/recipe-cover.server.ts",
+      "tests": [
+        "test/routes/api-v1-recipe-covers.test.ts",
+        "test/lib/recipe-cover.server.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-6a-covers-red.log",
+        "web/unit-6b-covers-green.log",
+        "web/unit-6c-covers-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/recipe-spoon.server.ts",
+      "tests": [
+        "test/routes/api-v1-recipe-spoons.test.ts",
+        "test/lib/spoonjoy-api-spoons.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-7a-spoons-red.log",
+        "web/unit-7b-spoons-green.log",
+        "web/unit-7c-spoons-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/recipe-import.server.ts",
+      "tests": [
+        "test/routes/api-v1-recipe-import.test.ts",
+        "test/lib/recipe-import.test.ts",
+        "test/lib/spoonjoy-api-import.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-10d-recipe-import-red.log",
+        "web/unit-10e-recipe-import-green.log",
+        "web/unit-10f-recipe-import-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/shopping-list.server.ts",
+      "tests": [
+        "test/routes/api-v1-shopping-mutations.test.ts",
+        "test/routes/api-v1-shopping-conflicts.test.ts",
+        "test/routes/api-v1-shopping-sync.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-9a-shopping-parity-red.log",
+        "web/unit-9b-shopping-parity-green.log",
+        "web/unit-9c-shopping-parity-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/web-route-manifest.server.ts",
+      "tests": [
+        "test/routes/aasa-contract.test.ts",
+        "test/routes/route-shell-coverage.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-20a-route-manifest-red.log",
+        "web/unit-20b-aasa-green.log",
+        "web/unit-20c-aasa-green.log"
+      ]
+    },
+    {
+      "source": "app/routes/well-known.apple-app-site-association.ts",
+      "tests": [
+        "test/routes/aasa-contract.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-20a-aasa-red.log",
+        "web/unit-20b-aasa-green.log",
+        "web/unit-20c-aasa-green.log"
+      ]
+    },
+    {
+      "source": "app/lib/security-headers.server.ts",
+      "tests": [
+        "test/lib/security-headers.server.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
+      "source": "app/lib/telemetry-coverage/allowlist.ts",
+      "tests": [
+        "test/lib/telemetry-coverage.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
+      "source": "app/routes/oauth.callback.tsx",
+      "tests": [
+        "test/routes/oauth-callback.test.tsx",
+        "test/routes/aasa-contract.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-20c-aasa-green.log",
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
+      "source": "app/routes/developers.tsx",
+      "tests": [
+        "test/docs/developer-platform-guide.test.ts",
+        "test/routes/developers.test.tsx"
+      ],
+      "artifacts": [
+        "web/unit-24a-docs-red.log",
+        "web/unit-24b-docs-green.log",
+        "web/unit-24c-docs-docs-drift.log"
+      ]
+    },
+    {
+      "source": "app/routes/developers.playground.tsx",
+      "tests": [
+        "test/routes/developers-playground.test.tsx"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-24c-docs-docs-drift.log"
+      ]
+    },
+    {
+      "source": "docs/api.md",
+      "tests": [
+        "test/docs/developer-platform-docs.test.ts",
+        "test/docs/native-dogfood-docs.test.tsx"
+      ],
+      "artifacts": [
+        "web/unit-24a-docs-red.log",
+        "web/unit-24b-docs-green.log",
+        "web/unit-24c-docs-docs-drift.log"
+      ]
+    },
+    {
+      "source": "docs/telemetry-coverage.md",
+      "tests": [
+        "test/lib/telemetry-coverage.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
+      "source": "scripts/generate-api-playground.ts",
+      "tests": [
+        "test/scripts/generate-api-playground.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-24c-docs-api-playground-generate.log"
+      ]
+    },
+    {
+      "source": "app/lib/generated/api-v1-playground.ts",
+      "tests": [
+        "test/scripts/generate-api-playground.test.ts",
+        "test/routes/developers-playground.test.tsx"
+      ],
+      "artifacts": [
+        "web/unit-1a-contract-red.log",
+        "web/unit-1b-contract-green.log",
+        "web/unit-24c-docs-api-playground-drift.log"
+      ]
+    },
+    {
+      "source": "vite.config.ts",
+      "tests": [
+        "test/build-output-hygiene.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-24b-review-fix-focused-green.log",
+        "web/unit-24b-review-fix-build.log",
+        "web/unit-24c-docs-build.log"
+      ]
+    }
+  ],
+  "branchChangedSources": [
+    "app/lib/api-v1-contract.server.ts",
+    "app/lib/api-v1-openapi.server.ts",
+    "app/lib/api-v1-recipe-steps.server.ts",
+    "app/lib/api-v1-recipe-writes.server.ts",
+    "app/lib/api-v1.server.ts",
+    "app/lib/generated/api-v1-playground.ts",
+    "app/lib/recipe-fork.server.ts",
+    "app/lib/security-headers.server.ts",
+    "app/lib/telemetry-coverage/allowlist.ts",
+    "app/lib/web-route-manifest.server.ts",
+    "app/routes.ts",
+    "app/routes/developers.playground.tsx",
+    "app/routes/developers.tsx",
+    "app/routes/oauth.callback.tsx",
+    "docs/api.md",
+    "docs/telemetry-coverage.md",
+    "migrations/0019_native_push_devices.sql",
+    "migrations/0020_api_mutation_tombstones.sql",
+    "prisma/migrations/20260617074000_native_push_devices/migration.sql",
+    "prisma/migrations/20260617093000_api_mutation_tombstones/migration.sql",
+    "prisma/schema.prisma",
+    "scripts/audit-web-validation-artifacts.rb",
+    "scripts/build-output-hygiene.ts",
+    "scripts/cleanup-local-qa-data.mjs",
+    "scripts/generate-api-playground.ts",
+    "test/build-output-hygiene.test.ts",
+    "test/docs/developer-platform-guide.test.ts",
+    "test/docs/native-dogfood-docs.test.tsx",
+    "test/helpers/cleanup.ts",
+    "test/lib/api-v1-openapi.server.test.ts",
+    "test/lib/api-v1-recipe-steps.server.test.ts",
+    "test/lib/api-v1-recipe-writes.server.test.ts",
+    "test/lib/security-headers.server.test.ts",
+    "test/routes/aasa-contract.test.ts",
+    "test/routes/api-v1-account-settings.test.ts",
+    "test/routes/api-v1-cookbooks.test.ts",
+    "test/routes/api-v1-idempotent-recovery.test.ts",
+    "test/routes/api-v1-recipe-import.test.ts",
+    "test/routes/api-v1-recipe-steps.test.ts",
+    "test/routes/api-v1-recipe-writes.test.ts",
+    "test/routes/api-v1-scopes-public-tokens.test.ts",
+    "test/routes/api-v1-scopes.test.ts",
+    "test/routes/api-v1-shell.test.ts",
+    "test/routes/api-v1-shopping-conflicts.test.ts",
+    "test/routes/api-v1-shopping-mutations.test.ts",
+    "test/routes/api-v1-shopping-sync.test.ts",
+    "test/routes/api-v1-telemetry.test.ts",
+    "test/routes/api-v1-tokens.test.ts",
+    "test/routes/developers-playground.test.tsx",
+    "test/routes/developers.test.tsx",
+    "test/routes/oauth-callback.test.tsx",
+    "test/routes/route-shell-coverage.test.ts",
+    "test/scripts/cleanup-local-qa-data.test.ts",
+    "test/scripts/migration-0019-native-push-devices.test.ts",
+    "test/scripts/migration-0020-api-mutation-tombstones.test.ts",
+    "test/setup.ts",
+    "vite.config.ts"
+  ],
+  "checks": {
+    "artifactFailures": [
+
+    ],
+    "mappingFailures": [
+
+    ],
+    "changedSourceInspectionFailures": [
+
+    ],
+    "unmappedChangedSources": [
+
+    ]
+  },
+  "ok": true
+}

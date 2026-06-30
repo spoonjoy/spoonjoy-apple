@@ -33,6 +33,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 
 - Canonical recipe, cookbook, shopping, OAuth, and idempotency contracts stay with the Spoonjoy v2 backend.
 - The native app consumes `/api/v1/recipes`, `/api/v1/cookbooks`, shopping-list endpoints, and OAuth paths instead of duplicating server policy.
+- The native API dogfood contract lives in `docs/native-api-dogfood.md` and points to the web docs, OpenAPI source, generated playground manifest, and native Swift symbols that must stay aligned.
 - Production AASA publication is live: Spoonjoy v2 serves `https://spoonjoy.app/.well-known/apple-app-site-association` with one valid production Apple Team ID across the iOS and macOS bundle identifiers. Installed-app Universal Link runtime validation still waits for signed app/device or TestFlight capability.
 - Design language comes from the web Kitchen Table system, translated into native navigation and controls.
 - Production recipe creation remains a backend/API responsibility; this slice supports local capture drafts.

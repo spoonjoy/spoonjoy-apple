@@ -1,0 +1,9 @@
+{
+  "capability": "XcodePlatform",
+  "blocked": true,
+  "command": "screenshots skipped after app-bundle XcodePlatform blocker",
+  "timeoutSeconds": 180,
+  "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
+  "reason": "Local Xcode preflight command failed before app bundle validation.",
+  "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation."
+}

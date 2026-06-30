@@ -18,6 +18,7 @@ struct RecipeDetailRouteView: View {
     let recordSpoonCookLogDraft: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var viewModel: RecipeDetailScreenViewModel?
     @State private var errorMessage: String?
@@ -38,7 +39,8 @@ struct RecipeDetailRouteView: View {
         performSpoonCookLogAction: @escaping @MainActor @Sendable (SpoonCookLogMutationPlan) async throws -> Void,
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         discardSpoonCookLogConflict: @escaping @MainActor @Sendable (String) async throws -> Void,
-        performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+        performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.recipeID = recipeID
         self.repository = repository
@@ -56,6 +58,7 @@ struct RecipeDetailRouteView: View {
         self.recordSpoonCookLogDraft = recordSpoonCookLogDraft
         self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _viewModel = State(initialValue: initialViewModel)
     }
 
@@ -74,7 +77,8 @@ struct RecipeDetailRouteView: View {
                     performSpoonCookLogAction: performSpoonCookLogAction,
                     recordSpoonCookLogDraft: recordSpoonCookLogDraft,
                     discardSpoonCookLogConflict: discardSpoonCookLogConflict,
-                    performShoppingAction: performShoppingAction
+                    performShoppingAction: performShoppingAction,
+                    onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "text.book.closed")
@@ -166,6 +170,7 @@ struct RecipeDetailView: View {
     let recordSpoonCookLogDraft: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var actionErrorMessage: String?
     @State private var actionStatusMessage: String?
@@ -189,7 +194,8 @@ struct RecipeDetailView: View {
                     draftDidChange: { draft in
                         recordSpoonCookLogDraft(draft, viewModel.id)
                     },
-                    conflictDidRequestReview: discardSpoonCookLogConflict
+                    conflictDidRequestReview: discardSpoonCookLogConflict,
+                    onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
                 .id(viewModel.id)
                 cookbookSave
@@ -487,7 +493,7 @@ struct RecipeDetailView: View {
 
     @ViewBuilder private var offlineIndicator: some View {
         if viewModel.offlineIndicator.display != .synced {
-            OfflineStatusView(display: viewModel.offlineIndicator.display)
+            OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
         }
     }
 

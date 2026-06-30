@@ -5,6 +5,7 @@ struct CookbooksView: View {
     let viewModel: CookbookSurfaceViewModel
     let openRoute: (AppRoute) -> Void
     let performCookbookAction: (@MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?)?
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var list: CookbookSurfaceListState
     @State private var errorMessage: String?
@@ -15,11 +16,13 @@ struct CookbooksView: View {
     init(
         viewModel: CookbookSurfaceViewModel,
         openRoute: @escaping (AppRoute) -> Void,
-        performCookbookAction: (@MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?)? = nil
+        performCookbookAction: (@MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?)? = nil,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.openRoute = openRoute
         self.performCookbookAction = performCookbookAction
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _list = State(initialValue: viewModel.list)
     }
 
@@ -83,7 +86,7 @@ struct CookbooksView: View {
     @ViewBuilder private var statusBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             if list.offlineIndicator.display != .synced {
-                OfflineStatusView(display: list.offlineIndicator.display)
+                OfflineStatusView(display: list.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
             if let errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
@@ -267,6 +270,7 @@ struct CookbookDetailRouteView: View {
     let viewModel: CookbookSurfaceViewModel
     let openRoute: (AppRoute) -> Void
     let performCookbookAction: @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var detail: CookbookDetailViewModel?
     @State private var errorMessage: String?
@@ -275,12 +279,14 @@ struct CookbookDetailRouteView: View {
         cookbookID: String,
         viewModel: CookbookSurfaceViewModel,
         openRoute: @escaping (AppRoute) -> Void,
-        performCookbookAction: @escaping @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?
+        performCookbookAction: @escaping @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.cookbookID = cookbookID
         self.viewModel = viewModel
         self.openRoute = openRoute
         self.performCookbookAction = performCookbookAction
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _detail = State(initialValue: viewModel.detail)
     }
 
@@ -290,7 +296,8 @@ struct CookbookDetailRouteView: View {
                 CookbookDetailView(
                     viewModel: detail,
                     openRoute: openRoute,
-                    performCookbookAction: performAndApplyCookbookAction
+                    performCookbookAction: performAndApplyCookbookAction,
+                    onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "books.vertical")
@@ -335,6 +342,7 @@ private struct CookbookDetailView: View {
     let viewModel: CookbookDetailViewModel
     let openRoute: (AppRoute) -> Void
     let performCookbookAction: @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
@@ -345,11 +353,13 @@ private struct CookbookDetailView: View {
     init(
         viewModel: CookbookDetailViewModel,
         openRoute: @escaping (AppRoute) -> Void,
-        performCookbookAction: @escaping @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?
+        performCookbookAction: @escaping @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.openRoute = openRoute
         self.performCookbookAction = performCookbookAction
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _renameTitle = State(initialValue: viewModel.title)
         _selectedRecipeID = State(initialValue: viewModel.ownerTools.availableRecipes.first?.id)
     }
@@ -417,7 +427,7 @@ private struct CookbookDetailView: View {
     @ViewBuilder private var statusBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             if viewModel.offlineIndicator.display != .synced {
-                OfflineStatusView(display: viewModel.offlineIndicator.display)
+                OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
             if let queuedWorkSummary = viewModel.queuedWorkSummary {
                 Label(queuedWorkSummary, systemImage: "arrow.triangle.2.circlepath")

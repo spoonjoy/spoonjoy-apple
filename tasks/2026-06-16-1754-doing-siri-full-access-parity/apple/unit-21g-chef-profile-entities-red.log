@@ -1,0 +1,251 @@
+Building for debugging...
+[0/6] Write sources
+[1/6] Write swift-version--58304C5D6DBC2206.txt
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[3/6] Emitting module SpoonjoyCoreTests
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:277:17: error: cannot find type 'ChefProfileEntityCatalog' in scope
+275 |         currentAccountID: String = "account_ari",
+276 |         environment: NativeCacheEnvironment = .production
+277 |     ) throws -> ChefProfileEntityCatalog {
+    |                 `- error: cannot find type 'ChefProfileEntityCatalog' in scope
+278 |         try ChefProfileEntityCatalog(
+279 |             syncSnapshot: syncSnapshot ?? Self.syncSnapshot(),
+[4/6] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:277:17: error: cannot find type 'ChefProfileEntityCatalog' in scope
+275 |         currentAccountID: String = "account_ari",
+276 |         environment: NativeCacheEnvironment = .production
+277 |     ) throws -> ChefProfileEntityCatalog {
+    |                 `- error: cannot find type 'ChefProfileEntityCatalog' in scope
+278 |         try ChefProfileEntityCatalog(
+279 |             syncSnapshot: syncSnapshot ?? Self.syncSnapshot(),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:140:41: error: cannot infer contextual base in reference to member 'profile'
+138 |         #expect(ariByUsername.subtitle == "Joined Jun 2026")
+139 |         #expect(ariByUsername.disambiguationLabel == "ari on Spoonjoy")
+140 |         #expect(ariByUsername.route == .profile(identifier: "ari"))
+    |                                         `- error: cannot infer contextual base in reference to member 'profile'
+141 |         #expect(ariByUsername.canonicalURL == URL(string: "https://spoonjoy.app/users/ari"))
+142 |         #expect(ariByUsername.photoURL == URL(string: "https://spoonjoy.app/photos/profiles/chef_ari/avatar.jpg"))
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:149:35: error: cannot infer contextual base in reference to member 'chefProfile'
+147 | 
+148 |         let transfer = ariByUsername.transferValue
+149 |         #expect(transfer.kind == .chefProfile)
+    |                                   `- error: cannot infer contextual base in reference to member 'chefProfile'
+150 |         #expect(transfer.profileID == "chef_ari")
+151 |         #expect(transfer.username == "ari")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:158:21: error: cannot find 'ChefProfileEntityCatalog' in scope
+156 |         #expect(transfer.userVisibleSummary == "ari on Spoonjoy")
+157 |         #expect(transfer.debugFields.isEmpty)
+158 |         #expect(try ChefProfileEntityCatalog.resolvedChefProfileID(from: transfer.profileID) == "chef_ari")
+    |                     `- error: cannot find 'ChefProfileEntityCatalog' in scope
+159 | 
+160 |         let serializedTransfer = String(decoding: try JSONEncoder().encode(transfer), as: UTF8.self)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:166:29: error: cannot infer key path type from context; consider explicitly specifying a root type
+164 | 
+165 |         let matches = try await catalog.chefProfileEntities(matching: "  ari  ")
+166 |         #expect(matches.map(\.profileID) == ["chef_ari"])
+    |                             `- error: cannot infer key path type from context; consider explicitly specifying a root type
+167 | 
+168 |         let byIdentifier = try await catalog.chefProfileEntities(for: ["chef_jules", "chef_missing_from_old_donation", "chef_ari"])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:169:34: error: cannot infer key path type from context; consider explicitly specifying a root type
+167 | 
+168 |         let byIdentifier = try await catalog.chefProfileEntities(for: ["chef_jules", "chef_missing_from_old_donation", "chef_ari"])
+169 |         #expect(byIdentifier.map(\.profileID) == ["chef_jules", "chef_ari"])
+    |                                  `- error: cannot infer key path type from context; consider explicitly specifying a root type
+170 |     }
+171 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:177:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+175 |         let suggested = try await catalog.suggestedChefProfileEntities(limit: 10)
+176 | 
+177 |         #expect(suggested.map(\.profileID) == ["chef_ari", "chef_jules", "chef_mika"])
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+178 |         #expect(suggested.map(\.route) == [
+179 |             .profile(identifier: "ari"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:178:31: error: cannot infer key path type from context; consider explicitly specifying a root type
+176 | 
+177 |         #expect(suggested.map(\.profileID) == ["chef_ari", "chef_jules", "chef_mika"])
+178 |         #expect(suggested.map(\.route) == [
+    |                               `- error: cannot infer key path type from context; consider explicitly specifying a root type
+179 |             .profile(identifier: "ari"),
+180 |             .profile(identifier: "jules"),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:179:14: error: type 'Any' has no member 'profile'
+177 |         #expect(suggested.map(\.profileID) == ["chef_ari", "chef_jules", "chef_mika"])
+178 |         #expect(suggested.map(\.route) == [
+179 |             .profile(identifier: "ari"),
+    |              `- error: type 'Any' has no member 'profile'
+180 |             .profile(identifier: "jules"),
+181 |             .profile(identifier: "mika")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:180:14: error: type 'Any' has no member 'profile'
+178 |         #expect(suggested.map(\.route) == [
+179 |             .profile(identifier: "ari"),
+180 |             .profile(identifier: "jules"),
+    |              `- error: type 'Any' has no member 'profile'
+181 |             .profile(identifier: "mika")
+182 |         ])
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:181:14: error: type 'Any' has no member 'profile'
+179 |             .profile(identifier: "ari"),
+180 |             .profile(identifier: "jules"),
+181 |             .profile(identifier: "mika")
+    |              `- error: type 'Any' has no member 'profile'
+182 |         ])
+183 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:184:21: error: no calls to throwing functions occur within 'try' expression
+182 |         ])
+183 | 
+184 |         let jules = try #require(suggested.first { $0.profileID == "chef_jules" })
+    |                     `- error: no calls to throwing functions occur within 'try' expression
+185 |         #expect(jules.username == "jules")
+186 |         #expect(jules.subtitle == "Fellow chef - 1 spoon")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:190:20: error: no calls to throwing functions occur within 'try' expression
+188 |         #expect(jules.transferValue.userVisibleSummary == "jules on Spoonjoy")
+189 | 
+190 |         let mika = try #require(suggested.first { $0.profileID == "chef_mika" })
+    |                    `- error: no calls to throwing functions occur within 'try' expression
+191 |         #expect(mika.username == "mika")
+192 |         #expect(mika.subtitle == "Kitchen visitor - 1 spoon")
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:211:35: error: cannot find 'ChefProfileEntityCatalog' in scope
+209 |             Self.profileCacheRecord(id: "chef_cached", username: "cached")
+210 |         ])
+211 |         let wrongAccountCatalog = ChefProfileEntityCatalog(
+    |                                   `- error: cannot find 'ChefProfileEntityCatalog' in scope
+212 |             syncSnapshot: syncSnapshot,
+213 |             cacheSnapshot: cacheSnapshot,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:215:27: error: cannot infer contextual base in reference to member 'production'
+213 |             cacheSnapshot: cacheSnapshot,
+214 |             currentAccountID: "account_other",
+215 |             environment: .production
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+216 |         )
+217 |         let wrongEnvironmentCatalog = ChefProfileEntityCatalog(
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:217:39: error: cannot find 'ChefProfileEntityCatalog' in scope
+215 |             environment: .production
+216 |         )
+217 |         let wrongEnvironmentCatalog = ChefProfileEntityCatalog(
+    |                                       `- error: cannot find 'ChefProfileEntityCatalog' in scope
+218 |             syncSnapshot: syncSnapshot,
+219 |             cacheSnapshot: cacheSnapshot,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:221:27: error: cannot infer contextual base in reference to member 'local'
+219 |             cacheSnapshot: cacheSnapshot,
+220 |             currentAccountID: "account_ari",
+221 |             environment: .local
+    |                           `- error: cannot infer contextual base in reference to member 'local'
+222 |         )
+223 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:226:44: error: cannot find 'ChefProfileEntityCatalogError' in scope
+224 |         #expect(try await wrongAccountCatalog.suggestedChefProfileEntities(limit: 10).isEmpty)
+225 |         #expect(try await wrongEnvironmentCatalog.chefProfileEntities(matching: "ari").isEmpty)
+226 |         await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+    |                                            `- error: cannot find 'ChefProfileEntityCatalogError' in scope
+227 |             _ = try await wrongAccountCatalog.chefProfileEntity(id: "ari")
+228 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:226:15: error: generic parameter 'E' could not be inferred
+224 |         #expect(try await wrongAccountCatalog.suggestedChefProfileEntities(limit: 10).isEmpty)
+225 |         #expect(try await wrongEnvironmentCatalog.chefProfileEntities(matching: "ari").isEmpty)
+226 |         await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+227 |             _ = try await wrongAccountCatalog.chefProfileEntity(id: "ari")
+228 |         }
+    :
+521 | }
+522 | 
+523 | private func chefProfileExpectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'chefProfileExpectAsyncThrows'
+524 |     _ expectedError: E.Type,
+525 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:229:44: error: cannot find 'ChefProfileEntityCatalogError' in scope
+227 |             _ = try await wrongAccountCatalog.chefProfileEntity(id: "ari")
+228 |         }
+229 |         await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+    |                                            `- error: cannot find 'ChefProfileEntityCatalogError' in scope
+230 |             _ = try await wrongEnvironmentCatalog.chefProfileEntity(id: "chef_ari")
+231 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:229:15: error: generic parameter 'E' could not be inferred
+227 |             _ = try await wrongAccountCatalog.chefProfileEntity(id: "ari")
+228 |         }
+229 |         await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+    |               `- error: generic parameter 'E' could not be inferred
+230 |             _ = try await wrongEnvironmentCatalog.chefProfileEntity(id: "chef_ari")
+231 |         }
+    :
+521 | }
+522 | 
+523 | private func chefProfileExpectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'chefProfileExpectAsyncThrows'
+524 |     _ expectedError: E.Type,
+525 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:237:34: error: cannot infer contextual base in reference to member 'profile'
+235 |         #expect(cached.profileID == "chef_cached")
+236 |         #expect(cached.subtitle == "Joined Spoonjoy")
+237 |         #expect(cached.route == .profile(identifier: "cached"))
+    |                                  `- error: cannot infer contextual base in reference to member 'profile'
+238 |         #expect(cached.transferValue.debugFields.isEmpty)
+239 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:241:48: error: cannot find 'ChefProfileEntityCatalogError' in scope
+239 | 
+240 |         for unsafe in ["", ".", "..", "ari\\bad", "ari..bad", " ari\nbad "] {
+241 |             await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+    |                                                `- error: cannot find 'ChefProfileEntityCatalogError' in scope
+242 |                 _ = try await catalog.chefProfileEntity(id: unsafe)
+243 |             }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:241:19: error: generic parameter 'E' could not be inferred
+239 | 
+240 |         for unsafe in ["", ".", "..", "ari\\bad", "ari..bad", " ari\nbad "] {
+241 |             await chefProfileExpectAsyncThrows(ChefProfileEntityCatalogError.self) {
+    |                   `- error: generic parameter 'E' could not be inferred
+242 |                 _ = try await catalog.chefProfileEntity(id: unsafe)
+243 |             }
+    :
+521 | }
+522 | 
+523 | private func chefProfileExpectAsyncThrows<E: Error>(
+    |              `- note: in call to function 'chefProfileExpectAsyncThrows'
+524 |     _ expectedError: E.Type,
+525 |     _ body: () async throws -> Void
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:261:32: error: cannot find 'ChefProfileEntityCatalog' in scope
+259 |         ]))
+260 | 
+261 |         let loaded = try await ChefProfileEntityCatalog.loading(
+    |                                `- error: cannot find 'ChefProfileEntityCatalog' in scope
+262 |             syncStore: syncStore,
+263 |             cacheStore: cacheStore,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:265:27: error: cannot infer contextual base in reference to member 'production'
+263 |             cacheStore: cacheStore,
+264 |             currentAccountID: "account_ari",
+265 |             environment: .production
+    |                           `- error: cannot infer contextual base in reference to member 'production'
+266 |         )
+267 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/ChefProfileEntityTests.swift:278:13: error: cannot find 'ChefProfileEntityCatalog' in scope
+276 |         environment: NativeCacheEnvironment = .production
+277 |     ) throws -> ChefProfileEntityCatalog {
+278 |         try ChefProfileEntityCatalog(
+    |             `- error: cannot find 'ChefProfileEntityCatalog' in scope
+279 |             syncSnapshot: syncSnapshot ?? Self.syncSnapshot(),
+280 |             cacheSnapshot: cacheSnapshot,
+error: fatalError
+red as expected (exit 1)

@@ -18,6 +18,58 @@ REQUIRED_FIELDS = [
 
 VALID_ROUTES = ["kitchen", "search", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
+ACCESSIBILITY_FIELDS = [
+  "dynamicType",
+  "voiceOverLabels",
+  "keyboardNavigation",
+  "reduceMotion",
+  "contrast",
+  "kitchenTableHierarchy",
+  "noOverlap"
+].freeze
+EXPECTED_OFFLINE_VISIBLE_STATES = [
+  "offline",
+  "stale",
+  "queuedWork",
+  "syncFailure",
+  "conflict",
+  "blocker",
+  "destructiveConfirmation"
+].freeze
+EXPECTED_OFFLINE_DISMISSIBLE_STATES = ["offline", "stale"].freeze
+EXPECTED_OFFLINE_SEVERE_STATES = [
+  "queuedWork",
+  "syncFailure",
+  "conflict",
+  "blocker",
+  "destructiveConfirmation"
+].freeze
+EXPECTED_ROUTE_EVIDENCE = {
+  "kitchen" => {
+    "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
+    "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+    "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  },
+  "search" => {
+    "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
+    "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
+    "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  },
+  "settings" => {
+    "voiceOverLabels" => ["Settings", "Profile", "Security"],
+    "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass label on bone"],
+    "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  }
+}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -64,6 +116,61 @@ def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id)
   fail_check("#{proof_path} visibleSections missing required search sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
 end
 
+def expected_accessibility_source(route)
+  case route
+  when "kitchen"
+    "KitchenView"
+  when "search"
+    "SearchView"
+  when "settings"
+    "SettingsView"
+  else
+    fail_check("unsupported accessibility route #{route}")
+  end
+end
+
+def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
+  fail_check("#{manifest_path} accessibilityProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
+  proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
+  fail_check("#{manifest_path} missing accessibility proof artifact #{proof_relative_path}") unless proof_path.file?
+  proof = JSON.parse(proof_path.read)
+  fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
+  fail_check("#{proof_path} platform must be ios or macos") unless ["ios", "macos"].include?(proof["platform"])
+  expected_bundle_identifier = proof["platform"] == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy"
+  fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
+  fail_check("#{proof_path} source must be #{expected_accessibility_source(route)}") unless proof["source"] == expected_accessibility_source(route)
+  fail_check("#{proof_path} emittedBy must be SpoonjoyApp") unless proof["emittedBy"] == "SpoonjoyApp"
+  fail_check("#{proof_path} bundleIdentifier must be #{expected_bundle_identifier}") unless proof["bundleIdentifier"] == expected_bundle_identifier
+
+  false_fields = ACCESSIBILITY_FIELDS.reject { |field| proof[field] == true }
+  fail_check("#{proof_path} accessibility fields must all be true: #{false_fields.join(", ")}") unless false_fields.empty?
+  fail_check("#{proof_path} minimumTargetSize must be at least 44") unless proof["minimumTargetSize"].is_a?(Numeric) && proof["minimumTargetSize"] >= 44
+  fail_check("#{proof_path} textFits must be true") unless proof["textFits"] == true
+  fail_check("#{proof_path} noTinyClusters must be true") unless proof["noTinyClusters"] == true
+  fail_check("#{proof_path} observedDynamicTypeSize must be a non-empty string") unless proof["observedDynamicTypeSize"].is_a?(String) && !proof["observedDynamicTypeSize"].empty?
+  fail_check("#{proof_path} observedReduceMotion must be boolean") unless [true, false].include?(proof["observedReduceMotion"])
+
+  route_evidence = proof["routeEvidence"]
+  fail_check("#{proof_path} routeEvidence must be an object") unless route_evidence.is_a?(Hash)
+  EXPECTED_ROUTE_EVIDENCE.fetch(route).each do |field, required_values|
+    actual_values = route_evidence[field]
+    fail_check("#{proof_path} routeEvidence.#{field} must be an array") unless actual_values.is_a?(Array)
+    missing_values = required_values.reject { |value| actual_values.include?(value) }
+    fail_check("#{proof_path} routeEvidence.#{field} missing #{missing_values.join(", ")}") unless missing_values.empty?
+  end
+
+  offline_proof = proof["offlineIndicatorProof"]
+  fail_check("#{proof_path} offlineIndicatorProof must be an object") unless offline_proof.is_a?(Hash)
+  fail_check("#{proof_path} offlineIndicatorProof source must be OfflineStatusView") unless offline_proof["source"] == "OfflineStatusView"
+  fail_check("#{proof_path} offlineIndicatorProof visibleStates must exactly match #{EXPECTED_OFFLINE_VISIBLE_STATES.join(", ")}") unless offline_proof["visibleStates"] == EXPECTED_OFFLINE_VISIBLE_STATES
+  fail_check("#{proof_path} offlineIndicatorProof dismissibleStates must exactly match #{EXPECTED_OFFLINE_DISMISSIBLE_STATES.join(", ")}") unless offline_proof["dismissibleStates"] == EXPECTED_OFFLINE_DISMISSIBLE_STATES
+  fail_check("#{proof_path} offlineIndicatorProof severeStates must exactly match #{EXPECTED_OFFLINE_SEVERE_STATES.join(", ")}") unless offline_proof["severeStates"] == EXPECTED_OFFLINE_SEVERE_STATES
+  fail_check("#{proof_path} offlineIndicatorProof hiddenStates must exactly match synced, dismissed") unless offline_proof["hiddenStates"] == ["synced", "dismissed"]
+  fail_check("#{proof_path} offlineIndicatorProof voiceOverLabel must be true") unless offline_proof["voiceOverLabel"] == true
+  fail_check("#{proof_path} offlineIndicatorProof dismissButtonLabel must be Hide offline status") unless offline_proof["dismissButtonLabel"] == "Hide offline status"
+  fail_check("#{proof_path} offlineIndicatorProof severityCorrect must be true") unless offline_proof["severityCorrect"] == true
+end
+
 path = Pathname.new(ARGV.fetch(0) { fail_check("usage: validate-design-review.rb <design-review.json>") })
 fail_check("missing #{path}") unless path.file?
 
@@ -87,6 +194,18 @@ route = manifest["screenshotRoute"]
 fail_check("#{path} missing screenshotRoute") if route.nil?
 fail_check("#{path} screenshotRoute has invalid type") unless route.is_a?(String)
 fail_check("#{path} screenshotRoute must be one of #{VALID_ROUTES.join(", ")}") unless VALID_ROUTES.include?(route)
+
+accessibility_proofs = manifest["accessibilityProofArtifacts"]
+fail_check("#{path} accessibilityProofArtifacts must be an array") unless accessibility_proofs.is_a?(Array)
+fail_check("#{path} accessibilityProofArtifacts must include iOS and macOS proof artifacts") unless accessibility_proofs.length >= 2
+platforms = []
+accessibility_proofs.each do |proof_relative_path|
+  fail_check("#{path} accessibilityProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
+  validate_accessibility_proof!(path, proof_relative_path, route)
+  proof_path = path.dirname.join(proof_relative_path).cleanpath
+  platforms << JSON.parse(proof_path.read)["platform"]
+end
+fail_check("#{path} accessibilityProofArtifacts must include ios and macos platforms") unless platforms.sort == ["ios", "macos"]
 
 case route
 when "kitchen"

@@ -12,25 +12,31 @@ struct SearchView: View {
     private let viewModel: SearchSurfaceViewModel
     private let openRoute: (AppRoute) -> Void
     private let searchTask: @MainActor @Sendable (SearchState) async -> Void
+    private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
     private let debounce = SearchSurfaceDebouncePolicy(delayMilliseconds: 350, defaultLimit: 20)
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         search: Binding<SearchState>,
         viewModel: SearchSurfaceViewModel,
         openRoute: @escaping (AppRoute) -> Void,
-        searchTask: @escaping @MainActor @Sendable (SearchState) async -> Void = { _ in }
+        searchTask: @escaping @MainActor @Sendable (SearchState) async -> Void = { _ in },
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         _search = search
         self.viewModel = viewModel
         self.openRoute = openRoute
         self.searchTask = searchTask
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
     var body: some View {
         List {
             if viewModel.offlineIndicator.display.isVisible {
                 Section {
-                    OfflineStatusView(display: viewModel.offlineIndicator.display)
+                    OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
                 }
             }
 
@@ -73,12 +79,24 @@ struct SearchView: View {
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
         .task(id: search.route.stateIdentifier) {
             await writeScreenshotProofIfNeeded()
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "search",
+                source: "SearchView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
             await debounceSearch()
         }
     }
 
     private var searchableScopeOrder: [SearchScope] {
         viewModel.searchableScopes
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     @MainActor

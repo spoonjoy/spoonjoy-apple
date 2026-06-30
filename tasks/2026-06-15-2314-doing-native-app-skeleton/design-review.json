@@ -11,5 +11,9 @@
   "screenshotRoute": "kitchen",
   "kitchenSignedInSurface": true,
   "kitchenSeedAccountID": "chef_kitchen_capture",
+  "accessibilityProofArtifacts": [
+    "apple/matrix-accessibility-proof-ios.json",
+    "apple/matrix-accessibility-proof-macos.json"
+  ],
   "blockers": []
 }

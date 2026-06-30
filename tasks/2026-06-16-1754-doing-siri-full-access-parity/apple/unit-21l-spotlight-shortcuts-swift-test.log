@@ -1,0 +1,20 @@
+Test Suite 'Selected tests' started at 2026-06-29 05:13:25.910.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-06-29 05:13:25.911.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-06-29 05:13:25.911.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-06-29 05:13:25.911.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Spotlight, App Shortcuts, and transfer integration contracts" started.
+◇ Test "Spotlight identifiers stay scoped and reject malformed private routes" started.
+◇ Test "native metadata advertises every shipped entity as Spotlight indexed" started.
+◇ Test "source contracts wire semantic Spotlight, App Shortcuts, donations, on-screen annotations, and transfers" started.
+◇ Test "Spotlight documents include semantic spoon capture draft and chef profile entities" started.
+✔ Test "native metadata advertises every shipped entity as Spotlight indexed" passed after 0.001 seconds.
+✔ Test "Spotlight identifiers stay scoped and reject malformed private routes" passed after 0.001 seconds.
+✔ Test "Spotlight documents include semantic spoon capture draft and chef profile entities" passed after 0.001 seconds.
+✔ Test "source contracts wire semantic Spotlight, App Shortcuts, donations, on-screen annotations, and transfers" passed after 0.161 seconds.
+✔ Suite "Spotlight, App Shortcuts, and transfer integration contracts" passed after 0.161 seconds.
+✔ Test run with 4 tests in 1 suite passed after 0.161 seconds.

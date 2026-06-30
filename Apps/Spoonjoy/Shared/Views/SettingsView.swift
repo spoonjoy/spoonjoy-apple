@@ -24,9 +24,11 @@ struct SettingsView: View {
     var openNotificationSettings: @MainActor @Sendable () -> Void = {}
     var notificationAPNsSettingsContent: (@MainActor @Sendable (NotificationAPNsSurfaceViewModel) -> AnyView)?
     var shellOfflineIndicatorState: OfflineIndicatorState?
-    var onDismissOfflineIndicator: () -> Void = {}
+    var onDismissOfflineIndicator: @MainActor @Sendable () -> Void = {}
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var selectedProfilePhotoItem: PhotosPickerItem?
     @State private var stagedProfilePhoto: NativeStagedMediaUpload?
     @State private var profileEmail = ""
@@ -63,6 +65,11 @@ struct SettingsView: View {
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["Profile", "Security"]
                         )
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                            route: "settings",
+                            source: "SettingsView",
+                            runtimeContext: screenshotAccessibilityRuntimeContext
+                        )
                     case .notifications:
                         withAnimation(nil) {
                             proxy.scrollTo(Self.notificationsFocusID, anchor: .center)
@@ -74,6 +81,11 @@ struct SettingsView: View {
                         Self.writeScreenshotProof(
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                        )
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                            route: "settings",
+                            source: "SettingsView",
+                            runtimeContext: screenshotAccessibilityRuntimeContext
                         )
                     }
                 }
@@ -109,6 +121,13 @@ struct SettingsView: View {
                 Text(message)
             }
         }
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var settingsForm: some View {
@@ -198,7 +217,8 @@ struct SettingsView: View {
                         performNotificationAPNsAction: performNotificationAPNsAction,
                         requestNotificationPermission: requestNotificationPermission,
                         requestDeviceRegistrationAction: requestDeviceRegistrationAction,
-                        openNotificationSettings: openNotificationSettings
+                        openNotificationSettings: openNotificationSettings,
+                        onDismissOfflineIndicator: onDismissOfflineIndicator
                     )
                 }
             } else if let notifications = surface.notificationDraft {
