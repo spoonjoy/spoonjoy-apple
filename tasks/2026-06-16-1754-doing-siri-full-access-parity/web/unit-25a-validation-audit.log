@@ -1,0 +1,16 @@
+web validation artifact audit FAILED
+manifest: /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/validation-audit-manifest.json
+
+artifactFailures:
+- missing red artifact web/unit-20a-aasa-red.log (accepted: web/unit-20a-aasa-red.log)
+- missing red artifact web/unit-20a-route-manifest-red.log (accepted: web/unit-20a-route-manifest-red.log)
+- missing implementation-green artifact web/unit-20b-aasa-green.log (accepted: web/unit-20b-aasa-green.log)
+- missing matrix:web-focused artifact web/unit-7c-spoons-vitest.log (accepted: web/unit-7c-spoons-vitest.log)
+- missing matrix:web-playground-generate artifact web/unit-7c-spoons-api-playground-drift.log (accepted: web/unit-7c-spoons-api-playground-drift.log)
+- missing matrix:web-focused artifact web/unit-8c-cookbook-writes-vitest.log (accepted: web/unit-8c-cookbook-writes-vitest.log)
+- missing matrix:web-playground-generate artifact web/unit-8c-cookbook-writes-api-playground-drift.log (accepted: web/unit-8c-cookbook-writes-api-playground-drift.log)
+- missing matrix:web-route-coverage artifact web/unit-10c-sync-route-coverage.log (accepted: web/unit-10c-sync-route-coverage.log)
+- missing matrix:web-docs-drift artifact web/unit-10c-sync-docs-drift.log (accepted: web/unit-10c-sync-docs-drift.log)
+- missing matrix:web-playground-generate artifact web/unit-10c-sync-api-playground-drift.log (accepted: web/unit-10c-sync-api-playground-drift.log)
+- missing matrix:web-coverage-full artifact web/unit-10c-sync-coverage.log (accepted: web/unit-10c-sync-coverage.log)
+- missing matrix:web-coverage-full artifact web/unit-10f-recipe-import-coverage.log (accepted: web/unit-10f-recipe-import-coverage.log)
