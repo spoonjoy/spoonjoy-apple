@@ -1472,7 +1472,7 @@
     {
       "path": "apple/matrix-swift-test.log",
       "exists": true,
-      "bytes": 116287,
+      "bytes": 107686,
       "nonEmpty": true
     },
     {
@@ -1604,7 +1604,7 @@
     {
       "path": "apple/validation-matrix.json",
       "exists": true,
-      "bytes": 20862,
+      "bytes": 21009,
       "nonEmpty": true
     },
     {

@@ -5,7 +5,7 @@ Verdict: CONVERGED after reviewer-fix re-review
 ## Final Resolution
 - `scripts/validate-native-local.sh` now writes the screenshot/design blocker `outputPath` to the real `apple/matrix-capture.log` artifact.
 - `scripts/audit-native-validation-artifacts.rb` now requires blocker `outputPath` values to exist and be non-empty before the validation bundle can pass.
-- The refreshed final matrix is `ok: true` with `0` failed steps, `5` local XcodePlatform blockers, and no `blockerFailures`.
+- The refreshed final matrix is structurally valid with `ok: true`, `fullyValidated: false`, `result: "blocked"`, `0` failed steps, `5` local XcodePlatform blockers, and no `blockerFailures`.
 - Evidence refreshed in `unit-26c-review-fixes-audit-green.log`, `unit-26c-reviewer-major-fixes-audit-green.log`, `unit-26c-reviewer-major-fixes-final-matrix-contract.log`, and `unit-26c-reviewer-major-fixes-validate-native-local.log`.
 - Banach and the validation-artifact reviewer returned `CONVERGED`.
 

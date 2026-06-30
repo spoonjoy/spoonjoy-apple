@@ -456,11 +456,29 @@ ruby -rjson -rtime -e '
     JSON.parse(File.read(path)).merge("path" => path)
   end.compact
   blocker_failures = blockers.flat_map { |blocker| validate_blocker_contract(blocker, blocker.fetch("path"), allowed_capabilities, artifact_root) }
+  passed_steps = steps.select { |step| step["status"] == "pass" }
   failed_steps = steps.select { |step| step["status"] == "fail" }
+  blocked_steps = steps.select { |step| step["status"] == "blocked" }
   ok = failed_steps.empty? && blocker_failures.empty?
+  fully_validated = ok && blocked_steps.empty?
+  result = if fully_validated
+    "pass"
+  elsif ok
+    "blocked"
+  else
+    "fail"
+  end
   File.write(matrix_path, JSON.pretty_generate({
     ok: ok,
+    fullyValidated: fully_validated,
+    result: result,
     generatedAt: Time.now.utc.iso8601,
+    counts: {
+      passed: passed_steps.length,
+      failed: failed_steps.length,
+      blocked: blocked_steps.length,
+      blockerFailures: blocker_failures.length
+    },
     steps: steps,
     blockers: blockers,
     blockerFailures: blocker_failures,

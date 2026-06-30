@@ -451,10 +451,28 @@ if matrix
   unless matrix["ok"] == true
     failures << "apple/validation-matrix.json does not report ok: true"
   end
+  steps = Array(matrix["steps"])
+  blocked_steps = steps.select { |step| step["status"] == "blocked" }
+  failed_steps = steps.select { |step| step["status"] == "fail" }
+  if matrix["fullyValidated"] != blocked_steps.empty?
+    failures << "apple/validation-matrix.json fullyValidated does not match blocked step state"
+  end
+  expected_result = if failed_steps.any? || Array(matrix["blockerFailures"]).any?
+    "fail"
+  elsif blocked_steps.any?
+    "blocked"
+  else
+    "pass"
+  end
+  failures << "apple/validation-matrix.json result expected #{expected_result.inspect}, got #{matrix["result"].inspect}" unless matrix["result"] == expected_result
+  counts = matrix["counts"].is_a?(Hash) ? matrix["counts"] : {}
+  failures << "apple/validation-matrix.json counts.blocked mismatch" unless counts["blocked"] == blocked_steps.length
+  failures << "apple/validation-matrix.json counts.failed mismatch" unless counts["failed"] == failed_steps.length
+  failures << "apple/validation-matrix.json counts.blockerFailures mismatch" unless counts["blockerFailures"] == Array(matrix["blockerFailures"]).length
   Array(matrix["blockers"]).each_with_index do |blocker, index|
     validate_blocker_contract(blocker, "apple/validation-matrix.json blockers[#{index}]", failures, artifact_root)
   end
-  stale_scan_step = Array(matrix["steps"]).find { |step| step["name"] == "stale noncanonical blocker scan" }
+  stale_scan_step = steps.find { |step| step["name"] == "stale noncanonical blocker scan" }
   if stale_scan_step.nil?
     failures << "apple/validation-matrix.json missing stale noncanonical blocker scan step"
   elsif stale_scan_step["status"] != "pass"

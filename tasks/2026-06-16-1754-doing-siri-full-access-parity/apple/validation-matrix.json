@@ -1,6 +1,14 @@
 {
   "ok": true,
-  "generatedAt": "2026-06-30T07:27:47Z",
+  "fullyValidated": false,
+  "result": "blocked",
+  "generatedAt": "2026-06-30T07:44:43Z",
+  "counts": {
+    "passed": 33,
+    "failed": 0,
+    "blocked": 5,
+    "blockerFailures": 0
+  },
   "steps": [
     {
       "name": "stale noncanonical blocker scan",

@@ -231,7 +231,7 @@ struct SpoonjoyRootView: View {
 
     private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
         let route: AppRoute
-        if let scope = liveStore.spotlightIndexScope {
+        if let scope = liveStore.bootstrapState.contentState.spotlightIndexScope {
             route = SpotlightIndexPlan.route(uniqueIdentifier: uniqueIdentifier, scope: scope)
         } else {
             route = .unknownLink

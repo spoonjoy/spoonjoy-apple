@@ -50,6 +50,9 @@ FINAL_MATRIX_ARTIFACT_TOKENS = [
 ].freeze
 
 REQUIRED_SOURCE_TOKENS = [
+  "fullyValidated",
+  "blocked_steps",
+  "blockerFailures: blocker_failures.length",
   "scripts/check-app-intents-contract.rb",
   "stale_noncanonical_blockers",
   'record_step "stale noncanonical blocker scan"',
