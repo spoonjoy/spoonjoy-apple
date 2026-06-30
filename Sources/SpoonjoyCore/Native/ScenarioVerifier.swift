@@ -1760,7 +1760,7 @@ public enum ScenarioVerifier {
         return ScenarioCheck(
             name: "Notification Siri intents",
             status: status,
-            detail: "ReadNotificationPreferencesIntent, UpdateNotificationPreferencesIntent, and OpenNotificationAPNsStatusIntent expose notification preferences and AppleDeveloperProgram APNs blocker status without adding permission, token registration, production push delivery, comments, social, mail, or messaging Siri surfaces."
+            detail: "ReadNotificationPreferencesIntent, UpdateNotificationPreferencesIntent, and OpenNotificationAPNsStatusIntent expose notification preferences and AppleDeveloperProgram APNs blocker status without adding permission, token registration, production push delivery, discussion, social, mail, or messaging Siri surfaces."
         )
     }
 

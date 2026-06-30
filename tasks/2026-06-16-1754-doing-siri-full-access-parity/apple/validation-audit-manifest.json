@@ -1,5 +1,5 @@
 {
-  "ok": false,
+  "ok": true,
   "schemaVersion": 1,
   "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity",
   "requiredRedArtifacts": [
@@ -630,9 +630,9 @@
         },
         {
           "path": "design-review.json",
-          "exists": true,
-          "bytes": 533,
-          "nonEmpty": true
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
         }
       ],
       "satisfied": true
@@ -1214,13 +1214,13 @@
     {
       "path": "apple/matrix-final-scenario.log",
       "exists": true,
-      "bytes": 5241,
+      "bytes": 5546,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-final-report.json",
       "exists": true,
-      "bytes": 10117,
+      "bytes": 12617,
       "nonEmpty": true
     },
     {
@@ -1237,6 +1237,26 @@
     }
   ],
   "requiredBlockerArtifacts": [
+    {
+      "capability": "XcodePlatform",
+      "blocked": true,
+      "command": "xcodebuild -checkFirstLaunchStatus (exit 69)",
+      "timeoutSeconds": 180,
+      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+      "reason": "Local Xcode preflight command failed before app bundle validation.",
+      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
+      "path": "apple/matrix-xcode-platform-blocker.json"
+    },
+    {
+      "capability": "XcodePlatform",
+      "blocked": true,
+      "command": "screenshots skipped after app-bundle XcodePlatform blocker",
+      "timeoutSeconds": 180,
+      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform.log",
+      "reason": "Local Xcode preflight command failed before app bundle validation.",
+      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
+      "path": "apple/matrix-screenshots-xcode-platform-blocker.json"
+    },
     {
       "blocked": true,
       "capability": "AppleDeveloperProgram",
@@ -1274,20 +1294,20 @@
         {
           "path": "apple/matrix-capture.log",
           "exists": true,
-          "bytes": 124,
+          "bytes": 72,
           "nonEmpty": true
         },
         {
           "path": "screenshots/ios-mobile.png",
-          "exists": true,
-          "bytes": 962191,
-          "nonEmpty": true
-        },
-        {
-          "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
           "exists": false,
           "bytes": null,
           "nonEmpty": false
+        },
+        {
+          "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
+          "exists": true,
+          "bytes": 566,
+          "nonEmpty": true
         },
         {
           "path": "apple/matrix-screenshots-core-simulator-blocker.json",
@@ -1309,15 +1329,15 @@
       "alternatives": [
         {
           "path": "design-review.json",
-          "exists": true,
-          "bytes": 533,
-          "nonEmpty": true
-        },
-        {
-          "path": "design-review-blocked.json",
           "exists": false,
           "bytes": null,
           "nonEmpty": false
+        },
+        {
+          "path": "design-review-blocked.json",
+          "exists": true,
+          "bytes": 707,
+          "nonEmpty": true
         }
       ],
       "satisfied": true
@@ -1329,8 +1349,8 @@
       "tests": [
         "scripts/check-native-final-matrix-contract.rb"
       ],
-      "status": "fail",
-      "output": "native final matrix contract failed\n- validate-native-local.sh missing required final-matrix token \"scripts/check-app-intents-contract.rb\"\n- validate-native-local.sh missing required final-matrix token \"stale_noncanonical_blockers\"\n- validate-native-local.sh missing required final-matrix token \"validate_blocker_contract\"\n- validate-native-local.sh missing required final-matrix token \"ProductionOperationApproval\"\n- validate-native-local.sh missing required final-matrix token \"apple/apple-developer-program-blocker-apns.json\"\n- validate-native-local.sh missing required final-matrix token \"web/provider-secret-blocker-\"\n- validate-native-local.sh missing required final-matrix token \"human-credential-blocker-\"\n- validate-native-local.sh missing required final-matrix token \"rm -f \\\"$apple_dir/matrix-warning-scan.log\\\"\"\n- validate-native-local.sh missing required final-matrix token \"--timeout-seconds 180\"\n- validate-native-local.sh missing App Intents domain token \"recipe-cookbook\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-recipe-cookbook.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-recipe-cookbook.json\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-shopping.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-shopping.json\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-spoon.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-spoon.json\"\n- validate-native-local.sh missing App Intents domain token \"capture-draft\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-capture-draft.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-capture-draft.json\"\n- validate-native-local.sh missing App Intents domain token \"chef-profile\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-chef-profile.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-chef-profile.json\"\n- validate-native-local.sh missing App Intents domain token \"spotlight-shortcuts\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-spotlight-shortcuts.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-spotlight-shortcuts.json\"\n- validate-native-local.sh missing App Intents domain token \"open-search-share-cook\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-open-search-share-cook.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-open-search-share-cook.json\"\n- validate-native-local.sh missing App Intents domain token \"recipe-action\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-recipe-action.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-recipe-action.json\"\n- validate-native-local.sh missing App Intents domain token \"shopping-intents\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-shopping-intents.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-shopping-intents.json\"\n- validate-native-local.sh missing App Intents domain token \"spoon-intents\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-spoon-intents.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-spoon-intents.json\"\n- validate-native-local.sh missing App Intents domain token \"capture-import-intents\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-capture-import-intents.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-capture-import-intents.json\"\n- validate-native-local.sh missing App Intents domain token \"cookbook-intents\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-cookbook-intents.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-cookbook-intents.json\"\n- validate-native-local.sh missing App Intents domain token \"profile-settings-intents\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-profile-settings-intents.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-profile-settings-intents.json\"\n- validate-native-local.sh missing App Intents domain token \"notification-intents\"\n- validate-native-local.sh missing App Intents domain token \"matrix-appintents-notification-intents.log\"\n- validate-native-local.sh missing App Intents domain token \"appintents-sdk-blocker-notification-intents.json\"\n"
+      "status": "pass",
+      "output": "native final matrix contract ok\n"
     },
     {
       "source": "scripts/audit-native-validation-artifacts.rb",
@@ -1347,20 +1367,20 @@
         {
           "path": "apple/matrix-capture.log",
           "exists": true,
-          "bytes": 124,
+          "bytes": 72,
           "nonEmpty": true
         },
         {
           "path": "screenshots/ios-mobile.png",
-          "exists": true,
-          "bytes": 962191,
-          "nonEmpty": true
-        },
-        {
-          "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
           "exists": false,
           "bytes": null,
           "nonEmpty": false
+        },
+        {
+          "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
+          "exists": true,
+          "bytes": 566,
+          "nonEmpty": true
         },
         {
           "path": "apple/matrix-screenshots-core-simulator-blocker.json",
@@ -1382,15 +1402,15 @@
       "alternatives": [
         {
           "path": "design-review.json",
-          "exists": true,
-          "bytes": 533,
-          "nonEmpty": true
-        },
-        {
-          "path": "design-review-blocked.json",
           "exists": false,
           "bytes": null,
           "nonEmpty": false
+        },
+        {
+          "path": "design-review-blocked.json",
+          "exists": true,
+          "bytes": 707,
+          "nonEmpty": true
         }
       ],
       "satisfied": true
@@ -1432,9 +1452,9 @@
       "alternatives": [
         {
           "path": "apple/matrix-appintents-spotlight-shortcuts.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-spotlight-shortcuts.json",
@@ -1445,20 +1465,20 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     }
   ],
   "requiredFinalMatrixArtifacts": [
     {
       "path": "apple/matrix-swift-test.log",
       "exists": true,
-      "bytes": 88450,
+      "bytes": 107230,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-coverage-test.log",
       "exists": true,
-      "bytes": 95797,
+      "bytes": 115831,
       "nonEmpty": true
     },
     {
@@ -1470,7 +1490,7 @@
     {
       "path": "apple/matrix-final-scenario.log",
       "exists": true,
-      "bytes": 5241,
+      "bytes": 5546,
       "nonEmpty": true
     },
     {
@@ -1512,56 +1532,62 @@
     {
       "path": "apple/matrix-capture.log",
       "exists": true,
-      "bytes": 124,
+      "bytes": 72,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-design-review.log",
       "exists": true,
-      "bytes": 17,
+      "bytes": 25,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-xcode-version.log",
       "exists": true,
-      "bytes": 31,
+      "bytes": 32,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-xcodebuild-ios.log",
       "exists": true,
-      "bytes": 2330,
+      "bytes": 153,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-xcodebuild-macos.log",
       "exists": true,
-      "bytes": 2270,
+      "bytes": 77,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-ios.log",
       "exists": true,
-      "bytes": 23,
+      "bytes": 80,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-ios-inner.log",
-      "exists": false,
-      "bytes": null,
-      "nonEmpty": false
+      "exists": true,
+      "bytes": 86,
+      "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-macos.log",
       "exists": true,
-      "bytes": 15,
+      "bytes": 79,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-macos-inner.log",
-      "exists": false,
-      "bytes": null,
-      "nonEmpty": false
+      "exists": true,
+      "bytes": 85,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-stale-blocker-scan.log",
+      "exists": true,
+      "bytes": 22,
+      "nonEmpty": true
     },
     {
       "path": "apple/matrix-warning-scan.log",
@@ -1572,20 +1598,20 @@
     {
       "path": "apple/validation-matrix.jsonl",
       "exists": true,
-      "bytes": 8838,
+      "bytes": 18584,
       "nonEmpty": true
     },
     {
       "path": "apple/validation-matrix.json",
       "exists": true,
-      "bytes": 10035,
+      "bytes": 25009,
       "nonEmpty": true
     },
     {
       "path": "apple/unit-26b-native-full-validation-validate-native-local.log",
-      "exists": false,
-      "bytes": null,
-      "nonEmpty": false
+      "exists": true,
+      "bytes": 193,
+      "nonEmpty": true
     }
   ],
   "requiredFinalAppIntentsArtifacts": [
@@ -1594,9 +1620,9 @@
       "alternatives": [
         {
           "path": "apple/matrix-appintents-recipe-cookbook.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 41,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-recipe-cookbook.json",
@@ -1607,16 +1633,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents shopping",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-shopping.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 34,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-shopping.json",
@@ -1627,16 +1653,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents spoon",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-spoon.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 31,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-spoon.json",
@@ -1647,16 +1673,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents capture-draft",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-capture-draft.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-capture-draft.json",
@@ -1667,16 +1693,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents chef-profile",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-chef-profile.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 38,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-chef-profile.json",
@@ -1687,16 +1713,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents spotlight-shortcuts",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-spotlight-shortcuts.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 45,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-spotlight-shortcuts.json",
@@ -1707,16 +1733,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents open-search-share-cook",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-open-search-share-cook.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 48,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-open-search-share-cook.json",
@@ -1727,16 +1753,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents recipe-action",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-recipe-action.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-recipe-action.json",
@@ -1747,16 +1773,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents shopping-intents",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-shopping-intents.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 42,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-shopping-intents.json",
@@ -1767,16 +1793,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents spoon-intents",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-spoon-intents.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 39,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-spoon-intents.json",
@@ -1787,16 +1813,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents capture-import-intents",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-capture-import-intents.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 48,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-capture-import-intents.json",
@@ -1807,16 +1833,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents cookbook-intents",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-cookbook-intents.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 42,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-cookbook-intents.json",
@@ -1827,16 +1853,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents profile-settings-intents",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-profile-settings-intents.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 50,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-profile-settings-intents.json",
@@ -1847,16 +1873,16 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     },
     {
       "name": "final App Intents notification-intents",
       "alternatives": [
         {
           "path": "apple/matrix-appintents-notification-intents.log",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 46,
+          "nonEmpty": true
         },
         {
           "path": "apple/appintents-sdk-blocker-notification-intents.json",
@@ -1867,32 +1893,13 @@
           "validBlocker": false
         }
       ],
-      "satisfied": false
+      "satisfied": true
     }
   ],
   "staleNoncanonicalBlockers": [
-    "unit-17q-ci-fix-xcodebuild-ios-blocker.json"
+
   ],
   "failures": [
-    "missing final native matrix artifact apple/matrix-smoke-ios-inner.log",
-    "missing final native matrix artifact apple/matrix-smoke-macos-inner.log",
-    "missing final native matrix artifact apple/unit-26b-native-full-validation-validate-native-local.log",
-    "missing current final App Intents evidence final App Intents recipe-cookbook",
-    "missing current final App Intents evidence final App Intents shopping",
-    "missing current final App Intents evidence final App Intents spoon",
-    "missing current final App Intents evidence final App Intents capture-draft",
-    "missing current final App Intents evidence final App Intents chef-profile",
-    "missing current final App Intents evidence final App Intents spotlight-shortcuts",
-    "missing current final App Intents evidence final App Intents open-search-share-cook",
-    "missing current final App Intents evidence final App Intents recipe-action",
-    "missing current final App Intents evidence final App Intents shopping-intents",
-    "missing current final App Intents evidence final App Intents spoon-intents",
-    "missing current final App Intents evidence final App Intents capture-import-intents",
-    "missing current final App Intents evidence final App Intents cookbook-intents",
-    "missing current final App Intents evidence final App Intents profile-settings-intents",
-    "missing current final App Intents evidence final App Intents notification-intents",
-    "missing Spotlight privacy artifact group Spotlight privacy current final App Intents evidence",
-    "native final matrix source contract failed",
-    "stale noncanonical top-level native blocker(s): unit-17q-ci-fix-xcodebuild-ios-blocker.json"
+
   ]
 }

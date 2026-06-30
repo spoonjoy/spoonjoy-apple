@@ -351,8 +351,8 @@ if domain == "recipe-cookbook"
     failures
   )
   {
-    "OpenRecipeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"],
-    "StartCookModeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"],
+    "OpenRecipeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)"],
+    "StartCookModeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)"],
     "AddRecipeIngredientsToShoppingListIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"]
   }.each do |intent_name, tokens|
     pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/

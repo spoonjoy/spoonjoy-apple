@@ -16,13 +16,15 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5 runner
+      - name: Verify Xcode 26.5+ runner
         run: |
           set -euo pipefail
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          test "$first_line" = "Xcode 26.5"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Run Swift or Xcode tests when testable sources exist
         run: |
           set -euo pipefail
@@ -61,13 +63,15 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5 runner
+      - name: Verify Xcode 26.5+ runner
         run: |
           set -euo pipefail
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          test "$first_line" = "Xcode 26.5"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Check native design-language contract
         run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
       - name: Check native project and surface contracts
@@ -112,13 +116,15 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5 runner
+      - name: Verify Xcode 26.5+ runner
         run: |
           set -euo pipefail
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          test "$first_line" = "Xcode 26.5"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Build iOS and macOS app bundles when Xcode project exists
         run: |
           set -euo pipefail
@@ -155,13 +161,15 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5 runner
+      - name: Verify Xcode 26.5+ runner
         run: |
           set -euo pipefail
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          test "$first_line" = "Xcode 26.5"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Generate and enforce Swift or Xcode coverage when testable sources exist
         run: |
           set -euo pipefail

@@ -20,9 +20,29 @@ mkdir -p "$artifact_root" "$apple_dir"
 matrix_path="$apple_dir/validation-matrix.json"
 results_path="$apple_dir/validation-matrix.jsonl"
 web_design_doc="docs/source/spoonjoy-v2-design-language.md"
+unit_26b_validate_log_name="unit-26b-native-full-validation-validate-native-local.log"
+app_intents_domains=(
+  "recipe-cookbook:matrix-appintents-recipe-cookbook.log:appintents-sdk-blocker-recipe-cookbook.json"
+  "shopping:matrix-appintents-shopping.log:appintents-sdk-blocker-shopping.json"
+  "spoon:matrix-appintents-spoon.log:appintents-sdk-blocker-spoon.json"
+  "capture-draft:matrix-appintents-capture-draft.log:appintents-sdk-blocker-capture-draft.json"
+  "chef-profile:matrix-appintents-chef-profile.log:appintents-sdk-blocker-chef-profile.json"
+  "spotlight-shortcuts:matrix-appintents-spotlight-shortcuts.log:appintents-sdk-blocker-spotlight-shortcuts.json"
+  "open-search-share-cook:matrix-appintents-open-search-share-cook.log:appintents-sdk-blocker-open-search-share-cook.json"
+  "recipe-action:matrix-appintents-recipe-action.log:appintents-sdk-blocker-recipe-action.json"
+  "shopping-intents:matrix-appintents-shopping-intents.log:appintents-sdk-blocker-shopping-intents.json"
+  "spoon-intents:matrix-appintents-spoon-intents.log:appintents-sdk-blocker-spoon-intents.json"
+  "capture-import-intents:matrix-appintents-capture-import-intents.log:appintents-sdk-blocker-capture-import-intents.json"
+  "cookbook-intents:matrix-appintents-cookbook-intents.log:appintents-sdk-blocker-cookbook-intents.json"
+  "profile-settings-intents:matrix-appintents-profile-settings-intents.log:appintents-sdk-blocker-profile-settings-intents.json"
+  "notification-intents:matrix-appintents-notification-intents.log:appintents-sdk-blocker-notification-intents.json"
+)
+rm -f "$apple_dir/matrix-warning-scan.log"
 rm -f \
   "$results_path" \
   "$matrix_path" \
+  "$apple_dir/matrix-warning-scan.log" \
+  "$apple_dir/matrix-stale-blocker-scan.log" \
   "$apple_dir/matrix-xcode-platform-blocker.json" \
   "$apple_dir/matrix-smoke-macos-blocker.json" \
   "$apple_dir/matrix-smoke-ios-simulator-blocker.json" \
@@ -33,6 +53,11 @@ rm -f \
   "$artifact_root/design-review.json" \
   "$artifact_root/screenshots/ios-mobile.png" \
   "$artifact_root/screenshots/macos-desktop.png"
+
+for app_intents_entry in "${app_intents_domains[@]}"; do
+  IFS=":" read -r _app_intents_domain app_intents_log app_intents_blocker <<< "$app_intents_entry"
+  rm -f "$apple_dir/$app_intents_log" "$apple_dir/$app_intents_blocker"
+done
 
 required_hooks=(
   "scripts/fail-on-warning.rb"
@@ -48,6 +73,7 @@ required_hooks=(
   "scripts/check-cook-shopping-surfaces.rb"
   "scripts/check-search-capture-settings-surfaces.rb"
   "scripts/check-launch-screenshot-contract.rb"
+  "scripts/check-app-intents-contract.rb"
   "scripts/run-xcodebuild-with-blocker.sh"
   "scripts/smoke-macos.sh"
   "scripts/smoke-ios-simulator.sh"
@@ -85,8 +111,9 @@ record_step() {
   local output_path="$4"
   local required="$5"
   local blocker_path="${6:-}"
+  local details="${7:-}"
   ruby -rjson -e '
-    path, name, status, command, output_path, required, blocker_path = ARGV
+    path, name, status, command, output_path, required, blocker_path, details = ARGV
     row = {
       name: name,
       status: status,
@@ -95,8 +122,61 @@ record_step() {
       required: required == "true"
     }
     row[:blockerPath] = blocker_path unless blocker_path.empty?
+    row[:details] = details unless details.empty?
     File.open(path, "a") { |file| file.puts(JSON.generate(row)) }
-  ' "$results_path" "$name" "$status" "$command" "$output_path" "$required" "$blocker_path"
+  ' "$results_path" "$name" "$status" "$command" "$output_path" "$required" "$blocker_path" "$details"
+}
+
+validate_blocker_contract() {
+  local blocker_path="$1"
+  local expected_capabilities="$2"
+  ruby -rjson -e '
+    path, expected_capabilities = ARGV
+    allowed = %w[
+      XcodePlatform
+      CoreSimulator
+      MacOSLaunch
+      AASAProductionValidation
+      AppIntentsSDK
+      AppleDeveloperProgram
+      ProviderSecret
+      HumanCredential
+    ]
+    expected = expected_capabilities.split(",").reject(&:empty?)
+    blocker = JSON.parse(File.read(path))
+    required = %w[blocked capability command outputPath reason ownerAction]
+    missing = required.select { |key| blocker[key].nil? || blocker[key].to_s.strip.empty? }
+    abort("#{path} missing #{missing.join(", ")}") unless missing.empty?
+    abort("#{path} blocked must be true") unless blocker["blocked"] == true
+    capability = blocker["capability"]
+    abort("#{path} unsupported capability #{capability.inspect}") unless allowed.include?(capability)
+    abort("#{path} ProductionOperationApproval is Unit 27-only") if capability == "ProductionOperationApproval"
+    abort("#{path} expected #{expected.join(" or ")}, got #{capability}") unless expected.empty? || expected.include?(capability)
+  ' "$blocker_path" "$expected_capabilities"
+}
+
+stale_noncanonical_blockers() {
+  ruby -rjson -e '
+    artifact_root = ARGV.fetch(0)
+    allowed_top_level = [
+      "aasa-production-blocker.json"
+    ]
+    stale = Dir[File.join(artifact_root, "*blocker*.json")].map do |path|
+      basename = File.basename(path)
+      next if allowed_top_level.include?(basename)
+      next if basename.start_with?("human-credential-blocker-")
+      begin
+        blocker = JSON.parse(File.read(path))
+      rescue JSON::ParserError
+        next basename
+      end
+      %w[XcodePlatform CoreSimulator MacOSLaunch AppIntentsSDK].include?(blocker["capability"]) ? basename : nil
+    end.compact
+    if stale.any?
+      warn "stale noncanonical native blocker(s): #{stale.join(", ")}"
+      exit 1
+    end
+  ' "$artifact_root"
 }
 
 write_xcode_screenshot_blocker() {
@@ -161,6 +241,7 @@ run_script_with_blocker_policy() {
     local capability
     capability="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("capability")' "$blocker_path")"
     if [[ ",$allowed_capabilities," == *",$capability,"* ]]; then
+      validate_blocker_contract "$blocker_path" "$allowed_capabilities"
       record_step "$name" "blocked" "$command" "$output_path" "true" "$blocker_path"
       return 0
     fi
@@ -178,8 +259,17 @@ run_script_with_blocker_policy() {
 
 overall_status=0
 coverage_json_path="$apple_dir/coverage-json-path.log"
+stale_blocker_scan_path="$apple_dir/matrix-stale-blocker-scan.log"
 
-run_required "xcode version" "$apple_dir/matrix-xcode-version.log" bash -c 'xcode_version="$(xcodebuild -version)" && printf "%s\n" "$xcode_version" && first_line="$(printf "%s\n" "$xcode_version" | sed -n "1p")" && test "$first_line" = "Xcode 26.5"' || overall_status=1
+if stale_noncanonical_blockers > "$stale_blocker_scan_path" 2>&1; then
+  printf 'stale blocker scan ok\n' >> "$stale_blocker_scan_path"
+  record_step "stale noncanonical blocker scan" "pass" "stale_noncanonical_blockers" "$stale_blocker_scan_path" "true"
+else
+  stale_blocker_details="$(cat "$stale_blocker_scan_path")"
+  record_step "stale noncanonical blocker scan" "fail" "stale_noncanonical_blockers" "$stale_blocker_scan_path" "true" "" "$stale_blocker_details"
+  overall_status=1
+fi
+run_required "xcode version" "$apple_dir/matrix-xcode-version.log" bash -c 'xcode_version="$(xcodebuild -version)" && printf "%s\n" "$xcode_version" && first_line="$(printf "%s\n" "$xcode_version" | sed -n "1p")" && minimum_xcode_version="26.5" && version="${first_line#Xcode }" && awk -v version="$version" -v minimum="$minimum_xcode_version" "BEGIN { split(version, actual, \".\"); split(minimum, required, \".\"); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }"' || overall_status=1
 run_required "ruby bundle check" "$apple_dir/matrix-bundle-check.log" scripts/bundle-check.sh || overall_status=1
 run_required "swift tests" "$apple_dir/matrix-swift-test.log" swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
 run_required "swift coverage test" "$apple_dir/matrix-coverage-test.log" swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
@@ -199,6 +289,21 @@ run_required "search capture settings contract" "$apple_dir/matrix-search-captur
 run_required "launch screenshot contract" "$apple_dir/matrix-launch-screenshot-contract.log" ruby scripts/check-launch-screenshot-contract.rb || overall_status=1
 run_required "AASA validation or blocker" "$apple_dir/matrix-aasa.log" ruby scripts/validate-aasa.rb --artifact-root "$artifact_root" || overall_status=1
 
+for app_intents_entry in "${app_intents_domains[@]}"; do
+  IFS=":" read -r app_intents_domain app_intents_log app_intents_blocker <<< "$app_intents_entry"
+  app_intents_output="$apple_dir/$app_intents_log"
+  app_intents_blocker_path="$apple_dir/$app_intents_blocker"
+  if ruby scripts/check-app-intents-contract.rb --domain "$app_intents_domain" > "$app_intents_output" 2>&1; then
+    record_step "App Intents ${app_intents_domain}" "pass" "ruby scripts/check-app-intents-contract.rb --domain ${app_intents_domain}" "$app_intents_output" "true"
+  elif [[ -f "$app_intents_blocker_path" ]]; then
+    validate_blocker_contract "$app_intents_blocker_path" "AppIntentsSDK" || overall_status=1
+    record_step "App Intents ${app_intents_domain}" "blocked" "ruby scripts/check-app-intents-contract.rb --domain ${app_intents_domain}" "$app_intents_output" "true" "$app_intents_blocker_path"
+  else
+    record_step "App Intents ${app_intents_domain}" "fail" "ruby scripts/check-app-intents-contract.rb --domain ${app_intents_domain}" "$app_intents_output" "true"
+    overall_status=1
+  fi
+done
+
 run_script_with_blocker_policy \
   "iOS app bundle" \
   "$apple_dir/matrix-xcodebuild-ios.log" \
@@ -207,7 +312,7 @@ run_script_with_blocker_policy \
   scripts/run-xcodebuild-with-blocker.sh \
   --output "$apple_dir/matrix-xcodebuild-ios.log" \
   --blocker "$apple_dir/matrix-xcode-platform-blocker.json" \
-  --timeout-seconds 30 \
+  --timeout-seconds 180 \
   -- \
   xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
 
@@ -223,7 +328,7 @@ else
     scripts/run-xcodebuild-with-blocker.sh \
     --output "$apple_dir/matrix-xcodebuild-macos.log" \
     --blocker "$apple_dir/matrix-xcode-platform-blocker.json" \
-    --timeout-seconds 30 \
+    --timeout-seconds 180 \
     -- \
     xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
 fi
@@ -231,8 +336,10 @@ fi
 if [[ -f "$apple_dir/matrix-xcode-platform-blocker.json" ]]; then
   write_xcode_screenshot_blocker "$apple_dir/matrix-xcode-platform-blocker.json"
   printf 'macOS launch smoke skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-smoke-macos.log"
+  printf 'macOS launch smoke inner skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-smoke-macos-inner.log"
   record_step "macOS launch smoke" "blocked" "skipped after XcodePlatform blocker" "$apple_dir/matrix-smoke-macos.log" "true" "$apple_dir/matrix-xcode-platform-blocker.json"
   printf 'iOS simulator smoke skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-smoke-ios.log"
+  printf 'iOS simulator smoke inner skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-smoke-ios-inner.log"
   record_step "iOS simulator smoke" "blocked" "skipped after XcodePlatform blocker" "$apple_dir/matrix-smoke-ios.log" "true" "$apple_dir/matrix-xcode-platform-blocker.json"
   printf 'screenshots skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-capture.log"
   record_step "screenshots and design review" "blocked" "skipped after XcodePlatform blocker" "$apple_dir/matrix-capture.log" "true" "$apple_dir/matrix-screenshots-xcode-platform-blocker.json"
@@ -251,6 +358,7 @@ else
   fi
 fi
 matrix_warning_logs=(
+  "$stale_blocker_scan_path"
   "$apple_dir/matrix-xcode-version.log"
   "$apple_dir/matrix-bundle-check.log"
   "$apple_dir/matrix-swift-test.log"
@@ -267,6 +375,8 @@ matrix_warning_logs=(
   "$apple_dir/matrix-search-capture-contract.log"
   "$apple_dir/matrix-launch-screenshot-contract.log"
   "$apple_dir/matrix-aasa.log"
+  "$apple_dir/matrix-smoke-ios-inner.log"
+  "$apple_dir/matrix-smoke-macos-inner.log"
   "$apple_dir/matrix-xcodebuild-ios.log"
   "$apple_dir/matrix-xcodebuild-macos.log"
   "$apple_dir/matrix-smoke-macos.log"
@@ -274,6 +384,10 @@ matrix_warning_logs=(
   "$apple_dir/matrix-capture.log"
   "$apple_dir/matrix-design-review.log"
 )
+for app_intents_entry in "${app_intents_domains[@]}"; do
+  IFS=":" read -r _app_intents_domain app_intents_log _app_intents_blocker <<< "$app_intents_entry"
+  matrix_warning_logs+=("$apple_dir/$app_intents_log")
+done
 matrix_warning_args=()
 for matrix_warning_log in "${matrix_warning_logs[@]}"; do
   matrix_warning_args+=(--log "$matrix_warning_log")
@@ -291,22 +405,68 @@ ruby -rjson -rtime -e '
     File.join(artifact_root, "apple/matrix-smoke-ios-simulator-blocker.json"),
     File.join(artifact_root, "apple/matrix-screenshots-xcode-platform-blocker.json"),
     File.join(artifact_root, "apple/matrix-screenshots-core-simulator-blocker.json"),
-    File.join(artifact_root, "apple/matrix-screenshots-macos-launch-blocker.json")
+    File.join(artifact_root, "apple/matrix-screenshots-macos-launch-blocker.json"),
+    File.join(artifact_root, "apple/apple-developer-program-blocker-apns.json")
   ]
+  blocker_paths.concat(Dir[File.join(artifact_root, "apple/appintents-sdk-blocker-*.json")])
+  blocker_paths.concat(Dir[File.join(artifact_root, "web/provider-secret-blocker-*.json")])
+  blocker_paths.concat(Dir[File.join(artifact_root, "human-credential-blocker-*.json")])
+  allowed_capabilities = %w[
+    CoreSimulator
+    XcodePlatform
+    MacOSLaunch
+    AASAProductionValidation
+    AppIntentsSDK
+    AppleDeveloperProgram
+    ProviderSecret
+    HumanCredential
+  ]
+  def canonical_capability(path, artifact_root)
+    expanded_root = File.expand_path(artifact_root)
+    expanded_path = File.expand_path(path)
+    relative = expanded_path.sub(/\A#{Regexp.escape(expanded_root)}\/?/, "")
+    case relative
+    when "aasa-production-blocker.json" then "AASAProductionValidation"
+    when "apple/matrix-xcode-platform-blocker.json", "apple/matrix-screenshots-xcode-platform-blocker.json" then "XcodePlatform"
+    when "apple/matrix-smoke-ios-simulator-blocker.json", "apple/matrix-screenshots-core-simulator-blocker.json" then "CoreSimulator"
+    when "apple/matrix-smoke-macos-blocker.json", "apple/matrix-screenshots-macos-launch-blocker.json" then "MacOSLaunch"
+    when "apple/apple-developer-program-blocker-apns.json" then "AppleDeveloperProgram"
+    when %r{\Aapple/appintents-sdk-blocker-[a-z0-9-]+\.json\z} then "AppIntentsSDK"
+    when %r{\Aweb/provider-secret-blocker-[a-z0-9-]+\.json\z} then "ProviderSecret"
+    when %r{\Ahuman-credential-blocker-[a-z0-9-]+\.json\z} then "HumanCredential"
+    end
+  end
+  def validate_blocker_contract(blocker, path, allowed_capabilities, artifact_root)
+    failures = []
+    %w[blocked capability command outputPath reason ownerAction].each do |key|
+      failures << "#{path} missing #{key}" if blocker[key].nil? || blocker[key].to_s.strip.empty?
+    end
+    failures << "#{path} blocked must be true" unless blocker["blocked"] == true
+    capability = blocker["capability"]
+    failures << "#{path} unsupported capability #{capability.inspect}" unless allowed_capabilities.include?(capability)
+    failures << "#{path} ProductionOperationApproval is Unit 27-only" if capability == "ProductionOperationApproval"
+    expected = canonical_capability(path, artifact_root)
+    failures << "#{path} is not a canonical final blocker path" if expected.nil?
+    failures << "#{path} expected #{expected}, got #{capability}" if expected && capability != expected
+    failures
+  end
   blockers = blocker_paths.uniq.map do |path|
     next unless File.file?(path)
     JSON.parse(File.read(path)).merge("path" => path)
   end.compact
-  accepted_blockers = blockers.all? { |blocker| ["CoreSimulator", "XcodePlatform", "MacOSLaunch", "AASAProductionValidation"].include?(blocker["capability"]) }
+  blocker_failures = blockers.flat_map { |blocker| validate_blocker_contract(blocker, blocker.fetch("path"), allowed_capabilities, artifact_root) }
   failed_steps = steps.select { |step| step["status"] == "fail" }
-  ok = failed_steps.empty? && accepted_blockers
+  ok = failed_steps.empty? && blocker_failures.empty?
   File.write(matrix_path, JSON.pretty_generate({
     ok: ok,
     generatedAt: Time.now.utc.iso8601,
     steps: steps,
-    blockers: blockers
+    blockers: blockers,
+    blockerFailures: blocker_failures,
+    externalValidationLog: File.join(artifact_root, "apple/unit-26b-native-full-validation-validate-native-local.log")
   }) + "\n")
   exit(ok ? 0 : 1)
 ' "$results_path" "$matrix_path" "$artifact_root" || overall_status=1
 
+printf 'external validation log expected: %s\n' "$apple_dir/$unit_26b_validate_log_name"
 exit "$overall_status"

@@ -43,6 +43,7 @@ FINAL_MATRIX_ARTIFACT_TOKENS = [
   "matrix-smoke-ios-inner.log",
   "matrix-smoke-macos.log",
   "matrix-smoke-macos-inner.log",
+  "matrix-stale-blocker-scan.log",
   "matrix-warning-scan.log",
   "validation-matrix.jsonl",
   "validation-matrix.json"
@@ -51,6 +52,7 @@ FINAL_MATRIX_ARTIFACT_TOKENS = [
 REQUIRED_SOURCE_TOKENS = [
   "scripts/check-app-intents-contract.rb",
   "stale_noncanonical_blockers",
+  'record_step "stale noncanonical blocker scan"',
   "validate_blocker_contract",
   "ownerAction",
   "ProductionOperationApproval",

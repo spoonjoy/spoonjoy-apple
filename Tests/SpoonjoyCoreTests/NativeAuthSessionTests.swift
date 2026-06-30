@@ -527,6 +527,7 @@ struct NativeAuthSessionTests {
                 "CoreSimulator",
                 "DVTPlugIn",
                 "IDEDistribution",
+                "preflight_command",
                 "command_status",
                 "exit \"$command_status\""
             ],
@@ -593,7 +594,20 @@ struct NativeAuthSessionTests {
             #expect(preflightBlocker.status == 0, Comment(rawValue: preflightBlocker.output))
             let preflightBlockerJSON = try #require(preflightBlocker.blocker)
             #expect(preflightBlockerJSON["capability"] as? String == "XcodePlatform")
-            #expect(preflightBlockerJSON["command"] as? String == "xcodebuild preflight")
+            #expect(preflightBlockerJSON["command"] as? String == "xcodebuild -checkFirstLaunchStatus (exit 69)")
+            #expect((preflightBlockerJSON["ownerAction"] as? String)?.contains("Complete Xcode first-launch setup") == true)
+
+            let silentFirstLaunchBlocker = try runWrapperProbe(
+                script: script,
+                artifactDirectory: directory.appendingPathComponent("preflight-silent-first-launch", isDirectory: true),
+                fakeBin: fakeBin,
+                mode: "preflight-silent-first-launch"
+            )
+            #expect(silentFirstLaunchBlocker.status == 0, Comment(rawValue: silentFirstLaunchBlocker.output))
+            let silentFirstLaunchBlockerJSON = try #require(silentFirstLaunchBlocker.blocker)
+            #expect(silentFirstLaunchBlockerJSON["capability"] as? String == "XcodePlatform")
+            #expect(silentFirstLaunchBlockerJSON["command"] as? String == "xcodebuild -checkFirstLaunchStatus (exit 69)")
+            #expect((silentFirstLaunchBlockerJSON["reason"] as? String)?.contains("preflight command failed") == true)
 
             let success = try runWrapperProbe(
                 script: script,
@@ -643,6 +657,26 @@ struct NativeAuthSessionTests {
         #expect(compileFailure.result.status != 0, Comment(rawValue: compileFailure.result.output))
         #expect(compileFailure.matrix.contains("\"status\": \"fail\""))
         #expect(!compileFailure.matrix.contains("\"capability\": \"XcodePlatform\""))
+
+        let staleTopLevelBlocker = try runValidationMatrixHarness(wrapperMode: "success") { artifacts in
+            try FileManager.default.createDirectory(at: artifacts, withIntermediateDirectories: true)
+            let staleBlocker = artifacts.appendingPathComponent("unit-stale-xcode-blocker.json")
+            try """
+            {
+              "blocked": true,
+              "capability": "XcodePlatform",
+              "command": "stale top-level xcodebuild",
+              "timeoutSeconds": 30,
+              "outputPath": "stale-top-level.log",
+              "reason": "stale top-level blocker",
+              "ownerAction": "stale top-level action"
+            }
+            """.write(to: staleBlocker, atomically: true, encoding: .utf8)
+        }
+        #expect(staleTopLevelBlocker.result.status != 0, Comment(rawValue: staleTopLevelBlocker.result.output))
+        #expect(staleTopLevelBlocker.matrix.contains("\"name\": \"stale noncanonical blocker scan\""))
+        #expect(staleTopLevelBlocker.matrix.contains("\"status\": \"fail\""))
+        #expect(staleTopLevelBlocker.matrix.contains("unit-stale-xcode-blocker.json"))
     }
 
     @Test("local validation matrix delegates xcodebuild classification to wrapper")
@@ -991,6 +1025,7 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         "check-cook-shopping-surfaces.rb",
         "check-search-capture-settings-surfaces.rb",
         "check-launch-screenshot-contract.rb",
+        "check-app-intents-contract.rb",
         "validate-design-review.rb",
         "validate-design-review-blocker.rb",
         "validate-aasa.rb"
@@ -1286,6 +1321,9 @@ case "${*:-}" in
       printf 'DVTPlugInManager failed to load plug-in com.apple.dt.IDEDistribution\n' >&2
       exit 69
     fi
+    if [[ "${FAKE_XCODEBUILD_MODE:-success}" == "preflight-silent-first-launch" ]]; then
+      exit 69
+    fi
     exit 0
     ;;
 esac
@@ -1307,6 +1345,9 @@ case "${*:-}" in
   "-checkFirstLaunchStatus")
     if [[ "${FAKE_XCODEBUILD_MODE:-success}" == "preflight-dvtplugin" ]]; then
       printf 'DVTPlugInManager failed to load plug-in com.apple.dt.IDEDistribution\n' >&2
+      exit 69
+    fi
+    if [[ "${FAKE_XCODEBUILD_MODE:-success}" == "preflight-silent-first-launch" ]]; then
       exit 69
     fi
     exit 0

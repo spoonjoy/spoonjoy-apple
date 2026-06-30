@@ -1,0 +1,9 @@
+{
+  "capability": "XcodePlatform",
+  "blocked": true,
+  "command": "xcodebuild -checkFirstLaunchStatus (exit 69)",
+  "timeoutSeconds": 180,
+  "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
+  "reason": "Local Xcode preflight command failed before app bundle validation.",
+  "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation."
+}

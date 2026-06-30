@@ -141,6 +141,11 @@
       "status" : "pass"
     },
     {
+      "detail" : "Profile and settings Siri intents cover UpdateProfileDisplayIntent, UpdateProfilePhotoIntent, CreateAPITokenIntent, RevokeAPITokenIntent, DisconnectAccountConnectionIntent, OpenPasskeysIntent, OpenPasswordIntent, LinkProviderIntent, LogoutIntent, and RevokeCurrentSessionIntent.",
+      "name" : "Profile and settings Siri intents",
+      "status" : "pass"
+    },
+    {
       "detail" : "Notification APNs behavior restores cached preferences\/status, blocks production APNs without AppleDeveloperProgram, and keeps permission\/token acquisition online-only.",
       "name" : "notification APNs surface",
       "status" : "pass"
@@ -194,13 +199,73 @@
   "nativeCapabilities" : {
     "appIntents" : [
       "OpenRecipeIntent",
+      "OpenCookbookIntent",
+      "OpenProfileIntent",
+      "OpenSettingsIntent",
+      "ReadNotificationPreferencesIntent",
+      "UpdateNotificationPreferencesIntent",
+      "OpenNotificationAPNsStatusIntent",
+      "UpdateProfileDisplayIntent",
+      "UpdateProfilePhotoIntent",
+      "RemoveProfilePhotoIntent",
+      "OpenAPITokensIntent",
+      "CreateAPITokenIntent",
+      "RevokeAPITokenIntent",
+      "OpenAccountConnectionsIntent",
+      "DisconnectAccountConnectionIntent",
+      "OpenPasskeysIntent",
+      "OpenPasswordIntent",
+      "LinkProviderIntent",
+      "LogoutIntent",
+      "RevokeCurrentSessionIntent",
+      "SearchSpoonjoyIntent",
+      "ShareRecipeIntent",
+      "ShareCookbookIntent",
+      "ShareShoppingListIntent",
       "StartCookModeIntent",
+      "ContinueCookModeIntent",
+      "ForkRecipeIntent",
+      "CreateCookbookIntent",
+      "RenameCookbookIntent",
+      "DeleteCookbookIntent",
+      "AddRecipeToCookbookIntent",
+      "SaveRecipeToCookbookIntent",
+      "RemoveRecipeFromCookbookIntent",
+      "DeleteRecipeIntent",
+      "LogCookIntent",
+      "EditCookLogIntent",
+      "DeleteCookLogIntent",
+      "CreateCoverFromSpoonIntent",
       "AddShoppingListItemIntent",
       "SetShoppingListItemCheckedIntent",
+      "RemoveShoppingListItemIntent",
       "AddRecipeIngredientsToShoppingListIntent",
       "ClearCompletedShoppingItemsIntent",
       "ClearShoppingListIntent",
-      "CaptureRecipeIntent"
+      "CaptureRecipeIntent",
+      "SubmitCaptureImportIntent",
+      "OpenCaptureDraftIntent",
+      "DiscardCaptureDraftIntent",
+      "SpoonjoyAppShortcuts",
+      "SpoonjoyInteractionDonor",
+      "SpoonjoyRecipeEntity",
+      "SpoonjoyCookbookEntity",
+      "SpoonjoyRecipeEntityQuery",
+      "SpoonjoyCookbookEntityQuery",
+      "SpoonjoyShoppingListEntity",
+      "SpoonjoyShoppingItemEntity",
+      "SpoonjoyShoppingListEntityQuery",
+      "SpoonjoyShoppingItemEntityQuery",
+      "SpoonjoySpoonEntity",
+      "SpoonjoySpoonEntityQuery",
+      "SpoonjoyCaptureDraftEntity",
+      "SpoonjoyCaptureDraftEntityQuery",
+      "SpoonjoyChefProfileEntity",
+      "SpoonjoyChefProfileEntityQuery",
+      "SpoonjoyAPITokenEntity",
+      "SpoonjoyAPITokenEntityQuery",
+      "SpoonjoyAccountConnectionEntity",
+      "SpoonjoyAccountConnectionEntityQuery"
     ],
     "associatedDomains" : [
       "applinks:spoonjoy.app"
@@ -275,12 +340,16 @@
       "capture-recipe-video-url",
       "recipe-import-submit",
       "share-recipe",
-      "share-cookbook"
+      "share-cookbook",
+      "native-shopping-list-transfer"
     ],
     "spotlightIndexedTypes" : [
       "recipe",
       "cookbook",
-      "shopping-list-item"
+      "shopping-list-item",
+      "spoon",
+      "capture-draft",
+      "chef-profile"
     ],
     "urlSchemes" : [
       "spoonjoy"

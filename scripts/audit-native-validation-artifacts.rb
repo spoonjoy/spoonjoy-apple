@@ -46,6 +46,7 @@ FINAL_MATRIX_ARTIFACTS = [
   "apple/matrix-smoke-ios-inner.log",
   "apple/matrix-smoke-macos.log",
   "apple/matrix-smoke-macos-inner.log",
+  "apple/matrix-stale-blocker-scan.log",
   "apple/matrix-warning-scan.log",
   "apple/validation-matrix.jsonl",
   "apple/validation-matrix.json",
@@ -444,6 +445,12 @@ if matrix
   end
   Array(matrix["blockers"]).each_with_index do |blocker, index|
     validate_blocker_contract(blocker, "apple/validation-matrix.json blockers[#{index}]", failures, artifact_root)
+  end
+  stale_scan_step = Array(matrix["steps"]).find { |step| step["name"] == "stale noncanonical blocker scan" }
+  if stale_scan_step.nil?
+    failures << "apple/validation-matrix.json missing stale noncanonical blocker scan step"
+  elsif stale_scan_step["status"] != "pass"
+    failures << "apple/validation-matrix.json stale noncanonical blocker scan status is #{stale_scan_step["status"].inspect}"
   end
 end
 
