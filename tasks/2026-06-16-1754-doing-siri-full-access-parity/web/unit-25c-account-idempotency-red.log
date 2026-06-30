@@ -1,0 +1,232 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/api-v1-account-settings.test.ts (9 tests | 5 failed) 924ms
+     ✓ serves the signed-in account profile with native-decoded auth methods 104ms
+     × updates profile identity with session or account-write bearer auth and rejects collisions 152ms
+     × reads and updates native notification preferences 82ms
+     × registers, refreshes, and revokes native APNs device registrations 77ms
+     × uploads, rejects, and removes native profile photos 112ms
+     × replays idempotent native account mutations and rejects body conflicts 82ms
+     ✓ lists and disconnects OAuth app connections with opaque native IDs 90ms
+     ✓ keeps OAuth app connection IDs stable across refresh rotation 80ms
+     ✓ enforces authentication and native settings scopes 80ms
+ ❯ test/lib/api-v1-openapi.server.test.ts (10 tests | 3 failed) 107ms
+     ✓ generates the required top-level OpenAPI 3.1 contract 6ms
+     ✓ declares paths, auth, scopes, parameters, examples, and error responses for every resource 11ms
+     × documents raw OpenAPI, method-level token scopes, health principal source, and concrete examples 8ms
+     ✓ uses response examples whose status and envelope shape match each response 16ms
+     ✓ declares exact request and response schemas for tokens and shopping-list mutations 2ms
+     ✓ declares exact request and response schemas for recipe step mutations 1ms
+     × declares exact request and response schemas for native account endpoints 2ms
+     × defines reusable schemas with strict objects, nullable fields, and error enums 4ms
+     ✓ publishes an OpenAPI 3.0 REST-only connector profile for no-code importers 19ms
+     ✓ publishes an SDK profile with token lifecycle but without browser/session/MCP routes 13ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/lib/api-v1-openapi.server.test.ts > API v1 OpenAPI document > documents raw OpenAPI, method-level token scopes, health principal source, and concrete examples
+AssertionError: expected { created: true, device: { …(12) } } to match object { created: true, …(2) }
+
+- Expected
++ Received
+
+@@ -3,10 +3,6 @@
+    "device": {
+      "deviceId": "ios-simulator-1",
+      "environment": "development",
+      "tokenPrefix": "apns-token-",
+    },
+-   "mutation": {
+-     "clientMutationId": "device-uuid-apns-register",
+-     "replayed": false,
+-   },
+  }
+
+ ❯ test/lib/api-v1-openapi.server.test.ts:503:87
+    501|     expect(responseExample(document, "/api/v1/me/notification-preferen…
+    502|       .toMatchObject({ notifySpoonOnMyRecipe: true, notifyFellowChefOr…
+    503|      expect(responseExample(document, "/api/v1/me/apns-devices", "POST…
+       |                                                                                       ^
+    504|        created: true,
+    505|        device: {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  test/lib/api-v1-openapi.server.test.ts > API v1 OpenAPI document > declares exact request and response schemas for native account endpoints
+AssertionError: expected '#/components/schemas/AccountProfileEn…' to be '#/components/schemas/AccountProfileMu…' // Object.is equality
+
+Expected: "#/components/schemas/AccountProfileMutationEnvelope"
+Received: "#/components/schemas/AccountProfileEnvelope"
+
+ ❯ test/lib/api-v1-openapi.server.test.ts:787:9
+    785|       .toBe("#/components/schemas/UpdateAccountProfileRequest");
+    786|      expect(operation(document, "/api/v1/me", "PATCH").responses["200"…
+    787|        .toBe("#/components/schemas/AccountProfileMutationEnvelope");
+       |         ^
+    788|      expect(operation(document, "/api/v1/me", "PATCH")).toMatchObject({
+    789|        "x-idempotency": expect.objectContaining({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  test/lib/api-v1-openapi.server.test.ts > API v1 OpenAPI document > defines reusable schemas with strict objects, nullable fields, and error enums
+AssertionError: expected { type: 'object', …(3) } to match object { additionalProperties: false, …(2) }
+(1 matching property omitted from actual)
+
+- Expected
++ Received
+
+@@ -9,16 +9,15 @@
+      "email": {
+        "format": "email",
+        "type": "string",
+      },
+      "username": {
+-       "maxLength": 80,
++       "maxLength": 160,
+        "minLength": 1,
+        "type": "string",
+      },
+    },
+    "required": [
+-     "clientMutationId",
+      "email",
+      "username",
+    ],
+  }
+
+ ❯ test/lib/api-v1-openapi.server.test.ts:950:61
+    948|     });
+    949|      expect(components.schemas.CreateTokenRequest.properties.name).toE…
+    950|      expect(components.schemas.UpdateAccountProfileRequest).toMatchObj…
+       |                                                             ^
+    951|        additionalProperties: false,
+    952|        required: ["clientMutationId", "email", "username"],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  test/routes/api-v1-account-settings.test.ts > API v1 native account settings > updates profile identity with session or account-write bearer auth and rejects collisions
+AssertionError: expected { …(7) } to match object { …(4) }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+    "email": "kris92@hotmail.com",
+    "id": "cmr02bjs300016v5rzsyxydy7",
+-   "mutation": {
+-     "clientMutationId": "cm_me_profile_update",
+-     "replayed": false,
+-   },
+    "username": "native_5FIKvNLv",
+  }
+
+ ❯ test/routes/api-v1-account-settings.test.ts:196:26
+    194|     expect(response.status).toBe(200);
+    195|     expectEnvelopeHeaders(response, "req_me_profile_update");
+    196|     expect(payload.data).toMatchObject({
+       |                          ^
+    197|        id: userId,
+    198|        email: newEmail.toLowerCase(),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  test/routes/api-v1-account-settings.test.ts > API v1 native account settings > reads and updates native notification preferences
+AssertionError: expected { notifySpoonOnMyRecipe: false, …(3) } to deeply equal { notifySpoonOnMyRecipe: false, …(4) }
+
+- Expected
++ Received
+
+  {
+-   "mutation": {
+-     "clientMutationId": "cm_me_notifications_update",
+-     "replayed": false,
+-   },
+    "notifyCookbookSaveOfMine": false,
+    "notifyFellowChefOriginCook": true,
+    "notifyForkOfMyRecipe": true,
+    "notifySpoonOnMyRecipe": false,
+  }
+
+ ❯ test/routes/api-v1-account-settings.test.ts:283:32
+    281|     expect(update.status).toBe(200);
+    282|     expectEnvelopeHeaders(update, "req_me_notifications_update");
+    283|     expect(updatePayload.data).toEqual({
+       |                                ^
+    284|        notifySpoonOnMyRecipe: false,
+    285|        notifyForkOfMyRecipe: true,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  test/routes/api-v1-account-settings.test.ts > API v1 native account settings > registers, refreshes, and revokes native APNs device registrations
+AssertionError: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ test/routes/api-v1-account-settings.test.ts:340:32
+    338|     const developmentPayload = await readJson(development);
+    339|
+    340|     expect(development.status).toBe(201);
+       |                                ^
+    341|     expectEnvelopeHeaders(development, "req_me_apns_register_dev");
+    342|     expect(developmentPayload.data).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  test/routes/api-v1-account-settings.test.ts > API v1 native account settings > uploads, rejects, and removes native profile photos
+AssertionError: expected { …(7) } to match object { photoUrl: null, mutation: { …(2) } }
+(6 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "mutation": {
+-     "clientMutationId": "cm_me_photo_remove",
+-     "replayed": false,
+-   },
+    "photoUrl": null,
+  }
+
+ ❯ test/routes/api-v1-account-settings.test.ts:614:33
+    612|
+    613|     expect(remove.status).toBe(200);
+    614|      expect(removePayload.data).toMatchObject({
+       |                                 ^
+    615|        photoUrl: null,
+    616|        mutation: { clientMutationId: "cm_me_photo_remove", replayed: f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  test/routes/api-v1-account-settings.test.ts > API v1 native account settings > replays idempotent native account mutations and rejects body conflicts
+AssertionError: expected undefined to deeply equal { …(2) }
+
+- Expected:
+{
+  "clientMutationId": "cm_account_profile_replay",
+  "replayed": false,
+}
+
++ Received:
+undefined
+
+ ❯ test/routes/api-v1-account-settings.test.ts:668:43
+    666|
+    667|      expect(profile.status).toBe(200);
+    668|      expect(profilePayload.data.mutation).toEqual({ clientMutationId: …
+       |                                           ^
+    669|      expect(profileReplay.status).toBe(200);
+    670|      expect(profileReplayPayload).toMatchObject({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 11 passed (19)
+   Start at  20:03:49
+   Duration  2.71s (transform 433ms, setup 170ms, import 920ms, tests 1.03s, environment 361ms)

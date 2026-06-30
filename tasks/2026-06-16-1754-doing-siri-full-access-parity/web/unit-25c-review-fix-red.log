@@ -1,0 +1,132 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
+
+ ❯ test/routes/developers-playground.test.tsx (39 tests | 1 failed) 5000ms
+     ✓ is registered with API aliases before the legacy /api/* catch-all 1ms
+     ✓ publishes every generated API v1 operation from the OpenAPI playground manifest 3ms
+     ✓ uses the configured public origin for playground OG URLs 0ms
+     ✓ groups generated operations by OpenAPI tag 0ms
+     ✓ declares playground metadata 0ms
+     ✓ captures safe playground view, surface, operation, and auth-mode telemetry from generated metadata 199ms
+     ✓ builds request paths from path and query parameters 0ms
+     ✓ builds SSR-safe spec URLs and response outcome classes 0ms
+     ✓ builds timestamp request IDs when crypto UUIDs are unavailable 0ms
+     ✓ builds fetch options for session, anonymous, bearer, and JSON-body requests 1ms
+     ✓ renders all operations and sends the default public recipes request anonymously 179ms
+     ✓ captures safe sign-in handoff telemetry without URL or token values 44ms
+     ✓ captures safe request and response telemetry without query, body, token, or response payloads 130ms
+     ✓ reflects a signed-in Spoonjoy session after returning from login 105ms
+     ✓ switches an already-mounted playground to session mode after sign-in 74ms
+     ✓ uses query params and bearer auth only after the user enables it 86ms
+     ✓ filters operations by generated connector profile and search text 77ms
+     ✓ uses the first generated operation when a custom manifest has no recipe list 41ms
+     ✓ sends generated JSON-body operations with session auth by default 184ms
+     ✓ sends generated multipart operations with selected files and safety reconfirmation 252ms
+     ✓ renders optional multipart fields without accept or description metadata 19ms
+     ✓ sends text-only multipart operations and reports body-present telemetry 23ms
+     ✓ blocks blank bearer mode before sending private requests 70ms
+     ✓ renders required path parameters for generated detail operations 68ms
+     ✓ can intentionally omit auth for public requests 51ms
+     ✓ covers generated OAuth, mutation id, example body, and secret-response playground controls 298ms
+     × renders portable curl for bearer mode and body requests 7ms
+     ✓ redacts token-bearing responses while preserving explicit copyable secrets 0ms
+     ✓ masks token-like plain text responses 0ms
+     ✓ copies generated playground values and reports clipboard failures  1769ms
+     ✓ supports keyboard roving for surface and auth mode radio groups  473ms
+     ✓ handles OAuth callback validation failures and redirect submissions  350ms
+     ✓ reports when a custom manifest omits the OAuth token operation 135ms
+     ✓ switches from bearer mode to token creation with session auth 186ms
+     ✓ recovers from invalid JSON when generating body mutation ids 104ms
+     ✓ formats empty non-JSON responses 0ms
+     ✓ formats non-OK text responses without a status text 0ms
+     ✓ formats Error network failures 0ms
+     ✓ formats non-Error network failures 0ms
+ ❯ test/routes/api-v1-account-settings.test.ts (9 tests | 1 failed) 1003ms
+     ✓ serves the signed-in account profile with native-decoded auth methods 108ms
+     ✓ updates profile identity with session or account-write bearer auth and rejects collisions 168ms
+     ✓ reads and updates native notification preferences 89ms
+     ✓ registers, refreshes, and revokes native APNs device registrations 104ms
+     ✓ uploads, rejects, and removes native profile photos 147ms
+     × replays idempotent native account mutations and rejects body conflicts 96ms
+     ✓ lists and disconnects OAuth app connections with opaque native IDs 95ms
+     ✓ keeps OAuth app connection IDs stable across refresh rotation 84ms
+     ✓ enforces authentication and native settings scopes 85ms
+ ❯ test/lib/api-v1-openapi.server.test.ts (11 tests | 1 failed) 110ms
+     ✓ generates the required top-level OpenAPI 3.1 contract 6ms
+     ✓ declares paths, auth, scopes, parameters, examples, and error responses for every resource 12ms
+     ✓ documents raw OpenAPI, method-level token scopes, health principal source, and concrete examples 3ms
+     ✓ uses response examples whose status and envelope shape match each response 16ms
+     × keeps idempotent request and response examples on the same client mutation id 6ms
+     ✓ declares exact request and response schemas for tokens and shopping-list mutations 1ms
+     ✓ declares exact request and response schemas for recipe step mutations 1ms
+     ✓ declares exact request and response schemas for native account endpoints 1ms
+     ✓ defines reusable schemas with strict objects, nullable fields, and error enums 4ms
+     ✓ publishes an OpenAPI 3.0 REST-only connector profile for no-code importers 20ms
+     ✓ publishes an SDK profile with token lifecycle but without browser/session/MCP routes 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/lib/api-v1-openapi.server.test.ts > API v1 OpenAPI document > keeps idempotent request and response examples on the same client mutation id
+AssertionError: POST /api/v1/recipes 201: expected 'device-uuid-1' to be 'device-uuid-recipe-create' // Object.is equality
+
+Expected: "device-uuid-recipe-create"
+Received: "device-uuid-1"
+
+ ❯ test/lib/api-v1-openapi.server.test.ts:678:84
+    676|           if (typeof responseClientMutationId !== "string") continue;
+    677|
+    678|           expect(responseClientMutationId, `${method} ${resource.path}…
+       |                                                                                    ^
+    679|         }
+    680|       }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  test/routes/api-v1-account-settings.test.ts > API v1 native account settings > replays idempotent native account mutations and rejects body conflicts
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ test/routes/api-v1-account-settings.test.ts:720:33
+    718|      expect(photo.status).toBe(200);
+    719|      expect(photoPayload.data.mutation).toEqual({ clientMutationId: "c…
+    720|      expect(photoReplay.status).toBe(200);
+       |                                 ^
+    721|      expect(photoReplayPayload.data).toMatchObject({
+    722|        photoUrl: photoPayload.data.photoUrl,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  test/routes/developers-playground.test.tsx > /developers/playground > renders portable curl for bearer mode and body requests
+AssertionError: expected 'curl \'https://spoonjoy.app/api/v1/me…' to contain '-F \'clientMutationId=profile-photo:e…'
+
+- Expected
++ Received
+
+- -F 'clientMutationId=profile-photo:edited'
++ curl 'https://spoonjoy.app/api/v1/me/photo' \
++   -X POST \
++   -H 'X-Request-Id: pg_example' \
++   -H 'Authorization: Bearer $SPOONJOY_TOKEN' \
++   -F 'clientMutationId=device-uuid-profile-photo' \
++   -F 'photo=@profile.jpg;type=image/jpeg'
+
+ ❯ test/routes/developers-playground.test.tsx:1038:8
+    1036|       {},
+    1037|       { clientMutationId: "profile-photo:edited" },
+    1038|     )).toContain("-F 'clientMutationId=profile-photo:edited'");
+       |        ^
+    1039|     expect(curlFor("/api/v1/me/photo", uploadPhoto, "bearer", "")).toC…
+    1040|     expect(curlFor("/api/v1/me/photo", uploadPhoto, "bearer", "")).not…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  3 failed | 56 passed (59)
+   Start at  21:25:11
+   Duration  8.78s (transform 663ms, setup 219ms, import 1.56s, tests 6.11s, environment 529ms)

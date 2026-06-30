@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-30T01:14:54Z",
+  "generatedAt": "2026-06-30T04:44:10Z",
   "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity",
   "webArtifactDir": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web",
   "requiredRedArtifacts": [
@@ -1252,6 +1252,30 @@
       ]
     },
     {
+      "source": "app/lib/api-v1-recipe-writes.server.ts",
+      "tests": [
+        "test/lib/api-v1-recipe-writes.server.test.ts",
+        "test/routes/api-v1-recipe-writes.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-4a-recipe-writes-red.log",
+        "web/unit-4b-recipe-writes-green.log",
+        "web/unit-4c-recipe-writes-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/api-v1-recipe-steps.server.ts",
+      "tests": [
+        "test/lib/api-v1-recipe-steps.server.test.ts",
+        "test/routes/api-v1-recipe-steps.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-5a-recipe-steps-red.log",
+        "web/unit-5b-recipe-steps-green.log",
+        "web/unit-5c-recipe-steps-vitest.log"
+      ]
+    },
+    {
       "source": "app/routes/api.v1.$.ts",
       "tests": [
         "test/routes/api-v1-recipes.test.ts",
@@ -1298,6 +1322,18 @@
         "web/unit-1a-contract-red.log",
         "web/unit-1b-contract-green.log",
         "web/unit-1c-contract-vitest.log"
+      ]
+    },
+    {
+      "source": "app/lib/recipe-fork.server.ts",
+      "tests": [
+        "test/lib/recipe-fork.server.test.ts",
+        "test/routes/api-v1-recipe-writes.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-4a-recipe-writes-red.log",
+        "web/unit-4b-recipe-writes-green.log",
+        "web/unit-4c-recipe-writes-vitest.log"
       ]
     },
     {
@@ -1397,6 +1433,35 @@
       ]
     },
     {
+      "source": "app/lib/security-headers.server.ts",
+      "tests": [
+        "test/lib/security-headers.server.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
+      "source": "app/lib/telemetry-coverage/allowlist.ts",
+      "tests": [
+        "test/lib/telemetry-coverage.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
+      "source": "app/routes/oauth.callback.tsx",
+      "tests": [
+        "test/routes/oauth-callback.test.tsx",
+        "test/routes/aasa-contract.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-20c-aasa-green.log",
+        "web/unit-25c-web-final-green-coverage.log"
+      ]
+    },
+    {
       "source": "app/routes/developers.tsx",
       "tests": [
         "test/docs/developer-platform-guide.test.ts",
@@ -1429,6 +1494,15 @@
         "web/unit-24a-docs-red.log",
         "web/unit-24b-docs-green.log",
         "web/unit-24c-docs-docs-drift.log"
+      ]
+    },
+    {
+      "source": "docs/telemetry-coverage.md",
+      "tests": [
+        "test/lib/telemetry-coverage.test.ts"
+      ],
+      "artifacts": [
+        "web/unit-25c-web-final-green-coverage.log"
       ]
     },
     {
@@ -1467,14 +1541,62 @@
     }
   ],
   "branchChangedSources": [
+    "app/lib/api-v1-contract.server.ts",
     "app/lib/api-v1-openapi.server.ts",
+    "app/lib/api-v1-recipe-steps.server.ts",
+    "app/lib/api-v1-recipe-writes.server.ts",
+    "app/lib/api-v1.server.ts",
     "app/lib/generated/api-v1-playground.ts",
+    "app/lib/recipe-fork.server.ts",
+    "app/lib/security-headers.server.ts",
+    "app/lib/telemetry-coverage/allowlist.ts",
+    "app/lib/web-route-manifest.server.ts",
+    "app/routes.ts",
+    "app/routes/developers.playground.tsx",
     "app/routes/developers.tsx",
+    "app/routes/oauth.callback.tsx",
     "docs/api.md",
+    "docs/telemetry-coverage.md",
+    "migrations/0019_native_push_devices.sql",
+    "migrations/0020_api_mutation_tombstones.sql",
+    "prisma/migrations/20260617074000_native_push_devices/migration.sql",
+    "prisma/migrations/20260617093000_api_mutation_tombstones/migration.sql",
+    "prisma/schema.prisma",
     "scripts/audit-web-validation-artifacts.rb",
+    "scripts/build-output-hygiene.ts",
+    "scripts/cleanup-local-qa-data.mjs",
+    "scripts/generate-api-playground.ts",
+    "test/build-output-hygiene.test.ts",
+    "test/docs/developer-platform-guide.test.ts",
     "test/docs/native-dogfood-docs.test.tsx",
+    "test/helpers/cleanup.ts",
     "test/lib/api-v1-openapi.server.test.ts",
+    "test/lib/api-v1-recipe-steps.server.test.ts",
+    "test/lib/api-v1-recipe-writes.server.test.ts",
+    "test/lib/security-headers.server.test.ts",
+    "test/routes/aasa-contract.test.ts",
+    "test/routes/api-v1-account-settings.test.ts",
+    "test/routes/api-v1-cookbooks.test.ts",
+    "test/routes/api-v1-idempotent-recovery.test.ts",
+    "test/routes/api-v1-recipe-import.test.ts",
+    "test/routes/api-v1-recipe-steps.test.ts",
+    "test/routes/api-v1-recipe-writes.test.ts",
+    "test/routes/api-v1-scopes-public-tokens.test.ts",
+    "test/routes/api-v1-scopes.test.ts",
+    "test/routes/api-v1-shell.test.ts",
+    "test/routes/api-v1-shopping-conflicts.test.ts",
+    "test/routes/api-v1-shopping-mutations.test.ts",
+    "test/routes/api-v1-shopping-sync.test.ts",
+    "test/routes/api-v1-telemetry.test.ts",
+    "test/routes/api-v1-tokens.test.ts",
     "test/routes/developers-playground.test.tsx",
+    "test/routes/developers.test.tsx",
+    "test/routes/oauth-callback.test.tsx",
+    "test/routes/route-shell-coverage.test.ts",
+    "test/scripts/cleanup-local-qa-data.test.ts",
+    "test/scripts/migration-0019-native-push-devices.test.ts",
+    "test/scripts/migration-0020-api-mutation-tombstones.test.ts",
+    "test/setup.ts",
     "vite.config.ts"
   ],
   "checks": {
