@@ -1,0 +1,22 @@
+native validation artifact audit failed
+- missing final native matrix artifact apple/matrix-smoke-ios-inner.log
+- missing final native matrix artifact apple/matrix-smoke-macos-inner.log
+- missing final native matrix artifact apple/unit-26b-native-full-validation-validate-native-local.log
+- missing current final App Intents evidence final App Intents recipe-cookbook
+- missing current final App Intents evidence final App Intents shopping
+- missing current final App Intents evidence final App Intents spoon
+- missing current final App Intents evidence final App Intents capture-draft
+- missing current final App Intents evidence final App Intents chef-profile
+- missing current final App Intents evidence final App Intents spotlight-shortcuts
+- missing current final App Intents evidence final App Intents open-search-share-cook
+- missing current final App Intents evidence final App Intents recipe-action
+- missing current final App Intents evidence final App Intents shopping-intents
+- missing current final App Intents evidence final App Intents spoon-intents
+- missing current final App Intents evidence final App Intents capture-import-intents
+- missing current final App Intents evidence final App Intents cookbook-intents
+- missing current final App Intents evidence final App Intents profile-settings-intents
+- missing current final App Intents evidence final App Intents notification-intents
+- missing Spotlight privacy artifact group Spotlight privacy current final App Intents evidence
+- native final matrix source contract failed
+- stale noncanonical top-level native blocker(s): unit-17q-ci-fix-xcodebuild-ios-blocker.json
+manifest: /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/validation-audit-manifest.json

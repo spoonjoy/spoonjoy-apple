@@ -1,0 +1,136 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/74] Compiling SpoonjoyCore KeychainTokenVault.swift
+[4/74] Compiling SpoonjoyCore NativeAuthSession.swift
+[5/74] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[6/74] Compiling SpoonjoyCore OAuthPKCE.swift
+[7/74] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[8/74] Compiling SpoonjoyCore OAuthRequests.swift
+[9/74] Compiling SpoonjoyCore OAuthResponses.swift
+[10/81] Compiling SpoonjoyCore APIClient.swift
+[11/81] Compiling SpoonjoyCore APIEnvelope.swift
+[12/81] Compiling SpoonjoyCore APIError.swift
+[13/81] Compiling SpoonjoyCore APIRequestBuilder.swift
+[14/81] Compiling SpoonjoyCore APIRequestSupport.swift
+[15/81] Compiling SpoonjoyCore APIRetryPolicy.swift
+[16/81] Compiling SpoonjoyCore APITransport.swift
+[17/81] Compiling SpoonjoyCore JSONValue.swift
+[18/81] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[19/81] Compiling SpoonjoyCore NativeIntentAction.swift
+[20/81] Compiling SpoonjoyCore ScenarioCommand.swift
+[21/81] Compiling SpoonjoyCore ScenarioReport.swift
+[22/81] Compiling SpoonjoyCore ScenarioVerifier.swift
+[23/81] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[24/81] Compiling SpoonjoyCore JSONFileStore.swift
+[25/81] Compiling SpoonjoyCore RefreshCoordinator.swift
+[26/81] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[27/81] Compiling SpoonjoyCore TokenVault.swift
+[28/81] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[29/81] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[30/81] Compiling SpoonjoyCore NativeDurableCache.swift
+[31/81] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[32/81] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[33/81] Compiling SpoonjoyCore CaptureDraft.swift
+[34/81] Compiling SpoonjoyCore CookModeProgress.swift
+[35/81] Compiling SpoonjoyCore KitchenFixtureState.swift
+[36/81] Compiling SpoonjoyCore SettingsState.swift
+[37/81] Compiling SpoonjoyCore ShoppingListState.swift
+[38/81] Compiling SpoonjoyCore DeepLinkManifest.swift
+[39/81] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[40/81] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[41/81] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[42/81] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[43/81] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[44/81] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[45/81] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[46/81] Emitting module SpoonjoyCore
+[47/81] Compiling SpoonjoyCore NativeAPIRequests.swift
+[48/81] Compiling SpoonjoyCore PaginationCursor.swift
+[49/81] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[50/81] Compiling SpoonjoyCore ShoppingListAPI.swift
+[51/81] Compiling SpoonjoyCore ShoppingListRequests.swift
+[52/81] Compiling SpoonjoyCore AppNavigationState.swift
+[53/81] Compiling SpoonjoyCore AppRoute.swift
+[54/81] Compiling SpoonjoyCore DeepLinkRouter.swift
+[55/81] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[56/81] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[57/81] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[58/81] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[59/81] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[60/81] Compiling SpoonjoyCore NativeSharePayload.swift
+[61/81] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[62/81] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[63/81] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[64/81] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[65/81] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[66/81] Compiling SpoonjoyCore ScreenViewModels.swift
+[67/81] Compiling SpoonjoyCore SearchState.swift
+[68/81] Compiling SpoonjoyCore AuthSessionState.swift
+[69/81] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[70/81] Compiling SpoonjoyCore MutationQueue.swift
+[71/81] Compiling SpoonjoyCore OfflineSnapshot.swift
+[72/81] Compiling SpoonjoyCore SyncCheckpoint.swift
+[73/81] Compiling SpoonjoyCore RecipeCookbook.swift
+[74/81] Compiling SpoonjoyCore SpoonjoyCore.swift
+[75/81] Compiling SpoonjoyCore NativeSyncEngine.swift
+[76/81] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[77/109] Compiling SpoonjoyScenarioVerifier main.swift
+[78/109] Emitting module SpoonjoyScenarioVerifier
+[79/109] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[79/109] Write Objects.LinkFileList
+[80/109] Linking SpoonjoyScenarioVerifier
+[81/109] Applying SpoonjoyScenarioVerifier
+[83/109] Emitting module SpoonjoyCoreTests
+[84/111] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[85/111] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[86/111] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[87/111] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[88/111] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[89/111] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[90/111] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[91/111] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[92/111] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[93/111] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[94/111] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[95/111] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[96/111] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[97/111] Compiling SpoonjoyCoreTests APITransportTests.swift
+[98/111] Compiling SpoonjoyCoreTests AppStateTests.swift
+[99/111] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[100/111] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[101/111] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[102/111] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[103/111] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[104/111] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[105/111] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[106/111] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[107/111] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[108/111] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[109/111] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[110/113] Compiling SpoonjoyApplePackageTests runner.swift
+[111/113] Emitting module SpoonjoyApplePackageTests
+[111/113] Write Objects.LinkFileList
+[112/113] Linking SpoonjoyApplePackageTests
+Build complete! (19.17s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native sharing payloads" started.
+◇ Test "public share route policy only exposes recipe and cookbook object URLs" started.
+◇ Test "private transfer fallback labels cover sparse shopping spoon and capture values" started.
+◇ Test "public payload builders reject non-object and non-spoonjoy canonical URLs" started.
+◇ Test "private product values use native transfers without fake public URLs" started.
+◇ Test "recipe and cookbook public payloads use canonical model URLs exactly" started.
+◇ Test "public route payloads back toolbar sharing without leaking native-only routes" started.
+◇ Test "sharing catalog stays system-share only and does not invent social surfaces" started.
+✔ Test "public share route policy only exposes recipe and cookbook object URLs" passed after 0.001 seconds.
+✔ Test "public route payloads back toolbar sharing without leaking native-only routes" passed after 0.001 seconds.
+✔ Test "sharing catalog stays system-share only and does not invent social surfaces" passed after 0.001 seconds.
+✔ Test "private transfer fallback labels cover sparse shopping spoon and capture values" passed after 0.001 seconds.
+✔ Test "private product values use native transfers without fake public URLs" passed after 0.006 seconds.
+✔ Test "recipe and cookbook public payloads use canonical model URLs exactly" passed after 0.006 seconds.
+✔ Test "public payload builders reject non-object and non-spoonjoy canonical URLs" passed after 0.012 seconds.
+✔ Suite "Native sharing payloads" passed after 0.013 seconds.
+✔ Test run with 7 tests in 1 suite passed after 0.013 seconds.

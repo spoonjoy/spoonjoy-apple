@@ -1,0 +1,11 @@
+Building for debugging...
+[0/4] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Capture import Siri intent contracts" started.
+◇ Test "capture import Siri intents require entity-backed lifecycle actions" started.
+✔ Test "capture import Siri intents require entity-backed lifecycle actions" passed after 0.116 seconds.
+✔ Suite "Capture import Siri intent contracts" passed after 0.116 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.116 seconds.

@@ -1,0 +1,205 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:11:34: error: type 'CaptureDraft' has no member 'importURL'
+  9 |         let cases: [(CaptureDraft, [String: Any])] = [
+ 10 |             (
+ 11 |                 try CaptureDraft.importURL(
+    |                                  `- error: type 'CaptureDraft' has no member 'importURL'
+ 12 |                     id: "draft_url",
+ 13 |                     url: URL(string: "https://example.com/recipes/lemon-pasta")!,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:25:85: error: extra argument 'sourceURL' in call
+ 23 |                     id: "draft_text",
+ 24 |                     rawText: "Grandma sauce\n2 tomatoes",
+ 25 |                     sourceURL: URL(string: "https://captures.example/grandma-sauce")!,
+    |                                                                                     `- error: extra argument 'sourceURL' in call
+ 26 |                     createdAt: Self.createdAt
+ 27 |                 ),
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:35:34: error: type 'CaptureDraft' has no member 'shareSheetURL'
+ 33 |             ),
+ 34 |             (
+ 35 |                 try CaptureDraft.shareSheetURL(
+    |                                  `- error: type 'CaptureDraft' has no member 'shareSheetURL'
+ 36 |                     id: "draft_share_url",
+ 37 |                     url: URL(string: "https://spoonjoy.app/imported/from-share-sheet")!,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:46:34: error: type 'CaptureDraft' has no member 'cameraImage'
+ 44 |             ),
+ 45 |             (
+ 46 |                 try CaptureDraft.cameraImage(
+    |                                  `- error: type 'CaptureDraft' has no member 'cameraImage'
+ 47 |                     id: "draft_camera",
+ 48 |                     assetIdentifier: "local-camera-asset-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:62:34: error: type 'CaptureDraft' has no member 'photoLibraryImage'
+ 60 |             ),
+ 61 |             (
+ 62 |                 try CaptureDraft.photoLibraryImage(
+    |                                  `- error: type 'CaptureDraft' has no member 'photoLibraryImage'
+ 63 |                     id: "draft_photo_library",
+ 64 |                     assetIdentifier: "photo-library-asset-1",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:78:34: error: type 'CaptureDraft' has no member 'jsonLD'
+ 76 |             ),
+ 77 |             (
+ 78 |                 try CaptureDraft.jsonLD(
+    |                                  `- error: type 'CaptureDraft' has no member 'jsonLD'
+ 79 |                     id: "draft_jsonld",
+ 80 |                     jsonLD: JSONValue.object([
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:99:34: error: type 'CaptureDraft' has no member 'videoURL'
+ 97 |             ),
+ 98 |             (
+ 99 |                 try CaptureDraft.videoURL(
+    |                                  `- error: type 'CaptureDraft' has no member 'videoURL'
+100 |                     id: "draft_video",
+101 |                     url: URL(string: "https://www.youtube.com/watch?v=spoonjoy")!,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:113:40: error: value of type 'CaptureDraft' has no member 'importSource'
+111 |         for (index, testCase) in cases.enumerated() {
+112 |             let mutation = NativeQueuedMutation.recipeImportSubmit(
+113 |                 source: try testCase.0.importSource(),
+    |                                        `- error: value of type 'CaptureDraft' has no member 'importSource'
+114 |                 clientMutationID: "cm_import_\(index)",
+115 |                 createdAt: Self.createdAt
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:128:38: error: type 'CaptureDraft' has no member 'cameraImage'
+126 |     @Test("image drafts without recognized text stay local until native OCR produces importable text")
+127 |     func imageDraftsWithoutRecognizedTextStayLocalUntilOCR() throws {
+128 |         let draft = try CaptureDraft.cameraImage(
+    |                                      `- error: type 'CaptureDraft' has no member 'cameraImage'
+129 |             id: "draft_camera_needs_ocr",
+130 |             assetIdentifier: "camera-pending-ocr",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:136:42: error: cannot find 'CaptureDraftImportReadiness' in scope
+134 |
+135 |         #expect(!draft.canCreateServerRecipe)
+136 |         #expect(draft.importReadiness == CaptureDraftImportReadiness.needsTextRecognition)
+    |                                          `- error: cannot find 'CaptureDraftImportReadiness' in scope
+137 |         #expect(throws: CaptureDraftImportError.needsTextRecognition) {
+138 |             _ = try draft.importSource()
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:137:25: error: cannot find 'CaptureDraftImportError' in scope
+135 |         #expect(!draft.canCreateServerRecipe)
+136 |         #expect(draft.importReadiness == CaptureDraftImportReadiness.needsTextRecognition)
+137 |         #expect(throws: CaptureDraftImportError.needsTextRecognition) {
+    |                         `- error: cannot find 'CaptureDraftImportError' in scope
+138 |             _ = try draft.importSource()
+139 |         }
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:144:38: error: type 'CaptureDraft' has no member 'shareSheetURL'
+142 |     @Test("capture drafts and import retry survive snapshot and sync-store round trips")
+143 |     func captureDraftsAndImportRetrySurviveRoundTrips() async throws {
+144 |         let draft = try CaptureDraft.shareSheetURL(
+    |                                      `- error: type 'CaptureDraft' has no member 'shareSheetURL'
+145 |             id: "draft_share_roundtrip",
+146 |             url: URL(string: "https://example.com/roundtrip")!,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:161:14: error: value of type 'NativeAppSnapshot' has no member 'recordingCaptureDraft'
+159 |                 savedAt: Self.createdAt
+160 |             )
+161 |             .recordingCaptureDraft(draft, savedAt: Self.createdAt)
+    |              `- error: value of type 'NativeAppSnapshot' has no member 'recordingCaptureDraft'
+162 |             .recordingCaptureImportRetry(mutation, savedAt: Self.createdAt)
+163 |
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:183:38: error: type 'CaptureDraft' has no member 'importURL'
+181 |     @Test("provider-secret blockers produce user-facing blocked state without remote retry work")
+182 |     func providerSecretBlockersProduceBlockedStateWithoutRetryWork() throws {
+183 |         let draft = try CaptureDraft.importURL(
+    |                                      `- error: type 'CaptureDraft' has no member 'importURL'
+184 |             id: "draft_provider_secret",
+185 |             url: URL(string: "https://example.com/private-recipe")!,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:189:25: error: cannot find 'CaptureImportViewModel' in scope
+187 |         )
+188 |         let response = try Self.providerSecretBlockedImportResponse()
+189 |         let viewModel = CaptureImportViewModel(draft: draft, connectivity: CaptureImportConnectivity.online)
+    |                         `- error: cannot find 'CaptureImportViewModel' in scope
+190 |         let plan = try viewModel.planImportResult(
+191 |             response,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:189:76: error: cannot find 'CaptureImportConnectivity' in scope
+187 |         )
+188 |         let response = try Self.providerSecretBlockedImportResponse()
+189 |         let viewModel = CaptureImportViewModel(draft: draft, connectivity: CaptureImportConnectivity.online)
+    |                                                                            `- error: cannot find 'CaptureImportConnectivity' in scope
+190 |         let plan = try viewModel.planImportResult(
+191 |             response,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:196:33: error: cannot find 'CaptureImportBlocker' in scope
+194 |         )
+195 |
+196 |         #expect(plan.blocker == CaptureImportBlocker.providerSecret(retryAfterSeconds: 30))
+    |                                 `- error: cannot find 'CaptureImportBlocker' in scope
+197 |         #expect(plan.offlineRetryMutation == nil)
+198 |         #expect(plan.requestBuilder == nil)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:205:38: error: type 'CaptureDraft' has no member 'importURL'
+203 |     @Test("offline import queues retry, restores it, drains on reconnect, and routes imported recipe")
+204 |     func offlineImportQueuesRestoresDrainsAndRoutesImportedRecipe() throws {
+205 |         let draft = try CaptureDraft.importURL(
+    |                                      `- error: type 'CaptureDraft' has no member 'importURL'
+206 |             id: "draft_offline_retry",
+207 |             url: URL(string: "https://example.com/offline-import")!,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:210:32: error: cannot find 'CaptureImportViewModel' in scope
+208 |             createdAt: Self.createdAt
+209 |         )
+210 |         let offlineViewModel = CaptureImportViewModel(draft: draft, connectivity: CaptureImportConnectivity.offline)
+    |                                `- error: cannot find 'CaptureImportViewModel' in scope
+211 |         let offlinePlan = try offlineViewModel.planSubmit(
+212 |             clientMutationID: "cm_import_offline",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:210:83: error: cannot find 'CaptureImportConnectivity' in scope
+208 |             createdAt: Self.createdAt
+209 |         )
+210 |         let offlineViewModel = CaptureImportViewModel(draft: draft, connectivity: CaptureImportConnectivity.offline)
+    |                                                                                   `- error: cannot find 'CaptureImportConnectivity' in scope
+211 |         let offlinePlan = try offlineViewModel.planSubmit(
+212 |             clientMutationID: "cm_import_offline",
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:225:33: error: cannot find 'CaptureImportViewModel' in scope
+223 |             return
+224 |         }
+225 |         let restoredViewModel = CaptureImportViewModel(
+    |                                 `- error: cannot find 'CaptureImportViewModel' in scope
+226 |             draft: draft,
+227 |             connectivity: CaptureImportConnectivity.online,
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:227:27: error: cannot find 'CaptureImportConnectivity' in scope
+225 |         let restoredViewModel = CaptureImportViewModel(
+226 |             draft: draft,
+227 |             connectivity: CaptureImportConnectivity.online,
+    |                           `- error: cannot find 'CaptureImportConnectivity' in scope
+228 |             pendingRetryMutation: retryMutation
+229 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:261:38: error: extra argument 'sourceURL' in call
+259 |             id: "draft_store_roundtrip",
+260 |             rawText: "State store soup\nSimmer gently.",
+261 |             sourceURL: Optional<URL>.none,
+    |                                      `- error: extra argument 'sourceURL' in call
+262 |             createdAt: Self.createdAt
+263 |         )
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:272:33: error: value of type 'NativeAppSnapshot' has no member 'recordingCaptureDraft'
+270 |             savedAt: Self.createdAt
+271 |         )
+272 |         let recorded = fallback.recordingCaptureDraft(draft, savedAt: Self.createdAt)
+    |                                 `- error: value of type 'NativeAppSnapshot' has no member 'recordingCaptureDraft'
+273 |
+274 |         try store.save(recorded)
+
+/Users/arimendelow/Projects/spoonjoy-apple/Tests/SpoonjoyCoreTests/CaptureImportSurfaceTests.swift:276:33: error: value of type 'NativeAppSnapshot' has no member 'discardingCaptureDraft'
+274 |         try store.save(recorded)
+275 |         let restored = try store.loadOrCreate(fallback: fallback).value
+276 |         try store.save(restored.discardingCaptureDraft(id: draft.id, savedAt: Self.createdAt))
+    |                                 `- error: value of type 'NativeAppSnapshot' has no member 'discardingCaptureDraft'
+277 |         let cleared = try store.loadOrCreate(fallback: fallback).value
+278 |
+error: fatalError
