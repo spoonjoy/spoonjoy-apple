@@ -25,3 +25,19 @@ Cold reviewer: Kierkegaard the 3rd
 - `unit-24b-review-fix-typecheck.log`: `pnpm run typecheck` passed.
 - `unit-24b-review-fix-build.log`: `pnpm run build` passed with no canceled-build diagnostic.
 - `unit-24b-review-fix-warning-scan.log`: final logs had no warning/error/failure diagnostics.
+
+## Second Review Fix
+
+Follow-up reviewer Aristotle found two remaining issues:
+
+- Optional JSON DELETE bodies for cookbook delete, cookbook recipe remove, and shopping-list item delete omitted `invalid_json` from generated OpenAPI error examples.
+- The DELETE idempotency prose still made query-string `clientMutationId` sound shopping-list-specific.
+
+Web commit `a97959fd docs: add delete invalid-json metadata` adds `invalid_json` to those DELETE operations, regenerates playground metadata, strengthens the shared flexible DELETE OpenAPI test helper, and broadens the native request-builder prose.
+
+Second-pass validation:
+
+- `unit-24b-review-fix2-focused-green.log`: focused Unit 24b suite plus build-output hygiene passed.
+- `unit-24b-review-fix2-typecheck.log`: `pnpm run typecheck` passed.
+- `unit-24b-review-fix2-build.log`: `pnpm run build` passed.
+- `unit-24b-review-fix2-warning-scan.log`: final second-pass logs had no warning/error/failure diagnostics.
