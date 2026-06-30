@@ -24,7 +24,7 @@ struct SettingsView: View {
     var openNotificationSettings: @MainActor @Sendable () -> Void = {}
     var notificationAPNsSettingsContent: (@MainActor @Sendable (NotificationAPNsSurfaceViewModel) -> AnyView)?
     var shellOfflineIndicatorState: OfflineIndicatorState?
-    var onDismissOfflineIndicator: () -> Void = {}
+    var onDismissOfflineIndicator: @MainActor @Sendable () -> Void = {}
 
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

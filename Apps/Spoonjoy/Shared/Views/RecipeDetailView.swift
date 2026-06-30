@@ -170,6 +170,7 @@ struct RecipeDetailView: View {
     let recordSpoonCookLogDraft: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     @State private var actionErrorMessage: String?
     @State private var actionStatusMessage: String?

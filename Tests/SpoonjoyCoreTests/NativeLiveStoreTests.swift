@@ -5234,6 +5234,11 @@ struct NativeLiveStoreTests {
                     "effectiveOfflineIndicator"
                 ])
             }
+            if relativePath.hasSuffix("RecipeDetailView.swift") {
+                requiredTokens.append(
+                    "let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome\n    let onDismissOfflineIndicator: @MainActor @Sendable () -> Void"
+                )
+            }
             expectContent(
                 source,
                 in: relativePath,
@@ -5246,6 +5251,16 @@ struct NativeLiveStoreTests {
                 ]
             )
         }
+        let settingsViewSource = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/SettingsView.swift"))
+        expectContent(
+            settingsViewSource,
+            in: "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
+            contains: [
+                "var onDismissOfflineIndicator: @MainActor @Sendable () -> Void = {}",
+                "NotificationAPNsSettingsView(",
+                "onDismissOfflineIndicator: onDismissOfflineIndicator"
+            ]
+        )
     }
 
     @Test("scenario verifier reports live store as structured checks and capabilities")
