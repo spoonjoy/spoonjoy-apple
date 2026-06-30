@@ -492,8 +492,9 @@ struct LogoutIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         try await requestConfirmation()
-        let action = try NativeIntentActionResolver().logout(connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
-        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+        let stateWriter = try SpoonjoyIntentStateWriter()
+        let action = try NativeIntentActionResolver().logout(connectivity: try await stateWriter.settingsConnectivity())
+        try await stateWriter.performSettingsAction(action)
         let offlineMessage = SettingsOnlineOnlyReason.logout.message
         let message = action.onlineOnlyReason?.message ?? "Logged out of Spoonjoy."
         await SpoonjoyInteractionDonor().donateBestEffort(self)
@@ -508,8 +509,9 @@ struct RevokeCurrentSessionIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         try await requestConfirmation()
-        let action = try NativeIntentActionResolver().revokeCurrentSession(connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
-        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+        let stateWriter = try SpoonjoyIntentStateWriter()
+        let action = try NativeIntentActionResolver().revokeCurrentSession(connectivity: try await stateWriter.settingsConnectivity())
+        try await stateWriter.performSettingsAction(action)
         let offlineMessage = SettingsOnlineOnlyReason.sessionRevoke.message
         let message = action.onlineOnlyReason?.message ?? "Revoked the current Spoonjoy session."
         await SpoonjoyInteractionDonor().donateBestEffort(self)
@@ -2156,6 +2158,7 @@ private struct SpoonjoyIntentStateWriter {
         guard let authVault else {
             throw NativeIntentActionError.authRequired
         }
+        try await purgePrivateEntityIndexesForCurrentScope()
         switch operation {
         case .logout:
             try await authVault.clearSession()
@@ -2167,6 +2170,193 @@ private struct SpoonjoyIntentStateWriter {
             try await authVault.clearSession()
             try await authVault.clearClientID()
         }
+    }
+
+    private func purgePrivateEntityIndexesForCurrentScope() async throws {
+        let syncSnapshot = try await syncStore.loadSnapshot()
+        let scope = try await trustedIntentScope(from: syncSnapshot)
+        let appSnapshot = loadScopedAppSnapshot(scope: scope)
+        let cacheSnapshot = loadScopedCacheSnapshot(scope: scope)
+        let accountID = scope.accountID
+        let environment = scope.environment
+
+        let shoppingItemIDs = Self.uniquePreservingOrder(
+            syncSnapshot.cachedRecords.compactMap { record in
+                record.kind == .shoppingItem ? record.resourceID : nil
+            } + (appSnapshot?.shoppingList?.activeItems.map(\.id) ?? [])
+        )
+        let shoppingPlan = ShoppingEntityIndexPurgePlan.accountScopePurge(
+            accountID: accountID,
+            environment: environment,
+            shoppingItemIDs: shoppingItemIDs
+        )
+        try await purgePrivateEntitySurfaces(
+            identifiers: ShoppingEntityCatalog.purgeEntityIdentifiers(accountID: accountID, environment: environment, plan: shoppingPlan),
+            domainIdentifiers: ShoppingEntityCatalog.purgeDomainIdentifiers(accountID: accountID, environment: environment, plan: shoppingPlan),
+            accountID: accountID,
+            environment: environment
+        )
+
+        let spoonIDs = Self.uniquePreservingOrder(syncSnapshot.cachedRecords.compactMap { record in
+            record.kind == .spoon ? record.resourceID : nil
+        })
+        let spoonPlan = SpoonEntityIndexPurgePlan.accountScopePurge(
+            accountID: accountID,
+            environment: environment,
+            spoonIDs: spoonIDs
+        )
+        try await purgePrivateEntitySurfaces(
+            identifiers: SpoonEntityCatalog.purgeEntityIdentifiers(accountID: accountID, environment: environment, plan: spoonPlan),
+            domainIdentifiers: SpoonEntityCatalog.purgeDomainIdentifiers(accountID: accountID, environment: environment, plan: spoonPlan),
+            accountID: accountID,
+            environment: environment
+        )
+
+        let captureDraftPlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
+            appSnapshot: appSnapshot,
+            cacheSnapshot: cacheSnapshot,
+            accountID: accountID,
+            environment: environment
+        )
+        try await purgePrivateEntitySurfaces(
+            identifiers: CaptureDraftEntityCatalog.purgeEntityIdentifiers(accountID: accountID, environment: environment, plan: captureDraftPlan),
+            domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(accountID: accountID, environment: environment, plan: captureDraftPlan),
+            accountID: accountID,
+            environment: environment
+        )
+
+        let chefProfileIDs = Self.uniquePreservingOrder(
+            syncSnapshot.cachedRecords.compactMap { record in
+                record.kind == .profile ? record.resourceID : nil
+            } + (cacheSnapshot?.records.compactMap { record in
+                guard case .profile(let id) = record.metadata.domain else {
+                    return nil
+                }
+                return id
+            } ?? [])
+        )
+        let chefProfilePlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
+            accountID: accountID,
+            environment: environment,
+            profileIDs: chefProfileIDs
+        )
+        try await purgePrivateEntitySurfaces(
+            identifiers: ChefProfileEntityCatalog.purgeEntityIdentifiers(accountID: accountID, environment: environment, plan: chefProfilePlan),
+            domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(accountID: accountID, environment: environment, plan: chefProfilePlan),
+            accountID: accountID,
+            environment: environment
+        )
+
+        let recipeIDs = Self.uniquePreservingOrder(
+            syncSnapshot.cachedRecords.compactMap { record in
+                record.kind == .recipe ? record.resourceID : nil
+            } + Self.recipeIDs(from: cacheSnapshot)
+        )
+        let cookbookIDs = Self.uniquePreservingOrder(
+            syncSnapshot.cachedRecords.compactMap { record in
+                record.kind == .cookbook ? record.resourceID : nil
+            } + Self.cookbookIDs(from: cacheSnapshot)
+        )
+        let recipeCookbookPlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
+            accountID: accountID,
+            environment: environment,
+            recipeIDs: recipeIDs,
+            cookbookIDs: cookbookIDs
+        )
+        try await purgePrivateEntitySurfaces(
+            identifiers: RecipeCookbookEntityCatalog.purgeEntityIdentifiers(accountID: accountID, environment: environment, plan: recipeCookbookPlan),
+            domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(accountID: accountID, environment: environment, plan: recipeCookbookPlan),
+            accountID: accountID,
+            environment: environment
+        )
+    }
+
+    private func purgePrivateEntitySurfaces(
+        identifiers: [String],
+        domainIdentifiers: [String],
+        accountID: String,
+        environment: NativeCacheEnvironment
+    ) async throws {
+        guard !identifiers.isEmpty || !domainIdentifiers.isEmpty else {
+            return
+        }
+#if canImport(CoreSpotlight)
+        try await SpoonjoySpotlightIndexer().delete(
+            identifiers: identifiers,
+            domainIdentifiers: domainIdentifiers,
+            accountID: accountID,
+            environment: environment
+        )
+#else
+        _ = identifiers
+        _ = domainIdentifiers
+        _ = accountID
+        _ = environment
+#endif
+    }
+
+    private func loadScopedAppSnapshot(scope: (accountID: String, environment: NativeCacheEnvironment)) -> NativeAppSnapshot? {
+        let savedAt = Self.isoString(Date())
+        let fallback = NativeAppSnapshot.bootstrap(
+            shoppingList: nil,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            savedAt: savedAt
+        )
+        guard let snapshot = try? store.loadOrCreate(fallback: fallback).value,
+              snapshot.isScoped(accountID: scope.accountID, environment: scope.environment) else {
+            return nil
+        }
+        return snapshot
+    }
+
+    private func loadScopedCacheSnapshot(scope: (accountID: String, environment: NativeCacheEnvironment)) -> NativeDurableCacheSnapshot? {
+        let fallback = try? NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            createdAt: Date(),
+            records: [],
+            dismissedIndicators: []
+        )
+        guard let fallback,
+              let snapshot = try? cacheStore.loadOrRecover(fallback: fallback).value,
+              snapshot.accountID == scope.accountID,
+              snapshot.environment == scope.environment else {
+            return nil
+        }
+        return snapshot
+    }
+
+    private static func recipeIDs(from cacheSnapshot: NativeDurableCacheSnapshot?) -> [String] {
+        cacheSnapshot?.records.flatMap { record -> [String] in
+            switch record.payload {
+            case .recipeCatalog(let ids):
+                ids
+            case .recipeDetail(let id, _):
+                [id]
+            default:
+                []
+            }
+        } ?? []
+    }
+
+    private static func cookbookIDs(from cacheSnapshot: NativeDurableCacheSnapshot?) -> [String] {
+        cacheSnapshot?.records.flatMap { record -> [String] in
+            switch record.payload {
+            case .cookbookList(let ids):
+                ids
+            case .cookbookDetail(let id, _):
+                [id]
+            default:
+                []
+            }
+        } ?? []
+    }
+
+    private static func uniquePreservingOrder(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 
     private func executeOAuthRequest(_ requestBuilder: APIRequestBuilder) async throws {

@@ -389,7 +389,10 @@ struct ProfileSettingsIntentTests {
                     pattern: #"struct\s+LogoutIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
                         "try await requestConfirmation(",
+                        "let stateWriter = try SpoonjoyIntentStateWriter()",
                         "NativeIntentActionResolver().logout(",
+                        "stateWriter.settingsConnectivity()",
+                        "try await stateWriter.performSettingsAction(action)",
                         "SettingsOnlineOnlyReason.logout.message",
                         "not queued"
                     ],
@@ -401,7 +404,10 @@ struct ProfileSettingsIntentTests {
                     pattern: #"struct\s+RevokeCurrentSessionIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
                         "try await requestConfirmation(",
+                        "let stateWriter = try SpoonjoyIntentStateWriter()",
                         "NativeIntentActionResolver().revokeCurrentSession(",
+                        "stateWriter.settingsConnectivity()",
+                        "try await stateWriter.performSettingsAction(action)",
                         "SettingsOnlineOnlyReason.sessionRevoke.message",
                         "not queued"
                     ],
@@ -498,10 +504,45 @@ struct ProfileSettingsIntentTests {
                     label: "performSettingsSessionOperation",
                     pattern: #"func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)\s+async\s+throws"#,
                     requiredTokens: [
+                        "try await purgePrivateEntityIndexesForCurrentScope()\n        switch operation",
+                        "try await purgePrivateEntityIndexesForCurrentScope()",
                         "OAuthRequests.revoke",
                         "clearClientID()"
                     ],
                     forbiddenTokens: ["case .logout, .revokeAndLogout:\n            try await authVault.clearSession()"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "purgePrivateEntityIndexesForCurrentScope",
+                    pattern: #"func\s+purgePrivateEntityIndexesForCurrentScope\(\)\s+async\s+throws"#,
+                    requiredTokens: [
+                        "let syncSnapshot = try await syncStore.loadSnapshot()",
+                        "let scope = try await trustedIntentScope(from: syncSnapshot)",
+                        "ShoppingEntityIndexPurgePlan.accountScopePurge",
+                        "SpoonEntityIndexPurgePlan.accountScopePurge",
+                        "CaptureDraftEntityIndexPurgePlan.accountScopePurge",
+                        "ChefProfileEntityIndexPurgePlan.accountScopePurge",
+                        "RecipeCookbookEntityIndexPurgePlan.accountScopePurge",
+                        "ShoppingEntityCatalog.purgeEntityIdentifiers",
+                        "SpoonEntityCatalog.purgeEntityIdentifiers",
+                        "CaptureDraftEntityCatalog.purgeEntityIdentifiers",
+                        "ChefProfileEntityCatalog.purgeEntityIdentifiers",
+                        "RecipeCookbookEntityCatalog.purgeEntityIdentifiers",
+                        "purgePrivateEntitySurfaces("
+                    ],
+                    forbiddenTokens: ["clearSession()", "clearClientID()"]
+                ),
+                (
+                    relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift",
+                    label: "purgePrivateEntitySurfaces",
+                    pattern: #"func\s+purgePrivateEntitySurfaces\("#,
+                    requiredTokens: [
+                        "SpoonjoySpotlightIndexer().delete(",
+                        "domainIdentifiers: domainIdentifiers",
+                        "accountID: accountID",
+                        "environment: environment"
+                    ],
+                    forbiddenTokens: ["try? await SpoonjoySpotlightIndexer"]
                 ),
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift",
