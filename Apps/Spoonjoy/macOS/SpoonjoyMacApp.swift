@@ -8,7 +8,10 @@ struct SpoonjoyMacApp: App {
     var body: some Scene {
         WindowGroup {
             SpoonjoyRootView()
+                .frame(minWidth: 760, minHeight: 620)
         }
+        .defaultSize(width: 1040, height: 760)
+        .windowResizability(.contentMinSize)
     }
 }
 

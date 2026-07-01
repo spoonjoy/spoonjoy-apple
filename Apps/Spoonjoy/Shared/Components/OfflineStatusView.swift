@@ -11,7 +11,7 @@ struct OfflineStatusView: View {
     }
 
     var body: some View {
-        if !isDismissed {
+        if display.isVisible {
             HStack(spacing: 8) {
                 Label(label, systemImage: symbol)
                     .font(KitchenTableTheme.bodyNote)
@@ -59,15 +59,6 @@ struct OfflineStatusView: View {
             }
         case .destructiveConfirmation:
             "Confirmation required"
-        }
-    }
-
-    private var isDismissed: Bool {
-        switch display {
-        case .dismissed:
-            true
-        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
-            false
         }
     }
 
