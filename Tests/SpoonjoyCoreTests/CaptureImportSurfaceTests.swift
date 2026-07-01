@@ -484,7 +484,8 @@ struct CaptureImportSurfaceTests {
         #expect(plan.offlineRetryMutation == nil)
         #expect(plan.requestBuilder == nil)
         #expect(plan.importedRecipeRoute == nil)
-        #expect(plan.userFacingMessage.contains("ProviderSecret"))
+        #expect(plan.userFacingMessage == "Recipe import setup is required before Spoonjoy can finish this import.")
+        #expect(!plan.userFacingMessage.contains("ProviderSecret"))
     }
 
     @Test("non-provider import blockers and empty responses keep the visible draft")
@@ -575,8 +576,58 @@ struct CaptureImportSurfaceTests {
         #expect(plan.importedRecipeRoute == nil)
         #expect(plan.drainedClientMutationID == nil)
         #expect(plan.captureDraftAfterCompletion == draft)
-        #expect(plan.userFacingMessage == "provider returned no recipe")
+        #expect(plan.userFacingMessage == "Import did not return a recipe.")
         #expect(defaultMessagePlan.userFacingMessage == "Import did not return a recipe.")
+    }
+
+    @Test("empty import result copy never exposes machine import codes")
+    func emptyImportResultCopyNeverExposesMachineImportCodes() throws {
+        let draft = try CaptureDraft.importURL(
+            id: "draft_machine_import_code",
+            url: URL(string: "https://example.com/machine-code-import")!,
+            createdAt: Self.createdAt
+        )
+        let viewModel = CaptureImportViewModel(draft: draft, connectivity: .online)
+        let cases = [
+            ("provider-secret", "Recipe import setup is required before Spoonjoy can finish this import."),
+            ("provider_secret_required", "Recipe import setup is required before Spoonjoy can finish this import."),
+            ("authRequired:Session expired.", "Import did not return a recipe."),
+            ("fetch-blocked", "That recipe source could not be imported."),
+            ("fetch-timeout", "Recipe import is busy. Try again soon."),
+            ("rate-limited", "Recipe import is busy. Try again soon."),
+            ("not-html", "That link does not look like an importable recipe."),
+            ("video-unavailable", "That link does not look like an importable recipe."),
+            ("internal.provider.missing", "Import did not return a recipe.")
+        ]
+        let forbiddenFragments = [
+            "provider-secret",
+            "provider_secret",
+            "authRequired",
+            "fetch-blocked",
+            "not-html",
+            "video-unavailable",
+            "internal."
+        ]
+
+        for (importCode, expectedMessage) in cases {
+            let response = try JSONDecoder().decode(RecipeImportResponse.self, from: Data(
+                """
+                {
+                  "importCode": "\(importCode)"
+                }
+                """.utf8
+            ))
+            let plan = try viewModel.planImportResult(
+                response,
+                clientMutationID: "cm_\(importCode)",
+                createdAt: Self.createdAt
+            )
+
+            #expect(plan.userFacingMessage == expectedMessage)
+            for forbiddenFragment in forbiddenFragments {
+                #expect(!plan.userFacingMessage.localizedCaseInsensitiveContains(forbiddenFragment))
+            }
+        }
     }
 
     @Test("compact capture import fallbacks stay covered and intentional")
@@ -646,7 +697,7 @@ struct CaptureImportSurfaceTests {
         #expect(offlinePlan.requestBuilder == nil)
         #expect(offlinePlan.offlineRetryMutation?.queueableKind == .recipeImportSubmit)
         #expect(offlinePlan.offlineRetryMutation?.clientMutationID == "cm_import_offline")
-        #expect(offlinePlan.userFacingMessage.localizedCaseInsensitiveContains("offline"))
+        #expect(offlinePlan.userFacingMessage == "Saved locally. Import will retry when Spoonjoy reconnects.")
 
         guard let retryMutation = offlinePlan.offlineRetryMutation else {
             Issue.record("Offline import should produce a retry mutation.")

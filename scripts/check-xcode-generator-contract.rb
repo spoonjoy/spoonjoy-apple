@@ -58,6 +58,10 @@ def assert_setting(block, setting, expected)
   fail_check("expected #{setting} = #{expected}, got #{actual}") unless actual == expected
 end
 
+def assert_absent_setting(block, setting)
+  fail_check("unexpected #{setting} in build settings:\n#{block}") if block.match?(/#{Regexp.escape(setting)} = [^;]+;/)
+end
+
 def build_configuration_objects(project_content)
   project_content.scan(%r{/\* (?<object_name>[^*]+) \*/ = \{
 \s+isa = XCBuildConfiguration;
@@ -180,19 +184,42 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   end
 
   {
-    "app.spoonjoy.Spoonjoy" => {
-      "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
-      "Release" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
-      "BootstrapDebug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "26.5" }
-    },
-    "app.spoonjoy.Spoonjoy.mac" => {
-      "Debug" => { "MACOSX_DEPLOYMENT_TARGET" => "27.0" },
-      "Release" => { "MACOSX_DEPLOYMENT_TARGET" => "27.0" },
-      "BootstrapDebug" => { "MACOSX_DEPLOYMENT_TARGET" => "26.2" }
-    }
-  }.each do |bundle_id, configurations|
+	    "app.spoonjoy.Spoonjoy" => {
+	      "Debug" => {
+	        "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
+	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_SIGNED_APPLE_AUTH\""
+	      },
+	      "Release" => {
+	        "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
+	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "SPOONJOY_SIGNED_APPLE_AUTH"
+	      },
+	      "BootstrapDebug" => {
+	        "IPHONEOS_DEPLOYMENT_TARGET" => "26.5",
+	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
+	      }
+	    },
+	    "app.spoonjoy.Spoonjoy.mac" => {
+	      "Debug" => {
+	        "MACOSX_DEPLOYMENT_TARGET" => "27.0",
+	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_SIGNED_APPLE_AUTH\""
+	      },
+	      "Release" => {
+	        "MACOSX_DEPLOYMENT_TARGET" => "27.0",
+	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "SPOONJOY_SIGNED_APPLE_AUTH"
+	      },
+	      "BootstrapDebug" => {
+	        "MACOSX_DEPLOYMENT_TARGET" => "26.2",
+	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
+	      }
+	    }
+	  }.each do |bundle_id, configurations|
     configurations.each do |configuration, settings|
       block = find_build_settings_block(project_content, bundle_id, configuration)
+      if configuration == "BootstrapDebug"
+        assert_absent_setting(block, "CODE_SIGN_ENTITLEMENTS")
+      else
+        assert_setting(block, "CODE_SIGN_ENTITLEMENTS", "Apps/Spoonjoy/Shared/Spoonjoy.entitlements")
+      end
       settings.each do |setting, expected|
         assert_setting(block, setting, expected)
       end

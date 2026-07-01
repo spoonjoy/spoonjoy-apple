@@ -1633,6 +1633,8 @@ public struct NativeShellContentState {
         switch environment {
         case .production:
             .production(baseURL: configuration.baseURL)
+        case .preview, .previewHost:
+            .preview(baseURL: configuration.baseURL)
         case .local:
             .local(baseURL: configuration.baseURL)
         }
@@ -1755,7 +1757,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 return
             }
 
-            apply(.restoringCache(emptyContent(authSessionState: authState, display: .offline)))
+            apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
             try await bootstrapFromLiveAPI(session: session, trigger: .launch)
         } catch let error as APITransportError where error.isOffline {
             let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState

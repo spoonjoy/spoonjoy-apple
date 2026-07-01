@@ -169,6 +169,10 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
             return RecipeCoverControlsMutationPlan(remoteRequestBuilder: nil, queuedMutation: offline, offlineFallbackMutation: nil)
         }
     }
+
+    public static func userFacingPreparationFailureMessage(for _: Error) -> String {
+        "Cover change could not be saved."
+    }
 }
 
 public struct RecipeCoverControlsData: Equatable, Sendable {
@@ -408,6 +412,8 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
 }
 
 public struct RecipeCoverProviderBlockerDisplay: Equatable, Sendable {
+    private static let setupMessage = "Recipe cover setup is required before Spoonjoy can finish this cover."
+
     public let message: String
     public let ownerActionRequired: Bool
     public let retryAfterSeconds: Int?
@@ -425,7 +431,7 @@ public struct RecipeCoverProviderBlockerDisplay: Equatable, Sendable {
     public static func from(failureReason: String?) -> RecipeCoverProviderBlockerDisplay? {
         guard failureReason == "missing_image_provider_config" else { return nil }
         return RecipeCoverProviderBlockerDisplay(
-            message: "Recipe cover generation needs an image provider secret before it can run.",
+            message: setupMessage,
             ownerActionRequired: true,
             retryAfterSeconds: nil
         )
@@ -444,14 +450,14 @@ public struct RecipeCoverProviderBlockerDisplay: Equatable, Sendable {
     public static func from(apiError: APIError) -> RecipeCoverProviderBlockerDisplay? {
         if let blocker = firstProviderSecretBlocker(in: apiError.details["blockers"]) {
             return RecipeCoverProviderBlockerDisplay(
-                message: apiError.message,
+                message: setupMessage,
                 ownerActionRequired: blocker.ownerActionRequired,
                 retryAfterSeconds: blocker.retryAfterSeconds
             )
         }
         if value(apiError.details["capability"]) == "ProviderSecret" || apiError.code == "provider_secret" {
             return RecipeCoverProviderBlockerDisplay(
-                message: apiError.message,
+                message: setupMessage,
                 ownerActionRequired: boolValue(apiError.details["ownerAction"]) ?? true,
                 retryAfterSeconds: intValue(apiError.details["retryAfterSeconds"])
             )

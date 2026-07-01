@@ -58,6 +58,49 @@ struct NativeSyncEngineTests {
         #expect(envelope.data.entries[4].tombstone?.parentResourceID == "shopping_list_1")
     }
 
+    @Test("sync envelope accepts preview environment for QA and branch deploys")
+    func syncEnvelopeAcceptsPreviewEnvironment() throws {
+        let previewEnvelopeData = Data(
+            String(decoding: Self.nativeSyncEnvelope, as: UTF8.self)
+                .replacingOccurrences(of: #""environment": "local""#, with: #""environment": "preview""#)
+                .utf8
+        )
+        let envelope = try APIEnvelope<NativeSyncData>.decode(previewEnvelopeData)
+
+        #expect(envelope.data.freshness.environment == .preview)
+    }
+
+    @Test("sync engine scopes broad preview freshness to the configured preview host")
+    func syncEngineScopesBroadPreviewFreshnessToConfiguredPreviewHost() async throws {
+        let previewEnvelopeData = Data(
+            String(decoding: Self.nativeSyncEnvelope, as: UTF8.self)
+                .replacingOccurrences(of: #""environment": "local""#, with: #""environment": "preview""#)
+                .utf8
+        )
+        let syncData = try APIEnvelope<NativeSyncData>.decode(previewEnvelopeData).data
+        let previewEnvironment = NativeCacheEnvironment.preview(host: "branch-preview.spoonjoy.pages.dev")
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: NativeCacheEnvironment.preview(host: "other-preview.spoonjoy.pages.dev"),
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: []
+        )
+        let transport = RecordingNativeSyncTransport(bootstrap: .syncData(syncData), mutationResults: [])
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(
+            configuration: configuration,
+            trigger: .launch,
+            scope: NativeSyncExecutionScope(expectedAccountID: "chef_ari", environment: previewEnvironment)
+        )
+        let snapshot = await store.loadSnapshot()
+
+        #expect(report.environment == previewEnvironment)
+        #expect(snapshot.environment == previewEnvironment)
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
+    }
+
     @Test("sync tombstones apply to local cache records and checkpoint revisions")
     func syncTombstonesApplyToLocalCacheRecordsAndCheckpointRevisions() async throws {
         let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
@@ -175,6 +218,7 @@ struct NativeSyncEngineTests {
             chef: previousChef
         )
         let previousRecipe = Self.optimisticRecipe(recentSpoons: [previousEmbeddedSpoon])
+        let previousCookbookID = "cookbook_previous_weeknight"
         let store = InMemoryNativeSyncStore(
             accountID: "chef_previous",
             environment: .local,
@@ -199,6 +243,15 @@ struct NativeSyncEngineTests {
                     resourceID: previousRecipe.id,
                     payload: try Self.jsonValue(previousRecipe),
                     serverRevision: .updatedAt(previousRecipe.updatedAt)
+                ),
+                NativeSyncCachedRecord(
+                    kind: .cookbook,
+                    resourceID: previousCookbookID,
+                    payload: .object([
+                        "id": .string(previousCookbookID),
+                        "title": .string("Previous Weeknight Cookbook")
+                    ]),
+                    serverRevision: .updatedAt("2026-06-16T09:04:00.000Z")
                 )
             ]
         )
@@ -248,6 +301,28 @@ struct NativeSyncEngineTests {
             ],
             domainIdentifiers: [
                 SpotlightIndexPlan.spoonDomainIdentifier(scope: previousScope)
+            ],
+            accountID: "chef_previous",
+            environment: .local
+        )))
+        #expect(report.recipeCookbookEntityPurgeIdentifiers == [
+            SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: previousRecipe.id, scope: previousScope),
+            SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: previousCookbookID, scope: previousScope),
+            SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: "recipe_deleted", scope: nextScope),
+            SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: "cookbook_deleted", scope: nextScope)
+        ])
+        #expect(report.recipeCookbookEntityPurgeDomainIdentifiers == [
+            SpotlightIndexPlan.recipeDomainIdentifier(scope: previousScope),
+            SpotlightIndexPlan.cookbookDomainIdentifier(scope: previousScope)
+        ])
+        #expect(report.recipeCookbookEntityPurgeRequests.contains(NativeRecipeCookbookEntityIndexPurgeRequest(
+            identifiers: [
+                SpotlightIndexPlan.recipeUniqueIdentifier(recipeID: previousRecipe.id, scope: previousScope),
+                SpotlightIndexPlan.cookbookUniqueIdentifier(cookbookID: previousCookbookID, scope: previousScope)
+            ],
+            domainIdentifiers: [
+                SpotlightIndexPlan.recipeDomainIdentifier(scope: previousScope),
+                SpotlightIndexPlan.cookbookDomainIdentifier(scope: previousScope)
             ],
             accountID: "chef_previous",
             environment: .local
@@ -3519,7 +3594,7 @@ struct NativeSyncEngineTests {
             mutationResults: [
                 .blocked(
                     .providerSecret(resourceID: "recipe-import"),
-                    message: "ProviderSecret is required before Spoonjoy can finish this import."
+                    message: "Recipe import setup is required before Spoonjoy can finish this import."
                 ),
                 .success(serverRevision: .updatedAt("2026-06-16T09:06:00.000Z"))
             ]
@@ -3534,7 +3609,7 @@ struct NativeSyncEngineTests {
         #expect(report.drainedClientMutationIDs == ["cm_profile_after_blocked_import"])
         #expect(await transport.clientMutationIDs == ["cm_import_provider_blocked", "cm_profile_after_blocked_import"])
         #expect(remaining.map(\.clientMutationID) == ["cm_import_provider_blocked"])
-        #expect(remaining.first?.lastError == "ProviderSecret is required before Spoonjoy can finish this import.")
+        #expect(remaining.first?.lastError == "Recipe import setup is required before Spoonjoy can finish this import.")
     }
 
     @Test("scheduled retry timestamps are honored before replaying a dependency key")

@@ -124,7 +124,7 @@ struct CoverControlSurfaceTests {
         #expect(Self.cover(status: "ready", generationStatus: "processing").statusLabel == "Processing")
         #expect(Self.cover(status: "ready", generationStatus: "failed").statusLabel == "Editorial failed")
         #expect(Self.cover(generationStatus: "failed", failureReason: "missing_image_provider_config").providerBlocker == RecipeCoverProviderBlockerDisplay(
-            message: "Recipe cover generation needs an image provider secret before it can run.",
+            message: "Recipe cover setup is required before Spoonjoy can finish this cover.",
             ownerActionRequired: true,
             retryAfterSeconds: nil
         ))
@@ -216,11 +216,11 @@ struct CoverControlSurfaceTests {
         )
         let blocker = try #require(RecipeCoverProviderBlockerDisplay.from(apiError: apiError))
         #expect(blocker == RecipeCoverProviderBlockerDisplay(
-            message: "Image provider secret is missing.",
+            message: "Recipe cover setup is required before Spoonjoy can finish this cover.",
             ownerActionRequired: true,
             retryAfterSeconds: 45
         ))
-        #expect(blocker.offlineIndicatorDisplay == .blocker(.providerSecret(resourceID: "Image provider secret is missing.")))
+        #expect(blocker.offlineIndicatorDisplay == .blocker(.providerSecret(resourceID: "Recipe cover setup is required before Spoonjoy can finish this cover.")))
 
         let directBlocker = try #require(RecipeCoverProviderBlockerDisplay.from(apiError: APIError(
             requestID: "req_direct_blocked",
@@ -230,7 +230,7 @@ struct CoverControlSurfaceTests {
             details: ["capability": .string("ProviderSecret"), "ownerAction": .bool(false), "retryAfterSeconds": .number(12)]
         )))
         #expect(directBlocker == RecipeCoverProviderBlockerDisplay(
-            message: "Configure image provider.",
+            message: "Recipe cover setup is required before Spoonjoy can finish this cover.",
             ownerActionRequired: false,
             retryAfterSeconds: 12
         ))
@@ -242,7 +242,7 @@ struct CoverControlSurfaceTests {
             details: ["capability": .string("ProviderSecret")]
         )))
         #expect(directDefaultBlocker == RecipeCoverProviderBlockerDisplay(
-            message: "Configure the image provider.",
+            message: "Recipe cover setup is required before Spoonjoy can finish this cover.",
             ownerActionRequired: true,
             retryAfterSeconds: nil
         ))
@@ -261,7 +261,7 @@ struct CoverControlSurfaceTests {
             ]
         )))
         #expect(arrayDefaultBlocker == RecipeCoverProviderBlockerDisplay(
-            message: "Image provider unavailable.",
+            message: "Recipe cover setup is required before Spoonjoy can finish this cover.",
             ownerActionRequired: true,
             retryAfterSeconds: nil
         ))
@@ -302,6 +302,18 @@ struct CoverControlSurfaceTests {
         #expect(RecipeCoverControlsAction.regenerate(coverID: "cover", activateWhenReady: false, clientMutationID: "cm").successMessage == "Cover regeneration queued.")
         #expect(RecipeCoverControlsAction.archive(coverID: "cover", replacementCoverID: nil, replacementVariant: nil, confirmNoCover: true, deleteSafeObjects: false, clientMutationID: "cm").successMessage == "Cover archived.")
         #expect(RecipeCoverControlsAction.createFromSpoon(spoonID: "spoon", activate: false, generateEditorial: true, clientMutationID: "cm").successMessage == "Spoon photo queued as a cover.")
+    }
+
+    @Test("cover action preparation copy hides raw implementation errors")
+    func coverActionPreparationCopyHidesRawImplementationErrors() {
+        let message = RecipeCoverControlsMutationPlan.userFacingPreparationFailureMessage(
+            for: CoverControlSurfaceTestFailure("provider-secret requestBuilder authRequired: /internal/path")
+        )
+
+        #expect(message == "Cover change could not be saved.")
+        for forbidden in ["provider-secret", "requestBuilder", "authRequired", "/internal", "ordinary failure"] {
+            #expect(!message.localizedCaseInsensitiveContains(forbidden))
+        }
     }
 
     @Test("online cover actions plan exact REST mutations with offline fallbacks")

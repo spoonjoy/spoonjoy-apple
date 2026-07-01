@@ -2,6 +2,7 @@ import SwiftUI
 
 enum KitchenTableTheme {
     static let bone = Color(red: 0.97, green: 0.95, blue: 0.90)
+    static let paper = Color(red: 0.99, green: 0.98, blue: 0.94)
     static let charcoal = Color(red: 0.13, green: 0.12, blue: 0.10)
     static let brass = Color(red: 0.62, green: 0.45, blue: 0.20)
     static let tomato = Color(red: 0.75, green: 0.18, blue: 0.12)

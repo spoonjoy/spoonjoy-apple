@@ -243,7 +243,7 @@ struct CaptureDraftView: View {
                     .foregroundStyle(.secondary)
             }
             if importViewModel?.connectivity == .offline {
-                Label("Working offline", systemImage: "wifi.slash")
+                Label("Saved locally", systemImage: "externaldrive.badge.checkmark")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(.secondary)
             }

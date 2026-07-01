@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-30T00:44:32-07:00",
+  "generatedAt": "2026-07-01T08:43:30-07:00",
   "url": "https://spoonjoy.app/.well-known/apple-app-site-association",
   "httpsNoRedirectExpected": true,
   "redirected": false,
@@ -106,6 +106,15 @@
     },
     {
       "/": "/account/settings"
+    },
+    {
+      "/": "/oauth/callback"
+    },
+    {
+      "/": "/oauth/callback",
+      "?": {
+        "*": "*"
+      }
     }
   ],
   "missingComponents": [
@@ -115,8 +124,8 @@
     "status": 200,
     "contentType": "application/json",
     "location": null,
-    "bodySHA256": "19d49c557c8e9f41a159df065d94220eda712f4ee09ae18ee3e60b3029198267",
-    "bodyBytes": 357
+    "bodySHA256": "95415dc4c9af36bb0adda15ee8673b189d6a0f987a703a331a88a039c4347936",
+    "bodyBytes": 419
   },
   "successfulStatus": true,
   "validContentType": true,

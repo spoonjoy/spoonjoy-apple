@@ -1,0 +1,19 @@
+Running iOS simulator smoke
+iOS simulator smoke ok
+Running macOS launch smoke
+macOS smoke ok
+app.spoonjoy.Spoonjoy: 3127
+getpwuid_r did not find a match for uid 501
+Timestamp               Ty Process[PID:TID]
+2026-07-01 08:45:27.931 Df SpringBoard[2949:6bd3bd] [com.apple.SpringBoard:Common] Front display did change: <SBApplication: 0x107b75500; app.spoonjoy.Spoonjoy>
+Detected file type from extension: PNG
+Note: No display specified. Defaulting to display: CA277063-E82C-48D5-952B-EC3362B1BC5E (screenID: 1, name: LCD)
+Wrote screenshot to: /Users/arimendelow/Projects/spoonjoy-apple-native-password-dogfood/tasks/2026-06-16-1754-doing-siri-full-access-parity/screenshots/ios-mobile.png
+2026-07-01 08:45:44.373 osascript[3443:7070098] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
+2026-07-01 08:45:44.773 osascript[3465:7070173] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
+could not create image from window
+Retrying Spoonjoy window capture after relaunch
+2026-07-01 08:45:53.455 osascript[3584:7071227] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
+2026-07-01 08:45:53.827 osascript[3609:7071310] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
+could not create image from window
+Spoonjoy window not found for macOS screenshot capture

@@ -186,9 +186,9 @@ struct PlatformNavigationView: View {
             return false
         }
         switch offlineIndicatorState.display {
-        case .dismissed:
+        case .synced, .dismissed:
             return false
-        case .synced, .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+        case .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             return true
         }
     }

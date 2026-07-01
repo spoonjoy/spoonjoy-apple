@@ -316,7 +316,7 @@ struct APITransportTests {
 
         #expect(result == .blocked(
             .providerSecret(resourceID: "recipe-import"),
-            message: "ProviderSecret is required before Spoonjoy can finish this import."
+            message: "Recipe import setup is required before Spoonjoy can finish this import."
         ))
         #expect(capturedRequest.httpMethod == "POST")
         #expect(capturedRequest.url?.absoluteString == "https://spoonjoy.app/api/v1/recipes/import")
@@ -350,6 +350,17 @@ struct APITransportTests {
                         code: "provider_secret_missing",
                         message: "Provider secret code fallback.",
                         status: 400
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 400,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_cover_error_blank_resource",
+                        code: "cover_provider_unavailable",
+                        message: "Provider secret blank resource fallback.",
+                        status: 400,
+                        details: #""capability": "ProviderSecret", "resource": "   ""#
                     )
                 )),
                 .success(Self.response(
@@ -401,6 +412,17 @@ struct APITransportTests {
             ),
             configuration: Self.configuration(bearerToken: "sj_access_native")
         )
+        let blankResourceBlocker = try await transport.send(
+            .coverFromSpoon(
+                recipeID: "recipe_lemon",
+                spoonID: "spoon_blank_resource",
+                clientMutationID: "cm_cover_blank_resource",
+                activate: false,
+                generateEditorial: true,
+                createdAt: "2026-06-16T12:07:15.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
         let arrayDefaultBlocker = try await transport.send(
             .coverFromSpoon(
                 recipeID: "recipe_lemon",
@@ -435,7 +457,7 @@ struct APITransportTests {
 
         #expect(envelopeBlocker == .blocked(
             .providerSecret(resourceID: "recipe-covers"),
-            message: "ProviderSecret is required before Spoonjoy can finish cover generation."
+            message: "Image provider setup is required before Spoonjoy can finish cover generation."
         ))
         #expect(errorBlocker == .blocked(
             .providerSecret(resourceID: "recipe-covers"),
@@ -445,9 +467,13 @@ struct APITransportTests {
             .providerSecret(resourceID: "recipe-covers"),
             message: "Provider secret code fallback."
         ))
+        #expect(blankResourceBlocker == .blocked(
+            .providerSecret(resourceID: "recipe-covers"),
+            message: "Provider secret blank resource fallback."
+        ))
         #expect(arrayDefaultBlocker == .blocked(
             .providerSecret(resourceID: "recipe-covers"),
-            message: "ProviderSecret is required before Spoonjoy can finish cover generation."
+            message: "Image provider setup is required before Spoonjoy can finish cover generation."
         ))
         #expect(objectNoBlocker == .success(serverRevision: nil, idRemaps: []))
         #expect(arrayNoBlocker == .success(serverRevision: nil, idRemaps: []))

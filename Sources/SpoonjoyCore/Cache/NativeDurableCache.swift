@@ -1,8 +1,76 @@
 import Foundation
 
-public enum NativeCacheEnvironment: String, Codable, Equatable, Hashable, Sendable {
+public enum NativeCacheEnvironment: Codable, Equatable, Hashable, Sendable {
     case production
+    case preview
+    case previewHost(String)
     case local
+
+    public init(rawValue: String) {
+        let normalized = Self.normalized(rawValue)
+        switch normalized {
+        case "production":
+            self = .production
+        case "local":
+            self = .local
+        case "preview":
+            self = .preview
+        default:
+            if normalized.hasPrefix("preview:"), normalized.count > "preview:".count {
+                let host = String(normalized.dropFirst("preview:".count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                self = host.isEmpty ? .preview : .previewHost(host)
+            } else {
+                self = .preview
+            }
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .production:
+            "production"
+        case .preview:
+            "preview"
+        case .previewHost(let host):
+            "preview:\(Self.normalized(host))"
+        case .local:
+            "local"
+        }
+    }
+
+    public static func preview(host: String?) -> NativeCacheEnvironment {
+        guard let host else {
+            return .preview
+        }
+        let normalized = Self.normalized(host)
+        return normalized.isEmpty ? .preview : .previewHost(normalized)
+    }
+
+    public var isPreview: Bool {
+        switch self {
+        case .preview, .previewHost:
+            true
+        case .production, .local:
+            false
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.init(rawValue: try container.decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    private static func normalized(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
 }
 
 public enum NativeCacheDomain: Codable, Equatable, Hashable, Sendable {

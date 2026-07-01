@@ -6,6 +6,7 @@ import SwiftUI
 
 struct SignedOutSetupView: View {
     private static let liveAppleSignInIdentifier = "native Apple sign-in"
+    private static let livePasswordSignInIdentifier = "native password sign-in"
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
 
     let authRepository: NativeAuthSessionRepository
@@ -13,11 +14,15 @@ struct SignedOutSetupView: View {
     let openSettings: () -> Void
     let onSignedIn: @MainActor () async -> Void
 
-    @State private var authStatus = "Sign in to restore Spoonjoy on this device."
+    @State private var emailOrUsername = ""
+    @State private var password = ""
+    @State private var authStatus = "Use your Spoonjoy email or username to sign in."
+    @State private var statusTone = AuthStatusTone.neutral
     @State private var isSigningIn = false
     @State private var canDisconnect = false
     @State private var currentNonce: String?
     @State private var appleSignInCapability = Self.currentAppleSignInCapability()
+    @FocusState private var focusedField: SignInField?
 
     init(
         authRepository: NativeAuthSessionRepository,
@@ -42,26 +47,36 @@ struct SignedOutSetupView: View {
 
     @ViewBuilder private var signedOutLayout: some View {
 #if os(macOS)
-        VStack(spacing: 30) {
-            identityHeader
-            signInPanel
+        HStack(spacing: 0) {
+            signedOutBrandColumn
+                .frame(width: 300)
+                .frame(maxHeight: .infinity)
+                .padding(.horizontal, 36)
+                .background(KitchenTableTheme.paper)
+
+            Rectangle()
+                .fill(KitchenTableTheme.charcoal.opacity(0.10))
+                .frame(width: 1)
+
+            credentialPanel
+                .frame(maxWidth: 430, alignment: .leading)
+                .padding(.horizontal, 44)
+                .padding(.vertical, 44)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .padding(.horizontal, 28)
-        .padding(.vertical, 32)
+        .frame(minWidth: 900, minHeight: 620)
 #else
         GeometryReader { geometry in
             ScrollView {
-                VStack(spacing: 30) {
-                    Spacer(minLength: geometry.size.height < 620 ? 12 : 44)
+                VStack(spacing: 26) {
                     identityHeader
-                    signInPanel
-                    Spacer(minLength: 12)
+                    credentialPanel
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: 430)
                 .frame(minHeight: geometry.size.height)
                 .padding(.horizontal, 28)
-                .padding(.vertical, 24)
+                .padding(.vertical, 30)
+                .frame(maxWidth: .infinity)
             }
             .scrollIndicators(.hidden)
         }
@@ -71,7 +86,7 @@ struct SignedOutSetupView: View {
     private var identityHeader: some View {
         VStack(spacing: 14) {
             SpoonjoyIdentityMark()
-                .frame(width: 84, height: 84)
+                .frame(width: 76, height: 76)
                 .accessibilityHidden(true)
 
             VStack(spacing: 5) {
@@ -80,7 +95,7 @@ struct SignedOutSetupView: View {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                     .multilineTextAlignment(.center)
 
-                Text("Your recipes, cookbooks, shopping list, and offline kitchen.")
+                Text("Open your kitchen table.")
                     .font(.body)
                     .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.72))
                     .multilineTextAlignment(.center)
@@ -89,14 +104,42 @@ struct SignedOutSetupView: View {
         }
     }
 
-    private var signInPanel: some View {
+    private var signedOutBrandColumn: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SpoonjoyIdentityMark()
+                .frame(width: 84, height: 84)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Spoonjoy")
+                    .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+
+                Text("Open your kitchen table on this Mac.")
+                    .font(.title3)
+                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.70))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 18)
+
+            Label("spoonjoy.app", systemImage: "link")
+                .font(KitchenTableTheme.uiLabel.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.58))
+                .labelStyle(.titleAndIcon)
+            }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.vertical, 44)
+    }
+
+    private var credentialPanel: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sign in")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(KitchenTableTheme.charcoal)
 
-                Text("Use your Apple account to connect this native app to Spoonjoy.")
+                Text("Use the same Spoonjoy account you use on spoonjoy.app.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -111,27 +154,97 @@ struct SignedOutSetupView: View {
                     .background(KitchenTableTheme.herb.opacity(0.12), in: Capsule())
             }
 
-            SignInWithAppleButton(.signIn) { request in
-                guard appleSignInCapability == .available else {
-                    authStatus = appleSignInCapability.message
-                    return
-                }
-                let nonce = Self.randomNonceString()
-                currentNonce = nonce
-                request.requestedScopes = [.fullName, .email]
-                request.nonce = Self.sha256(nonce)
-                isSigningIn = true
-                authStatus = "Waiting for Apple sign-in."
-            } onCompletion: { result in
-                Task {
-                    await handleAppleAuthorization(result)
-                }
+            VStack(alignment: .leading, spacing: 12) {
+                TextField("Email or username", text: $emailOrUsername)
+                    .textFieldStyle(.roundedBorder)
+                    .textContentType(.username)
+                    .autocorrectionDisabled()
+                    .spoonjoyCredentialIdentifierEntry()
+                    .focused($focusedField, equals: .identifier)
+                    .submitLabel(.next)
+                    .onSubmit {
+                        focusedField = .password
+                    }
+                    .disabled(isSigningIn)
+                    .accessibilityIdentifier("native sign-in email or username")
+
+                SecureField("Password", text: $password)
+                    .textFieldStyle(.roundedBorder)
+                    .textContentType(.password)
+                    .focused($focusedField, equals: .password)
+                    .submitLabel(.go)
+                    .onSubmit {
+                        Task {
+                            await handlePasswordSignIn()
+                        }
+                    }
+                    .disabled(isSigningIn)
+                    .accessibilityIdentifier("native sign-in password")
             }
-            .signInWithAppleButtonStyle(.black)
-            .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
-            .disabled(isSigningIn || appleSignInCapability != .available)
-            .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
+
+            Button {
+                Task {
+                    await handlePasswordSignIn()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    if isSigningIn {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Image(systemName: "arrow.right.circle.fill")
+                        .imageScale(.medium)
+                    Text("Sign in")
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(canSubmitPassword && !isSigningIn ? KitchenTableTheme.paper : KitchenTableTheme.charcoal.opacity(0.46))
+            .background(passwordButtonBackground, in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(KitchenTableTheme.charcoal.opacity(canSubmitPassword ? 0 : 0.10), lineWidth: 1)
+            }
+            .disabled(isSigningIn || !canSubmitPassword)
+            .accessibilityIdentifier(Self.livePasswordSignInIdentifier)
+
+            HStack(alignment: .center, spacing: 12) {
+                Rectangle()
+                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
+                    .frame(height: 1)
+                Text("or")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.56))
+                Rectangle()
+                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
+                    .frame(height: 1)
+            }
+            .accessibilityHidden(true)
+
+            if appleSignInCapability == .available {
+                SignInWithAppleButton(.signIn) { request in
+                    let nonce = Self.randomNonceString()
+                    currentNonce = nonce
+                    request.requestedScopes = [.fullName, .email]
+                    request.nonce = Self.sha256(nonce)
+                    isSigningIn = true
+                    statusTone = .progress
+                    authStatus = "Waiting for Apple sign-in."
+                } onCompletion: { result in
+                    Task {
+                        await handleAppleAuthorization(result)
+                    }
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 50)
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
+                .disabled(isSigningIn)
+                .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
+            } else {
+                appleUnavailableRow
+            }
 
             statusRow
 
@@ -154,14 +267,33 @@ struct SignedOutSetupView: View {
             }
             .controlSize(.regular)
         }
-        .padding(22)
         .frame(maxWidth: 430, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous)
-                .stroke(KitchenTableTheme.charcoal.opacity(0.10), lineWidth: 1)
+    }
+
+    private var appleUnavailableRow: some View {
+        Label {
+            Text(appleSignInCapability.message)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "signature")
         }
-        .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 24, x: 0, y: 12)
+        .font(.caption.weight(.medium))
+        .foregroundStyle(KitchenTableTheme.brass)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.brass.opacity(0.10), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
+        .accessibilityIdentifier("native Apple sign-in availability")
+    }
+
+    private var passwordButtonBackground: Color {
+        if isSigningIn {
+            return KitchenTableTheme.herb.opacity(0.54)
+        }
+        if canSubmitPassword {
+            return KitchenTableTheme.herb
+        }
+        return KitchenTableTheme.charcoal.opacity(0.08)
     }
 
     private var statusRow: some View {
@@ -174,30 +306,42 @@ struct SignedOutSetupView: View {
             Image(systemName: statusSymbol)
                 .foregroundStyle(statusColor)
         }
-        .accessibilityIdentifier("native Apple sign-in status")
+        .accessibilityIdentifier("native sign-in status")
+    }
+
+    private var canSubmitPassword: Bool {
+        !emailOrUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var statusColor: Color {
-        if appleSignInCapability != .available {
+        switch statusTone {
+        case .neutral:
+            return KitchenTableTheme.charcoal.opacity(0.72)
+        case .progress:
+            return KitchenTableTheme.herb
+        case .success:
+            return KitchenTableTheme.herb
+        case .warning:
             return KitchenTableTheme.brass
-        }
-        if authStatus.hasPrefix("Could not") {
+        case .error:
             return KitchenTableTheme.tomato
         }
-        return KitchenTableTheme.charcoal.opacity(0.72)
     }
 
     private var statusSymbol: String {
-        if appleSignInCapability != .available {
-            return "signature"
-        }
-        if authStatus.hasPrefix("Could not") {
+        switch statusTone {
+        case .neutral:
+            return "lock.shield"
+        case .progress:
+            return "person.badge.clock"
+        case .success:
+            return "checkmark.circle"
+        case .warning:
+            return "exclamationmark.triangle"
+        case .error:
             return "exclamationmark.triangle"
         }
-        if isSigningIn {
-            return "person.badge.clock"
-        }
-        return "lock.shield"
     }
 
     private func restoreState() async {
@@ -205,16 +349,54 @@ struct SignedOutSetupView: View {
             switch try await authRepository.restoreState() {
             case .signedOut:
                 canDisconnect = false
-                authStatus = appleSignInCapability.message
+                statusTone = .neutral
+                authStatus = "Use your Spoonjoy email or username to sign in."
             case .authenticated:
                 canDisconnect = true
+                statusTone = .success
                 authStatus = "Signed in. Restoring your Spoonjoy cache."
             case .refreshRequired:
                 canDisconnect = true
+                statusTone = .warning
                 authStatus = "Session refresh required. Sign in again if restore does not complete."
             }
         } catch {
-            authStatus = "Could not restore auth state: \(error)"
+            statusTone = .warning
+            authStatus = "Spoonjoy could not restore this device session. Sign in again to continue."
+        }
+    }
+
+    private func handlePasswordSignIn() async {
+        guard !isSigningIn else {
+            return
+        }
+        let identifier = emailOrUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !identifier.isEmpty, !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            statusTone = .warning
+            authStatus = "Enter your Spoonjoy email or username and password."
+            return
+        }
+
+        isSigningIn = true
+        statusTone = .progress
+        authStatus = "Signing in securely."
+        defer {
+            isSigningIn = false
+            password = ""
+        }
+
+        do {
+            _ = try await authRepository.handlePasswordSignInCredential(
+                NativePasswordSignInCredential(emailOrUsername: identifier, password: password)
+            )
+            focusedField = nil
+            canDisconnect = true
+            statusTone = .success
+            authStatus = "Signed in. Restoring Spoonjoy."
+            await onSignedIn()
+        } catch {
+            statusTone = .error
+            authStatus = Self.passwordSignInFailureMessage(for: error)
         }
     }
 
@@ -223,15 +405,18 @@ struct SignedOutSetupView: View {
         do {
             let authorization = try result.get()
             guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                authStatus = "Could not finish sign-in: Apple returned an unsupported credential."
+                statusTone = .error
+                authStatus = "Apple could not share the sign-in details Spoonjoy needs. Try again."
                 return
             }
             guard let nonce = currentNonce else {
-                authStatus = "Could not finish sign-in: Apple sign-in nonce was missing."
+                statusTone = .error
+                authStatus = "That Apple sign-in expired. Try again."
                 return
             }
             guard let identityToken = appleIDCredential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else {
-                authStatus = "Could not finish sign-in: Apple identity token was missing."
+                statusTone = .error
+                authStatus = "Apple did not finish this sign-in. Try again."
                 return
             }
             let fullName = appleIDCredential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
@@ -244,15 +429,27 @@ struct SignedOutSetupView: View {
             _ = try await authRepository.handleAppleSignInCredential(credential)
             currentNonce = nil
             canDisconnect = true
+            statusTone = .success
             authStatus = "Signed in. Restoring Spoonjoy."
             await onSignedIn()
         } catch {
             if let authorizationError = error as? ASAuthorizationError,
                authorizationError.code == .canceled {
+                statusTone = .neutral
                 authStatus = "Apple sign-in canceled."
                 return
             }
+            statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
+        }
+    }
+
+    private static func passwordSignInFailureMessage(for error: Error) -> String {
+        switch error {
+        case NativeAuthSessionError.passwordSignInUnavailable:
+            return "Password sign-in is not available in this build."
+        default:
+            return "Could not sign in. Check your username, password, and connection."
         }
     }
 
@@ -280,7 +477,7 @@ struct SignedOutSetupView: View {
     }
 
     private static func currentAppleSignInCapability() -> AppleSignInCapability {
-#if os(macOS)
+        #if os(macOS)
         guard let task = SecTaskCreateFromSelf(nil),
               let entitlement = SecTaskCopyValueForEntitlement(
                 task,
@@ -293,10 +490,15 @@ struct SignedOutSetupView: View {
         if let values = entitlement as? [String], values.contains("Default") {
             return .available
         }
+        if let value = entitlement as? String, value == "Default" {
+            return .available
+        }
         return .missingEntitlement
-#else
+        #elseif SPOONJOY_SIGNED_APPLE_AUTH
         return .available
-#endif
+        #else
+        return .missingEntitlement
+        #endif
     }
 
     private static func randomNonceString(length: Int = 32) -> String {
@@ -324,10 +526,12 @@ struct SignedOutSetupView: View {
         do {
             try await authRepository.revokeAndLogout()
             authStatus = "Signed out."
+            statusTone = .neutral
             canDisconnect = false
             isSigningIn = false
         } catch {
-            authStatus = "Could not disconnect: \(error)"
+            statusTone = .error
+            authStatus = "Could not disconnect this device. Check your connection and try again."
         }
     }
 
@@ -374,6 +578,19 @@ struct SignedOutSetupView: View {
     }
 }
 
+private enum SignInField: Hashable {
+    case identifier
+    case password
+}
+
+private enum AuthStatusTone {
+    case neutral
+    case progress
+    case success
+    case warning
+    case error
+}
+
 private enum AppleSignInCapability: Equatable {
     case available
     case missingEntitlement
@@ -388,141 +605,22 @@ private enum AppleSignInCapability: Equatable {
     }
 }
 
-private struct SpoonjoyIdentityMark: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(red: 0.98, green: 0.96, blue: 0.93))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(.white.opacity(0.9), lineWidth: 1)
-                }
-                .shadow(color: KitchenTableTheme.charcoal.opacity(0.12), radius: 16, x: 0, y: 8)
-
-            SpoonjoyLogoPath()
-                .fill(.black)
-                .padding(17)
-        }
+private extension View {
+    @ViewBuilder func spoonjoyCredentialIdentifierEntry() -> some View {
+#if os(iOS)
+        self
+            .textInputAutocapitalization(.never)
+            .keyboardType(.emailAddress)
+#else
+        self
+#endif
     }
 }
 
-private struct SpoonjoyLogoPath: Shape {
-    func path(in rect: CGRect) -> Path {
-        let baseWidth: CGFloat = 500
-        let baseHeight: CGFloat = 300
-        let scale = min(rect.width / baseWidth, rect.height / baseHeight)
-        let xOffset = rect.midX - (baseWidth * scale / 2)
-        let yOffset = rect.midY - (baseHeight * scale / 2)
-
-        var path = Path()
-        path.move(to: CGPoint(x: 300, y: 100))
-        path.addLine(to: CGPoint(x: 237.865, y: 100))
-        path.addCurve(
-            to: CGPoint(x: 215.347, y: 104.007),
-            control1: CGPoint(x: 224.941, y: 100.042),
-            control2: CGPoint(x: 220.163, y: 101.431)
-        )
-        path.addCurve(
-            to: CGPoint(x: 204.007, y: 115.347),
-            control1: CGPoint(x: 210.458, y: 106.622),
-            control2: CGPoint(x: 206.622, y: 110.458)
-        )
-        path.addCurve(
-            to: CGPoint(x: 200, y: 138.458),
-            control1: CGPoint(x: 201.392, y: 120.237),
-            control2: CGPoint(x: 200, y: 125.085)
-        )
-        path.addLine(to: CGPoint(x: 200, y: 200))
-        path.addLine(to: CGPoint(x: 261.542, y: 200))
-        path.addCurve(
-            to: CGPoint(x: 284.652, y: 195.993),
-            control1: CGPoint(x: 274.915, y: 200),
-            control2: CGPoint(x: 279.764, y: 198.608)
-        )
-        path.addCurve(
-            to: CGPoint(x: 295.993, y: 184.653),
-            control1: CGPoint(x: 289.542, y: 193.378),
-            control2: CGPoint(x: 293.378, y: 189.542)
-        )
-        path.addCurve(
-            to: CGPoint(x: 300, y: 161.542),
-            control1: CGPoint(x: 298.608, y: 179.763),
-            control2: CGPoint(x: 300, y: 174.915)
-        )
-        path.addLine(to: CGPoint(x: 300, y: 100))
-        path.closeSubpath()
-
-        path.move(to: CGPoint(x: 400, y: 184.625))
-        path.addCurve(
-            to: CGPoint(x: 387.979, y: 253.958),
-            control1: CGPoint(x: 400, y: 224.744),
-            control2: CGPoint(x: 395.823, y: 239.291)
-        )
-        path.addCurve(
-            to: CGPoint(x: 353.959, y: 287.979),
-            control1: CGPoint(x: 380.135, y: 268.625),
-            control2: CGPoint(x: 368.625, y: 280.135)
-        )
-        path.addCurve(
-            to: CGPoint(x: 284.624, y: 300),
-            control1: CGPoint(x: 339.29, y: 295.823),
-            control2: CGPoint(x: 324.743, y: 300)
-        )
-        path.addLine(to: CGPoint(x: 38.458, y: 300))
-        path.addCurve(
-            to: CGPoint(x: 15.348, y: 295.993),
-            control1: CGPoint(x: 25.085, y: 300),
-            control2: CGPoint(x: 20.236, y: 298.608)
-        )
-        path.addCurve(
-            to: CGPoint(x: 4.007, y: 284.653),
-            control1: CGPoint(x: 10.458, y: 293.378),
-            control2: CGPoint(x: 6.622, y: 289.542)
-        )
-        path.addCurve(
-            to: CGPoint(x: 0.001, y: 262.135),
-            control1: CGPoint(x: 1.431, y: 279.837),
-            control2: CGPoint(x: 0.042, y: 275.059)
-        )
-        path.addLine(to: CGPoint(x: 0, y: 200))
-        path.addLine(to: CGPoint(x: 100, y: 200))
-        path.addLine(to: CGPoint(x: 100, y: 115.375))
-        path.addCurve(
-            to: CGPoint(x: 112.021, y: 46.042),
-            control1: CGPoint(x: 100, y: 75.256),
-            control2: CGPoint(x: 104.177, y: 60.709)
-        )
-        path.addCurve(
-            to: CGPoint(x: 146.041, y: 12.021),
-            control1: CGPoint(x: 119.865, y: 31.375),
-            control2: CGPoint(x: 131.375, y: 19.865)
-        )
-        path.addCurve(
-            to: CGPoint(x: 215.376, y: 0),
-            control1: CGPoint(x: 160.71, y: 4.177),
-            control2: CGPoint(x: 175.257, y: 0)
-        )
-        path.addLine(to: CGPoint(x: 461.543, y: 0))
-        path.addCurve(
-            to: CGPoint(x: 484.653, y: 4.007),
-            control1: CGPoint(x: 474.916, y: 0),
-            control2: CGPoint(x: 479.765, y: 1.392)
-        )
-        path.addCurve(
-            to: CGPoint(x: 495.994, y: 15.347),
-            control1: CGPoint(x: 489.543, y: 6.622),
-            control2: CGPoint(x: 493.379, y: 10.458)
-        )
-        path.addCurve(
-            to: CGPoint(x: 500.001, y: 38.458),
-            control1: CGPoint(x: 498.609, y: 20.237),
-            control2: CGPoint(x: 500.001, y: 25.085)
-        )
-        path.addLine(to: CGPoint(x: 500.001, y: 100))
-        path.addLine(to: CGPoint(x: 400, y: 100))
-        path.addLine(to: CGPoint(x: 400, y: 184.625))
-        path.closeSubpath()
-
-        return path.applying(CGAffineTransform(translationX: xOffset, y: yOffset).scaledBy(x: scale, y: scale))
+private struct SpoonjoyIdentityMark: View {
+    var body: some View {
+        Image("SpoonjoyMark")
+            .resizable()
+            .scaledToFit()
     }
 }

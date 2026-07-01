@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-artifact_root="tasks/2026-06-15-2314-doing-native-app-skeleton"
+artifact_root="tasks/2026-06-16-1754-doing-siri-full-access-parity"
 unit_slug="${UNIT_SLUG:-smoke-macos}"
 log_path=""
 blocker_path=""
@@ -42,7 +42,7 @@ state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 state_backup="$artifact_root/native-app-state-smoke-backup.json"
 route_query="codex-smoke-route-$(date +%s)"
 expected_route="search:recipes:${route_query}"
-build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
+build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
 build_command=(
   xcodebuild
   -project Spoonjoy.xcodeproj
@@ -50,7 +50,6 @@ build_command=(
   -configuration BootstrapDebug
   -destination "generic/platform=macOS"
   -derivedDataPath "$derived_data_path"
-  CODE_SIGNING_ALLOWED=NO
   GCC_TREAT_WARNINGS_AS_ERRORS=YES
   build
 )
@@ -162,7 +161,7 @@ fi
   rm -f "$state_file"
   open -n "$app_path"
   sleep 3
-  osascript -e "tell application \"$app_path\" to open location \"spoonjoy://search?q=${route_query}&scope=recipes\""
+  osascript -e "tell application id \"app.spoonjoy.Spoonjoy.mac\" to open location \"spoonjoy://search?q=${route_query}&scope=recipes\""
   pgrep -f "Spoonjoy" >/dev/null
   assert_route_proof "$expected_route"
   osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true

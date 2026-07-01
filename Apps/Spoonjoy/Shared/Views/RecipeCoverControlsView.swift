@@ -86,7 +86,7 @@ struct RecipeCoverControlsRouteView: View {
                 connectivity: connectivity
             )
         } catch {
-            actionError = error.localizedDescription
+            actionError = RecipeCoverControlsMutationPlan.userFacingPreparationFailureMessage(for: error)
             return
         }
 

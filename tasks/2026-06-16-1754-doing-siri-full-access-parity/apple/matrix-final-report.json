@@ -1,8 +1,8 @@
 {
   "checks" : [
     {
-      "detail" : "Fixture kitchen browsing is backed by KitchenView.",
-      "name" : "fixture kitchen browsing",
+      "detail" : "Kitchen browsing is backed by KitchenView and the live app state.",
+      "name" : "kitchen browsing",
       "status" : "pass"
     },
     {
@@ -313,9 +313,9 @@
       "cook-mode-progress-restore",
       "destructive-confirmation",
       "fixture-fallback-disabled",
-      "fixture-offline-restore",
       "live-store-source",
       "live-synced",
+      "offline-cache-restore",
       "offline-stale",
       "provider-secret-blocked-import",
       "queued-work",

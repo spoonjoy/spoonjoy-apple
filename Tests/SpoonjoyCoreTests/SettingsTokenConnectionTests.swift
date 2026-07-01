@@ -1036,9 +1036,20 @@ struct SettingsTokenConnectionTests {
 
         let macApp = try readRepoFile("Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift")
         for token in [
-            ".frame(minWidth: 760, minHeight: 620)",
+            ".frame(minWidth: 900, minHeight: 620)",
             ".defaultSize(width: 1040, height: 760)",
-            ".windowResizability(.contentMinSize)"
+            ".windowResizability(.contentMinSize)",
+            "SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()",
+            "CommandGroup(replacing: .newItem)",
+            "appDelegate.showMainWindow()",
+            "func applicationShouldHandleReopen",
+            "showMainWindowIfNeeded()",
+            "existingVisibleMainWindow()",
+            "show-main-window-existing-app-window",
+            "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
+            "SpoonjoyMacLaunchProof.record",
+            "NSHostingController(rootView: SpoonjoyRootView())",
+            "window.minSize = NSSize(width: 900, height: 620)"
         ] {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
         }

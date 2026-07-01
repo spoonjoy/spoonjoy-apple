@@ -9,10 +9,12 @@ let package = Package(
     ],
     products: [
         .library(name: "SpoonjoyCore", targets: ["SpoonjoyCore"]),
+        .executable(name: "SpoonjoyNativeDogfood", targets: ["SpoonjoyNativeDogfood"]),
         .executable(name: "SpoonjoyScenarioVerifier", targets: ["SpoonjoyScenarioVerifier"])
     ],
     targets: [
         .target(name: "SpoonjoyCore", resources: [.copy("Fixtures")]),
+        .executableTarget(name: "SpoonjoyNativeDogfood", dependencies: ["SpoonjoyCore"]),
         .executableTarget(name: "SpoonjoyScenarioVerifier", dependencies: ["SpoonjoyCore"]),
         .testTarget(name: "SpoonjoyCoreTests", dependencies: ["SpoonjoyCore"])
     ]

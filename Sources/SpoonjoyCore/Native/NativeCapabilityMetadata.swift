@@ -116,7 +116,7 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "native-shopping-list-transfer"
         ],
         offlineFlows: [
-            "fixture-offline-restore",
+            "offline-cache-restore",
             "shopping-queue-replay",
             "cook-mode-progress-restore",
             "capture-draft-offline",

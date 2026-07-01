@@ -75,6 +75,14 @@ required_capability_keys = %w[
 empty_required_capabilities = stage == "bootstrap" ? [] : required_capability_keys.select do |key|
   capabilities.fetch(key).empty?
 end
+report_text = report.to_s.downcase
+stale_final_fixture_terms = if stage == "final"
+                              %w[fixture-offline-restore fixture\ kitchen\ browsing].select do |term|
+                                report_text.include?(term)
+                              end
+                            else
+                              []
+                            end
 
 unless report.fetch("ok")
   warn "scenario report ok=false for #{stage}"
@@ -92,7 +100,11 @@ empty_required_capabilities.each do |key|
   warn "native capability array is empty: #{key}"
 end
 
-if !report.fetch("ok") || failed_checks.any? || unauthorized_pending.any? || empty_required_capabilities.any?
+stale_final_fixture_terms.each do |term|
+  warn "final scenario report contains stale fixture term: #{term}"
+end
+
+if !report.fetch("ok") || failed_checks.any? || unauthorized_pending.any? || empty_required_capabilities.any? || stale_final_fixture_terms.any?
   exit 1
 end
 RUBY

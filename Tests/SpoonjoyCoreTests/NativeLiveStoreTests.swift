@@ -2544,7 +2544,7 @@ struct NativeLiveStoreTests {
                 transport: ScriptedLiveStoreSyncTransport(sends: [
                     .blocked(
                         .providerSecret(resourceID: "recipe-import"),
-                        message: "ProviderSecret is required before Spoonjoy can finish this import."
+                        message: "Recipe import setup is required before Spoonjoy can finish this import."
                     ),
                     .success(serverRevision: .updatedAt(Self.isoString(Self.now)))
                 ]),
@@ -2601,7 +2601,7 @@ struct NativeLiveStoreTests {
                 transport: ScriptedLiveStoreSyncTransport(sends: [
                     .blocked(
                         .providerSecret(resourceID: "recipe-import"),
-                        message: "ProviderSecret is required before Spoonjoy can finish this import."
+                        message: "Recipe import setup is required before Spoonjoy can finish this import."
                     )
                 ]),
                 appStateStoreProvider: { nil }
@@ -3040,8 +3040,11 @@ struct NativeLiveStoreTests {
             ))
             let productionRecipe = Self.sampleRecipe(id: "recipe_production", title: "Production Pasta")
             let localRecipe = Self.sampleRecipe(id: "recipe_local", title: "Local Soup")
+            let previewRecipe = Self.sampleRecipe(id: "recipe_preview", title: "Preview Risotto")
             let productionItem = Self.sampleShoppingItem(id: "item_production", name: "production lemons")
             let localItem = Self.sampleShoppingItem(id: "item_local", name: "local carrots")
+            let previewItem = Self.sampleShoppingItem(id: "item_preview", name: "preview peas")
+            let previewEnvironment = NativeCacheEnvironment.preview(host: " Branch-Preview.Spoonjoy.App ")
             let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
             let transport = CapturingLiveStoreSyncTransport(bootstraps: [
                 .syncData(try Self.sampleSyncData(
@@ -3055,6 +3058,12 @@ struct NativeLiveStoreTests {
                     shoppingItem: localItem,
                     accountID: "chef_ari",
                     environment: .local
+                )),
+                .syncData(try Self.sampleSyncData(
+                    recipe: previewRecipe,
+                    shoppingItem: previewItem,
+                    accountID: "chef_ari",
+                    environment: previewEnvironment
                 ))
             ])
             let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -3087,8 +3096,20 @@ struct NativeLiveStoreTests {
             #expect(productionContent.environment == .production)
             #expect(productionContent.recipes.map(\.id) == ["recipe_production"])
             #expect(localContent.environment == .local)
+            #expect(localContent.settingsViewModel.settings.environment == .local(baseURL: configuration.baseURL))
             #expect(localContent.recipes.map(\.id) == ["recipe_local"])
             #expect(localContent.shoppingList?.activeItems.map(\.id) == ["item_local"])
+
+            await liveStore.switchEnvironment(previewEnvironment)
+
+            guard case .liveSynced(let previewContent) = liveStore.bootstrapState else {
+                Issue.record("Expected preview environment switch to apply scoped sync; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(previewContent.environment == previewEnvironment)
+            #expect(previewContent.settingsViewModel.settings.environment == .preview(baseURL: configuration.baseURL))
+            #expect(previewContent.recipes.map(\.id) == ["recipe_preview"])
+            #expect(previewContent.shoppingList?.activeItems.map(\.id) == ["item_preview"])
         }
     }
 
@@ -5056,7 +5077,14 @@ struct NativeLiveStoreTests {
             in: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
             contains: [
                 "queueMutations: { mutations, drainImmediately in",
-                "queueMutations(mutations, drainImmediately: drainImmediately)"
+                "queueMutations(mutations, drainImmediately: drainImmediately)",
+                "cacheEnvironment: Self.defaultCacheEnvironment(configuration: configuration)",
+                "private static func defaultCacheEnvironment(configuration: APIClientConfiguration) -> NativeCacheEnvironment",
+                #"host == "localhost""#,
+                "return .preview"
+            ],
+            forbids: [
+                "cacheEnvironment: .production,"
             ]
         )
     }
@@ -5129,6 +5157,7 @@ struct NativeLiveStoreTests {
         let settings = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/SettingsView.swift"))
         let offline = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift"))
         let platformNavigation = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"))
+        let liveStore = uncommentedSwift(try readRepoFile("Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift"))
 
         expectContent(
             signedOut,
@@ -5137,12 +5166,33 @@ struct NativeLiveStoreTests {
                 "NativeAuthSessionRepository",
                 "SignInWithAppleButton",
                 "NativeAppleSignInCredential",
+                "NativePasswordSignInCredential",
                 "handleAppleSignInCredential",
+                "handlePasswordSignInCredential",
                 "restoreState",
                 "revokeAndLogout",
                 "isSigningIn",
+                "emailOrUsername",
+                "spoonjoyCredentialIdentifierEntry",
+                "textInputAutocapitalization(.never)",
+                "keyboardType(.emailAddress)",
+                "native password sign-in",
+                "passwordSignInFailureMessage",
                 "SpoonjoyIdentityMark",
+                "#if os(macOS)",
+                "HStack(spacing: 0)",
+                "signedOutBrandColumn",
+                "credentialPanel",
+                ".frame(minWidth: 900, minHeight: 620)",
+                "#else",
+                "GeometryReader",
+                "ScrollView",
+                #"Image("SpoonjoyMark")"#,
                 "currentAppleSignInCapability",
+                "SecTaskCopyValueForEntitlement",
+                #"value == "Default""#,
+                "#elseif SPOONJOY_SIGNED_APPLE_AUTH",
+                "return .missingEntitlement",
                 "signInFailureMessage",
                 "Sign in with Apple needs a signed Spoonjoy build"
             ],
@@ -5152,9 +5202,16 @@ struct NativeLiveStoreTests {
                 "safeAreaInset(edge: .bottom)",
                 "Open Kitchen",
                 "keep offline fixtures nearby",
-                "Could not finish sign-in: \\(error)"
+                "Could not finish sign-in: \\(error)",
+                "SpoonjoyLogoPath"
             ]
         )
+        let markSource = try readRepoFile("Apps/Spoonjoy/Shared/Assets.xcassets/SpoonjoyMark.imageset/source.svg")
+        #expect(markSource.contains(#"viewBox="0 0 500 300""#))
+        #expect(!markSource.contains("<rect"), "SpoonjoyMark must be a transparent UI glyph, not the square app icon tile.")
+        let appIconSource = try readRepoFile("Apps/Spoonjoy/Shared/Assets.xcassets/AppIcon.appiconset/source.svg")
+        #expect(appIconSource.contains("<rect"), "The app icon should remain a square tile.")
+
         expectContent(
             settings,
             in: "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
@@ -5206,6 +5263,8 @@ struct NativeLiveStoreTests {
                     "RecipeDetailRouteView(",
                     "RecipeEditorView(",
                     "shellOfflineIndicatorState: offlineIndicatorState",
+                    "case .synced, .dismissed:",
+                    "case .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:",
                     "RecipeCoverControlsRouteView(",
                     "CookbooksView(",
                     "CookbookDetailRouteView(",
@@ -5215,6 +5274,15 @@ struct NativeLiveStoreTests {
                 "SearchView(",
                 "NotificationAPNsSettingsView(",
                 "onDismissOfflineIndicator: dismissOfflineIndicator"
+            ]
+        )
+        expectContent(
+            liveStore,
+            in: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+            contains: [
+                "emptyContent(authSessionState: authState, display: .synced)",
+                "catch let error as APITransportError where error.isOffline",
+                "OfflineIndicatorState(display: .offline, dismissal: nil)"
             ]
         )
         let routeOwnedOfflineViews = [
