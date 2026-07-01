@@ -4,6 +4,25 @@ import Testing
 
 @Suite("Native cache schema and freshness")
 struct NativeCacheFreshnessTests {
+    @Test("native cache environments normalize raw values and preview host factories")
+    func nativeCacheEnvironmentsNormalizeRawValuesAndPreviewHostFactories() throws {
+        #expect(NativeCacheEnvironment(rawValue: " Production ") == .production)
+        #expect(NativeCacheEnvironment(rawValue: "LOCAL") == .local)
+        #expect(NativeCacheEnvironment(rawValue: "preview") == .preview)
+        #expect(NativeCacheEnvironment(rawValue: "preview: Branch-Preview.Spoonjoy.App ") == .previewHost("branch-preview.spoonjoy.app"))
+        #expect(NativeCacheEnvironment(rawValue: "unexpected") == .preview)
+        #expect(NativeCacheEnvironment.preview(host: nil) == .preview)
+        #expect(NativeCacheEnvironment.preview(host: "   ") == .preview)
+        #expect(NativeCacheEnvironment.preview(host: " Branch-Preview.Spoonjoy.App ") == .previewHost("branch-preview.spoonjoy.app"))
+        #expect(NativeCacheEnvironment.preview.rawValue == "preview")
+        #expect(NativeCacheEnvironment.preview(host: " Branch-Preview.Spoonjoy.App ").rawValue == "preview:branch-preview.spoonjoy.app")
+        #expect(NativeCacheEnvironment.preview(host: "branch-preview.spoonjoy.app").isPreview)
+        #expect(!NativeCacheEnvironment.production.isPreview)
+
+        let encoded = try JSONEncoder().encode(NativeCacheEnvironment.preview(host: "Branch-Preview.Spoonjoy.App"))
+        #expect(try JSONDecoder().decode(NativeCacheEnvironment.self, from: encoded) == .previewHost("branch-preview.spoonjoy.app"))
+    }
+
     @Test("expanded native cache behavior contract is executable")
     func expandedNativeCacheBehaviorContractIsExecutable() throws {
         let result = try runSwiftContractPackage(
@@ -614,7 +633,8 @@ struct NativeCacheFreshnessTests {
                 "case syncFailure: EmptyView()",
                 "case conflict: EmptyView()",
                 "case blocker: EmptyView()",
-                "case destructiveConfirmation: EmptyView()"
+                "case destructiveConfirmation: EmptyView()",
+                "Provider secret required"
             ]
         )
     }
@@ -688,7 +708,8 @@ private func runSwiftContractPackage(name: String, testSource: String) throws ->
 }
 
 private func packageManifest(name: String) -> String {
-    """
+    let packageIdentity = repoPackageIdentity()
+    return """
     // swift-tools-version: 6.2
     import PackageDescription
 
@@ -705,12 +726,16 @@ private func packageManifest(name: String) -> String {
             .testTarget(
                 name: "\(name)Tests",
                 dependencies: [
-                    .product(name: "SpoonjoyCore", package: "spoonjoy-apple")
+                    .product(name: "SpoonjoyCore", package: "\(packageIdentity)")
                 ]
             )
         ]
     )
     """
+}
+
+private func repoPackageIdentity() -> String {
+    repoRoot().lastPathComponent.lowercased()
 }
 
 private func runProcess(

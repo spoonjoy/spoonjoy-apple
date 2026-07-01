@@ -38,6 +38,8 @@ FINAL_MATRIX_ARTIFACTS = [
   "apple/matrix-cook-shopping-contract.log",
   "apple/matrix-search-capture-contract.log",
   "apple/matrix-capture.log",
+  "apple/matrix-native-password-dogfood.log",
+  "apple/matrix-native-password-dogfood-report.json",
   "apple/matrix-design-review.log",
   "apple/matrix-xcode-version.log",
   "apple/matrix-xcodebuild-ios.log",
@@ -281,7 +283,8 @@ def artifact_relative_from_value(value, artifact_root)
   raw = value.to_s
   path = Pathname.new(raw)
   return path.expand_path.relative_path_from(artifact_root).to_s if path.absolute? && path.expand_path.to_s.start_with?(artifact_root.to_s)
-  return raw.sub(%r{\Atasks/2026-06-16-1754-doing-siri-full-access-parity/}, "") if raw.start_with?("tasks/2026-06-16-1754-doing-siri-full-access-parity/")
+  task_relative_root = artifact_root.relative_path_from(ROOT).to_s
+  return raw.delete_prefix("#{task_relative_root}/") if raw.start_with?("#{task_relative_root}/")
   return raw if raw.start_with?("apple/", "web/") || raw.start_with?("aasa-", "human-credential-")
 
   nil
@@ -454,12 +457,15 @@ if matrix
   steps = Array(matrix["steps"])
   blocked_steps = steps.select { |step| step["status"] == "blocked" }
   failed_steps = steps.select { |step| step["status"] == "fail" }
-  if matrix["fullyValidated"] != blocked_steps.empty?
-    failures << "apple/validation-matrix.json fullyValidated does not match blocked step state"
+  matrix_blockers = Array(matrix["blockers"])
+  matrix_blocker_failures = Array(matrix["blockerFailures"])
+  expected_fully_validated = matrix["ok"] == true && blocked_steps.empty? && matrix_blockers.empty?
+  if matrix["fullyValidated"] != expected_fully_validated
+    failures << "apple/validation-matrix.json fullyValidated does not match blocked step/canonical blocker state"
   end
-  expected_result = if failed_steps.any? || Array(matrix["blockerFailures"]).any?
+  expected_result = if failed_steps.any? || matrix_blocker_failures.any?
     "fail"
-  elsif blocked_steps.any?
+  elsif blocked_steps.any? || matrix_blockers.any?
     "blocked"
   else
     "pass"
@@ -467,9 +473,10 @@ if matrix
   failures << "apple/validation-matrix.json result expected #{expected_result.inspect}, got #{matrix["result"].inspect}" unless matrix["result"] == expected_result
   counts = matrix["counts"].is_a?(Hash) ? matrix["counts"] : {}
   failures << "apple/validation-matrix.json counts.blocked mismatch" unless counts["blocked"] == blocked_steps.length
+  failures << "apple/validation-matrix.json counts.blockers mismatch" unless counts["blockers"] == matrix_blockers.length
   failures << "apple/validation-matrix.json counts.failed mismatch" unless counts["failed"] == failed_steps.length
-  failures << "apple/validation-matrix.json counts.blockerFailures mismatch" unless counts["blockerFailures"] == Array(matrix["blockerFailures"]).length
-  Array(matrix["blockers"]).each_with_index do |blocker, index|
+  failures << "apple/validation-matrix.json counts.blockerFailures mismatch" unless counts["blockerFailures"] == matrix_blocker_failures.length
+  matrix_blockers.each_with_index do |blocker, index|
     validate_blocker_contract(blocker, "apple/validation-matrix.json blockers[#{index}]", failures, artifact_root)
   end
   stale_scan_step = steps.find { |step| step["name"] == "stale noncanonical blocker scan" }

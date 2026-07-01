@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-artifact_root="tasks/2026-06-15-2314-doing-native-app-skeleton"
+artifact_root="tasks/2026-06-16-1754-doing-siri-full-access-parity"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --artifact-root)
@@ -52,7 +52,11 @@ rm -f \
   "$artifact_root/design-review-blocked.json" \
   "$artifact_root/design-review.json" \
   "$artifact_root/screenshots/ios-mobile.png" \
-  "$artifact_root/screenshots/macos-desktop.png"
+  "$artifact_root/screenshots/macos-desktop.png" \
+  "$apple_dir/matrix-native-password-dogfood.log" \
+  "$apple_dir/matrix-native-password-dogfood-server.log" \
+  "$apple_dir/matrix-native-password-dogfood-report.json" \
+  "$apple_dir/matrix-native-password-dogfood-vault.json"
 
 for app_intents_entry in "${app_intents_domains[@]}"; do
   IFS=":" read -r _app_intents_domain app_intents_log app_intents_blocker <<< "$app_intents_entry"
@@ -81,6 +85,7 @@ required_hooks=(
   "scripts/validate-design-review.rb"
   "scripts/validate-design-review-blocker.rb"
   "scripts/validate-aasa.rb"
+  "scripts/verify-native-password-dogfood.sh"
 )
 
 missing_hooks=()
@@ -197,7 +202,7 @@ write_xcode_screenshot_blocker() {
     design_review_blocked = {
       "blocked" => true,
       "capability" => "XcodePlatform",
-      "sourceBlockerPath" => File.expand_path(screenshot_path),
+      "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",
@@ -289,6 +294,7 @@ run_required "cook shopping contract" "$apple_dir/matrix-cook-shopping-contract.
 run_required "search capture settings contract" "$apple_dir/matrix-search-capture-contract.log" ruby scripts/check-search-capture-settings-surfaces.rb || overall_status=1
 run_required "launch screenshot contract" "$apple_dir/matrix-launch-screenshot-contract.log" ruby scripts/check-launch-screenshot-contract.rb || overall_status=1
 run_required "AASA validation or blocker" "$apple_dir/matrix-aasa.log" ruby scripts/validate-aasa.rb --artifact-root "$artifact_root" || overall_status=1
+run_required "native password dogfood" "$apple_dir/matrix-native-password-dogfood.log" scripts/verify-native-password-dogfood.sh --artifact-root "$artifact_root" --report "$apple_dir/matrix-native-password-dogfood-report.json" --server-log "$apple_dir/matrix-native-password-dogfood-server.log" --vault-file "$apple_dir/matrix-native-password-dogfood-vault.json" || overall_status=1
 
 for app_intents_entry in "${app_intents_domains[@]}"; do
   IFS=":" read -r app_intents_domain app_intents_log app_intents_blocker <<< "$app_intents_entry"
@@ -376,6 +382,8 @@ matrix_warning_logs=(
   "$apple_dir/matrix-search-capture-contract.log"
   "$apple_dir/matrix-launch-screenshot-contract.log"
   "$apple_dir/matrix-aasa.log"
+  "$apple_dir/matrix-native-password-dogfood.log"
+  "$apple_dir/matrix-native-password-dogfood-server.log"
   "$apple_dir/matrix-smoke-ios-inner.log"
   "$apple_dir/matrix-smoke-macos-inner.log"
   "$apple_dir/matrix-xcodebuild-ios.log"
@@ -460,7 +468,7 @@ ruby -rjson -rtime -e '
   failed_steps = steps.select { |step| step["status"] == "fail" }
   blocked_steps = steps.select { |step| step["status"] == "blocked" }
   ok = failed_steps.empty? && blocker_failures.empty?
-  fully_validated = ok && blocked_steps.empty?
+  fully_validated = ok && blocked_steps.empty? && blockers.empty?
   result = if fully_validated
     "pass"
   elsif ok
@@ -477,6 +485,7 @@ ruby -rjson -rtime -e '
       passed: passed_steps.length,
       failed: failed_steps.length,
       blocked: blocked_steps.length,
+      blockers: blockers.length,
       blockerFailures: blocker_failures.length
     },
     steps: steps,

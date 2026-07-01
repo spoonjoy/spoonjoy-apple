@@ -1,8 +1,0 @@
-{
-  "capability": "XcodePlatform",
-  "blocked": true,
-  "command": "xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy iOS -configuration BootstrapDebug -destination generic/platform=iOS Simulator CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
-  "timeoutSeconds": 30,
-  "outputPath": "tasks/2026-06-15-2314-doing-native-app-skeleton/matrix-xcodebuild-ios.log",
-  "reason": "Local Xcode cannot build the iOS simulator bundle, usually because the matching iOS simulator platform/runtime is not installed."
-}

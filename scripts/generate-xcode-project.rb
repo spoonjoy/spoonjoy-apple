@@ -67,9 +67,16 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
     build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
     build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
     build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+    swift_conditions = configuration == "Release" ? [] : ["DEBUG"]
+    swift_conditions << "SPOONJOY_SIGNED_APPLE_AUTH" unless configuration == "BootstrapDebug"
+    build_configuration.build_settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = swift_conditions.join(" ")
     build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "NO"
     build_configuration.build_settings["INFOPLIST_FILE"] = INFO_PLIST
-    build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = ENTITLEMENTS
+    if configuration == "BootstrapDebug"
+      build_configuration.build_settings.delete("CODE_SIGN_ENTITLEMENTS")
+    else
+      build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = ENTITLEMENTS
+    end
     build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "1"
     build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)

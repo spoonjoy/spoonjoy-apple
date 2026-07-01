@@ -17,7 +17,7 @@ public enum AuthSessionState: Equatable, Sendable {
 
 public struct AuthSession: Equatable, Codable, Sendable {
     private static let bearerTokenType = "Bearer"
-    private static let requiredScopes: Set<String> = Set(NativeAuthSession.defaultScopes)
+    private static let requiredScopes: Set<String> = Set(NativeAuthSession.requiredSessionScopes)
 
     public let clientID: String
     public let accessToken: String

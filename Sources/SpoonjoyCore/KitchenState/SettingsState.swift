@@ -16,11 +16,12 @@ public enum AuthState: Equatable, Sendable {
 
 public enum SpoonjoyEnvironment: Equatable, Sendable {
     case production(baseURL: URL)
+    case preview(baseURL: URL)
     case local(baseURL: URL)
 
     public var baseURL: URL {
         switch self {
-        case .production(let baseURL), .local(let baseURL):
+        case .production(let baseURL), .preview(let baseURL), .local(let baseURL):
             baseURL
         }
     }

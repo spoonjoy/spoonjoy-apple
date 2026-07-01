@@ -37,11 +37,11 @@ struct OfflineStatusView: View {
     private var label: String {
         switch display {
         case .synced:
-            "Offline cache ready"
+            "Saved for offline"
         case .offline:
-            "Working offline"
+            "Using saved Spoonjoy data"
         case .stale:
-            "Offline cache may be stale"
+            "Saved Spoonjoy data may be stale"
         case .dismissed:
             "Offline status hidden"
         case .queuedWork(let count, _):
@@ -53,7 +53,7 @@ struct OfflineStatusView: View {
         case .blocker(let blocker):
             switch blocker {
             case .providerSecret:
-                "Provider secret required"
+                "Recipe import setup needed"
             case .appleDeveloperProgram:
                 "Apple Developer Program required"
             }

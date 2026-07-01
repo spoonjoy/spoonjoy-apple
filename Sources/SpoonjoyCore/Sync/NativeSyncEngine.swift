@@ -31,6 +31,30 @@ public struct NativeSyncFreshness: Decodable, Equatable, Sendable {
     }
 }
 
+extension NativeSyncData {
+    func scoped(to environment: NativeCacheEnvironment?) -> NativeSyncData {
+        guard let environment,
+              freshness.environment == .preview,
+              environment.isPreview,
+              freshness.environment != environment else {
+            return self
+        }
+        return NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: freshness.accountID,
+                environment: environment,
+                schemaVersion: freshness.schemaVersion,
+                sourceEndpoint: freshness.sourceEndpoint,
+                generatedAt: freshness.generatedAt,
+                lastValidatedAt: freshness.lastValidatedAt
+            ),
+            entries: entries,
+            nextCursor: nextCursor,
+            hasMore: hasMore
+        )
+    }
+}
+
 public enum NativeSyncEntryKind: String, Codable, Equatable, Hashable, Sendable {
     case profile
     case notificationPreferences
@@ -3822,7 +3846,7 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         if let providerSecretResourceID = envelope.data.providerSecretBlockerResourceID {
             return .blocked(
                 .providerSecret(resourceID: providerSecretResourceID),
-                message: "ProviderSecret is required before Spoonjoy can finish this import."
+                message: "Recipe import setup is required before Spoonjoy can finish this import."
             )
         }
         return .success(serverRevision: nil)
@@ -3837,7 +3861,7 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         if let providerSecretResourceID = Self.providerSecretBlockerResourceID(in: envelope.data, defaultResourceID: "recipe-covers") {
             return .blocked(
                 .providerSecret(resourceID: providerSecretResourceID),
-                message: "ProviderSecret is required before Spoonjoy can finish cover generation."
+                message: "Image provider setup is required before Spoonjoy can finish cover generation."
             )
         }
         return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
@@ -3974,10 +3998,11 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 try await store.saveCheckpoint(checkpoint)
             }
         case .syncData(let syncData):
-            let applyResult = try await store.apply(syncData: syncData, validatedAt: clock())
-            bootstrapCursor = syncData.nextCursor
-            bootstrapAccountID = syncData.freshness.accountID
-            bootstrapEnvironment = syncData.freshness.environment
+            let scopedSyncData = syncData.scoped(to: scope.environment)
+            let applyResult = try await store.apply(syncData: scopedSyncData, validatedAt: clock())
+            bootstrapCursor = scopedSyncData.nextCursor
+            bootstrapAccountID = scopedSyncData.freshness.accountID
+            bootstrapEnvironment = scopedSyncData.freshness.environment
             bootstrapTombstones = applyResult.tombstones
             bootstrapRemovedCacheKeys = applyResult.removedCacheKeys
         }

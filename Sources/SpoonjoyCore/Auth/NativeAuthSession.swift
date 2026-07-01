@@ -6,6 +6,7 @@ public enum NativeAuthSessionError: Error, Equatable, Sendable {
     case invalidCallbackURL(String)
     case stateMismatch(expected: String, actual: String?)
     case appleSignInUnavailable
+    case passwordSignInUnavailable
 }
 
 public enum NativeAuthSessionState: Equatable, Sendable {
@@ -23,8 +24,9 @@ public struct NativeAuthSignInStart: Equatable, Sendable {
 public enum NativeAuthSession {
     public static let redirectURI = URL(string: "https://spoonjoy.app/oauth/callback")!
     public static let localDogfoodRedirectURI = URL(string: "http://127.0.0.1:53123/callback")!
-    public static let nativeAppleClientID = "spoonjoy-apple-native"
-    public static let defaultScopes = [
+    public static let nativeAppClientID = "spoonjoy-apple-native"
+    public static let nativeAppleClientID = nativeAppClientID
+    public static let requiredSessionScopes = [
         "kitchen:read",
         "kitchen:write",
         "shopping_list:read",
@@ -32,7 +34,14 @@ public enum NativeAuthSession {
         "account:read",
         "account:write"
     ]
+    public static let tokenManagementScopes = [
+        "tokens:read",
+        "tokens:write"
+    ]
+    public static let defaultScopes = requiredSessionScopes
     public static let defaultScope = defaultScopes.joined(separator: " ")
+    public static let firstPartyTokenScopes = requiredSessionScopes + tokenManagementScopes
+    public static let firstPartyTokenScope = firstPartyTokenScopes.joined(separator: " ")
     public static let lifecycleOperations = ["startSignIn", "handleOAuthCallback", "restoreState", "revokeAndLogout"]
     public static let collaborators = ["OAuthRequests.exchangeCode", "OAuthRequests.revoke", "RefreshCoordinator"]
 

@@ -69,7 +69,7 @@ public struct CaptureImportViewModel: Equatable {
             return CaptureImportPlan(
                 offlineRetryMutation: mutation,
                 captureDraftAfterCompletion: draft,
-                userFacingMessage: "Working offline. Import will retry when Spoonjoy reconnects."
+                userFacingMessage: "Saved locally. Import will retry when Spoonjoy reconnects."
             )
         case .online:
             return CaptureImportPlan(
@@ -89,7 +89,7 @@ public struct CaptureImportViewModel: Equatable {
             return CaptureImportPlan(
                 blocker: blocker,
                 captureDraftAfterCompletion: draft,
-                userFacingMessage: "ProviderSecret is required before Spoonjoy can finish this import."
+                userFacingMessage: "Recipe import setup is required before Spoonjoy can finish this import."
             )
         }
 
@@ -104,8 +104,31 @@ public struct CaptureImportViewModel: Equatable {
 
         return CaptureImportPlan(
             captureDraftAfterCompletion: draft,
-            userFacingMessage: response.importCode ?? "Import did not return a recipe."
+            userFacingMessage: Self.userFacingImportMessage(for: response.importCode)
         )
+    }
+
+    private static func userFacingImportMessage(for importCode: String?) -> String {
+        let fallback = "Import did not return a recipe."
+        guard let code = importCode?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !code.isEmpty else {
+            return fallback
+        }
+
+        switch code {
+        case "provider-secret", "provider_secret_required":
+            return "Recipe import setup is required before Spoonjoy can finish this import."
+        case "fetch-timeout", "rate-limited":
+            return "Recipe import is busy. Try again soon."
+        case "fetch-blocked":
+            return "That recipe source could not be imported."
+        case "not-html", "video-unavailable":
+            return "That link does not look like an importable recipe."
+        case "provider returned no recipe":
+            return fallback
+        default:
+            return fallback
+        }
     }
 
     private static func providerSecretBlocker(in response: RecipeImportResponse) -> CaptureImportBlocker? {

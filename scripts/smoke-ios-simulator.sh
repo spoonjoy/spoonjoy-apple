@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-artifact_root="tasks/2026-06-15-2314-doing-native-app-skeleton"
+artifact_root="tasks/2026-06-16-1754-doing-siri-full-access-parity"
 unit_slug="${UNIT_SLUG:-smoke-ios}"
 log_path=""
 blocker_path=""

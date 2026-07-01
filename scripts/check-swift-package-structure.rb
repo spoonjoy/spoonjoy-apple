@@ -17,8 +17,10 @@ package = PACKAGE.read
 [
   'name: "SpoonjoyApple"',
   '.library(name: "SpoonjoyCore"',
+  '.executable(name: "SpoonjoyNativeDogfood"',
   '.executable(name: "SpoonjoyScenarioVerifier"',
   '.target(name: "SpoonjoyCore"',
+  '.executableTarget(name: "SpoonjoyNativeDogfood"',
   '.executableTarget(name: "SpoonjoyScenarioVerifier"',
   '.testTarget(name: "SpoonjoyCoreTests"',
   'resources: [.copy("Fixtures")]'
@@ -33,6 +35,7 @@ required_paths = [
   "Sources/SpoonjoyCore/Fixtures/cookbooks-fixture.json",
   "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json",
   "Sources/SpoonjoyCore/Fixtures/offline-snapshot-fixture.json",
+  "Sources/SpoonjoyNativeDogfood/main.swift",
   "Sources/SpoonjoyScenarioVerifier/main.swift",
   "Tests/SpoonjoyCoreTests/SpoonjoyCoreBootstrapTests.swift"
 ]

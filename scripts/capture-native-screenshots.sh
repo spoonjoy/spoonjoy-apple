@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-artifact_root="tasks/2026-06-15-2314-doing-native-app-skeleton"
+artifact_root="tasks/2026-06-16-1754-doing-siri-full-access-parity"
 unit_slug="capture-native-screenshots"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -117,7 +117,7 @@ write_design_review_blocked() {
     manifest = {
       "blocked" => true,
       "capability" => blocker.fetch("capability"),
-      "sourceBlockerPath" => File.expand_path(source_path),
+      "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",

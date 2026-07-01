@@ -16,6 +16,10 @@ public typealias NativeAppleSignInExchangeOperation = @Sendable (
     _ credential: NativeAppleSignInCredential
 ) async throws -> OAuthTokenResponse
 
+public typealias NativePasswordSignInExchangeOperation = @Sendable (
+    _ credential: NativePasswordSignInCredential
+) async throws -> OAuthTokenResponse
+
 public typealias NativeRevokeOperation = @Sendable (
     _ refreshToken: String,
     _ clientID: String
@@ -32,6 +36,7 @@ public actor NativeAuthSessionRepository {
     private let registerClient: NativeClientRegistrationOperation
     private let exchangeCode: NativeCodeExchangeOperation
     private let exchangeAppleCredential: NativeAppleSignInExchangeOperation
+    private let exchangePasswordCredential: NativePasswordSignInExchangeOperation
     private let revoke: NativeRevokeOperation
     private let reusesSavedClientID: Bool
     private let now: @Sendable () -> Date
@@ -47,6 +52,9 @@ public actor NativeAuthSessionRepository {
         exchangeAppleCredential: @escaping NativeAppleSignInExchangeOperation = { _ in
             throw NativeAuthSessionError.appleSignInUnavailable
         },
+        exchangePasswordCredential: @escaping NativePasswordSignInExchangeOperation = { _ in
+            throw NativeAuthSessionError.passwordSignInUnavailable
+        },
         refresh: @escaping OAuthRefreshOperation,
         revoke: @escaping NativeRevokeOperation,
         reusesSavedClientID: Bool = true,
@@ -59,6 +67,7 @@ public actor NativeAuthSessionRepository {
         self.registerClient = registerClient
         self.exchangeCode = exchangeCode
         self.exchangeAppleCredential = exchangeAppleCredential
+        self.exchangePasswordCredential = exchangePasswordCredential
         self.revoke = revoke
         self.reusesSavedClientID = reusesSavedClientID
         self.now = now
@@ -126,14 +135,30 @@ public actor NativeAuthSessionRepository {
         _ = try NativeAppleSignInRequests.exchangeCredential(credential)
         let response = try await exchangeAppleCredential(credential)
         let session = try AuthSession(
-            clientID: NativeAuthSession.nativeAppleClientID,
+            clientID: NativeAuthSession.nativeAppClientID,
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
             scope: response.scope
         )
-        try await vault.saveClientID(NativeAuthSession.nativeAppleClientID)
+        try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
+        try await vault.saveSession(session)
+        return session
+    }
+
+    public func handlePasswordSignInCredential(_ credential: NativePasswordSignInCredential) async throws -> AuthSession {
+        _ = try NativePasswordSignInRequests.exchangeCredential(credential)
+        let response = try await exchangePasswordCredential(credential)
+        let session = try AuthSession(
+            clientID: NativeAuthSession.nativeAppClientID,
+            accessToken: response.accessToken,
+            refreshToken: response.refreshToken,
+            tokenType: response.tokenType,
+            expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
+            scope: response.scope
+        )
+        try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
         try await vault.saveSession(session)
         return session
     }

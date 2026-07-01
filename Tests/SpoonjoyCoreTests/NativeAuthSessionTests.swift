@@ -40,7 +40,8 @@ struct NativeAuthSessionTests {
             clientID: "cm_native_spoonjoy",
             exchangeResponse: coverageTokenResponse(accessToken: "sj_access_initial", refreshToken: "ort_refresh_initial", expiresIn: 300),
             refreshResponse: coverageTokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600),
-            appleResponse: coverageTokenResponse(accessToken: "sj_access_apple", refreshToken: "ort_refresh_apple", expiresIn: 900)
+            appleResponse: coverageTokenResponse(accessToken: "sj_access_apple", refreshToken: "ort_refresh_apple", expiresIn: 900),
+            passwordResponse: coverageTokenResponse(accessToken: "sj_access_password", refreshToken: "ort_refresh_password", expiresIn: 900)
         )
         let repository = NativeAuthSessionRepository(
             vault: vault,
@@ -50,6 +51,7 @@ struct NativeAuthSessionTests {
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             exchangeAppleCredential: network.exchangeAppleCredential,
+            exchangePasswordCredential: network.exchangePasswordCredential,
             refresh: network.refresh,
             revoke: network.revoke,
             now: { now }
@@ -60,13 +62,23 @@ struct NativeAuthSessionTests {
         let start = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(start.clientID == "cm_native_spoonjoy")
         #expect(start.authorizationURL.path == "/oauth/authorize")
-        #expect(Set(NativeAuthSession.defaultScope.split(separator: " ").map(String.init)).isSuperset(of: [
+        #expect(Set(NativeAuthSession.defaultScope.split(separator: " ").map(String.init)) == Set([
             "kitchen:read",
             "kitchen:write",
             "shopping_list:read",
             "shopping_list:write",
             "account:read",
             "account:write"
+        ]))
+        #expect(Set(NativeAuthSession.firstPartyTokenScope.split(separator: " ").map(String.init)).isSuperset(of: [
+            "kitchen:read",
+            "kitchen:write",
+            "shopping_list:read",
+            "shopping_list:write",
+            "account:read",
+            "account:write",
+            "tokens:read",
+            "tokens:write"
         ]))
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
@@ -161,9 +173,31 @@ struct NativeAuthSessionTests {
         let appleSession = try await repository.handleAppleSignInCredential(appleCredential)
         #expect(appleSession.clientID == NativeAuthSession.nativeAppleClientID)
         #expect(appleSession.accessToken == "sj_access_apple")
-        #expect(try await vault.loadClientID() == NativeAuthSession.nativeAppleClientID)
+        #expect(try await vault.loadClientID() == NativeAuthSession.nativeAppClientID)
         #expect(try await repository.restoreState() == .authenticated(appleSession))
         #expect(await network.appleCredentials == [appleCredential])
+
+        let passwordCredential = NativePasswordSignInCredential(
+            emailOrUsername: "chef@spoonjoy.app",
+            password: "correct horse battery staple"
+        )
+        let passwordRequest = try NativePasswordSignInRequests.exchangeCredential(passwordCredential)
+            .urlRequest(configuration: .spoonjoyProduction)
+        #expect(passwordRequest.method == .post)
+        #expect(passwordRequest.url.path == "/api/v1/auth/password/native")
+        #expect(passwordRequest.headers["Content-Type"] == "application/json")
+        #expect(passwordRequest.responseCachePolicy == .privateNoStore)
+        let passwordBody = try #require(passwordRequest.body)
+        let passwordJSON = try #require(JSONSerialization.jsonObject(with: passwordBody) as? [String: String])
+        #expect(passwordJSON["emailOrUsername"] == "chef@spoonjoy.app")
+        #expect(passwordJSON["password"] == "correct horse battery staple")
+
+        let passwordSession = try await repository.handlePasswordSignInCredential(passwordCredential)
+        #expect(passwordSession.clientID == NativeAuthSession.nativeAppClientID)
+        #expect(passwordSession.accessToken == "sj_access_password")
+        #expect(try await vault.loadClientID() == NativeAuthSession.nativeAppClientID)
+        #expect(try await repository.restoreState() == .authenticated(passwordSession))
+        #expect(await network.passwordCredentials == [passwordCredential])
 
         let unavailableAppleRepository = NativeAuthSessionRepository(
             vault: InMemoryTokenVault(),
@@ -179,6 +213,13 @@ struct NativeAuthSessionTests {
         } catch NativeAuthSessionError.appleSignInUnavailable {
         } catch {
             Issue.record("Expected NativeAuthSessionError.appleSignInUnavailable; got \(error)")
+        }
+        do {
+            _ = try await unavailableAppleRepository.handlePasswordSignInCredential(passwordCredential)
+            Issue.record("Expected unavailable native password sign-in exchange to throw")
+        } catch NativeAuthSessionError.passwordSignInUnavailable {
+        } catch {
+            Issue.record("Expected NativeAuthSessionError.passwordSignInUnavailable; got \(error)")
         }
 
         let vaultDirectory = FileManager.default.temporaryDirectory
@@ -352,8 +393,13 @@ struct NativeAuthSessionTests {
             contains: [
                 "SignInWithAppleButton",
                 "NativeAppleSignInCredential",
+                "NativePasswordSignInCredential",
                 "handleAppleSignInCredential",
+                "handlePasswordSignInCredential",
+                "emailOrUsername",
+                "passwordSignInFailureMessage(for error: Error)",
                 "request.nonce = Self.sha256(nonce)",
+                "native password sign-in",
                 "native Apple sign-in",
                 "signInFailureMessage(for error: Error)",
                 "com.apple.developer.applesignin",
@@ -583,6 +629,9 @@ struct NativeAuthSessionTests {
                 "RefreshCoordinator",
                 "restoreState",
                 "validSession",
+                "handlePasswordSignInCredential",
+                "NativePasswordSignInRequests.exchangeCredential",
+                "NativePasswordSignInExchangeOperation",
                 "saveClientID",
                 "saveSession",
                 "OAuthRequests.refreshToken",
@@ -744,6 +793,8 @@ struct NativeAuthSessionTests {
         #expect(success.result.status == 0, Comment(rawValue: success.result.output))
         #expect(success.wrapperCalls.filter { $0.contains("matrix-xcodebuild-ios.log") }.count == 1)
         #expect(success.wrapperCalls.filter { $0.contains("matrix-xcodebuild-macos.log") }.count == 1)
+        #expect(success.matrix.contains("\"name\": \"native password dogfood\""))
+        #expect(success.matrix.contains("matrix-native-password-dogfood-report.json"))
         #expect(success.directXcodebuildCalls.isEmpty, Comment(rawValue: success.directXcodebuildCalls.joined(separator: "\n")))
 
         let blocker = try runValidationMatrixHarness(wrapperMode: "xcode-platform-blocker") { artifacts in
@@ -811,11 +862,70 @@ struct NativeAuthSessionTests {
                 "matrix-xcode-platform-blocker.json",
                 "matrix-smoke-ios-simulator-blocker.json",
                 "matrix-smoke-macos-blocker.json",
+                "scripts/verify-native-password-dogfood.sh",
+                "matrix-native-password-dogfood-report.json",
+                "tasks/2026-06-16-1754-doing-siri-full-access-parity",
                 "XcodePlatform"
             ],
             forbids: [
                 "run_blockable",
-                "allowed_blocker_pattern"
+                "allowed_blocker_pattern",
+                "tasks/2026-06-15-2314-doing-native-app-skeleton"
+            ]
+        )
+    }
+
+    @Test("native password dogfood verifier drives real Spoonjoy API instead of fixture tokens")
+    func nativePasswordDogfoodVerifierDrivesRealSpoonjoyAPI() throws {
+        let content = try readRepoFile("scripts/verify-native-password-dogfood.sh")
+        let wrapper = try readRepoFile("scripts/dogfood-native-password-auth.sh")
+        let executable = try readRepoFile("Sources/SpoonjoyNativeDogfood/main.swift")
+
+        expectContent(
+            content,
+            in: "scripts/verify-native-password-dogfood.sh",
+            contains: [
+                "scripts/native-dogfood-api-server.ts",
+                "SPOONJOY_WEB_REPO",
+                "SPOONJOY_NATIVE_DOGFOOD_IDENTIFIER",
+                "SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE",
+                "SecureRandom.hex",
+                "tasks/2026-06-16-1754-doing-siri-full-access-parity",
+                "/api/v1/auth/password/native",
+                "wrongPassword",
+                "native password dogfood ok against real Spoonjoy API"
+            ],
+            forbids: [
+                "WEBrick",
+                "sj_native_dogfood_fixture",
+                "ort_native_dogfood_fixture",
+                "chef_native_dogfood",
+                "correctHorseBatteryStaple",
+                "tasks/2026-06-15-2314-doing-native-app-skeleton"
+            ]
+        )
+        expectContent(
+            wrapper,
+            in: "scripts/dogfood-native-password-auth.sh",
+            contains: [
+                "SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE",
+                "unset SPOONJOY_NATIVE_DOGFOOD_PASSWORD",
+                "swift run"
+            ],
+            forbids: [
+                "case \"--password\"",
+                "case \"--password-file\""
+            ]
+        )
+        expectContent(
+            executable,
+            in: "Sources/SpoonjoyNativeDogfood/main.swift",
+            contains: [
+                "SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE",
+                "String(contentsOfFile:"
+            ],
+            forbids: [
+                "CommandLine.arguments.dropFirst().contains(\"--password\")"
             ]
         )
     }
@@ -962,7 +1072,8 @@ private func runAppAuthAdapterContractPackage(name: String, testSource: String) 
 }
 
 private func packageManifest(name: String) -> String {
-    """
+    let packageIdentity = repoPackageIdentity()
+    return """
     // swift-tools-version: 6.2
     import PackageDescription
 
@@ -979,7 +1090,7 @@ private func packageManifest(name: String) -> String {
             .testTarget(
                 name: "\(name)Tests",
                 dependencies: [
-                    .product(name: "SpoonjoyCore", package: "spoonjoy-apple")
+                    .product(name: "SpoonjoyCore", package: "\(packageIdentity)")
                 ]
             )
         ]
@@ -988,7 +1099,8 @@ private func packageManifest(name: String) -> String {
 }
 
 private func appAuthAdapterPackageManifest(name: String) -> String {
-    """
+    let packageIdentity = repoPackageIdentity()
+    return """
     // swift-tools-version: 6.2
     import PackageDescription
 
@@ -1005,19 +1117,23 @@ private func appAuthAdapterPackageManifest(name: String) -> String {
             .target(
                 name: "SpoonjoyAppAuth",
                 dependencies: [
-                    .product(name: "SpoonjoyCore", package: "spoonjoy-apple")
+                    .product(name: "SpoonjoyCore", package: "\(packageIdentity)")
                 ]
             ),
             .testTarget(
                 name: "\(name)Tests",
                 dependencies: [
                     "SpoonjoyAppAuth",
-                    .product(name: "SpoonjoyCore", package: "spoonjoy-apple")
+                    .product(name: "SpoonjoyCore", package: "\(packageIdentity)")
                 ]
             )
         ]
     )
     """
+}
+
+private func repoPackageIdentity() -> String {
+    repoRoot().lastPathComponent.lowercased()
 }
 
 private func runWrapperProbe(
@@ -1118,14 +1234,15 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
     try readRepoFile("scripts/validate-native-local.sh").write(to: validate, atomically: true, encoding: .utf8)
     try makeExecutable(validate)
 
-    let shellStubs = [
-        "bundle-check.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
-        "bundle-exec.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexec \"$@\"\n",
-        "verify-native-scenarios.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
-        "smoke-macos.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
-        "smoke-ios-simulator.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
-        "capture-native-screenshots.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n"
-    ]
+        let shellStubs = [
+            "bundle-check.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+            "bundle-exec.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexec \"$@\"\n",
+            "verify-native-scenarios.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+            "verify-native-password-dogfood.sh": "#!/usr/bin/env bash\nset -euo pipefail\nreport=''\nwhile [[ $# -gt 0 ]]; do case \"$1\" in --report) report=\"$2\"; shift 2 ;; *) shift ;; esac; done\nif [[ -n \"$report\" ]]; then mkdir -p \"$(dirname \"$report\")\"; printf '{\"ok\":true,\"tokenType\":\"Bearer\",\"scopeCount\":6,\"syncEnvironment\":\"local\",\"syncEntryCount\":1,\"wroteVault\":true}\\n' > \"$report\"; fi\nexit 0\n",
+            "smoke-macos.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+            "smoke-ios-simulator.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+            "capture-native-screenshots.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n"
+        ]
     for (name, source) in shellStubs {
         let url = scripts.appendingPathComponent(name)
         try source.write(to: url, atomically: true, encoding: .utf8)
@@ -1248,9 +1365,11 @@ private actor CoverageAuthNetworkSpy {
     let exchangeResponse: OAuthTokenResponse
     let refreshResponse: OAuthTokenResponse
     let appleResponse: OAuthTokenResponse
+    let passwordResponse: OAuthTokenResponse
     private(set) var registerRequests: [CoverageRegisterRequest] = []
     private(set) var exchangeRequests: [CoverageCodeExchangeRequest] = []
     private(set) var appleCredentials: [NativeAppleSignInCredential] = []
+    private(set) var passwordCredentials: [NativePasswordSignInCredential] = []
     private(set) var refreshRequests: [CoverageRefreshRequest] = []
     private(set) var revokeRequests: [CoverageRevokeRequest] = []
 
@@ -1258,12 +1377,14 @@ private actor CoverageAuthNetworkSpy {
         clientID: String,
         exchangeResponse: OAuthTokenResponse,
         refreshResponse: OAuthTokenResponse,
-        appleResponse: OAuthTokenResponse? = nil
+        appleResponse: OAuthTokenResponse? = nil,
+        passwordResponse: OAuthTokenResponse? = nil
     ) {
         self.clientID = clientID
         self.exchangeResponse = exchangeResponse
         self.refreshResponse = refreshResponse
         self.appleResponse = appleResponse ?? exchangeResponse
+        self.passwordResponse = passwordResponse ?? exchangeResponse
     }
 
     func registerClient(clientName: String, redirectURI: URL) async throws -> String {
@@ -1286,6 +1407,11 @@ private actor CoverageAuthNetworkSpy {
     func exchangeAppleCredential(_ credential: NativeAppleSignInCredential) async throws -> OAuthTokenResponse {
         appleCredentials.append(credential)
         return appleResponse
+    }
+
+    func exchangePasswordCredential(_ credential: NativePasswordSignInCredential) async throws -> OAuthTokenResponse {
+        passwordCredentials.append(credential)
+        return passwordResponse
     }
 
     func refresh(clientID: String, refreshToken: String) async throws -> OAuthTokenResponse {
@@ -1328,7 +1454,7 @@ private func coverageTokenResponse(accessToken: String, refreshToken: String, ex
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
+          "scope": "\#(NativeAuthSession.defaultScope)"
         }
         """#.utf8
     )
@@ -1737,7 +1863,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write",
+            scope: NativeAuthSession.defaultScope,
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1779,7 +1905,7 @@ struct NativeAuthBehaviorContract {
             refreshToken: "ort_refresh_initial",
             tokenType: "Bearer",
             expiresAt: now.addingTimeInterval(-1),
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
+            scope: NativeAuthSession.defaultScope
         )
         try await vault.saveSession(expired)
         #expect(try await repository.restoreState() == .refreshRequired(expired))
@@ -1814,7 +1940,7 @@ struct NativeAuthBehaviorContract {
             vault: vault,
             clientName: "Spoonjoy Apple",
             redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
-            scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write",
+            scope: NativeAuthSession.defaultScope,
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
             refresh: network.refresh,
@@ -1948,7 +2074,7 @@ private func tokenResponse(accessToken: String, refreshToken: String, expiresIn:
           "refresh_token": "\#(refreshToken)",
           "token_type": "Bearer",
           "expires_in": \#(expiresIn),
-          "scope": "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write"
+          "scope": "\#(NativeAuthSession.defaultScope)"
         }
         """#.utf8
     )

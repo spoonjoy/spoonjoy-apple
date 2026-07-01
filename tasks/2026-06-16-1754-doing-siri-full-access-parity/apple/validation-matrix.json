@@ -2,11 +2,12 @@
   "ok": true,
   "fullyValidated": false,
   "result": "blocked",
-  "generatedAt": "2026-06-30T07:44:43Z",
+  "generatedAt": "2026-07-01T15:45:58Z",
   "counts": {
-    "passed": 33,
+    "passed": 39,
     "failed": 0,
-    "blocked": 5,
+    "blocked": 0,
+    "blockers": 4,
     "blockerFailures": 0
   },
   "steps": [
@@ -55,7 +56,7 @@
     {
       "name": "coverage enforcement",
       "status": "pass",
-      "command": "ruby scripts/enforce-swift-coverage.rb --coverage-json /Users/arimendelow/Projects/spoonjoy-apple/.build/arm64-apple-macosx/debug/codecov/SpoonjoyApple.json --minimum 100 --include Sources/SpoonjoyCore",
+      "command": "ruby scripts/enforce-swift-coverage.rb --coverage-json /Users/arimendelow/Projects/spoonjoy-apple-native-password-dogfood/.build/arm64-apple-macosx/debug/codecov/SpoonjoyApple.json --minimum 100 --include Sources/SpoonjoyCore",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-enforce.log",
       "required": true
     },
@@ -127,6 +128,13 @@
       "status": "pass",
       "command": "ruby scripts/validate-aasa.rb --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-aasa.log",
+      "required": true
+    },
+    {
+      "name": "native password dogfood",
+      "status": "pass",
+      "command": "scripts/verify-native-password-dogfood.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity --report tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-password-dogfood-report.json --server-log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-password-dogfood-server.log --vault-file tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-password-dogfood-vault.json",
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-password-dogfood.log",
       "required": true
     },
     {
@@ -229,43 +237,38 @@
     },
     {
       "name": "iOS app bundle",
-      "status": "blocked",
+      "status": "pass",
       "command": "scripts/run-xcodebuild-with-blocker.sh --output tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log --blocker tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json --timeout-seconds 180 -- xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy iOS -configuration BootstrapDebug -destination generic/platform=iOS Simulator CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
-      "required": true,
-      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+      "required": true
     },
     {
       "name": "macOS app bundle",
-      "status": "blocked",
-      "command": "skipped after iOS XcodePlatform blocker",
+      "status": "pass",
+      "command": "scripts/run-xcodebuild-with-blocker.sh --output tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log --blocker tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json --timeout-seconds 180 -- xcodebuild -project Spoonjoy.xcodeproj -scheme Spoonjoy macOS -configuration BootstrapDebug -destination generic/platform=macOS CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log",
-      "required": true,
-      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+      "required": true
     },
     {
       "name": "macOS launch smoke",
-      "status": "blocked",
-      "command": "skipped after XcodePlatform blocker",
+      "status": "pass",
+      "command": "scripts/smoke-macos.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos-inner.log --blocker tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos-blocker.json",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log",
-      "required": true,
-      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+      "required": true
     },
     {
       "name": "iOS simulator smoke",
-      "status": "blocked",
-      "command": "skipped after XcodePlatform blocker",
+      "status": "pass",
+      "command": "scripts/smoke-ios-simulator.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios-inner.log --blocker tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios-simulator-blocker.json",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios.log",
-      "required": true,
-      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
+      "required": true
     },
     {
       "name": "screenshots and design review",
-      "status": "blocked",
-      "command": "skipped after XcodePlatform blocker",
+      "status": "pass",
+      "command": "scripts/capture-native-screenshots.sh --artifact-root tasks/2026-06-16-1754-doing-siri-full-access-parity --unit-slug matrix",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
-      "required": true,
-      "blockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json"
+      "required": true
     },
     {
       "name": "design review validation",
@@ -277,31 +280,21 @@
     {
       "name": "warning scan",
       "status": "pass",
-      "command": "scripts/fail-on-warning.rb --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-stale-blocker-scan.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-version.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-bundle-check.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-swift-test.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-test.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/coverage-json-path.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-enforce.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-scenario.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-project-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-generator-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-design-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-accessibility-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-kitchen-surfaces-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-cook-shopping-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-search-capture-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-launch-screenshot-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-aasa.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios-inner.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos-inner.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-review.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-recipe-cookbook.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-shopping.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-spoon.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-capture-draft.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-chef-profile.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-spotlight-shortcuts.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-open-search-share-cook.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-recipe-action.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-shopping-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-spoon-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-capture-import-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-cookbook-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-profile-settings-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-notification-intents.log",
+      "command": "scripts/fail-on-warning.rb --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-stale-blocker-scan.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-version.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-bundle-check.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-swift-test.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-test.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/coverage-json-path.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-coverage-enforce.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-final-scenario.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-project-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-generator-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-design-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-accessibility-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-kitchen-surfaces-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-cook-shopping-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-search-capture-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-launch-screenshot-contract.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-aasa.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-password-dogfood.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-native-password-dogfood-server.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios-inner.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos-inner.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-macos.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-macos.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-smoke-ios.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-design-review.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-recipe-cookbook.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-shopping.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-spoon.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-capture-draft.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-chef-profile.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-spotlight-shortcuts.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-open-search-share-cook.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-recipe-action.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-shopping-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-spoon-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-capture-import-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-cookbook-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-profile-settings-intents.log --log tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-appintents-notification-intents.log",
       "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-warning-scan.log",
       "required": true
     }
   ],
   "blockers": [
     {
-      "capability": "XcodePlatform",
+      "capability": "MacOSLaunch",
       "blocked": true,
-      "command": "xcodebuild -checkFirstLaunchStatus (exit 69)",
-      "timeoutSeconds": 180,
-      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
-      "reason": "Local Xcode preflight command failed before app bundle validation.",
-      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
-      "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcode-platform-blocker.json"
-    },
-    {
-      "capability": "XcodePlatform",
-      "blocked": true,
-      "command": "screenshots skipped after app-bundle XcodePlatform blocker",
-      "timeoutSeconds": 180,
-      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
-      "reason": "Local Xcode preflight command failed before app bundle validation.",
-      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
-      "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json"
+      "command": "scripts/find-macos-window-id.swift <pid> Kitchen && screencapture -x -l <window-id> tasks/2026-06-16-1754-doing-siri-full-access-parity/screenshots/macos-desktop.png",
+      "timeoutSeconds": 30,
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-inner.log",
+      "reason": "Spoonjoy window capture was unavailable in the macOS GUI session.",
+      "ownerAction": "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal.",
+      "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-macos-launch-blocker.json"
     },
     {
       "blocked": true,
@@ -317,7 +310,7 @@
       "capability": "ProviderSecret",
       "command": "Set OPENAI_API_KEY and rerun the recipe import mutation.",
       "domain": "recipe-import",
-      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-import.json",
+      "outputPath": "web/provider-secret-blocker-recipe-import.json",
       "ownerAction": "Provide OPENAI_API_KEY for local recipe import extraction and ingredient parsing.",
       "reason": "Recipe import requires a provider secret for extraction or ingredient parsing.",
       "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-import.json"
@@ -327,7 +320,7 @@
       "capability": "ProviderSecret",
       "command": "Set OPENAI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY and rerun the recipe cover mutation.",
       "domain": "recipe-covers",
-      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-covers.json",
+      "outputPath": "web/provider-secret-blocker-recipe-covers.json",
       "ownerAction": "Provide OPENAI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY for local recipe cover editorial generation.",
       "reason": "Recipe cover editorial image generation requires an image provider secret.",
       "path": "tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-covers.json"

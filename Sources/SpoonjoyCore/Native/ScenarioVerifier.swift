@@ -58,7 +58,7 @@ public enum ScenarioVerifier {
                 spotlightIndexedTypes: [],
                 searchableScopes: [],
                 shareActions: [],
-                offlineFlows: ["fixture-offline-restore"],
+                offlineFlows: ["offline-cache-restore"],
                 associatedDomains: [],
                 urlSchemes: [],
                 deepLinkRoutes: []
@@ -316,7 +316,7 @@ public enum ScenarioVerifier {
         return ScenarioReport(
             stage: .surfaces,
             checks: [
-                ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
+                ScenarioCheck(name: "kitchen browsing", status: .pass, detail: "Kitchen browsing is backed by KitchenView and the live app state."),
                 ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
                 cookProgressPersistenceCheck(),
                 shoppingCheckoffCheck(),
@@ -474,7 +474,7 @@ public enum ScenarioVerifier {
         return ScenarioReport(
             stage: .final,
             checks: [
-                ScenarioCheck(name: "fixture kitchen browsing", status: .pass, detail: "Fixture kitchen browsing is backed by KitchenView."),
+                ScenarioCheck(name: "kitchen browsing", status: .pass, detail: "Kitchen browsing is backed by KitchenView and the live app state."),
                 firstRunSessionSetupCheck(rootURL: rootURL),
                 liveStoreSourceCheck(rootURL: rootURL),
                 liveStoreShellCheck(
@@ -485,9 +485,14 @@ public enum ScenarioVerifier {
                         "NativeAuthSessionRepository",
                         "SignInWithAppleButton",
                         "NativeAppleSignInCredential",
+                        "NativePasswordSignInCredential",
                         "handleAppleSignInCredential",
+                        "handlePasswordSignInCredential",
                         "restoreState",
                         "revokeAndLogout",
+                        "emailOrUsername",
+                        "native password sign-in",
+                        "passwordSignInFailureMessage",
                         "currentAppleSignInCapability",
                         "Sign in with Apple needs a signed Spoonjoy build"
                     ],

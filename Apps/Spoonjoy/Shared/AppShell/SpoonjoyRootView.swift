@@ -227,8 +227,8 @@ struct SpoonjoyRootView: View {
     }
 
     private static func defaultDependencies() -> NativeLiveAppStoreDependencies {
-        let configuration = APIClientConfiguration.spoonjoyProduction
         let environment = ProcessInfo.processInfo.environment
+        let configuration = Self.defaultAPIConfiguration(environment: environment)
         let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
 #if DEBUG
         let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? debugTokenVault(
@@ -270,6 +270,12 @@ struct SpoonjoyRootView: View {
                     configuration: configuration
                 )
             },
+            exchangePasswordCredential: { credential in
+                try await OAuthURLSessionSupport.sendDecoded(
+                    try NativePasswordSignInRequests.exchangeCredential(credential),
+                    configuration: configuration
+                )
+            },
             refresh: { clientID, refreshToken in
                 try await OAuthURLSessionSupport.sendDecoded(
                     OAuthRequests.refreshToken(clientID: clientID, refreshToken: refreshToken),
@@ -306,7 +312,7 @@ struct SpoonjoyRootView: View {
                 NativeAppStateStore(fileURL: NativeAppStateLocation.defaultFileURL())
             },
             configuration: configuration,
-            cacheEnvironment: .production,
+            cacheEnvironment: Self.defaultCacheEnvironment(configuration: configuration),
             settingsSurfaceFetch: { accountID, environment, configuration, cache in
                 try await LiveSettingsSurfaceRepository(
                     cache: cache,
@@ -334,6 +340,17 @@ struct SpoonjoyRootView: View {
         )
     }
 
+    private static func defaultAPIConfiguration(environment: [String: String]) -> APIClientConfiguration {
+#if DEBUG
+        if let rawURL = environment["SPOONJOY_API_BASE_URL"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !rawURL.isEmpty,
+           let baseURL = URL(string: rawURL) {
+            return APIClientConfiguration(baseURL: baseURL)
+        }
+#endif
+        return .spoonjoyProduction
+    }
+
     private static func defaultOAuthRedirectURI(environment: [String: String]) -> URL {
 #if os(macOS) && DEBUG
         if environment["SPOONJOY_FORCE_HTTPS_OAUTH"] == "1" {
@@ -343,6 +360,17 @@ struct SpoonjoyRootView: View {
 #else
         return NativeAuthSession.redirectURI
 #endif
+    }
+
+    private static func defaultCacheEnvironment(configuration: APIClientConfiguration) -> NativeCacheEnvironment {
+        let host = configuration.baseURL.host(percentEncoded: false)?.lowercased() ?? ""
+        if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+            return .local
+        }
+        if host == "spoonjoy.app" || host == "www.spoonjoy.app" {
+            return .production
+        }
+        return .preview(host: host)
     }
 
     private static func reusesSavedOAuthClientID(environment: [String: String]) -> Bool {

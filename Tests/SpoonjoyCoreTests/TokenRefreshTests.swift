@@ -34,6 +34,13 @@ struct TokenRefreshTests {
         #expect(rotated.refreshToken == "ort_refresh_new")
         #expect(rotated.expiresAt == now.addingTimeInterval(600))
         #expect(rotated.scope == NativeAuthSession.defaultScope)
+        let firstPartySession = try authSession(
+            accessToken: "sj_access_first_party",
+            refreshToken: "ort_refresh_first_party",
+            expiresAt: now.addingTimeInterval(900),
+            scope: NativeAuthSession.firstPartyTokenScope
+        )
+        #expect(firstPartySession.scope == NativeAuthSession.firstPartyTokenScope)
 
         #expect(throws: AuthSessionError.self) {
             try authSession(clientID: " \n ", accessToken: "sj_access", refreshToken: "ort_refresh", expiresAt: now)

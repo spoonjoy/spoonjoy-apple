@@ -44,7 +44,7 @@ struct NativeScenarioTests {
         "native-shopping-list-transfer"
     ]
     private let expectedOfflineFlows = [
-        "fixture-offline-restore",
+        "offline-cache-restore",
         "shopping-queue-replay",
         "cook-mode-progress-restore",
         "capture-draft-offline",
@@ -461,7 +461,7 @@ struct NativeScenarioTests {
 
         #expect(report.ok)
         #expect(report.stage == .surfaces)
-        #expect(checksByName["fixture kitchen browsing"] == .pass)
+        #expect(checksByName["kitchen browsing"] == .pass)
         #expect(checksByName["recipe detail"] == .pass)
         #expect(checksByName["cook progress persistence"] == .pass)
         #expect(checksByName["shopping checkoff"] == .pass)
@@ -491,7 +491,7 @@ struct NativeScenarioTests {
         #expect(report.stage == .final)
         #expect(report.checks.filter { $0.status == .fail }.isEmpty)
         #expect(report.checks.filter { $0.status == .pending }.isEmpty)
-        #expect(checksByName["fixture kitchen browsing"] == .pass)
+        #expect(checksByName["kitchen browsing"] == .pass)
         #expect(checksByName["first-run session setup"] == .pass)
         #expect(checksByName["recipe detail"] == .pass)
         #expect(checksByName["cook progress persistence"] == .pass)
@@ -1222,6 +1222,10 @@ struct NativeScenarioTests {
         let permissions = try #require(attributes[.posixPermissions] as? NSNumber).intValue
 
         #expect(permissions & 0o111 != 0)
+        let scriptSource = try String(contentsOf: scriptURL, encoding: .utf8)
+        #expect(scriptSource.contains("stale_final_fixture_terms"))
+        #expect(scriptSource.contains("fixture-offline-restore"))
+        #expect(scriptSource.contains("fixture\\ kitchen\\ browsing"))
 
         try withTemporaryDirectory { directory in
             let outputURL = directory.appendingPathComponent("native-metadata.json")

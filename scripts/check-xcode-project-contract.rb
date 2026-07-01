@@ -35,17 +35,35 @@ EXPECTED_FILES = [
 ].freeze
 
 DEPLOYMENT_TARGETS = {
-  IOS_BUNDLE_ID => {
-    "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
-    "Release" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
-    "BootstrapDebug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "26.5" }
-  },
-  MAC_BUNDLE_ID => {
-    "Debug" => { "MACOSX_DEPLOYMENT_TARGET" => "27.0" },
-    "Release" => { "MACOSX_DEPLOYMENT_TARGET" => "27.0" },
-    "BootstrapDebug" => { "MACOSX_DEPLOYMENT_TARGET" => "26.2" }
-  }
-}.freeze
+	  IOS_BUNDLE_ID => {
+	    "Debug" => {
+	      "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
+	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG SPOONJOY_SIGNED_APPLE_AUTH"
+	    },
+	    "Release" => {
+	      "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
+	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "SPOONJOY_SIGNED_APPLE_AUTH"
+	    },
+	    "BootstrapDebug" => {
+	      "IPHONEOS_DEPLOYMENT_TARGET" => "26.5",
+	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
+	    }
+	  },
+	  MAC_BUNDLE_ID => {
+	    "Debug" => {
+	      "MACOSX_DEPLOYMENT_TARGET" => "27.0",
+	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG SPOONJOY_SIGNED_APPLE_AUTH"
+	    },
+	    "Release" => {
+	      "MACOSX_DEPLOYMENT_TARGET" => "27.0",
+	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "SPOONJOY_SIGNED_APPLE_AUTH"
+	    },
+	    "BootstrapDebug" => {
+	      "MACOSX_DEPLOYMENT_TARGET" => "26.2",
+	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
+	    }
+	  }
+	}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -65,6 +83,10 @@ end
 def assert_setting(settings, key, expected, label)
   actual = settings[key]
   fail_check("#{label} expected #{key}=#{expected.inspect}, got #{actual.inspect}") unless actual == expected
+end
+
+def assert_absent_setting(settings, key, label)
+  fail_check("#{label} must not set #{key}, got #{settings[key].inspect}") if settings.key?(key)
 end
 
 def assert_named_asset_exists(settings, key, extension, label, required: false)
@@ -147,7 +169,11 @@ end
     assert_setting(build_settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", label)
     assert_setting(build_settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
     assert_setting(build_settings, "INFOPLIST_FILE", relative(INFO_PLIST), label)
-    assert_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", relative(ENTITLEMENTS), label)
+    if configuration == "BootstrapDebug"
+      assert_absent_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", label)
+    else
+      assert_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", relative(ENTITLEMENTS), label)
+    end
     assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_APPICON_NAME", "appiconset", label, required: true)
     assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME", "colorset", label)
 

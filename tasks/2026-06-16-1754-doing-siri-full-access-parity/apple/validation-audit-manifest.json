@@ -1,7 +1,7 @@
 {
   "ok": true,
   "schemaVersion": 1,
-  "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity",
+  "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple-native-password-dogfood/tasks/2026-06-16-1754-doing-siri-full-access-parity",
   "requiredRedArtifacts": [
     {
       "path": "apple/unit-11a-native-api-red.log",
@@ -469,7 +469,7 @@
         {
           "path": "aasa-validation.json",
           "exists": true,
-          "bytes": 2970,
+          "bytes": 3093,
           "nonEmpty": true
         }
       ],
@@ -1214,13 +1214,13 @@
     {
       "path": "apple/matrix-final-scenario.log",
       "exists": true,
-      "bytes": 5546,
+      "bytes": 5733,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-final-report.json",
       "exists": true,
-      "bytes": 12617,
+      "bytes": 12622,
       "nonEmpty": true
     },
     {
@@ -1238,24 +1238,14 @@
   ],
   "requiredBlockerArtifacts": [
     {
-      "capability": "XcodePlatform",
+      "capability": "MacOSLaunch",
       "blocked": true,
-      "command": "xcodebuild -checkFirstLaunchStatus (exit 69)",
-      "timeoutSeconds": 180,
-      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-xcodebuild-ios.log",
-      "reason": "Local Xcode preflight command failed before app bundle validation.",
-      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
-      "path": "apple/matrix-xcode-platform-blocker.json"
-    },
-    {
-      "capability": "XcodePlatform",
-      "blocked": true,
-      "command": "screenshots skipped after app-bundle XcodePlatform blocker",
-      "timeoutSeconds": 180,
-      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-capture.log",
-      "reason": "Local Xcode preflight command failed before app bundle validation.",
-      "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation.",
-      "path": "apple/matrix-screenshots-xcode-platform-blocker.json"
+      "command": "scripts/find-macos-window-id.swift <pid> Kitchen && screencapture -x -l <window-id> tasks/2026-06-16-1754-doing-siri-full-access-parity/screenshots/macos-desktop.png",
+      "timeoutSeconds": 30,
+      "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-inner.log",
+      "reason": "Spoonjoy window capture was unavailable in the macOS GUI session.",
+      "ownerAction": "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal.",
+      "path": "apple/matrix-screenshots-macos-launch-blocker.json"
     },
     {
       "blocked": true,
@@ -1271,7 +1261,7 @@
       "capability": "ProviderSecret",
       "command": "Set OPENAI_API_KEY and rerun the recipe import mutation.",
       "domain": "recipe-import",
-      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-import.json",
+      "outputPath": "web/provider-secret-blocker-recipe-import.json",
       "ownerAction": "Provide OPENAI_API_KEY for local recipe import extraction and ingredient parsing.",
       "reason": "Recipe import requires a provider secret for extraction or ingredient parsing.",
       "path": "web/provider-secret-blocker-recipe-import.json"
@@ -1281,7 +1271,7 @@
       "capability": "ProviderSecret",
       "command": "Set OPENAI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY and rerun the recipe cover mutation.",
       "domain": "recipe-covers",
-      "outputPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web/provider-secret-blocker-recipe-covers.json",
+      "outputPath": "web/provider-secret-blocker-recipe-covers.json",
       "ownerAction": "Provide OPENAI_API_KEY, GEMINI_API_KEY, or GOOGLE_API_KEY for local recipe cover editorial generation.",
       "reason": "Recipe cover editorial image generation requires an image provider secret.",
       "path": "web/provider-secret-blocker-recipe-covers.json"
@@ -1294,7 +1284,7 @@
         {
           "path": "apple/matrix-capture.log",
           "exists": true,
-          "bytes": 72,
+          "bytes": 139,
           "nonEmpty": true
         },
         {
@@ -1305,9 +1295,9 @@
         },
         {
           "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
-          "exists": true,
-          "bytes": 504,
-          "nonEmpty": true
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
         },
         {
           "path": "apple/matrix-screenshots-core-simulator-blocker.json",
@@ -1317,9 +1307,9 @@
         },
         {
           "path": "apple/matrix-screenshots-macos-launch-blocker.json",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 573,
+          "nonEmpty": true
         }
       ],
       "satisfied": true
@@ -1336,7 +1326,7 @@
         {
           "path": "design-review-blocked.json",
           "exists": true,
-          "bytes": 707,
+          "bytes": 682,
           "nonEmpty": true
         }
       ],
@@ -1367,7 +1357,7 @@
         {
           "path": "apple/matrix-capture.log",
           "exists": true,
-          "bytes": 72,
+          "bytes": 139,
           "nonEmpty": true
         },
         {
@@ -1378,9 +1368,9 @@
         },
         {
           "path": "apple/matrix-screenshots-xcode-platform-blocker.json",
-          "exists": true,
-          "bytes": 504,
-          "nonEmpty": true
+          "exists": false,
+          "bytes": null,
+          "nonEmpty": false
         },
         {
           "path": "apple/matrix-screenshots-core-simulator-blocker.json",
@@ -1390,9 +1380,9 @@
         },
         {
           "path": "apple/matrix-screenshots-macos-launch-blocker.json",
-          "exists": false,
-          "bytes": null,
-          "nonEmpty": false
+          "exists": true,
+          "bytes": 573,
+          "nonEmpty": true
         }
       ],
       "satisfied": true
@@ -1409,7 +1399,7 @@
         {
           "path": "design-review-blocked.json",
           "exists": true,
-          "bytes": 707,
+          "bytes": 682,
           "nonEmpty": true
         }
       ],
@@ -1472,13 +1462,13 @@
     {
       "path": "apple/matrix-swift-test.log",
       "exists": true,
-      "bytes": 107686,
+      "bytes": 108884,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-coverage-test.log",
       "exists": true,
-      "bytes": 116287,
+      "bytes": 117977,
       "nonEmpty": true
     },
     {
@@ -1490,7 +1480,7 @@
     {
       "path": "apple/matrix-final-scenario.log",
       "exists": true,
-      "bytes": 5546,
+      "bytes": 5733,
       "nonEmpty": true
     },
     {
@@ -1532,7 +1522,19 @@
     {
       "path": "apple/matrix-capture.log",
       "exists": true,
-      "bytes": 72,
+      "bytes": 139,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-native-password-dogfood.log",
+      "exists": true,
+      "bytes": 309,
+      "nonEmpty": true
+    },
+    {
+      "path": "apple/matrix-native-password-dogfood-report.json",
+      "exists": true,
+      "bytes": 487,
       "nonEmpty": true
     },
     {
@@ -1550,37 +1552,37 @@
     {
       "path": "apple/matrix-xcodebuild-ios.log",
       "exists": true,
-      "bytes": 153,
+      "bytes": 72850,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-xcodebuild-macos.log",
       "exists": true,
-      "bytes": 77,
+      "bytes": 68933,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-ios.log",
       "exists": true,
-      "bytes": 80,
+      "bytes": 23,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-ios-inner.log",
       "exists": true,
-      "bytes": 86,
+      "bytes": 400007,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-macos.log",
       "exists": true,
-      "bytes": 79,
+      "bytes": 15,
       "nonEmpty": true
     },
     {
       "path": "apple/matrix-smoke-macos-inner.log",
       "exists": true,
-      "bytes": 85,
+      "bytes": 399583,
       "nonEmpty": true
     },
     {
@@ -1598,13 +1600,13 @@
     {
       "path": "apple/validation-matrix.jsonl",
       "exists": true,
-      "bytes": 14800,
+      "bytes": 16102,
       "nonEmpty": true
     },
     {
       "path": "apple/validation-matrix.json",
       "exists": true,
-      "bytes": 21009,
+      "bytes": 21573,
       "nonEmpty": true
     },
     {

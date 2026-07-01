@@ -1,7 +1,7 @@
 {
   "blocked": true,
-  "capability": "XcodePlatform",
-  "sourceBlockerPath": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-xcode-platform-blocker.json",
+  "capability": "MacOSLaunch",
+  "sourceBlockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-macos-launch-blocker.json",
   "skippedArtifacts": [
     "screenshots/ios-mobile.png",
     "screenshots/macos-desktop.png",
@@ -9,6 +9,6 @@
     "apple/matrix-accessibility-proof-ios.json",
     "apple/matrix-accessibility-proof-macos.json"
   ],
-  "reason": "Local Xcode preflight command failed before app bundle validation.",
-  "ownerAction": "Complete Xcode first-launch setup, select a working developer directory, or repair the local Xcode platform/runtime, then rerun app bundle validation."
+  "reason": "Spoonjoy window capture was unavailable in the macOS GUI session.",
+  "ownerAction": "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
 }

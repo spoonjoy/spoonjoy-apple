@@ -8,8 +8,9 @@ require "pathname"
 require "tmpdir"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
-ARTIFACT_ROOT = ROOT.join("tasks/2026-06-15-2314-doing-native-app-skeleton")
+ARTIFACT_ROOT = ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-parity")
 DESIGN_REVIEW = ARTIFACT_ROOT.join("design-review.json")
+DESIGN_REVIEW_BLOCKED = ARTIFACT_ROOT.join("design-review-blocked.json")
 
 REQUIRED_REVIEW_FIELDS = [
   "mobileScreenshot",
@@ -48,7 +49,7 @@ SCRIPT_CONTRACTS = {
       "Spoonjoy.app",
       "xcodebuild -project Spoonjoy.xcodeproj",
       "generic/platform=macOS",
-      "CODE_SIGNING_ALLOWED=NO",
+      "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
       "open",
       "open location",
       "pkill -x Spoonjoy",
@@ -446,7 +447,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
         "capability" => "CoreSimulator",
         "command" => "xcrun simctl boot",
         "timeoutSeconds" => 30,
-        "outputPath" => "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log",
+        "outputPath" => "tasks/2026-06-16-1754-doing-siri-full-access-parity/smoke-ios-simulator.log",
         "ownerAction" => "Install an available iPhone simulator runtime."
       }
     ]
@@ -458,7 +459,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
         "capability" => "CoreSimulator",
         "command" => "xcrun simctl boot",
         "timeoutSeconds" => 30,
-        "outputPath" => "tasks/2026-06-15-2314-doing-native-app-skeleton/smoke-ios-simulator.log"
+        "outputPath" => "tasks/2026-06-16-1754-doing-siri-full-access-parity/smoke-ios-simulator.log"
       }
     ]
   )
@@ -1329,10 +1330,20 @@ PY
   record_failure("wrong proof lane did not block screenshot success") unless wrong_blocked_review["blocked"] == true
 end
 
-if DESIGN_REVIEW.file?
+if DESIGN_REVIEW.file? && DESIGN_REVIEW_BLOCKED.file?
+  record_failure("conflicting repository design review success and blocker artifacts")
+elsif DESIGN_REVIEW.file?
   assert_status(true, ["ruby", validator, DESIGN_REVIEW], "repository design review manifest")
+elsif DESIGN_REVIEW_BLOCKED.file?
+  assert_status(
+    true,
+    ["ruby", blocker_validator, DESIGN_REVIEW_BLOCKED, "--artifact-root", ARTIFACT_ROOT, "--unit-slug", "matrix"],
+    "repository design review blocker manifest"
+  )
 else
-  record_failure("missing #{relative(DESIGN_REVIEW)}")
+  # The full validation matrix deletes runtime screenshot artifacts before it
+  # runs this source-contract check. The capture/design-review rows own the
+  # final repository artifact validation after the runtime attempt finishes.
 end
 
 unless $failures.empty?

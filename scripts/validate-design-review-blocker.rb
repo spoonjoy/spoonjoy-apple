@@ -7,7 +7,7 @@ require "pathname"
 require "set"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
-DEFAULT_ARTIFACT_ROOT = ROOT.join("tasks/2026-06-15-2314-doing-native-app-skeleton")
+DEFAULT_ARTIFACT_ROOT = ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-parity")
 CAPABILITY_BY_BASENAME = {
   "screenshots-xcode-platform-blocker.json" => "XcodePlatform",
   "screenshots-core-simulator-blocker.json" => "CoreSimulator",
