@@ -5141,11 +5141,18 @@ struct NativeLiveStoreTests {
                 "restoreState",
                 "revokeAndLogout",
                 "isSigningIn",
-                "authRequired"
+                "SpoonjoyIdentityMark",
+                "currentAppleSignInCapability",
+                "signInFailureMessage",
+                "Sign in with Apple needs a signed Spoonjoy build"
             ],
             forbids: [
+                "offlineIndicatorDisplay",
+                "OfflineStatusView(display:",
+                "safeAreaInset(edge: .bottom)",
                 "Open Kitchen",
-                "keep offline fixtures nearby"
+                "keep offline fixtures nearby",
+                "Could not finish sign-in: \\(error)"
             ]
         )
         expectContent(

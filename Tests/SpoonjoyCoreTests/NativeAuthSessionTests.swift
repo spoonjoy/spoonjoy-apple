@@ -354,9 +354,17 @@ struct NativeAuthSessionTests {
                 "NativeAppleSignInCredential",
                 "handleAppleSignInCredential",
                 "request.nonce = Self.sha256(nonce)",
-                "native Apple sign-in"
+                "native Apple sign-in",
+                "signInFailureMessage(for error: Error)",
+                "com.apple.developer.applesignin",
+                "Sign in with Apple needs a signed Spoonjoy build"
             ],
             forbids: [
+                "authRequired:",
+                "offlineIndicatorDisplay",
+                "OfflineStatusView(display:",
+                "safeAreaInset(edge: .bottom)",
+                "Could not finish sign-in: \\(error)",
                 "cm_native_spoonjoy",
                 "native-code-verifier-pending",
                 "registerClient:",

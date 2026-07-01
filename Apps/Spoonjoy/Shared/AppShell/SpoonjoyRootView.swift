@@ -85,10 +85,6 @@ struct SpoonjoyRootView: View {
                     applyRestoredRouteIfNeeded()
                 }
             )
-            .overlay(alignment: .bottomLeading) {
-                OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
-                    .padding()
-            }
         }
     }
 

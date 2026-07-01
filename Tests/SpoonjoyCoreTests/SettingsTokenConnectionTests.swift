@@ -1029,10 +1029,18 @@ struct SettingsTokenConnectionTests {
             "private func signedOutContent(contentState:",
             "if navigation.route == .settings",
             "shellOfflineIndicatorState: contentState.offlineIndicatorState",
-            "SignedOutSetupView(",
-            "onDismissOfflineIndicator: liveStore.dismissOfflineIndicator"
+            "SignedOutSetupView("
         ] {
             #expect(rootView.contains(token), "SpoonjoyRootView.swift missing \(token)")
+        }
+
+        let macApp = try readRepoFile("Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift")
+        for token in [
+            ".frame(minWidth: 760, minHeight: 620)",
+            ".defaultSize(width: 1040, height: 760)",
+            ".windowResizability(.contentMinSize)"
+        ] {
+            #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
         }
 
         #expect(!rootView.contains("signedOutRouteUsesNativeShell"), "Signed-out launch must not bypass native Apple sign-in into the shell.")
@@ -1045,6 +1053,7 @@ struct SettingsTokenConnectionTests {
             )
             .safeAreaInset(edge: .bottom)
             """))
+        #expect(!rootView.contains("offlineIndicatorDisplay: contentState.offlineIndicatorState.display"))
 
         for token in [
             "settings token connection surface",

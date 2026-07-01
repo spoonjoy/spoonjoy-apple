@@ -481,7 +481,21 @@ public enum ScenarioVerifier {
                     name: "signed-out live bootstrap",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
-                    tokens: ["NativeAuthSessionRepository", "SignInWithAppleButton", "NativeAppleSignInCredential", "handleAppleSignInCredential", "restoreState", "revokeAndLogout", "authRequired"]
+                    tokens: [
+                        "NativeAuthSessionRepository",
+                        "SignInWithAppleButton",
+                        "NativeAppleSignInCredential",
+                        "handleAppleSignInCredential",
+                        "restoreState",
+                        "revokeAndLogout",
+                        "currentAppleSignInCapability",
+                        "Sign in with Apple needs a signed Spoonjoy build"
+                    ],
+                    forbiddenTokens: [
+                        "authRequired:",
+                        "OfflineStatusView(display:",
+                        "Could not finish sign-in: \\(error)"
+                    ]
                 ),
                 liveStoreShellCheck(name: "restoring cache", rootURL: rootURL, tokens: ["case .restoringCache", "restoringCacheView", "OfflineStatusView(display:"]),
                 liveStoreShellCheck(name: "live synced shell", rootURL: rootURL, tokens: ["case .liveSynced", "PlatformNavigationView("]),
@@ -715,14 +729,16 @@ public enum ScenarioVerifier {
         name: String,
         rootURL: URL,
         relativePath: String = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
-        tokens: [String]
+        tokens: [String],
+        forbiddenTokens: [String] = []
     ) -> ScenarioCheck {
         sourceCheck(
             name: name,
             detail: "Live shell state \(name) is represented in app source.",
             rootURL: rootURL,
             relativePath: relativePath,
-            tokens: tokens
+            tokens: tokens,
+            forbiddenTokens: forbiddenTokens
         )
     }
 
