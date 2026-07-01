@@ -67,8 +67,9 @@ def assert_setting(settings, key, expected, label)
   fail_check("#{label} expected #{key}=#{expected.inspect}, got #{actual.inspect}") unless actual == expected
 end
 
-def assert_named_asset_exists(settings, key, extension, label)
+def assert_named_asset_exists(settings, key, extension, label, required: false)
   asset_name = settings[key]
+  fail_check("#{label} missing #{key}") if required && (asset_name.nil? || asset_name.to_s.empty?)
   return if asset_name.nil? || asset_name.to_s.empty?
 
   asset_path = APP_ROOT.join("Shared/Assets.xcassets/#{asset_name}.#{extension}")
@@ -147,7 +148,7 @@ end
     assert_setting(build_settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
     assert_setting(build_settings, "INFOPLIST_FILE", relative(INFO_PLIST), label)
     assert_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", relative(ENTITLEMENTS), label)
-    assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_APPICON_NAME", "appiconset", label)
+    assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_APPICON_NAME", "appiconset", label, required: true)
     assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME", "colorset", label)
 
     settings.each do |key, expected|

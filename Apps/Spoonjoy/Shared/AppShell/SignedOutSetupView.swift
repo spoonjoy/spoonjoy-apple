@@ -1,40 +1,36 @@
+import AuthenticationServices
+import CryptoKit
+import Security
 import SpoonjoyCore
 import SwiftUI
 
 struct SignedOutSetupView: View {
-    private static let oauthCallbackRoute = "https://spoonjoy.app/oauth/callback"
-    private static let liveOAuthTransportIdentifier = "live OAuth transport"
+    private static let liveAppleSignInIdentifier = "native Apple sign-in"
 
     let authRepository: NativeAuthSessionRepository
     let pendingRoute: AppRoute
     let openSettings: () -> Void
     let onSignedIn: @MainActor () async -> Void
-    let makeWebAuthenticationSession: (@escaping @MainActor (URL) -> Void) -> SpoonjoyWebAuthenticationSession
 
     @State private var authStatus = "authRequired: sign in to restore your Spoonjoy kitchen."
-    @State private var activeWebAuthenticationSession: SpoonjoyWebAuthenticationSession?
     @State private var isSigningIn = false
-    @State private var pendingState: OAuthState?
-    @State private var pendingCodeVerifier: String?
+    @State private var canDisconnect = false
+    @State private var currentNonce: String?
 
     init(
         authRepository: NativeAuthSessionRepository,
         pendingRoute: AppRoute = .kitchen,
         openSettings: @escaping () -> Void,
-        onSignedIn: @escaping @MainActor () async -> Void = {},
-        makeWebAuthenticationSession: @escaping (@escaping @MainActor (URL) -> Void) -> SpoonjoyWebAuthenticationSession = {
-            SpoonjoyWebAuthenticationSession(callbackHandler: $0)
-        }
+        onSignedIn: @escaping @MainActor () async -> Void = {}
     ) {
         self.authRepository = authRepository
         self.pendingRoute = pendingRoute
         self.openSettings = openSettings
         self.onSignedIn = onSignedIn
-        self.makeWebAuthenticationSession = makeWebAuthenticationSession
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Spoonjoy")
                     .font(.largeTitle)
@@ -50,34 +46,45 @@ struct SignedOutSetupView: View {
                 }
             }
 
-            HStack(spacing: 12) {
-                if isSigningIn {
-                    Button("Opening sign in") {}
-                        .buttonStyle(.borderedProminent)
-                        .disabled(true)
-                } else {
-                    Button("Sign in") {
-                        Task {
-                            await startSignIn()
-                        }
+            VStack(alignment: .leading, spacing: 12) {
+                SignInWithAppleButton(.signIn) { request in
+                    let nonce = Self.randomNonceString()
+                    currentNonce = nonce
+                    request.requestedScopes = [.fullName, .email]
+                    request.nonce = Self.sha256(nonce)
+                    isSigningIn = true
+                    authStatus = "Waiting for Apple sign-in."
+                } onCompletion: { result in
+                    Task {
+                        await handleAppleAuthorization(result)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
+                .signInWithAppleButtonStyle(.black)
+                .frame(maxWidth: 360, minHeight: 50, maxHeight: 50)
+                .disabled(isSigningIn)
 
-                Button("Settings", action: openSettings)
+                HStack(spacing: 10) {
+                    Button(action: openSettings) {
+                        Label("Settings", systemImage: "gearshape")
+                    }
                     .buttonStyle(.bordered)
 
-                Button("Disconnect") {
-                    Task {
-                        await revokeAndLogout()
+                    if canDisconnect {
+                        Button(role: .destructive) {
+                            Task {
+                                await revokeAndLogout()
+                            }
+                        } label: {
+                            Label("Disconnect", systemImage: "xmark.circle")
+                        }
+                        .buttonStyle(.bordered)
                     }
                 }
-                .buttonStyle(.bordered)
-
-                Link("spoonjoy.app", destination: SecureAuthWebHandoff.login.url)
+                .controlSize(.large)
             }
-            .accessibilityIdentifier(Self.liveOAuthTransportIdentifier)
+            .accessibilityIdentifier(Self.liveAppleSignInIdentifier)
         }
+        .frame(maxWidth: 520, maxHeight: .infinity, alignment: .topLeading)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
         .background(KitchenTableTheme.bone)
@@ -90,10 +97,13 @@ struct SignedOutSetupView: View {
         do {
             switch try await authRepository.restoreState() {
             case .signedOut:
-                authStatus = "authRequired: choose Sign in to connect spoonjoy.app."
+                canDisconnect = false
+                authStatus = "authRequired: sign in with Apple to connect Spoonjoy."
             case .authenticated:
+                canDisconnect = true
                 authStatus = "Signed in. Restoring your Spoonjoy cache."
             case .refreshRequired:
+                canDisconnect = true
                 authStatus = "Session refresh required. Sign in again if restore does not complete."
             }
         } catch {
@@ -101,66 +111,70 @@ struct SignedOutSetupView: View {
         }
     }
 
-    private func startSignIn() async {
+    private func handleAppleAuthorization(_ result: Result<ASAuthorization, Error>) async {
+        defer { isSigningIn = false }
         do {
-            guard NativeAuthSession.redirectURI.absoluteString == Self.oauthCallbackRoute else {
-                authStatus = "Could not start sign-in: unexpected OAuth callback route."
+            let authorization = try result.get()
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                authStatus = "Could not finish sign-in: Apple returned an unsupported credential."
                 return
             }
-            guard let state = OAuthState(rawValue: UUID().uuidString) else {
-                authStatus = "Could not start sign-in: invalid OAuth state."
+            guard let nonce = currentNonce else {
+                authStatus = "Could not finish sign-in: Apple sign-in nonce was missing."
                 return
             }
-            let verifier = OAuthPKCE.randomVerifier()
-            let codeChallenge = try OAuthPKCE.codeChallenge(for: verifier)
-            pendingState = state
-            pendingCodeVerifier = verifier
-            isSigningIn = true
-            let start = try await authRepository.startSignIn(state: state, codeChallenge: codeChallenge)
-            let session = makeWebAuthenticationSession { callbackURL in
-                Task {
-                    await handleCallback(callbackURL)
-                }
+            guard let identityToken = appleIDCredential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else {
+                authStatus = "Could not finish sign-in: Apple identity token was missing."
+                return
             }
-            activeWebAuthenticationSession = session
-            authStatus = try session.start(authorizationURL: start.authorizationURL, oauthState: state)
-                ? "Waiting for spoonjoy.app sign-in."
-                : "Could not open spoonjoy.app sign-in."
-            if authStatus.hasPrefix("Could not") {
-                isSigningIn = false
-            }
+            let fullName = appleIDCredential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
+            let credential = NativeAppleSignInCredential(
+                identityToken: identityToken,
+                rawNonce: nonce,
+                email: appleIDCredential.email,
+                fullName: fullName?.isEmpty == true ? nil : fullName
+            )
+            _ = try await authRepository.handleAppleSignInCredential(credential)
+            currentNonce = nil
+            canDisconnect = true
+            authStatus = "Signed in. Restoring Spoonjoy."
+            await onSignedIn()
         } catch {
-            isSigningIn = false
-            authStatus = "Could not start sign-in: \(error)"
+            if let authorizationError = error as? ASAuthorizationError,
+               authorizationError.code == .canceled {
+                authStatus = "Apple sign-in canceled."
+                return
+            }
+            authStatus = "Could not finish sign-in: \(error)"
         }
     }
 
-    private func handleCallback(_ callbackURL: URL) async {
-        guard let pendingState, let pendingCodeVerifier else {
-            authStatus = "Sign-in callback arrived without a pending request."
-            return
+    private static func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
+        while remainingLength > 0 {
+            var random: UInt8 = 0
+            let status = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+            if status == errSecSuccess, Int(random) < charset.count {
+                result.append(charset[Int(random)])
+                remainingLength -= 1
+            }
         }
+        return result
+    }
 
-        do {
-            _ = try await authRepository.handleOAuthCallback(
-                callbackURL,
-                expectedState: pendingState,
-                codeVerifier: pendingCodeVerifier
-            )
-            authStatus = "Signed in. Restoring Spoonjoy."
-            activeWebAuthenticationSession = nil
-            isSigningIn = false
-            await onSignedIn()
-        } catch {
-            isSigningIn = false
-            authStatus = "Could not finish sign-in: \(error)"
-        }
+    private static func sha256(_ input: String) -> String {
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     private func revokeAndLogout() async {
         do {
             try await authRepository.revokeAndLogout()
             authStatus = "Signed out."
+            canDisconnect = false
             isSigningIn = false
         } catch {
             authStatus = "Could not disconnect: \(error)"

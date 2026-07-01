@@ -39,7 +39,8 @@ struct NativeAuthSessionTests {
         let network = CoverageAuthNetworkSpy(
             clientID: "cm_native_spoonjoy",
             exchangeResponse: coverageTokenResponse(accessToken: "sj_access_initial", refreshToken: "ort_refresh_initial", expiresIn: 300),
-            refreshResponse: coverageTokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600)
+            refreshResponse: coverageTokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600),
+            appleResponse: coverageTokenResponse(accessToken: "sj_access_apple", refreshToken: "ort_refresh_apple", expiresIn: 900)
         )
         let repository = NativeAuthSessionRepository(
             vault: vault,
@@ -48,6 +49,7 @@ struct NativeAuthSessionTests {
             scope: NativeAuthSession.defaultScope,
             registerClient: network.registerClient,
             exchangeCode: network.exchangeCode,
+            exchangeAppleCredential: network.exchangeAppleCredential,
             refresh: network.refresh,
             revoke: network.revoke,
             now: { now }
@@ -69,6 +71,27 @@ struct NativeAuthSessionTests {
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
         #expect(await network.registerRequests.count == 1)
+        let localDogfoodNetwork = CoverageAuthNetworkSpy(
+            clientID: "cm_native_spoonjoy_loopback",
+            exchangeResponse: coverageTokenResponse(accessToken: "sj_access_loopback", refreshToken: "ort_refresh_loopback", expiresIn: 300),
+            refreshResponse: coverageTokenResponse(accessToken: "sj_access_loopback_rotated", refreshToken: "ort_refresh_loopback_rotated", expiresIn: 600)
+        )
+        let localDogfoodRepository = NativeAuthSessionRepository(
+            vault: InMemoryTokenVault(),
+            clientName: "Spoonjoy Apple",
+            redirectURI: NativeAuthSession.localDogfoodRedirectURI,
+            registerClient: localDogfoodNetwork.registerClient,
+            exchangeCode: localDogfoodNetwork.exchangeCode,
+            refresh: localDogfoodNetwork.refresh,
+            revoke: localDogfoodNetwork.revoke,
+            reusesSavedClientID: false,
+            now: { now }
+        )
+        let loopbackStart = try await localDogfoodRepository.startSignIn(state: state, codeChallenge: "code_challenge_123")
+        let secondLoopbackStart = try await localDogfoodRepository.startSignIn(state: state, codeChallenge: "code_challenge_123")
+        #expect(loopbackStart.clientID == "cm_native_spoonjoy_loopback")
+        #expect(secondLoopbackStart.clientID == "cm_native_spoonjoy_loopback")
+        #expect(await localDogfoodNetwork.registerRequests.count == 2)
         let randomVerifierA = OAuthPKCE.randomVerifier()
         let randomVerifierB = OAuthPKCE.randomVerifier()
         #expect(OAuthPKCE.isValidVerifier(randomVerifierA))
@@ -80,6 +103,8 @@ struct NativeAuthSessionTests {
             _ = try OAuthPKCE.codeChallenge(for: "short")
         }
         #expect(OAuthState(rawValue: "   ") == nil)
+        #expect(NativeAuthSession.lifecycleOperations.contains("handleOAuthCallback"))
+        #expect(NativeAuthSession.collaborators.contains("RefreshCoordinator"))
 
         let session = try await repository.handleOAuthCallback(
             URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!,
@@ -113,6 +138,72 @@ struct NativeAuthSessionTests {
             CoverageRevokeRequest(refreshToken: "ort_refresh_rotated", clientID: "cm_native_spoonjoy")
         ])
         try await repository.revokeAndLogout()
+
+        let appleCredential = NativeAppleSignInCredential(
+            identityToken: "apple_identity_token",
+            rawNonce: "raw_nonce",
+            email: "chef@spoonjoy.app",
+            fullName: "Spoonjoy Chef"
+        )
+        let appleRequest = try NativeAppleSignInRequests.exchangeCredential(appleCredential)
+            .urlRequest(configuration: .spoonjoyProduction)
+        #expect(appleRequest.method == .post)
+        #expect(appleRequest.url.path == "/api/v1/auth/apple/native")
+        #expect(appleRequest.headers["Content-Type"] == "application/json")
+        #expect(appleRequest.responseCachePolicy == .privateNoStore)
+        let appleBody = try #require(appleRequest.body)
+        let appleJSON = try #require(JSONSerialization.jsonObject(with: appleBody) as? [String: String])
+        #expect(appleJSON["identityToken"] == "apple_identity_token")
+        #expect(appleJSON["rawNonce"] == "raw_nonce")
+        #expect(appleJSON["email"] == "chef@spoonjoy.app")
+        #expect(appleJSON["fullName"] == "Spoonjoy Chef")
+
+        let appleSession = try await repository.handleAppleSignInCredential(appleCredential)
+        #expect(appleSession.clientID == NativeAuthSession.nativeAppleClientID)
+        #expect(appleSession.accessToken == "sj_access_apple")
+        #expect(try await vault.loadClientID() == NativeAuthSession.nativeAppleClientID)
+        #expect(try await repository.restoreState() == .authenticated(appleSession))
+        #expect(await network.appleCredentials == [appleCredential])
+
+        let unavailableAppleRepository = NativeAuthSessionRepository(
+            vault: InMemoryTokenVault(),
+            clientName: "Spoonjoy Apple",
+            registerClient: network.registerClient,
+            exchangeCode: network.exchangeCode,
+            refresh: network.refresh,
+            revoke: network.revoke
+        )
+        do {
+            _ = try await unavailableAppleRepository.handleAppleSignInCredential(appleCredential)
+            Issue.record("Expected unavailable native Apple sign-in exchange to throw")
+        } catch NativeAuthSessionError.appleSignInUnavailable {
+        } catch {
+            Issue.record("Expected NativeAuthSessionError.appleSignInUnavailable; got \(error)")
+        }
+
+        let vaultDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spoonjoy-file-backed-vault-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: vaultDirectory)
+        }
+        let fileVaultURL = vaultDirectory.appendingPathComponent("debug-auth-session.json")
+        let fileVault = FileBackedTokenVault(fileURL: fileVaultURL)
+        #expect(try await fileVault.loadClientID() == nil)
+        #expect(try await fileVault.loadSession() == nil)
+        try FileManager.default.createDirectory(at: vaultDirectory, withIntermediateDirectories: true)
+        try Data().write(to: fileVaultURL)
+        #expect(try await fileVault.loadClientID() == nil)
+        try await fileVault.saveClientID("spoonjoy-apple-native")
+        try await fileVault.saveSession(appleSession)
+        #expect(try await fileVault.loadClientID() == "spoonjoy-apple-native")
+        #expect(try await fileVault.loadSession() == appleSession)
+        let reloadedFileVault = FileBackedTokenVault(fileURL: fileVaultURL)
+        #expect(try await reloadedFileVault.loadClientID() == "spoonjoy-apple-native")
+        #expect(try await reloadedFileVault.loadSession() == appleSession)
+        try await reloadedFileVault.clearSession()
+        #expect(try await reloadedFileVault.loadSession() == nil)
+        try await reloadedFileVault.clearClientID()
+        #expect(try await reloadedFileVault.loadClientID() == nil)
 
         let missingClientRepository = NativeAuthSessionRepository(
             vault: InMemoryTokenVault(),
@@ -170,6 +261,16 @@ struct NativeAuthSessionTests {
             from: URL(string: "https://spoonjoy.app:443/oauth/callback?code=oac_code&state=state_123")!,
             expectedState: state
         ) == "oac_code")
+        #expect(try NativeAuthSession.code(
+            from: URL(string: "http://127.0.0.1/callback?code=oac_loopback_default_port&state=state_123")!,
+            expectedState: state,
+            redirectURI: URL(string: "http://127.0.0.1/callback")!
+        ) == "oac_loopback_default_port")
+        #expect(try NativeAuthSession.code(
+            from: URL(string: "http://127.0.0.1:53123/callback?code=oac_loopback&state=state_123")!,
+            expectedState: state,
+            redirectURI: NativeAuthSession.localDogfoodRedirectURI
+        ) == "oac_loopback")
         #expect(try coverageThrowsNativeAuthSessionError {
             _ = try NativeAuthSession.code(
                 from: URL(string: "https://spoonjoy.app:444/oauth/callback?code=oac_code&state=state_123")!,
@@ -249,10 +350,11 @@ struct NativeAuthSessionTests {
             signedOutSetup,
             in: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
             contains: [
-                "SecureAuthWebHandoff.login.url",
-                ".disabled(true)",
-                "live OAuth transport",
-                "https://spoonjoy.app/oauth/callback"
+                "SignInWithAppleButton",
+                "NativeAppleSignInCredential",
+                "handleAppleSignInCredential",
+                "request.nonce = Self.sha256(nonce)",
+                "native Apple sign-in"
             ],
             forbids: [
                 "cm_native_spoonjoy",
@@ -261,6 +363,8 @@ struct NativeAuthSessionTests {
                 "exchangeCode:",
                 "KeychainTokenVault()",
                 "SpoonjoyWebAuthenticationSession {",
+                "SecureAuthWebHandoff.login.url",
+                "OAuthRedirectValidator.validate(callbackURL)",
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
@@ -307,12 +411,18 @@ struct NativeAuthSessionTests {
                 "AuthenticationServices",
                 "ASWebAuthenticationSession",
                 "SpoonjoyWebAuthenticationSession",
+                "SpoonjoyLoopbackWebAuthenticationSession",
+                "NSWorkspace.shared.open",
+                "127.0.0.1",
+                "53123",
                 "presentationContextProvider",
                 "prefersEphemeralWebBrowserSession",
-                "https://spoonjoy.app/oauth/callback",
+                "callbackURL: URL",
+                "parsedCallbackURL",
                 "ASWebAuthenticationSession.Callback.https",
                 "host: \"spoonjoy.app\"",
                 "path: \"/oauth/callback\"",
+                "loopback(host: String, port: UInt16, path: String)",
                 "handleOAuthCallback",
                 "cancel()",
                 "OAuthState",
@@ -1129,15 +1239,23 @@ private actor CoverageAuthNetworkSpy {
     let clientID: String
     let exchangeResponse: OAuthTokenResponse
     let refreshResponse: OAuthTokenResponse
+    let appleResponse: OAuthTokenResponse
     private(set) var registerRequests: [CoverageRegisterRequest] = []
     private(set) var exchangeRequests: [CoverageCodeExchangeRequest] = []
+    private(set) var appleCredentials: [NativeAppleSignInCredential] = []
     private(set) var refreshRequests: [CoverageRefreshRequest] = []
     private(set) var revokeRequests: [CoverageRevokeRequest] = []
 
-    init(clientID: String, exchangeResponse: OAuthTokenResponse, refreshResponse: OAuthTokenResponse) {
+    init(
+        clientID: String,
+        exchangeResponse: OAuthTokenResponse,
+        refreshResponse: OAuthTokenResponse,
+        appleResponse: OAuthTokenResponse? = nil
+    ) {
         self.clientID = clientID
         self.exchangeResponse = exchangeResponse
         self.refreshResponse = refreshResponse
+        self.appleResponse = appleResponse ?? exchangeResponse
     }
 
     func registerClient(clientName: String, redirectURI: URL) async throws -> String {
@@ -1155,6 +1273,11 @@ private actor CoverageAuthNetworkSpy {
             )
         )
         return exchangeResponse
+    }
+
+    func exchangeAppleCredential(_ credential: NativeAppleSignInCredential) async throws -> OAuthTokenResponse {
+        appleCredentials.append(credential)
+        return appleResponse
     }
 
     func refresh(clientID: String, refreshToken: String) async throws -> OAuthTokenResponse {
@@ -1481,6 +1604,7 @@ struct WebAuthenticationSessionAdapterContract {
         let factory = FakeSessionFactory()
         var forwardedCallbacks: [URL] = []
         let adapter = SpoonjoyWebAuthenticationSession(
+            callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
             sessionFactory: factory.makeSession,
             callbackHandler: { callbackURL in
                 forwardedCallbacks.append(callbackURL)
@@ -1512,6 +1636,7 @@ struct WebAuthenticationSessionAdapterContract {
     func adapterClearsActiveSessionWhenSystemStartFails() throws {
         let factory = FakeSessionFactory(startResult: false)
         let adapter = SpoonjoyWebAuthenticationSession(
+            callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
             sessionFactory: factory.makeSession,
             callbackHandler: { _ in }
         )

@@ -41,7 +41,8 @@ REQUIRED_SOURCE_TOKENS = {
     "NativeSyncTriggerCoordinator",
     "APIClientConfiguration",
     "SearchScope.allCases",
-    "searchResultsByScope",
+    "searchSurfaceViewModel",
+    "searchSurfacePage(for:",
     "switchEnvironment",
     "NativeSyncTriggerEvent.environmentChanged",
     "offlineIndicatorState",
@@ -95,7 +96,7 @@ REQUIRED_SOURCE_TOKENS = {
     "contentState.cookbooks",
     "contentState.kitchen",
     "contentState.shoppingList",
-    "contentState.searchResults",
+    "contentState.searchSurfaceViewModel",
     "contentState.captureDraft",
     "NativeQueuedMutation",
     "queueMutation",
@@ -112,15 +113,14 @@ REQUIRED_SOURCE_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift" => [
     "NativeAuthSessionRepository",
-    "SpoonjoyWebAuthenticationSession",
-    "startSignIn",
+    "SignInWithAppleButton",
+    "NativeAppleSignInCredential",
+    "handleAppleSignInCredential",
     "restoreState",
     "revokeAndLogout",
     "isSigningIn",
     "authRequired",
-    "spoonjoy.app",
-    "Button",
-    "Link"
+    "Button"
   ],
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
     "SettingsView",
@@ -153,8 +153,7 @@ REQUIRED_SOURCE_TOKENS = {
   "Apps/Spoonjoy/Shared/AppShell/ShareActions.swift" => [
     "ShareLink",
     "AppRoute",
-    "spoonjoy.app",
-    "URLComponents"
+    "NativeSharePayload.publicRoute(route)?.publicURL"
   ]
 }.freeze
 
@@ -169,7 +168,6 @@ FORBIDDEN_SOURCE_TOKENS = {
     "RecipeFixtureCatalog.decodeFromBundle()"
   ],
   "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift" => [
-    "NativeAppStateStore",
     "NativeAppSnapshot.bootstrap",
     "ShoppingListState.decodeFromBundle()",
     "hasCompletedFirstRun",
@@ -182,7 +180,6 @@ FORBIDDEN_SOURCE_TOKENS = {
     "KitchenFixtureState.decodeFromBundle()",
     "KitchenFixtureState.bootstrapFallback",
     "SettingsState(\n                auth: .signedOut",
-    "QueuedMutation(",
     "startedAt: \"2026-06-16T11:45:00.000Z\""
   ],
   "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift" => [

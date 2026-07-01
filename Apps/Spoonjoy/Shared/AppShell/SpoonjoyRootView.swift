@@ -75,8 +75,6 @@ struct SpoonjoyRootView: View {
                 shellOfflineIndicatorState: contentState.offlineIndicatorState,
                 onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
             )
-        } else if signedOutRouteUsesNativeShell(navigation.route) {
-            platformNavigation(contentState: contentState)
         } else {
             SignedOutSetupView(
                 authRepository: liveStore.authSessionRepository,
@@ -189,27 +187,6 @@ struct SpoonjoyRootView: View {
         )
     }
 
-    private func signedOutRouteUsesNativeShell(_ route: AppRoute) -> Bool {
-        switch route {
-        case .recipes,
-             .recipeDetail,
-             .cookbooks,
-             .cookbookDetail,
-             .profile,
-             .profileGraph,
-             .search:
-            true
-        case .kitchen,
-             .recipeEditor,
-             .recipeCoverControls,
-             .shoppingList,
-             .capture,
-             .settings,
-             .unknownLink:
-            false
-        }
-    }
-
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             ProgressView()
@@ -256,8 +233,12 @@ struct SpoonjoyRootView: View {
     private static func defaultDependencies() -> NativeLiveAppStoreDependencies {
         let configuration = APIClientConfiguration.spoonjoyProduction
         let environment = ProcessInfo.processInfo.environment
+        let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
 #if DEBUG
-        let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? KeychainTokenVault()
+        let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? debugTokenVault(
+            environment: environment,
+            appDirectory: appDirectory
+        )
         let bootstrapMode: NativeLiveAppBootstrapMode = screenshotRestoreCacheOnlyEnabled(environment: environment)
             ? .restoreCacheOnly
             : .liveFirst
@@ -268,6 +249,7 @@ struct SpoonjoyRootView: View {
         let authRepository = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple",
+            redirectURI: Self.defaultOAuthRedirectURI(environment: environment),
             registerClient: { clientName, redirectURI in
                 let response: OAuthRegisterResponse = try await OAuthURLSessionSupport.sendDecoded(
                     try OAuthRequests.registerClient(clientName: clientName, redirectURIs: [redirectURI]),
@@ -286,6 +268,12 @@ struct SpoonjoyRootView: View {
                     configuration: configuration
                 )
             },
+            exchangeAppleCredential: { credential in
+                try await OAuthURLSessionSupport.sendDecoded(
+                    try NativeAppleSignInRequests.exchangeCredential(credential),
+                    configuration: configuration
+                )
+            },
             refresh: { clientID, refreshToken in
                 try await OAuthURLSessionSupport.sendDecoded(
                     OAuthRequests.refreshToken(clientID: clientID, refreshToken: refreshToken),
@@ -297,9 +285,9 @@ struct SpoonjoyRootView: View {
                     OAuthRequests.revoke(refreshToken: refreshToken, clientID: clientID),
                     configuration: configuration
                 )
-            }
+            },
+            reusesSavedClientID: Self.reusesSavedOAuthClientID(environment: environment)
         )
-        let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
         let cacheStore = NativeDurableCacheStore(
             fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
         )
@@ -348,6 +336,25 @@ struct SpoonjoyRootView: View {
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
+    }
+
+    private static func defaultOAuthRedirectURI(environment: [String: String]) -> URL {
+#if os(macOS) && DEBUG
+        if environment["SPOONJOY_FORCE_HTTPS_OAUTH"] == "1" {
+            return NativeAuthSession.redirectURI
+        }
+        return NativeAuthSession.localDogfoodRedirectURI
+#else
+        return NativeAuthSession.redirectURI
+#endif
+    }
+
+    private static func reusesSavedOAuthClientID(environment: [String: String]) -> Bool {
+#if os(macOS) && DEBUG
+        environment["SPOONJOY_FORCE_HTTPS_OAUTH"] == "1"
+#else
+        true
+#endif
     }
 
     private static func purgeShoppingEntityIdentifiersIfAvailable(_ request: NativeShoppingEntityIndexPurgeRequest) async {
@@ -440,6 +447,13 @@ struct SpoonjoyRootView: View {
 
     private static func screenshotRestoreCacheOnlyEnabled(environment: [String: String]) -> Bool {
         truthy("SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY", in: environment)
+    }
+
+    private static func debugTokenVault(environment: [String: String], appDirectory: URL) -> any TokenVault {
+        if truthy("SPOONJOY_DEBUG_KEYCHAIN_AUTH", in: environment) {
+            return KeychainTokenVault(allowsUnsignedLocalFallback: true)
+        }
+        return FileBackedTokenVault(fileURL: appDirectory.appendingPathComponent("debug-auth-session.json"))
     }
 
     private static func truthy(_ key: String, in environment: [String: String]) -> Bool {

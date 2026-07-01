@@ -5,6 +5,7 @@ public enum NativeAuthSessionError: Error, Equatable, Sendable {
     case missingAuthorizationCode
     case invalidCallbackURL(String)
     case stateMismatch(expected: String, actual: String?)
+    case appleSignInUnavailable
 }
 
 public enum NativeAuthSessionState: Equatable, Sendable {
@@ -21,6 +22,8 @@ public struct NativeAuthSignInStart: Equatable, Sendable {
 
 public enum NativeAuthSession {
     public static let redirectURI = URL(string: "https://spoonjoy.app/oauth/callback")!
+    public static let localDogfoodRedirectURI = URL(string: "http://127.0.0.1:53123/callback")!
+    public static let nativeAppleClientID = "spoonjoy-apple-native"
     public static let defaultScopes = [
         "kitchen:read",
         "kitchen:write",
@@ -55,11 +58,15 @@ public enum NativeAuthSession {
         return components.url!
     }
 
-    public static func code(from callbackURL: URL, expectedState: OAuthState) throws -> String {
+    public static func code(
+        from callbackURL: URL,
+        expectedState: OAuthState,
+        redirectURI: URL = Self.redirectURI
+    ) throws -> String {
         _ = try OAuthRedirectValidator.validate(callbackURL)
         guard callbackURL.scheme?.lowercased() == redirectURI.scheme,
               callbackURL.host?.lowercased() == redirectURI.host,
-              normalizedHTTPSPort(for: callbackURL) == normalizedHTTPSPort(for: redirectURI),
+              normalizedPort(for: callbackURL) == normalizedPort(for: redirectURI),
               callbackURL.path(percentEncoded: true) == redirectURI.path(percentEncoded: true) else {
             throw NativeAuthSessionError.invalidCallbackURL(callbackURL.absoluteString)
         }
@@ -76,7 +83,15 @@ public enum NativeAuthSession {
         return code
     }
 
-    private static func normalizedHTTPSPort(for url: URL) -> Int {
-        url.port ?? 443
+    private static func normalizedPort(for url: URL) -> Int {
+        if let port = url.port {
+            return port
+        }
+        switch url.scheme?.lowercased() {
+        case "http":
+            return 80
+        default:
+            return 443
+        }
     }
 }

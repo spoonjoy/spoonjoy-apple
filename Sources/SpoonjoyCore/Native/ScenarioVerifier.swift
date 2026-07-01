@@ -481,7 +481,7 @@ public enum ScenarioVerifier {
                     name: "signed-out live bootstrap",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
-                    tokens: ["NativeAuthSessionRepository", "SpoonjoyWebAuthenticationSession", "startSignIn", "restoreState", "revokeAndLogout", "authRequired"]
+                    tokens: ["NativeAuthSessionRepository", "SignInWithAppleButton", "NativeAppleSignInCredential", "handleAppleSignInCredential", "restoreState", "revokeAndLogout", "authRequired"]
                 ),
                 liveStoreShellCheck(name: "restoring cache", rootURL: rootURL, tokens: ["case .restoringCache", "restoringCacheView", "OfflineStatusView(display:"]),
                 liveStoreShellCheck(name: "live synced shell", rootURL: rootURL, tokens: ["case .liveSynced", "PlatformNavigationView("]),

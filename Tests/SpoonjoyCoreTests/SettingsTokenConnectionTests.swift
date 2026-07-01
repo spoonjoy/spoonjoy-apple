@@ -1028,12 +1028,14 @@ struct SettingsTokenConnectionTests {
         for token in [
             "private func signedOutContent(contentState:",
             "if navigation.route == .settings",
-            "signedOutRouteUsesNativeShell(navigation.route)",
             "shellOfflineIndicatorState: contentState.offlineIndicatorState",
+            "SignedOutSetupView(",
             "onDismissOfflineIndicator: liveStore.dismissOfflineIndicator"
         ] {
             #expect(rootView.contains(token), "SpoonjoyRootView.swift missing \(token)")
         }
+
+        #expect(!rootView.contains("signedOutRouteUsesNativeShell"), "Signed-out launch must not bypass native Apple sign-in into the shell.")
 
         #expect(!rootView.contains("""
             SettingsView(
