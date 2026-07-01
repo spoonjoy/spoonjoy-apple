@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-06-30T04:44:10Z",
-  "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity",
-  "webArtifactDir": "/Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/web",
+  "artifactRoot": "tasks/2026-06-16-1754-doing-siri-full-access-parity",
+  "webArtifactDir": "tasks/2026-06-16-1754-doing-siri-full-access-parity/web",
   "requiredRedArtifacts": [
     {
       "path": "web/unit-1a-contract-red.log",
