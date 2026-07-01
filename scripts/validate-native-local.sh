@@ -202,7 +202,7 @@ write_xcode_screenshot_blocker() {
     design_review_blocked = {
       "blocked" => true,
       "capability" => "XcodePlatform",
-      "sourceBlockerPath" => File.expand_path(screenshot_path),
+      "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",

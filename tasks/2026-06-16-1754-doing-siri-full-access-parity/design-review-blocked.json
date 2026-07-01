@@ -1,7 +1,7 @@
 {
   "blocked": true,
   "capability": "MacOSLaunch",
-  "sourceBlockerPath": "/Users/arimendelow/Projects/spoonjoy-apple-native-password-dogfood/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-macos-launch-blocker.json",
+  "sourceBlockerPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-macos-launch-blocker.json",
   "skippedArtifacts": [
     "screenshots/ios-mobile.png",
     "screenshots/macos-desktop.png",

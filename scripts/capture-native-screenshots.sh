@@ -117,7 +117,7 @@ write_design_review_blocked() {
     manifest = {
       "blocked" => true,
       "capability" => blocker.fetch("capability"),
-      "sourceBlockerPath" => File.expand_path(source_path),
+      "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
         "screenshots/macos-desktop.png",
