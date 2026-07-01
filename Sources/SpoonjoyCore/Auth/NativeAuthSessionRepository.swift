@@ -12,6 +12,10 @@ public typealias NativeCodeExchangeOperation = @Sendable (
     _ codeVerifier: String
 ) async throws -> OAuthTokenResponse
 
+public typealias NativeAppleSignInExchangeOperation = @Sendable (
+    _ credential: NativeAppleSignInCredential
+) async throws -> OAuthTokenResponse
+
 public typealias NativeRevokeOperation = @Sendable (
     _ refreshToken: String,
     _ clientID: String
@@ -23,11 +27,13 @@ public actor NativeAuthSessionRepository {
 
     private let vault: any TokenVault
     private let clientName: String
-    private let redirectURI: URL
+    public nonisolated let redirectURI: URL
     private let scope: String
     private let registerClient: NativeClientRegistrationOperation
     private let exchangeCode: NativeCodeExchangeOperation
+    private let exchangeAppleCredential: NativeAppleSignInExchangeOperation
     private let revoke: NativeRevokeOperation
+    private let reusesSavedClientID: Bool
     private let now: @Sendable () -> Date
     private let refreshCoordinator: RefreshCoordinator
 
@@ -38,8 +44,12 @@ public actor NativeAuthSessionRepository {
         scope: String = NativeAuthSession.defaultScope,
         registerClient: @escaping NativeClientRegistrationOperation,
         exchangeCode: @escaping NativeCodeExchangeOperation,
+        exchangeAppleCredential: @escaping NativeAppleSignInExchangeOperation = { _ in
+            throw NativeAuthSessionError.appleSignInUnavailable
+        },
         refresh: @escaping OAuthRefreshOperation,
         revoke: @escaping NativeRevokeOperation,
+        reusesSavedClientID: Bool = true,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.vault = vault
@@ -48,7 +58,9 @@ public actor NativeAuthSessionRepository {
         self.scope = scope
         self.registerClient = registerClient
         self.exchangeCode = exchangeCode
+        self.exchangeAppleCredential = exchangeAppleCredential
         self.revoke = revoke
+        self.reusesSavedClientID = reusesSavedClientID
         self.now = now
         self.refreshCoordinator = RefreshCoordinator(vault: vault, refresh: refresh)
     }
@@ -56,7 +68,7 @@ public actor NativeAuthSessionRepository {
     public func startSignIn(state: OAuthState, codeChallenge: String) async throws -> NativeAuthSignInStart {
         _ = try OAuthRequests.registerClient(clientName: clientName, redirectURIs: [redirectURI])
         let clientID: String
-        if let savedClientID = try await vault.loadClientID() {
+        if reusesSavedClientID, let savedClientID = try await vault.loadClientID() {
             clientID = savedClientID
         } else {
             clientID = try await registerClient(clientName, redirectURI)
@@ -81,7 +93,11 @@ public actor NativeAuthSessionRepository {
         expectedState: OAuthState,
         codeVerifier: String
     ) async throws -> AuthSession {
-        let code = try NativeAuthSession.code(from: callbackURL, expectedState: expectedState)
+        let code = try NativeAuthSession.code(
+            from: callbackURL,
+            expectedState: expectedState,
+            redirectURI: redirectURI
+        )
         guard let clientID = try await vault.loadClientID() else {
             throw NativeAuthSessionError.missingClientID
         }
@@ -102,6 +118,22 @@ public actor NativeAuthSessionRepository {
             scope: response.scope
         )
         try await vault.saveClientID(clientID)
+        try await vault.saveSession(session)
+        return session
+    }
+
+    public func handleAppleSignInCredential(_ credential: NativeAppleSignInCredential) async throws -> AuthSession {
+        _ = try NativeAppleSignInRequests.exchangeCredential(credential)
+        let response = try await exchangeAppleCredential(credential)
+        let session = try AuthSession(
+            clientID: NativeAuthSession.nativeAppleClientID,
+            accessToken: response.accessToken,
+            refreshToken: response.refreshToken,
+            tokenType: response.tokenType,
+            expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
+            scope: response.scope
+        )
+        try await vault.saveClientID(NativeAuthSession.nativeAppleClientID)
         try await vault.saveSession(session)
         return session
     }

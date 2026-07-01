@@ -110,7 +110,7 @@ struct NativeSearchSurfaceTests {
                     "recordSearchSurfacePage(page, expectedIdentity: identity)",
                     "searchSurfaceRepository: { context in",
                     "liveStore.searchSurfaceRepository(context: context)",
-                    "signedOutRouteUsesNativeShell"
+                    "SignedOutSetupView("
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
                     "searchSurfaceViewModel",

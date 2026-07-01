@@ -5135,12 +5135,12 @@ struct NativeLiveStoreTests {
             in: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
             contains: [
                 "NativeAuthSessionRepository",
-                "SpoonjoyWebAuthenticationSession",
-                "startSignIn",
+                "SignInWithAppleButton",
+                "NativeAppleSignInCredential",
+                "handleAppleSignInCredential",
                 "restoreState",
                 "revokeAndLogout",
                 "isSigningIn",
-                "SecureAuthWebHandoff.login",
                 "authRequired"
             ],
             forbids: [

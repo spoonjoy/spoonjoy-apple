@@ -69,6 +69,27 @@ struct NativeAuthSessionTests {
         let secondStart = try await repository.startSignIn(state: state, codeChallenge: "code_challenge_123")
         #expect(secondStart.clientID == start.clientID)
         #expect(await network.registerRequests.count == 1)
+        let localDogfoodNetwork = CoverageAuthNetworkSpy(
+            clientID: "cm_native_spoonjoy_loopback",
+            exchangeResponse: coverageTokenResponse(accessToken: "sj_access_loopback", refreshToken: "ort_refresh_loopback", expiresIn: 300),
+            refreshResponse: coverageTokenResponse(accessToken: "sj_access_loopback_rotated", refreshToken: "ort_refresh_loopback_rotated", expiresIn: 600)
+        )
+        let localDogfoodRepository = NativeAuthSessionRepository(
+            vault: InMemoryTokenVault(),
+            clientName: "Spoonjoy Apple",
+            redirectURI: NativeAuthSession.localDogfoodRedirectURI,
+            registerClient: localDogfoodNetwork.registerClient,
+            exchangeCode: localDogfoodNetwork.exchangeCode,
+            refresh: localDogfoodNetwork.refresh,
+            revoke: localDogfoodNetwork.revoke,
+            reusesSavedClientID: false,
+            now: { now }
+        )
+        let loopbackStart = try await localDogfoodRepository.startSignIn(state: state, codeChallenge: "code_challenge_123")
+        let secondLoopbackStart = try await localDogfoodRepository.startSignIn(state: state, codeChallenge: "code_challenge_123")
+        #expect(loopbackStart.clientID == "cm_native_spoonjoy_loopback")
+        #expect(secondLoopbackStart.clientID == "cm_native_spoonjoy_loopback")
+        #expect(await localDogfoodNetwork.registerRequests.count == 2)
         let randomVerifierA = OAuthPKCE.randomVerifier()
         let randomVerifierB = OAuthPKCE.randomVerifier()
         #expect(OAuthPKCE.isValidVerifier(randomVerifierA))
@@ -170,6 +191,11 @@ struct NativeAuthSessionTests {
             from: URL(string: "https://spoonjoy.app:443/oauth/callback?code=oac_code&state=state_123")!,
             expectedState: state
         ) == "oac_code")
+        #expect(try NativeAuthSession.code(
+            from: URL(string: "http://127.0.0.1:53123/callback?code=oac_loopback&state=state_123")!,
+            expectedState: state,
+            redirectURI: NativeAuthSession.localDogfoodRedirectURI
+        ) == "oac_loopback")
         #expect(try coverageThrowsNativeAuthSessionError {
             _ = try NativeAuthSession.code(
                 from: URL(string: "https://spoonjoy.app:444/oauth/callback?code=oac_code&state=state_123")!,
@@ -249,10 +275,11 @@ struct NativeAuthSessionTests {
             signedOutSetup,
             in: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
             contains: [
-                "SecureAuthWebHandoff.login.url",
-                ".disabled(true)",
-                "live OAuth transport",
-                "https://spoonjoy.app/oauth/callback"
+                "SignInWithAppleButton",
+                "NativeAppleSignInCredential",
+                "handleAppleSignInCredential",
+                "request.nonce = Self.sha256(nonce)",
+                "native Apple sign-in"
             ],
             forbids: [
                 "cm_native_spoonjoy",
@@ -261,6 +288,8 @@ struct NativeAuthSessionTests {
                 "exchangeCode:",
                 "KeychainTokenVault()",
                 "SpoonjoyWebAuthenticationSession {",
+                "SecureAuthWebHandoff.login.url",
+                "OAuthRedirectValidator.validate(callbackURL)",
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
@@ -307,12 +336,18 @@ struct NativeAuthSessionTests {
                 "AuthenticationServices",
                 "ASWebAuthenticationSession",
                 "SpoonjoyWebAuthenticationSession",
+                "SpoonjoyLoopbackWebAuthenticationSession",
+                "NSWorkspace.shared.open",
+                "127.0.0.1",
+                "53123",
                 "presentationContextProvider",
                 "prefersEphemeralWebBrowserSession",
-                "https://spoonjoy.app/oauth/callback",
+                "callbackURL: URL",
+                "parsedCallbackURL",
                 "ASWebAuthenticationSession.Callback.https",
                 "host: \"spoonjoy.app\"",
                 "path: \"/oauth/callback\"",
+                "loopback(host: String, port: UInt16, path: String)",
                 "handleOAuthCallback",
                 "cancel()",
                 "OAuthState",
@@ -1481,6 +1516,7 @@ struct WebAuthenticationSessionAdapterContract {
         let factory = FakeSessionFactory()
         var forwardedCallbacks: [URL] = []
         let adapter = SpoonjoyWebAuthenticationSession(
+            callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
             sessionFactory: factory.makeSession,
             callbackHandler: { callbackURL in
                 forwardedCallbacks.append(callbackURL)
@@ -1512,6 +1548,7 @@ struct WebAuthenticationSessionAdapterContract {
     func adapterClearsActiveSessionWhenSystemStartFails() throws {
         let factory = FakeSessionFactory(startResult: false)
         let adapter = SpoonjoyWebAuthenticationSession(
+            callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
             sessionFactory: factory.makeSession,
             callbackHandler: { _ in }
         )
