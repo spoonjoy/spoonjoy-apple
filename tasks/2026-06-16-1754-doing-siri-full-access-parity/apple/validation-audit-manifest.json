@@ -1,7 +1,7 @@
 {
   "ok": true,
   "schemaVersion": 1,
-  "artifactRoot": "/Users/arimendelow/Projects/spoonjoy-apple-native-password-dogfood/tasks/2026-06-16-1754-doing-siri-full-access-parity",
+  "artifactRoot": "tasks/2026-06-16-1754-doing-siri-full-access-parity",
   "requiredRedArtifacts": [
     {
       "path": "apple/unit-11a-native-api-red.log",
@@ -1326,7 +1326,7 @@
         {
           "path": "design-review-blocked.json",
           "exists": true,
-          "bytes": 682,
+          "bytes": 615,
           "nonEmpty": true
         }
       ],
@@ -1399,7 +1399,7 @@
         {
           "path": "design-review-blocked.json",
           "exists": true,
-          "bytes": 682,
+          "bytes": 615,
           "nonEmpty": true
         }
       ],

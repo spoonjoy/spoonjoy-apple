@@ -195,6 +195,13 @@ rescue ArgumentError
   Pathname.new(path).to_s
 end
 
+def repo_relative(path)
+  expanded = Pathname.new(path).expand_path
+  expanded.relative_path_from(ROOT).to_s
+rescue ArgumentError
+  expanded.to_s
+end
+
 def artifact_entry(artifact_root, relative_path)
   path = artifact_root.join(relative_path)
   {
@@ -490,7 +497,7 @@ end
 manifest = {
   "ok" => failures.empty?,
   "schemaVersion" => 1,
-  "artifactRoot" => artifact_root.to_s,
+  "artifactRoot" => repo_relative(artifact_root),
   "requiredRedArtifacts" => required_red,
   "documentedHistoricalRedArtifacts" => documented_historical_red,
   "requiredGreenArtifacts" => required_green,
