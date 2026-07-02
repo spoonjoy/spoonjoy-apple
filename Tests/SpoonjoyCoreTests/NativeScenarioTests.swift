@@ -1069,16 +1069,16 @@ struct NativeScenarioTests {
             let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
 
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy.Spoonjoy","743GT2AJ24.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy","743GT2AJ24.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: completeFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy.Spoonjoy","743GT2AJ24.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy","743GT2AJ24.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
             """.write(to: missingComponentFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy.Spoonjoy","TEAMID.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy","TEAMID.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: placeholderAppIDFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["A123456789.app.spoonjoy.Spoonjoy","A123456789.app.spoonjoy.Spoonjoy.mac","B123456789.app.spoonjoy.Spoonjoy","B123456789.app.spoonjoy.Spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["A123456789.app.spoonjoy","A123456789.app.spoonjoy.mac","B123456789.app.spoonjoy","B123456789.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: ambiguousTeamFixture, atomically: true, encoding: .utf8)
 
             let valid = try runProcess(
@@ -1177,10 +1177,10 @@ struct NativeScenarioTests {
             #expect(placeholder.exitCode == 0)
             #expect(placeholder.output.contains("aasa production blocked"))
             #expect(!FileManager.default.fileExists(atPath: placeholderRoot.appendingPathComponent("aasa-validation.json").path))
-            #expect(placeholderBlocker.contains("AASA endpoint is missing valid app IDs for bundle identifiers: app.spoonjoy.Spoonjoy, app.spoonjoy.Spoonjoy.mac."))
+            #expect(placeholderBlocker.contains("AASA endpoint is missing valid app IDs for bundle identifiers: app.spoonjoy, app.spoonjoy.mac."))
             #expect(placeholderBlocker.contains(#""validatedAppleTeamID": null"#))
             #expect(placeholderBlocker.contains(#""missingAppIDBundles""#))
-            #expect(placeholderBlocker.contains(#""app.spoonjoy.Spoonjoy.mac""#))
+            #expect(placeholderBlocker.contains(#""app.spoonjoy.mac""#))
             #expect(ambiguous.exitCode == 0)
             #expect(ambiguous.output.contains("aasa production blocked"))
             #expect(!FileManager.default.fileExists(atPath: ambiguousRoot.appendingPathComponent("aasa-validation.json").path))

@@ -394,7 +394,7 @@ ios_launch_app() {
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
-    xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy.Spoonjoy >> "$capture_log" 2>&1
+    xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >> "$capture_log" 2>&1
 }
 
 open_macos_app() {
@@ -423,9 +423,9 @@ wait_for_ios_foreground() {
   local udid="$1"
   local output=""
   for _ in $(seq 1 30); do
-    output="$(xcrun simctl spawn "$udid" log show --last 15s --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change" AND eventMessage CONTAINS[c] "app.spoonjoy.Spoonjoy"' 2>&1 || true)"
+    output="$(xcrun simctl spawn "$udid" log show --last 15s --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change" AND eventMessage CONTAINS[c] "app.spoonjoy"' 2>&1 || true)"
     printf '%s\n' "$output" >> "$capture_log"
-    if [[ "$output" == *"app.spoonjoy.Spoonjoy"* ]]; then
+    if [[ "$output" == *"app.spoonjoy"* ]]; then
       return 0
     fi
     sleep 0.5
@@ -557,7 +557,7 @@ wait_for_accessibility_proof() {
                         when "settings" then "SettingsView"
                         else abort("unsupported route #{expected_route}")
                         end
-      expected_bundle = expected_platform == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy"
+      expected_bundle = expected_platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
       expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast", "kitchenTableHierarchy", "noOverlap"]
       expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
       expected_dismissible = ["offline", "stale"]
@@ -686,7 +686,7 @@ capture_ios_app() {
     return 1
   fi
   rm -f "$bootstatus_log"
-  data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy.Spoonjoy data)"
+  data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)"
   local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
   screenshot_proof_path="$ios_app_dir/native-screenshot-proof.json"
   ios_accessibility_proof_runtime_path="$ios_app_dir/native-accessibility-proof.json"
@@ -694,7 +694,7 @@ capture_ios_app() {
   write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
   rm -f "$screenshot_proof_path"
   rm -f "$ios_accessibility_proof_runtime_path"
-  if ! xcrun simctl terminate "$udid" app.spoonjoy.Spoonjoy >"$terminate_log" 2>&1; then
+  if ! xcrun simctl terminate "$udid" app.spoonjoy >"$terminate_log" 2>&1; then
     if ! grep -qi "found nothing to terminate" "$terminate_log"; then
       cat "$terminate_log" >> "$capture_log"
     fi
@@ -803,7 +803,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
     write_blocker \
       "$ios_blocker" \
       "CoreSimulator" \
-      "xcrun simctl launch/io $ios_udid app.spoonjoy.Spoonjoy $ios_screenshot" \
+      "xcrun simctl launch/io $ios_udid app.spoonjoy $ios_screenshot" \
       "$capture_log" \
       "CoreSimulator could not capture a foreground Spoonjoy iOS screenshot for route $screenshot_route." \
       "Boot an available iPhone simulator, confirm Spoonjoy stays foregrounded, and rerun screenshot capture."
@@ -861,7 +861,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   screenshot_proof_path="$proof_file"
   write_app_state "$state_file" "$expected_recorded_route"
   write_cache_state "$cache_file" "$screenshot_route"
-  osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
+  osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
   pkill -x Spoonjoy >/dev/null 2>&1 || true
   sleep 1
   open_macos_app
@@ -911,7 +911,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   fi
   if [[ ! -f "$macos_blocker" ]] && ! capture_macos_window; then
     printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
-    osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
+    osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
     pkill -x Spoonjoy >/dev/null 2>&1 || true
     sleep 1
     rm -f "$proof_file"
@@ -973,7 +973,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy window capture was unavailable in the macOS GUI session." \
       "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
   fi
-  osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
+  osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
   pkill -x Spoonjoy >/dev/null 2>&1 || true
 fi
 

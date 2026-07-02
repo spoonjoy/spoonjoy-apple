@@ -179,8 +179,8 @@ if [[ "$boot_status" -ne 0 ]]; then
 fi
 
 {
-  printf 'Uninstalling stale app before fresh install: %s app.spoonjoy.Spoonjoy\n' "$udid"
-  xcrun simctl uninstall "$udid" app.spoonjoy.Spoonjoy || true
+  printf 'Uninstalling stale app before fresh install: %s app.spoonjoy\n' "$udid"
+  xcrun simctl uninstall "$udid" app.spoonjoy || true
   printf 'Installing app: %s\n' "$app_path"
   set +e
   run_with_timeout "xcrun simctl install $udid '$app_path'"
@@ -195,9 +195,9 @@ if [[ "$install_status" -ne 0 ]]; then
 fi
 
 {
-  printf 'Launching app: %s app.spoonjoy.Spoonjoy\n' "$launch_command"
+  printf 'Launching app: %s app.spoonjoy\n' "$launch_command"
   set +e
-  run_with_timeout "$launch_command $udid app.spoonjoy.Spoonjoy"
+  run_with_timeout "$launch_command $udid app.spoonjoy"
   launch_status=$?
   set -e
   printf 'simulator launch exit code: %s\n' "$launch_status"

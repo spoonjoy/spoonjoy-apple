@@ -136,7 +136,7 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
   proof = JSON.parse(proof_path.read)
   fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
   fail_check("#{proof_path} platform must be ios or macos") unless ["ios", "macos"].include?(proof["platform"])
-  expected_bundle_identifier = proof["platform"] == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy"
+  expected_bundle_identifier = proof["platform"] == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
   fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
   fail_check("#{proof_path} source must be #{expected_accessibility_source(route)}") unless proof["source"] == expected_accessibility_source(route)
   fail_check("#{proof_path} emittedBy must be SpoonjoyApp") unless proof["emittedBy"] == "SpoonjoyApp"

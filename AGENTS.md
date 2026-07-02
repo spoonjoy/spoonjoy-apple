@@ -29,7 +29,7 @@ The app must feel native and still unmistakably Spoonjoy.
 
 - Target iOS 27 and macOS 27 forward.
 - Use one SwiftUI project with shared domain/API/cache/App Intents code and separate iOS/macOS targets unless planning proves a split is necessary.
-- Use the reverse-DNS namespace for `spoonjoy.app`; prefer bundle IDs such as `app.spoonjoy.Spoonjoy`.
+- Use the reverse-DNS namespace for `spoonjoy.app`; use `app.spoonjoy` for the primary iOS app and `app.spoonjoy.mac` for the macOS companion.
 - Do not depend on paid Apple Developer Program signing before local simulator and device validation. TestFlight waits until Apple Developer Program membership is available.
 
 ## Work Suite Autopilot

@@ -155,16 +155,16 @@ fi
 
 {
   printf 'Launching macOS app: %s\n' "$app_path"
-  osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
+  osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
   pkill -x Spoonjoy >/dev/null 2>&1 || true
   sleep 1
   rm -f "$state_file"
   open -n "$app_path"
   sleep 3
-  osascript -e "tell application id \"app.spoonjoy.Spoonjoy.mac\" to open location \"spoonjoy://search?q=${route_query}&scope=recipes\""
+  osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://search?q=${route_query}&scope=recipes\""
   pgrep -f "Spoonjoy" >/dev/null
   assert_route_proof "$expected_route"
-  osascript -e 'tell application id "app.spoonjoy.Spoonjoy.mac" to quit' >/dev/null 2>&1 || true
+  osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
   pkill -x Spoonjoy >/dev/null 2>&1 || true
   printf 'macOS smoke ok: %s\n' "$expected_route"
 } >> "$log_path" 2>&1
