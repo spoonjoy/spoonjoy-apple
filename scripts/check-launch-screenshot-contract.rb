@@ -346,7 +346,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         "route" => route,
         "source" => accessibility_source(route),
         "emittedBy" => "SpoonjoyApp",
-        "bundleIdentifier" => platform == "macos" ? "app.spoonjoy.Spoonjoy.mac" : "app.spoonjoy.Spoonjoy",
+        "bundleIdentifier" => platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy",
         "minimumTargetSize" => 44,
         "textFits" => true,
         "noTinyClusters" => true,
@@ -871,7 +871,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
               accessibility_source="SettingsView"
               ;;
           esac
-          write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy.Spoonjoy" "$accessibility_source"
+          write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy" "$accessibility_source"
         fi
         if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH:-}" ]]; then
           account_id="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
@@ -907,13 +907,13 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
             printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
           fi
         fi
-        printf 'app.spoonjoy.Spoonjoy: 12345\n'
+        printf 'app.spoonjoy: 12345\n'
         ;;
       simctl\ terminate\ *)
         exit 0
         ;;
       simctl\ spawn\ *\ log\ show*)
-        printf 'Front display did change: <SBApplication; app.spoonjoy.Spoonjoy>\n'
+        printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
         ;;
       simctl\ io\ *\ screenshot\ *)
         out="${@: -1}"
@@ -1058,7 +1058,7 @@ PY
           accessibility_source="SettingsView"
           ;;
       esac
-      write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.Spoonjoy.mac" "$accessibility_source"
+      write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.mac" "$accessibility_source"
     fi
   SH
   write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")

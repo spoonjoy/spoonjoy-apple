@@ -184,7 +184,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   end
 
   {
-	    "app.spoonjoy.Spoonjoy" => {
+	    "app.spoonjoy" => {
 	      "Debug" => {
 	        "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_SIGNED_APPLE_AUTH\""
@@ -198,7 +198,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
 	      }
 	    },
-	    "app.spoonjoy.Spoonjoy.mac" => {
+	    "app.spoonjoy.mac" => {
 	      "Debug" => {
 	        "MACOSX_DEPLOYMENT_TARGET" => "27.0",
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_SIGNED_APPLE_AUTH\""

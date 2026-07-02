@@ -15,8 +15,8 @@ DEFAULT_ARTIFACT_ROOT = ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-
 AASA_URL = URI("https://spoonjoy.app/.well-known/apple-app-site-association")
 APPLE_TEAM_ID_PATTERN = /\A[A-Z0-9]{10}\z/
 APP_BUNDLE_IDS = [
-  "app.spoonjoy.Spoonjoy",
-  "app.spoonjoy.Spoonjoy.mac"
+  "app.spoonjoy",
+  "app.spoonjoy.mac"
 ].freeze
 
 options = {
@@ -249,7 +249,7 @@ else
     "blockerReason" => reason,
     "command" => (["ruby", "scripts/validate-aasa.rb"] + original_argv).join(" "),
     "outputPath" => relative_output,
-    "ownerAction" => "Publish a valid AASA file on spoonjoy.app with one common 10-character Apple Team ID for app.spoonjoy.Spoonjoy and app.spoonjoy.Spoonjoy.mac, or rerun with a valid --team-id when the production Apple Team ID changes."
+    "ownerAction" => "Publish a valid AASA file on spoonjoy.app with one common 10-character Apple Team ID for app.spoonjoy and app.spoonjoy.mac, or rerun with a valid --team-id when the production Apple Team ID changes."
   )) + "\n")
   artifact_root.join("aasa-validation.json").delete if artifact_root.join("aasa-validation.json").file?
   puts "aasa production blocked: #{relative_output}"
