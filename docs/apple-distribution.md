@@ -28,6 +28,11 @@ beta group, `Spoonjoy Internal`. The package command archives the `Spoonjoy iOS`
 Release scheme and exports an IPA under `build/apple/testflight/` using
 `distribution/ExportOptions.testflight.plist`.
 
+`scripts/package-testflight-ios.sh` defaults
+`SPOONJOY_TESTFLIGHT_IOS_DEPLOYMENT_TARGET` to `26.0` so the archive is accepted
+by the installed Xcode 26.x iOS SDK. Override it when building with an SDK that
+supports the repo's iOS 27 baseline.
+
 ```bash
 scripts/check-apple-distribution-kit.sh
 

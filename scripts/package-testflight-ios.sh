@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARCHIVE_PATH="$ROOT_DIR/build/apple/Spoonjoy.xcarchive"
 EXPORT_PATH="$ROOT_DIR/build/apple/testflight"
 IPA_PATH="$EXPORT_PATH/Spoonjoy.ipa"
+IOS_DEPLOYMENT_TARGET="${SPOONJOY_TESTFLIGHT_IOS_DEPLOYMENT_TARGET:-26.0}"
 
 fail() {
   printf 'package-testflight-ios failed: %s\n' "$1" >&2
@@ -38,7 +39,8 @@ xcodebuild \
   -archivePath "$ARCHIVE_PATH" \
   archive \
   -allowProvisioningUpdates \
-  DEVELOPMENT_TEAM=743GT2AJ24
+  DEVELOPMENT_TEAM=743GT2AJ24 \
+  IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET"
 
 xcodebuild \
   "${auth_args[@]}" \
