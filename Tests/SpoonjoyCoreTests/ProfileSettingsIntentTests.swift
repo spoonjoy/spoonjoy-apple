@@ -75,6 +75,7 @@ struct ProfileSettingsIntentTests {
                     "struct SpoonjoyAccountConnectionEntity: AppEntity",
                     "struct SpoonjoyAccountConnectionEntityQuery: EntityQuery, EntityStringQuery",
                     "struct SpoonjoySettingsAuthProviderOption: AppEnum",
+                    "DisplayRepresentation(title: \"Device Sign-In\")",
                     "resolvedCredentialID() throws",
                     "resolvedConnectionID() throws",
                     "tokenPrefix",
@@ -1147,7 +1148,8 @@ private func profileSettingsIntentForbiddenSecretTokens() -> [String] {
         "rawToken",
         "tokenSecret",
         "revealedSecret",
-        "secretValue"
+        "secretValue",
+        "DisplayRepresentation(title: \"Apple\")"
     ]
 }
 

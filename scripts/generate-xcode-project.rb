@@ -78,7 +78,7 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
       build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = ENTITLEMENTS
     end
     build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
-    build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "1"
+    build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "2"
     build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)
     build_configuration.build_settings["ASSETCATALOG_COMPILER_APPICON_NAME"] = "AppIcon"
     build_configuration.build_settings.delete("ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME")
