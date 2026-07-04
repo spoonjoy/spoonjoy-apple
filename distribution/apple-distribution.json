@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "app": {
+    "name": "Spoonjoy",
+    "bundleId": "app.spoonjoy",
+    "sku": "app-spoonjoy-ios",
+    "primaryLocale": "en-US"
+  },
+  "team": {
+    "teamId": "743GT2AJ24",
+    "providerPublicId": "9735080289"
+  },
+  "channels": [
+    {
+      "id": "ios-testflight",
+      "platform": "ios",
+      "distribution": "testflight",
+      "bundleId": "app.spoonjoy",
+      "buildCommand": "swift test && scripts/check-xcode-project-contract.rb",
+      "packageCommand": "scripts/package-testflight-ios.sh",
+      "store": {
+        "version": "1.0",
+        "copyright": "Copyright (c) 2026 Ari Mendelow",
+        "category": "FOOD_AND_DRINK",
+        "screenshots": [],
+        "privacy": {
+          "policyUrl": "https://spoonjoy.app/privacy",
+          "collectsData": true
+        },
+        "exportCompliance": {
+          "usesEncryption": true,
+          "exempt": true
+        }
+      },
+      "testflight": {
+        "groups": [
+          {
+            "name": "Spoonjoy Internal",
+            "type": "internal",
+            "feedbackEnabled": true
+          }
+        ],
+        "build": {
+          "whatsNew": "First native Spoonjoy iOS TestFlight build for internal dogfood.",
+          "autoNotifyEnabled": false,
+          "notifyTesters": false
+        },
+        "betaApp": {
+          "description": "Spoonjoy turns what you have into something worth eating.",
+          "feedbackEmail": "beta@spoonjoy.app",
+          "marketingUrl": "https://spoonjoy.app"
+        }
+      }
+    }
+  ]
+}
