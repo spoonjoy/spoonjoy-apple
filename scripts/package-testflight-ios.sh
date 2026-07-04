@@ -11,10 +11,26 @@ fail() {
   exit 1
 }
 
+auth_args=()
+ASC_CONFIG="${APPLE_DISTRIBUTION_KIT_CONFIG:-$HOME/Library/Application Support/AppleDistributionKit/app-store-connect/config.json}"
+if [[ -f "$ASC_CONFIG" ]]; then
+  key_id="$(jq -r '.keyId // empty' "$ASC_CONFIG")"
+  issuer_id="$(jq -r '.issuerId // empty' "$ASC_CONFIG")"
+  key_path="$(jq -r '.privateKeyPath // empty' "$ASC_CONFIG")"
+  if [[ -n "$key_id" && -n "$issuer_id" && -f "$key_path" ]]; then
+    auth_args=(
+      -authenticationKeyPath "$key_path"
+      -authenticationKeyID "$key_id"
+      -authenticationKeyIssuerID "$issuer_id"
+    )
+  fi
+fi
+
 rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 mkdir -p "$(dirname "$ARCHIVE_PATH")" "$EXPORT_PATH"
 
 xcodebuild \
+  "${auth_args[@]}" \
   -project "$ROOT_DIR/Spoonjoy.xcodeproj" \
   -scheme "Spoonjoy iOS" \
   -configuration Release \
@@ -25,6 +41,7 @@ xcodebuild \
   DEVELOPMENT_TEAM=743GT2AJ24
 
 xcodebuild \
+  "${auth_args[@]}" \
   -exportArchive \
   -archivePath "$ARCHIVE_PATH" \
   -exportPath "$EXPORT_PATH" \
