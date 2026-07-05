@@ -5195,10 +5195,9 @@ struct NativeLiveStoreTests {
                 "return .missingEntitlement",
                 "signInFailureMessage",
                 "Sign in with Apple needs a signed Spoonjoy build",
-                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
                 "authorization_request_started",
                 "backend_exchange_started",
-                "providerCode"
+                "NativeAppleSignInTelemetry.logFailure"
             ],
             forbids: [
                 "offlineIndicatorDisplay",
@@ -5209,6 +5208,18 @@ struct NativeLiveStoreTests {
                 "Could not finish sign-in: \\(error)",
                 "SpoonjoyLogoPath"
             ]
+        )
+
+        let appleTelemetry = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift"))
+        expectContent(
+            appleTelemetry,
+            in: "Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift",
+            contains: [
+                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
+                "diagnosticCode(for error: Error)",
+                "providerCode"
+            ],
+            forbids: []
         )
         let markSource = try readRepoFile("Apps/Spoonjoy/Shared/Assets.xcassets/SpoonjoyMark.imageset/source.svg")
         #expect(markSource.contains(#"viewBox="0 0 500 300""#))

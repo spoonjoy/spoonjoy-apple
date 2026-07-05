@@ -411,11 +411,8 @@ struct NativeAuthSessionTests {
                 "signInFailureMessage(for error: Error)",
                 "com.apple.developer.applesignin",
                 "Sign in with Apple needs a signed Spoonjoy build",
-                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
                 "authorization_request_started",
-                "backend_exchange_started",
-                "appleSignInDiagnosticCode(for error: Error)",
-                "providerCode"
+                "backend_exchange_started"
             ],
             forbids: [
                 "authRequired:",
@@ -434,6 +431,18 @@ struct NativeAuthSessionTests {
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
+        )
+
+        let appleTelemetry = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift")
+        expectContent(
+            appleTelemetry,
+            in: "Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift",
+            contains: [
+                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
+                "diagnosticCode(for error: Error)",
+                "providerCode"
+            ],
+            forbids: []
         )
     }
 
