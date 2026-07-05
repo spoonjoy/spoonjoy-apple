@@ -1,5 +1,6 @@
 import AuthenticationServices
 import CryptoKit
+import OSLog
 import Security
 import SpoonjoyCore
 import SwiftUI
@@ -8,6 +9,7 @@ struct SignedOutSetupView: View {
     private static let liveAppleSignInIdentifier = "native Apple sign-in"
     private static let livePasswordSignInIdentifier = "native password sign-in"
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
+    private static let appleSignInLogger = Logger(subsystem: "app.spoonjoy", category: "auth.apple")
 
     let authRepository: NativeAuthSessionRepository
     let pendingRoute: AppRoute
@@ -232,6 +234,7 @@ struct SignedOutSetupView: View {
                     isSigningIn = true
                     statusTone = .progress
                     authStatus = "Waiting for Apple sign-in."
+                    Self.logAppleSignInPhase("authorization_request_started")
                 } onCompletion: { result in
                     Task {
                         await handleAppleAuthorization(result)
@@ -404,17 +407,21 @@ struct SignedOutSetupView: View {
         defer { isSigningIn = false }
         do {
             let authorization = try result.get()
+            Self.logAppleSignInPhase("authorization_completed")
             guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                Self.logAppleSignInFailure(phase: "credential_validation_failed", code: "missing_apple_id_credential")
                 statusTone = .error
                 authStatus = "Apple could not share the sign-in details Spoonjoy needs. Try again."
                 return
             }
             guard let nonce = currentNonce else {
+                Self.logAppleSignInFailure(phase: "credential_validation_failed", code: "missing_nonce")
                 statusTone = .error
                 authStatus = "That Apple sign-in expired. Try again."
                 return
             }
             guard let identityToken = appleIDCredential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else {
+                Self.logAppleSignInFailure(phase: "credential_validation_failed", code: "missing_identity_token")
                 statusTone = .error
                 authStatus = "Apple did not finish this sign-in. Try again."
                 return
@@ -426,7 +433,9 @@ struct SignedOutSetupView: View {
                 email: appleIDCredential.email,
                 fullName: fullName?.isEmpty == true ? nil : fullName
             )
+            Self.logAppleSignInPhase("backend_exchange_started")
             _ = try await authRepository.handleAppleSignInCredential(credential)
+            Self.logAppleSignInPhase("backend_exchange_succeeded")
             currentNonce = nil
             canDisconnect = true
             statusTone = .success
@@ -435,10 +444,12 @@ struct SignedOutSetupView: View {
         } catch {
             if let authorizationError = error as? ASAuthorizationError,
                authorizationError.code == .canceled {
+                Self.logAppleSignInPhase("authorization_canceled")
                 statusTone = .neutral
                 authStatus = "Apple sign-in canceled."
                 return
             }
+            Self.logAppleSignInFailure(phase: "sign_in_failed", code: Self.appleSignInDiagnosticCode(for: error))
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }
@@ -520,6 +531,42 @@ struct SignedOutSetupView: View {
     private static func sha256(_ input: String) -> String {
         let digest = SHA256.hash(data: Data(input.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func logAppleSignInPhase(_ phase: String) {
+        appleSignInLogger.info("phase=\(phase, privacy: .public)")
+    }
+
+    private static func logAppleSignInFailure(phase: String, code: String) {
+        appleSignInLogger.error("phase=\(phase, privacy: .public) error_code=\(code, privacy: .public)")
+    }
+
+    private static func appleSignInDiagnosticCode(for error: Error) -> String {
+        if let authorizationError = error as? ASAuthorizationError {
+            return "as_authorization_\(authorizationError.code.rawValue)"
+        }
+        if let transportError = error as? APITransportError {
+            if let providerCode = providerCode(from: transportError.apiError) {
+                return "provider_\(providerCode)"
+            }
+            if let apiError = transportError.apiError {
+                return "api_\(apiError.code)_\(apiError.status)"
+            }
+            if let statusCode = transportError.statusCode {
+                return "http_\(statusCode)"
+            }
+            return "transport_\(String(describing: transportError.kind))"
+        }
+        return "unexpected_\(String(describing: type(of: error)))"
+    }
+
+    private static func providerCode(from apiError: APIError?) -> String? {
+        guard let providerCode = apiError?.details["providerCode"],
+              case .string(let value) = providerCode,
+              !value.isEmpty else {
+            return nil
+        }
+        return value
     }
 
     private func revokeAndLogout() async {

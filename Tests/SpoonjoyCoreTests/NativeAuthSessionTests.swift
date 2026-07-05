@@ -410,7 +410,12 @@ struct NativeAuthSessionTests {
                 "native Apple sign-in",
                 "signInFailureMessage(for error: Error)",
                 "com.apple.developer.applesignin",
-                "Sign in with Apple needs a signed Spoonjoy build"
+                "Sign in with Apple needs a signed Spoonjoy build",
+                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
+                "authorization_request_started",
+                "backend_exchange_started",
+                "appleSignInDiagnosticCode(for error: Error)",
+                "providerCode"
             ],
             forbids: [
                 "authRequired:",

@@ -1,11 +1,14 @@
 import SpoonjoyCore
 import SwiftUI
+import OSLog
 
 #if canImport(CoreSpotlight)
 import CoreSpotlight
 #endif
 
 struct SpoonjoyRootView: View {
+    private static let appleSignInLogger = Logger(subsystem: "app.spoonjoy", category: "auth.apple")
+
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
@@ -265,10 +268,18 @@ struct SpoonjoyRootView: View {
                 )
             },
             exchangeAppleCredential: { credential in
-                try await OAuthURLSessionSupport.sendDecoded(
-                    try NativeAppleSignInRequests.exchangeCredential(credential),
-                    configuration: configuration
-                )
+                Self.appleSignInLogger.info("phase=backend_request_started")
+                do {
+                    let response: OAuthTokenResponse = try await OAuthURLSessionSupport.sendDecoded(
+                        try NativeAppleSignInRequests.exchangeCredential(credential),
+                        configuration: configuration
+                    )
+                    Self.appleSignInLogger.info("phase=backend_request_succeeded")
+                    return response
+                } catch {
+                    Self.appleSignInLogger.error("phase=backend_request_failed error_code=\(Self.nativeAppleExchangeDiagnosticCode(for: error), privacy: .public)")
+                    throw error
+                }
             },
             exchangePasswordCredential: { credential in
                 try await OAuthURLSessionSupport.sendDecoded(
@@ -338,6 +349,31 @@ struct SpoonjoyRootView: View {
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
+    }
+
+    private static func nativeAppleExchangeDiagnosticCode(for error: Error) -> String {
+        if let transportError = error as? APITransportError {
+            if let providerCode = providerCode(from: transportError.apiError) {
+                return "provider_\(providerCode)"
+            }
+            if let apiError = transportError.apiError {
+                return "api_\(apiError.code)_\(apiError.status)"
+            }
+            if let statusCode = transportError.statusCode {
+                return "http_\(statusCode)"
+            }
+            return "transport_\(String(describing: transportError.kind))"
+        }
+        return "unexpected_\(String(describing: type(of: error)))"
+    }
+
+    private static func providerCode(from apiError: APIError?) -> String? {
+        guard let providerCode = apiError?.details["providerCode"],
+              case .string(let value) = providerCode,
+              !value.isEmpty else {
+            return nil
+        }
+        return value
     }
 
     private static func defaultAPIConfiguration(environment: [String: String]) -> APIClientConfiguration {

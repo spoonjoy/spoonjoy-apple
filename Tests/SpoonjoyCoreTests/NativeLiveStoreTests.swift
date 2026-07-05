@@ -5194,7 +5194,11 @@ struct NativeLiveStoreTests {
                 "#elseif SPOONJOY_SIGNED_APPLE_AUTH",
                 "return .missingEntitlement",
                 "signInFailureMessage",
-                "Sign in with Apple needs a signed Spoonjoy build"
+                "Sign in with Apple needs a signed Spoonjoy build",
+                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
+                "authorization_request_started",
+                "backend_exchange_started",
+                "providerCode"
             ],
             forbids: [
                 "offlineIndicatorDisplay",
