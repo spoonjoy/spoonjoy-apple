@@ -199,7 +199,6 @@ struct SpoonEntityTests {
                     label: "bootstrapAndDrain scoped spoon tombstone purge",
                     pattern: #"public\s+func\s+bootstrapAndDrain\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger,\s*scope: NativeSyncExecutionScope\s*\)"#,
                     requiredTokens: [
-                        "case .success(let cursor, let tombstones)",
                         "SpoonEntityIndexPurgePlan.tombstonePurge",
                         "spoonEntityAccountScopePurgePlan",
                         "spoonEntityPurgeIdentifiers",
@@ -209,6 +208,17 @@ struct SpoonEntityTests {
                         "SpoonEntityCatalog.purgeDomainIdentifiers(",
                         "NativeSyncResourceType.spoon",
                         "removedCacheKeys"
+                    ],
+                    forbiddenTokens: []
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",
+                    label: "applyBootstrap records legacy spoon tombstones",
+                    pattern: #"private\s+func\s+applyBootstrap\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger"#,
+                    requiredTokens: [
+                        "case .success(let cursor, let tombstones)",
+                        "store.appendTombstone(tombstone)",
+                        "store.saveCheckpoint(checkpoint)"
                     ],
                     forbiddenTokens: []
                 )

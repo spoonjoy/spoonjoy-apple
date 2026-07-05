@@ -47,7 +47,7 @@ struct OfflineStatusView: View {
         case .queuedWork(let count, _):
             "\(count) offline \(count == 1 ? "change" : "changes") queued"
         case .syncFailure:
-            "Sync needs attention"
+            "Sync could not finish"
         case .conflict:
             "Offline conflict needs review"
         case .blocker(let blocker):

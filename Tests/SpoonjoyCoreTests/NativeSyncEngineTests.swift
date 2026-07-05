@@ -184,6 +184,96 @@ struct NativeSyncEngineTests {
         #expect(snapshot.queue.mutations.isEmpty)
     }
 
+    @Test("sync engine drains every bootstrap page before restoring the live cache")
+    func syncEngineDrainsEveryBootstrapPageBeforeRestoringLiveCache() async throws {
+        let freshness = NativeSyncFreshness(
+            accountID: "chef_ari",
+            environment: .local,
+            schemaVersion: 2,
+            sourceEndpoint: "/api/v1/me/sync",
+            generatedAt: "2026-07-05T18:45:00.000Z",
+            lastValidatedAt: "2026-07-05T18:45:00.000Z"
+        )
+        let pageOne = NativeSyncData(
+            freshness: freshness,
+            entries: [
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .profile,
+                    resourceID: "chef_ari",
+                    updatedAt: "2026-07-05T18:45:01.000Z",
+                    payload: .object(["username": .string("ari")]),
+                    tombstone: nil
+                ),
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .recipe,
+                    resourceID: "recipe_page_one",
+                    updatedAt: "2026-07-05T18:45:02.000Z",
+                    payload: .object(["title": .string("First page recipe")]),
+                    tombstone: nil
+                )
+            ],
+            nextCursor: PaginationCursor(rawValue: "v1.page.two"),
+            hasMore: true
+        )
+        let pageTwo = NativeSyncData(
+            freshness: freshness,
+            entries: [
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .recipe,
+                    resourceID: "recipe_page_two",
+                    updatedAt: "2026-07-05T18:45:03.000Z",
+                    payload: .object(["title": .string("Second page recipe")]),
+                    tombstone: nil
+                ),
+                NativeSyncEntry(
+                    action: .upsert,
+                    kind: .cookbook,
+                    resourceID: "cookbook_page_two",
+                    updatedAt: "2026-07-05T18:45:04.000Z",
+                    payload: .object(["title": .string("Second page cookbook")]),
+                    tombstone: nil
+                )
+            ],
+            nextCursor: PaginationCursor(rawValue: "v1.done"),
+            hasMore: false
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: []
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrapPages: [.syncData(pageOne), .syncData(pageTwo)],
+            mutationResults: []
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .launch, scope: boundScope)
+        let snapshot = await store.loadSnapshot()
+
+        #expect(report.bootstrapCursor?.rawValue == "v1.done")
+        #expect(snapshot.cachedRecords.map(\.cacheKey) == [
+            "cookbook:cookbook_page_two",
+            "profile:chef_ari",
+            "recipe:recipe_page_one",
+            "recipe:recipe_page_two"
+        ])
+        #expect(try await store.loadCheckpoint().globalCursor?.rawValue == "v1.done")
+        #expect(await transport.requestPaths == ["/api/v1/me/sync", "/api/v1/me/sync"])
+        #expect(await transport.bootstrapQueryItemPages == [
+            [URLQueryItem(name: "limit", value: "20")],
+            [
+                URLQueryItem(name: "limit", value: "20"),
+                URLQueryItem(name: "cursor", value: "v1.page.two")
+            ]
+        ])
+    }
+
     @Test("bootstrap account switch reports previous shopping entity purge identifiers")
     func bootstrapAccountSwitchReportsPreviousShoppingEntityPurgeIdentifiers() async throws {
         let previousItems = [
@@ -5028,21 +5118,28 @@ private func withTemporaryDirectory<T>(_ body: (URL) async throws -> T) async th
 }
 
 private actor RecordingNativeSyncTransport: NativeSyncTransport {
-    private let bootstrapResult: NativeSyncBootstrapResult
+    private var bootstrapResults: [NativeSyncBootstrapResult]
     private var mutationResults: [NativeSyncMutationResult]
     private(set) var requestPaths: [String] = []
     private(set) var bootstrapQueryItems: [URLQueryItem] = []
+    private(set) var bootstrapQueryItemPages: [[URLQueryItem]] = []
     private(set) var clientMutationIDs: [String] = []
 
     init(bootstrap: NativeSyncBootstrapResult, mutationResults: [NativeSyncMutationResult]) {
-        self.bootstrapResult = bootstrap
+        self.bootstrapResults = [bootstrap]
+        self.mutationResults = mutationResults
+    }
+
+    init(bootstrapPages: [NativeSyncBootstrapResult], mutationResults: [NativeSyncMutationResult]) {
+        self.bootstrapResults = bootstrapPages
         self.mutationResults = mutationResults
     }
 
     func bootstrap(request: APIRequest, configuration: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
         requestPaths.append(request.url.path)
         bootstrapQueryItems = request.queryItems
-        return bootstrapResult
+        bootstrapQueryItemPages.append(request.queryItems)
+        return bootstrapResults.count > 1 ? bootstrapResults.removeFirst() : bootstrapResults[0]
     }
 
     func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
