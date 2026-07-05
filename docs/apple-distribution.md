@@ -146,3 +146,65 @@ externally testable; use `betaTesterInvitations` instead.
 
 External TestFlight and public App Store submission are intentionally outside
 this lane.
+
+## Reactive TestFlight Feedback
+
+Spoonjoy uses an App Store Connect webhook for TestFlight screenshot and crash
+feedback so Codex only wakes when Apple reports new tester feedback. The local
+listener is `scripts/testflight-feedback-autopilot.mjs`; it verifies Apple's
+HMAC signature, fetches the exact App Store Connect feedback record, downloads
+submitted screenshots, de-dupes feedback IDs that were already handled, and
+launches `codex exec resume` with the feedback artifacts attached.
+
+Seed existing feedback before enabling a webhook, otherwise historical TestFlight
+submissions can look new:
+
+```bash
+scripts/testflight-feedback-autopilot.mjs seed-current
+```
+
+Register or update the App Store Connect webhook after the public tunnel is
+reachable:
+
+```bash
+scripts/testflight-feedback-autopilot.mjs register \
+  --url https://spoonjoy-testflight-feedback.ouro.bot/app-store-connect/webhook
+```
+
+The webhook must stay enabled for:
+
+- `BETA_FEEDBACK_SCREENSHOT_SUBMISSION_CREATED`
+- `BETA_FEEDBACK_CRASH_SUBMISSION_CREATED`
+
+Validate the path after registration:
+
+```bash
+curl -fsS http://127.0.0.1:48973/health | jq .
+curl -fsS https://spoonjoy-testflight-feedback.ouro.bot/health | jq .
+
+scripts/testflight-feedback-autopilot.mjs smoke
+scripts/testflight-feedback-autopilot.mjs ping
+scripts/testflight-feedback-autopilot.mjs doctor | jq \
+  '{ok, health, handledInstanceIds, launchedEventIds, registeredWebhooks}'
+
+scripts/apple-distribution-kit.sh asc get \
+  --path /v1/apps/6787505444/webhooks \
+  --json
+```
+
+The durable local jobs are launchd user agents:
+
+- `com.spoonjoy.testflight-feedback-listener`
+- `com.spoonjoy.testflight-feedback-tunnel`
+
+Check them with:
+
+```bash
+uid="$(id -u)"
+launchctl print "gui/$uid/com.spoonjoy.testflight-feedback-listener"
+launchctl print "gui/$uid/com.spoonjoy.testflight-feedback-tunnel"
+```
+
+Do not re-enable a Codex heartbeat poller for this lane unless webhooks are
+unavailable. Heartbeats spend agent turns even when no feedback exists; this
+webhook path leaves Codex idle until Apple emits a new feedback event.
