@@ -62,8 +62,12 @@ struct SpoonjoyRootView: View {
             platformNavigation(contentState: contentState)
         case .destructiveConfirmation(let contentState):
             platformNavigation(contentState: contentState)
-        case .syncFailed(let contentState, _):
-            platformNavigation(contentState: contentState)
+        case .syncFailed(let contentState, let message):
+            if hasRenderableKitchenContent(contentState) {
+                platformNavigation(contentState: contentState)
+            } else {
+                syncFailedView(contentState: contentState, message: message)
+            }
         }
     }
 
@@ -184,15 +188,56 @@ struct SpoonjoyRootView: View {
     }
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ProgressView()
-            Text("Restoring Spoonjoy")
-                .font(.headline)
+        VStack(spacing: 18) {
+            Text("Spoonjoy")
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            ProgressView {
+                Text("Restoring your kitchen")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+            }
+            .controlSize(.large)
             OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding()
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(32)
         .background(KitchenTableTheme.bone)
+    }
+
+    private func syncFailedView(contentState: NativeShellContentState, message _: String) -> some View {
+        VStack(spacing: 18) {
+            Image(systemName: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(KitchenTableTheme.tomato)
+            Text("We couldn't load your kitchen")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text("Your Spoonjoy account is signed in. Try again to finish the first sync.")
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.78))
+                .multilineTextAlignment(.center)
+            Button {
+                Task {
+                    await liveStore.bootstrap()
+                    applyRestoredRouteIfNeeded()
+                }
+            } label: {
+                Label("Try Again", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
+            OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(32)
+        .background(KitchenTableTheme.bone)
+    }
+
+    private func hasRenderableKitchenContent(_ contentState: NativeShellContentState) -> Bool {
+        !contentState.recipes.isEmpty ||
+            !contentState.cookbooks.isEmpty ||
+            !(contentState.shoppingList?.activeItems.isEmpty ?? true)
     }
 
     private func applyURL(_ url: URL) {
@@ -324,11 +369,15 @@ struct SpoonjoyRootView: View {
             },
             configuration: configuration,
             cacheEnvironment: Self.defaultCacheEnvironment(configuration: configuration),
-            settingsSurfaceFetch: { accountID, environment, configuration, cache in
+            settingsSurfaceFetch: { accountID, environment, configuration, cache, grantedScopes in
                 try await LiveSettingsSurfaceRepository(
                     cache: cache,
                     configuration: configuration
-                ).fetchSettingsSurface(accountID: accountID, environment: environment)
+                ).fetchSettingsSurface(
+                    accountID: accountID,
+                    environment: environment,
+                    grantedScopes: grantedScopes
+                )
             },
             stagedMediaDirectory: stagedMediaDirectory,
             shoppingEntityIndexPurge: { request in

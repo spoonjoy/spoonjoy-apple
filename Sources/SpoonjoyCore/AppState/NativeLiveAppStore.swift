@@ -1,11 +1,15 @@
 import Combine
 import Foundation
+#if canImport(OSLog)
+import OSLog
+#endif
 
 public typealias NativeSettingsSurfaceFetchOperation = @Sendable (
     _ accountID: String,
     _ environment: NativeCacheEnvironment,
     _ configuration: APIClientConfiguration,
-    _ cache: NativeDurableCache
+    _ cache: NativeDurableCache,
+    _ grantedScopes: Set<String>
 ) async throws -> SettingsSurfaceResult
 
 public struct NativeShoppingEntityIndexPurgeRequest: Equatable, Sendable {
@@ -2919,7 +2923,11 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
-        try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
+        do {
+            try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
+        } catch {
+            NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
+        }
         let drainedOverlayMutations = report.drainedMutations.filter {
             !$0.mutatesRecipeCache && !$0.mutatesShoppingCache && !$0.mutatesCookbookCache
         }
@@ -2981,7 +2989,8 @@ public final class NativeLiveAppStore: ObservableObject {
             accountID,
             cacheEnvironment,
             configuration,
-            NativeDurableCache(records: currentSnapshot.records)
+            NativeDurableCache(records: currentSnapshot.records),
+            grantedScopes(for: authSessionState)
         )
         let recordIDs = Set(result.persistedRecords.map(\.id))
         let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
@@ -3092,6 +3101,15 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    private func grantedScopes(for authSessionState: NativeAuthSessionState) -> Set<String> {
+        switch authSessionState {
+        case .signedOut:
+            []
+        case .authenticated(let session), .refreshRequired(let session):
+            Set(session.scope.split(separator: " ").map(String.init))
+        }
+    }
+
     private func authSessionStateByBindingReport(
         _ report: NativeSyncReport,
         session: AuthSession
@@ -3155,6 +3173,25 @@ public final class NativeLiveAppStore: ObservableObject {
 
 public enum NativeLiveAppStoreError: Error, Equatable, Sendable {
     case fixtureFallbackEnabledInProduction
+}
+
+private enum NativeLiveAppStoreTelemetry {
+#if canImport(OSLog)
+    private static let logger = Logger(subsystem: "app.spoonjoy", category: "app.bootstrap")
+#endif
+
+    static func settingsRefreshFailed(_ error: Error) {
+#if canImport(OSLog)
+        let type = String(describing: Swift.type(of: error))
+        if let transportError = error as? APITransportError {
+            logger.error(
+                "native_settings_refresh_failed error_type=\(type, privacy: .public) request_id=\(transportError.requestID ?? "none", privacy: .public) status=\(transportError.statusCode.map(String.init) ?? "none", privacy: .public) code=\(transportError.apiError?.code ?? "none", privacy: .public)"
+            )
+        } else {
+            logger.error("native_settings_refresh_failed error_type=\(type, privacy: .public)")
+        }
+#endif
+    }
 }
 
 private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {

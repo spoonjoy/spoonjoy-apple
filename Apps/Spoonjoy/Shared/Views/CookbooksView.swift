@@ -211,22 +211,30 @@ struct CookbookShelf: View {
                 .font(.title2)
                 .foregroundStyle(KitchenTableTheme.charcoal)
 
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(rows) { row in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Button {
-                                openRoute(row.openRoute)
-                            } label: {
-                                CookbookCover(row: row)
-                            }
-                            .buttonStyle(.plain)
-
-                            if let payload = row.sharePayload, let publicURL = payload.publicURL {
-                                ShareLink(item: publicURL) {
-                                    Label("Share", systemImage: "square.and.arrow.up")
+            if rows.isEmpty {
+                KitchenEmptySection(
+                    title: "No cookbooks saved yet",
+                    systemImage: "books.vertical",
+                    tint: KitchenTableTheme.brass
+                )
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(rows) { row in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Button {
+                                    openRoute(row.openRoute)
+                                } label: {
+                                    CookbookCover(row: row)
                                 }
-                                .font(KitchenTableTheme.uiLabel)
+                                .buttonStyle(.plain)
+
+                                if let payload = row.sharePayload, let publicURL = payload.publicURL {
+                                    ShareLink(item: publicURL) {
+                                        Label("Share", systemImage: "square.and.arrow.up")
+                                    }
+                                    .font(KitchenTableTheme.uiLabel)
+                                }
                             }
                         }
                     }

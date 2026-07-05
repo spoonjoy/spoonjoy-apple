@@ -1300,7 +1300,7 @@ struct NativeLiveStoreTests {
                 cacheStore: cacheStore,
                 syncStore: syncStore,
                 transport: syncTransport,
-                settingsSurfaceFetch: { accountID, environment, configuration, cache in
+                settingsSurfaceFetch: { accountID, environment, configuration, cache, _ in
                     await settingsFetchRecorder.record(
                         accountID: accountID,
                         environment: environment,
@@ -1343,6 +1343,47 @@ struct NativeLiveStoreTests {
             #expect(persisted.records.contains { $0.id == preexistingRecipeRecord.id })
             #expect(persisted.records.contains { $0.metadata.domain == .settings })
             #expect(persisted.records.contains { $0.metadata.domain == .notificationPreferences })
+        }
+    }
+
+    @MainActor
+    @Test("settings token-scope failure does not block live kitchen bootstrap")
+    func settingsTokenScopeFailureDoesNotBlockLiveKitchenBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_scope", title: "Scope-Safe Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw APITransportError(
+                        kind: .apiError,
+                        requestID: "req_settings_tokens_scope",
+                        statusCode: 403,
+                        apiError: APIError(
+                            requestID: "req_settings_tokens_scope",
+                            code: "insufficient_scope",
+                            message: "Missing required scope: tokens:read",
+                            status: 403
+                        ),
+                        retryDecision: .doNotRetry
+                    )
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.title) == ["Scope-Safe Pasta"])
+            #expect(content.settingsSurfaceData == nil)
+            #expect(content.offlineIndicatorState.display == .synced)
         }
     }
 
@@ -1440,7 +1481,7 @@ struct NativeLiveStoreTests {
                 syncStore: InMemoryNativeSyncStore(accountID: accountID, environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
                 transport: syncTransport,
                 appStateStoreProvider: { appStateStore },
-                settingsSurfaceFetch: { _, _, _, _ in
+                settingsSurfaceFetch: { _, _, _, _, _ in
                     throw NativeLiveStoreTestError.unexpectedRequest
                 },
                 bootstrapMode: .restoreCacheOnly
@@ -1543,7 +1584,7 @@ struct NativeLiveStoreTests {
                 appStateStoreProvider: { appStateStore },
                 configuration: configuration,
                 cacheEnvironment: .production,
-                settingsSurfaceFetch: { _, _, _, _ in
+                settingsSurfaceFetch: { _, _, _, _, _ in
                     throw NativeLiveStoreTestError.unexpectedRequest
                 },
                 bootstrapMode: .restoreCacheOnly,
@@ -1591,7 +1632,7 @@ struct NativeLiveStoreTests {
                 syncStore: InMemoryNativeSyncStore(accountID: "chef_untrusted", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
                 transport: syncTransport,
                 appStateStoreProvider: { appStateStore },
-                settingsSurfaceFetch: { _, _, _, _ in
+                settingsSurfaceFetch: { _, _, _, _, _ in
                     throw NativeLiveStoreTestError.unexpectedRequest
                 },
                 bootstrapMode: .restoreCacheOnly

@@ -352,6 +352,71 @@ struct SettingsTokenConnectionTests {
         #expect(cached.data.oauthConnections.map(\.id) == ["conn_cli"])
         #expect(cached.data.source == .cache(lastValidatedAt: transport.validatedAt))
 
+        let coreScopeTransport = RecordingSettingsSurfaceTransport(
+            account: SettingsAccountProfile(
+                id: "chef_ari",
+                email: "ari@example.com",
+                username: "ari",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [],
+                passkeys: []
+            ),
+            notifications: .disabled,
+            tokens: [
+                SettingsAPITokenSummary(
+                    id: "cred_unreadable",
+                    name: "Should not load",
+                    tokenPrefix: "sj_unreadable",
+                    scopes: ["tokens:read"],
+                    createdAt: "2026-06-01T00:00:00.000Z",
+                    updatedAt: "2026-06-02T00:00:00.000Z",
+                    lastUsedAt: nil,
+                    revokedAt: nil,
+                    expiresAt: nil
+                )
+            ],
+            connections: [
+                SettingsOAuthConnectionSummary(
+                    id: "conn_unreadable",
+                    clientID: "cm_unreadable",
+                    clientName: "Should not load",
+                    resource: nil,
+                    scopes: ["kitchen:read"],
+                    createdAt: "2026-06-02T00:00:00.000Z",
+                    refreshTokenCount: 1,
+                    accessTokenCount: 1
+                )
+            ]
+        )
+        let coreScopeRepository = LiveSettingsSurfaceRepository(
+            transport: coreScopeTransport,
+            cache: NativeDurableCache(records: []),
+            configuration: Self.configuration
+        )
+        let coreScope = try await coreScopeRepository.fetchSettingsSurface(
+            accountID: "chef_ari",
+            environment: .production,
+            grantedScopes: Set(NativeAuthSession.requiredSessionScopes)
+        )
+        #expect(coreScopeTransport.requestPaths == [
+            "/api/v1/me",
+            "/api/v1/me/notification-preferences"
+        ])
+        #expect(coreScope.data.tokenManagementAvailability == .unavailableMissingScope)
+        #expect(coreScope.data.apiTokens.isEmpty)
+        #expect(coreScope.data.oauthConnections.isEmpty)
+        let coreScopeViewModel = SettingsSurfaceViewModel(
+            data: coreScope.data,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now }
+        )
+        #expect(!coreScopeViewModel.sections.map(\.id).contains(.apiTokens))
+        #expect(!coreScopeViewModel.sections.map(\.id).contains(.connections))
+
         let emptySnapshot = try SnapshotSettingsSurfaceRepository(snapshot: SettingsSurfaceCacheSnapshot(
             accountID: "chef_empty",
             environment: .production,
