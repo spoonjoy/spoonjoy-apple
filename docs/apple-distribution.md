@@ -97,5 +97,44 @@ scripts/apple-distribution-kit.sh testflight publish \
   --json
 ```
 
+Verify the internal group has both the build and at least one tester before
+declaring the TestFlight lane complete:
+
+```bash
+scripts/apple-distribution-kit.sh asc get \
+  --path "/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/builds" \
+  --query 'limit=50' \
+  --json
+
+scripts/apple-distribution-kit.sh asc get \
+  --path "/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/betaTesters" \
+  --query 'limit=200' \
+  --json
+
+scripts/apple-distribution-kit.sh asc get \
+  --path "/v1/buildBetaDetails/$ASC_BUILD_BETA_DETAIL_ID" \
+  --json
+```
+
+The internal group is incomplete if the tester count is zero, even when the
+build relationship exists. In that case, do not return control. Use the App
+Store Connect API with the same Apple Distribution Kit credentials to create or
+reuse a `betaTesters` record for an existing App Store Connect user, attach it
+to `Spoonjoy Internal`, and send a `betaTesterInvitations` request for the
+Spoonjoy app:
+
+- `POST /v1/betaTesters` with the user's first name, last name, email, and a
+  `betaGroups` relationship to `$ASC_INTERNAL_GROUP_ID`.
+- `POST /v1/betaTesterInvitations` with `app=$ASC_APP_ID` and the resulting
+  `betaTester=$ASC_BETA_TESTER_ID`.
+
+After adding the tester, re-run the verification commands above. A successful
+internal-only publish should show the build in the group, a nonzero tester
+count, and `internalBuildState` as `IN_BETA_TESTING`.
+
+Do not use `POST /v1/buildBetaNotifications` as the internal invitation path.
+Apple rejects that endpoint for internal-only builds that have not been made
+externally testable; use `betaTesterInvitations` instead.
+
 External TestFlight and public App Store submission are intentionally outside
 this lane.
