@@ -43,11 +43,19 @@ scripts/apple-distribution-kit.sh testflight plan \
 
 scripts/package-testflight-ios.sh
 
+ASC_CONFIG="${APPLE_DISTRIBUTION_KIT_CONFIG:-$HOME/Library/Application Support/AppleDistributionKit/app-store-connect/config.json}"
+ASC_API_KEY="$(jq -r '.keyId' "$ASC_CONFIG")"
+ASC_API_ISSUER="$(jq -r '.issuerId' "$ASC_CONFIG")"
+ASC_P8_FILE="$(jq -r '.privateKeyPath' "$ASC_CONFIG")"
+
 scripts/apple-distribution-kit.sh xcode run \
   --kind altool-upload \
   --mode apply \
   --package-path build/apple/testflight/Spoonjoy.ipa \
   --platform ios \
+  --api-key "$ASC_API_KEY" \
+  --api-issuer "$ASC_API_ISSUER" \
+  --p8-file-path "$ASC_P8_FILE" \
   --provider-public-id 9735080289 \
   --json
 ```
