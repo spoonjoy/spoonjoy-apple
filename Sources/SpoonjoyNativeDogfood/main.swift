@@ -37,8 +37,17 @@ struct SpoonjoyNativeDogfood {
     }
 
     private static func run(arguments: DogfoodArguments) async throws -> DogfoodReport {
+        if let bearerTokenFileURL = arguments.bearerTokenFileURL {
+            return try await runBearerToken(arguments: arguments, bearerTokenFileURL: bearerTokenFileURL)
+        }
+
+        guard let password = arguments.password,
+              let vaultURL = arguments.vaultURL else {
+            throw DogfoodArgumentError.missingPassword
+        }
+
         let configuration = APIClientConfiguration(baseURL: arguments.baseURL)
-        let vault = FileBackedTokenVault(fileURL: arguments.vaultURL)
+        let vault = FileBackedTokenVault(fileURL: vaultURL)
         let repository = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple Dogfood",
@@ -60,7 +69,7 @@ struct SpoonjoyNativeDogfood {
         let session = try await repository.handlePasswordSignInCredential(
             NativePasswordSignInCredential(
                 emailOrUsername: arguments.identifier,
-                password: arguments.password
+                password: password
             )
         )
         let syncEnvelope = try await URLSessionAPITransport().send(
@@ -72,8 +81,9 @@ struct SpoonjoyNativeDogfood {
 
         return DogfoodReport(
             ok: true,
+            mode: "password",
             baseURL: arguments.baseURL.absoluteString,
-            vaultFile: arguments.vaultURL.path,
+            vaultFile: vaultURL.path,
             clientID: boundSession.clientID,
             accountID: syncEnvelope.data.freshness.accountID,
             tokenType: boundSession.tokenType,
@@ -81,7 +91,56 @@ struct SpoonjoyNativeDogfood {
             syncEnvironment: syncEnvelope.data.freshness.environment.rawValue,
             syncEntryCount: syncEnvelope.data.entries.count,
             syncHasMore: syncEnvelope.data.hasMore,
-            wroteVault: FileManager.default.fileExists(atPath: arguments.vaultURL.path)
+            syncCachedRecordCount: nil,
+            settingsFetched: nil,
+            tokenManagementAvailability: nil,
+            wroteVault: FileManager.default.fileExists(atPath: vaultURL.path)
+        )
+    }
+
+    private static func runBearerToken(arguments: DogfoodArguments, bearerTokenFileURL: URL) async throws -> DogfoodReport {
+        let rawToken = try String(contentsOf: bearerTokenFileURL, encoding: .utf8)
+        let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else {
+            throw DogfoodArgumentError.missingBearerToken
+        }
+
+        let configuration = APIClientConfiguration(baseURL: arguments.baseURL, bearerToken: token)
+        let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+        let syncEngine = NativeSyncEngine(store: syncStore, transport: URLSessionNativeSyncTransport())
+        let syncReport = try await syncEngine.bootstrapAndDrain(
+            configuration: configuration,
+            trigger: .launch,
+            scope: .unbound
+        )
+        let snapshot = await syncStore.loadSnapshot()
+        let accountID = try require(syncReport.accountID ?? snapshot.accountID, DogfoodArgumentError.missingSyncedAccount)
+        let environment = syncReport.environment ?? snapshot.environment ?? .production
+        let settings = try await LiveSettingsSurfaceRepository(
+            cache: NativeDurableCache(),
+            configuration: configuration
+        ).fetchSettingsSurface(
+            accountID: accountID,
+            environment: environment,
+            grantedScopes: arguments.grantedScopes
+        )
+
+        return DogfoodReport(
+            ok: true,
+            mode: "bearer",
+            baseURL: arguments.baseURL.absoluteString,
+            vaultFile: nil,
+            clientID: NativeAuthSession.nativeAppClientID,
+            accountID: accountID,
+            tokenType: "Bearer",
+            scopeCount: arguments.grantedScopes.count,
+            syncEnvironment: environment.rawValue,
+            syncEntryCount: snapshot.cachedRecords.count,
+            syncHasMore: false,
+            syncCachedRecordCount: snapshot.cachedRecords.count,
+            settingsFetched: settings.data.account != nil || settings.data.notifications != nil,
+            tokenManagementAvailability: "\(settings.data.tokenManagementAvailability)",
+            wroteVault: false
         )
     }
 }
@@ -89,9 +148,11 @@ struct SpoonjoyNativeDogfood {
 private struct DogfoodArguments: Equatable {
     let baseURL: URL
     let identifier: String
-    let password: String
-    let vaultURL: URL
+    let password: String?
+    let vaultURL: URL?
     let reportURL: URL?
+    let bearerTokenFileURL: URL?
+    let grantedScopes: Set<String>
 
     static func parse(_ arguments: [String], environment: [String: String] = ProcessInfo.processInfo.environment) throws -> DogfoodArguments {
         var baseURLString = environment["SPOONJOY_API_BASE_URL"] ?? "http://localhost:5173"
@@ -99,6 +160,8 @@ private struct DogfoodArguments: Equatable {
         let password = try passwordFromEnvironment(environment)
         var vaultPath = environment["SPOONJOY_NATIVE_DOGFOOD_VAULT"] ?? ""
         var reportPath = environment["SPOONJOY_NATIVE_DOGFOOD_REPORT"]
+        var bearerTokenFilePath = environment["SPOONJOY_NATIVE_DOGFOOD_BEARER_TOKEN_FILE"] ?? ""
+        var grantedScope = environment["SPOONJOY_NATIVE_DOGFOOD_SCOPE"] ?? NativeAuthSession.defaultScope
 
         var index = 0
         while index < arguments.count {
@@ -116,6 +179,10 @@ private struct DogfoodArguments: Equatable {
                 vaultPath = value
             case "--report":
                 reportPath = value
+            case "--bearer-token-file":
+                bearerTokenFilePath = value
+            case "--scope":
+                grantedScope = value
             default:
                 throw DogfoodArgumentError.unknownArgument(argument)
             }
@@ -129,33 +196,38 @@ private struct DogfoodArguments: Equatable {
             throw DogfoodArgumentError.invalidBaseURL(baseURLString)
         }
         let trimmedIdentifier = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedIdentifier.isEmpty else {
+        let trimmedBearerTokenFilePath = bearerTokenFilePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let usesBearerToken = !trimmedBearerTokenFilePath.isEmpty
+        guard usesBearerToken || !trimmedIdentifier.isEmpty else {
             throw DogfoodArgumentError.missingIdentifier
         }
-        guard !password.isEmpty else {
+        guard usesBearerToken || !(password?.isEmpty ?? true) else {
             throw DogfoodArgumentError.missingPassword
         }
         let trimmedVaultPath = vaultPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedVaultPath.isEmpty else {
+        guard usesBearerToken || !trimmedVaultPath.isEmpty else {
             throw DogfoodArgumentError.missingVault
         }
+        let scopes = Set(grantedScope.split(separator: " ").map(String.init))
 
         return DogfoodArguments(
             baseURL: baseURL,
             identifier: trimmedIdentifier,
             password: password,
-            vaultURL: URL(fileURLWithPath: (trimmedVaultPath as NSString).expandingTildeInPath),
-            reportURL: reportPath.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+            vaultURL: trimmedVaultPath.isEmpty ? nil : URL(fileURLWithPath: (trimmedVaultPath as NSString).expandingTildeInPath),
+            reportURL: reportPath.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) },
+            bearerTokenFileURL: usesBearerToken ? URL(fileURLWithPath: (trimmedBearerTokenFilePath as NSString).expandingTildeInPath) : nil,
+            grantedScopes: scopes
         )
     }
 
-    private static func passwordFromEnvironment(_ environment: [String: String]) throws -> String {
+    private static func passwordFromEnvironment(_ environment: [String: String]) throws -> String? {
         if let passwordFile = environment["SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE"]?.trimmingCharacters(in: .whitespacesAndNewlines),
            !passwordFile.isEmpty {
             let rawPassword = try String(contentsOfFile: (passwordFile as NSString).expandingTildeInPath, encoding: .utf8)
             return rawPassword.trimmingCharacters(in: .newlines)
         }
-        return environment["SPOONJOY_NATIVE_DOGFOOD_PASSWORD"] ?? ""
+        return environment["SPOONJOY_NATIVE_DOGFOOD_PASSWORD"]
     }
 }
 
@@ -166,6 +238,8 @@ private enum DogfoodArgumentError: Error, CustomStringConvertible {
     case missingIdentifier
     case missingPassword
     case missingVault
+    case missingBearerToken
+    case missingSyncedAccount
 
     var description: String {
         switch self {
@@ -181,14 +255,19 @@ private enum DogfoodArgumentError: Error, CustomStringConvertible {
             return "Set SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE or SPOONJOY_NATIVE_DOGFOOD_PASSWORD in the environment; CLI password arguments are intentionally unsupported."
         case .missingVault:
             return "Set SPOONJOY_NATIVE_DOGFOOD_VAULT or pass --vault-file so dogfood auth material stays in an explicit artifact path."
+        case .missingBearerToken:
+            return "The bearer token file is empty."
+        case .missingSyncedAccount:
+            return "Native sync completed without an account id."
         }
     }
 }
 
 private struct DogfoodReport: Codable, Equatable {
     let ok: Bool
+    let mode: String
     let baseURL: String
-    let vaultFile: String
+    let vaultFile: String?
     let clientID: String
     let accountID: String
     let tokenType: String
@@ -196,8 +275,19 @@ private struct DogfoodReport: Codable, Equatable {
     let syncEnvironment: String
     let syncEntryCount: Int
     let syncHasMore: Bool
+    let syncCachedRecordCount: Int?
+    let settingsFetched: Bool?
+    let tokenManagementAvailability: String?
     let wroteVault: Bool
 }
+
+private func require<Value>(_ value: Value?, _ error: Error) throws -> Value {
+    guard let value else {
+        throw error
+    }
+    return value
+}
+
 
 private enum DogfoodOAuthTransport {
     static func sendDecoded<Value: Decodable & Equatable>(

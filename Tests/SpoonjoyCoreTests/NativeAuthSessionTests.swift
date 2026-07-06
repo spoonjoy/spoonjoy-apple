@@ -346,12 +346,19 @@ struct NativeAuthSessionTests {
         let schemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
         let associatedDomains = try #require(entitlements["com.apple.developer.associated-domains"] as? [String])
         let launchScreen = try #require(infoPlist["UILaunchScreen"] as? [String: Any])
+        let supportedOrientations = try #require(infoPlist["UISupportedInterfaceOrientations"] as? [String])
         let launchBackground = repoRoot()
             .appendingPathComponent("Apps/Spoonjoy/Shared/Assets.xcassets/LaunchBackground.colorset/Contents.json")
 
         #expect(schemes == ["spoonjoy"])
         #expect(associatedDomains.contains("applinks:spoonjoy.app"))
         #expect(launchScreen["UIColorName"] as? String == "LaunchBackground")
+        #expect(supportedOrientations == [
+            "UIInterfaceOrientationPortrait",
+            "UIInterfaceOrientationPortraitUpsideDown",
+            "UIInterfaceOrientationLandscapeLeft",
+            "UIInterfaceOrientationLandscapeRight"
+        ])
         #expect(FileManager.default.fileExists(atPath: launchBackground.path))
         #expect(!schemes.contains("spoonjoy://oauth/callback"))
         #expect(!associatedDomains.contains("applinks:oauth/callback"))
@@ -403,7 +410,9 @@ struct NativeAuthSessionTests {
                 "native Apple sign-in",
                 "signInFailureMessage(for error: Error)",
                 "com.apple.developer.applesignin",
-                "Sign in with Apple needs a signed Spoonjoy build"
+                "Sign in with Apple needs a signed Spoonjoy build",
+                "authorization_request_started",
+                "backend_exchange_started"
             ],
             forbids: [
                 "authRequired:",
@@ -422,6 +431,18 @@ struct NativeAuthSessionTests {
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
+        )
+
+        let appleTelemetry = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift")
+        expectContent(
+            appleTelemetry,
+            in: "Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift",
+            contains: [
+                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
+                "diagnosticCode(for error: Error)",
+                "providerCode"
+            ],
+            forbids: []
         )
     }
 

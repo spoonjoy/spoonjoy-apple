@@ -70,9 +70,36 @@ struct KitchenMasthead: View {
                     .foregroundStyle(KitchenTableTheme.brass)
             }
             Spacer()
-            Label(kitchen.status.rawValue.capitalized, systemImage: "checkmark.seal")
+            Label(statusLabel, systemImage: statusSymbol)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.herb)
+                .foregroundStyle(statusColor)
+        }
+    }
+
+    private var statusLabel: String {
+        switch kitchen.status {
+        case .bootstrap:
+            "Preparing"
+        case .ready:
+            "Ready"
+        }
+    }
+
+    private var statusSymbol: String {
+        switch kitchen.status {
+        case .bootstrap:
+            "hourglass"
+        case .ready:
+            "checkmark.seal"
+        }
+    }
+
+    private var statusColor: Color {
+        switch kitchen.status {
+        case .bootstrap:
+            KitchenTableTheme.brass
+        case .ready:
+            KitchenTableTheme.herb
         }
     }
 }
@@ -130,28 +157,59 @@ struct RecipeIndex: View {
                 .font(.title2)
                 .foregroundStyle(KitchenTableTheme.charcoal)
 
-            List(recipes, id: \.id) { recipe in
-                Button {
-                    openRecipe(recipe.id)
-                } label: {
-                    HStack {
-                        RecipeCoverImage(url: recipe.coverImageURL)
-                        .frame(width: 48, height: 48)
-                        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                        .accessibilityHidden(true)
+            if recipes.isEmpty {
+                KitchenEmptySection(
+                    title: "No recipes saved yet",
+                    systemImage: "book.closed",
+                    tint: KitchenTableTheme.brass
+                )
+            } else {
+                List(recipes, id: \.id) { recipe in
+                    Button {
+                        openRecipe(recipe.id)
+                    } label: {
+                        HStack {
+                            RecipeCoverImage(url: recipe.coverImageURL)
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                            .accessibilityHidden(true)
 
-                        VStack(alignment: .leading) {
-                            Text(recipe.title)
-                                .foregroundStyle(KitchenTableTheme.charcoal)
-                            Text(recipe.coverProvenanceLabel ?? recipe.chef.username)
-                                .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading) {
+                                Text(recipe.title)
+                                    .foregroundStyle(KitchenTableTheme.charcoal)
+                                Text(recipe.coverProvenanceLabel ?? recipe.chef.username)
+                                    .font(KitchenTableTheme.uiLabel)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .frame(minHeight: 160)
             }
-            .frame(minHeight: 160)
         }
+    }
+}
+
+struct KitchenEmptySection: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(tint)
+                .frame(width: 28)
+            Text(title)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.72))
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(KitchenTableTheme.paper)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 }

@@ -205,7 +205,6 @@ struct ShoppingEntityTests {
                     label: "bootstrapAndDrain scoped tombstone purge",
                     pattern: #"public\s+func\s+bootstrapAndDrain\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger,\s*scope: NativeSyncExecutionScope\s*\)"#,
                     requiredTokens: [
-                        "case .success(let cursor, let tombstones)",
                         "ShoppingEntityIndexPurgePlan.tombstonePurge",
                         "shoppingEntityAccountScopePurgePlan",
                         "shoppingEntityPurgeIdentifiers",
@@ -215,6 +214,17 @@ struct ShoppingEntityTests {
                         "ShoppingEntityCatalog.purgeDomainIdentifiers(",
                         "NativeSyncResourceType.shoppingItem",
                         "removedCacheKeys"
+                    ],
+                    forbiddenTokens: []
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",
+                    label: "applyBootstrap records legacy tombstones",
+                    pattern: #"private\s+func\s+applyBootstrap\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger"#,
+                    requiredTokens: [
+                        "case .success(let cursor, let tombstones)",
+                        "store.appendTombstone(tombstone)",
+                        "store.saveCheckpoint(checkpoint)"
                     ],
                     forbiddenTokens: []
                 )

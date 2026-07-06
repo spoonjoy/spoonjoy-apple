@@ -155,7 +155,7 @@ enum SpoonjoySettingsAuthProviderOption: String, AppEnum {
         [
             .google: DisplayRepresentation(title: "Google"),
             .github: DisplayRepresentation(title: "GitHub"),
-            .apple: DisplayRepresentation(title: "Apple")
+            .apple: DisplayRepresentation(title: "Device Sign-In")
         ]
     }
 

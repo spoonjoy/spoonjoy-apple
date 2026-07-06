@@ -475,12 +475,15 @@ public struct SettingsSurfaceViewModel: Sendable {
     ) {
         self.data = data
         let hasAccount = data.account != nil
+        let tokenManagementSections = data.tokenManagementAvailability == .available ? [
+            SettingsSurfaceSection(id: .apiTokens, title: "API Tokens"),
+            SettingsSurfaceSection(id: .connections, title: "Connections")
+        ] : []
         sections = hasAccount ? [
             SettingsSurfaceSection(id: .profile, title: "Profile"),
             SettingsSurfaceSection(id: .security, title: "Security"),
-            SettingsSurfaceSection(id: .notifications, title: "Notifications"),
-            SettingsSurfaceSection(id: .apiTokens, title: "API Tokens"),
-            SettingsSurfaceSection(id: .connections, title: "Connections"),
+            SettingsSurfaceSection(id: .notifications, title: "Notifications")
+        ] + tokenManagementSections + [
             SettingsSurfaceSection(id: .environment, title: "Environment"),
             SettingsSurfaceSection(id: .offline, title: "Offline")
         ] : showsPrimaryAuthActionWhenSignedOut ? [

@@ -249,65 +249,67 @@ struct SettingsView: View {
                 .id(Self.notificationsFocusID)
             }
 
-            Section("API Tokens") {
-                if let createdCredentialValue {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("New token")
-                        Text(createdCredentialValue)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                        if let createdCredentialPrefix {
-                            Text(createdCredentialPrefix)
+            if surface.data.tokenManagementAvailability == .available {
+                Section("API Tokens") {
+                    if let createdCredentialValue {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("New token")
+                            Text(createdCredentialValue)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+                            if let createdCredentialPrefix {
+                                Text(createdCredentialPrefix)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    ForEach(surface.apiTokenRows) { token in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(token.name)
+                            Text(token.tokenPrefix)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        Button("Revoke Token", role: .destructive) {
+                            confirmSettingsAction(
+                                .revokeAPIToken(credentialID: token.id),
+                                title: "Revoke API token?",
+                                message: "Apps using this token will lose access immediately.",
+                                confirmButtonTitle: "Revoke Token"
+                            )
+                        }
+                        .disabled(onlineOnlyActionsDisabled(surface))
                     }
-                }
-                ForEach(surface.apiTokenRows) { token in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(token.name)
-                        Text(token.tokenPrefix)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    TextField("Token name", text: $tokenName)
+                    Toggle("Recipes read", isOn: $tokenCanReadRecipes)
+                    Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
+                    Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
+                    Toggle("Shopping write", isOn: $tokenCanWriteShoppingList)
+                    Button("Create Token") {
+                        planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
                     }
-                    Button("Revoke Token", role: .destructive) {
-                        confirmSettingsAction(
-                            .revokeAPIToken(credentialID: token.id),
-                            title: "Revoke API token?",
-                            message: "Apps using this token will lose access immediately.",
-                            confirmButtonTitle: "Revoke Token"
-                        )
-                    }
-                    .disabled(onlineOnlyActionsDisabled(surface))
+                    .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
                 }
-                TextField("Token name", text: $tokenName)
-                Toggle("Recipes read", isOn: $tokenCanReadRecipes)
-                Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
-                Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
-                Toggle("Shopping write", isOn: $tokenCanWriteShoppingList)
-                Button("Create Token") {
-                    planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
-                }
-                .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
-            }
 
-            Section("Connections") {
-                ForEach(surface.oauthConnectionRows) { connection in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(connection.clientName)
-                        Text(connection.scopes.joined(separator: ", "))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                Section("Connections") {
+                    ForEach(surface.oauthConnectionRows) { connection in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(connection.clientName)
+                            Text(connection.scopes.joined(separator: ", "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Button("Disconnect", role: .destructive) {
+                            confirmSettingsAction(
+                                .disconnectOAuthConnection(connectionID: connection.id),
+                                title: "Disconnect OAuth app?",
+                                message: "\(connection.clientName) will no longer be able to access your Spoonjoy account.",
+                                confirmButtonTitle: "Disconnect"
+                            )
+                        }
+                        .disabled(onlineOnlyActionsDisabled(surface))
                     }
-                    Button("Disconnect", role: .destructive) {
-                        confirmSettingsAction(
-                            .disconnectOAuthConnection(connectionID: connection.id),
-                            title: "Disconnect OAuth app?",
-                            message: "\(connection.clientName) will no longer be able to access your Spoonjoy account.",
-                            confirmButtonTitle: "Disconnect"
-                        )
-                    }
-                    .disabled(onlineOnlyActionsDisabled(surface))
                 }
             }
         } else if let primaryAuthAction = surface.primaryAuthAction {

@@ -252,6 +252,11 @@ public enum SettingsSurfaceDataSource: Equatable, Sendable {
     case cache(lastValidatedAt: Date)
 }
 
+public enum SettingsTokenManagementAvailability: Equatable, Sendable {
+    case available
+    case unavailableMissingScope
+}
+
 public struct SettingsSurfaceData: Equatable, Sendable {
     public let account: SettingsAccountProfile?
     public let notifications: SettingsNotificationPreferences?
@@ -260,6 +265,7 @@ public struct SettingsSurfaceData: Equatable, Sendable {
     public let environment: NativeCacheEnvironment
     public let offline: OfflineState
     public let source: SettingsSurfaceDataSource
+    public let tokenManagementAvailability: SettingsTokenManagementAvailability
 
     public init(
         account: SettingsAccountProfile?,
@@ -268,7 +274,8 @@ public struct SettingsSurfaceData: Equatable, Sendable {
         oauthConnections: [SettingsOAuthConnectionSummary],
         environment: NativeCacheEnvironment,
         offline: OfflineState,
-        source: SettingsSurfaceDataSource
+        source: SettingsSurfaceDataSource,
+        tokenManagementAvailability: SettingsTokenManagementAvailability = .available
     ) {
         self.account = account
         self.notifications = notifications
@@ -277,6 +284,7 @@ public struct SettingsSurfaceData: Equatable, Sendable {
         self.environment = environment
         self.offline = offline
         self.source = source
+        self.tokenManagementAvailability = tokenManagementAvailability
     }
 }
 
@@ -360,20 +368,46 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
     }
 
     public func fetchSettingsSurface(accountID: String, environment: NativeCacheEnvironment) async throws -> SettingsSurfaceResult {
+        try await fetchSettingsSurface(
+            accountID: accountID,
+            environment: environment,
+            grantedScopes: Set(NativeAuthSession.firstPartyTokenScopes)
+        )
+    }
+
+    public func fetchSettingsSurface(
+        accountID: String,
+        environment: NativeCacheEnvironment,
+        grantedScopes: Set<String>
+    ) async throws -> SettingsSurfaceResult {
         let account = try await transport.fetchAccount(PrivateAccountRequests.currentAccount(), configuration: configuration)
         let notifications = try await transport.fetchNotificationPreferences(PrivateAccountRequests.notificationPreferences(), configuration: configuration)
-        let tokens = try await transport.fetchAPITokens(TokenCredentialRequests.listTokens(), configuration: configuration)
-        let connections = try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: configuration)
-        let validatedAt = [notifications.validatedAt, tokens.validatedAt, connections.validatedAt].reduce(account.validatedAt, max)
+        let canReadTokenManagement = grantedScopes.contains("tokens:read")
+        let tokens = canReadTokenManagement
+            ? try await transport.fetchAPITokens(TokenCredentialRequests.listTokens(), configuration: configuration)
+            : nil
+        let connections = canReadTokenManagement
+            ? try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: configuration)
+            : nil
+        let validatedAt = [
+            tokens?.validatedAt,
+            connections?.validatedAt
+        ]
+        .compactMap { $0 }
+        .reduce(max(account.validatedAt, notifications.validatedAt), max)
+        let tokenManagementAvailability: SettingsTokenManagementAvailability = canReadTokenManagement
+            ? .available
+            : .unavailableMissingScope
 
         let data = SettingsSurfaceData(
             account: account.data,
             notifications: notifications.data,
-            apiTokens: tokens.data,
-            oauthConnections: connections.data,
+            apiTokens: tokens?.data ?? [],
+            oauthConnections: connections?.data ?? [],
             environment: environment,
             offline: .available(snapshotCount: max(1, cache.records.count), lastRestoredAt: nil),
-            source: .live(requestID: "req_settings_surface", validatedAt: validatedAt)
+            source: .live(requestID: "req_settings_surface", validatedAt: validatedAt),
+            tokenManagementAvailability: tokenManagementAvailability
         )
 
         return SettingsSurfaceResult(
@@ -381,8 +415,8 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
             persistedRecords: try Self.persistedRecords(
                 account: account.data,
                 notifications: notifications.data,
-                apiTokens: tokens.data,
-                oauthConnections: connections.data,
+                apiTokens: tokens?.data ?? [],
+                oauthConnections: connections?.data ?? [],
                 accountID: accountID,
                 environment: environment,
                 fetchedAt: validatedAt

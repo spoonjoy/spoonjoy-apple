@@ -19,6 +19,8 @@ TestResults/
 coverage/
 *.profdata
 *.profraw
+build/
+artifacts/apple/
 
 # Ruby/Bundler local installs
 .bundle/

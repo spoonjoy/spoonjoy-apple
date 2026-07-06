@@ -1300,7 +1300,7 @@ struct NativeLiveStoreTests {
                 cacheStore: cacheStore,
                 syncStore: syncStore,
                 transport: syncTransport,
-                settingsSurfaceFetch: { accountID, environment, configuration, cache in
+                settingsSurfaceFetch: { accountID, environment, configuration, cache, _ in
                     await settingsFetchRecorder.record(
                         accountID: accountID,
                         environment: environment,
@@ -1344,6 +1344,130 @@ struct NativeLiveStoreTests {
             #expect(persisted.records.contains { $0.metadata.domain == .settings })
             #expect(persisted.records.contains { $0.metadata.domain == .notificationPreferences })
         }
+    }
+
+    @MainActor
+    @Test("settings token-scope failure does not block live kitchen bootstrap")
+    func settingsTokenScopeFailureDoesNotBlockLiveKitchenBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_scope", title: "Scope-Safe Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw APITransportError(
+                        kind: .apiError,
+                        requestID: "req_settings_tokens_scope",
+                        statusCode: 403,
+                        apiError: APIError(
+                            requestID: "req_settings_tokens_scope",
+                            code: "insufficient_scope",
+                            message: "Missing required scope: tokens:read",
+                            status: 403
+                        ),
+                        retryDecision: .doNotRetry
+                    )
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.title) == ["Scope-Safe Pasta"])
+            #expect(content.settingsSurfaceData == nil)
+            #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @MainActor
+    @Test("settings generic refresh failure does not block live kitchen bootstrap")
+    func settingsGenericRefreshFailureDoesNotBlockLiveKitchenBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_generic", title: "Still Loads Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw SettingsRefreshProbeError()
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected generic settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.title) == ["Still Loads Pasta"])
+            #expect(content.settingsSurfaceData == nil)
+            #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @MainActor
+    @Test("settings transport refresh failure without metadata does not block live kitchen bootstrap")
+    func settingsTransportRefreshFailureWithoutMetadataDoesNotBlockLiveKitchenBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_transport_nil", title: "Metadata-Free Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw APITransportError(
+                        kind: .networkFailure,
+                        requestID: nil,
+                        statusCode: nil,
+                        apiError: nil,
+                        retryDecision: .retrySameRequest(afterSeconds: nil)
+                    )
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected metadata-free settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.title) == ["Metadata-Free Pasta"])
+            #expect(content.settingsSurfaceData == nil)
+            #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @Test("native settings scope helper handles signed out authenticated and refresh-required sessions")
+    func nativeSettingsScopeHelperHandlesSessionStates() throws {
+        let session = try AuthSession(
+            clientID: "client_live",
+            accessToken: "sj_access_current",
+            refreshToken: "sj_refresh_current",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(600),
+            scope: "\(NativeAuthSession.defaultScope) tokens:read tokens:write",
+            accountID: "chef_ari"
+        )
+
+        #expect(nativeGrantedScopes(for: .signedOut).isEmpty)
+        #expect(nativeGrantedScopes(for: .authenticated(session)) == Set(session.scope.split(separator: " ").map(String.init)))
+        #expect(nativeGrantedScopes(for: .refreshRequired(session)) == Set(session.scope.split(separator: " ").map(String.init)))
     }
 
     @MainActor
@@ -1440,7 +1564,7 @@ struct NativeLiveStoreTests {
                 syncStore: InMemoryNativeSyncStore(accountID: accountID, environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
                 transport: syncTransport,
                 appStateStoreProvider: { appStateStore },
-                settingsSurfaceFetch: { _, _, _, _ in
+                settingsSurfaceFetch: { _, _, _, _, _ in
                     throw NativeLiveStoreTestError.unexpectedRequest
                 },
                 bootstrapMode: .restoreCacheOnly
@@ -1543,7 +1667,7 @@ struct NativeLiveStoreTests {
                 appStateStoreProvider: { appStateStore },
                 configuration: configuration,
                 cacheEnvironment: .production,
-                settingsSurfaceFetch: { _, _, _, _ in
+                settingsSurfaceFetch: { _, _, _, _, _ in
                     throw NativeLiveStoreTestError.unexpectedRequest
                 },
                 bootstrapMode: .restoreCacheOnly,
@@ -1591,7 +1715,7 @@ struct NativeLiveStoreTests {
                 syncStore: InMemoryNativeSyncStore(accountID: "chef_untrusted", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
                 transport: syncTransport,
                 appStateStoreProvider: { appStateStore },
-                settingsSurfaceFetch: { _, _, _, _ in
+                settingsSurfaceFetch: { _, _, _, _, _ in
                     throw NativeLiveStoreTestError.unexpectedRequest
                 },
                 bootstrapMode: .restoreCacheOnly
@@ -4209,6 +4333,115 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store surfaces sanitized support codes for signed in bootstrap API failures")
+    func liveStoreSurfacesSanitizedSupportCodesForSignedInBootstrapAPIFailures() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let transportError = APITransportError(
+                kind: .apiError,
+                requestID: "req_bootstrap_invalid_token",
+                statusCode: 401,
+                apiError: APIError(
+                    requestID: "req_bootstrap_invalid_token",
+                    code: "invalid_token",
+                    message: "Invalid API token",
+                    status: 401
+                ),
+                retryDecision: .refreshAuthentication
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.failure(transportError)])
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected signed-in bootstrap API failure to produce syncFailed; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+            #expect(message.contains("Support code req_bootstrap_invalid_token."))
+            #expect(message.contains("Reason invalid_token."))
+            #expect(message.contains("HTTP 401."))
+            #expect(!message.contains("accessToken"))
+            #expect(!message.contains("refreshToken"))
+        }
+    }
+
+    @MainActor
+    @Test("live store surfaces non-retryable signed in bootstrap API failures")
+    func liveStoreSurfacesNonRetryableSignedInBootstrapAPIFailures() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let transportError = APITransportError(
+                kind: .apiError,
+                requestID: "req_bootstrap_bad_request",
+                statusCode: 400,
+                apiError: APIError(
+                    requestID: "req_bootstrap_bad_request",
+                    code: "bad_request",
+                    message: "Bad request",
+                    status: 400
+                ),
+                retryDecision: .doNotRetry
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.failure(transportError)])
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected non-retryable bootstrap API failure to produce syncFailed; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+            #expect(message.contains("Support code req_bootstrap_bad_request."))
+            #expect(message.contains("Reason bad_request."))
+            #expect(message.contains("HTTP 400."))
+        }
+    }
+
+    @MainActor
+    @Test("live store surfaces retryable signed in bootstrap transport failures")
+    func liveStoreSurfacesRetryableSignedInBootstrapTransportFailures() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let transportError = APITransportError(
+                kind: .networkFailure,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: 12)
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.failure(transportError)])
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected retryable bootstrap transport failure to produce syncFailed; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+            #expect(message == "Spoonjoy could not finish syncing your account.")
+        }
+    }
+
+    @MainActor
     @Test("live store maps sync conflict auth retry and local queue outcomes to shell states")
     func liveStoreMapsSyncConflictAuthRetryAndLocalQueueOutcomesToShellStates() async throws {
         try await assertSyncOutcome(
@@ -4924,6 +5157,13 @@ struct NativeLiveStoreTests {
                 "restoreFromCache",
                 "loadSnapshot",
                 "bootstrapFromLiveAPI",
+                "NativeLiveAppStoreTelemetry.bootstrapFailed",
+                "NativeLiveAppStoreTelemetry.bootstrapOffline",
+                "native_app_bootstrap_failed",
+                "failureMessage(for:",
+                "request_id",
+                "account_bound",
+                "has_cache_content",
                 "validSession()",
                 "recipeEditorAPITransport",
                 "switchEnvironment",
@@ -4971,6 +5211,10 @@ struct NativeLiveStoreTests {
                 "contentState:",
                 "offlineIndicatorState:",
                 "dismissOfflineIndicator",
+                "syncFailureBodyText",
+                "syncFailureDiagnosticText",
+                "Support code:",
+                "navigation.navigate(to: .settings)",
                 "purgeShoppingEntityIdentifiers",
                 "shoppingEntityIndexPurge",
                 "SpoonjoySpotlightIndexer().delete",
@@ -5194,7 +5438,10 @@ struct NativeLiveStoreTests {
                 "#elseif SPOONJOY_SIGNED_APPLE_AUTH",
                 "return .missingEntitlement",
                 "signInFailureMessage",
-                "Sign in with Apple needs a signed Spoonjoy build"
+                "Sign in with Apple needs a signed Spoonjoy build",
+                "authorization_request_started",
+                "backend_exchange_started",
+                "NativeAppleSignInTelemetry.logFailure"
             ],
             forbids: [
                 "offlineIndicatorDisplay",
@@ -5205,6 +5452,18 @@ struct NativeLiveStoreTests {
                 "Could not finish sign-in: \\(error)",
                 "SpoonjoyLogoPath"
             ]
+        )
+
+        let appleTelemetry = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift"))
+        expectContent(
+            appleTelemetry,
+            in: "Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift",
+            contains: [
+                "Logger(subsystem: \"app.spoonjoy\", category: \"auth.apple\")",
+                "diagnosticCode(for error: Error)",
+                "providerCode"
+            ],
+            forbids: []
         )
         let markSource = try readRepoFile("Apps/Spoonjoy/Shared/Assets.xcassets/SpoonjoyMark.imageset/source.svg")
         #expect(markSource.contains(#"viewBox="0 0 500 300""#))
@@ -6183,6 +6442,8 @@ private struct ProcessRunResult: Equatable {
     let status: Int32
     let output: String
 }
+
+private struct SettingsRefreshProbeError: Error {}
 
 private func compileFixtureFallbackPolicyHarness(policySource: String) throws -> URL {
     let directory = FileManager.default.temporaryDirectory

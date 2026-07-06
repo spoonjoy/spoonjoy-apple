@@ -232,6 +232,7 @@ struct SignedOutSetupView: View {
                     isSigningIn = true
                     statusTone = .progress
                     authStatus = "Waiting for Apple sign-in."
+                    NativeAppleSignInTelemetry.logPhase("authorization_request_started")
                 } onCompletion: { result in
                     Task {
                         await handleAppleAuthorization(result)
@@ -404,17 +405,21 @@ struct SignedOutSetupView: View {
         defer { isSigningIn = false }
         do {
             let authorization = try result.get()
+            NativeAppleSignInTelemetry.logPhase("authorization_completed")
             guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                NativeAppleSignInTelemetry.logFailure(phase: "credential_validation_failed", code: "missing_apple_id_credential")
                 statusTone = .error
                 authStatus = "Apple could not share the sign-in details Spoonjoy needs. Try again."
                 return
             }
             guard let nonce = currentNonce else {
+                NativeAppleSignInTelemetry.logFailure(phase: "credential_validation_failed", code: "missing_nonce")
                 statusTone = .error
                 authStatus = "That Apple sign-in expired. Try again."
                 return
             }
             guard let identityToken = appleIDCredential.identityToken.flatMap({ String(data: $0, encoding: .utf8) }) else {
+                NativeAppleSignInTelemetry.logFailure(phase: "credential_validation_failed", code: "missing_identity_token")
                 statusTone = .error
                 authStatus = "Apple did not finish this sign-in. Try again."
                 return
@@ -426,7 +431,9 @@ struct SignedOutSetupView: View {
                 email: appleIDCredential.email,
                 fullName: fullName?.isEmpty == true ? nil : fullName
             )
+            NativeAppleSignInTelemetry.logPhase("backend_exchange_started")
             _ = try await authRepository.handleAppleSignInCredential(credential)
+            NativeAppleSignInTelemetry.logPhase("backend_exchange_succeeded")
             currentNonce = nil
             canDisconnect = true
             statusTone = .success
@@ -435,10 +442,15 @@ struct SignedOutSetupView: View {
         } catch {
             if let authorizationError = error as? ASAuthorizationError,
                authorizationError.code == .canceled {
+                NativeAppleSignInTelemetry.logPhase("authorization_canceled")
                 statusTone = .neutral
                 authStatus = "Apple sign-in canceled."
                 return
             }
+            NativeAppleSignInTelemetry.logFailure(
+                phase: "sign_in_failed",
+                code: NativeAppleSignInTelemetry.diagnosticCode(for: error)
+            )
             statusTone = .error
             authStatus = Self.signInFailureMessage(for: error)
         }

@@ -356,6 +356,16 @@ struct APITransportTests {
                     statusCode: 400,
                     headers: ["Content-Type": "application/json"],
                     body: Self.errorEnvelope(
+                        requestID: "req_cover_error_passthrough",
+                        code: "ordinary_cover_error",
+                        message: "Ordinary cover error.",
+                        status: 400
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 400,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
                         requestID: "req_cover_error_blank_resource",
                         code: "cover_provider_unavailable",
                         message: "Provider secret blank resource fallback.",
@@ -412,6 +422,23 @@ struct APITransportTests {
             ),
             configuration: Self.configuration(bearerToken: "sj_access_native")
         )
+        do {
+            _ = try await transport.send(
+                .coverRegenerate(
+                    recipeID: "recipe_lemon",
+                    coverID: "cover_passthrough_error",
+                    activateWhenReady: false,
+                    clientMutationID: "cm_cover_error_passthrough",
+                    createdAt: "2026-06-16T12:07:10.000Z"
+                ),
+                configuration: Self.configuration(bearerToken: "sj_access_native")
+            )
+            Issue.record("Expected ordinary cover API errors to pass through")
+        } catch let error as APITransportError {
+            #expect(error.apiError?.code == "ordinary_cover_error")
+        } catch {
+            Issue.record("Expected APITransportError, got \(error)")
+        }
         let blankResourceBlocker = try await transport.send(
             .coverFromSpoon(
                 recipeID: "recipe_lemon",

@@ -291,6 +291,40 @@ struct RecipeCookbookTests {
         #expect(recipeSummary.updatedAt == "2026-06-01T00:00:00.000Z")
     }
 
+    @Test("cookbook decodes summary-only native sync payloads")
+    func cookbookDecodesSummaryOnlyNativeSyncPayloads() throws {
+        let cookbook = try JSONDecoder().decode(
+            Cookbook.self,
+            from: Data(
+                """
+                {
+                  "id": "cookbook_sync_summary",
+                  "title": "Dense Weeknights",
+                  "chef": { "id": "chef_ari", "username": "ari" },
+                  "recipeCount": 13,
+                  "coverImageUrls": [
+                    "https://spoonjoy.app/photos/recipes/recipe_one/cover.jpg",
+                    "https://spoonjoy.app/photos/recipes/recipe_two/cover.jpg"
+                  ],
+                  "href": "/cookbooks/cookbook_sync_summary",
+                  "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_sync_summary",
+                  "attribution": {
+                    "creditText": "Dense Weeknights by ari on Spoonjoy",
+                    "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_sync_summary"
+                  },
+                  "createdAt": "2026-06-01T00:00:00.000Z",
+                  "updatedAt": "2026-07-06T20:20:00.000Z"
+                }
+                """.utf8
+            )
+        )
+
+        #expect(cookbook.id == "cookbook_sync_summary")
+        #expect(cookbook.recipeCount == 13)
+        #expect(cookbook.cover.imageURLs.count == 2)
+        #expect(cookbook.recipes.isEmpty)
+    }
+
     @Test("cookbook search summary exposes cover-aware navigation fields")
     func cookbookSearchSummaryExposesCoverAwareNavigationFields() throws {
         let catalog = try CookbookFixtureCatalog.decodeFromBundle()

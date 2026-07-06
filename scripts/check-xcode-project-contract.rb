@@ -134,6 +134,15 @@ fail_check("unexpected shared scheme(s): #{unexpected_schemes.join(", ")}") unle
 info_plist = plist_json(INFO_PLIST)
 url_schemes = Array(info_plist["CFBundleURLTypes"]).flat_map { |entry| Array(entry["CFBundleURLSchemes"]) }
 fail_check("#{relative(INFO_PLIST)} missing URL scheme #{URL_SCHEME}") unless url_schemes.include?(URL_SCHEME)
+supported_orientations = Array(info_plist["UISupportedInterfaceOrientations"])
+expected_orientations = %w[
+  UIInterfaceOrientationPortrait
+  UIInterfaceOrientationPortraitUpsideDown
+  UIInterfaceOrientationLandscapeLeft
+  UIInterfaceOrientationLandscapeRight
+]
+missing_orientations = expected_orientations - supported_orientations
+fail_check("#{relative(INFO_PLIST)} missing supported interface orientation(s): #{missing_orientations.join(", ")}") unless missing_orientations.empty?
 
 entitlements = plist_json(ENTITLEMENTS)
 associated_domains = Array(entitlements["com.apple.developer.associated-domains"])
