@@ -150,11 +150,20 @@ this lane.
 ## Reactive TestFlight Feedback
 
 Spoonjoy uses an App Store Connect webhook for TestFlight screenshot and crash
-feedback so Codex only wakes when Apple reports new tester feedback. The local
-listener is `scripts/testflight-feedback-autopilot.mjs`; it verifies Apple's
-HMAC signature, fetches the exact App Store Connect feedback record, downloads
-submitted screenshots, de-dupes feedback IDs that were already handled, and
-launches a detached `codex exec` worker with the feedback artifacts attached.
+feedback so an agent turn only runs when Apple reports new tester feedback. The
+local listener is `scripts/testflight-feedback-autopilot.mjs`; it verifies
+Apple's HMAC signature, fetches the exact App Store Connect feedback record,
+downloads submitted screenshots, de-dupes feedback IDs that were already
+handled, and submits a generic Ouro external event to `slugger`.
+
+Slugger owns the TestFlight-helper role. The listener passes evidence paths to
+Ouro with `ouro event submit --agent slugger --source app-store-connect ...`;
+Ouro records a daemon receipt, queues a structured event message, and fires an
+idempotent private-runtime wake. Slugger can then route work to Codex or another
+worker and notify the operator through its configured channel. If the generic
+Ouro event command is unavailable during a local rollout, the listener falls
+back to `ouro msg --to slugger`; direct detached `codex exec` is the final
+break-glass fallback.
 
 Seed existing feedback before enabling a webhook, otherwise historical TestFlight
 submissions can look new:
@@ -189,6 +198,13 @@ scripts/testflight-feedback-autopilot.mjs doctor | jq \
   '{ok, health, handledInstanceIds, launchedEventIds, registeredWebhooks}'
 scripts/testflight-feedback-autopilot.mjs status
 scripts/testflight-feedback-autopilot.mjs status --plain
+
+ouro event submit --agent slugger --source app-store-connect \
+  --type betaFeedbackScreenshotSubmissionCreated \
+  --id smoke-feedback-id \
+  --summary "Spoonjoy TestFlight smoke" \
+  --evidence /tmp/spoonjoy-testflight-smoke \
+  --no-wake
 
 scripts/apple-distribution-kit.sh asc get \
   --path /v1/apps/6787505444/webhooks \

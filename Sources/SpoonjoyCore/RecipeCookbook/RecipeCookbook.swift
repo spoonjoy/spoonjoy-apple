@@ -576,7 +576,7 @@ extension Cookbook: Codable {
         attribution = summary.attribution
         createdAt = summary.createdAt
         updatedAt = summary.updatedAt
-        recipes = try container.decode([RecipeSummary].self, forKey: .recipes)
+        recipes = try container.decodeIfPresent([RecipeSummary].self, forKey: .recipes) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
