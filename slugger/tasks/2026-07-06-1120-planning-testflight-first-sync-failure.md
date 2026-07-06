@@ -1,6 +1,6 @@
 # Planning: TestFlight First Sync Failure
 
-**Status**: drafting
+**Status**: doing
 **Created**: 2026-07-06 11:22
 
 ## Goal
@@ -8,8 +8,10 @@ Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user 
 
 ## Upstream Work Items
 - TestFlight feedback `AAhVlDHCsZ1JQMRxuXuvn1A`
+- TestFlight feedback `AN7XCNQQQkfp-C9BiM8TcX4`
 - App Store Connect event type `betaFeedbackScreenshotSubmissionCreated`
 - Event directory: `/Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-06T18-12-51-927Z-AAhVlDHCsZ1JQMRxuXuvn1A`
+- Event directory: `/Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-06T22-08-05-847Z-AN7XCNQQQkfp-C9BiM8TcX4`
 
 ## Scope
 
@@ -56,9 +58,9 @@ Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user 
 - Edge cases: null, empty, boundary values
 
 ## Open Questions
-- [ ] Does a real production native sync response currently fail because of envelope shape, pagination, auth scope, backend status, or native cache application?
-- [ ] Is the final fix native-only, backend-only, or both?
-- [ ] Does publishing require a new build number beyond the current internal build already attached to Spoonjoy Internal?
+- [x] Does a real production native sync response currently fail because of envelope shape, pagination, auth scope, backend status, or native cache application?
+- [x] Is the final fix native-only, backend-only, or both?
+- [x] Does publishing require a new build number beyond the current internal build already attached to Spoonjoy Internal?
 
 ## Decisions Made
 - Work on the existing agent-scoped branch `slugger/testflight-native-publish` because it is already the dedicated TestFlight publishing branch for this incident stream.
@@ -73,12 +75,17 @@ Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user 
 - Backend repo as needed: `/Users/arimendelow/Projects/spoonjoy-v2`
 - Screenshot shows "We couldn't load your kitchen", "Try Again", and "Sync could not finish".
 - Detail JSON records device `iPhone14_4`, iOS `26.5`, locale `en-US`, `connectionType` `WIFI`, app uptime `19000` ms, and feedback comment "still doesn’t work ".
+- Current detail JSON records device `iPhone14_4`, iOS `26.5`, locale `en-US`, `connectionType` `WIFI`, app uptime `17000` ms, and feedback comment "still not working, and yes i made sure im on latest, and settings button doesn’t work either. cmon man "
 - Redacted production/native sync probe artifact: `./2026-07-06-1120-doing-testflight-first-sync-failure/production-native-sync-probe.json`
+- Redacted current-account native dogfood artifact: `./2026-07-06-1120-doing-testflight-first-sync-failure/ari-production-native-dogfood-redacted.json`
 - Native sync endpoint reachability probes are recorded in the session transcript and should be re-run or replaced with a saved redacted artifact if needed for final evidence.
 
 ## Notes
 Current redacted live evidence shows a disposable production account can create a native-scope token and receive a valid `/api/v1/me/sync?limit=20` envelope with entries. That rules out a globally missing native sync endpoint, but not an account-specific, transient, cache-application, or app bootstrap fallback failure. A previous settings-cache token-scope fix exists, so this incident needs a fresh discriminating fix instead of assuming the old cause.
 
+Current-account live evidence for likely Ari account now shows the production native Swift sync engine can bootstrap and drain `/api/v1/me/sync`, cache `72` records, fetch settings, and expose token management with a revoked temporary credential. That classifies the repeated screenshot as unreproduced on the sync transport/settings path at investigation time. The current screenshot also identifies an independently code-owned native shell bug: the no-content `.syncFailed` root never renders `SettingsView` after the Settings button changes navigation route.
+
 ## Progress Log
 - 2026-07-06 11:22 Created
 - 2026-07-06 11:27 Addressed Round 1 planning findings: added no-code terminal path, named `NativeLiveAppStore.bootstrap()` telemetry, pinned validation, and cited redacted probe evidence.
+- 2026-07-06 16:05 Added current feedback recurrence, current-account native dogfood evidence, and scoped the code-owned fix to the sync-failed Settings escape hatch.

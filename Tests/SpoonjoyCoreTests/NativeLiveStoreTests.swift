@@ -5214,6 +5214,8 @@ struct NativeLiveStoreTests {
                 "syncFailureBodyText",
                 "syncFailureDiagnosticText",
                 "Support code:",
+                "navigation.route == .settings",
+                "settingsContent(contentState:",
                 "navigation.navigate(to: .settings)",
                 "purgeShoppingEntityIdentifiers",
                 "shoppingEntityIndexPurge",

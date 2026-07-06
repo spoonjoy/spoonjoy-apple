@@ -63,7 +63,9 @@ struct SpoonjoyRootView: View {
         case .destructiveConfirmation(let contentState):
             platformNavigation(contentState: contentState)
         case .syncFailed(let contentState, let message):
-            if hasRenderableKitchenContent(contentState) {
+            if navigation.route == .settings {
+                settingsContent(contentState: contentState)
+            } else if hasRenderableKitchenContent(contentState) {
                 platformNavigation(contentState: contentState)
             } else {
                 syncFailedView(contentState: contentState, message: message)
@@ -73,12 +75,7 @@ struct SpoonjoyRootView: View {
 
     @ViewBuilder private func signedOutContent(contentState: NativeShellContentState) -> some View {
         if navigation.route == .settings {
-            SettingsView(
-                viewModel: contentState.settingsViewModel,
-                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
-                shellOfflineIndicatorState: contentState.offlineIndicatorState,
-                onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
-            )
+            settingsContent(contentState: contentState)
         } else {
             SignedOutSetupView(
                 authRepository: liveStore.authSessionRepository,
@@ -90,6 +87,15 @@ struct SpoonjoyRootView: View {
                 }
             )
         }
+    }
+
+    private func settingsContent(contentState: NativeShellContentState) -> some View {
+        SettingsView(
+            viewModel: contentState.settingsViewModel,
+            settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+            shellOfflineIndicatorState: contentState.offlineIndicatorState,
+            onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
+        )
     }
 
     private func platformNavigation(contentState: NativeShellContentState) -> some View {
