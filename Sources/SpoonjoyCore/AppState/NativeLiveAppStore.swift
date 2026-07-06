@@ -3146,12 +3146,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func grantedScopes(for authSessionState: NativeAuthSessionState) -> Set<String> {
-        switch authSessionState {
-        case .signedOut:
-            []
-        case .authenticated(let session), .refreshRequired(let session):
-            Set(session.scope.split(separator: " ").map(String.init))
-        }
+        nativeGrantedScopes(for: authSessionState)
     }
 
     private func authSessionStateByBindingReport(
@@ -3217,6 +3212,15 @@ public final class NativeLiveAppStore: ObservableObject {
 
 public enum NativeLiveAppStoreError: Error, Equatable, Sendable {
     case fixtureFallbackEnabledInProduction
+}
+
+func nativeGrantedScopes(for authSessionState: NativeAuthSessionState) -> Set<String> {
+    switch authSessionState {
+    case .signedOut:
+        []
+    case .authenticated(let session), .refreshRequired(let session):
+        Set(session.scope.split(separator: " ").map(String.init))
+    }
 }
 
 private enum NativeLiveAppStoreTelemetry {

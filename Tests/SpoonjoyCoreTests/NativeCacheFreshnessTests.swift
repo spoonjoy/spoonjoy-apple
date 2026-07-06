@@ -10,6 +10,7 @@ struct NativeCacheFreshnessTests {
         #expect(NativeCacheEnvironment(rawValue: "LOCAL") == .local)
         #expect(NativeCacheEnvironment(rawValue: "preview") == .preview)
         #expect(NativeCacheEnvironment(rawValue: "preview: Branch-Preview.Spoonjoy.App ") == .previewHost("branch-preview.spoonjoy.app"))
+        #expect(NativeCacheEnvironment(rawValue: "preview:   ") == .preview)
         #expect(NativeCacheEnvironment(rawValue: "unexpected") == .preview)
         #expect(NativeCacheEnvironment.preview(host: nil) == .preview)
         #expect(NativeCacheEnvironment.preview(host: "   ") == .preview)

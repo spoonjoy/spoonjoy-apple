@@ -19,7 +19,7 @@ public enum NativeCacheEnvironment: Codable, Equatable, Hashable, Sendable {
             if normalized.hasPrefix("preview:"), normalized.count > "preview:".count {
                 let host = String(normalized.dropFirst("preview:".count))
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                self = host.isEmpty ? .preview : .previewHost(host)
+                self = .previewHost(host)
             } else {
                 self = .preview
             }

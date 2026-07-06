@@ -274,6 +274,116 @@ struct NativeSyncEngineTests {
         ])
     }
 
+    @Test("sync engine rejects bootstrap pages that advertise more data without a next cursor")
+    func syncEngineRejectsBootstrapPageWithMissingNextCursor() async throws {
+        let syncData = NativeSyncData(
+            freshness: NativeSyncFreshness(
+                accountID: "chef_ari",
+                environment: .local,
+                schemaVersion: 2,
+                sourceEndpoint: "/api/v1/me/sync",
+                generatedAt: "2026-07-05T18:45:00.000Z",
+                lastValidatedAt: "2026-07-05T18:45:00.000Z"
+            ),
+            entries: [],
+            nextCursor: nil,
+            hasMore: true
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: []
+        )
+        let transport = RecordingNativeSyncTransport(bootstrap: .syncData(syncData), mutationResults: [])
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        do {
+            _ = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+            Issue.record("Expected bootstrap to reject a hasMore page without nextCursor")
+        } catch NativeSyncBootstrapPagingError.missingNextCursor(let page) {
+            #expect(page == 1)
+        } catch {
+            Issue.record("Expected missingNextCursor, got \(error)")
+        }
+    }
+
+    @Test("sync engine rejects bootstrap pages that repeat a cursor")
+    func syncEngineRejectsRepeatedBootstrapCursor() async throws {
+        let freshness = NativeSyncFreshness(
+            accountID: "chef_ari",
+            environment: .local,
+            schemaVersion: 2,
+            sourceEndpoint: "/api/v1/me/sync",
+            generatedAt: "2026-07-05T18:45:00.000Z",
+            lastValidatedAt: "2026-07-05T18:45:00.000Z"
+        )
+        let pageOne = NativeSyncData(
+            freshness: freshness,
+            entries: [],
+            nextCursor: PaginationCursor(rawValue: "v1.loop"),
+            hasMore: true
+        )
+        let pageTwo = NativeSyncData(
+            freshness: freshness,
+            entries: [],
+            nextCursor: PaginationCursor(rawValue: "v1.loop"),
+            hasMore: true
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: []
+        )
+        let transport = RecordingNativeSyncTransport(
+            bootstrapPages: [.syncData(pageOne), .syncData(pageTwo)],
+            mutationResults: []
+        )
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        do {
+            _ = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+            Issue.record("Expected bootstrap to reject a repeated nextCursor")
+        } catch NativeSyncBootstrapPagingError.repeatedCursor(let cursor, let page) {
+            #expect(cursor == "v1.loop")
+            #expect(page == 2)
+        } catch {
+            Issue.record("Expected repeatedCursor, got \(error)")
+        }
+    }
+
+    @Test("sync engine rethrows retryable bootstrap transport failures")
+    func syncEngineRethrowsRetryableBootstrapTransportFailures() async throws {
+        let transportError = APITransportError(
+            kind: .networkFailure,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: 7)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: []
+        )
+        let transport = ThrowingNativeSyncTransport(error: transportError)
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        do {
+            _ = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+            Issue.record("Expected retryable bootstrap transport failure to be rethrown")
+        } catch let error as APITransportError {
+            #expect(error == transportError)
+        } catch {
+            Issue.record("Expected APITransportError, got \(error)")
+        }
+    }
+
     @Test("bootstrap account switch reports previous shopping entity purge identifiers")
     func bootstrapAccountSwitchReportsPreviousShoppingEntityPurgeIdentifiers() async throws {
         let previousItems = [
@@ -5147,6 +5257,18 @@ private actor RecordingNativeSyncTransport: NativeSyncTransport {
         requestPaths.append(request.url.path)
         clientMutationIDs.append(mutation.clientMutationID)
         return mutationResults.isEmpty ? .success(serverRevision: nil) : mutationResults.removeFirst()
+    }
+}
+
+private struct ThrowingNativeSyncTransport: NativeSyncTransport {
+    let error: APITransportError
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        throw error
+    }
+
+    func send(_: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        throw error
     }
 }
 

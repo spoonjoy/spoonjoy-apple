@@ -4573,8 +4573,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         }
 
         var page = 0
+        var shouldContinue = true
         do {
-            while true {
+            while shouldContinue {
                 page += 1
                 let bootstrapRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: cursor)
                     .urlRequest(configuration: configuration)
@@ -4607,9 +4608,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                         applyResult: applyResult
                     )
 
-                    guard scopedSyncData.hasMore else {
-                        NativeSyncTelemetry.bootstrapCompleted(trigger: trigger, application: application)
-                        return application
+                    if !scopedSyncData.hasMore {
+                        shouldContinue = false
+                        continue
                     }
 
                     guard let nextCursor = scopedSyncData.nextCursor else {
@@ -4623,6 +4624,8 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                     cursor = nextCursor
                 }
             }
+            NativeSyncTelemetry.bootstrapCompleted(trigger: trigger, application: application)
+            return application
         } catch {
             NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: max(page, 1), error: error)
             throw error

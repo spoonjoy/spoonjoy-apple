@@ -1388,6 +1388,89 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("settings generic refresh failure does not block live kitchen bootstrap")
+    func settingsGenericRefreshFailureDoesNotBlockLiveKitchenBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_generic", title: "Still Loads Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw SettingsRefreshProbeError()
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected generic settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.title) == ["Still Loads Pasta"])
+            #expect(content.settingsSurfaceData == nil)
+            #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @MainActor
+    @Test("settings transport refresh failure without metadata does not block live kitchen bootstrap")
+    func settingsTransportRefreshFailureWithoutMetadataDoesNotBlockLiveKitchenBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_settings_transport_nil", title: "Metadata-Free Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw APITransportError(
+                        kind: .networkFailure,
+                        requestID: nil,
+                        statusCode: nil,
+                        apiError: nil,
+                        retryDecision: .retrySameRequest(afterSeconds: nil)
+                    )
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected metadata-free settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.title) == ["Metadata-Free Pasta"])
+            #expect(content.settingsSurfaceData == nil)
+            #expect(content.offlineIndicatorState.display == .synced)
+        }
+    }
+
+    @Test("native settings scope helper handles signed out authenticated and refresh-required sessions")
+    func nativeSettingsScopeHelperHandlesSessionStates() throws {
+        let session = try AuthSession(
+            clientID: "client_live",
+            accessToken: "sj_access_current",
+            refreshToken: "sj_refresh_current",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(600),
+            scope: "\(NativeAuthSession.defaultScope) tokens:read tokens:write",
+            accountID: "chef_ari"
+        )
+
+        #expect(nativeGrantedScopes(for: .signedOut).isEmpty)
+        #expect(nativeGrantedScopes(for: .authenticated(session)) == Set(session.scope.split(separator: " ").map(String.init)))
+        #expect(nativeGrantedScopes(for: .refreshRequired(session)) == Set(session.scope.split(separator: " ").map(String.init)))
+    }
+
+    @MainActor
     @Test("restore cache only launch mode renders signed-in settings without live fetch")
     func restoreCacheOnlyLaunchModeRendersSignedInSettingsWithoutLiveFetch() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -4290,6 +4373,75 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store surfaces non-retryable signed in bootstrap API failures")
+    func liveStoreSurfacesNonRetryableSignedInBootstrapAPIFailures() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let transportError = APITransportError(
+                kind: .apiError,
+                requestID: "req_bootstrap_bad_request",
+                statusCode: 400,
+                apiError: APIError(
+                    requestID: "req_bootstrap_bad_request",
+                    code: "bad_request",
+                    message: "Bad request",
+                    status: 400
+                ),
+                retryDecision: .doNotRetry
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.failure(transportError)])
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected non-retryable bootstrap API failure to produce syncFailed; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+            #expect(message.contains("Support code req_bootstrap_bad_request."))
+            #expect(message.contains("Reason bad_request."))
+            #expect(message.contains("HTTP 400."))
+        }
+    }
+
+    @MainActor
+    @Test("live store surfaces retryable signed in bootstrap transport failures")
+    func liveStoreSurfacesRetryableSignedInBootstrapTransportFailures() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let transportError = APITransportError(
+                kind: .networkFailure,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: 12)
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.failure(transportError)])
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected retryable bootstrap transport failure to produce syncFailed; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+            #expect(message == "Spoonjoy could not finish syncing your account.")
+        }
+    }
+
+    @MainActor
     @Test("live store maps sync conflict auth retry and local queue outcomes to shell states")
     func liveStoreMapsSyncConflictAuthRetryAndLocalQueueOutcomesToShellStates() async throws {
         try await assertSyncOutcome(
@@ -6290,6 +6442,8 @@ private struct ProcessRunResult: Equatable {
     let status: Int32
     let output: String
 }
+
+private struct SettingsRefreshProbeError: Error {}
 
 private func compileFixtureFallbackPolicyHarness(policySource: String) throws -> URL {
     let directory = FileManager.default.temporaryDirectory

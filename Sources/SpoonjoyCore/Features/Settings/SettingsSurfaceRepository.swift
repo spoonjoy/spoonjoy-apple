@@ -390,11 +390,11 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
             ? try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: configuration)
             : nil
         let validatedAt = [
-            account.validatedAt,
-            notifications.validatedAt,
             tokens?.validatedAt,
             connections?.validatedAt
-        ].compactMap { $0 }.max() ?? account.validatedAt
+        ]
+        .compactMap { $0 }
+        .reduce(max(account.validatedAt, notifications.validatedAt), max)
         let tokenManagementAvailability: SettingsTokenManagementAvailability = canReadTokenManagement
             ? .available
             : .unavailableMissingScope
