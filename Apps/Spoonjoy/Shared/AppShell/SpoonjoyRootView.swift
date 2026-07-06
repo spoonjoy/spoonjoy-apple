@@ -188,7 +188,7 @@ struct SpoonjoyRootView: View {
     }
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {
-        VStack(spacing: 18) {
+        return VStack(spacing: 18) {
             Text("Spoonjoy")
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
@@ -206,32 +206,74 @@ struct SpoonjoyRootView: View {
         .background(KitchenTableTheme.bone)
     }
 
-    private func syncFailedView(contentState: NativeShellContentState, message _: String) -> some View {
-        VStack(spacing: 18) {
+    private func syncFailedView(contentState: NativeShellContentState, message failureMessage: String) -> some View {
+        let bodyText = syncFailureBodyText(failureMessage)
+        let diagnosticText = syncFailureDiagnosticText(failureMessage)
+
+        return VStack(spacing: 18) {
             Image(systemName: "exclamationmark.arrow.trianglehead.2.clockwise.rotate.90")
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(KitchenTableTheme.tomato)
             Text("We couldn't load your kitchen")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(KitchenTableTheme.charcoal)
-            Text("Your Spoonjoy account is signed in. Try again to finish the first sync.")
+            Text(bodyText)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.78))
                 .multilineTextAlignment(.center)
-            Button {
-                Task {
-                    await liveStore.bootstrap()
-                    applyRestoredRouteIfNeeded()
-                }
-            } label: {
-                Label("Try Again", systemImage: "arrow.clockwise")
+            if let diagnosticText {
+                Text(diagnosticText)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.68))
+                    .multilineTextAlignment(.center)
+                    .textSelection(.enabled)
             }
-            .buttonStyle(.borderedProminent)
+            HStack(spacing: 12) {
+                Button {
+                    Task {
+                        await liveStore.bootstrap()
+                        applyRestoredRouteIfNeeded()
+                    }
+                } label: {
+                    Label("Try Again", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    navigation.navigate(to: .settings)
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .buttonStyle(.bordered)
+            }
             OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
         }
+        .frame(maxWidth: 440)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .padding(32)
         .background(KitchenTableTheme.bone)
+    }
+
+    private func syncFailureBodyText(_ message: String) -> String {
+        if message.hasPrefix("Spoonjoy could not finish syncing your account.") {
+            return "Your Spoonjoy account is signed in, but Spoonjoy couldn't finish the first sync. The support code below lets us trace this exact attempt."
+        }
+        return "Your Spoonjoy account is signed in, but Spoonjoy couldn't finish the first sync. Try again, or open Settings to sign out and back in."
+    }
+
+    private func syncFailureDiagnosticText(_ message: String) -> String? {
+        guard let supportRange = message.range(of: "Support code ") else {
+            return nil
+        }
+        let supportText = message[supportRange.upperBound...]
+            .split(separator: ".")
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let supportText, !supportText.isEmpty else {
+            return nil
+        }
+        return "Support code: \(supportText)"
     }
 
     private func hasRenderableKitchenContent(_ contentState: NativeShellContentState) -> Bool {

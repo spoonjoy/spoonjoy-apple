@@ -4250,6 +4250,46 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store surfaces sanitized support codes for signed in bootstrap API failures")
+    func liveStoreSurfacesSanitizedSupportCodesForSignedInBootstrapAPIFailures() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let transportError = APITransportError(
+                kind: .apiError,
+                requestID: "req_bootstrap_invalid_token",
+                statusCode: 401,
+                apiError: APIError(
+                    requestID: "req_bootstrap_invalid_token",
+                    code: "invalid_token",
+                    message: "Invalid API token",
+                    status: 401
+                ),
+                retryDecision: .refreshAuthentication
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.failure(transportError)])
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected signed-in bootstrap API failure to produce syncFailed; got \(liveStore.bootstrapState)")
+                return
+            }
+
+            #expect(content.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+            #expect(message.contains("Support code req_bootstrap_invalid_token."))
+            #expect(message.contains("Reason invalid_token."))
+            #expect(message.contains("HTTP 401."))
+            #expect(!message.contains("accessToken"))
+            #expect(!message.contains("refreshToken"))
+        }
+    }
+
+    @MainActor
     @Test("live store maps sync conflict auth retry and local queue outcomes to shell states")
     func liveStoreMapsSyncConflictAuthRetryAndLocalQueueOutcomesToShellStates() async throws {
         try await assertSyncOutcome(
@@ -4965,6 +5005,13 @@ struct NativeLiveStoreTests {
                 "restoreFromCache",
                 "loadSnapshot",
                 "bootstrapFromLiveAPI",
+                "NativeLiveAppStoreTelemetry.bootstrapFailed",
+                "NativeLiveAppStoreTelemetry.bootstrapOffline",
+                "native_app_bootstrap_failed",
+                "failureMessage(for:",
+                "request_id",
+                "account_bound",
+                "has_cache_content",
                 "validSession()",
                 "recipeEditorAPITransport",
                 "switchEnvironment",
@@ -5012,6 +5059,10 @@ struct NativeLiveStoreTests {
                 "contentState:",
                 "offlineIndicatorState:",
                 "dismissOfflineIndicator",
+                "syncFailureBodyText",
+                "syncFailureDiagnosticText",
+                "Support code:",
+                "navigation.navigate(to: .settings)",
                 "purgeShoppingEntityIdentifiers",
                 "shoppingEntityIndexPurge",
                 "SpoonjoySpotlightIndexer().delete",

@@ -1764,12 +1764,28 @@ public final class NativeLiveAppStore: ObservableObject {
             apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
             try await bootstrapFromLiveAPI(session: session, trigger: .launch)
         } catch let error as APITransportError where error.isOffline {
+            NativeLiveAppStoreTelemetry.bootstrapOffline(
+                stage: "launch",
+                error: error,
+                authState: currentContentState.authSessionState,
+                environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
             let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
         } catch {
+            NativeLiveAppStoreTelemetry.bootstrapFailed(
+                stage: "launch",
+                error: error,
+                authState: currentContentState.authSessionState,
+                environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
             apply(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
-                message: String(describing: error)
+                message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
             ))
         }
     }
@@ -1791,12 +1807,28 @@ public final class NativeLiveAppStore: ObservableObject {
                 trigger: NativeSyncTriggerEvent.environmentChanged(environment)
             )
         } catch let error as APITransportError where error.isOffline {
+            NativeLiveAppStoreTelemetry.bootstrapOffline(
+                stage: "environment",
+                error: error,
+                authState: authSessionState,
+                environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
             let offlineContent = (try? await restoreFromCache(authSessionState: authSessionState)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
         } catch {
+            NativeLiveAppStoreTelemetry.bootstrapFailed(
+                stage: "environment",
+                error: error,
+                authState: authSessionState,
+                environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
             apply(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "environment", retryAfter: nil), dismissal: nil)),
-                message: String(describing: error)
+                message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
             ))
         }
     }
@@ -2877,6 +2909,7 @@ public final class NativeLiveAppStore: ObservableObject {
         session: AuthSession,
         trigger: NativeSyncTriggerEvent
     ) async throws {
+        do {
         let report = try await syncTriggerCoordinator.handle(trigger)
         for request in report.shoppingEntityPurgeRequests {
             await purgeShoppingEntityIdentifiers(
@@ -2975,6 +3008,17 @@ public final class NativeLiveAppStore: ObservableObject {
             apply(.blocker(content))
         } else {
             apply(.liveSynced(content))
+        }
+        } catch {
+            NativeLiveAppStoreTelemetry.bootstrapFailed(
+                stage: "liveAPI:\(String(describing: trigger))",
+                error: error,
+                authState: currentContentState.authSessionState,
+                environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
+            throw error
         }
     }
 
@@ -3180,6 +3224,56 @@ private enum NativeLiveAppStoreTelemetry {
     private static let logger = Logger(subsystem: "app.spoonjoy", category: "app.bootstrap")
 #endif
 
+    static func failureMessage(for error: Error) -> String {
+        guard let transportError = error as? APITransportError else {
+            return String(describing: error)
+        }
+        let context = errorContext(transportError)
+        var parts = ["Spoonjoy could not finish syncing your account."]
+        if context.requestID != "none" {
+            parts.append("Support code \(context.requestID).")
+        }
+        if context.code != "none" {
+            parts.append("Reason \(context.code).")
+        }
+        if context.status != "none" {
+            parts.append("HTTP \(context.status).")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    static func bootstrapFailed(
+        stage: String,
+        error: Error,
+        authState: NativeAuthSessionState,
+        environment: NativeCacheEnvironment,
+        route: AppRoute?,
+        contentState: NativeShellContentState
+    ) {
+#if canImport(OSLog)
+        let context = errorContext(error)
+        logger.error(
+            "native_app_bootstrap_failed stage=\(stage, privacy: .public) error_type=\(context.type, privacy: .public) request_id=\(context.requestID, privacy: .public) status=\(context.status, privacy: .public) code=\(context.code, privacy: .public) retry=\(context.retry, privacy: .public) account_bound=\(accountBound(authState), privacy: .public) environment=\(environment.rawValue, privacy: .public) route=\(route?.stateIdentifier ?? "none", privacy: .public) has_cache_content=\(hasRenderableCacheContent(contentState), privacy: .public) recipes=\(contentState.recipes.count, privacy: .public) cookbooks=\(contentState.cookbooks.count, privacy: .public) shopping_items=\(contentState.shoppingList?.activeItems.count ?? 0, privacy: .public) queued=\(contentState.queuedMutations.count, privacy: .public)"
+        )
+#endif
+    }
+
+    static func bootstrapOffline(
+        stage: String,
+        error: APITransportError,
+        authState: NativeAuthSessionState,
+        environment: NativeCacheEnvironment,
+        route: AppRoute?,
+        contentState: NativeShellContentState
+    ) {
+#if canImport(OSLog)
+        let context = errorContext(error)
+        logger.info(
+            "native_app_bootstrap_offline stage=\(stage, privacy: .public) error_type=\(context.type, privacy: .public) retry=\(context.retry, privacy: .public) account_bound=\(accountBound(authState), privacy: .public) environment=\(environment.rawValue, privacy: .public) route=\(route?.stateIdentifier ?? "none", privacy: .public) has_cache_content=\(hasRenderableCacheContent(contentState), privacy: .public) recipes=\(contentState.recipes.count, privacy: .public) cookbooks=\(contentState.cookbooks.count, privacy: .public) shopping_items=\(contentState.shoppingList?.activeItems.count ?? 0, privacy: .public) queued=\(contentState.queuedMutations.count, privacy: .public)"
+        )
+#endif
+    }
+
     static func settingsRefreshFailed(_ error: Error) {
 #if canImport(OSLog)
         let type = String(describing: Swift.type(of: error))
@@ -3191,6 +3285,48 @@ private enum NativeLiveAppStoreTelemetry {
             logger.error("native_settings_refresh_failed error_type=\(type, privacy: .public)")
         }
 #endif
+    }
+
+    private static func errorContext(_ error: Error) -> (type: String, requestID: String, status: String, code: String, retry: String) {
+        let type = String(describing: Swift.type(of: error))
+        guard let transportError = error as? APITransportError else {
+            return (type, "none", "none", "none", "none")
+        }
+        return errorContext(transportError)
+    }
+
+    private static func errorContext(_ transportError: APITransportError) -> (type: String, requestID: String, status: String, code: String, retry: String) {
+        (
+            String(describing: Swift.type(of: transportError)),
+            transportError.requestID ?? transportError.apiError?.requestID ?? "none",
+            transportError.statusCode.map(String.init) ?? transportError.apiError?.status.description ?? "none",
+            transportError.apiError?.code ?? "none",
+            retryDescription(transportError.retryDecision)
+        )
+    }
+
+    private static func retryDescription(_ decision: APIRetryDecision) -> String {
+        switch decision {
+        case .retrySameRequest(let seconds):
+            "retry_same_request:\(seconds.map(String.init) ?? "unspecified")"
+        case .refreshAuthentication:
+            "refresh_authentication"
+        case .doNotRetry:
+            "do_not_retry"
+        }
+    }
+
+    private static func accountBound(_ authState: NativeAuthSessionState) -> Bool {
+        if case .authenticated = authState {
+            return true
+        }
+        return false
+    }
+
+    private static func hasRenderableCacheContent(_ contentState: NativeShellContentState) -> Bool {
+        !contentState.recipes.isEmpty ||
+            !contentState.cookbooks.isEmpty ||
+            !(contentState.shoppingList?.activeItems.isEmpty ?? true)
     }
 }
 

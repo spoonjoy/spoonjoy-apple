@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { createHmac, createSign, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
-import { spawn } from "node:child_process";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -18,9 +18,11 @@ const SUPPORT_DIR = path.join(homedir(), "Library/Application Support/Spoonjoy/T
 const DEFAULT_SECRET_PATH = process.env.SPOONJOY_TESTFLIGHT_WEBHOOK_SECRET_PATH || path.join(SUPPORT_DIR, "webhook-secret");
 const DEFAULT_STATE_PATH = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_STATE_PATH || path.join(SUPPORT_DIR, "state.json");
 const DEFAULT_EVENT_DIR = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_EVENT_DIR || path.join(SUPPORT_DIR, "events");
+const DEFAULT_ACTIVITY_PATH = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_ACTIVITY_PATH || path.join(SUPPORT_DIR, "activity.jsonl");
 const ASC_CONFIG = process.env.APPLE_DISTRIBUTION_KIT_CONFIG || path.join(homedir(), "Library/Application Support/AppleDistributionKit/app-store-connect/config.json");
 const FEEDBACK_EVENTS = new Set(["betaFeedbackScreenshotSubmissionCreated", "betaFeedbackCrashSubmissionCreated"]);
 const FEEDBACK_INSTANCE_TYPES = new Set(["betaFeedbackScreenshotSubmissions", "betaFeedbackCrashSubmissions"]);
+const WEBHOOK_NAME = "Spoonjoy TestFlight Feedback Autopilot";
 
 const command = process.argv[2] || "help";
 const args = process.argv.slice(3);
@@ -36,6 +38,13 @@ async function main() {
   if (command === "seed-current") return seedCurrentFeedback();
   if (command === "smoke") return smokeWebhook();
   if (command === "ping") return pingWebhook();
+  if (command === "deliveries") return deliveries();
+  if (command === "redeliver") return redeliver();
+  if (command === "reconcile") return reconcileUnhandledFeedback();
+  if (command === "retry") return retryFeedback();
+  if (command === "record-exit") return recordCodexExit();
+  if (command === "mark") return markFeedback();
+  if (command === "status") return status();
   if (command === "doctor") return doctor();
   help();
 }
@@ -47,6 +56,12 @@ function help() {
   scripts/testflight-feedback-autopilot.mjs seed-current
   scripts/testflight-feedback-autopilot.mjs smoke [--run-agent]
   scripts/testflight-feedback-autopilot.mjs ping [--id webhook-id]
+  scripts/testflight-feedback-autopilot.mjs deliveries [--since 2026-07-06T00:00:00Z]
+  scripts/testflight-feedback-autopilot.mjs redeliver --delivery-id webhook-delivery-id
+  scripts/testflight-feedback-autopilot.mjs reconcile [--dry-run]
+  scripts/testflight-feedback-autopilot.mjs retry --instance-id feedback-instance-id
+  scripts/testflight-feedback-autopilot.mjs mark --instance-id feedback-instance-id --status taken_over|failed|succeeded [--message text]
+  scripts/testflight-feedback-autopilot.mjs status [--plain]
   scripts/testflight-feedback-autopilot.mjs doctor
 
 Environment:
@@ -75,33 +90,31 @@ async function listen() {
       const raw = await readBody(request);
       const signature = String(request.headers["x-apple-signature"] || request.headers["x-apple-signature".toLowerCase()] || "");
       if (!verifyAppleSignature(raw, signature, secret)) {
+        recordActivity("signature_rejected", {
+          path: url.pathname,
+          signatureScheme: signature.split("=")[0] || "missing",
+          bytes: raw.length,
+        });
         return sendJson(response, 401, { ok: false, error: "invalid_signature" });
       }
 
       const payload = JSON.parse(raw.toString("utf8"));
       const events = extractFeedbackEvents(payload);
       if (events.length === 0) {
+        recordActivity("ignored", { reason: "no_feedback_events", type: payload?.data?.type });
         return sendJson(response, 202, { ok: true, ignored: true });
       }
       if (request.headers["x-spoonjoy-smoke"] === "no-agent") {
+        recordActivity("smoke", { events: events.length });
         return sendJson(response, 202, { ok: true, smoke: true, events: events.length });
       }
 
       const state = loadState();
-      const queued = [];
-      for (const event of events) {
-        if (state.handledInstanceIds.includes(event.instance.id) || state.launchedEventIds.includes(event.eventId)) {
-          continue;
-        }
-        state.launchedEventIds.push(event.eventId);
-        state.handledInstanceIds.push(event.instance.id);
-        queued.push(event);
-      }
-      saveState(state);
+      const queued = events.filter((event) => !state.handledInstanceIds.includes(event.instance.id) && !state.launchedEventIds.includes(event.eventId));
       sendJson(response, 202, { ok: true, queued: queued.length });
 
       for (const event of queued) {
-        void handleFeedbackEvent(event, payload).catch((error) => {
+        void enqueueFeedbackEvent(event, payload).catch((error) => {
           appendRuntimeLog(`event ${event.instance.id} failed: ${error?.stack || String(error)}`);
         });
       }
@@ -117,9 +130,50 @@ async function listen() {
   });
 }
 
+async function enqueueFeedbackEvent(event, payload) {
+  const state = loadState();
+  if (state.handledInstanceIds.includes(event.instance.id) || state.launchedEventIds.includes(event.eventId)) {
+    recordActivity("deduped", { eventId: event.eventId, instanceId: event.instance.id });
+    return { queued: false, reason: "already_handled" };
+  }
+
+  state.launchedEventIds.push(event.eventId);
+  state.handledInstanceIds.push(event.instance.id);
+  state.lastQueuedAt = new Date().toISOString();
+  state.feedbackRuns[event.instance.id] = {
+    ...(state.feedbackRuns[event.instance.id] || {}),
+    eventId: event.eventId,
+    eventType: event.type,
+    instanceId: event.instance.id,
+    instanceType: event.instance.type,
+    status: "queued",
+    queuedAt: state.lastQueuedAt,
+  };
+  saveState(state);
+  recordActivity("queued", {
+    eventId: event.eventId,
+    eventType: event.type,
+    instanceType: event.instance.type,
+    instanceId: event.instance.id,
+  });
+
+  try {
+    await handleFeedbackEvent(event, payload);
+    return { queued: true };
+  } catch (error) {
+    markEventFailed(event, error);
+    throw error;
+  }
+}
+
 async function handleFeedbackEvent(event, rawPayload) {
   const eventDir = path.join(DEFAULT_EVENT_DIR, `${new Date().toISOString().replace(/[:.]/g, "-")}-${event.instance.id}`);
   mkdirSync(eventDir, { recursive: true });
+  updateFeedbackRun(event.instance.id, {
+    status: "preparing",
+    eventDir,
+    preparingAt: new Date().toISOString(),
+  });
   writeJson(path.join(eventDir, "webhook.json"), redactForDisk(rawPayload));
   writeJson(path.join(eventDir, "event.json"), event);
 
@@ -142,16 +196,20 @@ async function handleFeedbackEvent(event, rawPayload) {
 
   if (process.env.SPOONJOY_TESTFLIGHT_AUTOPILOT_DRY_RUN === "1") {
     appendRuntimeLog(`dry-run queued ${event.instance.id} at ${eventDir}`);
+    updateFeedbackRun(event.instance.id, {
+      status: "dry_run",
+      completedAt: new Date().toISOString(),
+    });
     return;
   }
 
   const logPath = path.join(eventDir, "codex-exec.jsonl");
   const outputPath = path.join(eventDir, "codex-last-message.md");
+  const exitPath = path.join(eventDir, "codex-exit-code.txt");
   const codexArgs = [
     "exec",
     "-C",
     DEFAULT_REPO,
-    "resume",
     "--dangerously-bypass-approvals-and-sandbox",
     "-o",
     outputPath,
@@ -159,27 +217,58 @@ async function handleFeedbackEvent(event, rawPayload) {
   for (const imagePath of imagePaths) {
     codexArgs.push("-i", imagePath);
   }
-  codexArgs.push(DEFAULT_THREAD_ID, "-");
+  codexArgs.push("-");
 
-  const child = spawn(DEFAULT_CODEX, codexArgs, {
+  const commandLine = [
+    shellQuote(DEFAULT_CODEX),
+    ...codexArgs.map(shellQuote),
+    "<",
+    shellQuote(promptPath),
+    ">>",
+    shellQuote(logPath),
+    "2>&1",
+  ].join(" ");
+  const wrapper = [
+    `${commandLine}`,
+    "code=$?",
+    `printf '%s\\n' "$code" > ${shellQuote(exitPath)}`,
+    [
+      shellQuote(process.execPath),
+      shellQuote(process.argv[1]),
+      "record-exit",
+      "--instance-id",
+      shellQuote(event.instance.id),
+      "--event-id",
+      shellQuote(event.eventId),
+      "--event-dir",
+      shellQuote(eventDir),
+      "--code",
+      "\"$code\"",
+    ].join(" "),
+    "exit 0",
+  ].join("\n");
+
+  const child = spawn("/bin/sh", ["-lc", wrapper], {
     cwd: DEFAULT_REPO,
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: "ignore",
     env: {
       ...process.env,
       SPOONJOY_TESTFLIGHT_FEEDBACK_EVENT_DIR: eventDir,
     },
     detached: true,
   });
-  child.stdin.end(readFileSync(promptPath));
-  const log = createAppendWriter(logPath);
-  child.stdout.on("data", (chunk) => log.write(chunk));
-  child.stderr.on("data", (chunk) => log.write(chunk));
-  child.on("exit", (code, signal) => {
-    appendRuntimeLog(`codex event ${event.instance.id} exited code=${code} signal=${signal || ""}`);
-    log.end();
-  });
   child.unref();
+  updateFeedbackRun(event.instance.id, {
+    status: "running",
+    eventDir,
+    codexPid: child.pid || null,
+    startedAt: new Date().toISOString(),
+    logPath,
+    outputPath,
+  });
   appendRuntimeLog(`launched codex for ${event.instance.id}; event dir ${eventDir}`);
+  recordActivity("codex_launched", { eventId: event.eventId, instanceId: event.instance.id, eventDir, pid: child.pid || null });
+  notify("Spoonjoy TestFlight feedback", `Queued ${event.instance.id} for Codex`);
 }
 
 function buildCodexPrompt(event, eventDir, imagePaths) {
@@ -213,14 +302,14 @@ async function registerWebhook() {
   const secret = readSecret();
   const eventTypes = ["BETA_FEEDBACK_SCREENSHOT_SUBMISSION_CREATED", "BETA_FEEDBACK_CRASH_SUBMISSION_CREATED"];
   const existing = await ascRequest("GET", `/v1/apps/${APP_ID}/webhooks`);
-  const current = (existing.data || []).find((webhook) => webhook?.attributes?.name === "Spoonjoy TestFlight Feedback Autopilot");
+  const current = (existing.data || []).find((webhook) => webhook?.attributes?.name === WEBHOOK_NAME);
   const body = {
     data: {
       type: "webhooks",
       attributes: {
         enabled: true,
         eventTypes,
-        name: "Spoonjoy TestFlight Feedback Autopilot",
+        name: WEBHOOK_NAME,
         secret,
         url,
       },
@@ -295,7 +384,7 @@ async function smokeWebhook() {
     },
   };
   const raw = Buffer.from(JSON.stringify(payload));
-  const signature = createHmac("sha256", secret).update(raw).digest("base64");
+  const signature = `hmacsha256=${createHmac("sha256", secret).update(raw).digest("hex")}`;
   const response = await fetch(`http://${DEFAULT_HOST}:${DEFAULT_PORT}/app-store-connect/webhook`, {
     method: "POST",
     headers: {
@@ -333,6 +422,248 @@ async function pingWebhook() {
     pingId: result?.data?.id,
     state: result?.data?.attributes?.state,
   }, null, 2));
+}
+
+async function deliveries() {
+  ensureRuntime();
+  const webhookId = args.includes("--id") ? requiredArg("--id") : registeredWebhookId();
+  const since = args.includes("--since") ? requiredArg("--since") : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const result = await fetchWebhookDeliveries(webhookId, since);
+  console.log(JSON.stringify({
+    ok: true,
+    webhookId,
+    since,
+    deliveries: summarizeDeliveries(result),
+  }, null, 2));
+}
+
+async function redeliver() {
+  ensureRuntime();
+  const deliveryId = requiredArg("--delivery-id");
+  const result = await ascRequest("POST", "/v1/webhookDeliveries", {
+    data: {
+      type: "webhookDeliveries",
+      relationships: {
+        template: {
+          data: {
+            type: "webhookDeliveries",
+            id: deliveryId,
+          },
+        },
+      },
+    },
+  });
+  console.log(JSON.stringify({
+    ok: true,
+    originalDeliveryId: deliveryId,
+    redeliveryId: result?.data?.id,
+    deliveryState: result?.data?.attributes?.deliveryState,
+  }, null, 2));
+}
+
+async function reconcileUnhandledFeedback() {
+  ensureRuntime();
+  const dryRun = args.includes("--dry-run");
+  const feedback = await currentFeedback();
+  const state = loadState();
+  const unhandled = feedback.filter((item) => !state.handledInstanceIds.includes(item.id));
+  const results = [];
+
+  for (const item of unhandled) {
+    const event = feedbackItemToEvent(item, `reconcile:${item.type}:${item.id}`);
+    if (dryRun) {
+      results.push({ id: item.id, type: item.type, action: "would_queue" });
+      continue;
+    }
+    await enqueueFeedbackEvent(event, eventToPayload(event));
+    results.push({ id: item.id, type: item.type, action: "queued" });
+  }
+
+  console.log(JSON.stringify({
+    ok: true,
+    dryRun,
+    currentFeedback: feedback.length,
+    unhandled: unhandled.length,
+    results,
+  }, null, 2));
+}
+
+async function retryFeedback() {
+  ensureRuntime();
+  const instanceId = requiredArg("--instance-id");
+  const feedback = await currentFeedback();
+  const item = feedback.find((candidate) => candidate.id === instanceId);
+  if (!item) throw new Error(`No current feedback instance found for ${instanceId}`);
+
+  const state = loadState();
+  state.handledInstanceIds = state.handledInstanceIds.filter((id) => id !== instanceId);
+  state.lastRetryAt = new Date().toISOString();
+  saveState(state);
+
+  const event = feedbackItemToEvent(item, `retry:${item.type}:${item.id}:${randomUUID()}`);
+  await enqueueFeedbackEvent(event, eventToPayload(event));
+  console.log(JSON.stringify({
+    ok: true,
+    instanceId,
+    type: item.type,
+    action: "queued",
+  }, null, 2));
+}
+
+function recordCodexExit() {
+  ensureRuntime();
+  const instanceId = requiredArg("--instance-id");
+  const eventId = requiredArg("--event-id");
+  const eventDir = requiredArg("--event-dir");
+  const code = Number(requiredArg("--code"));
+  appendRuntimeLog(`codex event ${instanceId} exited code=${code}`);
+  recordActivity("codex_exit", { eventId, instanceId, eventDir, code });
+  if (code !== 0) {
+    markEventFailed({
+      eventId,
+      instance: { id: instanceId },
+    }, new Error(`codex exited with code ${code}`));
+  } else {
+    updateFeedbackRun(instanceId, {
+      eventId,
+      eventDir,
+      status: "succeeded",
+      exitCode: code,
+      completedAt: new Date().toISOString(),
+    });
+    notify("Spoonjoy TestFlight feedback done", `Codex finished ${instanceId}`);
+  }
+  console.log(JSON.stringify({ ok: code === 0, instanceId, eventId, code }, null, 2));
+}
+
+function markFeedback() {
+  ensureRuntime();
+  const instanceId = requiredArg("--instance-id");
+  const status = requiredArg("--status");
+  const message = args.includes("--message") ? requiredArg("--message") : null;
+  const allowed = new Set(["taken_over", "failed", "succeeded", "seeded", "ignored"]);
+  if (!allowed.has(status)) throw new Error(`Unsupported status ${status}`);
+
+  const state = loadState();
+  const previous = state.feedbackRuns[instanceId] || {};
+  if (!state.handledInstanceIds.includes(instanceId)) state.handledInstanceIds.push(instanceId);
+  state.feedbackRuns[instanceId] = {
+    ...previous,
+    instanceId,
+    status,
+    message,
+    markedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (status === "failed") {
+    state.lastFailure = {
+      at: state.feedbackRuns[instanceId].markedAt,
+      eventId: previous.eventId || null,
+      instanceId,
+      message: message || "manually marked failed",
+    };
+  }
+  saveState(state);
+  recordActivity("marked", { instanceId, status, message });
+  console.log(JSON.stringify({ ok: true, instanceId, status }, null, 2));
+}
+
+async function status() {
+  ensureRuntime();
+  const state = loadState();
+  const feedback = await currentFeedback();
+  const webhooks = await ascRequest("GET", `/v1/apps/${APP_ID}/webhooks`);
+  const webhook = (webhooks.data || []).find((item) => item?.attributes?.name === WEBHOOK_NAME);
+  const deliveriesResult = webhook?.id ? await fetchWebhookDeliveries(webhook.id, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) : { data: [], included: [] };
+  const deliveriesSummary = summarizeDeliveries(deliveriesResult);
+  const latestDeliveries = latestDeliveryByEvent(deliveriesSummary);
+  const unhandled = feedback.filter((item) => !state.handledInstanceIds.includes(item.id));
+  const failedDeliveries = latestDeliveries.filter((delivery) => delivery.deliveryState === "FAILED" && !delivery.ping);
+  const feedbackStatuses = feedbackStatusReport(feedback, state);
+  const actionableFeedback = feedbackStatuses.filter((item) => ["new", "failed", "stalled", "unknown"].includes(item.status));
+  const runningFeedback = feedbackStatuses.filter((item) => ["queued", "preparing", "running", "taken_over"].includes(item.status));
+  const publicHealth = webhook?.attributes?.url ? await fetchJson(webhook.attributes.url.replace(/\/app-store-connect\/webhook$/, "/health")) : null;
+  const service = launchdSummary();
+
+  const report = {
+    ok: actionableFeedback.length === 0 && failedDeliveries.length === 0 && service.listener?.state === "running" && service.tunnel?.state === "running",
+    appId: APP_ID,
+    bundleId: APP_BUNDLE_ID,
+    services: service,
+    health: {
+      local: await fetchHealth(),
+      public: publicHealth,
+    },
+    webhook: webhook ? {
+      id: webhook.id,
+      enabled: webhook.attributes?.enabled,
+      eventTypes: webhook.attributes?.eventTypes,
+      url: webhook.attributes?.url,
+    } : null,
+    feedback: {
+      total: feedback.length,
+      completed: feedbackStatuses.filter((item) => ["succeeded", "dry_run"].includes(item.status)).length,
+      running: runningFeedback.length,
+      actionable: actionableFeedback.length,
+      items: feedbackStatuses,
+      unhandled: unhandled.map((item) => ({
+        id: item.id,
+        type: item.type,
+        createdDate: item.createdDate,
+      })),
+    },
+    deliveries: latestDeliveries,
+    deliveryHistory: deliveriesSummary,
+    recentEvents: recentEventDirs(),
+  };
+  if (args.includes("--plain")) return printPlainStatus(report);
+  console.log(JSON.stringify(report, null, 2));
+}
+
+function printPlainStatus(report) {
+  const lines = [];
+  lines.push(`Spoonjoy TestFlight feedback autopilot: ${report.ok ? "healthy" : "needs attention"}`);
+  lines.push(`App Store Connect app: ${report.appId} (${report.bundleId})`);
+  lines.push("");
+  lines.push("Services");
+  for (const [name, service] of Object.entries(report.services || {})) {
+    const state = service?.loaded ? service.state || "loaded" : "not loaded";
+    const pid = service?.pid ? ` pid=${service.pid}` : "";
+    const exit = service?.lastExitCode ? ` lastExit=${service.lastExitCode}` : "";
+    lines.push(`- ${name}: ${state}${pid}${exit}`);
+  }
+  lines.push(`- local health: ${report.health?.local?.ok ? "ok" : "failed"}`);
+  lines.push(`- public health: ${report.health?.public?.ok ? "ok" : "failed"}`);
+  lines.push("");
+  lines.push("Feedback");
+  lines.push(`- total: ${report.feedback.total}`);
+  lines.push(`- actionable: ${report.feedback.actionable}`);
+  lines.push(`- running or taken over: ${report.feedback.running}`);
+  for (const item of report.feedback.items.slice(0, 5)) {
+    const code = item.exitCode === null ? "" : ` exit=${item.exitCode}`;
+    const message = item.message ? ` ${item.message}` : "";
+    lines.push(`- ${item.id}: ${item.status}${code}${message}`);
+    if (item.eventDir) lines.push(`  artifacts: ${item.eventDir}`);
+    if (item.logPath) lines.push(`  log: ${item.logPath}`);
+    if (item.outputPath) lines.push(`  last message: ${item.outputPath}`);
+  }
+  lines.push("");
+  lines.push("Latest Apple deliveries");
+  for (const delivery of report.deliveries.slice(0, 5)) {
+    const status = delivery.httpStatusCode ? ` HTTP ${delivery.httpStatusCode}` : "";
+    const instance = delivery.instanceId ? ` instance=${delivery.instanceId}` : "";
+    lines.push(`- ${delivery.createdDate || "unknown time"} ${delivery.eventType || "unknown event"}: ${delivery.deliveryState}${status}${instance}`);
+  }
+  if (report.deliveries.length === 0) lines.push("- none in the last 24 hours");
+  lines.push("");
+  if (report.feedback.actionable > 0) {
+    lines.push("Next: run `scripts/testflight-feedback-autopilot.mjs reconcile` or retry the listed instance.");
+  } else if (!report.ok) {
+    lines.push("Next: inspect failed delivery/service rows above, then run `scripts/testflight-feedback-autopilot.mjs smoke`.");
+  } else {
+    lines.push("Next: nothing queued. Codex will stay idle until Apple sends new feedback.");
+  }
+  console.log(lines.join("\n"));
 }
 
 async function doctor() {
@@ -386,8 +717,17 @@ function verifyAppleSignature(raw, header, secret) {
   if (!header) return false;
   const expectedBase64 = createHmac("sha256", secret).update(raw).digest("base64");
   const expectedHex = createHmac("sha256", secret).update(raw).digest("hex");
-  const candidates = [header, header.replace(/^sha256=/i, "")].map((value) => value.trim());
-  return candidates.some((candidate) => safeEqual(candidate, expectedBase64) || safeEqual(candidate, expectedHex));
+  const trimmed = header.trim();
+  const candidates = [
+    trimmed,
+    trimmed.replace(/^hmacsha256=/i, ""),
+    trimmed.replace(/^sha256=/i, ""),
+  ].map((value) => value.trim());
+  return candidates.some((candidate) =>
+    safeEqual(candidate, `hmacsha256=${expectedHex}`) ||
+    safeEqual(candidate, expectedHex) ||
+    safeEqual(candidate, expectedBase64)
+  );
 }
 
 function safeEqual(a, b) {
@@ -501,7 +841,7 @@ function readBody(request) {
 function ensureRuntime() {
   mkdirSync(SUPPORT_DIR, { recursive: true });
   mkdirSync(DEFAULT_EVENT_DIR, { recursive: true });
-  if (!existsSync(DEFAULT_STATE_PATH)) saveState({ handledInstanceIds: [], launchedEventIds: [], createdAt: new Date().toISOString() });
+  if (!existsSync(DEFAULT_STATE_PATH)) saveState({ handledInstanceIds: [], launchedEventIds: [], feedbackRuns: {}, createdAt: new Date().toISOString() });
 }
 
 function readSecret() {
@@ -515,6 +855,7 @@ function loadState() {
   return {
     handledInstanceIds: [],
     launchedEventIds: [],
+    feedbackRuns: {},
     ...JSON.parse(readFileSync(DEFAULT_STATE_PATH, "utf8")),
   };
 }
@@ -523,6 +864,40 @@ function saveState(state) {
   mkdirSync(path.dirname(DEFAULT_STATE_PATH), { recursive: true });
   writeJson(DEFAULT_STATE_PATH, state);
   chmodSync(DEFAULT_STATE_PATH, 0o600);
+}
+
+function markEventFailed(event, error) {
+  const state = loadState();
+  state.handledInstanceIds = state.handledInstanceIds.filter((id) => id !== event.instance.id);
+  state.launchedEventIds = state.launchedEventIds.filter((id) => id !== event.eventId);
+  state.lastFailure = {
+    at: new Date().toISOString(),
+    eventId: event.eventId,
+    instanceId: event.instance.id,
+    message: error?.message || String(error),
+  };
+  state.feedbackRuns[event.instance.id] = {
+    ...(state.feedbackRuns[event.instance.id] || {}),
+    eventId: event.eventId,
+    instanceId: event.instance.id,
+    status: "failed",
+    failedAt: state.lastFailure.at,
+    message: state.lastFailure.message,
+  };
+  saveState(state);
+  recordActivity("failed", state.lastFailure);
+  notify("Spoonjoy TestFlight feedback failed", `${event.instance.id}: ${state.lastFailure.message}`);
+}
+
+function updateFeedbackRun(instanceId, patch) {
+  const state = loadState();
+  state.feedbackRuns[instanceId] = {
+    ...(state.feedbackRuns[instanceId] || {}),
+    instanceId,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  saveState(state);
 }
 
 function writeJson(file, value) {
@@ -543,17 +918,130 @@ function safeJson(text) {
   }
 }
 
-function createAppendWriter(file) {
-  mkdirSync(path.dirname(file), { recursive: true });
-  const child = spawn("tee", ["-a", file], { stdio: ["pipe", "ignore", "ignore"] });
-  return child.stdin;
-}
-
 function appendRuntimeLog(message) {
   const line = `${new Date().toISOString()} ${message}\n`;
   const logFile = path.join(SUPPORT_DIR, "listener.log");
   mkdirSync(path.dirname(logFile), { recursive: true });
   appendFileSync(logFile, line, { mode: 0o600 });
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+function recordActivity(type, details = {}) {
+  mkdirSync(path.dirname(DEFAULT_ACTIVITY_PATH), { recursive: true });
+  appendFileSync(DEFAULT_ACTIVITY_PATH, `${JSON.stringify({
+    at: new Date().toISOString(),
+    type,
+    ...details,
+  })}\n`, { mode: 0o600 });
+}
+
+function feedbackStatusReport(feedback, state) {
+  const activity = activityRuns();
+  return feedback.map((item) => {
+    const run = {
+      ...(activity[item.id] || {}),
+      ...(state.feedbackRuns?.[item.id] || {}),
+    };
+    const status = run.status || legacySeededStatus(item, state) || (state.handledInstanceIds.includes(item.id) ? "unknown" : "new");
+    const exitPath = run.eventDir ? path.join(run.eventDir, "codex-exit-code.txt") : null;
+    let exitCode = run.exitCode;
+    if (exitPath && existsSync(exitPath)) {
+      const code = Number(readFileSync(exitPath, "utf8").trim());
+      if (Number.isFinite(code)) exitCode = code;
+    }
+    const explicitStatus = new Set(["taken_over", "ignored", "seeded"]).has(status);
+    const effectiveStatus = explicitStatus
+      ? status
+      : exitCode === 0
+      ? "succeeded"
+      : exitCode > 0
+        ? "failed"
+        : status;
+    const active = effectiveStatus === "running" ? feedbackRunActive(run) : false;
+    const finalStatus = effectiveStatus === "running" && !active ? "stalled" : effectiveStatus;
+    return {
+      id: item.id,
+      type: item.type,
+      createdDate: item.createdDate,
+      status: finalStatus,
+      active,
+      eventId: run.eventId || null,
+      eventDir: run.eventDir || null,
+      queuedAt: run.queuedAt || null,
+      startedAt: run.startedAt || null,
+      completedAt: run.completedAt || null,
+      failedAt: run.failedAt || null,
+      exitCode: exitCode ?? null,
+      message: run.message || null,
+      seededAt: status === "seeded" ? state.seededAt || null : null,
+      logPath: run.logPath || (run.eventDir ? path.join(run.eventDir, "codex-exec.jsonl") : null),
+      outputPath: run.outputPath || (run.eventDir ? path.join(run.eventDir, "codex-last-message.md") : null),
+    };
+  });
+}
+
+function feedbackRunActive(run) {
+  if (run.codexPid && isPidRunning(run.codexPid)) return true;
+  if (!run.eventDir) return false;
+  const result = spawnSync("pgrep", ["-f", run.eventDir], { encoding: "utf8" });
+  if (result.status !== 0) return false;
+  return result.stdout
+    .split("\n")
+    .map((line) => Number(line.trim()))
+    .some((pid) => Number.isFinite(pid) && pid > 0 && pid !== process.pid);
+}
+
+function isPidRunning(pid) {
+  const result = spawnSync("ps", ["-p", String(pid)], { encoding: "utf8" });
+  return result.status === 0;
+}
+
+function legacySeededStatus(item, state) {
+  if (!state.handledInstanceIds.includes(item.id) || !state.seededAt || !item.createdDate) return null;
+  return String(item.createdDate).localeCompare(String(state.seededAt)) <= 0 ? "seeded" : null;
+}
+
+function activityRuns() {
+  if (!existsSync(DEFAULT_ACTIVITY_PATH)) return {};
+  const runs = {};
+  const lines = readFileSync(DEFAULT_ACTIVITY_PATH, "utf8").trim().split("\n").filter(Boolean).slice(-1000);
+  for (const line of lines) {
+    const item = safeJson(line);
+    if (!item?.instanceId) continue;
+    const run = runs[item.instanceId] || { instanceId: item.instanceId };
+    if (item.eventId) run.eventId = item.eventId;
+    if (item.eventDir) run.eventDir = item.eventDir;
+    if (item.type === "queued") {
+      run.status = "queued";
+      run.queuedAt = item.at;
+      delete run.completedAt;
+      delete run.failedAt;
+      delete run.exitCode;
+      delete run.message;
+    } else if (item.type === "codex_launched") {
+      run.status = "running";
+      run.startedAt = item.at;
+      run.codexPid = item.pid || null;
+      delete run.completedAt;
+      delete run.failedAt;
+      delete run.exitCode;
+      delete run.message;
+    } else if (item.type === "codex_exit") {
+      run.status = Number(item.code) === 0 ? "succeeded" : "failed";
+      run.completedAt = Number(item.code) === 0 ? item.at : null;
+      run.failedAt = Number(item.code) === 0 ? null : item.at;
+      run.exitCode = Number(item.code);
+    } else if (item.type === "failed") {
+      run.status = "failed";
+      run.failedAt = item.at;
+      run.message = item.message || null;
+    }
+    runs[item.instanceId] = run;
+  }
+  return runs;
 }
 
 function redactForDisk(payload) {
@@ -567,6 +1055,162 @@ function requiredArg(name) {
   const index = args.indexOf(name);
   if (index === -1 || !args[index + 1]) throw new Error(`Missing ${name}`);
   return args[index + 1];
+}
+
+function registeredWebhookId() {
+  return JSON.parse(readFileSync(path.join(SUPPORT_DIR, "registered-webhook.json"), "utf8")).id;
+}
+
+async function currentFeedback() {
+  const out = [];
+  for (const resource of ["betaFeedbackScreenshotSubmissions", "betaFeedbackCrashSubmissions"]) {
+    const result = await ascRequest("GET", `/v1/apps/${APP_ID}/${resource}`, undefined, [["limit", "50"]]);
+    for (const item of result.data || []) {
+      out.push({
+        id: item.id,
+        type: resource,
+        createdDate: item.attributes?.createdDate,
+      });
+    }
+  }
+  return out.sort((left, right) => String(right.createdDate || "").localeCompare(String(left.createdDate || "")));
+}
+
+function feedbackItemToEvent(item, eventId) {
+  const eventType = item.type === "betaFeedbackCrashSubmissions"
+    ? "betaFeedbackCrashSubmissionCreated"
+    : "betaFeedbackScreenshotSubmissionCreated";
+  return {
+    eventId,
+    type: eventType,
+    timestamp: item.createdDate || new Date().toISOString(),
+    instance: {
+      type: item.type,
+      id: item.id,
+      url: `https://api.appstoreconnect.apple.com/v1/${item.type}/${item.id}`,
+    },
+  };
+}
+
+function eventToPayload(event) {
+  return {
+    data: {
+      type: event.type,
+      id: event.eventId,
+      version: 1,
+      attributes: {
+        timestamp: event.timestamp,
+      },
+      relationships: {
+        instance: {
+          data: event.instance,
+          links: {
+            self: event.instance.url,
+          },
+        },
+      },
+    },
+  };
+}
+
+async function fetchWebhookDeliveries(webhookId, since) {
+  return ascRequest("GET", `/v1/webhooks/${webhookId}/deliveries`, undefined, [
+    ["filter[createdDateGreaterThanOrEqualTo]", since],
+    ["include", "event"],
+    ["limit", "20"],
+  ]);
+}
+
+function summarizeDeliveries(result) {
+  const eventsById = new Map((result.included || [])
+    .filter((item) => item.type === "webhookEvents")
+    .map((item) => [item.id, item]));
+  return (result.data || []).map((delivery) => {
+    const eventId = delivery.relationships?.event?.data?.id;
+    const event = eventId ? eventsById.get(eventId) : null;
+    const payload = safeJson(event?.attributes?.payload || "");
+    const instance = payload?.data?.relationships?.instance?.data;
+    return {
+      id: delivery.id,
+      deliveryState: delivery.attributes?.deliveryState,
+      httpStatusCode: delivery.attributes?.response?.httpStatusCode,
+      createdDate: delivery.attributes?.createdDate,
+      sentDate: delivery.attributes?.sentDate,
+      errorMessage: delivery.attributes?.errorMessage,
+      eventId,
+      eventType: event?.attributes?.eventType || payload?.data?.type || null,
+      ping: event?.attributes?.ping,
+      instanceId: instance?.id || null,
+      instanceType: instance?.type || null,
+    };
+  });
+}
+
+function latestDeliveryByEvent(deliveries) {
+  const sorted = [...deliveries].sort((left, right) => String(right.createdDate || "").localeCompare(String(left.createdDate || "")));
+  const byEvent = new Map();
+  for (const delivery of sorted) {
+    const key = delivery.eventId || delivery.id;
+    if (!byEvent.has(key)) byEvent.set(key, delivery);
+  }
+  return [...byEvent.values()];
+}
+
+async function fetchJson(url) {
+  try {
+    const response = await fetch(url);
+    return { ok: response.ok, status: response.status, body: await response.json() };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
+function launchdSummary() {
+  return {
+    listener: parseLaunchctl("com.spoonjoy.testflight-feedback-listener"),
+    tunnel: parseLaunchctl("com.spoonjoy.testflight-feedback-tunnel"),
+    reconcile: parseLaunchctl("com.spoonjoy.testflight-feedback-reconcile"),
+  };
+}
+
+function parseLaunchctl(label) {
+  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
+  const result = spawnSync("launchctl", ["print", `gui/${uid}/${label}`], { encoding: "utf8" });
+  if (result.status !== 0) return { label, loaded: false };
+  const text = result.stdout;
+  return {
+    label,
+    loaded: true,
+    state: text.match(/\bstate = ([^\n]+)/)?.[1]?.trim() || null,
+    pid: Number(text.match(/\bpid = ([0-9]+)/)?.[1] || 0) || null,
+    runs: Number(text.match(/\bruns = ([0-9]+)/)?.[1] || 0) || null,
+    lastExitCode: Number(text.match(/\blast exit code = (-?[0-9]+)/)?.[1] || 0) || null,
+  };
+}
+
+function recentEventDirs() {
+  if (!existsSync(DEFAULT_EVENT_DIR)) return [];
+  return readdirSync(DEFAULT_EVENT_DIR)
+    .map((name) => {
+      const fullPath = path.join(DEFAULT_EVENT_DIR, name);
+      try {
+        const stat = statSync(fullPath);
+        if (!stat.isDirectory()) return null;
+        return { name, mtime: stat.mtime.toISOString() };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.mtime.localeCompare(left.mtime))
+    .slice(0, 10);
+}
+
+function notify(title, message) {
+  spawn("/usr/bin/osascript", [
+    "-e",
+    `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`,
+  ], { stdio: "ignore", detached: true }).unref();
 }
 
 async function fetchHealth() {

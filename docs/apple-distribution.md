@@ -154,7 +154,7 @@ feedback so Codex only wakes when Apple reports new tester feedback. The local
 listener is `scripts/testflight-feedback-autopilot.mjs`; it verifies Apple's
 HMAC signature, fetches the exact App Store Connect feedback record, downloads
 submitted screenshots, de-dupes feedback IDs that were already handled, and
-launches `codex exec resume` with the feedback artifacts attached.
+launches a detached `codex exec` worker with the feedback artifacts attached.
 
 Seed existing feedback before enabling a webhook, otherwise historical TestFlight
 submissions can look new:
@@ -184,8 +184,11 @@ curl -fsS https://spoonjoy-testflight-feedback.ouro.bot/health | jq .
 
 scripts/testflight-feedback-autopilot.mjs smoke
 scripts/testflight-feedback-autopilot.mjs ping
+scripts/testflight-feedback-autopilot.mjs deliveries
 scripts/testflight-feedback-autopilot.mjs doctor | jq \
   '{ok, health, handledInstanceIds, launchedEventIds, registeredWebhooks}'
+scripts/testflight-feedback-autopilot.mjs status
+scripts/testflight-feedback-autopilot.mjs status --plain
 
 scripts/apple-distribution-kit.sh asc get \
   --path /v1/apps/6787505444/webhooks \
@@ -196,6 +199,7 @@ The durable local jobs are launchd user agents:
 
 - `com.spoonjoy.testflight-feedback-listener`
 - `com.spoonjoy.testflight-feedback-tunnel`
+- `com.spoonjoy.testflight-feedback-reconcile`
 
 Check them with:
 
@@ -203,8 +207,35 @@ Check them with:
 uid="$(id -u)"
 launchctl print "gui/$uid/com.spoonjoy.testflight-feedback-listener"
 launchctl print "gui/$uid/com.spoonjoy.testflight-feedback-tunnel"
+launchctl print "gui/$uid/com.spoonjoy.testflight-feedback-reconcile"
 ```
 
-Do not re-enable a Codex heartbeat poller for this lane unless webhooks are
-unavailable. Heartbeats spend agent turns even when no feedback exists; this
-webhook path leaves Codex idle until Apple emits a new feedback event.
+The listener verifies Apple's `x-apple-signature` header by comparing the raw
+request body against the configured secret using the documented
+`hmacsha256=<hex>` HMAC-SHA256 format. If a delivery fails, inspect Apple-side
+delivery records with:
+
+```bash
+scripts/testflight-feedback-autopilot.mjs deliveries \
+  --since "$(date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')"
+```
+
+If Apple shows feedback that was not processed locally, reconcile it without a
+Codex heartbeat:
+
+```bash
+scripts/testflight-feedback-autopilot.mjs reconcile --dry-run
+scripts/testflight-feedback-autopilot.mjs reconcile
+```
+
+If a feedback item was processed but the downstream Codex run failed, make that
+specific item retryable and launch it again:
+
+```bash
+scripts/testflight-feedback-autopilot.mjs retry --instance-id "$ASC_FEEDBACK_INSTANCE_ID"
+```
+
+Do not re-enable a Codex heartbeat poller for this lane unless both webhooks and
+the local reconcile job are unavailable. Heartbeats spend agent turns even when
+no feedback exists; this webhook-plus-reconcile path leaves Codex idle until
+Apple emits or exposes a new feedback event.
