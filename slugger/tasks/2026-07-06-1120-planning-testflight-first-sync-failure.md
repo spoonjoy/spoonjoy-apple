@@ -1,7 +1,7 @@
 # Planning: TestFlight First Sync Failure
 
 **Status**: drafting
-**Created**: 2026-07-06 11:20
+**Created**: 2026-07-06 11:22
 
 ## Goal
 Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user reaches "We couldn't load your kitchen" during the first sync. Use event telemetry and production/native probes to identify the failing path, add focused regression coverage and telemetry, and publish an internal TestFlight build when code changes are needed.
@@ -18,8 +18,10 @@ Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user 
 - Reproduce or classify the production `/api/v1/me/sync` first-sync behavior with a safe authenticated smoke path or local equivalent when live credentials are unavailable.
 - Patch the native bootstrap/sync path or backend sync endpoint when evidence identifies an actionable code-owned bug.
 - Add focused Swift and/or backend tests for the failure mode, including request/response assertions for any adapter-path changes.
-- Add missing native telemetry for the bootstrap failure path without logging sensitive token material.
-- Run focused and release-relevant validation, then build/upload/publish an internal TestFlight build only if app code changes.
+- Add missing native telemetry for the uninstrumented `NativeLiveAppStore.bootstrap()` catch path without logging sensitive token material; keep existing `NativeSyncEngine` bootstrap telemetry intact.
+- Run focused and release-relevant validation, including Swift tests, native scenario verifier, app bundle build, coverage, simulator validation, and screenshot review when applicable; record any unavailable check with its concrete blocker.
+- If evidence proves no code-owned bug, an account/provider-only blocker, or a deployment/environment issue outside the repo, produce a compact blocker or no-code report with the redacted evidence and required owner action.
+- Build/upload/publish an internal TestFlight build only if app code changes.
 - Verify the uploaded build is attached to `Spoonjoy Internal`.
 
 ### Out of Scope
@@ -31,12 +33,18 @@ Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user 
 ## Completion Criteria
 - [ ] The feedback artifacts are inspected and summarized without exposing sensitive fields.
 - [ ] Production/native first-sync behavior is reproduced or classified with saved redacted evidence.
-- [ ] The identified code-owned failure path is covered by a failing regression test before implementation.
-- [ ] The fix passes the regression test and relevant existing native/backend tests.
-- [ ] Bootstrap failure telemetry is present for the resolved path and excludes sensitive token material.
+- [ ] If a code-owned failure is identified, it is covered by a failing regression test before implementation.
+- [ ] If a code-owned fix is made, it passes the regression test and relevant existing native/backend tests.
+- [ ] If no code-owned fix is made, the terminal report names the proven non-code cause, blocker, or residual unknown with redacted evidence.
+- [ ] `NativeLiveAppStore.bootstrap()` catch-path telemetry is present for the resolved path and excludes sensitive token material.
 - [ ] 100% test coverage on all new code
-- [ ] All tests pass
-- [ ] No warnings
+- [ ] Focused Swift tests pass.
+- [ ] Native scenario verifier passes, or the concrete blocker is recorded.
+- [ ] iOS app bundle build passes with no warnings, or the concrete blocker is recorded.
+- [ ] Coverage for new code is recorded.
+- [ ] Simulator validation passes for the changed behavior, or the concrete blocker is recorded.
+- [ ] All tests pass, or any unrun suite has a concrete blocker.
+- [ ] No warnings in the checks run.
 - [ ] If UI/rendering/layout changed: `visual-qa-dogfood` evidence captured, absurdity ledger closed, and automated visual metrics still pass
 - [ ] If native app code changes, an internal-only TestFlight build is uploaded and verified in `Spoonjoy Internal`.
 
@@ -64,10 +72,13 @@ Resolve the TestFlight feedback report where a signed-in Spoonjoy iOS beta user 
 - Native regression tests: `Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift`, `Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift`, `Tests/SpoonjoyCoreTests/APITransportTests.swift`
 - Backend repo as needed: `/Users/arimendelow/Projects/spoonjoy-v2`
 - Screenshot shows "We couldn't load your kitchen", "Try Again", and "Sync could not finish".
-- Detail JSON records device `iPhone14_4`, iOS `26.5`, locale `en-US`, connection `WIFI`, app uptime `19000` ms, and feedback comment "still doesn’t work ".
+- Detail JSON records device `iPhone14_4`, iOS `26.5`, locale `en-US`, `connectionType` `WIFI`, app uptime `19000` ms, and feedback comment "still doesn’t work ".
+- Redacted production/native sync probe artifact: `./2026-07-06-1120-doing-testflight-first-sync-failure/production-native-sync-probe.json`
+- Native sync endpoint reachability probes are recorded in the session transcript and should be re-run or replaced with a saved redacted artifact if needed for final evidence.
 
 ## Notes
-Prior evidence has already ruled out a completely missing production endpoint: unauthenticated `/api/v1/me/sync` returns authentication required, and invalid native Apple sign-in input reaches the deployed native endpoint. A previous settings-cache token-scope fix exists, so this incident needs a fresh discriminating probe instead of assuming the old cause.
+Current redacted live evidence shows a disposable production account can create a native-scope token and receive a valid `/api/v1/me/sync?limit=20` envelope with entries. That rules out a globally missing native sync endpoint, but not an account-specific, transient, cache-application, or app bootstrap fallback failure. A previous settings-cache token-scope fix exists, so this incident needs a fresh discriminating fix instead of assuming the old cause.
 
 ## Progress Log
-- 2026-07-06 11:20 Created
+- 2026-07-06 11:22 Created
+- 2026-07-06 11:31 Addressed Round 1 planning findings: added no-code terminal path, named `NativeLiveAppStore.bootstrap()` telemetry, pinned validation, and cited redacted probe evidence.
