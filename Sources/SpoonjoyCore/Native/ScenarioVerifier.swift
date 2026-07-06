@@ -509,7 +509,11 @@ public enum ScenarioVerifier {
                 liveStoreShellCheck(name: "conflict shell", rootURL: rootURL, tokens: ["case .conflict", "OfflineStatusView(display:"]),
                 liveStoreShellCheck(name: "blocker shell", rootURL: rootURL, tokens: ["case .blocker", "OfflineStatusView(display:"]),
                 liveStoreShellCheck(name: "destructive confirmation shell", rootURL: rootURL, tokens: ["case .destructiveConfirmation", "destructiveConfirmation"]),
-                liveStoreShellCheck(name: "sync failed shell", rootURL: rootURL, tokens: ["case .syncFailed", "PlatformNavigationView("]),
+                liveStoreShellCheck(
+                    name: "sync failed shell",
+                    rootURL: rootURL,
+                    tokens: ["case .syncFailed", "PlatformNavigationView(", "navigation.route == .settings", "settingsContent(contentState:"]
+                ),
                 fixtureFallbackDisabledCheck(rootURL: rootURL),
                 ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
                 cookProgressPersistenceCheck(),
