@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Improves native account sync diagnostics and makes Settings load failures visible during internal dogfood.",
+          "whatsNew": "Keeps account Settings usable when a secondary settings section fails, names the failed section, and reports structured native telemetry.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },

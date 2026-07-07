@@ -257,6 +257,90 @@ public enum SettingsTokenManagementAvailability: Equatable, Sendable {
     case unavailableMissingScope
 }
 
+public enum SettingsSurfaceComponent: String, Equatable, Hashable, Sendable {
+    case notificationPreferences = "notification_preferences"
+    case apiTokens = "api_tokens"
+    case oauthConnections = "oauth_connections"
+
+    public var userFacingName: String {
+        switch self {
+        case .notificationPreferences:
+            "Notifications"
+        case .apiTokens:
+            "API tokens"
+        case .oauthConnections:
+            "Connections"
+        }
+    }
+}
+
+public struct SettingsSurfaceFailureDiagnostic: Equatable, Sendable {
+    public let errorType: String
+    public let requestID: String?
+    public let status: Int?
+    public let apiCode: String?
+    public let retry: String?
+
+    public init(
+        errorType: String,
+        requestID: String?,
+        status: Int?,
+        apiCode: String?,
+        retry: String?
+    ) {
+        self.errorType = errorType
+        self.requestID = requestID
+        self.status = status
+        self.apiCode = apiCode
+        self.retry = retry
+    }
+
+    public init(error: Error) {
+        if let transportError = error as? APITransportError {
+            self.init(
+                errorType: String(describing: Swift.type(of: transportError)),
+                requestID: transportError.requestID ?? transportError.apiError?.requestID,
+                status: transportError.statusCode ?? transportError.apiError?.status,
+                apiCode: transportError.apiError?.code,
+                retry: Self.retryDescription(transportError.retryDecision)
+            )
+        } else {
+            self.init(
+                errorType: String(describing: Swift.type(of: error)),
+                requestID: nil,
+                status: nil,
+                apiCode: nil,
+                retry: nil
+            )
+        }
+    }
+
+    private static func retryDescription(_ decision: APIRetryDecision) -> String {
+        switch decision {
+        case .retrySameRequest(let seconds):
+            "retry_same_request:\(seconds.map(String.init) ?? "unspecified")"
+        case .refreshAuthentication:
+            "refresh_authentication"
+        case .doNotRetry:
+            "do_not_retry"
+        }
+    }
+}
+
+public struct SettingsSurfacePartialFailure: Equatable, Sendable {
+    public let component: SettingsSurfaceComponent
+    public let diagnostic: SettingsSurfaceFailureDiagnostic
+
+    public init(component: SettingsSurfaceComponent, diagnostic: SettingsSurfaceFailureDiagnostic) {
+        self.component = component
+        self.diagnostic = diagnostic
+    }
+
+    public init(component: SettingsSurfaceComponent, error: Error) {
+        self.init(component: component, diagnostic: SettingsSurfaceFailureDiagnostic(error: error))
+    }
+}
+
 public struct SettingsSurfaceData: Equatable, Sendable {
     public let account: SettingsAccountProfile?
     public let notifications: SettingsNotificationPreferences?
@@ -266,6 +350,7 @@ public struct SettingsSurfaceData: Equatable, Sendable {
     public let offline: OfflineState
     public let source: SettingsSurfaceDataSource
     public let tokenManagementAvailability: SettingsTokenManagementAvailability
+    public let partialFailures: [SettingsSurfacePartialFailure]
 
     public init(
         account: SettingsAccountProfile?,
@@ -275,7 +360,8 @@ public struct SettingsSurfaceData: Equatable, Sendable {
         environment: NativeCacheEnvironment,
         offline: OfflineState,
         source: SettingsSurfaceDataSource,
-        tokenManagementAvailability: SettingsTokenManagementAvailability = .available
+        tokenManagementAvailability: SettingsTokenManagementAvailability = .available,
+        partialFailures: [SettingsSurfacePartialFailure] = []
     ) {
         self.account = account
         self.notifications = notifications
@@ -285,6 +371,7 @@ public struct SettingsSurfaceData: Equatable, Sendable {
         self.offline = offline
         self.source = source
         self.tokenManagementAvailability = tokenManagementAvailability
+        self.partialFailures = partialFailures
     }
 }
 
@@ -381,42 +468,55 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
         grantedScopes: Set<String>
     ) async throws -> SettingsSurfaceResult {
         let account = try await transport.fetchAccount(PrivateAccountRequests.currentAccount(), configuration: configuration)
-        let notifications = try await transport.fetchNotificationPreferences(PrivateAccountRequests.notificationPreferences(), configuration: configuration)
+        let notifications = try await optionalFetch(.notificationPreferences) {
+            try await transport.fetchNotificationPreferences(PrivateAccountRequests.notificationPreferences(), configuration: configuration)
+        }
         let canReadTokenManagement = grantedScopes.contains("tokens:read")
         let tokens = canReadTokenManagement
-            ? try await transport.fetchAPITokens(TokenCredentialRequests.listTokens(), configuration: configuration)
+            ? try await optionalFetch(.apiTokens) {
+                try await transport.fetchAPITokens(TokenCredentialRequests.listTokens(), configuration: configuration)
+            }
             : nil
         let connections = canReadTokenManagement
-            ? try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: configuration)
+            ? try await optionalFetch(.oauthConnections) {
+                try await transport.fetchOAuthConnections(PrivateAccountRequests.connections(), configuration: configuration)
+            }
             : nil
+        let partialFailures = [
+            notifications.failure,
+            tokens?.failure,
+            connections?.failure
+        ].compactMap { $0 }
         let validatedAt = [
-            tokens?.validatedAt,
-            connections?.validatedAt
+            notifications.value?.validatedAt,
+            tokens?.value?.validatedAt,
+            connections?.value?.validatedAt
         ]
         .compactMap { $0 }
-        .reduce(max(account.validatedAt, notifications.validatedAt), max)
+        .reduce(account.validatedAt, max)
         let tokenManagementAvailability: SettingsTokenManagementAvailability = canReadTokenManagement
             ? .available
             : .unavailableMissingScope
 
         let data = SettingsSurfaceData(
             account: account.data,
-            notifications: notifications.data,
-            apiTokens: tokens?.data ?? [],
-            oauthConnections: connections?.data ?? [],
+            notifications: notifications.value?.data,
+            apiTokens: tokens?.value?.data ?? [],
+            oauthConnections: connections?.value?.data ?? [],
             environment: environment,
             offline: .available(snapshotCount: max(1, cache.records.count), lastRestoredAt: nil),
             source: .live(requestID: "req_settings_surface", validatedAt: validatedAt),
-            tokenManagementAvailability: tokenManagementAvailability
+            tokenManagementAvailability: tokenManagementAvailability,
+            partialFailures: partialFailures
         )
 
         return SettingsSurfaceResult(
             data: data,
             persistedRecords: try Self.persistedRecords(
                 account: account.data,
-                notifications: notifications.data,
-                apiTokens: tokens?.data ?? [],
-                oauthConnections: connections?.data ?? [],
+                notifications: notifications.value?.data,
+                apiTokens: tokens?.value?.data,
+                oauthConnections: connections?.value?.data,
                 accountID: accountID,
                 environment: environment,
                 fetchedAt: validatedAt
@@ -424,16 +524,30 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
         )
     }
 
+    private func optionalFetch<Value: Equatable & Sendable>(
+        _ component: SettingsSurfaceComponent,
+        _ operation: @Sendable () async throws -> SettingsTransportEnvelope<Value>
+    ) async throws -> (value: SettingsTransportEnvelope<Value>?, failure: SettingsSurfacePartialFailure?) {
+        do {
+            return (try await operation(), nil)
+        } catch {
+            if error is CancellationError {
+                throw error
+            }
+            return (nil, SettingsSurfacePartialFailure(component: component, error: error))
+        }
+    }
+
     private static func persistedRecords(
         account: SettingsAccountProfile,
-        notifications: SettingsNotificationPreferences,
-        apiTokens: [SettingsAPITokenSummary],
-        oauthConnections: [SettingsOAuthConnectionSummary],
+        notifications: SettingsNotificationPreferences?,
+        apiTokens: [SettingsAPITokenSummary]?,
+        oauthConnections: [SettingsOAuthConnectionSummary]?,
         accountID: String,
         environment: NativeCacheEnvironment,
         fetchedAt: Date
     ) throws -> [NativeCacheRecord] {
-        return [
+        var records = [
             try record(
                 accountID: accountID,
                 environment: environment,
@@ -441,32 +555,39 @@ public struct LiveSettingsSurfaceRepository: SettingsSurfaceRepository {
                 sourceEndpoint: "/api/v1/me",
                 fetchedAt: fetchedAt,
                 payload: .settings(account: account)
-            ),
-            try record(
+            )
+        ]
+        if let notifications {
+            records.append(try record(
                 accountID: accountID,
                 environment: environment,
                 domain: NativeCacheDomain.notificationPreferences,
                 sourceEndpoint: "/api/v1/me/notification-preferences",
                 fetchedAt: fetchedAt,
                 payload: .notificationPreferenceState(notifications)
-            ),
-            try record(
+            ))
+        }
+        if let apiTokens {
+            records.append(try record(
                 accountID: accountID,
                 environment: environment,
                 domain: NativeCacheDomain.tokenMetadata,
                 sourceEndpoint: "/api/v1/tokens",
                 fetchedAt: fetchedAt,
                 payload: NativeCachePayload.tokenMetadata(credentials: apiTokens.map(NativeTokenMetadata.init(settingsToken:)))
-            ),
-            try record(
+            ))
+        }
+        if let oauthConnections {
+            records.append(try record(
                 accountID: accountID,
                 environment: environment,
                 domain: NativeCacheDomain.connectionStatus,
                 sourceEndpoint: "/api/v1/me/connections",
                 fetchedAt: fetchedAt,
                 payload: NativeCachePayload.connectionStatus(connections: oauthConnections.map(NativeConnectionStatus.init(settingsConnection:)))
-            )
-        ]
+            ))
+        }
+        return records
     }
 
     private static func record(
