@@ -921,7 +921,7 @@ async function tryStatusRead(label, read, warnings, fallback) {
 
 function printPlainStatus(report) {
   const lines = [];
-  lines.push(`Spoonjoy TestFlight feedback autopilot: ${report.ok ? "healthy" : "needs attention"}`);
+  lines.push(`Spoonjoy TestFlight feedback autopilot: ${plainStatusLabel(report)}`);
   lines.push(`App Store Connect app: ${report.appId} (${report.bundleId})`);
   if (report.warnings?.length) {
     lines.push("");
@@ -976,6 +976,18 @@ function printPlainStatus(report) {
     lines.push("Next: nothing queued. Ouro/Slugger will stay idle until Apple sends new feedback.");
   }
   console.log(lines.join("\n"));
+}
+
+function plainStatusLabel(report) {
+  if (report.ok) return "healthy";
+  const servicesOk = report.services?.listener?.state === "running" && report.services?.tunnel?.state === "running";
+  const healthOk = report.install?.ok && report.health?.local?.ok && report.health?.public?.ok;
+  const noWarnings = !report.warnings?.length;
+  const noWork = report.feedback?.actionable === 0 && report.feedback?.running === 0;
+  if (servicesOk && healthOk && noWarnings && noWork && report.feedback?.awaitingConfirmation > 0) {
+    return "awaiting tester confirmation";
+  }
+  return "needs attention";
 }
 
 async function doctor() {
