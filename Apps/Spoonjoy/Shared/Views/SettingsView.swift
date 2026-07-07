@@ -24,6 +24,7 @@ struct SettingsView: View {
     var openNotificationSettings: @MainActor @Sendable () -> Void = {}
     var notificationAPNsSettingsContent: (@MainActor @Sendable (NotificationAPNsSurfaceViewModel) -> AnyView)?
     var shellOfflineIndicatorState: OfflineIndicatorState?
+    var onRetrySync: @MainActor @Sendable () async -> Void = {}
     var onDismissOfflineIndicator: @MainActor @Sendable () -> Void = {}
 
     @Environment(\.openURL) private var openURL
@@ -320,7 +321,15 @@ struct SettingsView: View {
             }
         } else {
             Section("Account") {
-                Text("Account settings need a live load before they are available offline.")
+                Text("Account data has not loaded yet.")
+                Text("Try sync again to load your profile, security, and notification settings from Spoonjoy.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button {
+                    Task { await onRetrySync() }
+                } label: {
+                    Label("Try Sync Again", systemImage: "arrow.clockwise")
+                }
             }
         }
 
