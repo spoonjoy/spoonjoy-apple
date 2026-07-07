@@ -1319,8 +1319,8 @@ struct NativeLiveStoreTests {
             }
             #expect(content.settingsSurfaceData?.account == settingsData.account)
             #expect(content.settingsSurfaceData?.notifications == settingsData.notifications)
-            #expect(content.settingsSurfaceData?.offline == .available(snapshotCount: 2, lastRestoredAt: nil))
-            #expect(content.settingsSurfaceData?.source == .cache(lastValidatedAt: Self.now))
+            #expect(content.settingsSurfaceData?.offline == settingsData.offline)
+            #expect(content.settingsSurfaceData?.source == .live(requestID: "req_settings_cache", validatedAt: Self.now))
             #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingsari")
             #expect(await settingsFetchRecorder.calls() == [
                 SettingsSurfaceFetchCall(
@@ -1343,6 +1343,123 @@ struct NativeLiveStoreTests {
             #expect(persisted.records.contains { $0.id == preexistingRecipeRecord.id })
             #expect(persisted.records.contains { $0.metadata.domain == .settings })
             #expect(persisted.records.contains { $0.metadata.domain == .notificationPreferences })
+        }
+    }
+
+    @MainActor
+    @Test("partial settings refresh renders account content and reports section telemetry")
+    func partialSettingsRefreshRendersAccountContentAndReportsSectionTelemetry() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let syncData = NativeSyncData(
+                freshness: NativeSyncFreshness(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    schemaVersion: 1,
+                    sourceEndpoint: "/api/v1/me/sync",
+                    generatedAt: Self.isoString(Self.now),
+                    lastValidatedAt: Self.isoString(Self.now)
+                ),
+                entries: [],
+                nextCursor: nil,
+                hasMore: false
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let settingsAccount = SettingsAccountProfile(
+                id: "chef_ari",
+                email: "settings-partial@example.com",
+                username: "settingspartial",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [SettingsLinkedProvider(provider: .apple, providerUsername: "ari@icloud.com")],
+                passkeys: []
+            )
+            let partialFailure = SettingsSurfacePartialFailure(
+                component: .notificationPreferences,
+                diagnostic: SettingsSurfaceFailureDiagnostic(
+                    errorType: "APITransportError",
+                    requestID: "req_settings_notifications_partial",
+                    status: 403,
+                    apiCode: "insufficient_scope",
+                    retry: "do_not_retry"
+                )
+            )
+            let metadataFreeFailure = SettingsSurfacePartialFailure(
+                component: .apiTokens,
+                diagnostic: SettingsSurfaceFailureDiagnostic(
+                    errorType: "SettingsSurfaceProbeError",
+                    requestID: nil,
+                    status: nil,
+                    apiCode: nil,
+                    retry: nil
+                )
+            )
+            let settingsData = SettingsSurfaceData(
+                account: settingsAccount,
+                notifications: nil,
+                apiTokens: [],
+                oauthConnections: [],
+                environment: .production,
+                offline: .available(snapshotCount: 1, lastRestoredAt: nil),
+                source: .live(requestID: "req_settings_partial", validatedAt: Self.now),
+                partialFailures: [partialFailure, metadataFreeFailure]
+            )
+            let settingsRecords = [
+                try Self.cacheRecord(
+                    domain: .settings,
+                    payload: .settings(account: settingsAccount),
+                    accountID: "chef_ari"
+                )
+            ]
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    SettingsSurfaceResult(data: settingsData, persistedRecords: settingsRecords)
+                },
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                },
+                nativeTelemetryMetadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "13")
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live sync with partial settings content; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.isEmpty)
+            #expect(content.settingsSurfaceData?.account == settingsAccount)
+            #expect(content.settingsSurfaceData?.partialFailures == [partialFailure, metadataFreeFailure])
+            #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingspartial")
+            #expect(content.settingsSurfaceViewModel.partialFailureSummary == "Some account settings could not load: Notifications, API tokens.")
+            #expect(content.settingsSurfaceViewModel.offlineIndicator.display == .syncFailure(errorID: "settings.notification_preferences", retryAfter: nil))
+
+            let telemetryEvents = await telemetryRecorder.recordedEvents()
+            let telemetry = try #require(telemetryEvents.first)
+            #expect(telemetry.name == .settingsRefreshFailed)
+            #expect(telemetry.stage == "settings.notification_preferences")
+            #expect(telemetry.environment == "production")
+            #expect(telemetry.metadata == NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "13"))
+            #expect(telemetry.errorType == "APITransportError")
+            #expect(telemetry.requestID == "req_settings_notifications_partial")
+            #expect(telemetry.status == 403)
+            #expect(telemetry.apiCode == "insufficient_scope")
+            #expect(telemetry.retry == "do_not_retry")
+            #expect(telemetry.accountBound == true)
+            #expect(telemetry.hasRenderableCacheContent == false)
+            #expect(telemetry.recipes == 0)
+            let metadataFreeTelemetry = try #require(telemetryEvents.last)
+            #expect(metadataFreeTelemetry.stage == "settings.api_tokens")
+            #expect(metadataFreeTelemetry.requestID == nil)
+            #expect(metadataFreeTelemetry.status == nil)
+            #expect(metadataFreeTelemetry.apiCode == nil)
+            #expect(metadataFreeTelemetry.retry == nil)
+            #expect(await telemetryRecorder.recordedConfigurations().first?.bearerToken == "sj_access_current")
         }
     }
 

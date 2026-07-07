@@ -352,6 +352,10 @@ struct SettingsView: View {
                 Text(settingsActionError)
                     .foregroundStyle(KitchenTableTheme.tomato)
             }
+            if let partialFailureSummary = surface.partialFailureSummary {
+                Text(partialFailureSummary)
+                    .foregroundStyle(KitchenTableTheme.tomato)
+            }
             let offlineDisplay = effectiveOfflineIndicator(surface.offlineIndicator.display)
             OfflineStatusView(display: offlineDisplay) {
                 if offlineDisplay == surface.offlineIndicator.display {

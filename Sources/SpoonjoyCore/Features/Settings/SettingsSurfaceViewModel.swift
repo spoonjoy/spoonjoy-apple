@@ -457,6 +457,7 @@ public struct SettingsSurfaceViewModel: Sendable {
     public let apiTokenRows: [SettingsAPITokenSummary]
     public let oauthConnectionRows: [SettingsOAuthConnectionSummary]
     public let securityRows: [SettingsSecurityRow]
+    public let partialFailureSummary: String?
     public let queuedWorkSummary: String?
     public let conflictBanner: SettingsSurfaceConflictBanner?
     public let offlineIndicator: OfflineIndicatorState
@@ -509,6 +510,7 @@ public struct SettingsSurfaceViewModel: Sendable {
             SettingsSecurityRow(id: .passkeys, title: "Passkeys", action: .managePasskeys),
             SettingsSecurityRow(id: .providerLinks, title: "Provider Links", action: .linkProvider(.google))
         ]
+        partialFailureSummary = Self.partialFailureSummary(data.partialFailures)
         let accountMutations = Self.accountMutations(queuedMutations)
         queuedWorkSummary = Self.queuedWorkSummary(count: accountMutations.count)
         let accountConflicts = Self.accountConflicts(conflicts, queuedMutations: accountMutations)
@@ -531,6 +533,11 @@ public struct SettingsSurfaceViewModel: Sendable {
             )
         } else if connectivity == .offline {
             offlineIndicator = OfflineIndicatorState(display: .offline, dismissal: nil)
+        } else if let partialFailure = data.partialFailures.first {
+            offlineIndicator = OfflineIndicatorState(
+                display: .syncFailure(errorID: "settings.\(partialFailure.component.rawValue)", retryAfter: nil),
+                dismissal: nil
+            )
         } else {
             offlineIndicator = Self.offlineIndicator(source: data.source, now: now())
         }
@@ -590,6 +597,14 @@ public struct SettingsSurfaceViewModel: Sendable {
             return nil
         }
         return "\(count) account \(count == 1 ? "change" : "changes") waiting to sync"
+    }
+
+    private static func partialFailureSummary(_ failures: [SettingsSurfacePartialFailure]) -> String? {
+        let names = failures.map(\.component.userFacingName)
+        guard !names.isEmpty else {
+            return nil
+        }
+        return "Some account settings could not load: \(names.joined(separator: ", "))."
     }
 
     private static func offlineIndicator(source: SettingsSurfaceDataSource, now: Date) -> OfflineIndicatorState {

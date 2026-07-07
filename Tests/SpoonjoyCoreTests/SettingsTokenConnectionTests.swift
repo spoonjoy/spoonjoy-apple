@@ -429,6 +429,143 @@ struct SettingsTokenConnectionTests {
         #expect(emptySnapshot.data.source == .cache(lastValidatedAt: .distantPast))
     }
 
+    @Test("live settings repository preserves critical account data when auxiliary settings fail")
+    func liveSettingsRepositoryPreservesAccountForPartialFailures() async throws {
+        let transport = RecordingSettingsSurfaceTransport(
+            account: SettingsAccountProfile(
+                id: "chef_ari",
+                email: "ari@example.com",
+                username: "ari",
+                photoURL: nil,
+                hasPassword: true,
+                linkedProviders: [SettingsLinkedProvider(provider: .apple, providerUsername: "ari@icloud.com")],
+                passkeys: []
+            ),
+            notifications: .disabled,
+            tokens: [],
+            connections: [],
+            notificationError: APITransportError(
+                kind: .apiError,
+                requestID: "req_notifications_scope",
+                statusCode: 403,
+                apiError: APIError(
+                    requestID: "req_notifications_scope",
+                    code: "insufficient_scope",
+                    message: "Missing required scope: account:read",
+                    status: 403
+                ),
+                retryDecision: .doNotRetry
+            ),
+            tokenError: APITransportError(
+                kind: .apiError,
+                requestID: "req_tokens_down",
+                statusCode: 500,
+                apiError: APIError(
+                    requestID: "req_tokens_down",
+                    code: "internal_error",
+                    message: "Token metadata failed",
+                    status: 500
+                ),
+                retryDecision: .retrySameRequest(afterSeconds: 30)
+            ),
+            connectionError: APITransportError(
+                kind: .apiError,
+                requestID: nil,
+                statusCode: nil,
+                apiError: APIError(
+                    requestID: "req_connections_refresh",
+                    code: "expired_token",
+                    message: "Refresh auth",
+                    status: 401
+                ),
+                retryDecision: .refreshAuthentication
+            )
+        )
+        let repository = LiveSettingsSurfaceRepository(
+            transport: transport,
+            cache: NativeDurableCache(records: []),
+            configuration: Self.configuration
+        )
+
+        let result = try await repository.fetchSettingsSurface(
+            accountID: "chef_ari",
+            environment: .production
+        )
+
+        #expect(result.data.account?.username == "ari")
+        #expect(result.data.notifications == nil)
+        #expect(result.data.apiTokens.isEmpty)
+        #expect(result.data.oauthConnections.isEmpty)
+        #expect(result.data.partialFailures.map(\.component) == [.notificationPreferences, .apiTokens, .oauthConnections])
+        #expect(result.data.partialFailures.map(\.diagnostic.requestID) == ["req_notifications_scope", "req_tokens_down", "req_connections_refresh"])
+        #expect(result.data.partialFailures.map(\.diagnostic.status) == [403, 500, 401])
+        #expect(result.data.partialFailures.map(\.diagnostic.apiCode) == ["insufficient_scope", "internal_error", "expired_token"])
+        #expect(result.data.partialFailures.map(\.diagnostic.retry) == ["do_not_retry", "retry_same_request:30", "refresh_authentication"])
+        #expect(result.persistedRecords.map(\.metadata.domain) == [
+            .settings
+        ])
+
+        let viewModel = SettingsSurfaceViewModel(
+            data: result.data,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            secureHandoffRoutes: .spoonjoyApp,
+            now: { Self.now }
+        )
+        #expect(viewModel.sections.map(\.id).contains(.profile))
+        #expect(viewModel.profileDraft?.username == "ari")
+        #expect(viewModel.partialFailureSummary == "Some account settings could not load: Notifications, API tokens, Connections.")
+        #expect(viewModel.offlineIndicator.display == .syncFailure(errorID: "settings.notification_preferences", retryAfter: nil))
+    }
+
+    @Test("settings surface diagnostics cover non-transport errors and cancellation passthrough")
+    func settingsSurfaceDiagnosticsCoverFallbacksAndCancellation() async throws {
+        let plainDiagnostic = SettingsSurfaceFailureDiagnostic(error: SettingsSurfaceProbeError())
+        #expect(plainDiagnostic.errorType == "SettingsSurfaceProbeError")
+        #expect(plainDiagnostic.requestID == nil)
+        #expect(plainDiagnostic.status == nil)
+        #expect(plainDiagnostic.apiCode == nil)
+        #expect(plainDiagnostic.retry == nil)
+
+        let unspecifiedRetryDiagnostic = SettingsSurfaceFailureDiagnostic(error: APITransportError(
+            kind: .networkFailure,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: nil)
+        ))
+        #expect(unspecifiedRetryDiagnostic.retry == "retry_same_request:unspecified")
+
+        let repository = LiveSettingsSurfaceRepository(
+            transport: RecordingSettingsSurfaceTransport(
+                account: SettingsAccountProfile(
+                    id: "chef_ari",
+                    email: "ari@example.com",
+                    username: "ari",
+                    photoURL: nil,
+                    hasPassword: true,
+                    linkedProviders: [],
+                    passkeys: []
+                ),
+                notifications: .disabled,
+                tokens: [],
+                connections: [],
+                notificationError: CancellationError()
+            ),
+            cache: NativeDurableCache(records: []),
+            configuration: Self.configuration
+        )
+        var observedCancellation = false
+        do {
+            _ = try await repository.fetchSettingsSurface(accountID: "chef_ari", environment: .production)
+            Issue.record("Expected cancellation to propagate out of settings refresh.")
+        } catch is CancellationError {
+            observedCancellation = true
+        }
+        #expect(observedCancellation)
+    }
+
     @Test("URLSession settings transport builds exact requests and decodes every settings response")
     func urlSessionSettingsTransportBuildsExactRequestsAndDecodesResponses() async throws {
         let apiTransport = RecordingSettingsAPITransport(now: Self.now)
@@ -1360,6 +1497,8 @@ private final class RecordingSettingsAPITransport: SpoonjoyAPITransport, @unchec
     }
 }
 
+private struct SettingsSurfaceProbeError: Error {}
+
 private final class RecordingSettingsSurfaceTransport: SettingsSurfaceTransport, @unchecked Sendable {
     let validatedAt = SettingsTokenConnectionTests.now
     private(set) var requestPaths: [String] = []
@@ -1368,17 +1507,26 @@ private final class RecordingSettingsSurfaceTransport: SettingsSurfaceTransport,
     private let notifications: SettingsNotificationPreferences
     private let tokens: [SettingsAPITokenSummary]
     private let connections: [SettingsOAuthConnectionSummary]
+    private let notificationError: Error?
+    private let tokenError: Error?
+    private let connectionError: Error?
 
     init(
         account: SettingsAccountProfile,
         notifications: SettingsNotificationPreferences,
         tokens: [SettingsAPITokenSummary],
-        connections: [SettingsOAuthConnectionSummary]
+        connections: [SettingsOAuthConnectionSummary],
+        notificationError: Error? = nil,
+        tokenError: Error? = nil,
+        connectionError: Error? = nil
     ) {
         self.account = account
         self.notifications = notifications
         self.tokens = tokens
         self.connections = connections
+        self.notificationError = notificationError
+        self.tokenError = tokenError
+        self.connectionError = connectionError
     }
 
     func fetchAccount(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsAccountProfile> {
@@ -1388,16 +1536,25 @@ private final class RecordingSettingsSurfaceTransport: SettingsSurfaceTransport,
 
     func fetchNotificationPreferences(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<SettingsNotificationPreferences> {
         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        if let notificationError {
+            throw notificationError
+        }
         return SettingsTransportEnvelope(requestID: "req_notifications", data: notifications, validatedAt: validatedAt)
     }
 
     func fetchAPITokens(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsAPITokenSummary]> {
         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        if let tokenError {
+            throw tokenError
+        }
         return SettingsTransportEnvelope(requestID: "req_tokens", data: tokens, validatedAt: validatedAt)
     }
 
     func fetchOAuthConnections(_ request: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> SettingsTransportEnvelope<[SettingsOAuthConnectionSummary]> {
         requestPaths.append(try request.urlRequest(configuration: configuration).url.path)
+        if let connectionError {
+            throw connectionError
+        }
         return SettingsTransportEnvelope(requestID: "req_connections", data: connections, validatedAt: validatedAt)
     }
 }

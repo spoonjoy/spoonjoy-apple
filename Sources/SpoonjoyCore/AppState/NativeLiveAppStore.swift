@@ -2996,8 +2996,9 @@ public final class NativeLiveAppStore: ObservableObject {
             authSessionState: boundAuthState
         )
         var settingsRefreshError: Error?
+        var settingsRefreshResult: SettingsSurfaceResult?
         do {
-            try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
+            settingsRefreshResult = try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
         } catch {
             NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
             settingsRefreshError = error
@@ -3018,7 +3019,8 @@ public final class NativeLiveAppStore: ObservableObject {
         let content = restoredContent.copy(
             offlineIndicatorState: shouldPreserveRestoredBlocker
                 ? restoredContent.offlineIndicatorState
-                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now())
+                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()),
+            settingsSurfaceData: settingsRefreshResult?.data
         )
 
         let providerSecretResourceID = report.blockers.first.map { blocker -> String in
@@ -3062,12 +3064,25 @@ public final class NativeLiveAppStore: ObservableObject {
                 )),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: settingsRefreshError)
             ))
-        } else if !content.queuedMutations.isEmpty {
-            apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
-        } else if case .blocker = content.offlineIndicatorState.display {
-            apply(.blocker(content))
         } else {
-            apply(.liveSynced(content))
+            for partialFailure in settingsRefreshResult?.data.partialFailures ?? [] {
+                NativeLiveAppStoreTelemetry.settingsRefreshPartiallyFailed(partialFailure)
+                await reportNativeTelemetry(
+                    name: .settingsRefreshFailed,
+                    stage: "settings.\(partialFailure.component.rawValue)",
+                    diagnostic: partialFailure.diagnostic,
+                    authState: boundAuthState,
+                    route: restoredRoute,
+                    contentState: content
+                )
+            }
+            if !content.queuedMutations.isEmpty {
+                apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
+            } else if case .blocker = content.offlineIndicatorState.display {
+                apply(.blocker(content))
+            } else {
+                apply(.liveSynced(content))
+            }
         }
         } catch {
             NativeLiveAppStoreTelemetry.bootstrapFailed(
@@ -3082,10 +3097,10 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
-    private func refreshSettingsSurfaceCache(authSessionState: NativeAuthSessionState) async throws {
+    private func refreshSettingsSurfaceCache(authSessionState: NativeAuthSessionState) async throws -> SettingsSurfaceResult? {
         guard let accountID = trustedAccountID(for: authSessionState),
               let settingsSurfaceFetch = dependencies.settingsSurfaceFetch else {
-            return
+            return nil
         }
 
         let currentSnapshot = try loadOrCreateCacheSnapshot(authSessionState: authSessionState).value
@@ -3099,6 +3114,7 @@ public final class NativeLiveAppStore: ObservableObject {
         let recordIDs = Set(result.persistedRecords.map(\.id))
         let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
         try dependencies.cacheStore.save(try currentSnapshot.copy(records: nextRecords))
+        return result
     }
 
     private func reportNativeTelemetry(
@@ -3123,6 +3139,37 @@ public final class NativeLiveAppStore: ObservableObject {
             requestID: diagnostic.requestID,
             status: diagnostic.status,
             apiCode: diagnostic.code,
+            retry: diagnostic.retry,
+            accountBound: trustedAccountID(for: authState) != nil,
+            hasRenderableCacheContent: hasRenderableContent,
+            recipes: contentState.recipes.count,
+            cookbooks: contentState.cookbooks.count,
+            shoppingItems: contentState.shoppingList?.activeItems.count ?? 0,
+            queuedMutations: contentState.queuedMutations.count
+        ), configuration)
+    }
+
+    private func reportNativeTelemetry(
+        name: NativeTelemetryEvent.Name,
+        stage: String,
+        diagnostic: SettingsSurfaceFailureDiagnostic,
+        authState: NativeAuthSessionState,
+        route: AppRoute?,
+        contentState: NativeShellContentState
+    ) async {
+        let hasRenderableContent = !contentState.recipes.isEmpty ||
+            !contentState.cookbooks.isEmpty ||
+            !(contentState.shoppingList?.activeItems.isEmpty ?? true)
+        await dependencies.nativeTelemetryReport(NativeTelemetryEvent(
+            name: name,
+            stage: stage,
+            environment: cacheEnvironment.rawValue,
+            metadata: dependencies.nativeTelemetryMetadata,
+            route: route?.stateIdentifier,
+            errorType: diagnostic.errorType,
+            requestID: diagnostic.requestID,
+            status: diagnostic.status,
+            apiCode: diagnostic.apiCode,
             retry: diagnostic.retry,
             accountBound: trustedAccountID(for: authState) != nil,
             hasRenderableCacheContent: hasRenderableContent,
@@ -3380,6 +3427,14 @@ private enum NativeLiveAppStoreTelemetry {
         } else {
             logger.error("native_settings_refresh_failed error_type=\(type, privacy: .public)")
         }
+#endif
+    }
+
+    static func settingsRefreshPartiallyFailed(_ failure: SettingsSurfacePartialFailure) {
+#if canImport(OSLog)
+        logger.error(
+            "native_settings_refresh_partial_failed component=\(failure.component.rawValue, privacy: .public) error_type=\(failure.diagnostic.errorType, privacy: .public) request_id=\(failure.diagnostic.requestID ?? "none", privacy: .public) status=\(failure.diagnostic.status.map(String.init) ?? "none", privacy: .public) code=\(failure.diagnostic.apiCode ?? "none", privacy: .public)"
+        )
 #endif
     }
 
