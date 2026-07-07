@@ -24,6 +24,7 @@ struct SettingsView: View {
     var openNotificationSettings: @MainActor @Sendable () -> Void = {}
     var notificationAPNsSettingsContent: (@MainActor @Sendable (NotificationAPNsSurfaceViewModel) -> AnyView)?
     var shellOfflineIndicatorState: OfflineIndicatorState?
+    var syncFailureDiagnosticText: String?
     var onRetrySync: @MainActor @Sendable () async -> Void = {}
     var onDismissOfflineIndicator: @MainActor @Sendable () -> Void = {}
 
@@ -321,10 +322,16 @@ struct SettingsView: View {
             }
         } else {
             Section("Account") {
-                Text("Account data has not loaded yet.")
-                Text("Try sync again to load your profile, security, and notification settings from Spoonjoy.")
+                Text("Account sync has not finished yet.")
+                Text("Spoonjoy is signed in, but the latest sync did not finish loading your profile, security, and notification settings.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let syncFailureDiagnosticText {
+                    Text(syncFailureDiagnosticText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
                 Button {
                     Task { await onRetrySync() }
                 } label: {

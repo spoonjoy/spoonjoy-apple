@@ -5374,7 +5374,11 @@ struct NativeLiveStoreTests {
                 "syncFailureDiagnosticText",
                 "Support code:",
                 "navigation.route == .settings",
-                "settingsContent(contentState:",
+                "settingsContent(contentState: contentState, syncFailureMessage: message)",
+                "NavigationStack",
+                "openKitchenFromStandaloneSettings",
+                "Label(\"Kitchen\", systemImage: \"chevron.left\")",
+                "Label(\"Retry\", systemImage: \"arrow.clockwise\")",
                 "onRetrySync:",
                 "navigation.navigate(to: .settings)",
                 "purgeShoppingEntityIdentifiers",
@@ -5458,13 +5462,17 @@ struct NativeLiveStoreTests {
             in: relativePath,
             contains: [
                 "var onRetrySync: @MainActor @Sendable () async -> Void",
-                "Account data has not loaded yet.",
+                "var syncFailureDiagnosticText: String?",
+                "Account sync has not finished yet.",
+                "latest sync did not finish loading your profile",
+                "Text(syncFailureDiagnosticText)",
                 "Try Sync Again",
                 "Task { await onRetrySync() }",
                 "Label(\"Try Sync Again\", systemImage: \"arrow.clockwise\")",
                 "effectiveOfflineIndicator(surface.offlineIndicator.display)"
             ],
             forbids: [
+                "Account data has not loaded yet.",
                 "Account settings need a live load before they are available offline."
             ]
         )

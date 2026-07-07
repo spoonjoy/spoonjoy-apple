@@ -512,7 +512,7 @@ public enum ScenarioVerifier {
                 liveStoreShellCheck(
                     name: "sync failed shell",
                     rootURL: rootURL,
-                    tokens: ["case .syncFailed", "PlatformNavigationView(", "navigation.route == .settings", "settingsContent(contentState:"]
+                    tokens: ["case .syncFailed", "PlatformNavigationView(", "navigation.route == .settings", "syncFailureMessage: message", "openKitchenFromStandaloneSettings"]
                 ),
                 fixtureFallbackDisabledCheck(rootURL: rootURL),
                 ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
