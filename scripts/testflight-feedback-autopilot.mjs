@@ -5,13 +5,16 @@ import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const APP_ID = process.env.SPOONJOY_ASC_APP_ID || "6787505444";
 const APP_BUNDLE_ID = process.env.SPOONJOY_BUNDLE_ID || "app.spoonjoy";
 const APP_NAME = "Spoonjoy";
 const DEFAULT_PORT = Number(process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_PORT || 48973);
 const DEFAULT_HOST = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_HOST || "127.0.0.1";
-const DEFAULT_REPO = process.env.SPOONJOY_NATIVE_REPO || "/Users/arimendelow/Projects/spoonjoy-apple-testflight-native-publish";
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
+const DEFAULT_REPO = process.env.SPOONJOY_NATIVE_REPO || path.resolve(SCRIPT_DIR, "..");
 const DEFAULT_THREAD_ID = process.env.SPOONJOY_CODEX_THREAD_ID || "019f2e25-2fc3-75b2-8ba3-335f3777115a";
 const DEFAULT_CODEX = process.env.CODEX_CLI_PATH || "/opt/homebrew/bin/codex";
 const DEFAULT_OURO = process.env.OURO_CLI_PATH || "/opt/homebrew/bin/ouro";
@@ -27,6 +30,11 @@ const ASC_CONFIG = process.env.APPLE_DISTRIBUTION_KIT_CONFIG || path.join(homedi
 const FEEDBACK_EVENTS = new Set(["betaFeedbackScreenshotSubmissionCreated", "betaFeedbackCrashSubmissionCreated"]);
 const FEEDBACK_INSTANCE_TYPES = new Set(["betaFeedbackScreenshotSubmissions", "betaFeedbackCrashSubmissions"]);
 const WEBHOOK_NAME = "Spoonjoy TestFlight Feedback Autopilot";
+const LAUNCH_AGENT_DIR = path.join(homedir(), "Library/LaunchAgents");
+const LISTENER_LABEL = "com.spoonjoy.testflight-feedback-listener";
+const TUNNEL_LABEL = "com.spoonjoy.testflight-feedback-tunnel";
+const RECONCILE_LABEL = "com.spoonjoy.testflight-feedback-reconcile";
+const CLOUDFLARED_CONFIG = path.join(homedir(), ".cloudflared/spoonjoy-testflight-feedback.yml");
 
 const command = process.argv[2] || "help";
 const args = process.argv.slice(3);
@@ -46,6 +54,7 @@ async function main() {
   if (command === "redeliver") return redeliver();
   if (command === "reconcile") return reconcileUnhandledFeedback();
   if (command === "retry") return retryFeedback();
+  if (command === "install-launchd") return installLaunchd();
   if (command === "record-exit") return recordCodexExit();
   if (command === "mark") return markFeedback();
   if (command === "status") return status();
@@ -64,6 +73,7 @@ function help() {
   scripts/testflight-feedback-autopilot.mjs redeliver --delivery-id webhook-delivery-id
   scripts/testflight-feedback-autopilot.mjs reconcile [--dry-run]
   scripts/testflight-feedback-autopilot.mjs retry --instance-id feedback-instance-id
+  scripts/testflight-feedback-autopilot.mjs install-launchd
   scripts/testflight-feedback-autopilot.mjs mark --instance-id feedback-instance-id --status taken_over|failed|succeeded [--message text]
   scripts/testflight-feedback-autopilot.mjs status [--plain]
   scripts/testflight-feedback-autopilot.mjs doctor
@@ -88,7 +98,14 @@ async function listen() {
     try {
       const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
       if (request.method === "GET" && url.pathname === "/health") {
-        return sendJson(response, 200, { ok: true, appId: APP_ID, bundleId: APP_BUNDLE_ID });
+        return sendJson(response, 200, {
+          ok: true,
+          appId: APP_ID,
+          bundleId: APP_BUNDLE_ID,
+          repo: DEFAULT_REPO,
+          scriptPath: SCRIPT_PATH,
+          pid: process.pid,
+        });
       }
       if (request.method !== "POST" || url.pathname !== "/app-store-connect/webhook") {
         return sendJson(response, 404, { ok: false, error: "not_found" });
@@ -240,6 +257,7 @@ async function handleFeedbackEvent(event, rawPayload) {
     eventDir,
     error: ouroDispatch.error,
   });
+  notify("Spoonjoy TestFlight feedback", `Slugger handoff failed; using Codex fallback for ${event.instance.id}`);
   launchDirectCodex(event, eventDir, imagePaths, promptPath);
 }
 
@@ -397,7 +415,7 @@ function launchDirectCodex(event, eventDir, imagePaths, promptPath) {
   });
   appendRuntimeLog(`launched codex for ${event.instance.id}; event dir ${eventDir}`);
   recordActivity("codex_launched", { eventId: event.eventId, instanceId: event.instance.id, eventDir, pid: child.pid || null });
-  notify("Spoonjoy TestFlight feedback", `Queued ${event.instance.id} for Codex`);
+  notify("Spoonjoy TestFlight feedback", `Queued ${event.instance.id} for Codex fallback`);
 }
 
 function safeOutput(text) {
@@ -646,6 +664,99 @@ async function retryFeedback() {
   }, null, 2));
 }
 
+function installLaunchd() {
+  ensureRuntime();
+  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
+  const nodePath = resolveExecutable("node", process.execPath);
+  const codexPath = resolveExecutable("codex", DEFAULT_CODEX);
+  const ouroPath = resolveExecutable("ouro", DEFAULT_OURO);
+  const cloudflaredPath = resolveExecutable("cloudflared", "/opt/homebrew/bin/cloudflared");
+  const pathValue = process.env.PATH || "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+  mkdirSync(LAUNCH_AGENT_DIR, { recursive: true });
+
+  const plists = [
+    {
+      label: LISTENER_LABEL,
+      values: {
+        Label: LISTENER_LABEL,
+        ProgramArguments: [nodePath, SCRIPT_PATH, "listen"],
+        WorkingDirectory: DEFAULT_REPO,
+        EnvironmentVariables: {
+          PATH: pathValue,
+          CODEX_CLI_PATH: codexPath,
+          OURO_CLI_PATH: ouroPath,
+          SPOONJOY_CODEX_THREAD_ID: DEFAULT_THREAD_ID,
+          SPOONJOY_NATIVE_REPO: DEFAULT_REPO,
+          SPOONJOY_TESTFLIGHT_EVENT_AGENT: DEFAULT_EVENT_AGENT,
+        },
+        RunAtLoad: true,
+        KeepAlive: true,
+        ProcessType: "Background",
+        StandardOutPath: path.join(SUPPORT_DIR, "listener.launchd.log"),
+        StandardErrorPath: path.join(SUPPORT_DIR, "listener.launchd.err"),
+      },
+    },
+    {
+      label: TUNNEL_LABEL,
+      values: {
+        Label: TUNNEL_LABEL,
+        ProgramArguments: [cloudflaredPath, "--config", CLOUDFLARED_CONFIG, "tunnel", "run", "spoonjoy-testflight-feedback"],
+        WorkingDirectory: DEFAULT_REPO,
+        EnvironmentVariables: {
+          PATH: pathValue,
+        },
+        RunAtLoad: true,
+        KeepAlive: true,
+        ProcessType: "Background",
+        StandardOutPath: path.join(SUPPORT_DIR, "tunnel.launchd.log"),
+        StandardErrorPath: path.join(SUPPORT_DIR, "tunnel.launchd.err"),
+      },
+    },
+    {
+      label: RECONCILE_LABEL,
+      values: {
+        Label: RECONCILE_LABEL,
+        ProgramArguments: [nodePath, SCRIPT_PATH, "reconcile"],
+        WorkingDirectory: DEFAULT_REPO,
+        EnvironmentVariables: {
+          PATH: pathValue,
+          CODEX_CLI_PATH: codexPath,
+          OURO_CLI_PATH: ouroPath,
+          SPOONJOY_CODEX_THREAD_ID: DEFAULT_THREAD_ID,
+          SPOONJOY_NATIVE_REPO: DEFAULT_REPO,
+          SPOONJOY_TESTFLIGHT_EVENT_AGENT: DEFAULT_EVENT_AGENT,
+        },
+        RunAtLoad: true,
+        StartInterval: 300,
+        ProcessType: "Background",
+        StandardOutPath: path.join(SUPPORT_DIR, "reconcile.launchd.log"),
+        StandardErrorPath: path.join(SUPPORT_DIR, "reconcile.launchd.err"),
+      },
+    },
+  ];
+
+  const results = [];
+  for (const item of plists) {
+    const plistPath = launchAgentPath(item.label);
+    writeFileSync(plistPath, buildPlist(item.values), { mode: 0o644 });
+    runLaunchctl(["bootout", `gui/${uid}`, plistPath], { allowFailure: true });
+    runLaunchctl(["bootstrap", `gui/${uid}`, plistPath]);
+    runLaunchctl(["kickstart", "-k", `gui/${uid}/${item.label}`], { allowFailure: true });
+    results.push({ label: item.label, plistPath });
+  }
+
+  const install = validateInstallConfig();
+  if (!install.ok) throw new Error(`Launchd install validation failed: ${install.issues.join("; ")}`);
+  console.log(JSON.stringify({
+    ok: true,
+    repo: DEFAULT_REPO,
+    scriptPath: SCRIPT_PATH,
+    plists: results,
+    services: launchdSummary(),
+    install,
+  }, null, 2));
+}
+
 function recordCodexExit() {
   ensureRuntime();
   const instanceId = requiredArg("--instance-id");
@@ -727,15 +838,21 @@ async function status() {
     ? (await tryStatusRead("public health", () => fetchJson(webhook.attributes.url.replace(/\/app-store-connect\/webhook$/, "/health")), warnings, null)).value
     : null;
   const service = launchdSummary();
+  const install = validateInstallConfig();
+  for (const issue of install.issues) warnings.push(`install: ${issue}`);
+  const localHealth = await fetchHealth();
+  for (const issue of healthIssues("local", localHealth)) warnings.push(issue);
+  for (const issue of healthIssues("public", publicHealth)) warnings.push(issue);
 
   const report = {
-    ok: warnings.length === 0 && actionableFeedback.length === 0 && failedDeliveries.length === 0 && service.listener?.state === "running" && service.tunnel?.state === "running",
+    ok: warnings.length === 0 && install.ok && actionableFeedback.length === 0 && failedDeliveries.length === 0 && service.listener?.state === "running" && service.tunnel?.state === "running",
     appId: APP_ID,
     bundleId: APP_BUNDLE_ID,
     warnings,
     services: service,
+    install,
     health: {
-      local: await fetchHealth(),
+      local: localHealth,
       public: publicHealth,
     },
     webhook: webhook ? {
@@ -790,6 +907,7 @@ function printPlainStatus(report) {
     const exit = service?.lastExitCode ? ` lastExit=${service.lastExitCode}` : "";
     lines.push(`- ${name}: ${state}${pid}${exit}`);
   }
+  lines.push(`- install: ${report.install?.ok ? "ok" : "failed"}`);
   lines.push(`- local health: ${report.health?.local?.ok ? "ok" : "failed"}`);
   lines.push(`- public health: ${report.health?.public?.ok ? "ok" : "failed"}`);
   lines.push("");
@@ -832,10 +950,13 @@ async function doctor() {
   ensureRuntime();
   const state = loadState();
   const webhooks = await ascRequest("GET", `/v1/apps/${APP_ID}/webhooks`);
+  const install = validateInstallConfig();
   const status = {
-    ok: true,
+    ok: install.ok,
     listener: `http://${DEFAULT_HOST}:${DEFAULT_PORT}`,
     health: await fetchHealth(),
+    install,
+    services: launchdSummary(),
     appId: APP_ID,
     bundleId: APP_BUNDLE_ID,
     statePath: DEFAULT_STATE_PATH,
@@ -1333,9 +1454,9 @@ async function fetchJson(url) {
 
 function launchdSummary() {
   return {
-    listener: parseLaunchctl("com.spoonjoy.testflight-feedback-listener"),
-    tunnel: parseLaunchctl("com.spoonjoy.testflight-feedback-tunnel"),
-    reconcile: parseLaunchctl("com.spoonjoy.testflight-feedback-reconcile"),
+    listener: parseLaunchctl(LISTENER_LABEL),
+    tunnel: parseLaunchctl(TUNNEL_LABEL),
+    reconcile: parseLaunchctl(RECONCILE_LABEL),
   };
 }
 
@@ -1352,6 +1473,139 @@ function parseLaunchctl(label) {
     runs: Number(text.match(/\bruns = ([0-9]+)/)?.[1] || 0) || null,
     lastExitCode: Number(text.match(/\blast exit code = (-?[0-9]+)/)?.[1] || 0) || null,
   };
+}
+
+function validateInstallConfig() {
+  const expected = {
+    [LISTENER_LABEL]: {
+      scriptIndex: 1,
+      scriptPath: SCRIPT_PATH,
+      workingDirectory: DEFAULT_REPO,
+      envRepo: DEFAULT_REPO,
+      mustExist: [DEFAULT_REPO, SCRIPT_PATH],
+    },
+    [TUNNEL_LABEL]: {
+      workingDirectory: DEFAULT_REPO,
+      mustExist: [DEFAULT_REPO, CLOUDFLARED_CONFIG],
+    },
+    [RECONCILE_LABEL]: {
+      scriptIndex: 1,
+      scriptPath: SCRIPT_PATH,
+      workingDirectory: DEFAULT_REPO,
+      envRepo: DEFAULT_REPO,
+      mustExist: [DEFAULT_REPO, SCRIPT_PATH],
+    },
+  };
+  const items = {};
+  const issues = [];
+  for (const [label, rules] of Object.entries(expected)) {
+    const plistPath = launchAgentPath(label);
+    const plist = readLaunchAgentPlist(label);
+    const itemIssues = [];
+    if (!plist) {
+      itemIssues.push(`missing plist ${plistPath}`);
+    } else {
+      const programArguments = Array.isArray(plist.ProgramArguments) ? plist.ProgramArguments : [];
+      if (rules.scriptPath && programArguments[rules.scriptIndex] !== rules.scriptPath) {
+        itemIssues.push(`script path is ${programArguments[rules.scriptIndex] || "(missing)"}, expected ${rules.scriptPath}`);
+      }
+      if (rules.workingDirectory && plist.WorkingDirectory !== rules.workingDirectory) {
+        itemIssues.push(`working directory is ${plist.WorkingDirectory || "(missing)"}, expected ${rules.workingDirectory}`);
+      }
+      if (rules.envRepo && plist.EnvironmentVariables?.SPOONJOY_NATIVE_REPO !== rules.envRepo) {
+        itemIssues.push(`SPOONJOY_NATIVE_REPO is ${plist.EnvironmentVariables?.SPOONJOY_NATIVE_REPO || "(missing)"}, expected ${rules.envRepo}`);
+      }
+      for (const file of rules.mustExist || []) {
+        if (!existsSync(file)) itemIssues.push(`missing path ${file}`);
+      }
+    }
+    items[label] = {
+      plistPath,
+      ok: itemIssues.length === 0,
+      issues: itemIssues,
+    };
+    issues.push(...itemIssues.map((issue) => `${label}: ${issue}`));
+  }
+  return {
+    ok: issues.length === 0,
+    repo: DEFAULT_REPO,
+    scriptPath: SCRIPT_PATH,
+    items,
+    issues,
+  };
+}
+
+function readLaunchAgentPlist(label) {
+  const plistPath = launchAgentPath(label);
+  if (!existsSync(plistPath)) return null;
+  const result = spawnSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", plistPath], { encoding: "utf8" });
+  if (result.status !== 0) return null;
+  return safeJson(result.stdout);
+}
+
+function launchAgentPath(label) {
+  return path.join(LAUNCH_AGENT_DIR, `${label}.plist`);
+}
+
+function healthIssues(name, health) {
+  if (!health) return [];
+  if (!health.ok) return [`${name} health: ${health.error || `HTTP ${health.status || "unknown"}`}`];
+  const issues = [];
+  const body = health.body || {};
+  if (!body.repo || !body.scriptPath) {
+    issues.push(`${name} health: listener is running an older health contract`);
+    return issues;
+  }
+  if (body.repo !== DEFAULT_REPO) issues.push(`${name} health: repo is ${body.repo}, expected ${DEFAULT_REPO}`);
+  if (body.scriptPath !== SCRIPT_PATH) issues.push(`${name} health: script path is ${body.scriptPath}, expected ${SCRIPT_PATH}`);
+  return issues;
+}
+
+function resolveExecutable(name, fallback) {
+  const result = spawnSync("/usr/bin/which", [name], { encoding: "utf8" });
+  const resolved = result.status === 0 ? result.stdout.trim() : "";
+  return resolved || fallback;
+}
+
+function runLaunchctl(args, options = {}) {
+  const result = spawnSync("launchctl", args, { encoding: "utf8" });
+  if (result.status !== 0 && !options.allowFailure) {
+    throw new Error(`launchctl ${args.join(" ")} failed: ${result.stderr || result.stdout || `exit ${result.status}`}`);
+  }
+  return result;
+}
+
+function buildPlist(values) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+${plistValue(values)}
+</plist>
+`;
+}
+
+function plistValue(value, indent = 0) {
+  const pad = "  ".repeat(indent);
+  if (value === true) return `${pad}<true/>\n`;
+  if (value === false) return `${pad}<false/>\n`;
+  if (typeof value === "number") return `${pad}<integer>${value}</integer>\n`;
+  if (typeof value === "string") return `${pad}<string>${xmlEscape(value)}</string>\n`;
+  if (Array.isArray(value)) {
+    return `${pad}<array>\n${value.map((item) => plistValue(item, indent + 1)).join("")}${pad}</array>\n`;
+  }
+  if (value && typeof value === "object") {
+    return `${pad}<dict>\n${Object.entries(value).map(([key, item]) => `${"  ".repeat(indent + 1)}<key>${xmlEscape(key)}</key>\n${plistValue(item, indent + 1)}`).join("")}${pad}</dict>\n`;
+  }
+  return `${pad}<string></string>\n`;
+}
+
+function xmlEscape(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 function recentEventDirs() {

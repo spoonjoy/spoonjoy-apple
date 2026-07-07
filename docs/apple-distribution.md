@@ -188,6 +188,8 @@ The webhook must stay enabled for:
 Validate the path after registration:
 
 ```bash
+scripts/testflight-feedback-autopilot.mjs install-launchd
+
 curl -fsS http://127.0.0.1:48973/health | jq .
 curl -fsS https://spoonjoy-testflight-feedback.ouro.bot/health | jq .
 
@@ -210,6 +212,11 @@ scripts/apple-distribution-kit.sh asc get \
   --path /v1/apps/6787505444/webhooks \
   --json
 ```
+
+`install-launchd` rewrites the listener, tunnel, and reconcile user agents to
+the current checkout before bootstrapping them. `status` and `doctor` fail if a
+plist points at a stale checkout, if the configured working directory is wrong,
+or if the live listener is still running an older health contract.
 
 The durable local jobs are launchd user agents:
 
