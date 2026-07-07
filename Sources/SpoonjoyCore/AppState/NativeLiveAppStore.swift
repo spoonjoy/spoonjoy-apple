@@ -136,6 +136,7 @@ public struct NativeRecipeCookbookEntityIndexPurgeRequest: Equatable, Sendable {
 }
 
 public typealias NativeRecipeCookbookEntityIndexPurgeOperation = @Sendable (_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
+public typealias NativeTelemetryReportOperation = @Sendable (_ event: NativeTelemetryEvent, _ configuration: APIClientConfiguration) async -> Void
 
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
@@ -160,6 +161,8 @@ public struct NativeLiveAppStoreDependencies {
     public let captureDraftEntityIndexPurge: NativeCaptureDraftEntityIndexPurgeOperation
     public let chefProfileEntityIndexPurge: NativeChefProfileEntityIndexPurgeOperation
     public let recipeCookbookEntityIndexPurge: NativeRecipeCookbookEntityIndexPurgeOperation
+    public let nativeTelemetryReport: NativeTelemetryReportOperation
+    public let nativeTelemetryMetadata: NativeTelemetryAppMetadata
     public let bootstrapMode: NativeLiveAppBootstrapMode
     public let now: @Sendable () -> Date
 
@@ -183,6 +186,8 @@ public struct NativeLiveAppStoreDependencies {
         captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
         chefProfileEntityIndexPurge: @escaping NativeChefProfileEntityIndexPurgeOperation = { _ in },
         recipeCookbookEntityIndexPurge: @escaping NativeRecipeCookbookEntityIndexPurgeOperation = { _ in },
+        nativeTelemetryReport: @escaping NativeTelemetryReportOperation = { _, _ in },
+        nativeTelemetryMetadata: NativeTelemetryAppMetadata = .unknown,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         now: @escaping @Sendable () -> Date
     ) {
@@ -203,6 +208,8 @@ public struct NativeLiveAppStoreDependencies {
         self.captureDraftEntityIndexPurge = captureDraftEntityIndexPurge
         self.chefProfileEntityIndexPurge = chefProfileEntityIndexPurge
         self.recipeCookbookEntityIndexPurge = recipeCookbookEntityIndexPurge
+        self.nativeTelemetryReport = nativeTelemetryReport
+        self.nativeTelemetryMetadata = nativeTelemetryMetadata
         self.bootstrapMode = bootstrapMode
         self.now = now
     }
@@ -1772,6 +1779,14 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
+            await reportNativeTelemetry(
+                name: .bootstrapOffline,
+                stage: "launch",
+                error: error,
+                authState: currentContentState.authSessionState,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
             let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
         } catch {
@@ -1780,6 +1795,14 @@ public final class NativeLiveAppStore: ObservableObject {
                 error: error,
                 authState: currentContentState.authSessionState,
                 environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
+            await reportNativeTelemetry(
+                name: .bootstrapFailed,
+                stage: "launch",
+                error: error,
+                authState: currentContentState.authSessionState,
                 route: restoredRoute,
                 contentState: currentContentState
             )
@@ -1815,6 +1838,14 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
+            await reportNativeTelemetry(
+                name: .bootstrapOffline,
+                stage: "environment",
+                error: error,
+                authState: authSessionState,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
             let offlineContent = (try? await restoreFromCache(authSessionState: authSessionState)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
         } catch {
@@ -1823,6 +1854,14 @@ public final class NativeLiveAppStore: ObservableObject {
                 error: error,
                 authState: authSessionState,
                 environment: cacheEnvironment,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
+            await reportNativeTelemetry(
+                name: .bootstrapFailed,
+                stage: "environment",
+                error: error,
+                authState: authSessionState,
                 route: restoredRoute,
                 contentState: currentContentState
             )
@@ -2956,10 +2995,12 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
+        var settingsRefreshError: Error?
         do {
             try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
         } catch {
             NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
+            settingsRefreshError = error
         }
         let drainedOverlayMutations = report.drainedMutations.filter {
             !$0.mutatesRecipeCache && !$0.mutatesShoppingCache && !$0.mutatesCookbookCache
@@ -3002,6 +3043,25 @@ public final class NativeLiveAppStore: ObservableObject {
                 content.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "sync", retryAfter: .seconds(retryAfterSeconds)), dismissal: nil)),
                 message: "Sync will retry."
             ))
+        } else if let settingsRefreshError {
+            await reportNativeTelemetry(
+                name: .settingsRefreshFailed,
+                stage: "settings",
+                error: settingsRefreshError,
+                authState: boundAuthState,
+                route: restoredRoute,
+                contentState: content
+            )
+            apply(.syncFailed(
+                content.copy(offlineIndicatorState: OfflineIndicatorState(
+                    display: .syncFailure(
+                        errorID: "settings",
+                        retryAfter: NativeLiveAppStoreTelemetry.retryAfterSeconds(for: settingsRefreshError).map(OfflineIndicatorRetryAfter.seconds)
+                    ),
+                    dismissal: nil
+                )),
+                message: NativeLiveAppStoreTelemetry.failureMessage(for: settingsRefreshError)
+            ))
         } else if !content.queuedMutations.isEmpty {
             apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
         } else if case .blocker = content.offlineIndicatorState.display {
@@ -3039,6 +3099,38 @@ public final class NativeLiveAppStore: ObservableObject {
         let recordIDs = Set(result.persistedRecords.map(\.id))
         let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
         try dependencies.cacheStore.save(try currentSnapshot.copy(records: nextRecords))
+    }
+
+    private func reportNativeTelemetry(
+        name: NativeTelemetryEvent.Name,
+        stage: String,
+        error: Error,
+        authState: NativeAuthSessionState,
+        route: AppRoute?,
+        contentState: NativeShellContentState
+    ) async {
+        let diagnostic = NativeLiveAppStoreTelemetry.diagnosticContext(for: error)
+        let hasRenderableContent = !contentState.recipes.isEmpty ||
+            !contentState.cookbooks.isEmpty ||
+            !(contentState.shoppingList?.activeItems.isEmpty ?? true)
+        await dependencies.nativeTelemetryReport(NativeTelemetryEvent(
+            name: name,
+            stage: stage,
+            environment: cacheEnvironment.rawValue,
+            metadata: dependencies.nativeTelemetryMetadata,
+            route: route?.stateIdentifier,
+            errorType: diagnostic.type,
+            requestID: diagnostic.requestID,
+            status: diagnostic.status,
+            apiCode: diagnostic.code,
+            retry: diagnostic.retry,
+            accountBound: trustedAccountID(for: authState) != nil,
+            hasRenderableCacheContent: hasRenderableContent,
+            recipes: contentState.recipes.count,
+            cookbooks: contentState.cookbooks.count,
+            shoppingItems: contentState.shoppingList?.activeItems.count ?? 0,
+            queuedMutations: contentState.queuedMutations.count
+        ), configuration)
     }
 
     private func clearDrainedCaptureImports(_ clientMutationIDs: Set<String>, authSessionState: NativeAuthSessionState) {
@@ -3289,6 +3381,32 @@ private enum NativeLiveAppStoreTelemetry {
             logger.error("native_settings_refresh_failed error_type=\(type, privacy: .public)")
         }
 #endif
+    }
+
+    static func diagnosticContext(for error: Error) -> (type: String, requestID: String?, status: Int?, code: String?, retry: String?) {
+        let type = String(describing: Swift.type(of: error))
+        guard let transportError = error as? APITransportError else {
+            return (type, nil, nil, nil, nil)
+        }
+        return (
+            type,
+            transportError.requestID ?? transportError.apiError?.requestID,
+            transportError.statusCode ?? transportError.apiError?.status,
+            transportError.apiError?.code,
+            retryDescription(transportError.retryDecision)
+        )
+    }
+
+    static func retryAfterSeconds(for error: Error) -> Int? {
+        guard let transportError = error as? APITransportError else {
+            return nil
+        }
+        switch transportError.retryDecision {
+        case .retrySameRequest(let seconds):
+            return seconds
+        case .refreshAuthentication, .doNotRetry:
+            return nil
+        }
     }
 
     private static func errorContext(_ error: Error) -> (type: String, requestID: String, status: String, code: String, retry: String) {

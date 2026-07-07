@@ -131,6 +131,25 @@ struct NativeAPIExpansionTests {
             .urlRequest(configuration: Self.privateConfiguration)
         let disconnect = try PrivateAccountRequests.disconnectConnection(connectionID: "oauth/cm client")
             .urlRequest(configuration: Self.privateConfiguration)
+        let telemetry = try NativeTelemetryRequests.recordEvent(NativeTelemetryEvent(
+            name: .settingsRefreshFailed,
+            stage: "settings",
+            environment: "production",
+            metadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "12"),
+            route: "settings",
+            errorType: "APITransportError",
+            requestID: "req_settings_surface",
+            status: 403,
+            apiCode: "insufficient_scope",
+            retry: "do_not_retry",
+            accountBound: true,
+            hasRenderableCacheContent: true,
+            recipes: 4,
+            cookbooks: 2,
+            shoppingItems: 0,
+            queuedMutations: 1
+        ))
+        .urlRequest(configuration: Self.privateConfiguration)
 
         assertRequest(currentAccount, method: .get, path: "/api/v1/me", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
         assertRequest(kitchen, method: .get, path: "/api/v1/me/kitchen", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
@@ -151,6 +170,26 @@ struct NativeAPIExpansionTests {
         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
         assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+        assertJSONRequest(telemetry, method: .post, path: "/api/v1/native/telemetry", expected: [
+            "event": "settings_refresh_failed",
+            "stage": "settings",
+            "environment": "production",
+            "platform": "ios",
+            "appVersion": "1.0",
+            "buildNumber": "12",
+            "route": "settings",
+            "errorType": "APITransportError",
+            "requestId": "req_settings_surface",
+            "status": 403,
+            "apiCode": "insufficient_scope",
+            "retry": "do_not_retry",
+            "accountBound": true,
+            "hasRenderableCacheContent": true,
+            "recipes": 4,
+            "cookbooks": 2,
+            "shoppingItems": 0,
+            "queuedMutations": 1
+        ])
         #expect(currentAccount.body == nil)
         #expect(kitchen.body == nil)
         #expect(notificationPreferences.body == nil)
@@ -160,6 +199,35 @@ struct NativeAPIExpansionTests {
         #expect(revokeToken.body == nil)
         #expect(revokeAPNS.body == nil)
         #expect(disconnect.body == nil)
+    }
+
+    @Test("native telemetry omits nil and blank optional fields")
+    func nativeTelemetryOmitsNilAndBlankOptionalFields() throws {
+        let telemetry = try NativeTelemetryRequests.recordEvent(NativeTelemetryEvent(
+            name: .bootstrapOffline,
+            stage: "launch",
+            environment: "production",
+            metadata: NativeTelemetryAppMetadata(platform: "", appVersion: " \t\n", buildNumber: nil),
+            route: "  ",
+            errorType: nil,
+            requestID: nil,
+            status: nil,
+            apiCode: nil,
+            retry: nil,
+            accountBound: nil,
+            hasRenderableCacheContent: nil,
+            recipes: nil,
+            cookbooks: nil,
+            shoppingItems: nil,
+            queuedMutations: nil
+        ))
+        .urlRequest(configuration: Self.privateConfiguration)
+
+        assertJSONRequest(telemetry, method: .post, path: "/api/v1/native/telemetry", expected: [
+            "event": "bootstrap_offline",
+            "stage": "launch",
+            "environment": "production"
+        ])
     }
 
     @Test("profile notification token and APNs mutations encode JSON or multipart bodies")

@@ -95,7 +95,8 @@ if (!testflight.testflight?.groups?.some((group) => group.name === "Spoonjoy Int
   fail("ios-testflight must declare the Spoonjoy Internal group");
 }
 if (!testflight.testflight?.build?.whatsNew) fail("ios-testflight must declare testflight.build.whatsNew");
-if (testflight.testflight?.build?.notifyTesters !== false) fail("internal TestFlight publish must not notify testers by default");
+if (testflight.testflight?.build?.notifyTesters !== true) fail("reactive internal TestFlight publish must notify testers");
+if (testflight.testflight?.build?.autoNotifyEnabled !== true) fail("reactive internal TestFlight publish must enable automatic tester notification");
 if (!testflight.testflight?.betaApp?.feedbackEmail) fail("ios-testflight must declare betaApp.feedbackEmail");
 
 console.log("Spoonjoy native apple distribution manifest contract ok");

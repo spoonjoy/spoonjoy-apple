@@ -41,9 +41,9 @@
           }
         ],
         "build": {
-          "whatsNew": "First native Spoonjoy iOS TestFlight build for internal dogfood.",
-          "autoNotifyEnabled": false,
-          "notifyTesters": false
+          "whatsNew": "Improves native account sync diagnostics and makes Settings load failures visible during internal dogfood.",
+          "autoNotifyEnabled": true,
+          "notifyTesters": true
         },
         "betaApp": {
           "description": "Spoonjoy turns what you have into something worth eating.",
