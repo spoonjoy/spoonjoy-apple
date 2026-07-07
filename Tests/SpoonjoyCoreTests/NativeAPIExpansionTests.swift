@@ -201,6 +201,35 @@ struct NativeAPIExpansionTests {
         #expect(disconnect.body == nil)
     }
 
+    @Test("native telemetry omits nil and blank optional fields")
+    func nativeTelemetryOmitsNilAndBlankOptionalFields() throws {
+        let telemetry = try NativeTelemetryRequests.recordEvent(NativeTelemetryEvent(
+            name: .bootstrapOffline,
+            stage: "launch",
+            environment: "production",
+            metadata: NativeTelemetryAppMetadata(platform: "", appVersion: " \t\n", buildNumber: nil),
+            route: "  ",
+            errorType: nil,
+            requestID: nil,
+            status: nil,
+            apiCode: nil,
+            retry: nil,
+            accountBound: nil,
+            hasRenderableCacheContent: nil,
+            recipes: nil,
+            cookbooks: nil,
+            shoppingItems: nil,
+            queuedMutations: nil
+        ))
+        .urlRequest(configuration: Self.privateConfiguration)
+
+        assertJSONRequest(telemetry, method: .post, path: "/api/v1/native/telemetry", expected: [
+            "event": "bootstrap_offline",
+            "stage": "launch",
+            "environment": "production"
+        ])
+    }
+
     @Test("profile notification token and APNs mutations encode JSON or multipart bodies")
     func profileNotificationTokenAndAPNSMutationsEncodeExpectedBodies() throws {
         let updateProfile = try PrivateAccountRequests.updateProfile(
