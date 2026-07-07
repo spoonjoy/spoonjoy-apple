@@ -304,6 +304,7 @@ public protocol NativeSyncStore: Actor {
     ) throws
     func loadCheckpoint() throws -> NativeSyncCheckpoint
     func saveCheckpoint(_ checkpoint: NativeSyncCheckpoint) throws
+    func clearCheckpoint() throws
     func appendTombstone(_ tombstone: NativeSyncTombstone) throws
     func cachedRecord(kind: NativeSyncEntryKind, resourceID: String) throws -> NativeSyncCachedRecord?
     func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult
@@ -378,6 +379,10 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
 
     public func saveCheckpoint(_ checkpoint: NativeSyncCheckpoint) {
         self.checkpoint = checkpoint
+    }
+
+    public func clearCheckpoint() {
+        checkpoint = nil
     }
 
     public func appendTombstone(_ tombstone: NativeSyncTombstone) {
@@ -553,6 +558,11 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         try persist()
     }
 
+    public func clearCheckpoint() throws {
+        checkpoint = nil
+        try persist()
+    }
+
     public func appendTombstone(_ tombstone: NativeSyncTombstone) throws {
         tombstones.append(tombstone)
         try persist()
@@ -676,6 +686,10 @@ public actor UnavailableNativeSyncStore: NativeSyncStore {
     }
 
     public func saveCheckpoint(_: NativeSyncCheckpoint) throws {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func clearCheckpoint() throws {
         throw NativeSyncStoreError.unavailable(message)
     }
 
@@ -3816,6 +3830,11 @@ private struct NativeSyncBootstrapApplication: Sendable {
     }
 }
 
+private struct NativeSyncBootstrapAttemptFailure: Error {
+    let page: Int
+    let underlying: Error
+}
+
 private enum NativeSyncTelemetry {
 #if canImport(OSLog)
     private static let logger = Logger(subsystem: "app.spoonjoy", category: "sync")
@@ -3853,6 +3872,18 @@ private enum NativeSyncTelemetry {
 #if canImport(OSLog)
         logger.info(
             "native_sync_bootstrap_completed trigger=\(trigger.rawValue, privacy: .public) pages=\(application.pagesApplied, privacy: .public) entries=\(application.entriesApplied, privacy: .public) account_id=\(application.accountID ?? "none", privacy: .public) environment=\(application.environment?.rawValue ?? "none", privacy: .public) final_cursor_present=\(application.cursor != nil, privacy: .public) tombstones=\(application.tombstones.count, privacy: .public) removed=\(application.removedCacheKeys.count, privacy: .public) kind_counts=\(kindCountsSummary(application.kindCounts), privacy: .public)"
+        )
+#endif
+    }
+
+    static func bootstrapCursorReset(
+        trigger: NativeCacheRevalidationTrigger,
+        error: Error
+    ) {
+#if canImport(OSLog)
+        let context = errorContext(error)
+        logger.info(
+            "native_sync_bootstrap_cursor_reset trigger=\(trigger.rawValue, privacy: .public) error_type=\(context.type, privacy: .public) request_id=\(context.requestID, privacy: .public) status=\(context.status, privacy: .public) code=\(context.code, privacy: .public)"
         )
 #endif
     }
@@ -4563,73 +4594,121 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         previousCheckpoint: NativeSyncCheckpoint?,
         scope: NativeSyncExecutionScope
     ) async throws -> NativeSyncBootstrapApplication {
+        func applyBootstrapPages(
+            startingCursor: PaginationCursor?,
+            previousCheckpoint: NativeSyncCheckpoint?
+        ) async throws -> NativeSyncBootstrapApplication {
+            var application = NativeSyncBootstrapApplication()
+            var cursor = startingCursor
+            var seenCursors = Set<String>()
+            if let cursor {
+                seenCursors.insert(cursor.rawValue)
+            }
+
+            var page = 0
+            var shouldContinue = true
+            do {
+                while shouldContinue {
+                    page += 1
+                    let bootstrapRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: cursor)
+                        .urlRequest(configuration: configuration)
+                    let bootstrapResult = try await transport.bootstrap(request: bootstrapRequest, configuration: configuration)
+
+                    switch bootstrapResult {
+                    case .success(let cursor, let tombstones):
+                        application.recordLegacy(cursor: cursor, tombstones: tombstones)
+                        for tombstone in tombstones {
+                            try await store.appendTombstone(tombstone)
+                        }
+                        if let cursor {
+                            let checkpoint = try NativeSyncCheckpoint(
+                                globalCursor: cursor,
+                                shoppingCursor: previousCheckpoint?.shoppingCursor,
+                                updatedAt: NativeSyncClockFormatting.isoString(clock())
+                            )
+                            try await store.saveCheckpoint(checkpoint)
+                        }
+                        NativeSyncTelemetry.bootstrapCompleted(trigger: trigger, application: application)
+                        return application
+                    case .syncData(let syncData):
+                        let scopedSyncData = syncData.scoped(to: scope.environment)
+                        let applyResult = try await store.apply(syncData: scopedSyncData, validatedAt: clock())
+                        application.recordPage(syncData: scopedSyncData, applyResult: applyResult)
+                        NativeSyncTelemetry.bootstrapPageApplied(
+                            trigger: trigger,
+                            page: page,
+                            syncData: scopedSyncData,
+                            applyResult: applyResult
+                        )
+
+                        if !scopedSyncData.hasMore {
+                            shouldContinue = false
+                            continue
+                        }
+
+                        guard let nextCursor = scopedSyncData.nextCursor else {
+                            throw NativeSyncBootstrapPagingError.missingNextCursor(page: page)
+                        }
+
+                        guard seenCursors.insert(nextCursor.rawValue).inserted else {
+                            throw NativeSyncBootstrapPagingError.repeatedCursor(nextCursor.rawValue, page: page)
+                        }
+
+                        cursor = nextCursor
+                    }
+                }
+                NativeSyncTelemetry.bootstrapCompleted(trigger: trigger, application: application)
+                return application
+            } catch {
+                throw NativeSyncBootstrapAttemptFailure(page: max(page, 1), underlying: error)
+            }
+        }
+
         NativeSyncTelemetry.bootstrapStarted(trigger: trigger, cursor: startingCursor, scope: scope)
 
-        var application = NativeSyncBootstrapApplication()
-        var cursor = startingCursor
-        var seenCursors = Set<String>()
-        if let cursor {
-            seenCursors.insert(cursor.rawValue)
-        }
-
-        var page = 0
-        var shouldContinue = true
         do {
-            while shouldContinue {
-                page += 1
-                let bootstrapRequest = try NativeSyncBootstrapRequest.defaultRequest(cursor: cursor)
-                    .urlRequest(configuration: configuration)
-                let bootstrapResult = try await transport.bootstrap(request: bootstrapRequest, configuration: configuration)
-
-                switch bootstrapResult {
-                case .success(let cursor, let tombstones):
-                    application.recordLegacy(cursor: cursor, tombstones: tombstones)
-                    for tombstone in tombstones {
-                        try await store.appendTombstone(tombstone)
-                    }
-                    if let cursor {
-                        let checkpoint = try NativeSyncCheckpoint(
-                            globalCursor: cursor,
-                            shoppingCursor: previousCheckpoint?.shoppingCursor,
-                            updatedAt: NativeSyncClockFormatting.isoString(clock())
-                        )
-                        try await store.saveCheckpoint(checkpoint)
-                    }
-                    NativeSyncTelemetry.bootstrapCompleted(trigger: trigger, application: application)
-                    return application
-                case .syncData(let syncData):
-                    let scopedSyncData = syncData.scoped(to: scope.environment)
-                    let applyResult = try await store.apply(syncData: scopedSyncData, validatedAt: clock())
-                    application.recordPage(syncData: scopedSyncData, applyResult: applyResult)
-                    NativeSyncTelemetry.bootstrapPageApplied(
-                        trigger: trigger,
-                        page: page,
-                        syncData: scopedSyncData,
-                        applyResult: applyResult
+            return try await applyBootstrapPages(
+                startingCursor: startingCursor,
+                previousCheckpoint: previousCheckpoint
+            )
+        } catch let failure as NativeSyncBootstrapAttemptFailure {
+            if Self.shouldRetryWithoutStoredCursor(failure.underlying, startingCursor: startingCursor, page: failure.page) {
+                NativeSyncTelemetry.bootstrapCursorReset(trigger: trigger, error: failure.underlying)
+                try await store.clearCheckpoint()
+                NativeSyncTelemetry.bootstrapStarted(trigger: trigger, cursor: nil, scope: scope)
+                do {
+                    return try await applyBootstrapPages(
+                        startingCursor: nil,
+                        previousCheckpoint: nil
                     )
-
-                    if !scopedSyncData.hasMore {
-                        shouldContinue = false
-                        continue
-                    }
-
-                    guard let nextCursor = scopedSyncData.nextCursor else {
-                        throw NativeSyncBootstrapPagingError.missingNextCursor(page: page)
-                    }
-
-                    guard seenCursors.insert(nextCursor.rawValue).inserted else {
-                        throw NativeSyncBootstrapPagingError.repeatedCursor(nextCursor.rawValue, page: page)
-                    }
-
-                    cursor = nextCursor
+                } catch let retryFailure as NativeSyncBootstrapAttemptFailure {
+                    NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: retryFailure.page, error: retryFailure.underlying)
+                    throw retryFailure.underlying
+                } catch {
+                    NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: 1, error: error)
+                    throw error
                 }
             }
-            NativeSyncTelemetry.bootstrapCompleted(trigger: trigger, application: application)
-            return application
+
+            NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: failure.page, error: failure.underlying)
+            throw failure.underlying
         } catch {
-            NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: max(page, 1), error: error)
+            NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: 1, error: error)
             throw error
         }
+    }
+
+    private static func shouldRetryWithoutStoredCursor(
+        _ error: Error,
+        startingCursor: PaginationCursor?,
+        page: Int
+    ) -> Bool {
+        guard page == 1,
+              startingCursor != nil,
+              let transportError = error as? APITransportError else {
+            return false
+        }
+        return transportError.statusCode == 400 && transportError.apiError?.code == "invalid_cursor"
     }
 
     private static func shortestRetryDelay(_ current: Int?, _ candidate: Int) -> Int {
