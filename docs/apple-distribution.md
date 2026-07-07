@@ -26,7 +26,8 @@ also rejects committed Apple credential files.
 The manifest declares the canonical Apple provider (`9735080289`) and the first
 beta group, `Spoonjoy Internal`. The package command archives the `Spoonjoy iOS`
 Release scheme and exports an IPA under `build/apple/testflight/` using
-`distribution/ExportOptions.testflight.plist`.
+`distribution/ExportOptions.testflight.plist`. The package script redacts App
+Store Connect authentication arguments from streamed `xcodebuild` output.
 
 `scripts/package-testflight-ios.sh` defaults
 `SPOONJOY_TESTFLIGHT_IOS_DEPLOYMENT_TARGET` to `26.0` so the archive is accepted
