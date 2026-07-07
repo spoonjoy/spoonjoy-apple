@@ -451,9 +451,48 @@ struct SpoonjoyRootView: View {
             recipeCookbookEntityIndexPurge: { request in
                 await Self.purgeRecipeCookbookEntityIdentifiersIfAvailable(request)
             },
+            nativeTelemetryReport: { event, configuration in
+                do {
+                    _ = try await URLSessionAPITransport().send(
+                        try NativeTelemetryRequests.recordEvent(event),
+                        configuration: configuration,
+                        decode: NativeTelemetryResponse.self
+                    )
+                } catch {
+                    // Telemetry must never block app bootstrap or recovery.
+                }
+            },
+            nativeTelemetryMetadata: Self.nativeTelemetryMetadata(),
             bootstrapMode: bootstrapMode,
             now: Date.init
         )
+    }
+
+    private static func nativeTelemetryMetadata() -> NativeTelemetryAppMetadata {
+        let info = Bundle.main.infoDictionary
+        return NativeTelemetryAppMetadata(
+            platform: nativeTelemetryPlatform(),
+            appVersion: nonblankInfoString(info?["CFBundleShortVersionString"]) ?? "0.0.0",
+            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0"
+        )
+    }
+
+    private static func nonblankInfoString(_ value: Any?) -> String? {
+        guard let string = value as? String else {
+            return nil
+        }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func nativeTelemetryPlatform() -> String? {
+#if os(iOS)
+        "ios"
+#elseif os(macOS)
+        "macos"
+#else
+        nil
+#endif
     }
 
     private static func defaultAPIConfiguration(environment: [String: String]) -> APIClientConfiguration {

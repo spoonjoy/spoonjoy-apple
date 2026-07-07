@@ -74,7 +74,7 @@ function help() {
   scripts/testflight-feedback-autopilot.mjs reconcile [--dry-run]
   scripts/testflight-feedback-autopilot.mjs retry --instance-id feedback-instance-id
   scripts/testflight-feedback-autopilot.mjs install-launchd
-  scripts/testflight-feedback-autopilot.mjs mark --instance-id feedback-instance-id --status taken_over|failed|succeeded [--message text]
+  scripts/testflight-feedback-autopilot.mjs mark --instance-id feedback-instance-id --status taken_over|failed|fixed_unconfirmed|confirmed [--message text]
   scripts/testflight-feedback-autopilot.mjs status [--plain]
   scripts/testflight-feedback-autopilot.mjs doctor
 
@@ -763,6 +763,8 @@ function recordCodexExit() {
   const eventId = requiredArg("--event-id");
   const eventDir = requiredArg("--event-dir");
   const code = Number(requiredArg("--code"));
+  const fixedBuildId = optionalArg("--fixed-build-id");
+  const fixedBuildVersion = optionalArg("--fixed-build-version");
   appendRuntimeLog(`codex event ${instanceId} exited code=${code}`);
   recordActivity("codex_exit", { eventId, instanceId, eventDir, code });
   if (code !== 0) {
@@ -774,11 +776,15 @@ function recordCodexExit() {
     updateFeedbackRun(instanceId, {
       eventId,
       eventDir,
-      status: "succeeded",
+      status: "fixed_unconfirmed",
       exitCode: code,
-      completedAt: new Date().toISOString(),
+      fixedAt: new Date().toISOString(),
+      fixedBuildId: fixedBuildId || undefined,
+      fixedBuildVersion: fixedBuildVersion || undefined,
+      confirmationState: "awaiting_reporter_confirmation",
+      message: "Codex exited cleanly; awaiting reporter confirmation on a fixed TestFlight build.",
     });
-    notify("Spoonjoy TestFlight feedback done", `Codex finished ${instanceId}`);
+    notify("Spoonjoy TestFlight feedback fix pending", `Codex finished ${instanceId}; awaiting confirmation`);
   }
   console.log(JSON.stringify({ ok: code === 0, instanceId, eventId, code }, null, 2));
 }
@@ -788,7 +794,9 @@ function markFeedback() {
   const instanceId = requiredArg("--instance-id");
   const status = requiredArg("--status");
   const message = args.includes("--message") ? requiredArg("--message") : null;
-  const allowed = new Set(["taken_over", "delegated", "needs_human", "failed", "succeeded", "seeded", "ignored"]);
+  const fixedBuildId = optionalArg("--fixed-build-id");
+  const fixedBuildVersion = optionalArg("--fixed-build-version");
+  const allowed = new Set(["taken_over", "delegated", "needs_human", "failed", "fixed_unconfirmed", "confirmed", "succeeded", "seeded", "ignored"]);
   if (!allowed.has(status)) throw new Error(`Unsupported status ${status}`);
 
   const state = loadState();
@@ -799,9 +807,22 @@ function markFeedback() {
     instanceId,
     status,
     message,
+    fixedBuildId: fixedBuildId || previous.fixedBuildId || undefined,
+    fixedBuildVersion: fixedBuildVersion || previous.fixedBuildVersion || undefined,
+    confirmationState: status === "fixed_unconfirmed"
+      ? "awaiting_reporter_confirmation"
+      : status === "confirmed"
+        ? "reporter_confirmed"
+        : previous.confirmationState || undefined,
     markedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  if (status === "fixed_unconfirmed") {
+    state.feedbackRuns[instanceId].fixedAt = state.feedbackRuns[instanceId].markedAt;
+  }
+  if (status === "confirmed") {
+    state.feedbackRuns[instanceId].confirmedAt = state.feedbackRuns[instanceId].markedAt;
+  }
   if (status === "failed") {
     state.lastFailure = {
       at: state.feedbackRuns[instanceId].markedAt,
@@ -832,7 +853,8 @@ async function status() {
   const unhandled = feedback.filter((item) => !state.handledInstanceIds.includes(item.id));
   const failedDeliveries = latestDeliveries.filter((delivery) => delivery.deliveryState === "FAILED" && !delivery.ping);
   const feedbackStatuses = feedbackStatusReport(feedback, state);
-  const actionableFeedback = feedbackStatuses.filter((item) => ["new", "failed", "stalled", "unknown", "needs_human"].includes(item.status));
+  const awaitingConfirmation = feedbackStatuses.filter((item) => item.status === "fixed_unconfirmed" || item.status === "succeeded");
+  const actionableFeedback = feedbackStatuses.filter((item) => ["new", "failed", "stalled", "unknown", "needs_human", "fixed_unconfirmed", "succeeded"].includes(item.status));
   const runningFeedback = feedbackStatuses.filter((item) => ["queued", "preparing", "running", "taken_over", "delegated"].includes(item.status));
   const publicHealth = webhook?.attributes?.url
     ? (await tryStatusRead("public health", () => fetchJson(webhook.attributes.url.replace(/\/app-store-connect\/webhook$/, "/health")), warnings, null)).value
@@ -863,9 +885,10 @@ async function status() {
     } : null,
     feedback: {
       total: feedback.length,
-      completed: feedbackStatuses.filter((item) => ["succeeded", "dry_run"].includes(item.status)).length,
+      completed: feedbackStatuses.filter((item) => ["confirmed", "dry_run"].includes(item.status)).length,
       running: runningFeedback.length,
       actionable: actionableFeedback.length,
+      awaitingConfirmation: awaitingConfirmation.length,
       items: feedbackStatuses,
       unhandled: unhandled.map((item) => ({
         id: item.id,
@@ -914,6 +937,7 @@ function printPlainStatus(report) {
   lines.push("Feedback");
   lines.push(`- total: ${report.feedback.total}`);
   lines.push(`- actionable: ${report.feedback.actionable}`);
+  lines.push(`- awaiting confirmation: ${report.feedback.awaitingConfirmation}`);
   lines.push(`- running, delegated, or taken over: ${report.feedback.running}`);
   for (const item of report.feedback.items.slice(0, 5)) {
     const code = item.exitCode === null ? "" : ` exit=${item.exitCode}`;
@@ -1235,11 +1259,21 @@ function feedbackStatusReport(feedback, state) {
       const code = Number(readFileSync(exitPath, "utf8").trim());
       if (Number.isFinite(code)) exitCode = code;
     }
-    const explicitStatus = new Set(["taken_over", "delegated", "needs_human", "ignored", "seeded"]).has(status);
+    const explicitStatus = new Set([
+      "taken_over",
+      "delegated",
+      "needs_human",
+      "ignored",
+      "seeded",
+      "failed",
+      "fixed_unconfirmed",
+      "confirmed",
+      "succeeded",
+    ]).has(status);
     const effectiveStatus = explicitStatus
       ? status
       : exitCode === 0
-      ? "succeeded"
+      ? "fixed_unconfirmed"
       : exitCode > 0
         ? "failed"
         : status;
@@ -1256,6 +1290,11 @@ function feedbackStatusReport(feedback, state) {
       queuedAt: run.queuedAt || null,
       startedAt: run.startedAt || null,
       completedAt: run.completedAt || null,
+      fixedAt: run.fixedAt || null,
+      confirmedAt: run.confirmedAt || null,
+      fixedBuildId: run.fixedBuildId || null,
+      fixedBuildVersion: run.fixedBuildVersion || null,
+      confirmationState: run.confirmationState || null,
       failedAt: run.failedAt || null,
       delegatedAt: run.delegatedAt || null,
       delegatedTo: run.delegatedTo || null,
@@ -1317,10 +1356,12 @@ function activityRuns() {
       delete run.exitCode;
       delete run.message;
     } else if (item.type === "codex_exit") {
-      run.status = Number(item.code) === 0 ? "succeeded" : "failed";
-      run.completedAt = Number(item.code) === 0 ? item.at : null;
+      run.status = Number(item.code) === 0 ? "fixed_unconfirmed" : "failed";
+      run.fixedAt = Number(item.code) === 0 ? item.at : null;
+      run.completedAt = null;
       run.failedAt = Number(item.code) === 0 ? null : item.at;
       run.exitCode = Number(item.code);
+      if (Number(item.code) === 0) run.confirmationState = "awaiting_reporter_confirmation";
     } else if (item.type === "failed") {
       run.status = "failed";
       run.failedAt = item.at;
@@ -1342,6 +1383,11 @@ function requiredArg(name) {
   const index = args.indexOf(name);
   if (index === -1 || !args[index + 1]) throw new Error(`Missing ${name}`);
   return args[index + 1];
+}
+
+function optionalArg(name) {
+  const index = args.indexOf(name);
+  return index === -1 ? null : args[index + 1] || null;
 }
 
 function registeredWebhookId() {

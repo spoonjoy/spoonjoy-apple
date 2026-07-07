@@ -189,6 +189,133 @@ public enum PrivateSyncRequests {
     }
 }
 
+public struct NativeTelemetryAppMetadata: Equatable, Sendable {
+    public let platform: String?
+    public let appVersion: String?
+    public let buildNumber: String?
+
+    public init(platform: String? = nil, appVersion: String? = nil, buildNumber: String? = nil) {
+        self.platform = platform
+        self.appVersion = appVersion
+        self.buildNumber = buildNumber
+    }
+
+    public static let unknown = NativeTelemetryAppMetadata()
+}
+
+public struct NativeTelemetryEvent: Equatable, Sendable {
+    public enum Name: String, Equatable, Sendable {
+        case bootstrapFailed = "bootstrap_failed"
+        case bootstrapOffline = "bootstrap_offline"
+        case settingsRefreshFailed = "settings_refresh_failed"
+        case syncFailed = "sync_failed"
+    }
+
+    public let name: Name
+    public let stage: String
+    public let environment: String
+    public let metadata: NativeTelemetryAppMetadata
+    public let route: String?
+    public let errorType: String?
+    public let requestID: String?
+    public let status: Int?
+    public let apiCode: String?
+    public let retry: String?
+    public let accountBound: Bool?
+    public let hasRenderableCacheContent: Bool?
+    public let recipes: Int?
+    public let cookbooks: Int?
+    public let shoppingItems: Int?
+    public let queuedMutations: Int?
+
+    public init(
+        name: Name,
+        stage: String,
+        environment: String,
+        metadata: NativeTelemetryAppMetadata = .unknown,
+        route: String? = nil,
+        errorType: String? = nil,
+        requestID: String? = nil,
+        status: Int? = nil,
+        apiCode: String? = nil,
+        retry: String? = nil,
+        accountBound: Bool? = nil,
+        hasRenderableCacheContent: Bool? = nil,
+        recipes: Int? = nil,
+        cookbooks: Int? = nil,
+        shoppingItems: Int? = nil,
+        queuedMutations: Int? = nil
+    ) {
+        self.name = name
+        self.stage = stage
+        self.environment = environment
+        self.metadata = metadata
+        self.route = route
+        self.errorType = errorType
+        self.requestID = requestID
+        self.status = status
+        self.apiCode = apiCode
+        self.retry = retry
+        self.accountBound = accountBound
+        self.hasRenderableCacheContent = hasRenderableCacheContent
+        self.recipes = recipes
+        self.cookbooks = cookbooks
+        self.shoppingItems = shoppingItems
+        self.queuedMutations = queuedMutations
+    }
+}
+
+public struct NativeTelemetryResponse: Decodable, Equatable, Sendable {
+    public let accepted: Bool
+}
+
+public enum NativeTelemetryRequests {
+    public static func recordEvent(_ event: NativeTelemetryEvent) throws -> APIRequestBuilder {
+        var body: [String: Any] = [
+            "event": event.name.rawValue,
+            "stage": event.stage,
+            "environment": event.environment
+        ]
+        put(event.metadata.platform, in: &body, key: "platform")
+        put(event.metadata.appVersion, in: &body, key: "appVersion")
+        put(event.metadata.buildNumber, in: &body, key: "buildNumber")
+        put(event.route, in: &body, key: "route")
+        put(event.errorType, in: &body, key: "errorType")
+        put(event.requestID, in: &body, key: "requestId")
+        put(event.status, in: &body, key: "status")
+        put(event.apiCode, in: &body, key: "apiCode")
+        put(event.retry, in: &body, key: "retry")
+        put(event.accountBound, in: &body, key: "accountBound")
+        put(event.hasRenderableCacheContent, in: &body, key: "hasRenderableCacheContent")
+        put(event.recipes, in: &body, key: "recipes")
+        put(event.cookbooks, in: &body, key: "cookbooks")
+        put(event.shoppingItems, in: &body, key: "shoppingItems")
+        put(event.queuedMutations, in: &body, key: "queuedMutations")
+        return try APIRequestSupport.privateJSON(
+            method: .post,
+            pathComponents: ["api", "v1", "native", "telemetry"],
+            body: body
+        )
+    }
+
+    private static func put(_ value: String?, in body: inout [String: Any], key: String) {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        body[key] = value
+    }
+
+    private static func put(_ value: Int?, in body: inout [String: Any], key: String) {
+        guard let value else { return }
+        body[key] = value
+    }
+
+    private static func put(_ value: Bool?, in body: inout [String: Any], key: String) {
+        guard let value else { return }
+        body[key] = value
+    }
+}
+
 public enum TokenCredentialRequests {
     public static func listTokens() -> APIRequestBuilder {
         APIRequestSupport.privateRead(pathComponents: ["api", "v1", "tokens"])

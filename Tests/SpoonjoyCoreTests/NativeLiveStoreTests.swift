@@ -1347,13 +1347,14 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
-    @Test("settings token-scope failure does not block live kitchen bootstrap")
-    func settingsTokenScopeFailureDoesNotBlockLiveKitchenBootstrap() async throws {
+    @Test("settings token-scope failure keeps kitchen content but marks sync failed and reports telemetry")
+    func settingsTokenScopeFailureKeepsKitchenContentButMarksSyncFailedAndReportsTelemetry() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
             let vault = try await Self.signedInVault(accountID: "chef_ari")
             let recipe = Self.sampleRecipe(id: "recipe_settings_scope", title: "Scope-Safe Pasta")
             let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let telemetryRecorder = NativeTelemetryRecorder()
             let liveStore = Self.liveStore(
                 directory: directory,
                 vault: vault,
@@ -1372,24 +1373,54 @@ struct NativeLiveStoreTests {
                         ),
                         retryDecision: .doNotRetry
                     )
-                }
+                },
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                },
+                nativeTelemetryMetadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "12")
             )
 
             await liveStore.bootstrap()
 
-            guard case .liveSynced(let content) = liveStore.bootstrapState else {
-                Issue.record("Expected settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected settings refresh failure to mark syncFailed; got \(liveStore.bootstrapState)")
                 return
             }
             #expect(content.recipes.map(\.title) == ["Scope-Safe Pasta"])
             #expect(content.settingsSurfaceData == nil)
-            #expect(content.offlineIndicatorState.display == .synced)
+            #expect(message.contains("Support code req_settings_tokens_scope."))
+            #expect(message.contains("Reason insufficient_scope."))
+            #expect(message.contains("HTTP 403."))
+            guard case .syncFailure(let errorID, let retryAfter) = content.offlineIndicatorState.display else {
+                Issue.record("Expected a settings sync failure indicator; got \(content.offlineIndicatorState.display)")
+                return
+            }
+            #expect(errorID == "settings")
+            #expect(retryAfter == nil)
+
+            let telemetryEvents = await telemetryRecorder.recordedEvents()
+            let telemetry = try #require(telemetryEvents.first)
+            #expect(telemetry.name == .settingsRefreshFailed)
+            #expect(telemetry.stage == "settings")
+            #expect(telemetry.environment == "production")
+            #expect(telemetry.metadata == NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "12"))
+            #expect(telemetry.errorType == "APITransportError")
+            #expect(telemetry.requestID == "req_settings_tokens_scope")
+            #expect(telemetry.status == 403)
+            #expect(telemetry.apiCode == "insufficient_scope")
+            #expect(telemetry.retry == "do_not_retry")
+            #expect(telemetry.accountBound == true)
+            #expect(telemetry.hasRenderableCacheContent == true)
+            #expect(telemetry.recipes == 1)
+            #expect(telemetry.shoppingItems == 0)
+            let configurations = await telemetryRecorder.recordedConfigurations()
+            #expect(configurations.first?.bearerToken == "sj_access_current")
         }
     }
 
     @MainActor
-    @Test("settings generic refresh failure does not block live kitchen bootstrap")
-    func settingsGenericRefreshFailureDoesNotBlockLiveKitchenBootstrap() async throws {
+    @Test("settings generic refresh failure keeps kitchen content but marks sync failed")
+    func settingsGenericRefreshFailureKeepsKitchenContentButMarksSyncFailed() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
             let vault = try await Self.signedInVault(accountID: "chef_ari")
             let recipe = Self.sampleRecipe(id: "recipe_settings_generic", title: "Still Loads Pasta")
@@ -1407,19 +1438,25 @@ struct NativeLiveStoreTests {
 
             await liveStore.bootstrap()
 
-            guard case .liveSynced(let content) = liveStore.bootstrapState else {
-                Issue.record("Expected generic settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+            guard case .syncFailed(let content, let message) = liveStore.bootstrapState else {
+                Issue.record("Expected generic settings refresh failure to mark syncFailed; got \(liveStore.bootstrapState)")
                 return
             }
             #expect(content.recipes.map(\.title) == ["Still Loads Pasta"])
             #expect(content.settingsSurfaceData == nil)
-            #expect(content.offlineIndicatorState.display == .synced)
+            #expect(message.contains("SettingsRefreshProbeError"))
+            guard case .syncFailure(let errorID, let retryAfter) = content.offlineIndicatorState.display else {
+                Issue.record("Expected a settings sync failure indicator; got \(content.offlineIndicatorState.display)")
+                return
+            }
+            #expect(errorID == "settings")
+            #expect(retryAfter == nil)
         }
     }
 
     @MainActor
-    @Test("settings transport refresh failure without metadata does not block live kitchen bootstrap")
-    func settingsTransportRefreshFailureWithoutMetadataDoesNotBlockLiveKitchenBootstrap() async throws {
+    @Test("settings transport refresh failure without metadata keeps content and reports retry")
+    func settingsTransportRefreshFailureWithoutMetadataKeepsContentAndReportsRetry() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
             let vault = try await Self.signedInVault(accountID: "chef_ari")
             let recipe = Self.sampleRecipe(id: "recipe_settings_transport_nil", title: "Metadata-Free Pasta")
@@ -1443,13 +1480,18 @@ struct NativeLiveStoreTests {
 
             await liveStore.bootstrap()
 
-            guard case .liveSynced(let content) = liveStore.bootstrapState else {
-                Issue.record("Expected metadata-free settings refresh failure to leave kitchen liveSynced; got \(liveStore.bootstrapState)")
+            guard case .syncFailed(let content, _) = liveStore.bootstrapState else {
+                Issue.record("Expected metadata-free settings refresh failure to mark syncFailed; got \(liveStore.bootstrapState)")
                 return
             }
             #expect(content.recipes.map(\.title) == ["Metadata-Free Pasta"])
             #expect(content.settingsSurfaceData == nil)
-            #expect(content.offlineIndicatorState.display == .synced)
+            guard case .syncFailure(let errorID, let retryAfter) = content.offlineIndicatorState.display else {
+                Issue.record("Expected a settings sync failure indicator; got \(content.offlineIndicatorState.display)")
+                return
+            }
+            #expect(errorID == "settings")
+            #expect(retryAfter == nil)
         }
     }
 
@@ -6082,6 +6124,24 @@ private struct NoopRecipeEditorAPIRefresher: APIAuthenticationRefresher {
     }
 }
 
+private actor NativeTelemetryRecorder {
+    private var events: [NativeTelemetryEvent] = []
+    private var configurations: [APIClientConfiguration] = []
+
+    func record(_ event: NativeTelemetryEvent, configuration: APIClientConfiguration) {
+        events.append(event)
+        configurations.append(configuration)
+    }
+
+    func recordedEvents() -> [NativeTelemetryEvent] {
+        events
+    }
+
+    func recordedConfigurations() -> [APIClientConfiguration] {
+        configurations
+    }
+}
+
 private enum NativeLiveStoreTestError: Error, CustomStringConvertible {
     case missingFile(String)
     case processFailed(String)
@@ -6136,6 +6196,8 @@ private extension NativeLiveStoreTests {
         captureDraftEntityIndexPurge: @escaping NativeCaptureDraftEntityIndexPurgeOperation = { _ in },
         chefProfileEntityIndexPurge: @escaping NativeChefProfileEntityIndexPurgeOperation = { _ in },
         recipeCookbookEntityIndexPurge: @escaping NativeRecipeCookbookEntityIndexPurgeOperation = { _ in },
+        nativeTelemetryReport: @escaping NativeTelemetryReportOperation = { _, _ in },
+        nativeTelemetryMetadata: NativeTelemetryAppMetadata = .unknown,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
@@ -6157,6 +6219,8 @@ private extension NativeLiveStoreTests {
             captureDraftEntityIndexPurge: captureDraftEntityIndexPurge,
             chefProfileEntityIndexPurge: chefProfileEntityIndexPurge,
             recipeCookbookEntityIndexPurge: recipeCookbookEntityIndexPurge,
+            nativeTelemetryReport: nativeTelemetryReport,
+            nativeTelemetryMetadata: nativeTelemetryMetadata,
             bootstrapMode: bootstrapMode,
             now: { Self.now }
         ))

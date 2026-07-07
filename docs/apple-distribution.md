@@ -185,6 +185,13 @@ The webhook must stay enabled for:
 - `BETA_FEEDBACK_SCREENSHOT_SUBMISSION_CREATED`
 - `BETA_FEEDBACK_CRASH_SUBMISSION_CREATED`
 
+Feedback runs are not complete just because an agent exits cleanly or a build is
+published. The listener records clean Codex exits as `fixed_unconfirmed`; leave
+the item in that state until the affected tester confirms the newer TestFlight
+build fixes the reported behavior, then mark it `confirmed`. The internal
+feedback-fix lane intentionally notifies `Spoonjoy Internal` testers so the
+reporter receives the fixed build promptly.
+
 Validate the path after registration:
 
 ```bash
