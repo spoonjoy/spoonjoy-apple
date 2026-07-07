@@ -6,6 +6,7 @@ ARCHIVE_PATH="$ROOT_DIR/build/apple/Spoonjoy.xcarchive"
 EXPORT_PATH="$ROOT_DIR/build/apple/testflight"
 IPA_PATH="$EXPORT_PATH/Spoonjoy.ipa"
 IOS_DEPLOYMENT_TARGET="${SPOONJOY_TESTFLIGHT_IOS_DEPLOYMENT_TARGET:-26.0}"
+SDK_STAT_CACHE_ENABLE_VALUE="${SPOONJOY_XCODE_SDK_STAT_CACHE_ENABLE:-NO}"
 
 fail() {
   printf 'package-testflight-ios failed: %s\n' "$1" >&2
@@ -55,7 +56,8 @@ run_xcodebuild \
   archive \
   -allowProvisioningUpdates \
   DEVELOPMENT_TEAM=743GT2AJ24 \
-  IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET"
+  IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
+  SDK_STAT_CACHE_ENABLE="$SDK_STAT_CACHE_ENABLE_VALUE"
 
 run_xcodebuild \
   "${auth_args[@]}" \
@@ -63,7 +65,8 @@ run_xcodebuild \
   -archivePath "$ARCHIVE_PATH" \
   -exportPath "$EXPORT_PATH" \
   -exportOptionsPlist "$ROOT_DIR/distribution/ExportOptions.testflight.plist" \
-  -allowProvisioningUpdates
+  -allowProvisioningUpdates \
+  SDK_STAT_CACHE_ENABLE="$SDK_STAT_CACHE_ENABLE_VALUE"
 
 if [[ -f "$IPA_PATH" ]]; then
   exit 0

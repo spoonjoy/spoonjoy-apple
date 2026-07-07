@@ -64,7 +64,7 @@ struct SpoonjoyRootView: View {
             platformNavigation(contentState: contentState)
         case .syncFailed(let contentState, let message):
             if navigation.route == .settings {
-                settingsContent(contentState: contentState)
+                settingsContent(contentState: contentState, syncFailureMessage: message)
             } else if hasRenderableKitchenContent(contentState) {
                 platformNavigation(contentState: contentState)
             } else {
@@ -89,17 +89,43 @@ struct SpoonjoyRootView: View {
         }
     }
 
-    private func settingsContent(contentState: NativeShellContentState) -> some View {
-        SettingsView(
-            viewModel: contentState.settingsViewModel,
-            settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
-            shellOfflineIndicatorState: contentState.offlineIndicatorState,
-            onRetrySync: {
-                await liveStore.bootstrap()
-                applyRestoredRouteIfNeeded()
-            },
-            onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
-        )
+    private func settingsContent(contentState: NativeShellContentState, syncFailureMessage: String? = nil) -> some View {
+        NavigationStack {
+            SettingsView(
+                viewModel: contentState.settingsViewModel,
+                settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
+                shellOfflineIndicatorState: contentState.offlineIndicatorState,
+                syncFailureDiagnosticText: syncFailureMessage.flatMap(syncFailureDiagnosticText),
+                onRetrySync: {
+                    await liveStore.bootstrap()
+                    applyRestoredRouteIfNeeded()
+                },
+                onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
+            )
+            .navigationTitle("Account")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.large)
+#endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        openKitchenFromStandaloneSettings()
+                    } label: {
+                        Label("Kitchen", systemImage: "chevron.left")
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        Task {
+                            await liveStore.bootstrap()
+                            applyRestoredRouteIfNeeded()
+                        }
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                    }
+                }
+            }
+        }
     }
 
     private func platformNavigation(contentState: NativeShellContentState) -> some View {
@@ -313,6 +339,12 @@ struct SpoonjoyRootView: View {
         search.apply(route: route)
         navigation.navigate(to: route)
         liveStore.recordingOpenedRoute(route)
+    }
+
+    private func openKitchenFromStandaloneSettings() {
+        search.apply(route: .kitchen)
+        navigation.navigate(to: .kitchen)
+        liveStore.recordingOpenedRoute(.kitchen)
     }
 
     private func applyRestoredRouteIfNeeded() {
