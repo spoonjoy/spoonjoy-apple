@@ -432,6 +432,63 @@ struct NativeSyncEngineTests {
         #expect(snapshot.cachedRecords.map(\.cacheKey) == ["profile:chef_ari"])
     }
 
+    @Test("sync engine rethrows retry failure after clearing invalid stored cursor")
+    func syncEngineRethrowsRetryFailureAfterClearingInvalidStoredCursor() async throws {
+        let staleCheckpoint = try NativeSyncCheckpoint(
+            globalCursor: PaginationCursor(rawValue: "v1.stale.cursor"),
+            shoppingCursor: ShoppingSyncCursor(rawValue: "v1.shopping.before"),
+            updatedAt: "2026-06-16T09:00:00.000Z"
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: staleCheckpoint,
+            queue: NativeMutationQueue()
+        )
+        let invalidCursor = APITransportError(
+            kind: .apiError,
+            requestID: "req_bootstrap_invalid_cursor",
+            statusCode: 400,
+            apiError: APIError(
+                requestID: "req_bootstrap_invalid_cursor",
+                code: "invalid_cursor",
+                message: "cursor must be an ISO datetime or Spoonjoy sync cursor",
+                status: 400
+            ),
+            retryDecision: .doNotRetry
+        )
+        let retryFailure = APITransportError(
+            kind: .networkFailure,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: 7)
+        )
+        let transport = ScriptedNativeSyncTransport(bootstrapSteps: [
+            .failure(invalidCursor),
+            .failure(retryFailure)
+        ])
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        do {
+            _ = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+            Issue.record("Expected retry failure after invalid cursor reset")
+        } catch let error as APITransportError {
+            #expect(error == retryFailure)
+        } catch {
+            Issue.record("Expected APITransportError, got \(error)")
+        }
+
+        #expect(await transport.bootstrapQueryItemPages == [
+            [
+                URLQueryItem(name: "limit", value: "20"),
+                URLQueryItem(name: "cursor", value: "v1.stale.cursor")
+            ],
+            [URLQueryItem(name: "limit", value: "20")]
+        ])
+        #expect(await store.loadSnapshot().checkpoint == nil)
+    }
+
     @Test("bootstrap account switch reports previous shopping entity purge identifiers")
     func bootstrapAccountSwitchReportsPreviousShoppingEntityPurgeIdentifiers() async throws {
         let previousItems = [
@@ -814,6 +871,26 @@ struct NativeSyncEngineTests {
             )
             _ = try await fileTombstoneResetStore.apply(syncData: syncData, validatedAt: now)
             #expect((try await fileTombstoneResetStore.loadSnapshot()).tombstones.map(\.resourceID) == ["recipe_deleted", "cookbook_deleted", "spoon_deleted", "item_deleted"])
+
+            let fileCheckpointClearStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("checkpoint-clear.json"),
+                fallback: NativeSyncSnapshot(
+                    checkpoint: try NativeSyncCheckpoint(
+                        globalCursor: PaginationCursor(rawValue: "v1.file.stale"),
+                        shoppingCursor: nil,
+                        updatedAt: Self.createdAt(0)
+                    ),
+                    queue: NativeMutationQueue()
+                )
+            )
+            try await fileCheckpointClearStore.clearCheckpoint()
+            do {
+                _ = try await fileCheckpointClearStore.loadCheckpoint()
+                Issue.record("Expected file-backed clearCheckpoint to remove checkpoint")
+            } catch NativeSyncStoreError.missingCheckpoint {
+            }
+            let restoredCheckpointClearStore = try FileBackedNativeSyncStore(fileURL: directory.appendingPathComponent("checkpoint-clear.json"))
+            #expect((try await restoredCheckpointClearStore.loadSnapshot()).checkpoint == nil)
         }
 
         let localMutation = NativeQueuedMutation.captureDraftCreate(
@@ -883,6 +960,12 @@ struct NativeSyncEngineTests {
         do {
             try await unavailable.saveCheckpoint(try NativeSyncCheckpoint(globalCursor: PaginationCursor(rawValue: "cursor"), shoppingCursor: nil, updatedAt: Self.createdAt(1)))
             Issue.record("Expected unavailable saveCheckpoint to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            try await unavailable.clearCheckpoint()
+            Issue.record("Expected unavailable clearCheckpoint to throw")
         } catch NativeSyncStoreError.unavailable(let message) {
             #expect(message == "native sync unavailable")
         }

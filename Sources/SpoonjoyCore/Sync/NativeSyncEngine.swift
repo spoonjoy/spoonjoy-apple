@@ -4684,17 +4684,11 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 } catch let retryFailure as NativeSyncBootstrapAttemptFailure {
                     NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: retryFailure.page, error: retryFailure.underlying)
                     throw retryFailure.underlying
-                } catch {
-                    NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: 1, error: error)
-                    throw error
                 }
             }
 
             NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: failure.page, error: failure.underlying)
             throw failure.underlying
-        } catch {
-            NativeSyncTelemetry.bootstrapFailed(trigger: trigger, page: 1, error: error)
-            throw error
         }
     }
 
