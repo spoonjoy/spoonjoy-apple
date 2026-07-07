@@ -12,6 +12,21 @@ fail() {
   exit 1
 }
 
+redact_xcodebuild_output() {
+  sed -E \
+    -e 's#-authenticationKeyPath "[^"]+"#-authenticationKeyPath "<REDACTED_APP_STORE_CONNECT_KEY_PATH>"#g' \
+    -e 's#-authenticationKeyID [^[:space:]]+#-authenticationKeyID <REDACTED_APP_STORE_CONNECT_KEY_ID>#g' \
+    -e 's#-authenticationKeyIssuerID [^[:space:]]+#-authenticationKeyIssuerID <REDACTED_APP_STORE_CONNECT_ISSUER_ID>#g'
+}
+
+run_xcodebuild() {
+  set +e
+  xcodebuild "$@" 2>&1 | redact_xcodebuild_output
+  local status="${PIPESTATUS[0]}"
+  set -e
+  return "$status"
+}
+
 auth_args=()
 ASC_CONFIG="${APPLE_DISTRIBUTION_KIT_CONFIG:-$HOME/Library/Application Support/AppleDistributionKit/app-store-connect/config.json}"
 if [[ -f "$ASC_CONFIG" ]]; then
@@ -30,7 +45,7 @@ fi
 rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 mkdir -p "$(dirname "$ARCHIVE_PATH")" "$EXPORT_PATH"
 
-xcodebuild \
+run_xcodebuild \
   "${auth_args[@]}" \
   -project "$ROOT_DIR/Spoonjoy.xcodeproj" \
   -scheme "Spoonjoy iOS" \
@@ -42,7 +57,7 @@ xcodebuild \
   DEVELOPMENT_TEAM=743GT2AJ24 \
   IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET"
 
-xcodebuild \
+run_xcodebuild \
   "${auth_args[@]}" \
   -exportArchive \
   -archivePath "$ARCHIVE_PATH" \
