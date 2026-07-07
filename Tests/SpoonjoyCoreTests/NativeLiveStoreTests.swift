@@ -5952,6 +5952,8 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
 
     func saveCheckpoint(_: NativeSyncCheckpoint) throws {}
 
+    func clearCheckpoint() throws {}
+
     func appendTombstone(_: NativeSyncTombstone) throws {}
 
     func cachedRecord(kind _: NativeSyncEntryKind, resourceID _: String) throws -> NativeSyncCachedRecord? {

@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Keeps account Settings usable when a secondary settings section fails, names the failed section, and reports structured native telemetry.",
+          "whatsNew": "Recovers signed-in sync when a stored cursor has gone stale, clears the bad checkpoint, and retries a clean account bootstrap.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
