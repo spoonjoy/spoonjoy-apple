@@ -27,6 +27,7 @@ const DEFAULT_STATE_PATH = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_STATE_PATH |
 const DEFAULT_EVENT_DIR = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_EVENT_DIR || path.join(SUPPORT_DIR, "events");
 const DEFAULT_ACTIVITY_PATH = process.env.SPOONJOY_TESTFLIGHT_FEEDBACK_ACTIVITY_PATH || path.join(SUPPORT_DIR, "activity.jsonl");
 const ASC_CONFIG = process.env.APPLE_DISTRIBUTION_KIT_CONFIG || path.join(homedir(), "Library/Application Support/AppleDistributionKit/app-store-connect/config.json");
+const DELEGATED_STALE_AFTER_MS = Number(process.env.SPOONJOY_TESTFLIGHT_DELEGATED_STALE_AFTER_MS || 10 * 60 * 1000);
 const FEEDBACK_EVENTS = new Set(["betaFeedbackScreenshotSubmissionCreated", "betaFeedbackCrashSubmissionCreated"]);
 const FEEDBACK_INSTANCE_TYPES = new Set(["betaFeedbackScreenshotSubmissions", "betaFeedbackCrashSubmissions"]);
 const WEBHOOK_NAME = "Spoonjoy TestFlight Feedback Autopilot";
@@ -85,6 +86,7 @@ Environment:
   SPOONJOY_CODEX_THREAD_ID                 ${DEFAULT_THREAD_ID}
   SPOONJOY_NATIVE_REPO                     ${DEFAULT_REPO}
   SPOONJOY_TESTFLIGHT_EVENT_AGENT          ${DEFAULT_EVENT_AGENT}
+  SPOONJOY_TESTFLIGHT_DELEGATED_STALE_AFTER_MS ${DELEGATED_STALE_AFTER_MS}
   OURO_CLI_PATH                            ${DEFAULT_OURO}
   OURO_CLI_ENTRY                           ${DEFAULT_OURO_ENTRY || "(unset)"}
   CODEX_CLI_PATH                           ${DEFAULT_CODEX}
@@ -620,17 +622,24 @@ async function reconcileUnhandledFeedback() {
   const dryRun = args.includes("--dry-run");
   const feedback = await currentFeedback();
   const state = loadState();
-  const unhandled = feedback.filter((item) => !state.handledInstanceIds.includes(item.id));
+  const feedbackStatuses = feedbackStatusReport(feedback, state);
+  const statusById = new Map(feedbackStatuses.map((item) => [item.id, item]));
+  const unhandled = feedback.filter((item) => {
+    const report = statusById.get(item.id);
+    return !state.handledInstanceIds.includes(item.id) || ["failed", "stalled", "unknown"].includes(report?.status);
+  });
   const results = [];
 
   for (const item of unhandled) {
-    const event = feedbackItemToEvent(item, `reconcile:${item.type}:${item.id}`);
+    const report = statusById.get(item.id);
+    const event = feedbackItemToEvent(item, `reconcile:${item.type}:${item.id}:${randomUUID()}`);
     if (dryRun) {
-      results.push({ id: item.id, type: item.type, action: "would_queue" });
+      results.push({ id: item.id, type: item.type, status: report?.status || "new", action: "would_queue" });
       continue;
     }
+    resetFeedbackForRelaunch(item.id);
     await enqueueFeedbackEvent(event, eventToPayload(event));
-    results.push({ id: item.id, type: item.type, action: "queued" });
+    results.push({ id: item.id, type: item.type, status: report?.status || "new", action: "queued" });
   }
 
   console.log(JSON.stringify({
@@ -649,10 +658,7 @@ async function retryFeedback() {
   const item = feedback.find((candidate) => candidate.id === instanceId);
   if (!item) throw new Error(`No current feedback instance found for ${instanceId}`);
 
-  const state = loadState();
-  state.handledInstanceIds = state.handledInstanceIds.filter((id) => id !== instanceId);
-  state.lastRetryAt = new Date().toISOString();
-  saveState(state);
+  resetFeedbackForRelaunch(instanceId);
 
   const event = feedbackItemToEvent(item, `retry:${item.type}:${item.id}:${randomUUID()}`);
   await enqueueFeedbackEvent(event, eventToPayload(event));
@@ -854,7 +860,7 @@ async function status() {
   const failedDeliveries = latestDeliveries.filter((delivery) => delivery.deliveryState === "FAILED" && !delivery.ping);
   const feedbackStatuses = feedbackStatusReport(feedback, state);
   const awaitingConfirmation = feedbackStatuses.filter((item) => item.status === "fixed_unconfirmed" || item.status === "succeeded");
-  const actionableFeedback = feedbackStatuses.filter((item) => ["new", "failed", "stalled", "unknown", "needs_human", "fixed_unconfirmed", "succeeded"].includes(item.status));
+  const actionableFeedback = feedbackStatuses.filter((item) => ["new", "failed", "stalled", "unknown", "needs_human"].includes(item.status));
   const runningFeedback = feedbackStatuses.filter((item) => ["queued", "preparing", "running", "taken_over", "delegated"].includes(item.status));
   const publicHealth = webhook?.attributes?.url
     ? (await tryStatusRead("public health", () => fetchJson(webhook.attributes.url.replace(/\/app-store-connect\/webhook$/, "/health")), warnings, null)).value
@@ -867,7 +873,7 @@ async function status() {
   for (const issue of healthIssues("public", publicHealth)) warnings.push(issue);
 
   const report = {
-    ok: warnings.length === 0 && install.ok && actionableFeedback.length === 0 && failedDeliveries.length === 0 && service.listener?.state === "running" && service.tunnel?.state === "running",
+    ok: warnings.length === 0 && install.ok && actionableFeedback.length === 0 && awaitingConfirmation.length === 0 && failedDeliveries.length === 0 && service.listener?.state === "running" && service.tunnel?.state === "running",
     appId: APP_ID,
     bundleId: APP_BUNDLE_ID,
     warnings,
@@ -962,6 +968,8 @@ function printPlainStatus(report) {
     lines.push("Next: run `scripts/testflight-feedback-autopilot.mjs reconcile` or retry the listed instance.");
   } else if (report.feedback.running > 0) {
     lines.push("Next: feedback worker is active; wait for it to finish or inspect the listed run log.");
+  } else if (report.feedback.awaitingConfirmation > 0) {
+    lines.push("Next: wait for the tester to confirm the current TestFlight build, or mark confirmed after verification.");
   } else if (!report.ok) {
     lines.push("Next: inspect failed delivery/service rows above, then run `scripts/testflight-feedback-autopilot.mjs smoke`.");
   } else {
@@ -1196,6 +1204,29 @@ function markEventFailed(event, error) {
   notify("Spoonjoy TestFlight feedback failed", `${event.instance.id}: ${state.lastFailure.message}`);
 }
 
+function resetFeedbackForRelaunch(instanceId) {
+  const state = loadState();
+  const run = state.feedbackRuns?.[instanceId] || {};
+  state.handledInstanceIds = state.handledInstanceIds.filter((id) => id !== instanceId);
+  if (run.eventId) state.launchedEventIds = state.launchedEventIds.filter((id) => id !== run.eventId);
+  state.lastRetryAt = new Date().toISOString();
+  if (state.feedbackRuns?.[instanceId]) {
+    state.feedbackRuns[instanceId] = {
+      ...run,
+      status: "queued",
+      queuedAt: state.lastRetryAt,
+      updatedAt: state.lastRetryAt,
+    };
+    delete state.feedbackRuns[instanceId].message;
+    delete state.feedbackRuns[instanceId].failedAt;
+    delete state.feedbackRuns[instanceId].delegatedAt;
+    delete state.feedbackRuns[instanceId].delegatedTo;
+    delete state.feedbackRuns[instanceId].dispatcher;
+    delete state.feedbackRuns[instanceId].dispatchOutput;
+  }
+  saveState(state);
+}
+
 function updateFeedbackRun(instanceId, patch) {
   const state = loadState();
   state.feedbackRuns[instanceId] = {
@@ -1277,8 +1308,18 @@ function feedbackStatusReport(feedback, state) {
       : exitCode > 0
         ? "failed"
         : status;
-    const active = effectiveStatus === "running" ? feedbackRunActive(run) : false;
-    const finalStatus = effectiveStatus === "running" && !active ? "stalled" : effectiveStatus;
+    const delegationStale = effectiveStatus === "delegated" ? feedbackDelegationStale(run) : false;
+    const active = effectiveStatus === "running"
+      ? feedbackRunActive(run)
+      : effectiveStatus === "delegated"
+        ? !delegationStale
+        : false;
+    const finalStatus = effectiveStatus === "running" && !active
+      ? "stalled"
+      : delegationStale
+        ? "stalled"
+        : effectiveStatus;
+    const message = run.message || (delegationStale ? staleDelegationMessage(run) : null);
     return {
       id: item.id,
       type: item.type,
@@ -1301,12 +1342,25 @@ function feedbackStatusReport(feedback, state) {
       dispatcher: run.dispatcher || null,
       promptPath: run.promptPath || null,
       exitCode: exitCode ?? null,
-      message: run.message || null,
+      message,
       seededAt: status === "seeded" ? state.seededAt || null : null,
       logPath: run.logPath || null,
       outputPath: run.outputPath || null,
     };
   });
+}
+
+function feedbackDelegationStale(run) {
+  if (!run.delegatedAt) return false;
+  const delegatedAtMs = Date.parse(run.delegatedAt);
+  if (!Number.isFinite(delegatedAtMs)) return false;
+  return Date.now() - delegatedAtMs > DELEGATED_STALE_AFTER_MS;
+}
+
+function staleDelegationMessage(run) {
+  const timeoutMinutes = Math.max(1, Math.round(DELEGATED_STALE_AFTER_MS / 60_000));
+  const delegate = run.delegatedTo || DEFAULT_EVENT_AGENT;
+  return `${delegate} handoff has not produced a handling state after ${timeoutMinutes} minutes`;
 }
 
 function feedbackRunActive(run) {
@@ -1366,6 +1420,16 @@ function activityRuns() {
       run.status = "failed";
       run.failedAt = item.at;
       run.message = item.message || null;
+    } else if (item.type === "delegated") {
+      run.status = "delegated";
+      run.delegatedAt = item.at;
+      run.delegatedTo = item.delegatedTo || null;
+      run.dispatcher = item.dispatcher || null;
+      run.eventDir = item.eventDir || run.eventDir || null;
+      delete run.completedAt;
+      delete run.failedAt;
+      delete run.exitCode;
+      delete run.message;
     }
     runs[item.instanceId] = run;
   }
