@@ -5216,6 +5216,7 @@ struct NativeLiveStoreTests {
                 "Support code:",
                 "navigation.route == .settings",
                 "settingsContent(contentState:",
+                "onRetrySync:",
                 "navigation.navigate(to: .settings)",
                 "purgeShoppingEntityIdentifiers",
                 "shoppingEntityIndexPurge",
@@ -5270,6 +5271,7 @@ struct NativeLiveStoreTests {
                 "document.route.stateIdentifier",
                 "SettingsView(",
                 "settingsViewModel",
+                "onRetrySync:",
                 "detailContentWithShellStatus",
                 "shellOfflineStatusBar",
                 "VStack(spacing: 0)"
@@ -5283,6 +5285,28 @@ struct NativeLiveStoreTests {
                 "NativeQueuedMutation(",
                 "startedAt: \"2026-06-16T11:45:00.000Z\"",
                 ".safeAreaInset(edge: .bottom)"
+            ]
+        )
+    }
+
+    @Test("settings unavailable account state offers live sync retry instead of a dead offline cache message")
+    func settingsUnavailableAccountStateOffersLiveSyncRetry() throws {
+        let relativePath = "Apps/Spoonjoy/Shared/Views/SettingsView.swift"
+        let content = uncommentedSwift(try readRepoFile(relativePath))
+
+        expectContent(
+            content,
+            in: relativePath,
+            contains: [
+                "var onRetrySync: @MainActor @Sendable () async -> Void",
+                "Account data has not loaded yet.",
+                "Try Sync Again",
+                "Task { await onRetrySync() }",
+                "Label(\"Try Sync Again\", systemImage: \"arrow.clockwise\")",
+                "effectiveOfflineIndicator(surface.offlineIndicator.display)"
+            ],
+            forbids: [
+                "Account settings need a live load before they are available offline."
             ]
         )
     }

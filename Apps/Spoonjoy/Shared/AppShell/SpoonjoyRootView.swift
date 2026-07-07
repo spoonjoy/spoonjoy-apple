@@ -94,6 +94,10 @@ struct SpoonjoyRootView: View {
             viewModel: contentState.settingsViewModel,
             settingsSurfaceViewModel: contentState.settingsSurfaceViewModel,
             shellOfflineIndicatorState: contentState.offlineIndicatorState,
+            onRetrySync: {
+                await liveStore.bootstrap()
+                applyRestoredRouteIfNeeded()
+            },
             onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
         )
     }
@@ -125,6 +129,10 @@ struct SpoonjoyRootView: View {
             },
             performSettingsSessionOperation: { operation in
                 try await liveStore.performSettingsSessionOperation(operation)
+            },
+            retrySync: {
+                await liveStore.bootstrap()
+                applyRestoredRouteIfNeeded()
             },
             requestNotificationPermission: {
                 try await NotificationAPNsDeviceBridge.shared.requestPermission()

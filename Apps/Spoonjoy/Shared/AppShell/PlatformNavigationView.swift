@@ -27,6 +27,7 @@ struct PlatformNavigationView: View {
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
     private let performSettingsSessionOperation: @MainActor @Sendable (SettingsSessionOperation) async throws -> Void
+    private let retrySync: @MainActor @Sendable () async -> Void
     private let requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState
     private let requestDeviceRegistrationAction: @MainActor @Sendable (String) async throws -> NotificationAPNsAction
     private let openNotificationSettings: @MainActor @Sendable () -> Void
@@ -60,6 +61,7 @@ struct PlatformNavigationView: View {
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
         performSettingsSessionOperation: @escaping @MainActor @Sendable (SettingsSessionOperation) async throws -> Void,
+        retrySync: @escaping @MainActor @Sendable () async -> Void,
         requestNotificationPermission: @escaping @MainActor @Sendable () async throws -> APNsPermissionState,
         requestDeviceRegistrationAction: @escaping @MainActor @Sendable (String) async throws -> NotificationAPNsAction,
         openNotificationSettings: @escaping @MainActor @Sendable () -> Void,
@@ -92,6 +94,7 @@ struct PlatformNavigationView: View {
         self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
         self.performSettingsSessionOperation = performSettingsSessionOperation
+        self.retrySync = retrySync
         self.requestNotificationPermission = requestNotificationPermission
         self.requestDeviceRegistrationAction = requestDeviceRegistrationAction
         self.openNotificationSettings = openNotificationSettings
@@ -402,6 +405,7 @@ struct PlatformNavigationView: View {
                 openNotificationSettings: openNotificationSettings,
                 notificationAPNsSettingsContent: { AnyView(notificationAPNsSettingsView($0)) },
                 shellOfflineIndicatorState: offlineIndicatorState,
+                onRetrySync: retrySync,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:

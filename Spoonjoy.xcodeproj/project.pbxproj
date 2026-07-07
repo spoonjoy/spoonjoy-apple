@@ -526,27 +526,26 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		19F8B3CCEC141BF732B8239918636347 /* Release */ = {
+		051199EEE74C9CD47996AA6A28AF280C /* BootstrapDebug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.mac;
 				PRODUCT_NAME = Spoonjoy;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = SPOONJOY_SIGNED_APPLE_AUTH;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 				SWIFT_VERSION = 6.0;
 			};
-			name = Release;
+			name = BootstrapDebug;
 		};
 		228DA311D1A6529990B0C3DA1257FA2A /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -609,34 +608,35 @@
 			};
 			name = Debug;
 		};
-		318A9A5CC6B5791B79C26C354E149B2D /* BootstrapDebug */ = {
+		38752ACBB81D05A22995AFC649BB6337 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.mac;
 				PRODUCT_NAME = Spoonjoy;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 				SWIFT_VERSION = 6.0;
 			};
-			name = BootstrapDebug;
+			name = Debug;
 		};
-		7A9E7C25B84FEA39A49E6FD81B4E10EE /* Release */ = {
+		65CD1F77B17828112B1F4FCE61E3774F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
@@ -646,13 +646,34 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
 				PRODUCT_NAME = Spoonjoy;
 				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = SPOONJOY_SIGNED_APPLE_AUTH;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
 			};
-			name = Release;
+			name = Debug;
+		};
+		7139BD11AC83D277C31F298083CF0A1C /* BootstrapDebug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 11;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
+				PRODUCT_NAME = Spoonjoy;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = BootstrapDebug;
 		};
 		7CB06ECD64F3D22011F65DA279137F75 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -705,6 +726,30 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		8878E1D97E8DC2558B89E5AE83512D11 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
+				CURRENT_PROJECT_VERSION = 11;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
+				PRODUCT_NAME = Spoonjoy;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = SPOONJOY_SIGNED_APPLE_AUTH;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -769,13 +814,13 @@
 			};
 			name = BootstrapDebug;
 		};
-		9D5ED064435C10FF10A3E207BFDBA6CF /* Debug */ = {
+		CAD03EED047A3259AE79F9B35ECCB3B2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
@@ -785,56 +830,11 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.mac;
 				PRODUCT_NAME = Spoonjoy;
 				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = SPOONJOY_SIGNED_APPLE_AUTH;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
 				SWIFT_VERSION = 6.0;
 			};
-			name = Debug;
-		};
-		9DD88D2F7B34149048EA9FA4F80A0480 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
-				CURRENT_PROJECT_VERSION = 10;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
-				PRODUCT_NAME = Spoonjoy;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		BB2EBA838EC064C33DA918911863345C /* BootstrapDebug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CURRENT_PROJECT_VERSION = 10;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
-				PRODUCT_NAME = Spoonjoy;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = BootstrapDebug;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -842,9 +842,9 @@
 		4BCD2B336392CF00D42A8B7EDF88E7B6 /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				318A9A5CC6B5791B79C26C354E149B2D /* BootstrapDebug */,
-				9D5ED064435C10FF10A3E207BFDBA6CF /* Debug */,
-				19F8B3CCEC141BF732B8239918636347 /* Release */,
+				051199EEE74C9CD47996AA6A28AF280C /* BootstrapDebug */,
+				38752ACBB81D05A22995AFC649BB6337 /* Debug */,
+				CAD03EED047A3259AE79F9B35ECCB3B2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -862,9 +862,9 @@
 		A9035EBAB255C3AD816ACAE607049009 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				BB2EBA838EC064C33DA918911863345C /* BootstrapDebug */,
-				9DD88D2F7B34149048EA9FA4F80A0480 /* Debug */,
-				7A9E7C25B84FEA39A49E6FD81B4E10EE /* Release */,
+				7139BD11AC83D277C31F298083CF0A1C /* BootstrapDebug */,
+				65CD1F77B17828112B1F4FCE61E3774F /* Debug */,
+				8878E1D97E8DC2558B89E5AE83512D11 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
