@@ -71,9 +71,11 @@ Entries start as `ready` above. During implementation, copy each failure here wi
 
 | ID | Disposition | Final Evidence |
 | --- | --- | --- |
-| F1 | ready | |
-| F2 | ready | |
-| F3 | ready | |
-| F4 | ready | |
-| F5 | ready | |
-| F6 | ready | |
+| F1 | fixed | Recipe detail action row replaced by compact-priority flow and route primary action in SpoonDock. Verified by `codex-native/tasks/2026-07-07-2109-doing-native-mobile-ui-overhaul/visual/recipe-detail/screenshots/ios-mobile.png` and `unit-4f-recipe-detail-screenshots.log`; no one-character wrapping or horizontal overflow visible. |
+| F2 | fixed | Compact iOS suppresses generic top toolbar/search chrome, keeps native inline navigation title, and moves route tools into SpoonDock. Verified by kitchen, recipe-detail, cook-mode, and shopping-list `unit-4f-*` screenshots plus `compact SpoonDock routes suppress stray global search chrome` and `compact mobile routes do not duplicate large system titles above authored headers` source contracts. |
+| F3 | fixed | Kitchen recipe index is a scroll-friendly object layout in the page flow, not a nested `List`. Verified by `visual/kitchen/screenshots/ios-mobile.png`, `unit-4f-kitchen-screenshots.log`, and the `kitchen recipe index is a scroll-friendly object layout, not a nested List island` contract. |
+| F4 | fixed for native layout; upstream media diversity deferred | Cookbook/recipe object media now uses stable aspect ratios and deliberate captions. Repeated fallback food art can still come from seeded/upstream media, but the native layout no longer creates accidental hard-cropped columns. Verified in kitchen and recipe detail screenshots. |
+| F5 | fixed | Native SpoonDock renders for kitchen, recipe detail, cook mode, and shopping list with route-specific left/center/right zones. Verified by all four `unit-4f-*` screenshots and `SpoonDock defines route matrix glass controls and accessibility labels`. |
+| F6 | fixed | Compact screens now use authored Spoonjoy hierarchy with inline system titles, food/recipe content first, and controls in a bottom handrail instead of giant default route headings. Verified by `unit-4f-compact-title-green.log`, iOS/macOS app builds with warnings as errors, and screenshot review. |
+| F7 | fixed | Dogfood found a stray bottom `Search Spoonjoy` bar under embedded cook/shopping docks. Fixed by disabling global search chrome for compact routes and recapturing cook/shopping screenshots in `unit-4f-cook-mode-screenshots.log` and `unit-4f-shopping-list-screenshots.log`. |
+| F8 | fixed | Dogfood found macOS screenshot route proof could inherit a local `SPOONJOY_API_BASE_URL` and hide seeded production screenshot state. Fixed by explicit screenshot launch env plus route/env accessibility proof telemetry; verified by route-specific macOS proof files under each `visual/*/apple/` directory. |

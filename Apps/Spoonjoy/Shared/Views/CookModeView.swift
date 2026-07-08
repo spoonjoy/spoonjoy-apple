@@ -91,6 +91,8 @@ struct CookModeView: View {
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var progress: CookModeProgress
     @State private var shoppingStatusMessage: String?
     @State private var shoppingErrorMessage: String?
@@ -141,10 +143,24 @@ struct CookModeView: View {
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
             normalizeProgressForCurrentRecipe()
         }
+        .task(id: recipe.cookModeIdentityKey) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "cook-mode",
+                source: "CookModeView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
+        }
     }
 
     private var viewModel: CookModeViewModel {
         CookModeViewModel(recipe: recipe, progress: progress)
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var currentStep: RecipeStep? {

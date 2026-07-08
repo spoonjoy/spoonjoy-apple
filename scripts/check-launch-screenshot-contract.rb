@@ -992,10 +992,10 @@ PY
       mkdir -p "$(dirname "$output_path")"
       printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
-    proof_path=""
-    accessibility_proof_path=""
-    focus="profile"
-    account_id=""
+    proof_path="${SPOONJOY_SCREENSHOT_PROOF_PATH:-}"
+    accessibility_proof_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
+    focus="${SPOONJOY_SCREENSHOT_SETTINGS_FOCUS:-profile}"
+    account_id="${SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --env)

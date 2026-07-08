@@ -12,6 +12,8 @@ struct ShoppingListView: View {
     @State private var actionErrorMessage: String?
     @State private var activeConfirmationDialog: ShoppingConfirmationDialog?
     @FocusState private var isItemFieldFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
@@ -96,6 +98,13 @@ struct ShoppingListView: View {
                 .padding(.bottom, 8)
             }
         }
+        .task(id: viewModel.activeCountLabel) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "shopping-list",
+                source: "ShoppingListView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
+        }
     }
 
 #if os(iOS)
@@ -110,6 +119,13 @@ struct ShoppingListView: View {
 #else
         false
 #endif
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var header: some View {

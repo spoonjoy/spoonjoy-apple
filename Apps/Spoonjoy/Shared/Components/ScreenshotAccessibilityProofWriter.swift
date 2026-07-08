@@ -52,6 +52,7 @@ enum ScreenshotAccessibilityProofWriter {
             "platform": platform,
             "route": route,
             "source": source,
+            "launchEnvironmentProof": launchEnvironmentProof,
             "dynamicType": !runtimeContext.dynamicTypeSize.isEmpty && !evidence.dynamicTypeTextStyles.isEmpty,
             "voiceOverLabels": !evidence.voiceOverLabels.isEmpty,
             "keyboardNavigation": !evidence.keyboardNavigationTargets.isEmpty,
@@ -92,6 +93,33 @@ enum ScreenshotAccessibilityProofWriter {
                 hierarchyAnchors: ["SettingsView", "Form", "Section", "OfflineStatusView"],
                 layoutGuards: ["scroll-form", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
             )
+        case ("recipe-detail", "RecipeDetailView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Start Cooking", "Add Ingredients", "More", "Ingredient Receipt"],
+                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "ingredient rows"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
+                hierarchyAnchors: ["RecipeDetailView", "MobileActionFlow", "recipePrimaryActions", "recipeSecondaryActions"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "mobile-action-flow"]
+            )
+        case ("cook-mode", "CookModeView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Cook mode SpoonDock"],
+                keyboardNavigationTargets: ["cook step handrail", "ingredient toggles", "dependency toggles"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "herb tint on bone", "status text on material"],
+                hierarchyAnchors: ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("shopping-list", "ShoppingListView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Shopping", "List Actions", "Add", "Clear checked"],
+                keyboardNavigationTargets: ["shopping item fields", "shopping header menu", "shopping SpoonDock"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
+                hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "SpoonDockContext.shoppingList"],
+                layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
         default:
             RouteAccessibilityEvidence(
                 voiceOverLabels: ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking", "Recipe Index", "Cookbook Shelf"],
@@ -110,6 +138,16 @@ enum ScreenshotAccessibilityProofWriter {
 #else
         "ios"
 #endif
+    }
+
+    private static var launchEnvironmentProof: [String: String] {
+        let environment = ProcessInfo.processInfo.environment
+        return [
+            "screenshotAuth": environment["SPOONJOY_SCREENSHOT_AUTH"] ?? "",
+            "screenshotRestoreCacheOnly": environment["SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY"] ?? "",
+            "screenshotAccountID": environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "",
+            "apiBaseURL": environment["SPOONJOY_API_BASE_URL"] ?? ""
+        ]
     }
 
     private struct RouteAccessibilityEvidence {

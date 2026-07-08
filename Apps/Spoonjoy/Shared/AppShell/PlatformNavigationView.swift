@@ -143,14 +143,14 @@ struct PlatformNavigationView: View {
 
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         if shouldShowShellSpoonDock {
-            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false)
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
                 .safeAreaInset(edge: .bottom) {
                     SpoonDock(context: spoonDockContext)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 8)
                 }
         } else {
-            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false)
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
         }
     }
 
@@ -159,14 +159,34 @@ struct PlatformNavigationView: View {
             sidebar
                 .navigationTitle("Spoonjoy")
         } detail: {
-            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true)
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)
         }
     }
 
-    @ViewBuilder private func routeNavigationStack(spotlightPayload: SpotlightIndexPayload, showsToolbar: Bool) -> some View {
+    @ViewBuilder private func routeNavigationStack(spotlightPayload: SpotlightIndexPayload, showsToolbar: Bool, showsSearchChrome: Bool) -> some View {
         if showsToolbar {
-            baseRouteNavigationStack(spotlightPayload: spotlightPayload)
+            searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome)
                 .spoonjoyToolbar(navigation: $navigation, search: $search)
+        } else {
+            searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome)
+        }
+    }
+
+    @ViewBuilder private func searchableRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, showsSearchChrome: Bool) -> some View {
+        if showsSearchChrome {
+            baseRouteNavigationStack(spotlightPayload: spotlightPayload)
+                .searchable(text: searchText, prompt: "Search Spoonjoy")
+                .searchFocused($isSearchFieldFocused)
+                .searchScopes(searchScope) {
+                    ForEach(availableSearchScopes, id: \.rawValue) { scope in
+                        Text(label(for: scope)).tag(scope)
+                    }
+                }
+                .onSubmit(of: .search) {
+                    Task {
+                        await performSearch(search)
+                    }
+                }
         } else {
             baseRouteNavigationStack(spotlightPayload: spotlightPayload)
         }
@@ -177,23 +197,11 @@ struct PlatformNavigationView: View {
             detailContentWithShellStatus
                 .navigationTitle(title(for: navigation.route))
 #if os(iOS)
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)
 #endif
         }
         .navigationDestination(for: AppRoute.self) { route in
             destinationContent(for: route)
-        }
-        .searchable(text: searchText, prompt: "Search Spoonjoy")
-        .searchFocused($isSearchFieldFocused)
-        .searchScopes(searchScope) {
-            ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                Text(label(for: scope)).tag(scope)
-            }
-        }
-        .onSubmit(of: .search) {
-            Task {
-                await performSearch(search)
-            }
         }
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)

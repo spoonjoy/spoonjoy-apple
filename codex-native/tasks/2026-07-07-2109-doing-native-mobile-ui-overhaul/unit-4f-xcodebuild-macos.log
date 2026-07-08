@@ -1,0 +1,46 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination generic/platform=macOS CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    GCC_TREAT_WARNINGS_AS_ERRORS = YES
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  SpoonjoyApple: /Users/arimendelow/Projects/spoonjoy-apple-native-ui-overhaul @ local
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (4 targets)
+    Target 'Spoonjoy macOS' in project 'Spoonjoy'
+        ➜ Explicit dependency on target 'SpoonjoyCore' in project 'SpoonjoyApple'
+    Target 'SpoonjoyCore' in project 'SpoonjoyApple'
+        ➜ Explicit dependency on target 'SpoonjoyCore' in project 'SpoonjoyApple'
+        ➜ Explicit dependency on target 'SpoonjoyApple_SpoonjoyCore' in project 'SpoonjoyApple'
+    Target 'SpoonjoyCore' in project 'SpoonjoyApple'
+        ➜ Explicit dependency on target 'SpoonjoyApple_SpoonjoyCore' in project 'SpoonjoyApple'
+    Target 'SpoonjoyApple_SpoonjoyCore' in project 'SpoonjoyApple' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+error: error: accessing build database "/Users/arimendelow/Library/Developer/Xcode/DerivedData/Spoonjoy-cucfxeslwcdlwgcbbopddqmlmast/Build/Intermediates.noindex/XCBuildData/build.db": database is locked Possibly there are two concurrent builds running in the same filesystem location.
+** BUILD FAILED **
+
+
+The following build commands failed:
+	Building project Spoonjoy with scheme Spoonjoy macOS and configuration BootstrapDebug
+(1 failure)
