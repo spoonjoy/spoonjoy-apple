@@ -340,8 +340,8 @@ public struct CookbookRecipeRowViewModel: Identifiable, Equatable, Sendable {
         id = summary.id
         title = summary.title
         servingsLabel = Self.servingsLabel(summary.servings)
-        coverImageURL = summary.coverImageURL
-        coverProvenanceLabel = summary.coverProvenanceLabel
+        coverImageURL = summary.displayCoverImageURL
+        coverProvenanceLabel = summary.displayCoverProvenanceLabel
         openRoute = .recipeDetail(id: summary.id, presentation: .detail)
     }
 

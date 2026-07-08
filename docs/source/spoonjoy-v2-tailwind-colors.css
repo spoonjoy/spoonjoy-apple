@@ -1,0 +1,14 @@
+:root {
+  /* Source: /Users/arimendelow/Projects/spoonjoy-v2/app/styles/tailwind.css */
+  --sj-bone: #fbfaf4;
+  --sj-bone-lift: #fffefa;
+  --sj-vellum: #e8e9df;
+  --sj-charcoal: #28231d;
+  --sj-charcoal-soft: #635d54;
+  --sj-brass: #9b6834;
+  --sj-action: #28231d;
+  --sj-action-deep: #1f1b17;
+  --sj-tomato: #a24a38;
+  --sj-herb: #596a4f;
+  --sj-photo-charcoal: #211f1b;
+}

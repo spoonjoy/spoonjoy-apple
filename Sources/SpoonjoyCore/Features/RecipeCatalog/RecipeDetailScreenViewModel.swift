@@ -227,8 +227,8 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         chefAttribution = "By \(recipe.chef.username)"
         servingsLabel = Self.servingsLabel(recipe.servings)
         cover = RecipeDetailCoverViewModel(
-            imageURL: recipe.coverImageURL,
-            provenanceLabel: recipe.coverProvenanceLabel
+            imageURL: recipe.displayCoverImageURL,
+            provenanceLabel: recipe.displayCoverProvenanceLabel
         )
         sourceAttribution = recipe.attribution.sourceRecipe.map { sourceRecipe in
             RecipeDetailSourceAttribution(

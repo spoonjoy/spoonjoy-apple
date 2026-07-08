@@ -10,14 +10,14 @@ struct SpoonDock: View {
             if dynamicTypeSize.isAccessibilitySize {
                 accessibilityDock
             } else {
-                horizontalDock
+                adaptiveDock
             }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
-        .frame(maxWidth: 372)
+        .frame(maxWidth: 351)
         .background(.ultraThinMaterial, in: Capsule())
-        .background(KitchenTableTheme.charcoal.opacity(0.84), in: Capsule())
+        .background(KitchenTableTheme.photoCharcoal.opacity(0.86), in: Capsule())
         .overlay {
             Capsule()
                 .strokeBorder(.white.opacity(0.22), lineWidth: 1)
@@ -93,7 +93,7 @@ struct SpoonDock: View {
         if prominence == .primary {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.glassProminent)
-                .tint(tintColor(for: action) ?? KitchenTableTheme.brass)
+                .tint(tintColor(for: action) ?? KitchenTableTheme.action)
         } else if prominence == .supporting {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
@@ -107,8 +107,14 @@ struct SpoonDock: View {
                 }
         } else {
             dockTrigger(action, prominence: prominence)
-                .buttonStyle(.glass)
-                .tint(tintColor(for: action) ?? KitchenTableTheme.paper)
+                .buttonStyle(.plain)
+                .frame(width: 44, height: 44)
+                .background(.thinMaterial, in: Circle())
+                .background(KitchenTableTheme.paper.opacity(0.10), in: Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(KitchenTableTheme.paper.opacity(0.18), lineWidth: 1)
+                }
         }
     }
 

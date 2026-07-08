@@ -17,13 +17,18 @@ struct NativeMobileDesignContractTests {
                 "@Environment(\\.horizontalSizeClass)",
                 "private var usesCompactMobileShell: Bool",
                 "compactMobileShell",
+                "compactBottomChrome",
+                "compactOfflineStatusBar",
+                ".safeAreaInset(edge: .bottom, spacing: 0)",
                 "desktopClassShell",
                 "NavigationStack",
                 "NavigationSplitView",
-                "VStack(spacing: 0)",
                 ".background(KitchenTableTheme.bone.ignoresSafeArea())",
                 "SpoonDock(",
                 "SpoonDockContext"
+            ],
+            forbids: [
+                "VStack(spacing: 0) {\n                routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)\n\n                SpoonDock(context: spoonDockContext)"
             ]
         )
 
@@ -58,8 +63,8 @@ struct NativeMobileDesignContractTests {
                 "leftZone",
                 "centerZone",
                 "rightTools",
-                "buttonStyle(.glass)",
                 "buttonStyle(.glassProminent)",
+                ".background(.thinMaterial, in: Circle())",
                 ".background(.ultraThinMaterial",
                 ".accessibilityLabel",
                 "Kitchen",
@@ -230,6 +235,7 @@ struct NativeMobileDesignContractTests {
                 "@Environment(\\.dynamicTypeSize)",
                 "dynamicTypeSize.isAccessibilitySize",
                 "ViewThatFits(in: .horizontal)",
+                "adaptiveDock",
                 "horizontalDock",
                 "compactDock",
                 "accessibilityDock",
@@ -239,9 +245,92 @@ struct NativeMobileDesignContractTests {
             forbids: [
                 ".frame(minWidth: 82",
                 ".frame(minWidth: 132",
-                ".frame(width: 48, height: 48)"
+                ".frame(width: 48, height: 48)",
+                ".frame(maxWidth: 372)"
             ]
         )
+    }
+
+    @Test("native palette is pinned to the current Spoonjoy web tokens")
+    func nativePaletteIsPinnedToCurrentSpoonjoyWebTokens() throws {
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = try readRepoFile(themePath)
+
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "webColor(0xFBFAF4) // --sj-bone",
+                "webColor(0xFFFEFA) // --sj-bone-lift",
+                "webColor(0xE8E9DF) // --sj-vellum",
+                "webColor(0x28231D) // --sj-charcoal",
+                "webColor(0x635D54) // --sj-charcoal-soft",
+                "webColor(0x9B6834) // --sj-brass",
+                "webColor(0x28231D) // --sj-action",
+                "webColor(0x1F1B17) // --sj-action-deep",
+                "webColor(0xA24A38) // --sj-tomato",
+                "webColor(0x596A4F) // --sj-herb",
+                "onPhoto = bone // --sj-on-photo",
+                "onPhotoMuted = bone.opacity(0.76) // --sj-on-photo-muted",
+                "webColor(0x211F1B) // --sj-photo-charcoal"
+            ],
+            forbids: [
+                "Color(red: 0.97, green: 0.95, blue: 0.90)",
+                "Color(red: 0.99, green: 0.98, blue: 0.94)"
+            ]
+        )
+    }
+
+    @Test("AI placeholder covers do not render as native food photography")
+    func aiPlaceholderCoversDoNotRenderAsNativeFoodPhotography() throws {
+        let modelPath = "Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift"
+        let model = try readRepoFile(modelPath)
+        let catalogPath = "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift"
+        let catalog = try readRepoFile(catalogPath)
+        let detailPath = "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift"
+        let detail = try readRepoFile(detailPath)
+        let coverComponentPath = "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift"
+        let coverComponent = uncommentedSwift(try readRepoFile(coverComponentPath))
+        let liveRoutePaths = [
+            "Apps/Spoonjoy/Shared/Views/KitchenView.swift",
+            "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
+            "Apps/Spoonjoy/Shared/Views/RecipesView.swift",
+            "Apps/Spoonjoy/Shared/Views/CookbooksView.swift",
+            "Apps/Spoonjoy/Shared/Views/ProfileView.swift"
+        ]
+
+        expectContent(
+            model,
+            in: modelPath,
+            contains: [
+                "public var displayCoverImageURL: URL?",
+                "coverSourceType == .aiPlaceholder ? nil : coverImageURL",
+                "public var displayCoverProvenanceLabel: String?",
+                "displayCoverImageURL == nil ? nil : coverProvenanceLabel"
+            ]
+        )
+        expectContent(catalog, in: catalogPath, contains: ["summary.displayCoverImageURL", "summary.displayCoverProvenanceLabel"])
+        expectContent(detail, in: detailPath, contains: ["recipe.displayCoverImageURL", "recipe.displayCoverProvenanceLabel"])
+        expectContent(
+            coverComponent,
+            in: coverComponentPath,
+            contains: [
+                "KitchenTableTheme.photoCharcoal",
+                "KitchenTableTheme.photoOverlay",
+                "KitchenTableTheme.onPhoto",
+                "KitchenTableTheme.onPhotoMuted",
+                "RecipeCoverFallbackPalette"
+            ],
+            forbids: [
+                "garnish",
+                "Capsule()",
+                "Circle().stroke(palette.accent",
+                "LinearGradient(\n                colors: palette.background"
+            ]
+        )
+        for routePath in liveRoutePaths {
+            expectContent(try readRepoFile(routePath), in: routePath, forbids: ["bundledAssetName(forRecipeID"])
+        }
     }
 
     @Test("shopping destructive actions stay behind confirmations")

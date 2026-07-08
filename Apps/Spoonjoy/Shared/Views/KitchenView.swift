@@ -125,10 +125,10 @@ struct RecipeLead: View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack(alignment: .bottomLeading) {
                 RecipeCoverImage(
-                    url: recipe.coverImageURL,
+                    url: recipe.displayCoverImageURL,
                     title: recipe.title,
-                    subtitle: recipe.coverProvenanceLabel,
-                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                    subtitle: recipe.displayCoverProvenanceLabel,
+                    showsFallbackLabel: false
                 )
                     .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
                     .clipped()
@@ -152,14 +152,24 @@ struct RecipeLead: View {
                 .padding()
             }
 
-            HStack(spacing: 10) {
-                leadButton(title: "Open Recipe", systemImage: "book", prominence: .primary) {
-                    openRecipe(recipe.id)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    leadButtons
                 }
-                leadButton(title: "Start Cooking", systemImage: "fork.knife", prominence: .secondary) {
-                    startCooking(recipe.id)
+
+                VStack(spacing: 10) {
+                    leadButtons
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var leadButtons: some View {
+        leadButton(title: "Open Recipe", systemImage: "book", prominence: .primary) {
+            openRecipe(recipe.id)
+        }
+        leadButton(title: "Start Cooking", systemImage: "fork.knife", prominence: .secondary) {
+            startCooking(recipe.id)
         }
     }
 
@@ -219,13 +229,12 @@ struct KitchenRecipeIndexRow: View {
         Button(action: open) {
             KitchenTableObjectRow(
                 title: recipe.title,
-                subtitle: recipe.coverProvenanceLabel ?? recipe.chef.username
+                subtitle: recipe.displayCoverProvenanceLabel ?? recipe.chef.username
             ) {
                 RecipeCoverImage(
-                    url: recipe.coverImageURL,
+                    url: recipe.displayCoverImageURL,
                     title: recipe.title,
-                    subtitle: recipe.coverProvenanceLabel,
-                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                    subtitle: recipe.displayCoverProvenanceLabel
                 )
                     .aspectRatio(1, contentMode: .fill)
             } trailing: {

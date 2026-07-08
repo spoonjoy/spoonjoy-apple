@@ -270,7 +270,7 @@ struct RecipeDetailView: View {
                 url: viewModel.cover.imageURL,
                 title: viewModel.title,
                 subtitle: viewModel.cover.provenanceLabel,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id)
+                showsFallbackLabel: false
             )
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipped()

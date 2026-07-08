@@ -5,23 +5,25 @@ struct RecipeCoverImage: View {
     let title: String?
     let subtitle: String?
     let assetName: String?
+    let showsFallbackLabel: Bool
 
-    init(url: URL?, title: String? = nil, subtitle: String? = nil, assetName: String? = nil) {
+    init(url: URL?, title: String? = nil, subtitle: String? = nil, assetName: String? = nil, showsFallbackLabel: Bool = true) {
         self.url = url
         self.title = title
         self.subtitle = subtitle
         self.assetName = assetName
+        self.showsFallbackLabel = showsFallbackLabel
     }
 
     var body: some View {
-        if let assetName {
-            bundledCover(assetName)
-        } else if let url {
+        if let url {
             AsyncImage(url: url) { phase in
                 cover(for: phase)
             }
+        } else if let assetName {
+            bundledCover(assetName)
         } else {
-            RecipeCoverFallback(title: title, subtitle: subtitle ?? "No cover yet", mode: .missing)
+            RecipeCoverFallback(title: title, subtitle: subtitle ?? "No cover yet", mode: .missing, showsLabel: showsFallbackLabel)
         }
     }
 
@@ -42,18 +44,18 @@ struct RecipeCoverImage: View {
                 .resizable()
                 .scaledToFill()
         case .empty:
-            RecipeCoverFallback(title: title, subtitle: "Loading cover", mode: .loading)
+            RecipeCoverFallback(title: title, subtitle: "Loading cover", mode: .loading, showsLabel: showsFallbackLabel)
         case .failure:
             if let assetName {
                 bundledCover(assetName)
             } else {
-                RecipeCoverFallback(title: title, subtitle: "Cover unavailable", mode: .unavailable)
+                RecipeCoverFallback(title: title, subtitle: "Cover unavailable", mode: .unavailable, showsLabel: showsFallbackLabel)
             }
         @unknown default:
             if let assetName {
                 bundledCover(assetName)
             } else {
-                RecipeCoverFallback(title: title, subtitle: subtitle ?? "No cover yet", mode: .missing)
+                RecipeCoverFallback(title: title, subtitle: subtitle ?? "No cover yet", mode: .missing, showsLabel: showsFallbackLabel)
             }
         }
     }
@@ -75,22 +77,26 @@ private struct RecipeCoverFallback: View {
     let title: String?
     let subtitle: String
     let mode: Mode
+    let showsLabel: Bool
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: palette.background,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            KitchenTableTheme.photoCharcoal
 
-            garnish
+            LinearGradient(
+                colors: [
+                    KitchenTableTheme.photoCharcoal.opacity(0.08),
+                    KitchenTableTheme.photoOverlay.opacity(0.82)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
 
             GeometryReader { proxy in
                 if proxy.size.width < 150 || proxy.size.height < 110 {
                     compactMark
                         .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
-                } else {
+                } else if showsLabel {
                     fullLabel
                         .padding(16)
                         .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
@@ -100,37 +106,13 @@ private struct RecipeCoverFallback: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    private var garnish: some View {
-        ZStack {
-            Circle()
-                .fill(palette.accent.opacity(0.18))
-                .frame(width: 148, height: 148)
-                .offset(x: -68, y: -46)
-            Circle()
-                .stroke(palette.accent.opacity(0.42), lineWidth: 2)
-                .frame(width: 92, height: 92)
-                .offset(x: 82, y: 46)
-            Capsule()
-                .fill(KitchenTableTheme.herb.opacity(0.16))
-                .frame(width: 142, height: 16)
-                .rotationEffect(.degrees(-18))
-                .offset(x: 38, y: -16)
-            Capsule()
-                .fill(KitchenTableTheme.tomato.opacity(0.14))
-                .frame(width: 112, height: 12)
-                .rotationEffect(.degrees(16))
-                .offset(x: -36, y: 30)
-        }
-        .accessibilityHidden(true)
-    }
-
     private var compactMark: some View {
         ZStack {
             Circle()
-                .fill(KitchenTableTheme.paper.opacity(0.90))
+                .fill(KitchenTableTheme.bone.opacity(0.94))
                 .overlay {
                     Circle()
-                        .stroke(palette.accent.opacity(0.35), lineWidth: 1)
+                        .stroke(KitchenTableTheme.bone.opacity(0.34), lineWidth: 1)
                 }
                 .frame(width: 38, height: 38)
             if let initials {
@@ -141,14 +123,14 @@ private struct RecipeCoverFallback: View {
             } else if mode == .loading {
                 Image(systemName: "clock")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(palette.accent)
+                    .foregroundStyle(KitchenTableTheme.photoCharcoal)
             } else {
                 Image(systemName: "fork.knife")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(palette.accent)
+                    .foregroundStyle(KitchenTableTheme.photoCharcoal)
             }
         }
-        .shadow(color: KitchenTableTheme.charcoal.opacity(0.10), radius: 4, y: 2)
+        .shadow(color: KitchenTableTheme.charcoal.opacity(0.28), radius: 5, y: 3)
         .frame(width: 44, height: 44)
     }
 
@@ -171,17 +153,17 @@ private struct RecipeCoverFallback: View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: mode == .loading ? "clock" : "fork.knife")
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(palette.accent)
+                .foregroundStyle(KitchenTableTheme.onPhoto.opacity(0.78))
             if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
                 Text(title)
                     .font(.system(.headline, design: .serif).weight(.bold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.onPhoto)
                     .lineLimit(2)
                     .minimumScaleFactor(0.75)
             }
             Text(subtitle)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -208,23 +190,23 @@ private struct RecipeCoverFallbackPalette {
         switch stableBucket(for: key) {
         case 0:
             RecipeCoverFallbackPalette(
-                background: [KitchenTableTheme.paper, Color(red: 0.95, green: 0.90, blue: 0.79)],
+                background: [KitchenTableTheme.paper, KitchenTableTheme.bone],
                 accent: KitchenTableTheme.brass
             )
         case 1:
             RecipeCoverFallbackPalette(
-                background: [Color(red: 0.94, green: 0.96, blue: 0.88), KitchenTableTheme.paper],
+                background: [KitchenTableTheme.paper, KitchenTableTheme.vellum.opacity(0.72)],
                 accent: KitchenTableTheme.herb
             )
         case 2:
             RecipeCoverFallbackPalette(
-                background: [Color(red: 0.98, green: 0.91, blue: 0.86), KitchenTableTheme.paper],
+                background: [KitchenTableTheme.paper, KitchenTableTheme.tomato.opacity(0.10)],
                 accent: KitchenTableTheme.tomato
             )
         default:
             RecipeCoverFallbackPalette(
-                background: [Color(red: 0.92, green: 0.94, blue: 0.91), Color(red: 0.98, green: 0.96, blue: 0.90)],
-                accent: Color(red: 0.22, green: 0.34, blue: 0.38)
+                background: [KitchenTableTheme.paper, KitchenTableTheme.vellum.opacity(0.82)],
+                accent: KitchenTableTheme.inkMuted
             )
         }
     }

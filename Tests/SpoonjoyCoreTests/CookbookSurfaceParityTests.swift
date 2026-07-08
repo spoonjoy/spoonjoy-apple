@@ -93,7 +93,7 @@ struct CookbookSurfaceParityTests {
             .recipeDetail(id: "recipe_tomato_toast", presentation: .detail)
         ])
         #expect(detail.recipes.first?.servingsLabel == "Serves 4")
-        #expect(detail.recipes.first?.coverProvenanceLabel == "Chef photo")
+        #expect(detail.recipes.first?.coverProvenanceLabel == nil)
         #expect(detail.ownerTools.isVisible)
         #expect(detail.ownerTools.availableRecipes.map(\.id) == ["recipe_unsaved_flatbread"])
         #expect(detail.ownerTools.editTitleActionTitle == "Edit title")

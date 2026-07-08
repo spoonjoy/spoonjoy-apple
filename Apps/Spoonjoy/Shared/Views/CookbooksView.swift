@@ -481,8 +481,7 @@ private struct CookbookDetailView: View {
                         RecipeCoverImage(
                             url: imageURL,
                             title: recipe.title,
-                            subtitle: recipe.coverProvenanceLabel,
-                            assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                            subtitle: recipe.coverProvenanceLabel
                         )
                             .frame(width: 54, height: 54)
                             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
