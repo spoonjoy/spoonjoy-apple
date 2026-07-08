@@ -283,19 +283,27 @@ struct NativeMobileDesignContractTests {
     func shoppingListOwnsCompactSpoonDockActions() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let screenshotHarnessPath = "scripts/capture-native-screenshots.sh"
         let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let dock = uncommentedSwift(try readRepoFile(dockPath))
+        let proof = uncommentedSwift(try readRepoFile(proofPath))
+        let screenshotHarness = try readRepoFile(screenshotHarnessPath)
 
         expectContent(
             shopping,
             in: shoppingPath,
             contains: [
                 "@FocusState private var isItemFieldFocused",
+                "openKitchen: @escaping () -> Void",
                 "openSearch: @escaping () -> Void",
                 "focusAddItem",
                 ".safeAreaInset(edge: .bottom)",
                 "SpoonDock(",
                 "SpoonDockContext.shoppingList(",
+                "kitchen: openKitchen",
                 "add: focusAddItem",
                 "search: openSearch",
                 "clearChecked: clearCompleted",
@@ -316,7 +324,69 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "ShoppingListView(",
+                "openKitchen: { openRoute(.kitchen) }",
                 "openSearch: openSearchFromDock"
+            ]
+        )
+
+        expectContent(
+            dock,
+            in: dockPath,
+            contains: [
+                "static func shoppingList(kitchen: @escaping () -> Void, add: @escaping () -> Void, search: @escaping () -> Void, clearChecked: @escaping () -> Void) -> Self",
+                ".back(id: \"shopping.kitchen\", title: \"Kitchen\", systemImage: \"house\", action: kitchen)"
+            ],
+            forbids: [
+                ".place(id: \"shopping.place\", title: \"List\", systemImage: \"checklist\")"
+            ]
+        )
+
+        expectContent(
+            proof,
+            in: proofPath,
+            contains: [
+                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+            ]
+        )
+        expectContent(
+            screenshotHarness,
+            in: screenshotHarnessPath,
+            contains: [
+                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+            ]
+        )
+    }
+
+    @Test("compact primary SpoonDock routes expose a direct Kitchen escape")
+    func compactPrimarySpoonDockRoutesExposeDirectKitchenEscape() throws {
+        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let dock = uncommentedSwift(try readRepoFile(dockPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            dock,
+            in: dockPath,
+            contains: [
+                "static func recipes(kitchen: @escaping () -> Void, capture: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self",
+                ".back(id: \"recipes.kitchen\", title: \"Kitchen\", systemImage: \"house\", action: kitchen)",
+                "static func search(kitchen: @escaping () -> Void, capture: @escaping () -> Void, scopeTitle: String, shopping: @escaping () -> Void) -> Self",
+                ".back(id: \"search.kitchen\", title: \"Kitchen\", systemImage: \"house\", action: kitchen)"
+            ]
+        )
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "SpoonDockContext.recipes(\n                kitchen: { openRoute(.kitchen) }",
+                "SpoonDockContext.search(\n                kitchen: { openRoute(.kitchen) }",
+                "case .profile, .profileGraph:\n            SpoonDockContext.generic(\n                title: \"Profile\",\n                back: { openRoute(.kitchen) }"
+            ],
+            forbids: [
+                "SpoonDockContext.recipes(\n                capture:",
+                "SpoonDockContext.search(\n                capture:",
+                "case .profile, .profileGraph:\n            SpoonDockContext.generic(\n                title: \"Profile\",\n                back: openSearchFromDock"
             ]
         )
     }
