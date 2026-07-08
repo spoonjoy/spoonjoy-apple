@@ -246,42 +246,6 @@ private enum SpoonDockActionProminence {
 }
 
 extension SpoonDockContext {
-    static func kitchen(capture: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: "Kitchen",
-            leftZone: .place(id: "kitchen.place", title: "Kitchen", systemImage: "house"),
-            centerZone: .primary(id: "kitchen.capture", title: "Capture", subtitle: "new recipe", systemImage: "camera.fill", action: capture),
-            rightTools: [
-                .tool(id: "kitchen.search", title: "Search", systemImage: "magnifyingglass", action: search),
-                .tool(id: "kitchen.shopping", title: "Shopping", systemImage: "checklist", action: shopping)
-            ]
-        )
-    }
-
-    static func recipes(kitchen: @escaping () -> Void, capture: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: "Recipes",
-            leftZone: .back(id: "recipes.kitchen", title: "Kitchen", systemImage: "house", action: kitchen),
-            centerZone: .primary(id: "recipes.capture", title: "Capture", subtitle: "save a recipe", systemImage: "camera.fill", action: capture),
-            rightTools: [
-                .tool(id: "recipes.search", title: "Search", systemImage: "magnifyingglass", action: search),
-                .tool(id: "recipes.shopping", title: "Shopping", systemImage: "checklist", action: shopping)
-            ]
-        )
-    }
-
-    static func recipeDetail(back: @escaping () -> Void, cook: @escaping () -> Void, save: @escaping () -> Void, shareURL: URL?) -> Self {
-        Self(
-            routeIdentifier: "Recipe detail",
-            leftZone: .back(id: "recipe.back", title: "Recipes", systemImage: "chevron.backward", action: back),
-            centerZone: .primary(id: "recipe.cook", title: "Cook", subtitle: "hands-free", systemImage: "fork.knife", action: cook),
-            rightTools: [
-                .tool(id: "recipe.save", title: "Save", systemImage: "bookmark", action: save),
-                .tool(id: "recipe.share", title: "Share", systemImage: "square.and.arrow.up", isEnabled: shareURL != nil, shareURL: shareURL)
-            ]
-        )
-    }
-
     static func cookMode(previous: @escaping () -> Void, next: @escaping () -> Void, stepTitle: String) -> Self {
         Self(
             routeIdentifier: "Cook mode",
@@ -289,64 +253,6 @@ extension SpoonDockContext {
             centerZone: .status(id: "cook.step", title: "Step", subtitle: stepTitle, systemImage: "flame", isEnabled: false),
             rightTools: [
                 .tool(id: "cook.next", title: "Next", systemImage: "chevron.forward", action: next)
-            ]
-        )
-    }
-
-    static func shoppingList(kitchen: @escaping () -> Void, add: @escaping () -> Void, search: @escaping () -> Void, clearChecked: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: "Shopping",
-            leftZone: .back(id: "shopping.kitchen", title: "Kitchen", systemImage: "house", action: kitchen),
-            centerZone: .primary(id: "shopping.add", title: "Add", subtitle: "item", systemImage: "plus", action: add),
-            rightTools: [
-                .tool(id: "shopping.search", title: "Search", systemImage: "magnifyingglass", action: search),
-                .tool(id: "shopping.clear.checked", title: "Clear checked", subtitle: "clear checked", systemImage: "checkmark.circle", role: .destructive, action: clearChecked)
-            ]
-        )
-    }
-
-    static func search(kitchen: @escaping () -> Void, capture: @escaping () -> Void, scopeTitle: String, shopping: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: "Search",
-            leftZone: .back(id: "search.kitchen", title: "Kitchen", systemImage: "house", action: kitchen),
-            centerZone: .primary(id: "search.capture", title: "Capture", subtitle: "from anywhere", systemImage: "camera.fill", action: capture),
-            rightTools: [
-                .tool(id: "search.scope", title: scopeTitle, systemImage: "line.3.horizontal.decrease.circle"),
-                .tool(id: "search.shopping", title: "Shopping", systemImage: "checklist", action: shopping)
-            ]
-        )
-    }
-
-    static func capture(back: @escaping () -> Void, settings: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: "Capture",
-            leftZone: .back(id: "capture.back", title: "Kitchen", systemImage: "chevron.backward", action: back),
-            centerZone: .primary(id: "capture.save", title: "Capture", subtitle: "import recipe", systemImage: "camera.fill"),
-            rightTools: [
-                .tool(id: "capture.settings", title: "Settings", systemImage: "gearshape", action: settings)
-            ]
-        )
-    }
-
-    static func settings(back: @escaping () -> Void, retry: @escaping () -> Void, search: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: "Settings",
-            leftZone: .back(id: "settings.back", title: "Kitchen", systemImage: "chevron.backward", action: back),
-            centerZone: .primary(id: "settings.retry", title: "Retry", subtitle: "sync", systemImage: "arrow.clockwise", action: retry),
-            rightTools: [
-                .tool(id: "settings.search", title: "Search", systemImage: "magnifyingglass", action: search)
-            ]
-        )
-    }
-
-    static func generic(title: String, back: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self {
-        Self(
-            routeIdentifier: title,
-            leftZone: .back(id: "generic.back", title: "Kitchen", systemImage: "chevron.backward", action: back),
-            centerZone: .place(id: "generic.place", title: title, systemImage: "sparkles"),
-            rightTools: [
-                .tool(id: "generic.search", title: "Search", systemImage: "magnifyingglass", action: search),
-                .tool(id: "generic.shopping", title: "Shopping", systemImage: "checklist", action: shopping)
             ]
         )
     }

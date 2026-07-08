@@ -5,7 +5,6 @@ import SwiftUI
 struct ShoppingListView: View {
 #if os(iOS)
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
     @State private var addItemForm = ShoppingAddItemFormState()
     @State private var actionStatusMessage: String?
@@ -17,20 +16,17 @@ struct ShoppingListView: View {
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
-    private let openKitchen: () -> Void
     private let openSearch: () -> Void
     private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     init(
         viewModel: ShoppingSurfaceViewModel,
         actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
-        openKitchen: @escaping () -> Void = {},
         openSearch: @escaping () -> Void = {},
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.actionDidPlan = actionDidPlan
-        self.openKitchen = openKitchen
         self.openSearch = openSearch
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
@@ -90,18 +86,6 @@ struct ShoppingListView: View {
             EditButton()
         }
 #endif
-        .safeAreaInset(edge: .bottom) {
-            if usesEmbeddedSpoonDock {
-                SpoonDock(context: SpoonDockContext.shoppingList(
-                    kitchen: openKitchen,
-                    add: focusAddItem,
-                    search: openSearch,
-                    clearChecked: clearCompleted
-                ))
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-            }
-        }
         .task(id: viewModel.activeCountLabel) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "shopping-list",
@@ -116,14 +100,6 @@ struct ShoppingListView: View {
         editMode?.wrappedValue
     }
 #endif
-
-    private var usesEmbeddedSpoonDock: Bool {
-#if os(iOS)
-        horizontalSizeClass == .compact
-#else
-        false
-#endif
-    }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
         ScreenshotAccessibilityRuntimeContext(

@@ -102,7 +102,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cook-mode" => {
-    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Cook mode SpoonDock"],
+    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Step Ingredients", "Cook mode SpoonDock"],
     "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
@@ -110,12 +110,12 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "shopping-list" => {
-    "voiceOverLabels" => ["Shopping", "List Actions", "Add", "Clear checked"],
-    "keyboardNavigationTargets" => ["shopping item fields", "shopping header menu", "shopping SpoonDock"],
+    "voiceOverLabels" => ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"],
+    "keyboardNavigationTargets" => ["shopping item fields", "shopping header menu", "native tab bar"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
-    "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "SpoonDockContext.shoppingList"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "TabView"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
   }
 }.freeze
 

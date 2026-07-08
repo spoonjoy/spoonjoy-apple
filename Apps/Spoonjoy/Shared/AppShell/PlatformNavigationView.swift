@@ -142,11 +142,52 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
-        routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                compactBottomChrome
+        NavigationStack {
+            compactNavigationContent
+            .navigationTitle(title(for: navigation.route))
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar {
+                compactNavigationToolbar
             }
-            .background(KitchenTableTheme.bone.ignoresSafeArea())
+        }
+        .navigationDestination(for: AppRoute.self) { route in
+            destinationContent(for: route)
+        }
+        .task(id: spotlightIndexIdentity) {
+            await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
+        }
+#if canImport(AppIntents)
+        .spoonjoyEntityActivity(routeEntityIdentifier)
+#endif
+        .task(id: contentState.environment.rawValue) {
+            if let report = try? await syncTriggerCoordinator.handle(.foreground) {
+                for request in report.shoppingEntityPurgeRequests {
+                    await purgeShoppingEntityIndexesHandler(request)
+                }
+                for request in report.spoonEntityPurgeRequests {
+                    await purgeSpoonEntityIndexesHandler(request)
+                }
+                for request in report.captureDraftEntityPurgeRequests {
+                    await purgeCaptureDraftEntityIndexesHandler(request)
+                }
+                for request in report.chefProfileEntityPurgeRequests {
+                    await purgeChefProfileEntityIndexesHandler(request)
+                }
+                for request in report.recipeCookbookEntityPurgeRequests {
+                    await purgeRecipeCookbookEntityIndexesHandler(request)
+                }
+            }
+        }
+        .onChange(of: navigation.route) { _, route in
+            if !routeKeepsSearchFocus(route) {
+                isSearchFieldFocused = false
+            }
+            if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
+                liveSearchRequestMarker = nil
+            }
+        }
     }
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
@@ -196,7 +237,7 @@ struct PlatformNavigationView: View {
             detailContentWithShellStatus
                 .navigationTitle(title(for: navigation.route))
 #if os(iOS)
-                .navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)
+                .navigationBarTitleDisplayMode(.large)
                 .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
         }
@@ -238,6 +279,50 @@ struct PlatformNavigationView: View {
         }
     }
 
+    @ViewBuilder private var compactNavigationContent: some View {
+        if navigation.route.isCookModeActive {
+            compactImmersiveRouteContent(for: navigation.route)
+        } else {
+            compactTabShell
+        }
+    }
+
+    private var compactTabShell: some View {
+        TabView(selection: compactTabSelection) {
+            compactTabContent(for: .kitchen)
+                .tabItem {
+                    Label("Kitchen", systemImage: "house")
+                }
+                .tag(AppSection.kitchen)
+
+            compactTabContent(for: .recipes)
+                .tabItem {
+                    Label("Recipes", systemImage: "book.closed")
+                }
+                .tag(AppSection.recipes)
+
+            compactTabContent(for: .cookbooks)
+                .tabItem {
+                    Label("Cookbooks", systemImage: "books.vertical")
+                }
+                .tag(AppSection.cookbooks)
+
+            compactTabContent(for: .shoppingList)
+                .tabItem {
+                    Label("Shopping", systemImage: "checklist")
+                }
+                .tag(AppSection.shoppingList)
+
+            compactTabContent(for: .search)
+                .tabItem {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
+                .tag(AppSection.search)
+        }
+        .tint(KitchenTableTheme.action)
+        .background(KitchenTableTheme.bone.ignoresSafeArea())
+    }
+
     private var shouldShowShellOfflineStatus: Bool {
         guard !routeOwnsOfflineStatus(navigation.route) else {
             return false
@@ -247,27 +332,6 @@ struct PlatformNavigationView: View {
             return false
         case .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             return true
-        }
-    }
-
-    private var shouldShowShellSpoonDock: Bool {
-        switch navigation.route {
-        case .recipeDetail(_, .cook), .shoppingList:
-            false
-        case .kitchen,
-             .recipes,
-             .recipeDetail,
-             .recipeEditor,
-             .recipeCoverControls,
-             .cookbooks,
-             .cookbookDetail,
-             .profile,
-             .profileGraph,
-             .search,
-             .capture,
-             .settings,
-             .unknownLink:
-            true
         }
     }
 
@@ -296,30 +360,6 @@ struct PlatformNavigationView: View {
 
             if shouldShowShellOfflineStatus && !usesCompactMobileShell {
                 shellOfflineStatusBar
-            }
-        }
-    }
-
-    @ViewBuilder private var compactBottomChrome: some View {
-        if shouldShowShellOfflineStatus || shouldShowShellSpoonDock {
-            VStack(spacing: 10) {
-                if shouldShowShellOfflineStatus {
-                    compactOfflineStatusBar
-                }
-
-                if shouldShowShellSpoonDock {
-                    SpoonDock(context: spoonDockContext)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .background(KitchenTableTheme.bone)
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.8))
-                    .frame(height: 1)
             }
         }
     }
@@ -360,6 +400,20 @@ struct PlatformNavigationView: View {
 
     @ViewBuilder private var detailContent: some View {
         destinationContent(for: navigation.route)
+    }
+
+    @ViewBuilder private func compactImmersiveRouteContent(for route: AppRoute) -> some View {
+        VStack(spacing: 0) {
+            if shouldShowShellOfflineStatus {
+                compactOfflineStatusBar
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+
+            destinationContent(for: route)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 
     @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
@@ -472,7 +526,6 @@ struct PlatformNavigationView: View {
             ShoppingListView(
                 viewModel: shoppingViewModel,
                 actionDidPlan: performShoppingAction,
-                openKitchen: { openRoute(.kitchen) },
                 openSearch: openSearchFromDock,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
@@ -588,99 +641,159 @@ struct PlatformNavigationView: View {
             .tag(section)
     }
 
-    private var spoonDockContext: SpoonDockContext {
-        switch navigation.route {
+    private var compactTabSelection: Binding<AppSection> {
+        Binding(
+            get: { compactTabSection(for: navigation.route) },
+            set: { section in
+                navigateToCompactTab(section)
+            }
+        )
+    }
+
+    @ViewBuilder private func compactTabContent(for section: AppSection) -> some View {
+        VStack(spacing: 0) {
+            if shouldShowShellOfflineStatus && section == compactTabSection(for: navigation.route) {
+                compactOfflineStatusBar
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+
+            destinationContent(for: compactPresentedRoute(for: section))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(KitchenTableTheme.bone)
+    }
+
+    private func compactPresentedRoute(for section: AppSection) -> AppRoute {
+        compactTabSection(for: navigation.route) == section
+            ? navigation.route
+            : compactRootRoute(for: section)
+    }
+
+    private func compactRootRoute(for section: AppSection) -> AppRoute {
+        switch section {
         case .kitchen:
-            SpoonDockContext.kitchen(
-                capture: { openRoute(.capture) },
-                search: openSearchFromDock,
-                shopping: { openRoute(.shoppingList) }
-            )
+            .kitchen
         case .recipes:
-            SpoonDockContext.recipes(
-                kitchen: { openRoute(.kitchen) },
-                capture: { openRoute(.capture) },
-                search: openSearchFromDock,
-                shopping: { openRoute(.shoppingList) }
-            )
-        case .recipeDetail(let id, .detail):
-            SpoonDockContext.recipeDetail(
-                back: { openRoute(.recipes) },
-                cook: { startCooking(id) },
-                save: { openRoute(.recipeEditor(id: id)) },
-                shareURL: NativeSharePayload.publicRoute(navigation.route)?.publicURL
-            )
-        case .recipeDetail(let id, .cook):
-            SpoonDockContext.cookMode(
-                previous: { openRecipe(id) },
-                next: { startCooking(id) },
-                stepTitle: "Step"
-            )
+            .recipes
+        case .cookbooks:
+            .cookbooks
         case .shoppingList:
-            SpoonDockContext.shoppingList(
-                kitchen: { openRoute(.kitchen) },
-                add: { openRoute(.shoppingList) },
-                search: openSearchFromDock,
-                clearChecked: { openRoute(.shoppingList) }
-            )
-        case .search(_, let scope):
-            SpoonDockContext.search(
-                kitchen: { openRoute(.kitchen) },
-                capture: { openRoute(.capture) },
-                scopeTitle: label(for: scope),
-                shopping: { openRoute(.shoppingList) }
-            )
+            .shoppingList
+        case .search:
+            normalizedSearch(search).route
         case .capture:
-            SpoonDockContext.capture(
-                back: { openRoute(.kitchen) },
-                settings: { openRoute(.settings) }
-            )
+            .capture
         case .settings:
-            SpoonDockContext.settings(
-                back: { openRoute(.kitchen) },
-                retry: retrySyncFromDock,
-                search: openSearchFromDock
-            )
-        case .recipeEditor, .recipeCoverControls:
-            SpoonDockContext.generic(
-                title: "Recipes",
-                back: { openRoute(.recipes) },
-                search: openSearchFromDock,
-                shopping: { openRoute(.shoppingList) }
-            )
+            .settings
+        }
+    }
+
+    private func compactTabSection(for route: AppRoute) -> AppSection {
+        switch route {
+        case .kitchen:
+            .kitchen
+        case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
+            .recipes
         case .cookbooks, .cookbookDetail:
-            SpoonDockContext.generic(
-                title: "Cookbooks",
-                back: { openRoute(.kitchen) },
-                search: openSearchFromDock,
-                shopping: { openRoute(.shoppingList) }
-            )
+            .cookbooks
+        case .shoppingList:
+            .shoppingList
+        case .search:
+            .search
         case .profile, .profileGraph:
-            SpoonDockContext.generic(
-                title: "Profile",
-                back: { openRoute(.kitchen) },
-                search: openSearchFromDock,
-                shopping: { openRoute(.shoppingList) }
-            )
-        case .unknownLink:
-            SpoonDockContext.generic(
-                title: "Spoonjoy",
-                back: { openRoute(.kitchen) },
-                search: openSearchFromDock,
-                shopping: { openRoute(.shoppingList) }
-            )
+            .search
+        case .capture, .settings, .unknownLink:
+            .kitchen
+        }
+    }
+
+    private func navigateToCompactTab(_ section: AppSection) {
+        if section != .search {
+            isSearchFieldFocused = false
+        }
+        switch section {
+        case .kitchen:
+            navigation.navigate(to: .kitchen)
+        case .recipes:
+            navigation.navigate(to: .recipes)
+        case .cookbooks:
+            navigation.navigate(to: .cookbooks)
+        case .shoppingList:
+            navigation.navigate(to: .shoppingList)
+        case .search:
+            Task {
+                await performSearch(search)
+            }
+        case .capture:
+            navigation.navigate(to: .capture)
+        case .settings:
+            navigation.navigate(to: .settings)
+        }
+    }
+
+    @ToolbarContentBuilder private var compactNavigationToolbar: some ToolbarContent {
+#if os(iOS)
+        if let backAction = compactBackAction(for: navigation.route) {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    openRoute(backAction.route)
+                } label: {
+                    Label(backAction.title, systemImage: "chevron.backward")
+                }
+                .accessibilityLabel(backAction.accessibilityLabel)
+            }
+        }
+
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {
+                openRoute(.capture)
+            } label: {
+                Label("Capture", systemImage: "camera")
+            }
+            .accessibilityLabel("Capture recipe")
+
+            Menu {
+                Button("Search", systemImage: "magnifyingglass") {
+                    Task {
+                        await performSearch(search)
+                    }
+                }
+                Button("Settings", systemImage: "gearshape") {
+                    openRoute(.settings)
+                }
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
+            }
+            .accessibilityLabel("More")
+        }
+#else
+        ToolbarItem(placement: .automatic) {
+            EmptyView()
+        }
+#endif
+    }
+
+    private func compactBackAction(for route: AppRoute) -> (title: String, accessibilityLabel: String, route: AppRoute)? {
+        switch route {
+        case .recipeDetail(let id, .cook):
+            (title: "Recipe", accessibilityLabel: "Back to recipe", route: .recipeDetail(id: id, presentation: .detail))
+        case .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
+            (title: "Recipes", accessibilityLabel: "Back to Recipes", route: .recipes)
+        case .cookbookDetail:
+            (title: "Cookbooks", accessibilityLabel: "Back to Cookbooks", route: .cookbooks)
+        case .profile, .profileGraph:
+            (title: "Search", accessibilityLabel: "Back to Search", route: normalizedSearch(search).route)
+        case .capture, .settings, .unknownLink:
+            (title: "Kitchen", accessibilityLabel: "Back to Kitchen", route: .kitchen)
+        case .kitchen, .recipes, .cookbooks, .shoppingList, .search:
+            nil
         }
     }
 
     private func openSearchFromDock() {
         Task {
             await performSearch(search)
-        }
-    }
-
-    private func retrySyncFromDock() {
-        Task {
-            await retrySync()
         }
     }
 
@@ -712,7 +825,9 @@ struct PlatformNavigationView: View {
         switch route {
         case .kitchen:
             "Kitchen"
-        case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
+        case .recipeDetail(_, .cook):
+            "Cook"
+        case .recipes, .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
