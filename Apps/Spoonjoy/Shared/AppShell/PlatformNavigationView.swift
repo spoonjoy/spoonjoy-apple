@@ -13,6 +13,9 @@ struct PlatformNavigationView: View {
     @Binding var search: SearchState
 
     @Environment(\.openURL) private var openURL
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+#endif
     @FocusState private var isSearchFieldFocused: Bool
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
@@ -118,70 +121,109 @@ struct PlatformNavigationView: View {
 
     var body: some View {
         let spotlightPayload = spotlightIndexPayload
-        NavigationSplitView {
-            sidebar
-                .navigationTitle("Spoonjoy")
-        } detail: {
-            NavigationStack {
-                detailContentWithShellStatus
-                    .navigationTitle(title(for: navigation.route))
-#if os(iOS)
-                    .navigationBarTitleDisplayMode(.large)
-#endif
-            }
-            .navigationDestination(for: AppRoute.self) { route in
-                destinationContent(for: route)
-            }
-            .searchable(text: searchText, prompt: "Search Spoonjoy")
-            .searchFocused($isSearchFieldFocused)
-            .searchScopes(searchScope) {
-                ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                    Text(label(for: scope)).tag(scope)
-                }
-            }
-            .onSubmit(of: .search) {
-                Task {
-                    await performSearch(search)
-                }
-            }
-            .spoonjoyToolbar(navigation: $navigation, search: $search)
-            .task(id: spotlightIndexIdentity) {
-                await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
-            }
-#if canImport(AppIntents)
-            .spoonjoyEntityActivity(routeEntityIdentifier)
-#endif
-            .task(id: contentState.environment.rawValue) {
-                if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                    for request in report.shoppingEntityPurgeRequests {
-                        await purgeShoppingEntityIndexesHandler(request)
-                    }
-                    for request in report.spoonEntityPurgeRequests {
-                        await purgeSpoonEntityIndexesHandler(request)
-                    }
-                    for request in report.captureDraftEntityPurgeRequests {
-                        await purgeCaptureDraftEntityIndexesHandler(request)
-                    }
-                    for request in report.chefProfileEntityPurgeRequests {
-                        await purgeChefProfileEntityIndexesHandler(request)
-                    }
-                    for request in report.recipeCookbookEntityPurgeRequests {
-                        await purgeRecipeCookbookEntityIndexesHandler(request)
-                    }
-                }
-            }
-            .onChange(of: navigation.route) { _, route in
-                if !routeKeepsSearchFocus(route) {
-                    isSearchFieldFocused = false
-                }
-                if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
-                    liveSearchRequestMarker = nil
-                }
+        Group {
+            if usesCompactMobileShell {
+                compactMobileShell(spotlightPayload: spotlightPayload)
+            } else {
+                desktopClassShell(spotlightPayload: spotlightPayload)
             }
         }
 #if os(macOS)
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
 #endif
+    }
+
+    private var usesCompactMobileShell: Bool {
+#if os(iOS)
+        horizontalSizeClass == .compact
+#else
+        false
+#endif
+    }
+
+    @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
+        routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false)
+            .safeAreaInset(edge: .bottom) {
+                SpoonDock(context: spoonDockContext)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
+    }
+
+    @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
+        NavigationSplitView {
+            sidebar
+                .navigationTitle("Spoonjoy")
+        } detail: {
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true)
+        }
+    }
+
+    @ViewBuilder private func routeNavigationStack(spotlightPayload: SpotlightIndexPayload, showsToolbar: Bool) -> some View {
+        if showsToolbar {
+            baseRouteNavigationStack(spotlightPayload: spotlightPayload)
+                .spoonjoyToolbar(navigation: $navigation, search: $search)
+        } else {
+            baseRouteNavigationStack(spotlightPayload: spotlightPayload)
+        }
+    }
+
+    private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload) -> some View {
+        NavigationStack {
+            detailContentWithShellStatus
+                .navigationTitle(title(for: navigation.route))
+#if os(iOS)
+                .navigationBarTitleDisplayMode(.large)
+#endif
+        }
+        .navigationDestination(for: AppRoute.self) { route in
+            destinationContent(for: route)
+        }
+        .searchable(text: searchText, prompt: "Search Spoonjoy")
+        .searchFocused($isSearchFieldFocused)
+        .searchScopes(searchScope) {
+            ForEach(availableSearchScopes, id: \.rawValue) { scope in
+                Text(label(for: scope)).tag(scope)
+            }
+        }
+        .onSubmit(of: .search) {
+            Task {
+                await performSearch(search)
+            }
+        }
+        .task(id: spotlightIndexIdentity) {
+            await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
+        }
+#if canImport(AppIntents)
+        .spoonjoyEntityActivity(routeEntityIdentifier)
+#endif
+        .task(id: contentState.environment.rawValue) {
+            if let report = try? await syncTriggerCoordinator.handle(.foreground) {
+                for request in report.shoppingEntityPurgeRequests {
+                    await purgeShoppingEntityIndexesHandler(request)
+                }
+                for request in report.spoonEntityPurgeRequests {
+                    await purgeSpoonEntityIndexesHandler(request)
+                }
+                for request in report.captureDraftEntityPurgeRequests {
+                    await purgeCaptureDraftEntityIndexesHandler(request)
+                }
+                for request in report.chefProfileEntityPurgeRequests {
+                    await purgeChefProfileEntityIndexesHandler(request)
+                }
+                for request in report.recipeCookbookEntityPurgeRequests {
+                    await purgeRecipeCookbookEntityIndexesHandler(request)
+                }
+            }
+        }
+        .onChange(of: navigation.route) { _, route in
+            if !routeKeepsSearchFocus(route) {
+                isSearchFieldFocused = false
+            }
+            if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
+                liveSearchRequestMarker = nil
+            }
+        }
     }
 
     private var shouldShowShellOfflineStatus: Bool {
@@ -474,6 +516,99 @@ struct PlatformNavigationView: View {
     private func sidebarLink(section: AppSection, title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .tag(section)
+    }
+
+    private var spoonDockContext: SpoonDockContext {
+        switch navigation.route {
+        case .kitchen:
+            SpoonDockContext.kitchen(
+                capture: { openRoute(.capture) },
+                search: openSearchFromDock,
+                shopping: { openRoute(.shoppingList) }
+            )
+        case .recipes:
+            SpoonDockContext.recipes(
+                capture: { openRoute(.capture) },
+                search: openSearchFromDock,
+                shopping: { openRoute(.shoppingList) }
+            )
+        case .recipeDetail(let id, .detail):
+            SpoonDockContext.recipeDetail(
+                back: { openRoute(.recipes) },
+                cook: { startCooking(id) },
+                save: { openRoute(.recipeEditor(id: id)) },
+                shareURL: NativeSharePayload.publicRoute(navigation.route)?.publicURL
+            )
+        case .recipeDetail(let id, .cook):
+            SpoonDockContext.cookMode(
+                previous: { openRecipe(id) },
+                next: { startCooking(id) },
+                stepTitle: "Step"
+            )
+        case .shoppingList:
+            SpoonDockContext.shoppingList(
+                add: { openRoute(.shoppingList) },
+                search: openSearchFromDock,
+                clearChecked: { openRoute(.shoppingList) }
+            )
+        case .search(_, let scope):
+            SpoonDockContext.search(
+                capture: { openRoute(.capture) },
+                scopeTitle: label(for: scope),
+                shopping: { openRoute(.shoppingList) }
+            )
+        case .capture:
+            SpoonDockContext.capture(
+                back: { openRoute(.kitchen) },
+                settings: { openRoute(.settings) }
+            )
+        case .settings:
+            SpoonDockContext.settings(
+                back: { openRoute(.kitchen) },
+                retry: retrySyncFromDock,
+                search: openSearchFromDock
+            )
+        case .recipeEditor, .recipeCoverControls:
+            SpoonDockContext.generic(
+                title: "Recipes",
+                back: { openRoute(.recipes) },
+                search: openSearchFromDock,
+                shopping: { openRoute(.shoppingList) }
+            )
+        case .cookbooks, .cookbookDetail:
+            SpoonDockContext.generic(
+                title: "Cookbooks",
+                back: { openRoute(.kitchen) },
+                search: openSearchFromDock,
+                shopping: { openRoute(.shoppingList) }
+            )
+        case .profile, .profileGraph:
+            SpoonDockContext.generic(
+                title: "Profile",
+                back: openSearchFromDock,
+                search: openSearchFromDock,
+                shopping: { openRoute(.shoppingList) }
+            )
+        case .unknownLink:
+            SpoonDockContext.generic(
+                title: "Spoonjoy",
+                back: { openRoute(.kitchen) },
+                search: openSearchFromDock,
+                shopping: { openRoute(.shoppingList) }
+            )
+        }
+    }
+
+    private func openSearchFromDock() {
+        Task {
+            await performSearch(search)
+        }
+    }
+
+    private func retrySyncFromDock() {
+        Task {
+            await retrySync()
+        }
     }
 
     private func navigateToSidebar(_ section: AppSection) {

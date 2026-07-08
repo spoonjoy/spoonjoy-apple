@@ -22,8 +22,7 @@ struct NativeMobileDesignContractTests {
                 "NavigationSplitView",
                 ".safeAreaInset(edge: .bottom)",
                 "SpoonDock(",
-                "SpoonDockContext",
-                "SpoonDockAction"
+                "SpoonDockContext"
             ]
         )
 

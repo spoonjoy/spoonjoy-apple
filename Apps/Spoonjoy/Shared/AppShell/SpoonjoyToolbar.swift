@@ -15,16 +15,11 @@ struct SpoonjoyToolbar: ViewModifier {
                     ShareActions(route: navigation.route)
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button("Kitchen") { navigation.navigate(to: .kitchen) }
-                        Button("Capture Draft") { navigation.navigate(to: .capture) }
-                        Button("Settings") { navigation.navigate(to: .settings) }
-                        Button(search.hasQuery ? "Open Search" : "Search All") {
-                            search.apply(route: search.route)
-                            navigation.navigate(to: search.route)
-                        }
+                    Button {
+                        search.apply(route: search.route)
+                        navigation.navigate(to: search.route)
                     } label: {
-                        Label("Actions", systemImage: "ellipsis.circle")
+                        Label(search.hasQuery ? "Open Search" : "Search All", systemImage: "magnifyingglass")
                     }
                 }
                 ToolbarItem(placement: .secondaryAction) {
