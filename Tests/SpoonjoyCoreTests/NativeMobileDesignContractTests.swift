@@ -1,0 +1,124 @@
+import Foundation
+import Testing
+
+@Suite("Native mobile design contract")
+struct NativeMobileDesignContractTests {
+    @Test("compact iOS shell owns SpoonDock instead of generic toolbar navigation")
+    func compactIOSShellOwnsSpoonDockInsteadOfGenericToolbarNavigation() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let toolbarPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let toolbar = uncommentedSwift(try readRepoFile(toolbarPath))
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "@Environment(\\.horizontalSizeClass)",
+                "private var usesCompactMobileShell: Bool",
+                "compactMobileShell",
+                "desktopClassShell",
+                "NavigationStack",
+                "NavigationSplitView",
+                ".safeAreaInset(edge: .bottom)",
+                "SpoonDock(",
+                "SpoonDockContext",
+                "SpoonDockAction"
+            ]
+        )
+
+        expectContent(
+            toolbar,
+            in: toolbarPath,
+            contains: [
+                "SpoonjoyToolbar",
+                "ShareActions"
+            ],
+            forbids: [
+                "Button(\"Kitchen\")",
+                "Button(\"Capture Draft\")",
+                "Button(\"Settings\")"
+            ]
+        )
+    }
+
+    @Test("SpoonDock defines route matrix glass controls and accessibility labels")
+    func spoonDockDefinesRouteMatrixGlassControlsAndAccessibilityLabels() throws {
+        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let dock = uncommentedSwift(try readRepoFile(dockPath))
+
+        expectContent(
+            dock,
+            in: dockPath,
+            contains: [
+                "struct SpoonDock: View",
+                "struct SpoonDockContext",
+                "struct SpoonDockAction",
+                "enum SpoonDockActionRole",
+                "leftZone",
+                "centerZone",
+                "rightTools",
+                "buttonStyle(.glass)",
+                "buttonStyle(.glassProminent)",
+                ".background(.ultraThinMaterial",
+                ".accessibilityLabel",
+                "Kitchen",
+                "Recipes",
+                "Cook",
+                "Step",
+                "Shopping",
+                "Search",
+                "Capture",
+                "Settings",
+                "clear checked"
+            ]
+        )
+    }
+
+    @Test("visual audit records all current feedback failures and no ready item can disappear")
+    func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
+        let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"
+        let audit = try readRepoFile(auditPath)
+
+        expectContent(
+            audit,
+            in: auditPath,
+            contains: [
+                "F1: Recipe action row overflows compact iPhone width",
+                "F2: Top toolbar floats over content instead of belonging to app structure",
+                "F3: `List` inside `ScrollView` creates a broken nested scroll/card island",
+                "F4: Cookbook shelf image treatment repeats/crops awkwardly",
+                "F5: Missing SpoonDock means mobile has no contextual handrail",
+                "F6: Typography and spacing lose the Kitchen Table hierarchy",
+                "| Kitchen | `Kitchen` place label | `Capture` primary action | Search, Shopping |",
+                "| Recipe detail | Back to Kitchen or Recipes | `Cook` primary action | Save/Spoon, Share |",
+                "| Cook mode | Previous step | Step status | Next step |",
+                "| Shopping list | `List` place label | `Add` primary action | Search, Clear checked |"
+            ]
+        )
+    }
+}
+
+private let mobileDesignRepoURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+
+private func readRepoFile(_ relativePath: String) throws -> String {
+    try String(contentsOf: mobileDesignRepoURL.appendingPathComponent(relativePath), encoding: .utf8)
+}
+
+private func uncommentedSwift(_ content: String) -> String {
+    content
+        .replacingOccurrences(of: #"/\*.*?\*/"#, with: "", options: .regularExpression)
+        .replacingOccurrences(of: #"(?m)//.*$"#, with: "", options: .regularExpression)
+}
+
+private func expectContent(
+    _ content: String,
+    in relativePath: String,
+    contains requiredTokens: [String] = [],
+    forbids forbiddenTokens: [String] = []
+) {
+    let missing = requiredTokens.filter { !content.contains($0) }
+    let forbidden = forbiddenTokens.filter { content.contains($0) }
+    #expect(missing.isEmpty, Comment(rawValue: "\(relativePath) missing tokens: \(missing.joined(separator: ", "))"))
+    #expect(forbidden.isEmpty, Comment(rawValue: "\(relativePath) contains forbidden tokens: \(forbidden.joined(separator: ", "))"))
+}

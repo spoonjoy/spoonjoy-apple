@@ -54,12 +54,12 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0: Setup/Research
+### ✅ Unit 0: Setup/Research
 **What**: Confirm current visual evidence, create the audit artifact, read native design/SpoonDock sources, verify SwiftUI Liquid Glass API availability, and identify exact files/tests to touch.
 **Output**: Planning doc, visual audit artifact, and this doing doc.
 **Acceptance**: Audit contains failures F1-F6, SpoonDock matrix, and source references; reviewer convergence recorded in planning progress log.
 
-### ⬜ Unit 1a: Compact Shell And SpoonDock — Tests
+### ✅ Unit 1a: Compact Shell And SpoonDock — Tests
 **What**: Add failing source-contract coverage for compact iOS `NavigationStack`, `SpoonDock`, `SpoonDockContext`, three-zone route matrix, glass/material control layer, and removal of generic compact toolbar dependency.
 **Acceptance**: Focused test or script fails red because `SpoonDock` and compact shell tokens do not exist yet.
 
@@ -115,3 +115,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 
 ## Progress Log
 - 2026-07-07 21:15 Created from planning doc
+- 2026-07-07 21:18 Unit 1a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing `SpoonDock`, missing compact mobile shell, and generic toolbar route buttons.
