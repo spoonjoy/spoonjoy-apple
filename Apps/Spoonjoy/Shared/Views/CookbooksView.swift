@@ -2,6 +2,9 @@ import SpoonjoyCore
 import SwiftUI
 
 struct CookbooksView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let viewModel: CookbookSurfaceViewModel
     let openRoute: (AppRoute) -> Void
     let performCookbookAction: (@MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?)?
@@ -27,27 +30,30 @@ struct CookbooksView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                statusBanner
+        KitchenTablePage {
+            header
+            statusBanner
 
-                if let emptyState = list.emptyState {
-                    ContentUnavailableView(
-                        emptyState.title,
-                        systemImage: emptyState.systemImage,
-                        description: Text(emptyState.message)
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 260)
-                } else {
-                    CookbookShelf(rows: list.rows, openRoute: openRoute)
-                }
+            if let emptyState = list.emptyState {
+                KitchenEmptySection(
+                    title: "\(emptyState.title). \(emptyState.message)",
+                    systemImage: emptyState.systemImage,
+                    tint: KitchenTableTheme.brass
+                )
+            } else {
+                CookbookShelf(rows: list.rows, openRoute: openRoute)
             }
-            .padding()
         }
-        .background(KitchenTableTheme.bone)
         .task {
             await loadCookbooks()
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "cookbooks",
+                source: "CookbooksView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
         .sheet(isPresented: $isPresentingCreate) {
             CookbookCreateSheet(
@@ -60,16 +66,7 @@ struct CookbooksView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Cookbooks")
-                    .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                Text(list.resultCountLabel)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
-            }
-            Spacer()
+        KitchenTableHeader(eyebrow: "Library", title: "Cookbooks", subtitle: list.resultCountLabel) {
             if canCreateCookbook {
                 Button {
                     newCookbookTitle = ""
@@ -78,7 +75,7 @@ struct CookbooksView: View {
                 } label: {
                     Label("New Cookbook", systemImage: "plus")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
             }
         }
     }
@@ -206,11 +203,7 @@ struct CookbookShelf: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Cookbook Shelf")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
+        KitchenTableSection(title: "Cookbook Shelf", subtitle: "\(rows.count) \(rows.count == 1 ? "shelf" : "shelves")") {
             if rows.isEmpty {
                 KitchenEmptySection(
                     title: "No cookbooks saved yet",
@@ -218,27 +211,51 @@ struct CookbookShelf: View {
                     tint: KitchenTableTheme.brass
                 )
             } else {
-                ScrollView(.horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        ForEach(rows) { row in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Button {
-                                    openRoute(row.openRoute)
-                                } label: {
-                                    CookbookCover(row: row)
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in
+                        HStack(spacing: 10) {
+                            Button {
+                                openRoute(row.openRoute)
+                            } label: {
+                                KitchenTableObjectRow(title: row.title, subtitle: row.recipeCountLabel) {
+                                    CookbookThumb(row: row)
+                                } trailing: {
+                                    Image(systemName: "chevron.forward")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(KitchenTableTheme.brass)
                                 }
-                                .buttonStyle(.plain)
+                            }
+                            .buttonStyle(.plain)
 
-                                if let payload = row.sharePayload, let publicURL = payload.publicURL {
-                                    ShareLink(item: publicURL) {
-                                        Label("Share", systemImage: "square.and.arrow.up")
-                                    }
-                                    .font(KitchenTableTheme.uiLabel)
+                            if let payload = row.sharePayload, let publicURL = payload.publicURL {
+                                ShareLink(item: publicURL) {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .font(.body.weight(.semibold))
+                                        .frame(width: 44, height: 44)
+                                        .foregroundStyle(KitchenTableTheme.brass)
                                 }
+                                .accessibilityLabel("Share \(row.title)")
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+private struct CookbookThumb: View {
+    let row: CookbookSurfaceRowViewModel
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                .fill(KitchenTableTheme.brass.opacity(0.16))
+            if let imageURL = row.cover.primaryImageURL {
+                RecipeCoverImage(url: imageURL)
+            } else {
+                Image(systemName: "books.vertical")
+                    .foregroundStyle(KitchenTableTheme.brass)
             }
         }
     }
@@ -373,16 +390,12 @@ private struct CookbookDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                header
-                statusBanner
-                recipes
-                ownerTools
-            }
-            .padding()
+        KitchenTablePage {
+            header
+            statusBanner
+            recipes
+            ownerTools
         }
-        .background(KitchenTableTheme.bone)
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
             isPresented: Binding(
@@ -412,22 +425,18 @@ private struct CookbookDetailView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             CookbookCover(row: CookbookSurfaceRowViewModel(summary: CookbookSummary(cookbook: viewModel.cookbook)))
-            VStack(alignment: .leading, spacing: 8) {
-                Text(viewModel.title)
-                    .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                Text(viewModel.chefLine)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
-                Text(viewModel.recipeCountLabel)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
+
+            KitchenTableHeader(
+                eyebrow: "Cookbook",
+                title: viewModel.title,
+                subtitle: "\(viewModel.chefLine) - \(viewModel.recipeCountLabel)"
+            ) {
                 ShareLink(item: shareURL) {
                     Label("Share Cookbook", systemImage: "square.and.arrow.up")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }
         }
     }

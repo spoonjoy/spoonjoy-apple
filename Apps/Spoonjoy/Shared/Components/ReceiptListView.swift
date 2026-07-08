@@ -17,36 +17,38 @@ struct ReceiptListView: View {
     }
 
     var body: some View {
-        List {
-            ForEach(sections, id: \.title) { section in
-                Section(section.title) {
-                    ForEach(section.items, id: \.id) { item in
-                        Toggle(isOn: checkedBinding(for: item)) {
-                            receiptRow(item)
-                        }
-                        .toggleStyle(.largeCheck)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                deleteItem(item)
-                            } label: {
-                                Label("Remove", systemImage: "trash")
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                ForEach(sections, id: \.title) { section in
+                    KitchenTableSection(title: section.title) {
+                        ForEach(section.items, id: \.id) { item in
+                            Toggle(isOn: checkedBinding(for: item)) {
+                                receiptRow(item)
                             }
+                            .toggleStyle(.largeCheck)
+#if os(iOS)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    deleteItem(item)
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
 
-                            Button {
-                                setChecked(item, true)
-                            } label: {
-                                Label("Done", systemImage: "checkmark")
+                                Button {
+                                    setChecked(item, true)
+                                } label: {
+                                    Label("Done", systemImage: "checkmark")
+                                }
+                                .tint(KitchenTableTheme.herb)
                             }
-                            .tint(KitchenTableTheme.herb)
+#endif
                         }
                     }
                 }
             }
+            .padding(.horizontal, KitchenTableTheme.pagePadding)
+            .padding(.bottom, KitchenTableTheme.compactDockReserve)
         }
-#if os(iOS)
-        .listStyle(.insetGrouped)
-#endif
-        .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
     }
 
@@ -58,18 +60,12 @@ struct ReceiptListView: View {
     }
 
     private func receiptRow(_ item: ShoppingListItem) -> some View {
-        HStack(spacing: 12) {
-            Label(item.name, systemImage: symbol(for: item))
-                .font(.body)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
-            Spacer()
-
-            Text(item.displayQuantity)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.secondary)
+        KitchenTableReceiptRow(name: item.name, amount: item.displayQuantity) {
+            Image(systemName: symbol(for: item))
+                .font(.body.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.brass)
+                .frame(width: 22)
         }
-        .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText(for: item))
     }

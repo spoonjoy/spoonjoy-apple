@@ -629,7 +629,7 @@ private extension View {
     }
 }
 
-private struct SpoonjoyIdentityMark: View {
+struct SpoonjoyIdentityMark: View {
     var body: some View {
         Image("SpoonjoyMark")
             .resizable()

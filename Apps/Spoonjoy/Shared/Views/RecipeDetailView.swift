@@ -182,30 +182,27 @@ struct RecipeDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                offlineIndicator
-                hero
-                cookbookSpread
-                ingredientReceipt
-                method
-                SpoonCookLogView(
-                    viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
-                    draft: spoonCookLogDraft(viewModel),
-                    actionDidPlan: performSpoonCookLogAction,
-                    draftDidChange: { draft in
-                        recordSpoonCookLogDraft(draft, viewModel.id)
-                    },
-                    conflictDidRequestReview: discardSpoonCookLogConflict,
-                    onDismissOfflineIndicator: onDismissOfflineIndicator
-                )
-                .id(viewModel.id)
-                cookbookSave
-                ownerTools
-            }
-            .padding()
+        KitchenTablePage {
+            offlineIndicator
+            hero
+            recipeActionFlow
+            ingredientReceipt
+            method
+            cookbookSpread
+            SpoonCookLogView(
+                viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
+                draft: spoonCookLogDraft(viewModel),
+                actionDidPlan: performSpoonCookLogAction,
+                draftDidChange: { draft in
+                    recordSpoonCookLogDraft(draft, viewModel.id)
+                },
+                conflictDidRequestReview: discardSpoonCookLogConflict,
+                onDismissOfflineIndicator: onDismissOfflineIndicator
+            )
+            .id(viewModel.id)
+            cookbookSave
+            ownerTools
         }
-        .background(KitchenTableTheme.bone)
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
             isPresented: Binding(
@@ -270,23 +267,32 @@ struct RecipeDetailView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 14) {
             RecipeCoverImage(url: viewModel.cover.imageURL)
-            .frame(maxWidth: .infinity, minHeight: 280)
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-            .overlay(alignment: .bottomLeading) {
-                Text(provenance)
-                    .font(KitchenTableTheme.uiLabel)
-                    .padding(8)
-                    .background(KitchenTableTheme.photoOverlay)
-                    .foregroundStyle(.white)
-            }
-            .accessibilityLabel("\(viewModel.title) cover image")
+                .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
+                .clipped()
+                .overlay(alignment: .bottomLeading) {
+                    Text(provenance)
+                        .font(KitchenTableTheme.uiLabel)
+                        .padding(10)
+                        .background(KitchenTableTheme.photoOverlay, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                        .foregroundStyle(.white)
+                        .padding(12)
+                }
+                .accessibilityLabel("\(viewModel.title) cover image")
+
+            Text("Recipe".uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(1.3)
+                .foregroundStyle(KitchenTableTheme.brass)
 
             Text(viewModel.title)
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
             Text(viewModel.description ?? viewModel.recipe.attribution.creditText)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
 
             Text(viewModel.chefAttribution)
                 .font(KitchenTableTheme.uiLabel)
@@ -301,20 +307,16 @@ struct RecipeDetailView: View {
             if let sourceAttribution = viewModel.sourceAttribution {
                 Label(sourceText(sourceAttribution), systemImage: "link")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
-
-            recipeActionFlow
-
-            actionStatus
         }
     }
 
     private var recipeActionFlow: some View {
-        MobileActionFlow {
+        VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
-        } secondaryActions: {
             recipeSecondaryActions
+            actionStatus
         }
     }
 
@@ -324,9 +326,8 @@ struct RecipeDetailView: View {
                 openRoute(viewModel.actions.startCookingRoute)
             } label: {
                 Label("Start Cooking", systemImage: "fork.knife")
-                    .frame(maxWidth: .infinity, alignment: .center)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
         }
 
         if hasAction(.addToShoppingList) {
@@ -335,7 +336,9 @@ struct RecipeDetailView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
             }
-            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
 
             Button {
                 addRecipeIngredients()
@@ -348,7 +351,7 @@ struct RecipeDetailView: View {
                 .minimumScaleFactor(0.76)
             }
             .disabled(hasIngredientsInShoppingList)
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
         }
     }
 
@@ -381,7 +384,7 @@ struct RecipeDetailView: View {
             } label: {
                 Label("More", systemImage: "ellipsis.circle")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
         }
     }
 
@@ -390,32 +393,15 @@ struct RecipeDetailView: View {
     }
 
     private var ingredientReceipt: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Ingredient Receipt")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
+        KitchenTableSection(title: "Ingredient Receipt") {
             ForEach(viewModel.ingredientReceipt.rows) { ingredient in
-                HStack {
-                    Text(ingredient.name)
-                    Spacer()
-                    Text(ingredient.quantityText)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 6)
+                KitchenTableReceiptRow(name: ingredient.name, amount: ingredient.quantityText)
             }
         }
-        .padding()
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     private var cookbookSpread: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Cookbook Spread")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
+        KitchenTableSection(title: "Cookbook Spread") {
             ForEach(viewModel.recipe.cookbooks, id: \.id) { cookbook in
                 HStack {
                     Label(cookbook.title, systemImage: "book.closed")
@@ -425,17 +411,17 @@ struct RecipeDetailView: View {
                         .foregroundStyle(KitchenTableTheme.brass)
                 }
                 .padding(.vertical, 6)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(KitchenTableTheme.line.opacity(0.35))
+                        .frame(height: 1)
+                }
             }
         }
-        .padding()
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     private var method: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Method")
-                .font(.title2)
+        KitchenTableSection(title: "Method") {
             ForEach(viewModel.methodSections) { section in
                 VStack(alignment: .leading, spacing: 6) {
                     Text("\(section.stepNumber). \(section.title)")
@@ -452,18 +438,21 @@ struct RecipeDetailView: View {
 
                     Text(section.body)
                         .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(KitchenTableTheme.line.opacity(0.35))
+                        .frame(height: 1)
+                }
             }
         }
     }
 
     private var cookbookSave: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Save To Cookbook")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
+        KitchenTableSection(title: "Save To Cookbook") {
             ForEach(viewModel.cookbookSave.availableCookbooks) { cookbook in
                 let isSaved = isCookbookSaved(cookbook.id)
                 HStack {
@@ -498,6 +487,12 @@ struct RecipeDetailView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+                .padding(.vertical, 6)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(KitchenTableTheme.line.opacity(0.35))
+                        .frame(height: 1)
+                }
             }
 
             if hasIngredientsInShoppingList {
@@ -510,11 +505,7 @@ struct RecipeDetailView: View {
 
     @ViewBuilder private var ownerTools: some View {
         if viewModel.ownerTools.isVisible {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Owner Tools")
-                    .font(.title2)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-
+            KitchenTableSection(title: "Owner Tools") {
                 Button {
                     if let editRoute = viewModel.ownerTools.editRoute {
                         openRoute(editRoute)
@@ -769,25 +760,9 @@ struct MobileActionFlow: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: 10) {
-                primaryActions
-                secondaryActions
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                primaryActions
-                secondaryActions
-            }
-
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 10) {
-                GridRow {
-                    primaryActions
-                }
-                GridRow {
-                    secondaryActions
-                }
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            primaryActions
+            secondaryActions
         }
     }
 }

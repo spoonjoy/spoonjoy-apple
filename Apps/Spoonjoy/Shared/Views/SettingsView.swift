@@ -133,81 +133,119 @@ struct SettingsView: View {
     }
 
     private var settingsForm: some View {
-        Form {
+        KitchenTablePage {
+            KitchenTableHeader(
+                eyebrow: "Account",
+                title: "Settings",
+                subtitle: settingsHeaderSubtitle
+            )
             if let settingsSurfaceViewModel {
                 nativeSettings(surface: settingsSurfaceViewModel)
             } else {
                 legacySettings
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
         .tint(KitchenTableTheme.herb)
+    }
+
+    private var settingsHeaderSubtitle: String {
+        if let surface = settingsSurfaceViewModel {
+            "\(surface.data.environment.rawValue.capitalized) - \(sourceLabel(surface.data.source))"
+        } else {
+            "\(authSummary) - \(viewModel.environmentSwitcher.rawValue.capitalized)"
+        }
     }
 
     @ViewBuilder private func nativeSettings(surface: SettingsSurfaceViewModel) -> some View {
         if let profile = surface.profileDraft {
-            Section("Profile") {
-                TextField("Email", text: $profileEmail)
-                TextField("Username", text: $profileUsername)
-                Button("Save Profile") {
-                    planSettingsAction(
-                        .updateProfile(
-                            email: profileEmail.trimmingCharacters(in: .whitespacesAndNewlines),
-                            username: profileUsername.trimmingCharacters(in: .whitespacesAndNewlines),
-                            clientMutationID: "cm_settings_profile_\(UUID().uuidString)"
-                        ),
-                        using: surface.actionPlanner
-                    )
-                }
-                .disabled(profileSaveDisabled(comparedWith: profile))
-                PhotosPicker(selection: $selectedProfilePhotoItem, matching: .images) {
-                    Text("Upload Photo")
-                }
-                .onChange(of: selectedProfilePhotoItem) { _, item in
-                    guard let item else { return }
-                    Task { @MainActor in
-                        await stageProfilePhoto(item, using: surface.actionPlanner)
+            KitchenTableSection(title: "Profile", subtitle: "Public identity and chef card") {
+                SettingsPanel {
+                    settingsTextField("Email", text: $profileEmail)
+                    settingsTextField("Username", text: $profileUsername)
+
+                    Button {
+                        planSettingsAction(
+                            .updateProfile(
+                                email: profileEmail.trimmingCharacters(in: .whitespacesAndNewlines),
+                                username: profileUsername.trimmingCharacters(in: .whitespacesAndNewlines),
+                                clientMutationID: "cm_settings_profile_\(UUID().uuidString)"
+                            ),
+                            using: surface.actionPlanner
+                        )
+                    } label: {
+                        settingsRowLabel("Save Profile", systemImage: "checkmark.circle", prominence: .primary)
                     }
-                }
-                Button("Remove Photo", role: .destructive) {
-                    confirmSettingsAction(
-                        .removeProfilePhoto(clientMutationID: "cm_settings_remove_photo_\(UUID().uuidString)"),
-                        title: "Remove profile photo?",
-                        message: "Your profile photo will be removed. If you are offline, this change will wait to sync.",
-                        confirmButtonTitle: "Remove Photo"
-                    )
+                    .buttonStyle(.plain)
+                    .disabled(profileSaveDisabled(comparedWith: profile))
+
+                    PhotosPicker(selection: $selectedProfilePhotoItem, matching: .images) {
+                        settingsRowLabel("Upload Photo", systemImage: "photo.badge.plus", prominence: .secondary)
+                    }
+                    .onChange(of: selectedProfilePhotoItem) { _, item in
+                        guard let item else { return }
+                        Task { @MainActor in
+                            await stageProfilePhoto(item, using: surface.actionPlanner)
+                        }
+                    }
+
+                    Button(role: .destructive) {
+                        confirmSettingsAction(
+                            .removeProfilePhoto(clientMutationID: "cm_settings_remove_photo_\(UUID().uuidString)"),
+                            title: "Remove profile photo?",
+                            message: "Your profile photo will be removed. If you are offline, this change will wait to sync.",
+                            confirmButtonTitle: "Remove Photo"
+                        )
+                    } label: {
+                        settingsRowLabel("Remove Photo", systemImage: "trash", prominence: .destructive)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .task(id: profileIdentity(profile)) {
                 hydrateProfileDraft(profile)
             }
 
-            Section("Security") {
-                Button("Password") {
-                    planSettingsAction(.managePassword, using: surface.actionPlanner)
-                }
-                .disabled(onlineOnlyActionsDisabled(surface))
-                Button("Passkeys") {
-                    planSettingsAction(.managePasskeys, using: surface.actionPlanner)
-                }
-                .disabled(onlineOnlyActionsDisabled(surface))
-                ForEach(surface.securityRows.filter { $0.id == .providerLinks }, id: \.id) { row in
-                    Button(row.title) {
-                        planSettingsAction(row.action, using: surface.actionPlanner)
+            KitchenTableSection(title: "Security", subtitle: "Online-only account controls") {
+                SettingsPanel {
+                    Button {
+                        planSettingsAction(.managePassword, using: surface.actionPlanner)
+                    } label: {
+                        settingsRowLabel("Password", systemImage: "key", prominence: .secondary)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(onlineOnlyActionsDisabled(surface))
+
+                    Button {
+                        planSettingsAction(.managePasskeys, using: surface.actionPlanner)
+                    } label: {
+                        settingsRowLabel("Passkeys", systemImage: "person.badge.key", prominence: .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onlineOnlyActionsDisabled(surface))
+
+                    ForEach(surface.securityRows.filter { $0.id == .providerLinks }, id: \.id) { row in
+                        Button {
+                            planSettingsAction(row.action, using: surface.actionPlanner)
+                        } label: {
+                            settingsRowLabel(row.title, systemImage: "link", prominence: .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(onlineOnlyActionsDisabled(surface))
+                    }
+
+                    Button(role: .destructive) {
+                        confirmSettingsAction(
+                            .logout,
+                            title: "Sign out?",
+                            message: "Spoonjoy will revoke the local session and send you through the secure sign-out flow.",
+                            confirmButtonTitle: "Sign Out"
+                        )
+                    } label: {
+                        settingsRowLabel("Sign Out", systemImage: "rectangle.portrait.and.arrow.right", prominence: .destructive)
+                    }
+                    .buttonStyle(.plain)
                     .disabled(onlineOnlyActionsDisabled(surface))
                 }
-                Button("Sign Out", role: .destructive) {
-                    confirmSettingsAction(
-                        .logout,
-                        title: "Sign out?",
-                        message: "Spoonjoy will revoke the local session and send you through the secure sign-out flow.",
-                        confirmButtonTitle: "Sign Out"
-                    )
-                }
-                .disabled(onlineOnlyActionsDisabled(surface))
             }
 
             if let notificationAPNsSurfaceViewModel {
@@ -224,26 +262,32 @@ struct SettingsView: View {
                     )
                 }
             } else if let notifications = surface.notificationDraft {
-                Section("Notifications") {
-                    Toggle("Spoons", isOn: $notifySpoonOnMyRecipe)
-                    Toggle("Forks", isOn: $notifyForkOfMyRecipe)
-                    Toggle("Cookbook saves", isOn: $notifyCookbookSaveOfMine)
-                    Toggle("Fellow-chef cooks", isOn: $notifyFellowChefOriginCook)
-                    Button("Save Notifications") {
-                        planSettingsAction(
-                            .updateNotificationPreferences(
-                                SettingsNotificationPreferences(
-                                    notifySpoonOnMyRecipe: notifySpoonOnMyRecipe,
-                                    notifyForkOfMyRecipe: notifyForkOfMyRecipe,
-                                    notifyCookbookSaveOfMine: notifyCookbookSaveOfMine,
-                                    notifyFellowChefOriginCook: notifyFellowChefOriginCook
+                KitchenTableSection(title: "Notifications", subtitle: "Activity worth interrupting dinner prep") {
+                    SettingsPanel {
+                        Toggle("Spoons", isOn: $notifySpoonOnMyRecipe)
+                        Toggle("Forks", isOn: $notifyForkOfMyRecipe)
+                        Toggle("Cookbook saves", isOn: $notifyCookbookSaveOfMine)
+                        Toggle("Fellow-chef cooks", isOn: $notifyFellowChefOriginCook)
+
+                        Button {
+                            planSettingsAction(
+                                .updateNotificationPreferences(
+                                    SettingsNotificationPreferences(
+                                        notifySpoonOnMyRecipe: notifySpoonOnMyRecipe,
+                                        notifyForkOfMyRecipe: notifyForkOfMyRecipe,
+                                        notifyCookbookSaveOfMine: notifyCookbookSaveOfMine,
+                                        notifyFellowChefOriginCook: notifyFellowChefOriginCook
+                                    ),
+                                    clientMutationID: "cm_settings_notifications_\(UUID().uuidString)"
                                 ),
-                                clientMutationID: "cm_settings_notifications_\(UUID().uuidString)"
-                            ),
-                            using: surface.actionPlanner
-                        )
+                                using: surface.actionPlanner
+                            )
+                        } label: {
+                            settingsRowLabel("Save Notifications", systemImage: "bell.badge", prominence: .primary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(notificationSaveDisabled(comparedWith: notifications))
                     }
-                    .disabled(notificationSaveDisabled(comparedWith: notifications))
                 }
                 .task(id: notificationIdentity(notifications)) {
                     hydrateNotificationDraft(notifications)
@@ -252,155 +296,257 @@ struct SettingsView: View {
             }
 
             if surface.data.tokenManagementAvailability == .available {
-                Section("API Tokens") {
-                    if let createdCredentialValue {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("New token")
-                            Text(createdCredentialValue)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                            if let createdCredentialPrefix {
-                                Text(createdCredentialPrefix)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                KitchenTableSection(title: "API Tokens", subtitle: "Create and revoke app credentials") {
+                    SettingsPanel {
+                        if let createdCredentialValue {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("New token")
+                                    .font(KitchenTableTheme.uiLabel)
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                                Text(createdCredentialValue)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundStyle(KitchenTableTheme.charcoal)
+                                    .textSelection(.enabled)
+                                if let createdCredentialPrefix {
+                                    Text(createdCredentialPrefix)
+                                        .font(KitchenTableTheme.uiLabel)
+                                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                                }
                             }
                         }
-                    }
-                    ForEach(surface.apiTokenRows) { token in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(token.name)
-                            Text(token.tokenPrefix)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+
+                        ForEach(surface.apiTokenRows) { token in
+                            VStack(alignment: .leading, spacing: 8) {
+                                settingsFact(token.name, value: token.tokenPrefix)
+                                Button(role: .destructive) {
+                                    confirmSettingsAction(
+                                        .revokeAPIToken(credentialID: token.id),
+                                        title: "Revoke API token?",
+                                        message: "Apps using this token will lose access immediately.",
+                                        confirmButtonTitle: "Revoke Token"
+                                    )
+                                } label: {
+                                    settingsRowLabel("Revoke Token", systemImage: "trash", prominence: .destructive)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(onlineOnlyActionsDisabled(surface))
+                            }
                         }
-                        Button("Revoke Token", role: .destructive) {
-                            confirmSettingsAction(
-                                .revokeAPIToken(credentialID: token.id),
-                                title: "Revoke API token?",
-                                message: "Apps using this token will lose access immediately.",
-                                confirmButtonTitle: "Revoke Token"
-                            )
+
+                        settingsTextField("Token name", text: $tokenName)
+                        Toggle("Recipes read", isOn: $tokenCanReadRecipes)
+                        Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
+                        Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
+                        Toggle("Shopping write", isOn: $tokenCanWriteShoppingList)
+
+                        Button {
+                            planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
+                        } label: {
+                            settingsRowLabel("Create Token", systemImage: "plus.circle", prominence: .primary)
                         }
-                        .disabled(onlineOnlyActionsDisabled(surface))
+                        .buttonStyle(.plain)
+                        .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
                     }
-                    TextField("Token name", text: $tokenName)
-                    Toggle("Recipes read", isOn: $tokenCanReadRecipes)
-                    Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
-                    Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
-                    Toggle("Shopping write", isOn: $tokenCanWriteShoppingList)
-                    Button("Create Token") {
-                        planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
-                    }
-                    .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
                 }
 
-                Section("Connections") {
-                    ForEach(surface.oauthConnectionRows) { connection in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(connection.clientName)
-                            Text(connection.scopes.joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                KitchenTableSection(title: "Connections", subtitle: "Apps connected to Spoonjoy") {
+                    SettingsPanel {
+                        if surface.oauthConnectionRows.isEmpty {
+                            Text("No connected apps.")
+                                .font(KitchenTableTheme.bodyNote)
+                                .foregroundStyle(KitchenTableTheme.inkMuted)
                         }
-                        Button("Disconnect", role: .destructive) {
-                            confirmSettingsAction(
-                                .disconnectOAuthConnection(connectionID: connection.id),
-                                title: "Disconnect OAuth app?",
-                                message: "\(connection.clientName) will no longer be able to access your Spoonjoy account.",
-                                confirmButtonTitle: "Disconnect"
-                            )
+                        ForEach(surface.oauthConnectionRows) { connection in
+                            VStack(alignment: .leading, spacing: 8) {
+                                settingsFact(connection.clientName, value: connection.scopes.joined(separator: ", "))
+                                Button(role: .destructive) {
+                                    confirmSettingsAction(
+                                        .disconnectOAuthConnection(connectionID: connection.id),
+                                        title: "Disconnect OAuth app?",
+                                        message: "\(connection.clientName) will no longer be able to access your Spoonjoy account.",
+                                        confirmButtonTitle: "Disconnect"
+                                    )
+                                } label: {
+                                    settingsRowLabel("Disconnect", systemImage: "xmark.circle", prominence: .destructive)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(onlineOnlyActionsDisabled(surface))
+                            }
                         }
-                        .disabled(onlineOnlyActionsDisabled(surface))
                     }
                 }
             }
         } else if let primaryAuthAction = surface.primaryAuthAction {
-            Section("Session") {
-                Button("Sign In") {
-                    openSecureHandoff(primaryAuthAction)
+            KitchenTableSection(title: "Session", subtitle: "Secure Spoonjoy handoff") {
+                SettingsPanel {
+                    Button {
+                        openSecureHandoff(primaryAuthAction)
+                    } label: {
+                        settingsRowLabel("Sign In", systemImage: "person.crop.circle.badge.checkmark", prominence: .primary)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         } else {
-            Section("Account") {
-                Text("Account sync has not finished yet.")
-                Text("Spoonjoy is signed in, but the latest sync did not finish loading your profile, security, and notification settings.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let syncFailureDiagnosticText {
-                    Text(syncFailureDiagnosticText)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                }
-                Button {
-                    Task { await onRetrySync() }
-                } label: {
-                    Label("Try Sync Again", systemImage: "arrow.clockwise")
+            KitchenTableSection(title: "Account", subtitle: "Sync needs another attempt") {
+                SettingsPanel {
+                    Text("Account sync has not finished yet.")
+                        .font(KitchenTableTheme.objectTitle)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                    Text("Spoonjoy is signed in, but the latest sync did not finish loading your profile, security, and notification settings.")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                    if let syncFailureDiagnosticText {
+                        Text(syncFailureDiagnosticText)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .textSelection(.enabled)
+                    }
+                    Button {
+                        Task { await onRetrySync() }
+                    } label: {
+                        Label("Try Sync Again", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
                 }
             }
         }
 
-        Section("Environment") {
-            LabeledContent("Environment", value: surface.data.environment.rawValue)
-            LabeledContent("Source", value: sourceLabel(surface.data.source))
+        KitchenTableSection(title: "Environment", subtitle: "Current data source") {
+            SettingsPanel {
+                settingsFact("Environment", value: surface.data.environment.rawValue)
+                settingsFact("Source", value: sourceLabel(surface.data.source))
+            }
         }
 
-        Section("Offline") {
-            if let summary = surface.queuedWorkSummary {
-                Text(summary)
-            }
-            if let conflictBanner = surface.conflictBanner {
-                Text(conflictBanner.message)
-            }
-            if let settingsActionMessage {
-                Text(settingsActionMessage)
-            }
-            if let settingsActionError {
-                Text(settingsActionError)
-                    .foregroundStyle(KitchenTableTheme.tomato)
-            }
-            if let partialFailureSummary = surface.partialFailureSummary {
-                Text(partialFailureSummary)
-                    .foregroundStyle(KitchenTableTheme.tomato)
-            }
-            let offlineDisplay = effectiveOfflineIndicator(surface.offlineIndicator.display)
-            OfflineStatusView(display: offlineDisplay) {
-                if offlineDisplay == surface.offlineIndicator.display {
-                    _ = viewModel.dismissOfflineIndicator
+        KitchenTableSection(title: "Offline", subtitle: "What the app is using right now") {
+            SettingsPanel {
+                if let summary = surface.queuedWorkSummary {
+                    Label(summary, systemImage: "arrow.triangle.2.circlepath")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.brass)
                 }
-                onDismissOfflineIndicator()
+                if let conflictBanner = surface.conflictBanner {
+                    Label(conflictBanner.message, systemImage: "exclamationmark.triangle")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                }
+                if let settingsActionMessage {
+                    Label(settingsActionMessage, systemImage: "checkmark.circle")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.herb)
+                }
+                if let settingsActionError {
+                    Label(settingsActionError, systemImage: "exclamationmark.triangle")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                }
+                if let partialFailureSummary = surface.partialFailureSummary {
+                    Label(partialFailureSummary, systemImage: "exclamationmark.triangle")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                }
+                let offlineDisplay = effectiveOfflineIndicator(surface.offlineIndicator.display)
+                OfflineStatusView(display: offlineDisplay) {
+                    if offlineDisplay == surface.offlineIndicator.display {
+                        _ = viewModel.dismissOfflineIndicator
+                    }
+                    onDismissOfflineIndicator()
+                }
             }
         }
     }
 
     @ViewBuilder private var legacySettings: some View {
-        Section("Status") {
-            ForEach(settings.statusRows, id: \.id) { row in
-                LabeledContent(row.title, value: row.value)
+        KitchenTableSection(title: "Status", subtitle: "Live session snapshot") {
+            SettingsPanel {
+                ForEach(settings.statusRows, id: \.id) { row in
+                    settingsFact(row.title, value: row.value)
+                }
             }
         }
 
-        Section("Session") {
-            LabeledContent("Auth", value: authSummary)
-            LabeledContent("Environment", value: viewModel.environmentSwitcher.rawValue)
-        }
-
-        Section("Shopping") {
-            Label(
-                settings.canReadShoppingList ? "Shopping read enabled" : "Shopping read unavailable",
-                systemImage: settings.canReadShoppingList ? "checkmark.circle" : "xmark.circle"
-            )
-            Label(
-                settings.canWriteShoppingList ? "Shopping write enabled" : "Shopping write unavailable",
-                systemImage: settings.canWriteShoppingList ? "checkmark.circle" : "xmark.circle"
-            )
-        }
-
-        Section("Offline") {
-            OfflineStatusView(display: effectiveOfflineIndicator(viewModel.offlineIndicatorDisplay)) {
-                _ = viewModel.dismissOfflineIndicator
-                onDismissOfflineIndicator()
+        KitchenTableSection(title: "Session") {
+            SettingsPanel {
+                settingsFact("Auth", value: authSummary)
+                settingsFact("Environment", value: viewModel.environmentSwitcher.rawValue)
             }
+        }
+
+        KitchenTableSection(title: "Shopping") {
+            SettingsPanel {
+                Label(
+                    settings.canReadShoppingList ? "Shopping read enabled" : "Shopping read unavailable",
+                    systemImage: settings.canReadShoppingList ? "checkmark.circle" : "xmark.circle"
+                )
+                .foregroundStyle(settings.canReadShoppingList ? KitchenTableTheme.herb : KitchenTableTheme.tomato)
+                Label(
+                    settings.canWriteShoppingList ? "Shopping write enabled" : "Shopping write unavailable",
+                    systemImage: settings.canWriteShoppingList ? "checkmark.circle" : "xmark.circle"
+                )
+                .foregroundStyle(settings.canWriteShoppingList ? KitchenTableTheme.herb : KitchenTableTheme.tomato)
+            }
+        }
+
+        KitchenTableSection(title: "Offline") {
+            SettingsPanel {
+                OfflineStatusView(display: effectiveOfflineIndicator(viewModel.offlineIndicatorDisplay)) {
+                    _ = viewModel.dismissOfflineIndicator
+                    onDismissOfflineIndicator()
+                }
+            }
+        }
+    }
+
+    private func settingsTextField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.bodyNote)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 46)
+            .background(KitchenTableTheme.bone.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
+    }
+
+    private func settingsFact(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(title)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+            Spacer(minLength: 12)
+            Text(value)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 4)
+    }
+
+    nonisolated private func settingsRowLabel(
+        _ title: String,
+        systemImage: String,
+        prominence: SettingsRowProminence
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+            Text(title)
+                .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+            Spacer(minLength: 8)
+        }
+        .foregroundStyle(prominence.foreground)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+        .background(prominence.background, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(prominence.stroke, lineWidth: 1)
         }
     }
 
@@ -671,4 +817,63 @@ private struct PendingSettingsDestructiveAction: Identifiable {
     let title: String
     let message: String
     let confirmButtonTitle: String
+}
+
+private enum SettingsRowProminence {
+    case primary
+    case secondary
+    case destructive
+
+    var foreground: Color {
+        switch self {
+        case .primary:
+            KitchenTableTheme.paper
+        case .secondary:
+            KitchenTableTheme.charcoal
+        case .destructive:
+            KitchenTableTheme.tomato
+        }
+    }
+
+    var background: Color {
+        switch self {
+        case .primary:
+            KitchenTableTheme.brass
+        case .secondary:
+            KitchenTableTheme.paper
+        case .destructive:
+            KitchenTableTheme.paper
+        }
+    }
+
+    var stroke: Color {
+        switch self {
+        case .primary:
+            KitchenTableTheme.brass
+        case .secondary:
+            KitchenTableTheme.line.opacity(0.55)
+        case .destructive:
+            KitchenTableTheme.tomato.opacity(0.42)
+        }
+    }
+}
+
+private struct SettingsPanel<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            content()
+        }
+        .font(KitchenTableTheme.bodyNote)
+        .foregroundStyle(KitchenTableTheme.charcoal)
+        .tint(KitchenTableTheme.herb)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.42), lineWidth: 1)
+        }
+    }
 }

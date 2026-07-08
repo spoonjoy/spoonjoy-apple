@@ -16,8 +16,12 @@ import Vision
 #endif
 
 struct CaptureDraftView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     @State private var currentDraft: CaptureDraft?
     @State private var rawText: String
+    @State private var textSourceURLText: String = ""
     @State private var recipeURLText: String = ""
     @State private var videoURLText: String = ""
     @State private var jsonLDText: String = ""
@@ -59,20 +63,16 @@ struct CaptureDraftView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                textCapture
-                sourceCapture
-                imageCapture
-                if let currentDraft {
-                    draftPreview(currentDraft)
-                }
-                statusBanner
+        KitchenTablePage {
+            header
+            textCapture
+            sourceCapture
+            imageCapture
+            if let currentDraft {
+                draftPreview(currentDraft)
             }
-            .padding()
+            statusBanner
         }
-        .background(KitchenTableTheme.bone)
         .onAppear {
             reconcile(with: inputDraft)
         }
@@ -83,6 +83,16 @@ struct CaptureDraftView: View {
             Task { @MainActor in
                 await createPhotoLibraryDraft(from: item)
             }
+        }
+        .task {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "capture",
+                source: "CaptureDraftView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
 #if canImport(UIKit) && !os(macOS)
         .sheet(isPresented: $isCameraPresented) {
@@ -96,18 +106,18 @@ struct CaptureDraftView: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("Capture")
-                .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-            Spacer()
+        KitchenTableHeader(
+            eyebrow: "Ouro Draft",
+            title: "Capture",
+            subtitle: "Save text, links, photos, and scans before they become recipes."
+        ) {
             if let currentDraft {
                 Button {
                     Task { await discard(currentDraft) }
                 } label: {
                     Label("Discard Draft", systemImage: "trash")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
                 .disabled(actionInFlight)
             }
         }
@@ -115,30 +125,18 @@ struct CaptureDraftView: View {
 
     private var textCapture: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextEditor(text: $rawText)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: 170)
-                .padding(8)
-                .background(.thinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                        .stroke(KitchenTableTheme.brass.opacity(0.22))
-                }
+            captureEditor(text: $rawText, placeholder: "Paste recipe text, notes, or a scanned OCR result.", minHeight: 170)
                 .accessibilityLabel("capture draft text")
 
-            HStack {
-                TextField("Recipe URL", text: $recipeURLText)
-                    .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 10) {
+                captureTextField("Optional source URL", text: $textSourceURLText)
                     .textContentType(.URL)
                 Button {
                     createTextDraft()
                 } label: {
                     Label("Save Text", systemImage: "doc.text")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
                 .disabled(rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || captureControlsDisabled)
             }
         }
@@ -146,57 +144,50 @@ struct CaptureDraftView: View {
 
     private var sourceCapture: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                TextField("Import URL", text: $recipeURLText)
-                    .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 10) {
+                captureTextField("Import URL", text: $recipeURLText)
                     .textContentType(.URL)
                 Button {
                     createURLDraft()
                 } label: {
                     Label("Save URL", systemImage: "link")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
                 .disabled(recipeURL == nil || captureControlsDisabled)
             }
 
-            HStack {
-                TextField("Video URL", text: $videoURLText)
-                    .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 10) {
+                captureTextField("Video URL", text: $videoURLText)
                     .textContentType(.URL)
                 Button {
                     createVideoDraft()
                 } label: {
                     Label("Save Video", systemImage: "play.rectangle")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
                 .disabled(videoURL == nil || captureControlsDisabled)
             }
 
-            HStack(alignment: .top) {
-                TextEditor(text: $jsonLDText)
-                    .font(KitchenTableTheme.bodyNote)
-                    .frame(minHeight: 92)
-                    .padding(8)
-                    .background(.thinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            VStack(alignment: .leading, spacing: 10) {
+                captureEditor(text: $jsonLDText, placeholder: "Paste JSON-LD recipe data.", minHeight: 92)
                     .accessibilityLabel("JSON-LD recipe")
                 Button {
                     createJSONLDDraft()
                 } label: {
                     Label("Save JSON-LD", systemImage: "curlybraces")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
                 .disabled(jsonLDText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || captureControlsDisabled)
             }
         }
     }
 
     private var imageCapture: some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 10) {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
                 Label("Photo Library", systemImage: "photo.on.rectangle")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             .disabled(captureControlsDisabled)
 
 #if canImport(UIKit) && !os(macOS)
@@ -205,13 +196,51 @@ struct CaptureDraftView: View {
             } label: {
                 Label("Camera", systemImage: "camera")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             .disabled(captureControlsDisabled || !CameraCaptureView.isAvailable)
 #else
             Label("Camera unavailable on this platform", systemImage: "camera")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(.secondary)
 #endif
+        }
+    }
+
+    private func captureTextField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.bodyNote)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 46)
+            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
+    }
+
+    private func captureEditor(text: Binding<String>, placeholder: String, minHeight: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            TextEditor(text: text)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+            if text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(placeholder)
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted.opacity(0.62))
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 16)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(minHeight: minHeight)
+        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
         }
     }
 
@@ -252,20 +281,20 @@ struct CaptureDraftView: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(.secondary)
             }
-            HStack {
+            VStack(alignment: .leading, spacing: 10) {
                 Button {
                     Task { await submit(draft) }
                 } label: {
                     Label(actionInFlight ? "Importing" : "Submit Import", systemImage: "tray.and.arrow.up")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
                 .disabled(!draft.canCreateServerRecipe || actionInFlight)
                 Button {
                     Task { await discard(draft) }
                 } label: {
                     Label("Discard Draft", systemImage: "trash")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
                 .disabled(actionInFlight)
             }
         }
@@ -283,6 +312,10 @@ struct CaptureDraftView: View {
         URL(string: recipeURLText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    private var textSourceURL: URL? {
+        URL(string: textSourceURLText.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     private var videoURL: URL? {
         URL(string: videoURLText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
@@ -292,7 +325,7 @@ struct CaptureDraftView: View {
             let draft = try CaptureDraft.localText(
                 id: newDraftID("text"),
                 rawText: rawText,
-                sourceURL: recipeURL,
+                sourceURL: textSourceURL,
                 createdAt: timestamp()
             )
             save(draft, message: "Local draft saved.")
