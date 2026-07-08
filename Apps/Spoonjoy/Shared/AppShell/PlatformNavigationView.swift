@@ -142,12 +142,16 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
-        routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false)
-            .safeAreaInset(edge: .bottom) {
-                SpoonDock(context: spoonDockContext)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
-            }
+        if shouldShowShellSpoonDock {
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false)
+                .safeAreaInset(edge: .bottom) {
+                    SpoonDock(context: spoonDockContext)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                }
+        } else {
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false)
+        }
     }
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
@@ -235,6 +239,27 @@ struct PlatformNavigationView: View {
             return false
         case .offline, .stale, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             return true
+        }
+    }
+
+    private var shouldShowShellSpoonDock: Bool {
+        switch navigation.route {
+        case .recipeDetail(_, .cook), .shoppingList:
+            false
+        case .kitchen,
+             .recipes,
+             .recipeDetail,
+             .recipeEditor,
+             .recipeCoverControls,
+             .cookbooks,
+             .cookbookDetail,
+             .profile,
+             .profileGraph,
+             .search,
+             .capture,
+             .settings,
+             .unknownLink:
+            true
         }
     }
 
@@ -404,6 +429,7 @@ struct PlatformNavigationView: View {
             ShoppingListView(
                 viewModel: shoppingViewModel,
                 actionDidPlan: performShoppingAction,
+                openSearch: openSearchFromDock,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .search(let query, let scope):

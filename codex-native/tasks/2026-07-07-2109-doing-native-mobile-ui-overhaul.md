@@ -20,11 +20,11 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - Desk task `spoonjoy/mobile-first-design-recalibration`
 
 ## Completion Criteria
-- [ ] Recent TestFlight feedback and screenshots are represented in an audit artifact with explicit failure dispositions.
-- [ ] Compact iOS uses a native SpoonDock with the context matrix from `2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md` instead of relying on a generic top toolbar or five-equal-tab dock.
+- [x] Recent TestFlight feedback and screenshots are represented in an audit artifact with explicit failure dispositions.
+- [x] Compact iOS uses a native SpoonDock with the context matrix from `2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md` instead of relying on a generic top toolbar or five-equal-tab dock.
 - [ ] Kitchen and recipe detail screenshots on iPhone show no clipped controls, overlapping title/hero text, nested list cutoffs, or horizontally overflowing action rows.
-- [ ] Cook mode and shopping list keep kitchen-safe primary controls reachable and readable on iPhone.
-- [ ] Source-contract checks cover SpoonDock, compact iOS navigation, and no-overflow mobile action composition.
+- [x] Cook mode and shopping list keep kitchen-safe primary controls reachable and readable on iPhone.
+- [x] Source-contract checks cover SpoonDock, compact iOS navigation, and no-overflow mobile action composition.
 - [ ] `visual-qa-dogfood` evidence captured, absurdity ledger closed, and automated visual metrics still pass.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
@@ -87,7 +87,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Add failing checks that cook mode uses SpoonDock as step handrail and shopping list exposes Add/Search/Clear checked through dock-compatible actions without crowding header controls.
 **Acceptance**: Focused tests fail red against current bottom button stack and crowded shopping header.
 
-### ⬜ Unit 3b: Cook Mode And Shopping SpoonDock Integration — Implementation
+### ✅ Unit 3b: Cook Mode And Shopping SpoonDock Integration — Implementation
 **What**: Route cook mode previous/status/next through SpoonDock-style controls and move shopping primary/secondary actions into mobile-friendly bottom/context actions while preserving native edit behavior.
 **Acceptance**: Unit 3a tests pass green; controls remain reachable and readable at compact width.
 
@@ -122,3 +122,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 21:31 Unit 2b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - 2026-07-07 21:32 Unit 2c green verified long-title/accessibility contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - 2026-07-07 21:34 Unit 3a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing stateful cook/shopping docks and duplicate shell dock suppression.
+- 2026-07-07 21:36 Unit 3b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.

@@ -88,6 +88,9 @@ struct CookModeRouteView: View {
 
 struct CookModeView: View {
     private let recipe: Recipe
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+#endif
     @State private var progress: CookModeProgress
     @State private var shoppingStatusMessage: String?
     @State private var shoppingErrorMessage: String?
@@ -126,7 +129,11 @@ struct CookModeView: View {
                 .padding()
             }
 
-            bottomControls
+            if usesEmbeddedSpoonDock {
+                compactCookControls
+            } else {
+                bottomControls
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
@@ -150,6 +157,14 @@ struct CookModeView: View {
 
     private var canAdvance: Bool {
         progress.currentStepID != recipe.steps.last?.id
+    }
+
+    private var usesEmbeddedSpoonDock: Bool {
+#if os(iOS)
+        horizontalSizeClass == .compact
+#else
+        false
+#endif
     }
 
     private var header: some View {
@@ -269,6 +284,34 @@ struct CookModeView: View {
         }
         .padding()
         .background(.background.opacity(0.72))
+    }
+
+    private var compactCookControls: some View {
+        VStack(spacing: 10) {
+            Button(action: markCurrentStepComplete) {
+                Label("Done", systemImage: "checkmark.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(KitchenTableTheme.herb)
+            .accessibilityLabel("Mark the current step done")
+
+            SpoonDock(context: SpoonDockContext.cookMode(
+                previous: previous,
+                next: advance,
+                stepTitle: viewModel.stepProgressLabel
+            ))
+
+            Button(action: close) {
+                Label("Recipe", systemImage: "text.book.closed")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Return to recipe detail")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
     }
 
     private var canGoBack: Bool {
