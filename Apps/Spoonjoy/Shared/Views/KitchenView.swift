@@ -60,20 +60,37 @@ struct KitchenMasthead: View {
     let kitchen: KitchenFixtureState
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Spoonjoy Kitchen")
-                    .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                Text("Recipes \(kitchen.counts.recipes) - Cookbooks \(kitchen.counts.cookbooks) - Shopping \(kitchen.counts.shoppingItems)")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline) {
+                titleBlock
+                Spacer()
+                statusBadge
             }
-            Spacer()
-            Label(statusLabel, systemImage: statusSymbol)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(statusColor)
+
+            VStack(alignment: .leading, spacing: 10) {
+                titleBlock
+                statusBadge
+            }
         }
+    }
+
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Spoonjoy Kitchen")
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+            Text("Recipes \(kitchen.counts.recipes) - Cookbooks \(kitchen.counts.cookbooks) - Shopping \(kitchen.counts.shoppingItems)")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+        }
+    }
+
+    private var statusBadge: some View {
+        Label(statusLabel, systemImage: statusSymbol)
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(statusColor)
     }
 
     private var statusLabel: String {
@@ -129,12 +146,41 @@ struct RecipeLead: View {
                 .padding()
             }
 
-            HStack {
-                Button("Open Recipe") { openRecipe(recipe.id) }
-                    .buttonStyle(.borderedProminent)
-                Button("Start Cooking") { startCooking(recipe.id) }
-                    .buttonStyle(.bordered)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    leadButton(title: "Open Recipe", systemImage: "book", prominent: true) {
+                        openRecipe(recipe.id)
+                    }
+                    leadButton(title: "Start Cooking", systemImage: "fork.knife", prominent: false) {
+                        startCooking(recipe.id)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    leadButton(title: "Open Recipe", systemImage: "book", prominent: true) {
+                        openRecipe(recipe.id)
+                    }
+                    leadButton(title: "Start Cooking", systemImage: "fork.knife", prominent: false) {
+                        startCooking(recipe.id)
+                    }
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func leadButton(title: String, systemImage: String, prominent: Bool, action: @escaping () -> Void) -> some View {
+        if prominent {
+            Button(action: action) {
+                Label(title, systemImage: systemImage)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .buttonStyle(.borderedProminent)
+        } else {
+            Button(action: action) {
+                Label(title, systemImage: systemImage)
+            }
+            .buttonStyle(.bordered)
         }
     }
 
@@ -164,30 +210,57 @@ struct RecipeIndex: View {
                     tint: KitchenTableTheme.brass
                 )
             } else {
-                List(recipes, id: \.id) { recipe in
-                    Button {
-                        openRecipe(recipe.id)
-                    } label: {
-                        HStack {
-                            RecipeCoverImage(url: recipe.coverImageURL)
-                            .frame(width: 48, height: 48)
-                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                            .accessibilityHidden(true)
-
-                            VStack(alignment: .leading) {
-                                Text(recipe.title)
-                                    .foregroundStyle(KitchenTableTheme.charcoal)
-                                Text(recipe.coverProvenanceLabel ?? recipe.chef.username)
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(.secondary)
-                            }
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    ForEach(recipes, id: \.id) { recipe in
+                        KitchenRecipeIndexRow(recipe: recipe) {
+                            openRecipe(recipe.id)
                         }
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
                 }
-                .frame(minHeight: 160)
             }
         }
+    }
+}
+
+struct KitchenRecipeIndexRow: View {
+    let recipe: Recipe
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(alignment: .center, spacing: 12) {
+                RecipeCoverImage(url: recipe.coverImageURL)
+                    .aspectRatio(1, contentMode: .fill)
+                    .frame(width: 58, height: 58)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recipe.title)
+                        .font(.headline)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.86)
+                    Text(recipe.coverProvenanceLabel ?? recipe.chef.username)
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.forward")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(KitchenTableTheme.paper)
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(recipe.title)
     }
 }
 
