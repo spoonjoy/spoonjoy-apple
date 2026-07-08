@@ -262,6 +262,41 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("compact SpoonDock routes suppress stray global search chrome")
+    func compactSpoonDockRoutesSuppressStrayGlobalSearchChrome() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "showsSearchChrome",
+                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)",
+                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)",
+                "searchableRouteNavigationStack",
+                ".searchable(text: searchText, prompt: \"Search Spoonjoy\")"
+            ]
+        )
+    }
+
+    @Test("compact mobile routes do not duplicate large system titles above authored headers")
+    func compactMobileRoutesDoNotDuplicateLargeSystemTitles() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                ".navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)"
+            ],
+            forbids: [
+                ".navigationBarTitleDisplayMode(.large)"
+            ]
+        )
+    }
+
     @Test("visual audit records all current feedback failures and no ready item can disappear")
     func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
         let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"

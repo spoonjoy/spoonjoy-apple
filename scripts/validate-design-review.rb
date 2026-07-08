@@ -16,7 +16,7 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "search", "settings"].freeze
+VALID_ROUTES = ["kitchen", "recipe-detail", "cook-mode", "shopping-list", "search", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 ACCESSIBILITY_FIELDS = [
   "dynamicType",
@@ -68,6 +68,30 @@ EXPECTED_ROUTE_EVIDENCE = {
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
     "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+  },
+  "recipe-detail" => {
+    "voiceOverLabels" => ["Start Cooking", "Add Ingredients", "More", "Ingredient Receipt"],
+    "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "ingredient rows"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
+    "hierarchyAnchors" => ["RecipeDetailView", "MobileActionFlow", "recipePrimaryActions", "recipeSecondaryActions"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "mobile-action-flow"]
+  },
+  "cook-mode" => {
+    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Cook mode SpoonDock"],
+    "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
+    "hierarchyAnchors" => ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
+  "shopping-list" => {
+    "voiceOverLabels" => ["Shopping", "List Actions", "Add", "Clear checked"],
+    "keyboardNavigationTargets" => ["shopping item fields", "shopping header menu", "shopping SpoonDock"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
+    "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "SpoonDockContext.shoppingList"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   }
 }.freeze
 
@@ -124,6 +148,12 @@ def expected_accessibility_source(route)
     "SearchView"
   when "settings"
     "SettingsView"
+  when "recipe-detail"
+    "RecipeDetailView"
+  when "cook-mode"
+    "CookModeView"
+  when "shopping-list"
+    "ShoppingListView"
   else
     fail_check("unsupported accessibility route #{route}")
   end
@@ -226,6 +256,20 @@ when "search"
     fail_check("#{path} searchSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
     validate_search_proof!(path, proof_relative_path, seed_account_id)
   end
+when "recipe-detail"
+  fail_check("#{path} recipeDetailSurface must be true for recipe detail captures") unless manifest["recipeDetailSurface"] == true
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  seed_account_id = manifest["recipeSeedAccountID"]
+  fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "cook-mode"
+  fail_check("#{path} cookModeSurface must be true for cook mode captures") unless manifest["cookModeSurface"] == true
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  seed_account_id = manifest["recipeSeedAccountID"]
+  fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "shopping-list"
+  fail_check("#{path} shoppingListSurface must be true for shopping list captures") unless manifest["shoppingListSurface"] == true
+  seed_account_id = manifest["shoppingSeedAccountID"]
+  fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "settings"
   fail_check("#{path} settingsSignedInSurface must be true for settings captures") unless manifest["settingsSignedInSurface"] == true
   seed_account_id = manifest["settingsSeedAccountID"]

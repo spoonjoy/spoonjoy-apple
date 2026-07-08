@@ -178,6 +178,8 @@ struct RecipeDetailView: View {
     @State private var localSavedCookbookIDs: Set<String>?
     @State private var localHasIngredientsInShoppingList: Bool?
     @State private var shoppingScaleFactor: Double = 1
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         ScrollView {
@@ -245,6 +247,20 @@ struct RecipeDetailView: View {
         .onChange(of: viewModel.hasIngredientsInShoppingList) { _, hasIngredients in
             localHasIngredientsInShoppingList = hasIngredients
         }
+        .task(id: viewModel.id) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "recipe-detail",
+                source: "RecipeDetailView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
+        }
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var provenance: String {
