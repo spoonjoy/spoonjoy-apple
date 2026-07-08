@@ -104,7 +104,7 @@ struct NativeMobileDesignContractTests {
             kitchen,
             in: kitchenPath,
             contains: [
-                "struct RecipeIndexRow: View",
+                "struct KitchenRecipeIndexRow: View",
                 "LazyVStack",
                 "ForEach(recipes, id: \\.id)",
                 ".contentShape(Rectangle())",

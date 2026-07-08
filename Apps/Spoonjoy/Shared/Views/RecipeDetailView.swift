@@ -288,11 +288,57 @@ struct RecipeDetailView: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack {
-                if hasAction(.startCooking) {
-                    Button("Start Cooking") { openRoute(viewModel.actions.startCookingRoute) }
-                        .buttonStyle(.borderedProminent)
-                }
+            recipeActionFlow
+
+            actionStatus
+        }
+    }
+
+    private var recipeActionFlow: some View {
+        MobileActionFlow {
+            recipePrimaryActions
+        } secondaryActions: {
+            recipeSecondaryActions
+        }
+    }
+
+    @ViewBuilder private var recipePrimaryActions: some View {
+        if hasAction(.startCooking) {
+            Button {
+                openRoute(viewModel.actions.startCookingRoute)
+            } label: {
+                Label("Start Cooking", systemImage: "fork.knife")
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+
+        if hasAction(.addToShoppingList) {
+            Stepper(value: $shoppingScaleFactor, in: 0.25...4, step: 0.25) {
+                Label("Scale \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x", systemImage: "person.2")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+
+            Button {
+                addRecipeIngredients()
+            } label: {
+                Label(
+                    hasIngredientsInShoppingList ? "In List" : "Add Ingredients",
+                    systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
+                )
+                .lineLimit(1)
+                .minimumScaleFactor(0.76)
+            }
+            .disabled(hasIngredientsInShoppingList)
+            .buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder private var recipeSecondaryActions: some View {
+        if hasSecondaryRecipeActions {
+            Menu {
                 if hasAction(.fork) || hasAction(.makeVariation) {
                     Button {
                         runAction(.fork(
@@ -302,7 +348,6 @@ struct RecipeDetailView: View {
                     } label: {
                         Label(viewModel.actions.fork.label, systemImage: "arrow.branch")
                     }
-                    .buttonStyle(.bordered)
                 }
                 if hasAction(.share), let shareURL = viewModel.actions.sharePayload?.publicURL {
                     ShareLink(item: shareURL) {
@@ -310,26 +355,22 @@ struct RecipeDetailView: View {
                     }
                 }
                 if hasAction(.addToShoppingList) {
-                    Stepper(value: $shoppingScaleFactor, in: 0.25...4, step: 0.25) {
-                        Label("Scale \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x", systemImage: "person.2")
-                    }
-                    .frame(maxWidth: 220)
-
                     Button {
                         addRecipeIngredients()
                     } label: {
-                        Label(
-                            hasIngredientsInShoppingList ? "In List" : "Add Ingredients",
-                            systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
-                        )
+                        Label("Add Ingredients", systemImage: "cart.badge.plus")
                     }
                     .disabled(hasIngredientsInShoppingList)
-                    .buttonStyle(.bordered)
                 }
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
             }
-
-            actionStatus
+            .buttonStyle(.bordered)
         }
+    }
+
+    private var hasSecondaryRecipeActions: Bool {
+        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList)
     }
 
     private var ingredientReceipt: some View {
@@ -697,6 +738,42 @@ private extension Recipe {
 private struct RecipeActionConfirmationDialog {
     let prompt: RecipeActionConfirmationPrompt
     let clientMutationID: String
+}
+
+struct MobileActionFlow: View {
+    private let primaryActions: AnyView
+    private let secondaryActions: AnyView
+
+    init<PrimaryActions: View, SecondaryActions: View>(
+        @ViewBuilder primaryActions: () -> PrimaryActions,
+        @ViewBuilder secondaryActions: () -> SecondaryActions
+    ) {
+        self.primaryActions = AnyView(primaryActions())
+        self.secondaryActions = AnyView(secondaryActions())
+    }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 10) {
+                primaryActions
+                secondaryActions
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                primaryActions
+                secondaryActions
+            }
+
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 10) {
+                GridRow {
+                    primaryActions
+                }
+                GridRow {
+                    secondaryActions
+                }
+            }
+        }
+    }
 }
 
 private extension RecipeAction {
