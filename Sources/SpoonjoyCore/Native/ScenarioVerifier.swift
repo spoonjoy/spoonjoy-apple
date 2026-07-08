@@ -420,7 +420,7 @@ public enum ScenarioVerifier {
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
-                        "Submit Import",
+                        "Send to import agent",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
@@ -577,7 +577,7 @@ public enum ScenarioVerifier {
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
-                        "Submit Import",
+                        "Send to import agent",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],

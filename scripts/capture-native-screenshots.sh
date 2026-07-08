@@ -921,7 +921,7 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "recipes" => {
-          "voiceOverLabels" => ["Recipes", "Recipe Index", "Open"],
+          "voiceOverLabels" => ["Recipes", "Recipe Index", "recipe rows"],
           "keyboardNavigationTargets" => ["recipe index buttons", "recipe rows"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
@@ -937,11 +937,11 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
-          "voiceOverLabels" => ["Capture", "Save Text", "Save URL", "Photo Library"],
-          "keyboardNavigationTargets" => ["text capture", "source capture", "image capture"],
+          "voiceOverLabels" => ["Import Status", "Agent Import", "Send to import agent"],
+          "keyboardNavigationTargets" => ["agent import status", "saved capture actions"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
-          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "TextEditor", "PhotosPicker"],
+          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "AgentImportStatusPanel", "CaptureDraft"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "settings" => {

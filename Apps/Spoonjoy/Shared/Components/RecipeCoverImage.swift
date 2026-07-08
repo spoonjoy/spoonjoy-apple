@@ -17,11 +17,14 @@ struct RecipeCoverImage: View {
 
     var body: some View {
         if let url {
-            AsyncImage(url: url) { phase in
+            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.22))) { phase in
                 cover(for: phase)
+                    .transition(.opacity)
             }
         } else if let assetName {
             bundledCover(assetName)
+        } else if let loadingFallbackAssetName {
+            bundledCover(loadingFallbackAssetName)
         } else {
             RecipeCoverFallback(title: title, subtitle: subtitle ?? "Cover coming soon", mode: .missing, showsLabel: showsFallbackLabel)
         }
@@ -44,20 +47,61 @@ struct RecipeCoverImage: View {
                 .resizable()
                 .scaledToFill()
         case .empty:
-            RecipeCoverFallback(title: title, subtitle: "Loading cover", mode: .loading, showsLabel: showsFallbackLabel)
+            if let loadingFallbackAssetName {
+                bundledCover(loadingFallbackAssetName)
+            } else {
+                RecipeCoverFallback(title: title, subtitle: "Loading cover", mode: .loading, showsLabel: false)
+            }
         case .failure:
-            if let assetName {
-                bundledCover(assetName)
+            if let loadingFallbackAssetName {
+                bundledCover(loadingFallbackAssetName)
             } else {
                 RecipeCoverFallback(title: title, subtitle: "Cover unavailable", mode: .unavailable, showsLabel: showsFallbackLabel)
             }
         @unknown default:
-            if let assetName {
-                bundledCover(assetName)
+            if let loadingFallbackAssetName {
+                bundledCover(loadingFallbackAssetName)
             } else {
                 RecipeCoverFallback(title: title, subtitle: subtitle ?? "Cover coming soon", mode: .missing, showsLabel: showsFallbackLabel)
             }
         }
+    }
+
+    private var loadingFallbackAssetName: String? {
+        assetName ?? Self.fallbackFoodAssetName(forTitle: title)
+    }
+
+    static func fallbackFoodAssetName(forTitle title: String?) -> String? {
+        guard let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
+            return nil
+        }
+
+        let lowercasedTitle = title.lowercased()
+        if lowercasedTitle.contains("hummus") {
+            return "RecipeFallbackHummus"
+        }
+        if lowercasedTitle.contains("challah") {
+            return "RecipeFallbackChallah"
+        }
+        if lowercasedTitle.contains("cinnamon") || lowercasedTitle.contains("bun") {
+            return "RecipeFallbackBuns"
+        }
+        if lowercasedTitle.contains("bread") || lowercasedTitle.contains("rye") {
+            return "RecipeFallbackBread"
+        }
+        if lowercasedTitle.contains("pizza") {
+            return "RecipeFallbackPizza"
+        }
+
+        let fallbacks = [
+            "RecipeFallbackHummus",
+            "RecipeFallbackChallah",
+            "RecipeFallbackBuns",
+            "RecipeFallbackBread",
+            "RecipeFallbackPizza"
+        ]
+        let bucket = title.unicodeScalars.map { Int($0.value) }.reduce(0, +) % fallbacks.count
+        return fallbacks[bucket]
     }
 
     private func bundledCover(_ assetName: String) -> some View {
@@ -87,8 +131,6 @@ private struct RecipeCoverFallback: View {
                 endPoint: .bottomTrailing
             )
 
-            fallbackTexture
-
             GeometryReader { proxy in
                 if proxy.size.width < 150 || proxy.size.height < 110 {
                     compactMark
@@ -112,7 +154,7 @@ private struct RecipeCoverFallback: View {
                         .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                 }
                 .frame(width: 38, height: 38)
-            if let initials {
+            if showsLabel, let initials {
                 Text(initials)
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundStyle(palette.accent)
@@ -157,14 +199,6 @@ private struct RecipeCoverFallback: View {
                         .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                 }
 
-            if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
-                Text(title)
-                    .font(.system(.headline, design: .serif).weight(.bold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.75)
-            }
             Text(subtitle)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
@@ -185,26 +219,6 @@ private struct RecipeCoverFallback: View {
 
     private var palette: RecipeCoverFallbackPalette {
         RecipeCoverFallbackPalette.palette(for: title ?? subtitle)
-    }
-
-    private var fallbackTexture: some View {
-        GeometryReader { proxy in
-            let stripeHeight = max(10, min(proxy.size.height * 0.045, 18))
-
-            VStack(spacing: max(8, stripeHeight * 0.8)) {
-                ForEach(0..<6, id: \.self) { index in
-                    Rectangle()
-                        .fill(index.isMultiple(of: 2) ? palette.accent.opacity(0.10) : KitchenTableTheme.line.opacity(0.12))
-                        .frame(height: stripeHeight)
-                        .frame(maxWidth: proxy.size.width * (index.isMultiple(of: 2) ? 0.72 : 0.52))
-                        .offset(x: index.isMultiple(of: 2) ? -proxy.size.width * 0.16 : proxy.size.width * 0.20)
-                }
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .rotationEffect(.degrees(-8))
-            .opacity(0.8)
-            .accessibilityHidden(true)
-        }
     }
 }
 

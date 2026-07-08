@@ -162,12 +162,14 @@ private struct ProfileRecipeShelf: View {
                                 subtitle: recipe.coverProvenanceLabel
                             )
                         } trailing: {
-                            Text("Open")
+                            Image(systemName: "chevron.forward")
                                 .font(KitchenTableTheme.uiLabel)
                                 .foregroundStyle(KitchenTableTheme.brass)
+                                .accessibilityHidden(true)
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint("Opens recipe detail")
                 }
             }
         }

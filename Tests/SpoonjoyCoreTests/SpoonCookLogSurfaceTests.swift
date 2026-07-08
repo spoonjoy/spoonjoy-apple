@@ -148,7 +148,7 @@ struct SpoonCookLogSurfaceTests {
         )
         #expect(offlineEmpty.emptyState == SpoonCookLogEmptyState(
             title: "No cooks logged yet",
-            message: "Log what changed in the kitchen so the next cook starts smarter.",
+            message: "No cooks logged yet.",
             systemImage: "fork.knife"
         ))
         #expect(offlineEmpty.offlineIndicator.display == .offline)
@@ -703,7 +703,7 @@ struct SpoonCookLogSurfaceTests {
         #expect(spoonSource.contains("Image(systemName: \"fork.knife.circle\")"))
         #expect(spoonSource.contains("supportedSpoonPhotoContentTypes"))
         #expect(spoonSource.contains("Unsupported photo format. Choose a JPEG, PNG, or WebP image."))
-        #expect(spoonSource.contains("Label(\"Clear Photo\", systemImage: \"xmark.circle\")"))
+        #expect(spoonSource.contains("Label(\"Clear\", systemImage: \"xmark.circle\")"))
         #expect(spoonSource.contains("draftDidChange"))
         let rejectionRange = try #require(spoonSource.range(of: "@MainActor private func rejectSelectedPhoto"))
         let clearRange = try #require(spoonSource.range(of: "@MainActor private func clearStagedPhoto"))

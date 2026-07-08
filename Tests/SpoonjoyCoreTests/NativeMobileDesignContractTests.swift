@@ -25,7 +25,7 @@ struct NativeMobileDesignContractTests {
                 "Label(\"Shopping\", systemImage: \"checklist\")",
                 "Label(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
-                "ToolbarItemGroup(placement: .topBarTrailing)",
+                "ToolbarItem(placement: .topBarTrailing)",
                 "compactOfflineStatusBar",
                 "desktopClassShell",
                 "NavigationStack",
@@ -36,6 +36,7 @@ struct NativeMobileDesignContractTests {
             forbids: [
                 "compactBottomChrome",
                 ".safeAreaInset(edge: .bottom, spacing: 0)",
+                "ToolbarItemGroup(placement: .topBarTrailing)",
                 "SpoonDock(context: spoonDockContext)",
                 "shouldShowShellSpoonDock",
                 "spoonDockContext"
@@ -124,11 +125,152 @@ struct NativeMobileDesignContractTests {
                 "ForEach(recipes, id: \\.id)",
                 "KitchenTableObjectRow",
                 ".aspectRatio(1, contentMode: .fill)",
+                "Image(systemName: \"chevron.forward\")",
                 ".accessibilityLabel(recipe.title)"
             ],
             forbids: [
                 "List(recipes",
-                ".frame(minHeight: 160)"
+                ".frame(minHeight: 160)",
+                "Text(\"Open\")"
+            ]
+        )
+    }
+
+    @Test("TestFlight feedback polish removes clutter and placeholder overlap")
+    func testFlightFeedbackPolishRemovesClutterAndPlaceholderOverlap() throws {
+        let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let recipesPath = "Apps/Spoonjoy/Shared/Views/RecipesView.swift"
+        let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let spoonLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
+        let capturePath = "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift"
+        let coverPath = "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift"
+        let searchPath = "Apps/Spoonjoy/Shared/Views/SearchView.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let recipes = uncommentedSwift(try readRepoFile(recipesPath))
+        let detail = uncommentedSwift(try readRepoFile(detailPath))
+        let spoonLog = uncommentedSwift(try readRepoFile(spoonLogPath))
+        let capture = uncommentedSwift(try readRepoFile(capturePath))
+        let cover = uncommentedSwift(try readRepoFile(coverPath))
+        let search = uncommentedSwift(try readRepoFile(searchPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            kitchen,
+            in: kitchenPath,
+            contains: [
+                "hasRealCover",
+                "photoLead",
+                "coverlessLead",
+                "showsFallbackLabel: false",
+                "Text(recipe.title)"
+            ],
+            forbids: [
+                "let hasCoverImage = recipe.displayCoverImageURL != nil"
+            ]
+        )
+        expectContent(
+            recipes,
+            in: recipesPath,
+            contains: [
+                "Image(systemName: \"chevron.forward\")",
+                "subtitle: nil",
+                "showsFallbackLabel: false",
+                "RecipeCoverPrefetcher.prefetch"
+            ],
+            forbids: [
+                "Text(\"Open\")",
+                "row.servingsLabel,\n            row.coverProvenanceLabel"
+            ]
+        )
+        expectContent(
+            detail,
+            in: detailPath,
+            contains: [
+                "RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)",
+                "RecipeDetailErrorView(message: errorMessage)",
+                "isLoadingRecipe",
+                "errorMessage = \"We couldn't load this recipe.\"",
+                "ownerToolsMenu"
+            ],
+            forbids: [
+                "errorMessage = \"Recipe unavailable.\"",
+                "Text(recipeID)",
+                "note: ingredientIsChecked(ingredient.id) ? \"used\" : nil",
+                "note: dependencyIsChecked(dependency.id) ? \"used\" : \"step output\"",
+                "KitchenTableSection(title: \"Recipe maintenance\")"
+            ]
+        )
+        expectContent(
+            spoonLog,
+            in: spoonLogPath,
+            contains: [
+                "cookLogControls",
+                "ViewThatFits(in: .horizontal)",
+                "Label(hasStagedPhoto ? \"Ready\" : \"Photo\"",
+                "if hasStagedPhoto",
+                "Label(\"Log\", systemImage: \"fork.knife\")"
+            ],
+            forbids: [
+                "Label(hasStagedPhoto ? \"Photo Ready\" : \"Add Photo\"",
+                "Label(\"Log Cook\", systemImage: \"fork.knife\")",
+                "Toggle(isOn: $useAsRecipeCover) {\n                    Label(\"Use as cover\""
+            ]
+        )
+        expectContent(
+            capture,
+            in: capturePath,
+            contains: [
+                "eyebrow: \"Agent Import\"",
+                "title: \"Import Status\"",
+                "agentImportStatus",
+                "AgentImportStatusPanel",
+                "draftPreview(currentDraft)"
+            ],
+            forbids: [
+                "eyebrow: \"Ouro Draft\"",
+                "Label(\"Local Draft\"",
+                "manualCaptureInputs",
+                "textCapture\n        sourceCapture\n        imageCapture"
+            ]
+        )
+        expectContent(
+            cover,
+            in: coverPath,
+            contains: [
+                "AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.22)))",
+                ".transition(.opacity)",
+                "compactMark",
+                "} else if let loadingFallbackAssetName",
+                "case .empty:\n            if let loadingFallbackAssetName",
+                "fallbackFoodAssetName(forTitle:",
+                "RecipeFallbackHummus",
+                "RecipeFallbackPizza"
+            ],
+            forbids: [
+                "fallbackTexture",
+                "Text(title)"
+            ]
+        )
+        expectContent(
+            search,
+            in: searchPath,
+            contains: [
+                "AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.18)))",
+                "thumbnailContent(for: phase)",
+                ".transition(.opacity)"
+            ]
+        )
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "Button(\"Import Status\", systemImage: \"tray.and.arrow.down\")",
+                "loadingTitle: recipeLoadingTitle(id: id)",
+                "private func recipeLoadingTitle(id: String) -> String?"
+            ],
+            forbids: [
+                "Label(\"Capture\", systemImage: \"camera\")"
             ]
         )
     }
@@ -199,6 +341,7 @@ struct NativeMobileDesignContractTests {
             forbids: [
                 "Ingredient Receipt",
                 "KitchenTableSection(title: \"Method\")",
+                "note: ingredientIsChecked",
                 "cookbookSpread",
                 "KitchenTableSection(title: \"Cookbooks\")",
                 "KitchenTableSection(title: \"Cookbook Spread\")",
@@ -515,7 +658,7 @@ struct NativeMobileDesignContractTests {
             coverComponent,
             in: coverComponentPath,
             contains: [
-                "Cover coming soon",
+                "Cover",
                 "bundledAssetName(forRecipeID recipeID: String)",
                 "case \"recipe_lemon_pantry_pasta\"",
                 "\"LemonPantryPasta\"",
@@ -528,6 +671,7 @@ struct NativeMobileDesignContractTests {
                 "garnish",
                 "Capsule()",
                 "Circle().stroke(palette.accent",
+                "fallbackTexture",
                 "KitchenTableTheme.photoCharcoal"
             ]
         )
@@ -539,7 +683,7 @@ struct NativeMobileDesignContractTests {
                 "Awaiting first chef photo",
                 "Cover coming soon",
                 "assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id)",
-                "showsFallbackLabel: true"
+                "showsFallbackLabel: false"
             ]
         )
         expectContent(try readRepoFile("Apps/Spoonjoy/Shared/Views/KitchenView.swift"), in: "Apps/Spoonjoy/Shared/Views/KitchenView.swift", contains: ["assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)"])
@@ -584,9 +728,10 @@ struct NativeMobileDesignContractTests {
                 "searchableRouteNavigationStack",
                 ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
                 "compactMobileShell(spotlightPayload: spotlightPayload)",
-                "ToolbarItemGroup(placement: .topBarTrailing)"
+                "ToolbarItem(placement: .topBarTrailing)"
             ],
             forbids: [
+                "ToolbarItemGroup(placement: .topBarTrailing)",
                 "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)"
             ]
         )

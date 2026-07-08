@@ -122,41 +122,11 @@ struct RecipeLead: View {
     let startCooking: (String) -> Void
 
     var body: some View {
-        let hasCoverImage = recipe.displayCoverImageURL != nil
-
         VStack(alignment: .leading, spacing: 14) {
-            ZStack(alignment: .bottomLeading) {
-                RecipeCoverImage(
-                    url: recipe.displayCoverImageURL,
-                    title: recipe.title,
-                    subtitle: "Cover coming soon",
-                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id),
-                    showsFallbackLabel: true
-                )
-                    .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
-                    .clipped()
-                    .overlay {
-                        if hasCoverImage {
-                            KitchenTableTheme.photoOverlay
-                        }
-                    }
-                    .accessibilityLabel("\(recipe.title) cover image")
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Latest from your kitchen".uppercased())
-                        .font(.caption2.weight(.bold))
-                        .tracking(1.2)
-                        .foregroundStyle(hasCoverImage ? .white.opacity(0.72) : KitchenTableTheme.brass)
-                    Text(recipe.title)
-                        .font(KitchenTableTheme.displayTitle)
-                        .foregroundStyle(hasCoverImage ? .white : KitchenTableTheme.charcoal)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(recipe.attribution.creditText)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(hasCoverImage ? .white.opacity(0.9) : KitchenTableTheme.inkMuted)
-                }
-                .padding()
+            if hasRealCover {
+                photoLead
+            } else {
+                coverlessLead
             }
 
             ViewThatFits(in: .horizontal) {
@@ -168,6 +138,73 @@ struct RecipeLead: View {
                     leadButtons
                 }
             }
+        }
+    }
+
+    private var hasRealCover: Bool {
+        recipe.displayCoverImageURL != nil || coverAssetName != nil
+    }
+
+    private var coverAssetName: String? {
+        RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+    }
+
+    private var photoLead: some View {
+        ZStack(alignment: .bottomLeading) {
+            RecipeCoverImage(
+                url: recipe.displayCoverImageURL,
+                title: recipe.title,
+                subtitle: "Cover",
+                assetName: coverAssetName,
+                showsFallbackLabel: false
+            )
+                .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
+                .clipped()
+                .overlay {
+                    KitchenTableTheme.photoOverlay
+                }
+                .accessibilityLabel("\(recipe.title) cover image")
+
+            leadText(foreground: .white, secondary: .white.opacity(0.82), label: .white.opacity(0.72))
+                .padding()
+        }
+    }
+
+    private var coverlessLead: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            leadText(foreground: KitchenTableTheme.charcoal, secondary: KitchenTableTheme.inkMuted, label: KitchenTableTheme.brass)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .bottomLeading)
+        .background(KitchenTableTheme.paper)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(KitchenTableTheme.brass.opacity(0.22))
+                .frame(height: 2)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .stroke(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private func leadText(foreground: Color, secondary: Color, label: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("From your kitchen".uppercased())
+                .font(.caption2.weight(.bold))
+                .tracking(1.2)
+                .foregroundStyle(label)
+            Text(recipe.title)
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(foreground)
+                .lineLimit(4)
+                .minimumScaleFactor(0.82)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(recipe.attribution.creditText)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(secondary)
+                .lineLimit(2)
         }
     }
 

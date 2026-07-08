@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import Foundation
 import SwiftUI
 
 struct RecipesView: View {
@@ -43,6 +44,7 @@ struct RecipesView: View {
         }
         .task {
             await loadCatalog()
+            await RecipeCoverPrefetcher.prefetch(state.rows.compactMap(\.coverImageURL))
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "recipes",
                 source: "RecipesView",
@@ -76,25 +78,43 @@ private struct RecipeIndexRow: View {
             RecipeCoverImage(
                 url: row.coverImageURL,
                 title: row.title,
-                subtitle: row.coverProvenanceLabel,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id)
+                subtitle: nil,
+                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id),
+                showsFallbackLabel: false
             )
         } trailing: {
-            Text("Open")
+            Image(systemName: "chevron.forward")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityHidden(true)
         }
+        .accessibilityHint("Opens recipe detail")
     }
 
     private var rowSubtitle: String {
         [
             row.subtitle,
             row.chefLine,
-            row.servingsLabel,
-            row.coverProvenanceLabel
+            row.servingsLabel
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
         .joined(separator: " - ")
+    }
+}
+
+private enum RecipeCoverPrefetcher {
+    static func prefetch(_ urls: [URL]) async {
+        let uniqueURLs = Array(Set(urls)).prefix(12)
+        await withTaskGroup(of: Void.self) { group in
+            for url in uniqueURLs {
+                group.addTask {
+                    var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 3)
+                    request.allowsConstrainedNetworkAccess = true
+                    request.allowsExpensiveNetworkAccess = true
+                    _ = try? await URLSession.shared.data(for: request)
+                }
+            }
+        }
     }
 }

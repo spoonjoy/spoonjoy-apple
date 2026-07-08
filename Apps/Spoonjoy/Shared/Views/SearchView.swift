@@ -286,10 +286,8 @@ private struct SearchSurfaceThumbnail: View {
     var body: some View {
         ZStack {
             if let imageURL = row.imageURL {
-                AsyncImage(url: imageURL) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    thumbnailFill
+                AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.18))) { phase in
+                    thumbnailContent(for: phase)
                 }
             } else {
                 thumbnailFill
@@ -306,6 +304,22 @@ private struct SearchSurfaceThumbnail: View {
             Image(systemName: row.systemImage)
                 .foregroundStyle(accent)
                 .accessibilityHidden(true)
+        }
+    }
+
+    @ViewBuilder private func thumbnailContent(for phase: AsyncImagePhase) -> some View {
+        switch phase {
+        case .empty:
+            thumbnailFill
+        case .success(let image):
+            image
+                .resizable()
+                .scaledToFill()
+                .transition(.opacity)
+        case .failure:
+            thumbnailFill
+        @unknown default:
+            thumbnailFill
         }
     }
 
