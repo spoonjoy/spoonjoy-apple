@@ -65,9 +65,7 @@ struct CaptureDraftView: View {
     var body: some View {
         KitchenTablePage {
             header
-            textCapture
-            sourceCapture
-            imageCapture
+            agentImportStatus
             if let currentDraft {
                 draftPreview(currentDraft)
             }
@@ -107,15 +105,15 @@ struct CaptureDraftView: View {
 
     private var header: some View {
         KitchenTableHeader(
-            eyebrow: "Ouro Draft",
-            title: "Capture",
-            subtitle: "Save text, links, photos, and scans before they become recipes."
+            eyebrow: "Agent Import",
+            title: "Import Status",
+            subtitle: "Recipe links, text, and photos arrive here from the Spoonjoy import agent."
         ) {
             if let currentDraft {
                 Button {
                     Task { await discard(currentDraft) }
                 } label: {
-                    Label("Discard Draft", systemImage: "trash")
+                    Label("Delete capture", systemImage: "trash")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
                 .disabled(actionInFlight)
@@ -123,125 +121,8 @@ struct CaptureDraftView: View {
         }
     }
 
-    private var textCapture: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            captureEditor(text: $rawText, placeholder: "Paste recipe text, notes, or a scanned OCR result.", minHeight: 170)
-                .accessibilityLabel("capture draft text")
-
-            VStack(alignment: .leading, spacing: 10) {
-                captureTextField("Optional source URL", text: $textSourceURLText)
-                    .textContentType(.URL)
-                Button {
-                    createTextDraft()
-                } label: {
-                    Label("Save Text", systemImage: "doc.text")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-                .disabled(rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || captureControlsDisabled)
-            }
-        }
-    }
-
-    private var sourceCapture: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 10) {
-                captureTextField("Import URL", text: $recipeURLText)
-                    .textContentType(.URL)
-                Button {
-                    createURLDraft()
-                } label: {
-                    Label("Save URL", systemImage: "link")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                .disabled(recipeURL == nil || captureControlsDisabled)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                captureTextField("Video URL", text: $videoURLText)
-                    .textContentType(.URL)
-                Button {
-                    createVideoDraft()
-                } label: {
-                    Label("Save Video", systemImage: "play.rectangle")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                .disabled(videoURL == nil || captureControlsDisabled)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                captureEditor(text: $jsonLDText, placeholder: "Paste JSON-LD recipe data.", minHeight: 92)
-                    .accessibilityLabel("JSON-LD recipe")
-                Button {
-                    createJSONLDDraft()
-                } label: {
-                    Label("Save JSON-LD", systemImage: "curlybraces")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                .disabled(jsonLDText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || captureControlsDisabled)
-            }
-        }
-    }
-
-    private var imageCapture: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                Label("Photo Library", systemImage: "photo.on.rectangle")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .disabled(captureControlsDisabled)
-
-#if canImport(UIKit) && !os(macOS)
-            Button {
-                isCameraPresented = true
-            } label: {
-                Label("Camera", systemImage: "camera")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .disabled(captureControlsDisabled || !CameraCaptureView.isAvailable)
-#else
-            Label("Camera unavailable on this platform", systemImage: "camera")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.secondary)
-#endif
-        }
-    }
-
-    private func captureTextField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text)
-            .textFieldStyle(.plain)
-            .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.charcoal)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 46)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
-            }
-    }
-
-    private func captureEditor(text: Binding<String>, placeholder: String, minHeight: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: text)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .scrollContentBackground(.hidden)
-                .padding(8)
-            if text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text(placeholder)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted.opacity(0.62))
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 16)
-                    .allowsHitTesting(false)
-            }
-        }
-        .frame(minHeight: minHeight)
-        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
-        }
+    private var agentImportStatus: some View {
+        AgentImportStatusPanel(hasCurrentDraft: currentDraft != nil, hasPendingImport: hasPendingImport)
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -258,7 +139,7 @@ struct CaptureDraftView: View {
 
     private func draftPreview(_ draft: CaptureDraft) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Local Draft", systemImage: iconName(for: draft))
+            Label("Saved capture", systemImage: iconName(for: draft))
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.herb)
             ForEach(draft.previewLines, id: \.self) { line in
@@ -277,7 +158,7 @@ struct CaptureDraftView: View {
                     .foregroundStyle(.secondary)
             }
             if importViewModel?.pendingRetryMutation != nil {
-                Label("Retry Import", systemImage: "arrow.clockwise")
+                Label("Waiting to retry", systemImage: "arrow.clockwise")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(.secondary)
             }
@@ -285,14 +166,14 @@ struct CaptureDraftView: View {
                 Button {
                     Task { await submit(draft) }
                 } label: {
-                    Label(actionInFlight ? "Importing" : "Submit Import", systemImage: "tray.and.arrow.up")
+                    Label(actionInFlight ? "Sending" : "Send to import agent", systemImage: "tray.and.arrow.up")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
                 .disabled(!draft.canCreateServerRecipe || actionInFlight)
                 Button {
                     Task { await discard(draft) }
                 } label: {
-                    Label("Discard Draft", systemImage: "trash")
+                    Label("Delete capture", systemImage: "trash")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
                 .disabled(actionInFlight)
@@ -348,9 +229,9 @@ struct CaptureDraftView: View {
         guard let videoURL else { return }
         do {
             let draft = try CaptureDraft.videoURL(id: newDraftID("video"), url: videoURL, createdAt: timestamp())
-            save(draft, message: "Video URL saved.")
+            save(draft, message: "Import source saved.")
         } catch {
-            actionErrorMessage = "Video URL could not be captured."
+            actionErrorMessage = "Import source could not be captured."
         }
     }
 
@@ -558,6 +439,55 @@ struct CaptureDraftView: View {
         default:
             throw CocoaError(.coderInvalidValue)
         }
+    }
+}
+
+private struct AgentImportStatusPanel: View {
+    let hasCurrentDraft: Bool
+    let hasPendingImport: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(statusTitle, systemImage: statusSymbol)
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(statusBody)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .stroke(KitchenTableTheme.line.opacity(0.45), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var statusTitle: String {
+        if hasPendingImport {
+            return "Import waiting to sync"
+        }
+        if hasCurrentDraft {
+            return "Capture ready"
+        }
+        return "Import agent ready"
+    }
+
+    private var statusBody: String {
+        if hasPendingImport {
+            return "Spoonjoy will retry this import when the account is back online."
+        }
+        if hasCurrentDraft {
+            return "Review or send the saved capture below."
+        }
+        return "Send recipes to Spoonjoy through the agent workflow. New captures will appear here for review."
+    }
+
+    private var statusSymbol: String {
+        hasPendingImport ? "clock.arrow.circlepath" : "tray.and.arrow.down"
     }
 }
 

@@ -139,55 +139,23 @@ struct SpoonCookLogView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...3)
 
-            HStack(spacing: 12) {
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Label(hasStagedPhoto ? "Photo Ready" : "Add Photo", systemImage: hasStagedPhoto ? "photo" : "photo.badge.plus")
-                }
-                .buttonStyle(.bordered)
-                .disabled(actionInFlight)
-                .onChange(of: selectedPhoto) { _, item in
-                    Task { @MainActor in
-                        await loadPhoto(item)
-                    }
-                }
+            cookLogControls(hasStagedPhoto: hasStagedPhoto)
 
+            if hasStagedPhoto {
                 Toggle(isOn: $useAsRecipeCover) {
-                    Label("Use as cover", systemImage: "photo.on.rectangle")
+                    Label("Use photo as recipe cover", systemImage: "photo.on.rectangle")
                 }
                 .toggleStyle(.switch)
-                .disabled(stagedPhoto == nil || actionInFlight)
-
-                if hasStagedPhoto {
-                    Button {
-                        clearStagedPhoto()
-                    } label: {
-                        Label("Clear Photo", systemImage: "xmark.circle")
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(actionInFlight)
-                }
-
-                Spacer()
-
-                Button {
-                    run(.create(
-                        note: note,
-                        nextTime: nextTime,
-                        cookedAt: ISO8601DateFormatter().string(from: Date()),
-                        photo: stagedPhoto,
-                        photoURL: nil,
-                        useAsRecipeCover: stagedPhoto != nil && useAsRecipeCover,
-                        clientMutationID: clientMutationID(prefix: "spoon-create")
-                    ))
-                } label: {
-                    Label("Log Cook", systemImage: "fork.knife")
-                }
-                .buttonStyle(.borderedProminent)
+                .font(KitchenTableTheme.uiLabel)
                 .disabled(actionInFlight)
             }
         }
-        .padding()
-        .background(.background)
+        .padding(14)
+        .background(KitchenTableTheme.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .stroke(KitchenTableTheme.line.opacity(0.45), lineWidth: 1)
+        }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .onChange(of: note) { _, _ in
             persistDraft()
@@ -200,15 +168,86 @@ struct SpoonCookLogView: View {
         }
     }
 
+    private func cookLogControls(hasStagedPhoto: Bool) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                photoPickerButton(hasStagedPhoto: hasStagedPhoto)
+                if hasStagedPhoto {
+                    clearPhotoButton
+                }
+                Spacer(minLength: 6)
+                logCookButton
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    photoPickerButton(hasStagedPhoto: hasStagedPhoto)
+                    if hasStagedPhoto {
+                        clearPhotoButton
+                    }
+                }
+                logCookButton
+            }
+        }
+    }
+
+    private func photoPickerButton(hasStagedPhoto: Bool) -> some View {
+        PhotosPicker(selection: $selectedPhoto, matching: .images) {
+            Label(hasStagedPhoto ? "Ready" : "Photo", systemImage: hasStagedPhoto ? "photo.fill" : "photo.badge.plus")
+                .lineLimit(1)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .disabled(actionInFlight)
+        .accessibilityLabel(hasStagedPhoto ? "Cook photo ready" : "Add cook photo")
+        .onChange(of: selectedPhoto) { _, item in
+            Task { @MainActor in
+                await loadPhoto(item)
+            }
+        }
+    }
+
+    private var clearPhotoButton: some View {
+        Button {
+            clearStagedPhoto()
+        } label: {
+            Label("Clear", systemImage: "xmark.circle")
+                .lineLimit(1)
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.large)
+        .disabled(actionInFlight)
+        .accessibilityLabel("Clear cook photo")
+    }
+
+    private var logCookButton: some View {
+        Button {
+            run(.create(
+                note: note,
+                nextTime: nextTime,
+                cookedAt: ISO8601DateFormatter().string(from: Date()),
+                photo: stagedPhoto,
+                photoURL: nil,
+                useAsRecipeCover: stagedPhoto != nil && useAsRecipeCover,
+                clientMutationID: clientMutationID(prefix: "spoon-create")
+            ))
+        } label: {
+            Label("Log", systemImage: "fork.knife")
+                .lineLimit(1)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(actionInFlight)
+        .accessibilityLabel("Log cook")
+    }
+
     @ViewBuilder private var rows: some View {
         if let emptyState = viewModel.emptyState {
-            Label(emptyState.message, systemImage: emptyState.systemImage)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(.secondary)
-                .padding()
+            Label(emptyState.title, systemImage: emptyState.systemImage)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.background)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                .accessibilityHint(emptyState.message)
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(viewModel.rows) { row in

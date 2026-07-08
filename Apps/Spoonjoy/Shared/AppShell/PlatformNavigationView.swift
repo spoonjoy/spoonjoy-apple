@@ -393,7 +393,7 @@ struct PlatformNavigationView: View {
             sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
             sidebarLink(section: .shoppingList, title: "Shopping", systemImage: "checklist")
             sidebarLink(section: .search, title: "Search", systemImage: "magnifyingglass")
-            sidebarLink(section: .capture, title: "Capture", systemImage: "camera")
+            sidebarLink(section: .capture, title: "Import Status", systemImage: "tray.and.arrow.down")
             sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
         }
     }
@@ -435,6 +435,7 @@ struct PlatformNavigationView: View {
                 repository: recipeCatalogRepository,
                 spoonRepository: spoonCookLogRepository,
                 initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+                loadingTitle: recipeLoadingTitle(id: id),
                 actionConnectivity: recipeActionConnectivity,
                 shoppingViewModel: shoppingViewModel,
                 context: recipeDetailContext(for:),
@@ -476,7 +477,7 @@ struct PlatformNavigationView: View {
                     onDismissOfflineIndicator: dismissOfflineIndicator
                 )
             } else {
-                ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "Recipe unavailable.")
+                ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "We couldn't open this recipe editor.")
             }
         case .recipeCoverControls(let id):
             RecipeCoverControlsRouteView(
@@ -745,15 +746,11 @@ struct PlatformNavigationView: View {
             }
         }
 
-        ToolbarItemGroup(placement: .topBarTrailing) {
-            Button {
-                openRoute(.capture)
-            } label: {
-                Label("Capture", systemImage: "camera")
-            }
-            .accessibilityLabel("Capture recipe")
-
+        ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                Button("Import Status", systemImage: "tray.and.arrow.down") {
+                    openRoute(.capture)
+                }
                 Button("Search", systemImage: "magnifyingglass") {
                     Task {
                         await performSearch(search)
@@ -840,7 +837,7 @@ struct PlatformNavigationView: View {
         case .search:
             "Search"
         case .capture:
-            "Capture"
+            "Import Status"
         case .settings:
             "Settings"
         case .unknownLink:
@@ -865,6 +862,24 @@ struct PlatformNavigationView: View {
 
     private func recipe(id: String) -> Recipe? {
         contentState.recipes.first { $0.id == id }
+    }
+
+    private func recipeLoadingTitle(id: String) -> String? {
+        if let recipe = recipe(id: id) {
+            return recipe.title
+        }
+        let routeSearch = normalizedSearch(search)
+        return searchViewModel(for: routeSearch)
+            .sections
+            .flatMap(\.rows)
+            .first { row in
+                if case .recipeDetail(let rowID, .detail) = row.openRoute {
+                    rowID == id
+                } else {
+                    false
+                }
+            }?
+            .title
     }
 
     private func cookbook(id: String) -> Cookbook? {

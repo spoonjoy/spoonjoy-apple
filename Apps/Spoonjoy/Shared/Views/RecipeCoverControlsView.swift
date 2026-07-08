@@ -72,7 +72,7 @@ struct RecipeCoverControlsRouteView: View {
                 loadMessage = "Cover history is unavailable; showing the current cached cover."
             }
         } catch {
-            loadMessage = "Recipe unavailable."
+            loadMessage = "We couldn't load this recipe's covers."
         }
     }
 

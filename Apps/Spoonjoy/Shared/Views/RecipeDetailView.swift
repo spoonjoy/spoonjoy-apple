@@ -6,6 +6,7 @@ struct RecipeDetailRouteView: View {
     let repository: any RecipeCatalogRepository
     let spoonRepository: any SpoonCookLogRepository
     let snapshotViewModel: RecipeDetailScreenViewModel?
+    let loadingTitle: String?
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
     let context: (Recipe) -> RecipeDetailContext
@@ -22,12 +23,14 @@ struct RecipeDetailRouteView: View {
 
     @State private var viewModel: RecipeDetailScreenViewModel?
     @State private var errorMessage: String?
+    @State private var isLoadingRecipe: Bool
 
     init(
         recipeID: String,
         repository: any RecipeCatalogRepository,
         spoonRepository: any SpoonCookLogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
+        loadingTitle: String? = nil,
         actionConnectivity: RecipeActionConnectivity,
         shoppingViewModel: ShoppingSurfaceViewModel,
         context: @escaping (Recipe) -> RecipeDetailContext,
@@ -46,6 +49,7 @@ struct RecipeDetailRouteView: View {
         self.repository = repository
         self.spoonRepository = spoonRepository
         snapshotViewModel = initialViewModel
+        self.loadingTitle = loadingTitle
         self.actionConnectivity = actionConnectivity
         self.shoppingViewModel = shoppingViewModel
         self.context = context
@@ -60,6 +64,7 @@ struct RecipeDetailRouteView: View {
         self.performShoppingAction = performShoppingAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _viewModel = State(initialValue: initialViewModel)
+        _isLoadingRecipe = State(initialValue: initialViewModel == nil)
     }
 
     var body: some View {
@@ -80,17 +85,12 @@ struct RecipeDetailRouteView: View {
                     performShoppingAction: performShoppingAction,
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
+            } else if isLoadingRecipe {
+                RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "text.book.closed")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                RecipeDetailErrorView(message: errorMessage)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)
             }
         }
         .task(id: recipeID) {
@@ -105,6 +105,11 @@ struct RecipeDetailRouteView: View {
     }
 
     @MainActor private func loadRecipe() async {
+        errorMessage = nil
+        isLoadingRecipe = viewModel == nil
+        defer {
+            isLoadingRecipe = false
+        }
         do {
             let result = try await repository.recipeDetail(id: recipeID)
             let detailResult = await detailResultByLoadingFullSpoonList(result)
@@ -112,7 +117,7 @@ struct RecipeDetailRouteView: View {
             errorMessage = nil
         } catch {
             if viewModel == nil {
-                errorMessage = "Recipe unavailable."
+                errorMessage = "We couldn't load this recipe."
             }
         }
     }
@@ -149,6 +154,53 @@ struct RecipeDetailRouteView: View {
             }
             cursor = nextCursor
         }
+    }
+}
+
+private struct RecipeDetailLoadingView: View {
+    let recipeID: String
+    let title: String?
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+            Text(title ?? "Loading recipe")
+                .font(title == nil ? KitchenTableTheme.bodyNote : KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+            if title != nil {
+                Text("Loading recipe")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(32)
+        .background(KitchenTableTheme.bone)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Loading recipe")
+        .accessibilityValue(title ?? recipeID)
+    }
+}
+
+private struct RecipeDetailErrorView: View {
+    let message: String
+
+    var body: some View {
+        Label {
+            Text(message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+        } icon: {
+            Image(systemName: "text.book.closed")
+                .foregroundStyle(KitchenTableTheme.brass)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(KitchenTableTheme.bone)
     }
 }
 
@@ -193,7 +245,6 @@ struct RecipeDetailView: View {
             hero
             recipeActionFlow
             recipeHeaderControls
-            ownerTools
             stepsSection
             SpoonCookLogView(
                 viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
@@ -300,7 +351,7 @@ struct RecipeDetailView: View {
                 title: viewModel.title,
                 subtitle: coverPlaceholderLabel,
                 assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id),
-                showsFallbackLabel: true
+                showsFallbackLabel: false
             )
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipped()
@@ -379,6 +430,7 @@ struct RecipeDetailView: View {
             if !usesCompactRecipeDock {
                 recipeSecondaryActions
             }
+            ownerTools
             actionStatus
         }
     }
@@ -519,7 +571,7 @@ struct RecipeDetailView: View {
                     ForEach(section.dependencies) { dependency in
                         RecipeStepChecklistRow(
                             title: dependency.label,
-                            note: dependencyIsChecked(dependency.id) ? "used" : "step output",
+                            note: "step output",
                             amount: "",
                             systemImage: "arrow.triangle.branch",
                             isChecked: dependencyIsChecked(dependency.id),
@@ -530,7 +582,7 @@ struct RecipeDetailView: View {
                     ForEach(section.ingredients) { ingredient in
                         RecipeStepChecklistRow(
                             title: ingredient.name,
-                            note: ingredientIsChecked(ingredient.id) ? "used" : nil,
+                            note: nil,
                             amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
                             systemImage: "cart",
                             isChecked: ingredientIsChecked(ingredient.id),
@@ -608,38 +660,45 @@ struct RecipeDetailView: View {
 
     @ViewBuilder private var ownerTools: some View {
         if viewModel.ownerTools.isVisible {
-            KitchenTableSection(title: "Recipe maintenance") {
+            ownerToolsMenu
+        }
+    }
+
+    private var ownerToolsMenu: some View {
+        Menu {
+            Button {
+                if let editRoute = viewModel.ownerTools.editRoute {
+                    openRoute(editRoute)
+                }
+            } label: {
+                Label("Edit recipe", systemImage: "pencil")
+            }
+
+            if let coverControlsRoute = viewModel.ownerTools.coverControlsRoute {
                 Button {
-                    if let editRoute = viewModel.ownerTools.editRoute {
-                        openRoute(editRoute)
-                    }
+                    openRoute(coverControlsRoute)
                 } label: {
-                    Label("Edit recipe", systemImage: "pencil")
-                }
-                .font(KitchenTableTheme.bodyNote)
-
-                if let coverControlsRoute = viewModel.ownerTools.coverControlsRoute {
-                    Button {
-                        openRoute(coverControlsRoute)
-                    } label: {
-                        Label("Manage covers", systemImage: "photo.on.rectangle")
-                    }
-                    .font(KitchenTableTheme.bodyNote)
-                }
-
-                if let deleteConfirmation = viewModel.ownerTools.deleteConfirmation {
-                    Button(role: .destructive) {
-                        activeConfirmationDialog = RecipeActionConfirmationDialog(
-                            prompt: deleteConfirmation,
-                            clientMutationID: clientMutationID(prefix: "delete-recipe")
-                        )
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                    .font(KitchenTableTheme.bodyNote)
+                    Label("Manage covers", systemImage: "photo.on.rectangle")
                 }
             }
+
+            if let deleteConfirmation = viewModel.ownerTools.deleteConfirmation {
+                Button(role: .destructive) {
+                    activeConfirmationDialog = RecipeActionConfirmationDialog(
+                        prompt: deleteConfirmation,
+                        clientMutationID: clientMutationID(prefix: "delete-recipe")
+                    )
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        } label: {
+            Label("Manage recipe", systemImage: "ellipsis.circle")
         }
+        .font(KitchenTableTheme.uiLabel)
+        .foregroundStyle(KitchenTableTheme.inkMuted)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Manage recipe")
     }
 
     @ViewBuilder private var offlineIndicator: some View {

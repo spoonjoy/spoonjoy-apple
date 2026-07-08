@@ -79,28 +79,24 @@ REQUIRED_TOKENS = {
     "CaptureDraftViewModel",
     "CaptureImportViewModel",
     "CaptureDraft",
-    "TextEditor",
     "CaptureDraft.localText",
     "CaptureDraft.importURL",
     "CaptureDraft.videoURL",
     "CaptureDraft.jsonLD",
     "CaptureDraft.cameraImage",
     "CaptureDraft.photoLibraryImage",
-    "PhotosPicker",
-    "CameraCaptureView",
     "VNRecognizeTextRequest",
     "onChange(of: inputDraft)",
     "reconcile(with: inputDraft)",
-    "hasPendingImport",
-    "Recipe URL",
-    "Video URL",
-    "Save JSON-LD",
-    "Camera",
-    "Submit Import",
-    "Discard Draft",
-    "plan.userFacingMessage",
-    "canCreateServerRecipe",
-    "KitchenTableTheme"
+	    "hasPendingImport",
+	    "Agent Import",
+	    "Import Status",
+	    "AgentImportStatusPanel",
+	    "Send to import agent",
+	    "Delete capture",
+	    "plan.userFacingMessage",
+	    "canCreateServerRecipe",
+	    "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/ProfileView.swift" => [
     "ProfileRouteView",
@@ -288,11 +284,12 @@ FORBIDDEN_TOKENS = [
   "tokenHash",
   "rawToken",
   "tokenSecret",
-  "accessTokenSecret",
-  "refreshTokenSecret",
-  "accessTokenValue",
-  "refreshTokenValue"
-].freeze
+	  "accessTokenSecret",
+	  "refreshTokenSecret",
+	  "accessTokenValue",
+	  "refreshTokenValue",
+	  "Ouro Draft"
+	].freeze
 
 FORBIDDEN_BY_FILE = {
   "Apps/Spoonjoy/Shared/Views/SearchView.swift" => [
