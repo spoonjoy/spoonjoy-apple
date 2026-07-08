@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Recovers signed-in sync when a stored cursor has gone stale, clears the bad checkpoint, and retries a clean account bootstrap.",
+          "whatsNew": "Mobile UI overhaul with the native SpoonDock, repaired kitchen and recipe layouts, and stateful cook-mode and shopping controls.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
