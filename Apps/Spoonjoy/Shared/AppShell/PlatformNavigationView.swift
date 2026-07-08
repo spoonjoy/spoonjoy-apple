@@ -338,6 +338,7 @@ struct PlatformNavigationView: View {
     private func routeOwnsOfflineStatus(_ route: AppRoute) -> Bool {
         switch route {
         case .recipeDetail(_, .detail),
+             .recipeDetail(_, .cook),
              .recipeEditor,
              .recipeCoverControls,
              .cookbooks,
@@ -348,7 +349,7 @@ struct PlatformNavigationView: View {
              .search,
              .settings:
             true
-        case .kitchen, .recipes, .recipeDetail(_, .cook), .capture, .unknownLink:
+        case .kitchen, .recipes, .capture, .unknownLink:
             false
         }
     }

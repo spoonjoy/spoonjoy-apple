@@ -76,7 +76,7 @@ struct NativeMobileDesignContractTests {
                 "rightTools",
                 ".accessibilityLabel",
                 "static func cookMode(",
-                "Step",
+                "Done",
                 "Previous",
                 "Next"
             ],
@@ -418,22 +418,29 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "@Environment(\\.horizontalSizeClass)",
                 "private var usesEmbeddedSpoonDock: Bool",
+                "compactHeader",
                 "compactCookControls",
+                ".safeAreaInset(edge: .bottom, spacing: 0)",
                 "SpoonDock(",
                 "SpoonDockContext.cookMode(",
                 "previous: previous",
+                "markComplete: markCurrentStepComplete",
                 "next: advance",
+                "canGoBack: canGoBack",
+                "canAdvance: canAdvance",
                 "markCurrentStepComplete",
                 "KitchenTableSection(title: \"Step Inputs\"",
                 "KitchenTableSection(title: \"Step Ingredients\"",
                 ".toggleStyle(.largeCheck)",
                 ".padding(.horizontal, KitchenTableTheme.pagePadding + 4)",
-                ".padding(.bottom, KitchenTableTheme.compactDockReserve)",
+                ".padding(.bottom, compactScrollBottomPadding)",
                 ".background(KitchenTableTheme.bone)",
                 ".overlay(alignment: .top)"
             ],
             forbids: [
                 ".padding()",
+                "Hands free",
+                "VStack(spacing: 10) {\n            Button(action: markCurrentStepComplete)",
                 "Label(\"Recipe\", systemImage: \"text.book.closed\")"
             ]
         )
@@ -465,7 +472,18 @@ struct NativeMobileDesignContractTests {
             )
         }
 
-        expectContent(navigation, in: navigationPath, forbids: ["shouldShowShellSpoonDock", "SpoonDock(context: spoonDockContext)"])
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                ".recipeDetail(_, .cook),"
+            ],
+            forbids: [
+                "shouldShowShellSpoonDock",
+                "SpoonDock(context: spoonDockContext)",
+                "case .kitchen, .recipes, .recipeDetail(_, .cook), .capture, .unknownLink:"
+            ]
+        )
     }
 
     @Test("shopping list relies on native tab navigation instead of compact SpoonDock")

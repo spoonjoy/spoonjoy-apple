@@ -117,28 +117,7 @@ struct CookModeView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-
-                    if let currentStep {
-                        focusedStep(currentStep)
-                        dependencyChecklist
-                        ingredientChecklist
-                    }
-                }
-                .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
-                .padding(.top, 20)
-                .padding(.bottom, KitchenTableTheme.compactDockReserve)
-            }
-
-            if usesEmbeddedSpoonDock {
-                compactCookControls
-            } else {
-                bottomControls
-            }
-        }
+        cookModeBody
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
         .onAppear(perform: normalizeProgressForCurrentRecipe)
@@ -152,6 +131,44 @@ struct CookModeView: View {
                 runtimeContext: screenshotAccessibilityRuntimeContext
             )
         }
+    }
+
+    @ViewBuilder private var cookModeBody: some View {
+        if usesEmbeddedSpoonDock {
+            ScrollView {
+                cookModeScrollContent
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                compactCookControls
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView {
+                    cookModeScrollContent
+                }
+
+                bottomControls
+            }
+        }
+    }
+
+    private var cookModeScrollContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            header
+
+            if let currentStep {
+                focusedStep(currentStep)
+                dependencyChecklist
+                ingredientChecklist
+            }
+        }
+        .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+        .padding(.top, 20)
+        .padding(.bottom, compactScrollBottomPadding)
+    }
+
+    private var compactScrollBottomPadding: CGFloat {
+        usesEmbeddedSpoonDock ? 28 : 32
     }
 
     private var viewModel: CookModeViewModel {
@@ -185,7 +202,15 @@ struct CookModeView: View {
 #endif
     }
 
-    private var header: some View {
+    @ViewBuilder private var header: some View {
+        if usesEmbeddedSpoonDock {
+            compactHeader
+        } else {
+            regularHeader
+        }
+    }
+
+    private var regularHeader: some View {
         VStack(alignment: .leading, spacing: 14) {
             KitchenTableHeader(
                 eyebrow: viewModel.stepProgressLabel,
@@ -193,12 +218,60 @@ struct CookModeView: View {
                 subtitle: viewModel.recipeProgressLabel
             )
 
-            HStack(spacing: 12) {
-                Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
-                Label("Hands free", systemImage: "fork.knife")
-            }
+            Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
             .font(KitchenTableTheme.uiLabel)
             .foregroundStyle(KitchenTableTheme.brass)
+
+            ProgressView(value: viewModel.recipeCheckoffFraction, total: 1)
+                .tint(KitchenTableTheme.herb)
+                .accessibilityLabel("Persisted progress")
+                .accessibilityValue(viewModel.recipeProgressLabel)
+
+            ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
+                updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
+            }
+
+            Button {
+                addRecipeIngredients(scaleFactor: progress.scaleFactor)
+            } label: {
+                Label("Add Ingredients", systemImage: "cart.badge.plus")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+
+            if let shoppingStatusMessage {
+                Label(shoppingStatusMessage, systemImage: "checkmark.circle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.herb)
+            } else if let shoppingErrorMessage {
+                Label(shoppingErrorMessage, systemImage: "exclamationmark.triangle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.tomato)
+            }
+        }
+    }
+
+    private var compactHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(viewModel.stepProgressLabel.uppercased())
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(KitchenTableTheme.brass)
+
+                Spacer(minLength: 8)
+
+                Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+
+            Text(recipe.title)
+                .font(.system(.title, design: .serif).weight(.bold))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
 
             ProgressView(value: viewModel.recipeCheckoffFraction, total: 1)
                 .tint(KitchenTableTheme.herb)
@@ -318,21 +391,18 @@ struct CookModeView: View {
     }
 
     private var compactCookControls: some View {
-        VStack(spacing: 10) {
-            Button(action: markCurrentStepComplete) {
-                Label("Done", systemImage: "checkmark.circle.fill")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            .accessibilityLabel("Mark the current step done")
-
-            SpoonDock(context: SpoonDockContext.cookMode(
-                previous: previous,
-                next: advance,
-                stepTitle: viewModel.stepProgressLabel
-            ))
-        }
+        SpoonDock(context: SpoonDockContext.cookMode(
+            previous: previous,
+            markComplete: markCurrentStepComplete,
+            next: advance,
+            canGoBack: canGoBack,
+            canAdvance: canAdvance,
+            stepTitle: viewModel.stepProgressLabel
+        ))
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
         .background(KitchenTableTheme.bone)
         .overlay(alignment: .top) {
             Divider()
