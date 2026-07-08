@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-        "whatsNew": "Replaces the uneasy placeholder art with an appetizing native recipe cover and honest no-cover states instead of fake default images.",
+          "whatsNew": "Replaces the custom compact bottom nav with native iOS tab/navigation chrome, makes cook mode immersive, and fixes the per-step ingredient checklist handrail layout.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
