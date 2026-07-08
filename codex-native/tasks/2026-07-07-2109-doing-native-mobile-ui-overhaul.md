@@ -91,7 +91,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Route cook mode previous/status/next through SpoonDock-style controls and move shopping primary/secondary actions into mobile-friendly bottom/context actions while preserving native edit behavior.
 **Acceptance**: Unit 3a tests pass green; controls remain reachable and readable at compact width.
 
-### ⬜ Unit 3c: Cook Mode And Shopping SpoonDock Integration — Coverage & Refactor
+### ✅ Unit 3c: Cook Mode And Shopping SpoonDock Integration — Coverage & Refactor
 **What**: Verify helper branches, accessibility labels, destructive action confirmations, and Dynamic Type fallbacks.
 **Acceptance**: Focused tests pass; no warnings.
 
@@ -123,3 +123,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 21:32 Unit 2c green verified long-title/accessibility contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - 2026-07-07 21:34 Unit 3a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing stateful cook/shopping docks and duplicate shell dock suppression.
 - 2026-07-07 21:36 Unit 3b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
+- 2026-07-07 21:40 Unit 3c red/green verified narrow-phone and Dynamic Type SpoonDock contracts, destructive shopping confirmations, and both shared app-target builds: `swift test --filter NativeMobileDesignContractTests`, `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`, and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
