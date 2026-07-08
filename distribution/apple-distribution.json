@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Polishes the TestFlight recipe UI: smoother cover loading, appetizing fallback food imagery, cleaner native navigation, less noisy row text, safer search-to-detail loading, and a focused agent import status surface.",
+          "whatsNew": "Fixes cook mode layout: a tighter focused header, one readable bottom cooking handrail, no overlapping ingredient rows, and cleaner saved-kitchen status behavior.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
