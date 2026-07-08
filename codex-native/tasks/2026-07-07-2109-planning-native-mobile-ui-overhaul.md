@@ -1,6 +1,6 @@
 # Planning: Native Mobile UI Overhaul And SpoonDock
 
-**Status**: drafting
+**Status**: approved
 **Created**: 2026-07-07 21:09
 
 ## Goal
@@ -88,3 +88,4 @@ The first screenshots show top toolbar controls floating over content, a recipe-
 ## Progress Log
 - 2026-07-07 21:09 Created
 - 2026-07-07 21:11 Added visual-audit artifact and resolved SpoonDock defaults after reviewer findings.
+- 2026-07-07 21:14 Approved after Slugger round-two review converged.
