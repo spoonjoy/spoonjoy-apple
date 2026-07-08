@@ -52,7 +52,7 @@ struct CookModeRouteView: View {
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
+                    .padding(KitchenTableTheme.pagePadding)
                     .background(KitchenTableTheme.bone)
             } else {
                 ProgressView()
@@ -128,7 +128,9 @@ struct CookModeView: View {
                         ingredientChecklist
                     }
                 }
-                .padding()
+                .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                .padding(.top, 20)
+                .padding(.bottom, KitchenTableTheme.compactDockReserve)
             }
 
             if usesEmbeddedSpoonDock {
@@ -240,47 +242,58 @@ struct CookModeView: View {
                     .id(timer.stepID)
             }
         }
-        .padding()
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
-    private var dependencyChecklist: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(viewModel.stepOutputChecklistRows, id: \.id) { row in
-                Toggle(isOn: stepOutputBinding(for: row)) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "arrow.triangle.branch")
-                            .foregroundStyle(KitchenTableTheme.brass)
-                            .accessibilityHidden(true)
-                        Text(row.title)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+    @ViewBuilder private var dependencyChecklist: some View {
+        if !viewModel.stepOutputChecklistRows.isEmpty {
+            KitchenTableSection(title: "Step Inputs") {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(viewModel.stepOutputChecklistRows, id: \.id) { row in
+                        Toggle(isOn: stepOutputBinding(for: row)) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "arrow.triangle.branch")
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                                    .accessibilityHidden(true)
+                                Text(row.title)
+                                    .foregroundStyle(KitchenTableTheme.charcoal)
+                            }
+                        }
+                        .toggleStyle(.largeCheck)
+                        .tint(KitchenTableTheme.herb)
                     }
                 }
-                .tint(KitchenTableTheme.herb)
+                .padding(.horizontal, 2)
             }
         }
-        .padding(.horizontal, 4)
     }
 
-    private var ingredientChecklist: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
-                Toggle(isOn: ingredientBinding(for: row)) {
-                    HStack(spacing: 12) {
-                        Text(row.title)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
-                        Spacer()
-                        Text(row.quantityText)
-                            .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(.secondary)
+    @ViewBuilder private var ingredientChecklist: some View {
+        if !viewModel.ingredientChecklistRows.isEmpty {
+            KitchenTableSection(title: "Step Ingredients") {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
+                        Toggle(isOn: ingredientBinding(for: row)) {
+                            HStack(spacing: 12) {
+                                Text(row.title)
+                                    .foregroundStyle(KitchenTableTheme.charcoal)
+                                Spacer()
+                                Text(row.quantityText)
+                                    .font(KitchenTableTheme.uiLabel)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .toggleStyle(.largeCheck)
+                        .tint(KitchenTableTheme.herb)
                     }
                 }
-                .tint(KitchenTableTheme.herb)
+                .padding(.horizontal, 2)
             }
         }
-        .padding(.horizontal, 4)
     }
 
     private var bottomControls: some View {
@@ -299,7 +312,8 @@ struct CookModeView: View {
                 close: close
             )
         }
-        .padding()
+        .padding(.horizontal, KitchenTableTheme.pagePadding)
+        .padding(.vertical, 12)
         .background(.background.opacity(0.72))
     }
 
@@ -316,16 +330,13 @@ struct CookModeView: View {
                 next: advance,
                 stepTitle: viewModel.stepProgressLabel
             ))
-
-            Button(action: close) {
-                Label("Recipe", systemImage: "text.book.closed")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .accessibilityLabel("Return to recipe detail")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
+        .background(KitchenTableTheme.bone)
+        .overlay(alignment: .top) {
+            Divider()
+        }
     }
 
     private var canGoBack: Bool {

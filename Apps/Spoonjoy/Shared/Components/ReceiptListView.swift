@@ -91,7 +91,7 @@ struct ReceiptListView: View {
     }
 }
 
-private struct LargeCheckToggleStyle: ToggleStyle {
+struct LargeCheckToggleStyle: ToggleStyle {
     private static let minimumCheckTarget: CGFloat = 52
 
     func makeBody(configuration: Configuration) -> some View {
@@ -115,7 +115,7 @@ private struct LargeCheckToggleStyle: ToggleStyle {
     }
 }
 
-private extension ToggleStyle where Self == LargeCheckToggleStyle {
+extension ToggleStyle where Self == LargeCheckToggleStyle {
     static var largeCheck: LargeCheckToggleStyle {
         LargeCheckToggleStyle()
     }

@@ -3,8 +3,8 @@ import Testing
 
 @Suite("Native mobile design contract")
 struct NativeMobileDesignContractTests {
-    @Test("compact iOS shell owns SpoonDock instead of generic toolbar navigation")
-    func compactIOSShellOwnsSpoonDockInsteadOfGenericToolbarNavigation() throws {
+    @Test("compact iOS shell uses native tab and navigation bars")
+    func compactIOSShellUsesNativeTabAndNavigationBars() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let toolbarPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift"
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
@@ -17,19 +17,28 @@ struct NativeMobileDesignContractTests {
                 "@Environment(\\.horizontalSizeClass)",
                 "private var usesCompactMobileShell: Bool",
                 "compactMobileShell",
-                "compactBottomChrome",
+                "TabView(selection: compactTabSelection)",
+                ".tabItem",
+                "Label(\"Kitchen\", systemImage: \"house\")",
+                "Label(\"Recipes\", systemImage: \"book.closed\")",
+                "Label(\"Cookbooks\", systemImage: \"books.vertical\")",
+                "Label(\"Shopping\", systemImage: \"checklist\")",
+                "Label(\"Search\", systemImage: \"magnifyingglass\")",
+                "compactNavigationToolbar",
+                "ToolbarItemGroup(placement: .topBarTrailing)",
                 "compactOfflineStatusBar",
-                ".safeAreaInset(edge: .bottom, spacing: 0)",
                 "desktopClassShell",
                 "NavigationStack",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.bone.ignoresSafeArea())",
-                ".background(KitchenTableTheme.bone)",
-                "SpoonDock(",
-                "SpoonDockContext"
+                ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
-                "VStack(spacing: 0) {\n                routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)\n\n                SpoonDock(context: spoonDockContext)"
+                "compactBottomChrome",
+                ".safeAreaInset(edge: .bottom, spacing: 0)",
+                "SpoonDock(context: spoonDockContext)",
+                "shouldShowShellSpoonDock",
+                "spoonDockContext"
             ]
         )
 
@@ -48,8 +57,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("SpoonDock defines route matrix glass controls and accessibility labels")
-    func spoonDockDefinesRouteMatrixGlassControlsAndAccessibilityLabels() throws {
+    @Test("SpoonDock is limited to cook mode handrail controls")
+    func spoonDockIsLimitedToCookModeHandrailControls() throws {
         let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
         let dock = uncommentedSwift(try readRepoFile(dockPath))
 
@@ -64,20 +73,18 @@ struct NativeMobileDesignContractTests {
                 "leftZone",
                 "centerZone",
                 "rightTools",
-                "buttonStyle(.glassProminent)",
-                ".background(.thinMaterial, in: Circle())",
-                ".background(KitchenTableTheme.bone, in: Capsule())",
-                ".background(.ultraThinMaterial",
                 ".accessibilityLabel",
-                "Kitchen",
-                "Recipes",
-                "Cook",
+                "static func cookMode(",
                 "Step",
-                "Shopping",
-                "Search",
-                "Capture",
-                "Settings",
-                "clear checked"
+                "Previous",
+                "Next"
+            ],
+            forbids: [
+                "static func kitchen(",
+                "static func recipes(",
+                "static func shoppingList(",
+                "static func search(",
+                "static func generic("
             ]
         )
     }
@@ -251,8 +258,16 @@ struct NativeMobileDesignContractTests {
     func cookModeOwnsCompactSpoonDockHandrail() throws {
         let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let validatorPath = "scripts/validate-design-review.rb"
         let cook = uncommentedSwift(try readRepoFile(cookPath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let receipt = uncommentedSwift(try readRepoFile(receiptPath))
+        let proof = try readRepoFile(proofPath)
+        let capture = try readRepoFile(capturePath)
+        let validator = try readRepoFile(validatorPath)
 
         expectContent(
             cook,
@@ -265,30 +280,59 @@ struct NativeMobileDesignContractTests {
                 "SpoonDockContext.cookMode(",
                 "previous: previous",
                 "next: advance",
-                "markCurrentStepComplete"
+                "markCurrentStepComplete",
+                "KitchenTableSection(title: \"Step Inputs\"",
+                "KitchenTableSection(title: \"Step Ingredients\"",
+                ".toggleStyle(.largeCheck)",
+                ".padding(.horizontal, KitchenTableTheme.pagePadding + 4)",
+                ".padding(.bottom, KitchenTableTheme.compactDockReserve)",
+                ".background(KitchenTableTheme.bone)",
+                ".overlay(alignment: .top)"
+            ],
+            forbids: [
+                ".padding()",
+                "Label(\"Recipe\", systemImage: \"text.book.closed\")"
             ]
         )
 
         expectContent(
-            navigation,
-            in: navigationPath,
+            receipt,
+            in: receiptPath,
             contains: [
-                "shouldShowShellSpoonDock",
-                "case .recipeDetail(_, .cook), .shoppingList:"
+                "struct LargeCheckToggleStyle",
+                "extension ToggleStyle where Self == LargeCheckToggleStyle"
+            ],
+            forbids: [
+                "private struct LargeCheckToggleStyle",
+                "private extension ToggleStyle where Self == LargeCheckToggleStyle"
             ]
         )
+
+        for (path, content) in [
+            (proofPath, proof),
+            (capturePath, capture),
+            (validatorPath, validator)
+        ] {
+            expectContent(
+                content,
+                in: path,
+                contains: [
+                    "Step Ingredients"
+                ]
+            )
+        }
+
+        expectContent(navigation, in: navigationPath, forbids: ["shouldShowShellSpoonDock", "SpoonDock(context: spoonDockContext)"])
     }
 
-    @Test("shopping list owns add clear checked and search through a compact SpoonDock")
-    func shoppingListOwnsCompactSpoonDockActions() throws {
+    @Test("shopping list relies on native tab navigation instead of compact SpoonDock")
+    func shoppingListReliesOnNativeTabNavigation() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
-        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
         let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let screenshotHarnessPath = "scripts/capture-native-screenshots.sh"
         let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
-        let dock = uncommentedSwift(try readRepoFile(dockPath))
         let proof = uncommentedSwift(try readRepoFile(proofPath))
         let screenshotHarness = try readRepoFile(screenshotHarnessPath)
 
@@ -297,16 +341,8 @@ struct NativeMobileDesignContractTests {
             in: shoppingPath,
             contains: [
                 "@FocusState private var isItemFieldFocused",
-                "openKitchen: @escaping () -> Void",
                 "openSearch: @escaping () -> Void",
                 "focusAddItem",
-                ".safeAreaInset(edge: .bottom)",
-                "SpoonDock(",
-                "SpoonDockContext.shoppingList(",
-                "kitchen: openKitchen",
-                "add: focusAddItem",
-                "search: openSearch",
-                "clearChecked: clearCompleted",
                 "shoppingHeaderTools",
                 "Menu",
                 "KitchenTableHeader(",
@@ -315,7 +351,11 @@ struct NativeMobileDesignContractTests {
             forbids: [
                 "Button(role: .destructive) {\n                    clearAll()",
                 "HStack(alignment: .firstTextBaseline, spacing: 10)",
-                "ViewThatFits(in: .horizontal)"
+                "ViewThatFits(in: .horizontal)",
+                "usesEmbeddedSpoonDock",
+                "SpoonDock(",
+                "SpoonDockContext.shoppingList(",
+                ".safeAreaInset(edge: .bottom)"
             ]
         )
 
@@ -323,21 +363,14 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                "ShoppingListView(",
-                "openKitchen: { openRoute(.kitchen) }",
-                "openSearch: openSearchFromDock"
-            ]
-        )
-
-        expectContent(
-            dock,
-            in: dockPath,
-            contains: [
-                "static func shoppingList(kitchen: @escaping () -> Void, add: @escaping () -> Void, search: @escaping () -> Void, clearChecked: @escaping () -> Void) -> Self",
-                ".back(id: \"shopping.kitchen\", title: \"Kitchen\", systemImage: \"house\", action: kitchen)"
+                "TabView(selection: compactTabSelection)",
+                "Label(\"Shopping\", systemImage: \"checklist\")",
+                ".tag(AppSection.shoppingList)",
+                "case .shoppingList:\n            navigation.navigate(to: .shoppingList)"
             ],
             forbids: [
-                ".place(id: \"shopping.place\", title: \"List\", systemImage: \"checklist\")"
+                "openKitchen: { openRoute(.kitchen) }",
+                "SpoonDockContext.shoppingList("
             ]
         )
 
@@ -357,36 +390,35 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("compact primary SpoonDock routes expose a direct Kitchen escape")
-    func compactPrimarySpoonDockRoutesExposeDirectKitchenEscape() throws {
-        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+    @Test("compact primary routes are native tab bar sections")
+    func compactPrimaryRoutesAreNativeTabBarSections() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
-        let dock = uncommentedSwift(try readRepoFile(dockPath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
-
-        expectContent(
-            dock,
-            in: dockPath,
-            contains: [
-                "static func recipes(kitchen: @escaping () -> Void, capture: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self",
-                ".back(id: \"recipes.kitchen\", title: \"Kitchen\", systemImage: \"house\", action: kitchen)",
-                "static func search(kitchen: @escaping () -> Void, capture: @escaping () -> Void, scopeTitle: String, shopping: @escaping () -> Void) -> Self",
-                ".back(id: \"search.kitchen\", title: \"Kitchen\", systemImage: \"house\", action: kitchen)"
-            ]
-        )
 
         expectContent(
             navigation,
             in: navigationPath,
             contains: [
-                "SpoonDockContext.recipes(\n                kitchen: { openRoute(.kitchen) }",
-                "SpoonDockContext.search(\n                kitchen: { openRoute(.kitchen) }",
-                "case .profile, .profileGraph:\n            SpoonDockContext.generic(\n                title: \"Profile\",\n                back: { openRoute(.kitchen) }"
+                "private var compactNavigationContent: some View",
+                "if navigation.route.isCookModeActive",
+                "compactImmersiveRouteContent(for: navigation.route)",
+                "private var compactTabSelection: Binding<AppSection>",
+                "compactTabContent(for: .kitchen)",
+                "compactTabContent(for: .recipes)",
+                "compactTabContent(for: .cookbooks)",
+                "compactTabContent(for: .shoppingList)",
+                "compactTabContent(for: .search)",
+                "private func compactRootRoute(for section: AppSection) -> AppRoute",
+                "private func compactTabSection(for route: AppRoute) -> AppSection",
+                "case .profile, .profileGraph:\n            .search",
+                "case .capture, .settings, .unknownLink:\n            .kitchen"
             ],
             forbids: [
-                "SpoonDockContext.recipes(\n                capture:",
-                "SpoonDockContext.search(\n                capture:",
-                "case .profile, .profileGraph:\n            SpoonDockContext.generic(\n                title: \"Profile\",\n                back: openSearchFromDock"
+                ".toolbar(navigation.route.isCookModeActive ? .hidden : .automatic, for: .tabBar)",
+                "SpoonDockContext.recipes(",
+                "SpoonDockContext.search(",
+                "SpoonDockContext.generic(",
+                "SpoonDockContext.kitchen("
             ]
         )
     }
@@ -538,8 +570,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("compact SpoonDock routes suppress stray global search chrome")
-    func compactSpoonDockRoutesSuppressStrayGlobalSearchChrome() throws {
+    @Test("compact tab routes use system navigation chrome without global searchable")
+    func compactTabRoutesUseSystemNavigationChromeWithoutGlobalSearchable() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
 
@@ -548,10 +580,14 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "showsSearchChrome",
-                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)",
                 "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)",
                 "searchableRouteNavigationStack",
-                ".searchable(text: searchText, prompt: \"Search Spoonjoy\")"
+                ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
+                "compactMobileShell(spotlightPayload: spotlightPayload)",
+                "ToolbarItemGroup(placement: .topBarTrailing)"
+            ],
+            forbids: [
+                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)"
             ]
         )
     }
@@ -565,10 +601,10 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)"
+                ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
-                ".navigationBarTitleDisplayMode(.large)"
+                ".navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)"
             ]
         )
     }
