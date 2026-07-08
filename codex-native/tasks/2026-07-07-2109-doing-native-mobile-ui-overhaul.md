@@ -67,7 +67,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Add `SpoonDock` SwiftUI component and compact iOS branch in `PlatformNavigationView` using `NavigationStack`, bottom `safeAreaInset`, route-aware left/center/right actions, and Liquid Glass/material-backed controls. Preserve desktop-class `NavigationSplitView`.
 **Acceptance**: Unit 1a tests pass green; app target compiles without warnings.
 
-### ⬜ Unit 1c: Compact Shell And SpoonDock — Coverage & Refactor
+### ✅ Unit 1c: Compact Shell And SpoonDock — Coverage & Refactor
 **What**: Tighten route context helpers, accessibility labels, fallback behavior for non-iOS/macOS, and source-contract coverage so new code has 100% coverage or direct source-contract proof where SwiftUI rendering is not unit-testable.
 **Acceptance**: Focused tests pass; no uncovered helper branches remain untested or uncontracted.
 
@@ -117,3 +117,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 21:15 Created from planning doc
 - 2026-07-07 21:18 Unit 1a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing `SpoonDock`, missing compact mobile shell, and generic toolbar route buttons.
 - 2026-07-07 21:25 Unit 1b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
+- 2026-07-07 21:27 Unit 1c green verified project registration contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
