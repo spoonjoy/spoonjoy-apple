@@ -72,7 +72,7 @@ Fix the TestFlight-reported compact iPhone navigation failure where users can re
 **What**: Capture the fixed shopping route on iPhone-size simulator, inspect screenshots, and maintain an absurdity ledger.
 **Acceptance**: Final screenshot shows a direct Kitchen/Home affordance, no overlap/clipping, and the visual ledger has no ready or reviewer-gated items.
 
-### ⬜ Unit 2: Internal TestFlight
+### ✅ Unit 2: Internal TestFlight
 **What**: After local validation, build/upload/publish an internal TestFlight build if credentials and signing allow it.
 **Acceptance**: Build is attached to Spoonjoy Internal, or a compact blocker report lists the unavoidable human-only actions.
 
@@ -89,3 +89,4 @@ Fix the TestFlight-reported compact iPhone navigation failure where users can re
 - 2026-07-08 12:32 Unit 1a complete: added failing compact route-matrix tests and captured red evidence in `unit-1a-red.log`.
 - 2026-07-08 13:14 Codex took over the stale feedback worker and folded the route fix into `codex-native/web-recipe-parity` so the next TestFlight build includes both recipe web-parity and compact navigation fixes.
 - 2026-07-08 13:14 Units 1b-1d complete: Recipes, Shopping List, Search, and Profile compact dock routes now expose Kitchen/Home; focused Swift tests and iOS Shopping List screenshot proof passed. Visual proof: `build/visual-qa/combined-nav-shopping/screenshots/ios-mobile.png`; accessibility proof includes `Kitchen`.
+- 2026-07-08 13:22 Unit 2 complete: uploaded and published iOS build `1.0 (22)` to internal TestFlight group `Spoonjoy Internal`; App Store Connect verifies build `7cb1552c-570f-484e-986f-b2654c8b09cd` is attached and `IN_BETA_TESTING`.
