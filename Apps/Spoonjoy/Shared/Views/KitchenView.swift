@@ -124,7 +124,12 @@ struct RecipeLead: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack(alignment: .bottomLeading) {
-                RecipeCoverImage(url: recipe.coverImageURL)
+                RecipeCoverImage(
+                    url: recipe.coverImageURL,
+                    title: recipe.title,
+                    subtitle: recipe.coverProvenanceLabel,
+                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                )
                     .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
                     .clipped()
                     .overlay(KitchenTableTheme.photoOverlay)
@@ -216,7 +221,12 @@ struct KitchenRecipeIndexRow: View {
                 title: recipe.title,
                 subtitle: recipe.coverProvenanceLabel ?? recipe.chef.username
             ) {
-                RecipeCoverImage(url: recipe.coverImageURL)
+                RecipeCoverImage(
+                    url: recipe.coverImageURL,
+                    title: recipe.title,
+                    subtitle: recipe.coverProvenanceLabel,
+                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                )
                     .aspectRatio(1, contentMode: .fill)
             } trailing: {
                 Image(systemName: "chevron.forward")

@@ -38,7 +38,12 @@ REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift" => [
     "RecipeCoverImage",
     "AsyncImagePhase",
-    "Image(\"LemonPantryPasta\")",
+    "RecipeCoverFallback",
+    "RecipeCoverFallbackPalette",
+    "bundledAssetName(forRecipeID",
+    "bundledCover",
+    "No cover yet",
+    "Cover unavailable",
     ".failure",
     ".empty",
     "scaledToFill"
@@ -285,6 +290,24 @@ forbidden_hits = REQUIRED_FILES.select { |relative_path| relative_path.end_with?
   FORBIDDEN_TOKENS.select { |token| content.include?(token) }.map { |token| "#{relative_path} contains #{token}" }
 end
 fail_check("forbidden kitchen/recipe surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
+
+cover_component = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift").read)
+if cover_component.include?('Image("LemonPantryPasta")')
+  fail_check("RecipeCoverImage must not use the seeded LemonPantryPasta asset as a missing-cover fallback")
+end
+
+stale_fixture_cover_urls = [
+  "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg",
+  "https://spoonjoy.app/photos/recipes/recipe_tomato_toast/cover.jpg"
+].freeze
+fixture_cover_hits = [
+  "Sources/SpoonjoyCore/Fixtures/recipes-fixture.json",
+  "Sources/SpoonjoyCore/Fixtures/cookbooks-fixture.json"
+].flat_map do |relative_path|
+  content = ROOT.join(relative_path).read
+  stale_fixture_cover_urls.select { |url| content.include?(url) }.map { |url| "#{relative_path} contains stale cover URL #{url}" }
+end
+fail_check("stale local fixture cover URLs: #{fixture_cover_hits.join(", ")}") unless fixture_cover_hits.empty?
 
 root_shell = uncommented_swift(ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift").read)
 root_shell_forbidden = FORBIDDEN_TOKENS.select { |token| root_shell.include?(token) }

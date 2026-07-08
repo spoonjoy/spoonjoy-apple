@@ -16,7 +16,7 @@ struct RecipeCookbookTests {
         #expect(recipe.description == "Bright pantry pasta with lemon, garlic, and parmesan.")
         #expect(recipe.servings == "4")
         #expect(recipe.chef == ChefSummary(id: "chef_ari", username: "ari"))
-        #expect(recipe.coverImageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(recipe.coverImageURL == nil)
         #expect(recipe.coverProvenanceLabel == "Chef photo")
         #expect(recipe.coverSourceType == RecipeCoverSourceType.chefUpload)
         #expect(recipe.coverVariant == RecipeCoverVariant.image)
@@ -138,7 +138,7 @@ struct RecipeCookbookTests {
         #expect(summary.subtitle == "ari - 4")
         #expect(summary.href == "/recipes/recipe_lemon_pantry_pasta")
         #expect(summary.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"))
-        #expect(summary.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(summary.imageURL == nil)
         #expect(summary.accessibilityLabel == "Recipe, Lemon Pantry Pasta by ari")
     }
 
@@ -267,12 +267,9 @@ struct RecipeCookbookTests {
         #expect(cookbook.title == "Weeknights")
         #expect(cookbook.chef == ChefSummary(id: "chef_ari", username: "ari"))
         #expect(cookbook.recipeCount == 2)
-        #expect(cookbook.cover.imageURLs == [
-            URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"),
-            URL(string: "https://spoonjoy.app/photos/recipes/recipe_tomato_toast/cover.jpg")
-        ])
-        #expect(cookbook.cover.primaryImageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
-        #expect(cookbook.cover.presentation == .collage)
+        #expect(cookbook.cover.imageURLs == [])
+        #expect(cookbook.cover.primaryImageURL == nil)
+        #expect(cookbook.cover.presentation == .textOnly)
         #expect(cookbook.href == "/cookbooks/cookbook_weeknights")
         #expect(cookbook.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_weeknights"))
         #expect(cookbook.attribution.creditText == "Weeknights by ari on Spoonjoy")
@@ -282,7 +279,7 @@ struct RecipeCookbookTests {
         #expect(recipeSummary.description == "Bright pantry pasta with lemon, garlic, and parmesan.")
         #expect(recipeSummary.servings == "4")
         #expect(recipeSummary.chef == ChefSummary(id: "chef_ari", username: "ari"))
-        #expect(recipeSummary.coverImageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(recipeSummary.coverImageURL == nil)
         #expect(recipeSummary.coverProvenanceLabel == "Chef photo")
         #expect(recipeSummary.coverSourceType == .chefUpload)
         #expect(recipeSummary.coverVariant == .image)
@@ -337,7 +334,7 @@ struct RecipeCookbookTests {
         #expect(summary.subtitle == "ari - 2 recipes")
         #expect(summary.href == "/cookbooks/cookbook_weeknights")
         #expect(summary.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_weeknights"))
-        #expect(summary.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(summary.imageURL == nil)
         #expect(summary.accessibilityLabel == "Cookbook, Weeknights by ari, 2 recipes")
     }
 

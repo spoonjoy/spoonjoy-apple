@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Mobile UI overhaul with the native SpoonDock, repaired kitchen and recipe layouts, and stateful cook-mode and shopping controls.",
+        "whatsNew": "Replaces the uneasy placeholder art with an appetizing native recipe cover and honest no-cover states instead of fake default images.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },

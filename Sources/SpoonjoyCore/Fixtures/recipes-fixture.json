@@ -9,7 +9,7 @@
         "id": "chef_ari",
         "username": "ari"
       },
-      "coverImageUrl": "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg",
+      "coverImageUrl": null,
       "coverProvenanceLabel": "Chef photo",
       "coverSourceType": "chef-upload",
       "coverVariant": "image",
@@ -107,10 +107,10 @@
         "id": "chef_ari",
         "username": "ari"
       },
-      "coverImageUrl": "https://spoonjoy.app/photos/recipes/recipe_tomato_toast/cover.jpg",
-      "coverProvenanceLabel": "Imported photo",
-      "coverSourceType": "imported",
-      "coverVariant": "image",
+      "coverImageUrl": null,
+      "coverProvenanceLabel": null,
+      "coverSourceType": null,
+      "coverVariant": null,
       "href": "/recipes/recipe_tomato_toast",
       "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
       "attribution": {

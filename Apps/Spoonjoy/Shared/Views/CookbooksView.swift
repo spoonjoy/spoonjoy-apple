@@ -252,7 +252,7 @@ private struct CookbookThumb: View {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                 .fill(KitchenTableTheme.brass.opacity(0.16))
             if let imageURL = row.cover.primaryImageURL {
-                RecipeCoverImage(url: imageURL)
+                RecipeCoverImage(url: imageURL, title: row.title, subtitle: row.recipeCountLabel)
             } else {
                 Image(systemName: "books.vertical")
                     .foregroundStyle(KitchenTableTheme.brass)
@@ -271,7 +271,7 @@ private struct CookbookCover: View {
                     .fill(KitchenTableTheme.brass.opacity(0.18))
                     .aspectRatio(3 / 4, contentMode: .fit)
                 if let imageURL = row.cover.primaryImageURL {
-                    RecipeCoverImage(url: imageURL)
+                    RecipeCoverImage(url: imageURL, title: row.title, subtitle: row.recipeCountLabel)
                         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                         .accessibilityHidden(true)
                 }
@@ -478,7 +478,12 @@ private struct CookbookDetailView: View {
             ForEach(viewModel.recipes) { recipe in
                 HStack(spacing: 10) {
                     if let imageURL = recipe.coverImageURL {
-                        RecipeCoverImage(url: imageURL)
+                        RecipeCoverImage(
+                            url: imageURL,
+                            title: recipe.title,
+                            subtitle: recipe.coverProvenanceLabel,
+                            assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                        )
                             .frame(width: 54, height: 54)
                             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                     }

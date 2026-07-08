@@ -144,7 +144,7 @@ struct RecipeCookbookEntityTests {
         #expect(lemon.disambiguationLabel == "Lemon Pantry Pasta by ari")
         #expect(lemon.route == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
         #expect(lemon.canonicalURL == URL(string: "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta"))
-        #expect(lemon.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(lemon.imageURL == nil)
 
         let transfer = lemon.transferValue
         #expect(transfer.kind == .recipe)
@@ -196,7 +196,7 @@ struct RecipeCookbookEntityTests {
         #expect(weeknights.disambiguationLabel == "Weeknights by ari")
         #expect(weeknights.route == .cookbookDetail(id: "cookbook_weeknights"))
         #expect(weeknights.canonicalURL == URL(string: "https://spoonjoy.app/cookbooks/cookbook_weeknights"))
-        #expect(weeknights.imageURL == URL(string: "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg"))
+        #expect(weeknights.imageURL == nil)
         #expect(weeknights.recipeCount == 2)
 
         let transfer = weeknights.transferValue

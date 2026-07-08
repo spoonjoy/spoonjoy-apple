@@ -156,7 +156,12 @@ private struct ProfileRecipeShelf: View {
                         openRoute(recipe.openRoute)
                     } label: {
                         KitchenTableObjectRow(title: recipe.title, subtitle: recipe.coverProvenanceLabel) {
-                            RecipeCoverImage(url: recipe.coverImageURL)
+                            RecipeCoverImage(
+                                url: recipe.coverImageURL,
+                                title: recipe.title,
+                                subtitle: recipe.coverProvenanceLabel,
+                                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                            )
                         } trailing: {
                             Text("Open")
                                 .font(KitchenTableTheme.uiLabel)
@@ -175,7 +180,12 @@ private struct ProfileRecipeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RecipeCoverImage(url: recipe.coverImageURL)
+            RecipeCoverImage(
+                url: recipe.coverImageURL,
+                title: recipe.title,
+                subtitle: recipe.coverProvenanceLabel,
+                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+            )
                 .frame(width: 132, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
             Text(recipe.title)
@@ -238,7 +248,7 @@ private struct RecentSpoonsSection: View {
                         openRoute(spoon.recipe.openRoute)
                     } label: {
                         KitchenTableObjectRow(title: spoon.recipe.title, subtitle: spoon.note) {
-                            RecipeCoverImage(url: nil)
+                            RecipeCoverImage(url: nil, title: spoon.recipe.title, subtitle: "Cook log")
                         } trailing: {
                             Image(systemName: "fork.knife")
                                 .font(KitchenTableTheme.uiLabel)
