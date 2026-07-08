@@ -5,23 +5,28 @@ import SwiftUI
 struct ShoppingListView: View {
 #if os(iOS)
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
     @State private var addItemForm = ShoppingAddItemFormState()
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var activeConfirmationDialog: ShoppingConfirmationDialog?
+    @FocusState private var isItemFieldFocused: Bool
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    private let openSearch: () -> Void
     private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     init(
         viewModel: ShoppingSurfaceViewModel,
         actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
+        openSearch: @escaping () -> Void = {},
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.actionDidPlan = actionDidPlan
+        self.openSearch = openSearch
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
@@ -80,6 +85,17 @@ struct ShoppingListView: View {
             EditButton()
         }
 #endif
+        .safeAreaInset(edge: .bottom) {
+            if usesEmbeddedSpoonDock {
+                SpoonDock(context: SpoonDockContext.shoppingList(
+                    add: focusAddItem,
+                    search: openSearch,
+                    clearChecked: clearCompleted
+                ))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+            }
+        }
     }
 
 #if os(iOS)
@@ -88,31 +104,53 @@ struct ShoppingListView: View {
     }
 #endif
 
+    private var usesEmbeddedSpoonDock: Bool {
+#if os(iOS)
+        horizontalSizeClass == .compact
+#else
+        false
+#endif
+    }
+
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Shopping")
-                    .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                Text(viewModel.activeCountLabel)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline) {
+                shoppingTitleBlock
+                Spacer()
+                shoppingHeaderTools
             }
 
-            Spacer()
+            VStack(alignment: .leading, spacing: 10) {
+                shoppingTitleBlock
+                shoppingHeaderTools
+            }
+        }
+        .padding(.horizontal)
+    }
 
+    private var shoppingTitleBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Shopping")
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(viewModel.activeCountLabel)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+        }
+    }
+
+    @ViewBuilder private var shoppingHeaderTools: some View {
+        HStack(spacing: 8) {
             if shoppingList != nil {
-                Button {
-                    clearCompleted()
+                Menu {
+                    Button("Clear Completed") {
+                        clearCompleted()
+                    }
+                    Button("Clear All", role: .destructive) {
+                        clearAll()
+                    }
                 } label: {
-                    Label("Clear Completed", systemImage: "checkmark.circle")
-                }
-                .buttonStyle(.bordered)
-
-                Button(role: .destructive) {
-                    clearAll()
-                } label: {
-                    Label("Clear All", systemImage: "trash")
+                    Label("List Actions", systemImage: "ellipsis.circle")
                 }
                 .buttonStyle(.bordered)
             }
@@ -125,7 +163,6 @@ struct ShoppingListView: View {
             }
 #endif
         }
-        .padding(.horizontal)
     }
 
     private var shoppingList: ShoppingListState? {
@@ -133,28 +170,53 @@ struct ShoppingListView: View {
     }
 
     private var addItemControls: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            TextField("Item", text: $addItemForm.itemName)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(addItem)
-
-            TextField("Qty", text: $addItemForm.itemQuantity)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 74)
-#if os(iOS)
-                .keyboardType(.decimalPad)
-#endif
-
-            TextField("Unit", text: $addItemForm.itemUnit)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 96)
-
-            Button(action: addItem) {
-                Label("Add", systemImage: "plus.circle")
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                itemNameField
+                quantityField
+                unitField
+                addItemButton
             }
-            .buttonStyle(.borderedProminent)
+
+            VStack(alignment: .leading, spacing: 10) {
+                itemNameField
+                HStack(spacing: 8) {
+                    quantityField
+                    unitField
+                    addItemButton
+                }
+            }
         }
         .padding(.horizontal)
+    }
+
+    private var itemNameField: some View {
+        TextField("Item", text: $addItemForm.itemName)
+            .textFieldStyle(.roundedBorder)
+            .focused($isItemFieldFocused)
+            .onSubmit(addItem)
+    }
+
+    private var quantityField: some View {
+        TextField("Qty", text: $addItemForm.itemQuantity)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 74)
+#if os(iOS)
+            .keyboardType(.decimalPad)
+#endif
+    }
+
+    private var unitField: some View {
+        TextField("Unit", text: $addItemForm.itemUnit)
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 96)
+    }
+
+    private var addItemButton: some View {
+        Button(action: addItem) {
+            Label("Add", systemImage: "plus.circle")
+        }
+        .buttonStyle(.borderedProminent)
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -192,6 +254,10 @@ struct ShoppingListView: View {
 
     private var visibleActionErrorMessage: String? {
         actionErrorMessage ?? addItemForm.actionErrorMessage
+    }
+
+    private func focusAddItem() {
+        isItemFieldFocused = true
     }
 
     private func addItem() {
