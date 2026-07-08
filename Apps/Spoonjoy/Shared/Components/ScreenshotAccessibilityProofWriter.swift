@@ -140,7 +140,7 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("shopping-list", "ShoppingListView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Shopping", "List Actions", "Add", "Clear checked"],
+                voiceOverLabels: ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"],
                 keyboardNavigationTargets: ["shopping item fields", "shopping header menu", "shopping SpoonDock"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],

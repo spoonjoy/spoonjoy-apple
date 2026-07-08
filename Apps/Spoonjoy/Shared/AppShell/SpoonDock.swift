@@ -258,10 +258,10 @@ extension SpoonDockContext {
         )
     }
 
-    static func recipes(capture: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self {
+    static func recipes(kitchen: @escaping () -> Void, capture: @escaping () -> Void, search: @escaping () -> Void, shopping: @escaping () -> Void) -> Self {
         Self(
             routeIdentifier: "Recipes",
-            leftZone: .place(id: "recipes.place", title: "Recipes", systemImage: "book.closed"),
+            leftZone: .back(id: "recipes.kitchen", title: "Kitchen", systemImage: "house", action: kitchen),
             centerZone: .primary(id: "recipes.capture", title: "Capture", subtitle: "save a recipe", systemImage: "camera.fill", action: capture),
             rightTools: [
                 .tool(id: "recipes.search", title: "Search", systemImage: "magnifyingglass", action: search),
@@ -293,10 +293,10 @@ extension SpoonDockContext {
         )
     }
 
-    static func shoppingList(add: @escaping () -> Void, search: @escaping () -> Void, clearChecked: @escaping () -> Void) -> Self {
+    static func shoppingList(kitchen: @escaping () -> Void, add: @escaping () -> Void, search: @escaping () -> Void, clearChecked: @escaping () -> Void) -> Self {
         Self(
             routeIdentifier: "Shopping",
-            leftZone: .place(id: "shopping.place", title: "List", systemImage: "checklist"),
+            leftZone: .back(id: "shopping.kitchen", title: "Kitchen", systemImage: "house", action: kitchen),
             centerZone: .primary(id: "shopping.add", title: "Add", subtitle: "item", systemImage: "plus", action: add),
             rightTools: [
                 .tool(id: "shopping.search", title: "Search", systemImage: "magnifyingglass", action: search),
@@ -305,10 +305,10 @@ extension SpoonDockContext {
         )
     }
 
-    static func search(capture: @escaping () -> Void, scopeTitle: String, shopping: @escaping () -> Void) -> Self {
+    static func search(kitchen: @escaping () -> Void, capture: @escaping () -> Void, scopeTitle: String, shopping: @escaping () -> Void) -> Self {
         Self(
             routeIdentifier: "Search",
-            leftZone: .place(id: "search.place", title: "Search", systemImage: "magnifyingglass"),
+            leftZone: .back(id: "search.kitchen", title: "Kitchen", systemImage: "house", action: kitchen),
             centerZone: .primary(id: "search.capture", title: "Capture", subtitle: "from anywhere", systemImage: "camera.fill", action: capture),
             rightTools: [
                 .tool(id: "search.scope", title: scopeTitle, systemImage: "line.3.horizontal.decrease.circle"),

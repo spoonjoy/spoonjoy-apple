@@ -472,6 +472,7 @@ struct PlatformNavigationView: View {
             ShoppingListView(
                 viewModel: shoppingViewModel,
                 actionDidPlan: performShoppingAction,
+                openKitchen: { openRoute(.kitchen) },
                 openSearch: openSearchFromDock,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
@@ -597,6 +598,7 @@ struct PlatformNavigationView: View {
             )
         case .recipes:
             SpoonDockContext.recipes(
+                kitchen: { openRoute(.kitchen) },
                 capture: { openRoute(.capture) },
                 search: openSearchFromDock,
                 shopping: { openRoute(.shoppingList) }
@@ -616,12 +618,14 @@ struct PlatformNavigationView: View {
             )
         case .shoppingList:
             SpoonDockContext.shoppingList(
+                kitchen: { openRoute(.kitchen) },
                 add: { openRoute(.shoppingList) },
                 search: openSearchFromDock,
                 clearChecked: { openRoute(.shoppingList) }
             )
         case .search(_, let scope):
             SpoonDockContext.search(
+                kitchen: { openRoute(.kitchen) },
                 capture: { openRoute(.capture) },
                 scopeTitle: label(for: scope),
                 shopping: { openRoute(.shoppingList) }
@@ -654,7 +658,7 @@ struct PlatformNavigationView: View {
         case .profile, .profileGraph:
             SpoonDockContext.generic(
                 title: "Profile",
-                back: openSearchFromDock,
+                back: { openRoute(.kitchen) },
                 search: openSearchFromDock,
                 shopping: { openRoute(.shoppingList) }
             )
