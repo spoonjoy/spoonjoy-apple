@@ -1,0 +1,26 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (4.77s)
+Test Suite 'Selected tests' started at 2026-07-07 21:25:06.756.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-07 21:25:06.758.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-07 21:25:06.758.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-07 21:25:06.758.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "compact iOS shell owns SpoonDock instead of generic toolbar navigation" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "SpoonDock defines route matrix glass controls and accessibility labels" started.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.001 seconds.
+✔ Test "SpoonDock defines route matrix glass controls and accessibility labels" passed after 0.003 seconds.
+✔ Test "compact iOS shell owns SpoonDock instead of generic toolbar navigation" passed after 0.004 seconds.
+✔ Suite "Native mobile design contract" passed after 0.004 seconds.
+✔ Test run with 3 tests in 1 suite passed after 0.004 seconds.

@@ -63,7 +63,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Add failing source-contract coverage for compact iOS `NavigationStack`, `SpoonDock`, `SpoonDockContext`, three-zone route matrix, glass/material control layer, and removal of generic compact toolbar dependency.
 **Acceptance**: Focused test or script fails red because `SpoonDock` and compact shell tokens do not exist yet.
 
-### ⬜ Unit 1b: Compact Shell And SpoonDock — Implementation
+### ✅ Unit 1b: Compact Shell And SpoonDock — Implementation
 **What**: Add `SpoonDock` SwiftUI component and compact iOS branch in `PlatformNavigationView` using `NavigationStack`, bottom `safeAreaInset`, route-aware left/center/right actions, and Liquid Glass/material-backed controls. Preserve desktop-class `NavigationSplitView`.
 **Acceptance**: Unit 1a tests pass green; app target compiles without warnings.
 
@@ -116,3 +116,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 ## Progress Log
 - 2026-07-07 21:15 Created from planning doc
 - 2026-07-07 21:18 Unit 1a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing `SpoonDock`, missing compact mobile shell, and generic toolbar route buttons.
+- 2026-07-07 21:25 Unit 1b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
