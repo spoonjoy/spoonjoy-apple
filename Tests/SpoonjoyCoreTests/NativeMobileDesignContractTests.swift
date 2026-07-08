@@ -95,6 +95,51 @@ struct NativeMobileDesignContractTests {
         #expect(sourceMembershipCount == 2, Comment(rawValue: "\(projectPath) should register SpoonDock.swift in iOS and macOS sources; found \(sourceMembershipCount)."))
     }
 
+    @Test("kitchen recipe index is a scroll-friendly object layout, not a nested List island")
+    func kitchenRecipeIndexIsScrollFriendlyObjectLayout() throws {
+        let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+
+        expectContent(
+            kitchen,
+            in: kitchenPath,
+            contains: [
+                "struct RecipeIndexRow: View",
+                "LazyVStack",
+                "ForEach(recipes, id: \\.id)",
+                ".contentShape(Rectangle())",
+                ".aspectRatio(1, contentMode: .fill)"
+            ],
+            forbids: [
+                "List(recipes",
+                ".frame(minHeight: 160)"
+            ]
+        )
+    }
+
+    @Test("recipe detail actions wrap with mobile action flow instead of one overflowing HStack")
+    func recipeDetailActionsWrapWithMobileActionFlow() throws {
+        let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let detail = uncommentedSwift(try readRepoFile(detailPath))
+
+        expectContent(
+            detail,
+            in: detailPath,
+            contains: [
+                "struct MobileActionFlow: View",
+                "ViewThatFits(in: .horizontal)",
+                "recipePrimaryActions",
+                "recipeSecondaryActions",
+                "Menu",
+                "Grid"
+            ],
+            forbids: [
+                "HStack {\n                if hasAction(.startCooking)",
+                ".frame(maxWidth: 220)"
+            ]
+        )
+    }
+
     @Test("visual audit records all current feedback failures and no ready item can disappear")
     func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
         let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"

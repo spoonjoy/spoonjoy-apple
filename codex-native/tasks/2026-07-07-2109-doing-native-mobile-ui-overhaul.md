@@ -71,7 +71,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Tighten route context helpers, accessibility labels, fallback behavior for non-iOS/macOS, and source-contract coverage so new code has 100% coverage or direct source-contract proof where SwiftUI rendering is not unit-testable.
 **Acceptance**: Focused tests pass; no uncovered helper branches remain untested or uncontracted.
 
-### ⬜ Unit 2a: Kitchen And Recipe Detail Mobile Composition — Tests
+### ✅ Unit 2a: Kitchen And Recipe Detail Mobile Composition — Tests
 **What**: Add failing source-contract checks for `MobileActionFlow`, recipe detail overflow prevention, mobile kitchen index rows without nested `List`, stable cover aspect ratios, and route-local overflow/menu fallback.
 **Acceptance**: Focused tests or scripts fail red on current `HStack` overflow and `List`-inside-`ScrollView` implementation.
 
@@ -118,3 +118,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 21:18 Unit 1a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing `SpoonDock`, missing compact mobile shell, and generic toolbar route buttons.
 - 2026-07-07 21:25 Unit 1b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - 2026-07-07 21:27 Unit 1c green verified project registration contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
+- 2026-07-07 21:28 Unit 2a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms nested kitchen `List` and overflowing recipe detail action `HStack`.
