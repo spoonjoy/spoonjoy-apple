@@ -1,14 +1,21 @@
 import SwiftUI
 
 enum KitchenTableTheme {
-    static let bone = Color(red: 0.97, green: 0.95, blue: 0.90)
-    static let paper = Color(red: 0.99, green: 0.98, blue: 0.94)
-    static let charcoal = Color(red: 0.13, green: 0.12, blue: 0.10)
-    static let inkMuted = Color(red: 0.40, green: 0.38, blue: 0.33)
-    static let line = Color(red: 0.78, green: 0.72, blue: 0.62)
-    static let brass = Color(red: 0.62, green: 0.45, blue: 0.20)
-    static let tomato = Color(red: 0.75, green: 0.18, blue: 0.12)
-    static let herb = Color(red: 0.24, green: 0.38, blue: 0.22)
+    static let bone = webColor(0xFBFAF4) // --sj-bone
+    static let paper = webColor(0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
+    static let vellum = webColor(0xE8E9DF) // --sj-vellum / --sj-flour
+    static let charcoal = webColor(0x28231D) // --sj-charcoal / --sj-action
+    static let inkMuted = webColor(0x635D54) // --sj-charcoal-soft / --sj-ink-soft
+    static let line = charcoal.opacity(0.18) // --sj-border
+    static let lineStrong = charcoal.opacity(0.32) // --sj-border-strong
+    static let brass = webColor(0x9B6834) // --sj-brass
+    static let action = webColor(0x28231D) // --sj-action
+    static let actionDeep = webColor(0x1F1B17) // --sj-action-deep
+    static let tomato = webColor(0xA24A38) // --sj-tomato
+    static let herb = webColor(0x596A4F) // --sj-herb
+    static let onPhoto = bone // --sj-on-photo
+    static let onPhotoMuted = bone.opacity(0.76) // --sj-on-photo-muted
+    static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
     static let photoOverlay = Color.black.opacity(0.28)
 
     enum Radius {
@@ -22,13 +29,21 @@ enum KitchenTableTheme {
     static let pageSpacing: CGFloat = 24
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
-    static let compactDockReserve: CGFloat = 104
+    static let compactDockReserve: CGFloat = 132
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
     static let objectTitle = Font.system(.headline, design: .rounded).weight(.semibold)
     static let bodyNote = Font.body
     static let uiLabel = Font.caption.weight(.semibold)
+
+    private static func webColor(_ hex: UInt32) -> Color {
+        Color(
+            red: Double((hex >> 16) & 0xFF) / 255.0,
+            green: Double((hex >> 8) & 0xFF) / 255.0,
+            blue: Double(hex & 0xFF) / 255.0
+        )
+    }
 }
 
 struct KitchenTablePage<Content: View>: View {
@@ -271,10 +286,10 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .lineLimit(2)
-            .minimumScaleFactor(0.82)
+            .lineLimit(1)
+            .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
             .padding(.horizontal, 14)
             .foregroundStyle(foreground)
             .background(background(configuration: configuration), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
@@ -297,7 +312,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     private func background(configuration _: Configuration) -> Color {
         switch prominence {
         case .primary:
-            KitchenTableTheme.brass
+            KitchenTableTheme.action
         case .secondary:
             KitchenTableTheme.paper
         case .quiet:
@@ -310,7 +325,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     private var stroke: Color {
         switch prominence {
         case .primary:
-            KitchenTableTheme.brass
+            KitchenTableTheme.action
         case .secondary, .quiet:
             KitchenTableTheme.line.opacity(0.75)
         case .destructive:

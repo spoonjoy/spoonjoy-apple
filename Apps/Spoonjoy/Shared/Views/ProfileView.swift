@@ -159,8 +159,7 @@ private struct ProfileRecipeShelf: View {
                             RecipeCoverImage(
                                 url: recipe.coverImageURL,
                                 title: recipe.title,
-                                subtitle: recipe.coverProvenanceLabel,
-                                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                                subtitle: recipe.coverProvenanceLabel
                             )
                         } trailing: {
                             Text("Open")
@@ -183,8 +182,7 @@ private struct ProfileRecipeCard: View {
             RecipeCoverImage(
                 url: recipe.coverImageURL,
                 title: recipe.title,
-                subtitle: recipe.coverProvenanceLabel,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                subtitle: recipe.coverProvenanceLabel
             )
                 .frame(width: 132, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))

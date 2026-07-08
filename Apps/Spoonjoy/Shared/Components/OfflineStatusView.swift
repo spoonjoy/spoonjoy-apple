@@ -16,6 +16,8 @@ struct OfflineStatusView: View {
                 Label(label, systemImage: symbol)
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(foregroundStyle)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                     .accessibilityLabel(label)
 
                 if display.informationalOnly, display != .synced {

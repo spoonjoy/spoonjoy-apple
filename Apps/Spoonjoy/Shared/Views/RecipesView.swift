@@ -76,8 +76,7 @@ private struct RecipeIndexRow: View {
             RecipeCoverImage(
                 url: row.coverImageURL,
                 title: row.title,
-                subtitle: row.coverProvenanceLabel,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id)
+                subtitle: row.coverProvenanceLabel
             )
         } trailing: {
             Text("Open")

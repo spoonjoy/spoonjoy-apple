@@ -142,19 +142,11 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
-        if shouldShowShellSpoonDock {
-            VStack(spacing: 0) {
-                routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
-
-                SpoonDock(context: spoonDockContext)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 6)
-                    .padding(.bottom, 8)
+        routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                compactBottomChrome
             }
             .background(KitchenTableTheme.bone.ignoresSafeArea())
-        } else {
-            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
-        }
     }
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
@@ -302,10 +294,45 @@ struct PlatformNavigationView: View {
             detailContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if shouldShowShellOfflineStatus {
+            if shouldShowShellOfflineStatus && !usesCompactMobileShell {
                 shellOfflineStatusBar
             }
         }
+    }
+
+    @ViewBuilder private var compactBottomChrome: some View {
+        if shouldShowShellOfflineStatus || shouldShowShellSpoonDock {
+            VStack(spacing: 10) {
+                if shouldShowShellOfflineStatus {
+                    compactOfflineStatusBar
+                }
+
+                if shouldShowShellSpoonDock {
+                    SpoonDock(context: spoonDockContext)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+            .background(KitchenTableTheme.bone.opacity(0.98))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(KitchenTableTheme.line.opacity(0.8))
+                    .frame(height: 1)
+            }
+        }
+    }
+
+    private var compactOfflineStatusBar: some View {
+        OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+            .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
+            .padding(.horizontal, 12)
+            .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
+            }
     }
 
     private var shellOfflineStatusBar: some View {

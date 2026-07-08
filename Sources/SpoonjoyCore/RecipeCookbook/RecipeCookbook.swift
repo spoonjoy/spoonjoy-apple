@@ -278,6 +278,14 @@ public struct RecipeSummary: Codable, Equatable, Sendable {
         createdAt = recipe.createdAt
         updatedAt = recipe.updatedAt
     }
+
+    public var displayCoverImageURL: URL? {
+        coverSourceType == .aiPlaceholder ? nil : coverImageURL
+    }
+
+    public var displayCoverProvenanceLabel: String? {
+        displayCoverImageURL == nil ? nil : coverProvenanceLabel
+    }
 }
 
 public struct Recipe: Codable, Equatable, Sendable {
@@ -355,6 +363,14 @@ public struct Recipe: Codable, Equatable, Sendable {
         self.steps = steps
         self.cookbooks = cookbooks
         self.recentSpoons = recentSpoons
+    }
+
+    public var displayCoverImageURL: URL? {
+        coverSourceType == .aiPlaceholder ? nil : coverImageURL
+    }
+
+    public var displayCoverProvenanceLabel: String? {
+        displayCoverImageURL == nil ? nil : coverProvenanceLabel
     }
 
     public init(from decoder: Decoder) throws {
