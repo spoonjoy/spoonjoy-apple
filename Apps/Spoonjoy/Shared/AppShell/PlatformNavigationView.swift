@@ -144,7 +144,7 @@ struct PlatformNavigationView: View {
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         if shouldShowShellSpoonDock {
             routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)
-                .safeAreaInset(edge: .bottom) {
+                .safeAreaInset(edge: VerticalEdge.bottom) {
                     SpoonDock(context: spoonDockContext)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 8)
