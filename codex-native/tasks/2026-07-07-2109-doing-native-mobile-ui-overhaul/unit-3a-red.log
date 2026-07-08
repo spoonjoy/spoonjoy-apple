@@ -1,0 +1,47 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (4.59s)
+Test Suite 'Selected tests' started at 2026-07-07 21:34:18.276.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-07 21:34:18.277.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-07 21:34:18.277.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-07 21:34:18.277.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "cook mode owns a compact SpoonDock handrail wired to step state" started.
+◇ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" started.
+◇ Test "SpoonDock defines route matrix glass controls and accessibility labels" started.
+◇ Test "SpoonDock is registered in both app targets" started.
+◇ Test "shopping list owns add clear checked and search through a compact SpoonDock" started.
+◇ Test "compact iOS shell owns SpoonDock instead of generic toolbar navigation" started.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.001 seconds.
+✔ Test "SpoonDock is registered in both app targets" passed after 0.003 seconds.
+✔ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" passed after 0.003 seconds.
+✔ Test "SpoonDock defines route matrix glass controls and accessibility labels" passed after 0.003 seconds.
+✔ Test "compact iOS shell owns SpoonDock instead of generic toolbar navigation" passed after 0.004 seconds.
+✘ Test "cook mode owns a compact SpoonDock handrail wired to step state" recorded an issue at NativeMobileDesignContractTests.swift:262:5: Expectation failed: (missing → ["@Environment(\\.horizontalSizeClass)", "private var usesEmbeddedSpoonDock: Bool", "compactCookControls", "SpoonDock(", "SpoonDockContext.cookMode(", "previous: previous", "next: advance"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/CookModeView.swift missing tokens: @Environment(\.horizontalSizeClass), private var usesEmbeddedSpoonDock: Bool, compactCookControls, SpoonDock(, SpoonDockContext.cookMode(, previous: previous, next: advance
+✘ Test "shopping list owns add clear checked and search through a compact SpoonDock" recorded an issue at NativeMobileDesignContractTests.swift:262:5: Expectation failed: (missing → ["@FocusState private var isItemFieldFocused", "openSearch: @escaping () -> Void", "focusAddItem", ".safeAreaInset(edge: .bottom)", "SpoonDock(", "SpoonDockContext.shoppingList(", "add: focusAddItem", "search: openSearch", "clearChecked: clearCompleted", "shoppingHeaderTools", "Menu", "ViewThatFits(in: .horizontal)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/ShoppingListView.swift missing tokens: @FocusState private var isItemFieldFocused, openSearch: @escaping () -> Void, focusAddItem, .safeAreaInset(edge: .bottom), SpoonDock(, SpoonDockContext.shoppingList(, add: focusAddItem, search: openSearch, clearChecked: clearCompleted, shoppingHeaderTools, Menu, ViewThatFits(in: .horizontal)
+✘ Test "shopping list owns add clear checked and search through a compact SpoonDock" recorded an issue at NativeMobileDesignContractTests.swift:263:5: Expectation failed: (forbidden → ["Button(role: .destructive) {\n                    clearAll()", "HStack(alignment: .firstTextBaseline, spacing: 10)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/ShoppingListView.swift contains forbidden tokens: Button(role: .destructive) {
+                      clearAll(), HStack(alignment: .firstTextBaseline, spacing: 10)
+✔ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" passed after 0.006 seconds.
+✘ Test "shopping list owns add clear checked and search through a compact SpoonDock" recorded an issue at NativeMobileDesignContractTests.swift:262:5: Expectation failed: (missing → ["openSearch: openSearchFromDock"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing tokens: openSearch: openSearchFromDock
+✘ Test "shopping list owns add clear checked and search through a compact SpoonDock" failed after 0.009 seconds with 3 issues.
+✘ Test "cook mode owns a compact SpoonDock handrail wired to step state" recorded an issue at NativeMobileDesignContractTests.swift:262:5: Expectation failed: (missing → ["shouldShowShellSpoonDock", "case .recipeDetail(_, .cook), .shoppingList:"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift missing tokens: shouldShowShellSpoonDock, case .recipeDetail(_, .cook), .shoppingList:
+✘ Test "cook mode owns a compact SpoonDock handrail wired to step state" failed after 0.010 seconds with 2 issues.
+✘ Suite "Native mobile design contract" failed after 0.010 seconds with 5 issues.
+✘ Test run with 8 tests in 1 suite failed after 0.011 seconds with 5 issues.
