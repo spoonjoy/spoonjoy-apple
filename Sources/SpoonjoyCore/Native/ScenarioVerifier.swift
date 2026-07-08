@@ -317,7 +317,7 @@ public enum ScenarioVerifier {
             stage: .surfaces,
             checks: [
                 ScenarioCheck(name: "kitchen browsing", status: .pass, detail: "Kitchen browsing is backed by KitchenView and the live app state."),
-                ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
+                ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, web-parity step ingredients, cookbooks, and cooks."),
                 cookProgressPersistenceCheck(),
                 shoppingCheckoffCheck(),
                 shoppingAddItemCheck(),
@@ -344,10 +344,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "recipe detail surface source",
-                    detail: "Recipe detail surface includes required cookbook spread and receipt/method structure.",
+                    detail: "Recipe detail surface includes web-parity header controls, step sections with per-step ingredients, Cooks, and native sharing.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
-                    tokens: ["RecipeDetailView", "cookbookSpread", "ingredientReceipt", "methodSections", "ShareLink"]
+                    tokens: ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView", "ShareLink"]
                 ),
                 sourceCheck(
                     name: "cook mode surface source",
@@ -515,7 +515,7 @@ public enum ScenarioVerifier {
                     tokens: ["case .syncFailed", "PlatformNavigationView(", "navigation.route == .settings", "syncFailureMessage: message", "openKitchenFromStandaloneSettings"]
                 ),
                 fixtureFallbackDisabledCheck(rootURL: rootURL),
-                ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, ingredient receipt, cookbook spread, and method sections."),
+                ScenarioCheck(name: "recipe detail", status: .pass, detail: "Recipe detail renders hero, provenance, actions, web-parity step ingredients, cookbooks, and cooks."),
                 cookProgressPersistenceCheck(),
                 durableNativeStateCheck(),
                 shoppingCheckoffCheck(),

@@ -89,7 +89,7 @@ struct SpoonCookLogView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Cook Log")
+            Text("Cooks")
                 .font(.title2)
                 .foregroundStyle(KitchenTableTheme.charcoal)
             Spacer()

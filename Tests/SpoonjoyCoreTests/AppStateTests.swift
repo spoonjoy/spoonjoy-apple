@@ -91,7 +91,7 @@ struct AppStateTests {
         let recipeViewModelID = recipeViewModel.id
         let recipeViewModelTitle = recipeViewModel.title
         let recipeViewModelRoute = recipeViewModel.startCookingRoute
-        let recipeViewModelSections = recipeViewModel.methodSections
+        let recipeViewModelSections = recipeViewModel.stepSections
         let progress = CookModeProgress(
             recipeID: recipe.id,
             stepIDs: recipe.steps.map(\.id),

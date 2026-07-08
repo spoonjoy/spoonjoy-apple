@@ -66,7 +66,7 @@ Each accessibility proof must be emitted by the running Spoonjoy app through `SP
 The manifest is not a substitute for screenshots or human-grade review, but it must make these native surface obligations explicit:
 
 - Kitchen includes a lead food/cookbook/list object, `KitchenMasthead`, `RecipeLead`, `RecipeIndex`, and `CookbookShelf`.
-- Recipe Detail includes hero/provenance/actions, an ingredient receipt, numbered method sections, and native share affordances.
+- Recipe Detail follows the web recipe structure: hero/provenance, header yield controls with `Clear progress`, masthead actions (`Cook mode`, `Save`, `Add to list`, share/more), a modal `Save to Cookbook` flow, web-parity `Steps` with per-step `Ingredients`, step-output dependency rows, checkable progress rows, and `Cooks`.
 - Shopping List uses receipt rows, large check controls, native `List`/`Section` grouping, edit/check affordances, and stable ordering.
 - Cook Mode uses one focused step, persisted progress, large controls, progress/timer affordances, and no dense multi-step primary list.
 - Search uses native `.searchable` scopes, typed rows, and the accepted scopes `all`, `recipes`, `cookbooks`, `chefs`, and `shopping-list`.

@@ -122,32 +122,39 @@ struct RecipeLead: View {
     let startCooking: (String) -> Void
 
     var body: some View {
+        let hasCoverImage = recipe.displayCoverImageURL != nil
+
         VStack(alignment: .leading, spacing: 14) {
             ZStack(alignment: .bottomLeading) {
                 RecipeCoverImage(
                     url: recipe.displayCoverImageURL,
                     title: recipe.title,
-                    subtitle: recipe.displayCoverProvenanceLabel,
-                    showsFallbackLabel: false
+                    subtitle: "Cover coming soon",
+                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id),
+                    showsFallbackLabel: true
                 )
                     .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
                     .clipped()
-                    .overlay(KitchenTableTheme.photoOverlay)
+                    .overlay {
+                        if hasCoverImage {
+                            KitchenTableTheme.photoOverlay
+                        }
+                    }
                     .accessibilityLabel("\(recipe.title) cover image")
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Latest from your kitchen".uppercased())
                         .font(.caption2.weight(.bold))
                         .tracking(1.2)
-                        .foregroundStyle(.white.opacity(0.72))
+                        .foregroundStyle(hasCoverImage ? .white.opacity(0.72) : KitchenTableTheme.brass)
                     Text(recipe.title)
                         .font(KitchenTableTheme.displayTitle)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(hasCoverImage ? .white : KitchenTableTheme.charcoal)
                         .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(recipe.attribution.creditText)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(hasCoverImage ? .white.opacity(0.9) : KitchenTableTheme.inkMuted)
                 }
                 .padding()
             }
@@ -234,7 +241,8 @@ struct KitchenRecipeIndexRow: View {
                 RecipeCoverImage(
                     url: recipe.displayCoverImageURL,
                     title: recipe.title,
-                    subtitle: recipe.displayCoverProvenanceLabel
+                    subtitle: recipe.displayCoverProvenanceLabel,
+                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
                 )
                     .aspectRatio(1, contentMode: .fill)
             } trailing: {

@@ -24,6 +24,7 @@ struct NativeMobileDesignContractTests {
                 "NavigationStack",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.bone.ignoresSafeArea())",
+                ".background(KitchenTableTheme.bone)",
                 "SpoonDock(",
                 "SpoonDockContext"
             ],
@@ -65,6 +66,7 @@ struct NativeMobileDesignContractTests {
                 "rightTools",
                 "buttonStyle(.glassProminent)",
                 ".background(.thinMaterial, in: Circle())",
+                ".background(KitchenTableTheme.bone, in: Capsule())",
                 ".background(.ultraThinMaterial",
                 ".accessibilityLabel",
                 "Kitchen",
@@ -135,16 +137,112 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "recipePrimaryActions",
                 "recipeSecondaryActions",
+                "@Environment(\\.horizontalSizeClass)",
+                "usesCompactRecipeDock",
+                "if !usesCompactRecipeDock",
                 "Menu",
                 "KitchenTableActionButtonStyle(prominence: .primary)",
                 "KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary)",
-                ".frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget"
+                "Label(\"Cook mode\", systemImage: \"fork.knife\")",
+                "Label(\"Save\", systemImage: \"book.closed\")",
+                "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
+                "recipeHeaderControls"
             ],
             forbids: [
                 "HStack {\n                if hasAction(.startCooking)",
+                "Stepper(value: $shoppingScaleFactor",
                 ".frame(maxWidth: 220)",
                 "ViewThatFits(in: .horizontal)",
-                "GridRow"
+                "GridRow",
+                "recipeDockClearance"
+            ]
+        )
+    }
+
+    @Test("recipe detail follows web step language instead of invented receipt method copy")
+    func recipeDetailFollowsWebStepLanguageInsteadOfInventedReceiptMethodCopy() throws {
+        let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let detailModelPath = "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift"
+        let spoonLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
+        let screenshotProofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let detail = uncommentedSwift(try readRepoFile(detailPath))
+        let detailModel = uncommentedSwift(try readRepoFile(detailModelPath))
+        let spoonLog = uncommentedSwift(try readRepoFile(spoonLogPath))
+        let screenshotProof = uncommentedSwift(try readRepoFile(screenshotProofPath))
+
+        expectContent(
+            detail,
+            in: detailPath,
+            contains: [
+                "recipeHeaderControls",
+                "RecipeScaleSelector",
+                "Label(\"Clear progress\", systemImage: \"arrow.counterclockwise\")",
+                "isCookbookSaveSheetPresented",
+                "Label(\"Save\", systemImage: \"book.closed\")",
+                "stepsSection",
+                "KitchenTableSection(title: \"Steps\", subtitle: \"Tap ingredients as you go\")",
+                "Text(\"Ingredients\")",
+                "RecipeStepChecklistRow",
+                "RecipeDetailCookProgressSnapshot",
+                "spoonjoy-cook-progress:\\(viewModel.id)",
+                "Label(\"Cook mode\", systemImage: \"fork.knife\")",
+                "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
+                "KitchenTableSection(title: \"Save to Cookbook\")"
+            ],
+            forbids: [
+                "Ingredient Receipt",
+                "KitchenTableSection(title: \"Method\")",
+                "cookbookSpread",
+                "KitchenTableSection(title: \"Cookbooks\")",
+                "KitchenTableSection(title: \"Cookbook Spread\")",
+                "Save To Cookbook"
+            ]
+        )
+
+        expectContent(
+            spoonLog,
+            in: spoonLogPath,
+            contains: [
+                "Text(\"Cooks\")"
+            ],
+            forbids: [
+                "Text(\"Cook Log\")"
+            ]
+        )
+
+        expectContent(
+            detailModel,
+            in: detailModelPath,
+            contains: [
+                "case steps",
+                "RecipeDetailStepSection",
+                "RecipeDetailStepDependency",
+                "stepSections = recipe.steps.map(RecipeDetailStepSection.init(step:))"
+            ],
+            forbids: [
+                "ingredientReceipt",
+                "RecipeDetailIngredientReceipt",
+                "case method"
+            ]
+        )
+
+        expectContent(
+            screenshotProof,
+            in: screenshotProofPath,
+            contains: [
+                "\"Cook mode\"",
+                "\"Save\"",
+                "\"Yield\"",
+                "\"Clear progress\"",
+                "\"Add to list\"",
+                "\"Steps\"",
+                "\"Cooks\"",
+                "\"Ingredients\"",
+                "\"RecipeScaleSelector\"",
+                "\"RecipeStepChecklistRow\""
+            ],
+            forbids: [
+                "Ingredient Receipt"
             ]
         )
     }
@@ -315,20 +413,36 @@ struct NativeMobileDesignContractTests {
             coverComponent,
             in: coverComponentPath,
             contains: [
-                "KitchenTableTheme.photoCharcoal",
-                "KitchenTableTheme.photoOverlay",
-                "KitchenTableTheme.onPhoto",
-                "KitchenTableTheme.onPhotoMuted",
+                "Cover coming soon",
+                "bundledAssetName(forRecipeID recipeID: String)",
+                "case \"recipe_lemon_pantry_pasta\"",
+                "\"LemonPantryPasta\"",
+                "LinearGradient(\n                colors: palette.background",
+                "KitchenTableTheme.paper",
+                "KitchenTableTheme.vellum",
                 "RecipeCoverFallbackPalette"
             ],
             forbids: [
                 "garnish",
                 "Capsule()",
                 "Circle().stroke(palette.accent",
-                "LinearGradient(\n                colors: palette.background"
+                "KitchenTableTheme.photoCharcoal"
             ]
         )
-        for routePath in liveRoutePaths {
+        expectContent(
+            try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"),
+            in: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
+            contains: [
+                "coverPlaceholderLabel",
+                "Awaiting first chef photo",
+                "Cover coming soon",
+                "assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id)",
+                "showsFallbackLabel: true"
+            ]
+        )
+        expectContent(try readRepoFile("Apps/Spoonjoy/Shared/Views/KitchenView.swift"), in: "Apps/Spoonjoy/Shared/Views/KitchenView.swift", contains: ["assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)"])
+        expectContent(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipesView.swift"), in: "Apps/Spoonjoy/Shared/Views/RecipesView.swift", contains: ["assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id)"])
+        for routePath in liveRoutePaths.filter({ !$0.hasSuffix("KitchenView.swift") && !$0.hasSuffix("RecipeDetailView.swift") && !$0.hasSuffix("RecipesView.swift") }) {
             expectContent(try readRepoFile(routePath), in: routePath, forbids: ["bundledAssetName(forRecipeID"])
         }
     }
@@ -404,7 +518,9 @@ struct NativeMobileDesignContractTests {
                 "W6 | Kitchen/Cookbooks",
                 "W9 | Whole app",
                 "| Kitchen | Page masthead",
-                "| Recipe detail | Editorial hero",
+                "| Recipe detail | Web-parity `RecipeHeader`",
+                "`Steps` using per-step `Ingredients`",
+                "then `Cooks`",
                 "| Cook mode | High-contrast task page",
                 "| Shopping list | Receipt page",
                 "| Signed out/loading/error | Branded Spoonjoy page"

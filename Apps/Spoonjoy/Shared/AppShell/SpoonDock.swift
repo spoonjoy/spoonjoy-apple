@@ -16,8 +16,9 @@ struct SpoonDock: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 8)
         .frame(maxWidth: 351)
+        .background(KitchenTableTheme.bone, in: Capsule())
         .background(.ultraThinMaterial, in: Capsule())
-        .background(KitchenTableTheme.photoCharcoal.opacity(0.86), in: Capsule())
+        .background(KitchenTableTheme.photoCharcoal.opacity(0.92), in: Capsule())
         .overlay {
             Capsule()
                 .strokeBorder(.white.opacity(0.22), lineWidth: 1)

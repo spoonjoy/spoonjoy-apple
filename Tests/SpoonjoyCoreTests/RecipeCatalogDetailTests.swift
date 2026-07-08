@@ -109,9 +109,11 @@ struct RecipeCatalogDetailTests {
         #expect(viewModel.cover.provenanceLabel == "Chef photo")
         #expect(viewModel.sourceAttribution?.title == "Original Lemon Pasta")
         #expect(viewModel.sourceAttribution?.host == "example.com")
-        #expect(viewModel.ingredientReceipt.rows.map(\.name) == ["kosher salt", "spaghetti", "garlic", "lemon"])
-        #expect(viewModel.methodSections.map(\.stepNumber) == [1, 2])
-        #expect(viewModel.methodSections[1].dependencies.map(\.label) == ["Uses Boil Pasta"])
+        #expect(viewModel.stepSections.map(\.stepNumber) == [1, 2])
+        #expect(viewModel.stepSections[0].title == "Boil Pasta")
+        #expect(viewModel.stepSections[0].ingredients.map(\.name) == ["kosher salt", "spaghetti"])
+        #expect(viewModel.stepSections[1].ingredients.map(\.name) == ["garlic", "lemon"])
+        #expect(viewModel.stepSections[1].dependencies.map(\.label) == ["Step 1: Boil Pasta"])
         #expect(viewModel.spoonSummary.rows.map(\.chefLine) == ["jules cooked this"])
         #expect(viewModel.spoonSummary.rows.first?.note == "More lemon next time.")
         #expect(viewModel.cookbookSave.availableCookbooks.map(\.title) == ["Weeknights", "Pantry"])
@@ -130,8 +132,7 @@ struct RecipeCatalogDetailTests {
             .cover,
             .chefAttribution,
             .sourceAttribution,
-            .ingredientReceipt,
-            .method,
+            .steps,
             .recentSpoons,
             .cookbookSave,
             .shoppingList,
@@ -257,8 +258,8 @@ struct RecipeCatalogDetailTests {
             )
         )
         #expect(sparseViewModel.servingsLabel == nil)
-        #expect(sparseViewModel.methodSections.map(\.title) == ["Step", "Finish"])
-        #expect(sparseViewModel.methodSections[1].dependencies.map(\.label) == ["Uses step 1"])
+        #expect(sparseViewModel.stepSections.map(\.title) == [nil, "Finish"])
+        #expect(sparseViewModel.stepSections[1].dependencies.map(\.label) == ["Step 1"])
         #expect(sparseViewModel.spoonSummary.rows.map(\.id) == ["spoon_visible"])
         #expect(sparseViewModel.ownerTools.isVisible == false)
         #expect(sparseViewModel.offlineIndicator.display == .synced)
