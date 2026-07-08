@@ -19,8 +19,8 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - Add a native SwiftUI SpoonDock control surface for compact iOS layouts with the three-zone contract: place/back, primary action/status, and at most two route tools.
 - Use Apple-native Liquid Glass-adjacent APIs available in the current SDK, including glass button styles when supported and material-backed safe-area control layers where appropriate.
 - Replace the compact iOS `NavigationSplitView`/toolbar-heavy shell with a mobile-first `NavigationStack` composition while preserving the desktop-class split view for wider layouts.
-- Fix recipe detail action layout so controls wrap, fit, and remain usable on iPhone without horizontal overflow or vertical clipped text.
-- Fix kitchen, recipe detail, cook mode, and shopping-list mobile composition enough that the primary surfaces have clear hierarchy, stable spacing, no nested scroll/list weirdness, and no clipped controls.
+- Fix recipe detail action layout so controls prioritize primary actions, wrap secondary controls, and fall back to route-local overflow on iPhone without horizontal overflow or vertical clipped text.
+- Fix kitchen, recipe detail, cook mode, and shopping-list mobile composition against the explicit visual-audit failures F1-F6.
 - Update native design-language/source-contract checks so SpoonDock and compact mobile shell behavior are encoded and regressions fail locally.
 - Capture screenshot-backed visual QA for at least kitchen and recipe detail on iOS, inspect the images, maintain an absurdity ledger, and close every in-scope ready item.
 - Run focused Swift tests, source-contract scripts, screenshot capture, app bundle build, and protected GitHub checks before merging.
@@ -35,7 +35,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 
 ## Completion Criteria
 - [ ] Recent TestFlight feedback and screenshots are represented in an audit artifact with explicit failure dispositions.
-- [ ] Compact iOS uses a native SpoonDock with the three-zone contract instead of relying on a generic top toolbar or five-equal-tab dock.
+- [ ] Compact iOS uses a native SpoonDock with the context matrix from `2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md` instead of relying on a generic top toolbar or five-equal-tab dock.
 - [ ] Kitchen and recipe detail screenshots on iPhone show no clipped controls, overlapping title/hero text, nested list cutoffs, or horizontally overflowing action rows.
 - [ ] Cook mode and shopping list keep kitchen-safe primary controls reachable and readable on iPhone.
 - [ ] Source-contract checks cover SpoonDock, compact iOS navigation, and no-overflow mobile action composition.
@@ -53,17 +53,20 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - Edge cases: null, empty, boundary values
 
 ## Open Questions
-- [ ] Which global SpoonDock center action should win by default: capture, add, or cook? Evidence-backed default for this pass is capture on kitchen/search, cook on recipe detail, next/status in cook mode, and add on shopping list.
-- [ ] Whether every existing secondary toolbar action belongs in SpoonDock or should remain in a route-local menu. Evidence-backed default for this pass is to keep only two thumb-reach tools in the dock and leave overflow in route-local menus.
+- [ ] None.
 
 ## Decisions Made
 - The latest native UI work was bug containment around auth, sync, settings, and TestFlight feedback plumbing; it did not address product-level mobile UI composition.
 - The old SpoonDock work in `spoonjoy/mobile-first-design-recalibration` remains valid source material: SpoonDock is a context-aware three-zone mobile control surface, not a five-equal-tab nav bar.
 - Native does not mean default SwiftUI hierarchy everywhere. Compact iOS should use Apple navigation and control materials while preserving Spoonjoy's cookbook/table grammar.
 - Liquid Glass should be used for the control layer, not as decorative glass on content cards or food imagery.
+- The SpoonDock context matrix for this pass is fixed in `2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md`: kitchen/search use Capture as center action, recipe detail uses Cook, cook mode uses step status and next/previous, and shopping uses Add.
+- Secondary tools do not all belong in SpoonDock. Compact iOS gets at most two right-zone route tools; less common actions remain in route-local overflow or content actions.
+- The first implementation slice is not a whole-product redesign of every native screen. It is the smallest release-worthy overhaul that closes audit failures F1-F6 across kitchen, recipe detail, cook mode, and shopping list.
 
 ## Context / References
 - `/Users/arimendelow/Projects/spoonjoy-apple/docs/native-design-language.md`
+- `/Users/arimendelow/Projects/spoonjoy-apple-native-ui-overhaul/codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md`
 - `/Users/arimendelow/desk/spoonjoy/mobile-first-design-recalibration/spoonjoy-v2/2026-05-23-recalibration-plan/spoondock-design-notes.md`
 - `/Users/arimendelow/desk/spoonjoy/mobile-first-design-recalibration/spoonjoy-v2/2026-05-23-recalibration-plan/navigation-model.md`
 - `/Users/arimendelow/desk/spoonjoy/mobile-first-design-recalibration/spoonjoy-v2/2026-05-23-recalibration-plan/screenshots/spoondock-contact-sheet.png`
@@ -84,3 +87,4 @@ The first screenshots show top toolbar controls floating over content, a recipe-
 
 ## Progress Log
 - 2026-07-07 21:09 Created
+- 2026-07-07 21:11 Added visual-audit artifact and resolved SpoonDock defaults after reviewer findings.
