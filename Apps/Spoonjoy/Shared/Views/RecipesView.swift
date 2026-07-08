@@ -73,7 +73,12 @@ private struct RecipeIndexRow: View {
 
     var body: some View {
         KitchenTableObjectRow(title: row.title, subtitle: rowSubtitle) {
-            RecipeCoverImage(url: row.coverImageURL)
+            RecipeCoverImage(
+                url: row.coverImageURL,
+                title: row.title,
+                subtitle: row.coverProvenanceLabel,
+                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id)
+            )
         } trailing: {
             Text("Open")
                 .font(KitchenTableTheme.uiLabel)

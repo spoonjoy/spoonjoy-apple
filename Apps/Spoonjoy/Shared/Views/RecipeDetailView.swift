@@ -266,7 +266,12 @@ struct RecipeDetailView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 14) {
-            RecipeCoverImage(url: viewModel.cover.imageURL)
+            RecipeCoverImage(
+                url: viewModel.cover.imageURL,
+                title: viewModel.title,
+                subtitle: viewModel.cover.provenanceLabel,
+                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id)
+            )
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipped()
                 .overlay(alignment: .bottomLeading) {

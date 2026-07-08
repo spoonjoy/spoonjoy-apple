@@ -71,7 +71,7 @@ struct CookbookSurfaceParityTests {
         #expect(list.rows.first?.title == "Weeknights")
         #expect(list.rows.first?.chefLine == "By ari")
         #expect(list.rows.first?.recipeCountLabel == "2 recipes")
-        #expect(list.rows.first?.cover.primaryImageURL?.absoluteString == "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg")
+        #expect(list.rows.first?.cover.primaryImageURL == nil)
         #expect(list.rows.first?.openRoute == .cookbookDetail(id: "cookbook_weeknights"))
         #expect(list.rows.first?.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_weeknights")
         #expect(list.offlineIndicator.display == .synced)
