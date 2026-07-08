@@ -79,7 +79,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Replace broken mobile recipe detail action row with priority/wrapping composition; make kitchen recipe index and cookbook shelf mobile-first object layouts; improve theme spacing/type helpers without decorative cards.
 **Acceptance**: Unit 2a tests pass green; iPhone compact build renders without the known F1-F4 structural failures.
 
-### ⬜ Unit 2c: Kitchen And Recipe Detail Mobile Composition — Coverage & Refactor
+### ✅ Unit 2c: Kitchen And Recipe Detail Mobile Composition — Coverage & Refactor
 **What**: Refactor duplicated mobile layout helpers, cover edge cases for empty/long titles/accessibility text, and ensure source-contract scripts encode no nested mobile list/card regressions.
 **Acceptance**: Focused tests and scripts pass; no warnings.
 
@@ -120,3 +120,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 21:27 Unit 1c green verified project registration contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - 2026-07-07 21:28 Unit 2a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms nested kitchen `List` and overflowing recipe detail action `HStack`.
 - 2026-07-07 21:31 Unit 2b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
+- 2026-07-07 21:32 Unit 2c green verified long-title/accessibility contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.

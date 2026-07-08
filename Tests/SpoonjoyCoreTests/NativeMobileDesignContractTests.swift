@@ -108,7 +108,10 @@ struct NativeMobileDesignContractTests {
                 "LazyVStack",
                 "ForEach(recipes, id: \\.id)",
                 ".contentShape(Rectangle())",
-                ".aspectRatio(1, contentMode: .fill)"
+                ".aspectRatio(1, contentMode: .fill)",
+                ".lineLimit(2)",
+                ".minimumScaleFactor(0.86)",
+                ".accessibilityLabel(recipe.title)"
             ],
             forbids: [
                 "List(recipes",
