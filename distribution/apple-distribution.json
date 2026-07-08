@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Replaces the custom compact bottom nav with native iOS tab/navigation chrome, makes cook mode immersive, and fixes the per-step ingredient checklist handrail layout.",
+          "whatsNew": "Polishes the TestFlight recipe UI: smoother cover loading, appetizing fallback food imagery, cleaner native navigation, less noisy row text, safer search-to-detail loading, and a focused agent import status surface.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
