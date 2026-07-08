@@ -313,8 +313,8 @@ def route_accessibility_evidence(route)
       "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-      "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+      "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
+      "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
     }
   else
     {
@@ -846,7 +846,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
           route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","Form","Section"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -986,7 +986,7 @@ PY
           route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","Form","Section"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"

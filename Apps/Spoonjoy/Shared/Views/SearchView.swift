@@ -8,6 +8,7 @@ struct SearchView: View {
 
     @Binding private var search: SearchState
     @State private var inFlightRequest: SearchSurfaceRequest?
+    @FocusState private var isSearchFocused: Bool
 
     private let viewModel: SearchSurfaceViewModel
     private let openRoute: (AppRoute) -> Void
@@ -33,47 +34,43 @@ struct SearchView: View {
     }
 
     var body: some View {
-        List {
+        KitchenTablePage {
+            KitchenTableHeader(
+                eyebrow: "Kitchen Index",
+                title: "Search",
+                subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)"
+            )
+
+            searchControls
+
             if viewModel.offlineIndicator.display.isVisible {
-                Section {
+                KitchenTableSection(title: "Sync") {
                     OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
                 }
             }
 
             if let errorState = viewModel.errorState {
-                Section {
-                    SearchSurfaceMessageView(
-                        title: errorState.title,
-                        message: errorState.message,
-                        systemImage: errorState.systemImage
-                    )
-                }
+                SearchSurfaceMessageView(
+                    title: errorState.title,
+                    message: errorState.message,
+                    systemImage: errorState.systemImage
+                )
             }
 
             if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
-                Section {
-                    SearchSurfaceMessageView(
-                        title: emptyState.title,
-                        message: emptyState.message,
-                        systemImage: emptyState.systemImage
-                    )
-                }
+                SearchSurfaceMessageView(
+                    title: emptyState.title,
+                    message: emptyState.message,
+                    systemImage: emptyState.systemImage
+                )
             } else {
                 ForEach(viewModel.sections) { section in
                     SearchSurfaceSectionView(section: section, openRoute: openRoute)
                 }
             }
         }
-#if os(iOS)
-        .listStyle(.insetGrouped)
-#endif
-        .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
-        .navigationTitle("Search")
-#if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-#endif
         .tint(KitchenTableTheme.herb)
+        .navigationTitle("Search")
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
@@ -85,6 +82,82 @@ struct SearchView: View {
                 runtimeContext: screenshotAccessibilityRuntimeContext
             )
             await debounceSearch()
+        }
+    }
+
+    private var searchControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(KitchenTableTheme.brass)
+                TextField("tomato beans", text: searchTextBinding)
+#if os(iOS)
+                    .textInputAutocapitalization(.never)
+#endif
+                    .autocorrectionDisabled()
+                    .focused($isSearchFocused)
+                    .onSubmit {
+                        Task {
+                            await searchTask(search)
+                        }
+                    }
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 48)
+            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(searchableScopeOrder, id: \.rawValue) { scope in
+                        Button {
+                            search.update(query: search.query, scope: scope)
+                            Task {
+                                await searchTask(search)
+                            }
+                        } label: {
+                            Text(scopeLabel(scope))
+                                .font(KitchenTableTheme.uiLabel)
+                                .padding(.horizontal, 12)
+                                .frame(minHeight: 34)
+                                .foregroundStyle(scope == search.scope ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
+                                .background(scope == search.scope ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
+                                .overlay {
+                                    Capsule()
+                                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var searchTextBinding: Binding<String> {
+        Binding(
+            get: { search.query },
+            set: { query in
+                search.update(query: query, scope: search.scope)
+            }
+        )
+    }
+
+    private func scopeLabel(_ scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "Everything"
+        case .recipes:
+            "Recipes"
+        case .cookbooks:
+            "Cookbooks"
+        case .chefs:
+            "Chefs"
+        case .shoppingList:
+            "Shopping"
         }
     }
 
@@ -176,7 +249,7 @@ private struct SearchSurfaceSectionView: View {
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
-        Section(section.title) {
+        KitchenTableSection(title: section.title) {
             ForEach(section.rows) { row in
                 Button {
                     openRoute(row.openRoute)
@@ -193,28 +266,14 @@ private struct SearchSurfaceRowView: View {
     let row: SearchSurfaceRow
 
     var body: some View {
-        HStack(spacing: 12) {
+        KitchenTableObjectRow(title: row.title, subtitle: row.subtitle) {
             SearchSurfaceThumbnail(row: row)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(row.title)
-                    .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                if !row.subtitle.isEmpty {
-                    Text(row.subtitle)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
+        } trailing: {
             Image(systemName: "chevron.right")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
                 .accessibilityHidden(true)
         }
-        .padding(.vertical, 6)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(row.accessibilityLabel)
@@ -284,5 +343,8 @@ private struct SearchSurfaceMessageView: View {
                 .foregroundStyle(KitchenTableTheme.brass)
         }
         .padding(.vertical, 8)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 }

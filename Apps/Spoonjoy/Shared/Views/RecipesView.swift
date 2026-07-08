@@ -2,6 +2,9 @@ import SpoonjoyCore
 import SwiftUI
 
 struct RecipesView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let viewModel: RecipeCatalogViewModel
     let openRoute: (AppRoute) -> Void
     @State private var state: RecipeCatalogState
@@ -16,15 +19,17 @@ struct RecipesView: View {
     }
 
     var body: some View {
-        List {
+        KitchenTablePage {
+            KitchenTableHeader(
+                eyebrow: "Cookbook",
+                title: "Recipes",
+                subtitle: state.resultCountLabel
+            )
+
             if let emptyState = state.emptyState {
-                Section {
-                    Label(emptyState, systemImage: "book.closed")
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(.secondary)
-                }
+                KitchenEmptySection(title: emptyState, systemImage: "book.closed", tint: KitchenTableTheme.brass)
             } else {
-                Section(state.resultCountLabel) {
+                KitchenTableSection(title: "Recipe Index") {
                     ForEach(state.rows) { row in
                         Button {
                             openRoute(row.openRoute)
@@ -36,13 +41,16 @@ struct RecipesView: View {
                 }
             }
         }
-#if os(iOS)
-        .listStyle(.insetGrouped)
-#endif
-        .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
         .task {
             await loadCatalog()
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "recipes",
+                source: "RecipesView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
     }
 
@@ -64,37 +72,24 @@ private struct RecipeIndexRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        KitchenTableObjectRow(title: row.title, subtitle: rowSubtitle) {
             RecipeCoverImage(url: row.coverImageURL)
-            .frame(width: 56, height: 56)
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-            .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(row.title)
-                    .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-
-                if let subtitle = row.subtitle {
-                    Text(subtitle)
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                HStack(spacing: 8) {
-                    Text(row.chefLine)
-                    if let servingsLabel = row.servingsLabel {
-                        Text(servingsLabel)
-                    }
-                    if let coverProvenanceLabel = row.coverProvenanceLabel {
-                        Text(coverProvenanceLabel)
-                    }
-                }
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
-            }
+        } trailing: {
+            Text("Open")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
         }
-        .padding(.vertical, 6)
+    }
+
+    private var rowSubtitle: String {
+        [
+            row.subtitle,
+            row.chefLine,
+            row.servingsLabel,
+            row.coverProvenanceLabel
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " - ")
     }
 }

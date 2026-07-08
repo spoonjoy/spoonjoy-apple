@@ -16,7 +16,7 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "recipe-detail", "cook-mode", "shopping-list", "search", "settings"].freeze
+VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-mode", "shopping-list", "search", "cookbooks", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 ACCESSIBILITY_FIELDS = [
   "dynamicType",
@@ -61,21 +61,45 @@ EXPECTED_ROUTE_EVIDENCE = {
     "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
+  "recipes" => {
+    "voiceOverLabels" => ["Recipes", "Recipe Index", "Open"],
+    "keyboardNavigationTargets" => ["recipe index buttons", "recipe rows"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone"],
+    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "KitchenTableSection", "KitchenTableObjectRow"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
+  "cookbooks" => {
+    "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
+    "keyboardNavigationTargets" => ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone"],
+    "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
+  "capture" => {
+    "voiceOverLabels" => ["Capture", "Save Text", "Save URL", "Photo Library"],
+    "keyboardNavigationTargets" => ["text capture", "source capture", "image capture"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
+    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "TextEditor", "PhotosPicker"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
   "settings" => {
     "voiceOverLabels" => ["Settings", "Profile", "Security"],
     "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-    "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
+    "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
   },
   "recipe-detail" => {
     "voiceOverLabels" => ["Start Cooking", "Add Ingredients", "More", "Ingredient Receipt"],
     "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "ingredient rows"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
-    "hierarchyAnchors" => ["RecipeDetailView", "MobileActionFlow", "recipePrimaryActions", "recipeSecondaryActions"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "mobile-action-flow"]
+    "hierarchyAnchors" => ["RecipeDetailView", "KitchenTableActionButtonStyle", "recipePrimaryActions", "recipeSecondaryActions"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cook-mode" => {
     "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Cook mode SpoonDock"],
@@ -146,6 +170,12 @@ def expected_accessibility_source(route)
     "KitchenView"
   when "search"
     "SearchView"
+  when "recipes"
+    "RecipesView"
+  when "cookbooks"
+    "CookbooksView"
+  when "capture"
+    "CaptureDraftView"
   when "settings"
     "SettingsView"
   when "recipe-detail"
@@ -242,6 +272,10 @@ when "kitchen"
   fail_check("#{path} kitchenSignedInSurface must be true for kitchen captures") unless manifest["kitchenSignedInSurface"] == true
   seed_account_id = manifest["kitchenSeedAccountID"]
   fail_check("#{path} kitchenSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "recipes"
+  fail_check("#{path} recipesNativeSurface must be true for recipes captures") unless manifest["recipesNativeSurface"] == true
+  seed_account_id = manifest["recipeSeedAccountID"]
+  fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "search"
   fail_check("#{path} searchNativeSurface must be true for search captures") unless manifest["searchNativeSurface"] == true
   seed_account_id = manifest["searchSeedAccountID"]
@@ -270,6 +304,14 @@ when "shopping-list"
   fail_check("#{path} shoppingListSurface must be true for shopping list captures") unless manifest["shoppingListSurface"] == true
   seed_account_id = manifest["shoppingSeedAccountID"]
   fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "cookbooks"
+  fail_check("#{path} cookbooksNativeSurface must be true for cookbooks captures") unless manifest["cookbooksNativeSurface"] == true
+  seed_account_id = manifest["cookbookSeedAccountID"]
+  fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "capture"
+  fail_check("#{path} captureNativeSurface must be true for capture captures") unless manifest["captureNativeSurface"] == true
+  seed_account_id = manifest["captureSeedAccountID"]
+  fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "settings"
   fail_check("#{path} settingsSignedInSurface must be true for settings captures") unless manifest["settingsSignedInSurface"] == true
   seed_account_id = manifest["settingsSeedAccountID"]

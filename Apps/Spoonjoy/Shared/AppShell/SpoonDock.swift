@@ -10,18 +10,19 @@ struct SpoonDock: View {
             if dynamicTypeSize.isAccessibilitySize {
                 accessibilityDock
             } else {
-                adaptiveDock
+                horizontalDock
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .frame(maxWidth: 372)
         .background(.ultraThinMaterial, in: Capsule())
+        .background(KitchenTableTheme.charcoal.opacity(0.84), in: Capsule())
         .overlay {
             Capsule()
-                .strokeBorder(.white.opacity(0.28), lineWidth: 1)
+                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.18), radius: 18, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.22), radius: 16, x: 0, y: 8)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(context.accessibilityLabel)
     }
@@ -34,18 +35,14 @@ struct SpoonDock: View {
     }
 
     private var horizontalDock: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 8) {
             dockButton(context.leftZone, prominence: .supporting)
-                .frame(maxWidth: 112, alignment: .leading)
+                .frame(width: 92, alignment: .leading)
                 .layoutPriority(1)
 
-            Spacer(minLength: 4)
-
             dockButton(context.centerZone, prominence: .primary)
-                .frame(maxWidth: .infinity)
+                .frame(minWidth: 126, maxWidth: .infinity)
                 .layoutPriority(2)
-
-            Spacer(minLength: 4)
 
             toolRail
                 .layoutPriority(1)
@@ -96,11 +93,22 @@ struct SpoonDock: View {
         if prominence == .primary {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.glassProminent)
-                .tint(tintColor(for: action))
+                .tint(tintColor(for: action) ?? KitchenTableTheme.brass)
+        } else if prominence == .supporting {
+            dockTrigger(action, prominence: prominence)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 44)
+                .background(.thinMaterial, in: Capsule())
+                .background(KitchenTableTheme.paper.opacity(0.84), in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.35), lineWidth: 1)
+                }
         } else {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.glass)
-                .tint(tintColor(for: action))
+                .tint(tintColor(for: action) ?? KitchenTableTheme.paper)
         }
     }
 
@@ -110,18 +118,21 @@ struct SpoonDock: View {
 
     @ViewBuilder
     private func dockTrigger(_ action: SpoonDockAction, prominence: SpoonDockActionProminence) -> some View {
-        if let shareURL = action.shareURL {
+        if !action.isEnabled {
+            dockLabel(action, prominence: prominence)
+                .opacity(action.role == .status || action.role == .place ? 1 : 0.58)
+                .accessibilityLabel(action.accessibilityLabel)
+                .accessibilityHint(action.accessibilityHint ?? "")
+        } else if let shareURL = action.shareURL {
             ShareLink(item: shareURL) {
                 dockLabel(action, prominence: prominence)
             }
-            .disabled(!action.isEnabled)
             .accessibilityLabel(action.accessibilityLabel)
             .accessibilityHint(action.accessibilityHint ?? "")
         } else {
             Button(action: action.action) {
                 dockLabel(action, prominence: prominence)
             }
-            .disabled(!action.isEnabled)
             .accessibilityLabel(action.accessibilityLabel)
             .accessibilityHint(action.accessibilityHint ?? "")
         }
@@ -132,29 +143,34 @@ struct SpoonDock: View {
         if prominence == .tool {
             Image(systemName: action.systemImage)
                 .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(action.role == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.paper)
                 .frame(width: 42, height: 42)
         } else {
-            HStack(spacing: 8) {
-                Image(systemName: action.systemImage)
-                    .font(.system(size: prominence == .primary ? 18 : 15, weight: .semibold))
+            HStack(spacing: prominence == .primary ? 7 : 6) {
+                if prominence != .primary || action.role == .status {
+                    Image(systemName: action.systemImage)
+                        .font(.system(size: prominence == .primary ? 16 : 15, weight: .semibold))
+                        .foregroundStyle(prominence == .supporting ? KitchenTableTheme.charcoal : KitchenTableTheme.paper)
+                }
 
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: prominence == .primary ? .center : .leading, spacing: 1) {
                     Text(action.title)
-                        .font(prominence == .primary ? .headline : .subheadline)
+                        .font(prominence == .primary ? .headline.weight(.bold) : .caption.weight(.bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
+                        .foregroundStyle(prominence == .supporting ? KitchenTableTheme.charcoal : KitchenTableTheme.paper)
 
                     if let subtitle = action.subtitle {
                         Text(subtitle)
                             .font(.caption2)
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(prominence == .supporting ? KitchenTableTheme.inkMuted : KitchenTableTheme.paper.opacity(0.72))
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .padding(.horizontal, 2)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: prominence == .primary ? .center : .leading)
+            .padding(.horizontal, prominence == .primary ? 8 : 0)
         }
     }
 }

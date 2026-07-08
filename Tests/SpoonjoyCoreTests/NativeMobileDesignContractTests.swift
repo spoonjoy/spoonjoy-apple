@@ -20,7 +20,8 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationStack",
                 "NavigationSplitView",
-                ".safeAreaInset(edge: VerticalEdge.bottom)",
+                "VStack(spacing: 0)",
+                ".background(KitchenTableTheme.bone.ignoresSafeArea())",
                 "SpoonDock(",
                 "SpoonDockContext"
             ]
@@ -107,10 +108,8 @@ struct NativeMobileDesignContractTests {
                 "struct KitchenRecipeIndexRow: View",
                 "LazyVStack",
                 "ForEach(recipes, id: \\.id)",
-                ".contentShape(Rectangle())",
+                "KitchenTableObjectRow",
                 ".aspectRatio(1, contentMode: .fill)",
-                ".lineLimit(2)",
-                ".minimumScaleFactor(0.86)",
                 ".accessibilityLabel(recipe.title)"
             ],
             forbids: [
@@ -129,16 +128,18 @@ struct NativeMobileDesignContractTests {
             detail,
             in: detailPath,
             contains: [
-                "struct MobileActionFlow: View",
-                "ViewThatFits(in: .horizontal)",
                 "recipePrimaryActions",
                 "recipeSecondaryActions",
                 "Menu",
-                "Grid"
+                "KitchenTableActionButtonStyle(prominence: .primary)",
+                "KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary)",
+                ".frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget"
             ],
             forbids: [
                 "HStack {\n                if hasAction(.startCooking)",
-                ".frame(maxWidth: 220)"
+                ".frame(maxWidth: 220)",
+                "ViewThatFits(in: .horizontal)",
+                "GridRow"
             ]
         )
     }
@@ -197,11 +198,13 @@ struct NativeMobileDesignContractTests {
                 "clearChecked: clearCompleted",
                 "shoppingHeaderTools",
                 "Menu",
-                "ViewThatFits(in: .horizontal)"
+                "KitchenTableHeader(",
+                "VStack(alignment: .leading, spacing: 10)"
             ],
             forbids: [
                 "Button(role: .destructive) {\n                    clearAll()",
-                "HStack(alignment: .firstTextBaseline, spacing: 10)"
+                "HStack(alignment: .firstTextBaseline, spacing: 10)",
+                "ViewThatFits(in: .horizontal)"
             ]
         )
 
@@ -299,23 +302,23 @@ struct NativeMobileDesignContractTests {
 
     @Test("visual audit records all current feedback failures and no ready item can disappear")
     func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
-        let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"
+        let auditPath = "codex-native/tasks/2026-07-07-2353-whole-native-ui-overhaul-visual-audit.md"
         let audit = try readRepoFile(auditPath)
 
         expectContent(
             audit,
             in: auditPath,
             contains: [
-                "F1: Recipe action row overflows compact iPhone width",
-                "F2: Top toolbar floats over content instead of belonging to app structure",
-                "F3: `List` inside `ScrollView` creates a broken nested scroll/card island",
-                "F4: Cookbook shelf image treatment repeats/crops awkwardly",
-                "F5: Missing SpoonDock means mobile has no contextual handrail",
-                "F6: Typography and spacing lose the Kitchen Table hierarchy",
-                "| Kitchen | `Kitchen` place label | `Capture` primary action | Search, Shopping |",
-                "| Recipe detail | Back to Kitchen or Recipes | `Cook` primary action | Save/Spoon, Share |",
-                "| Cook mode | Previous step | Step status | Next step |",
-                "| Shopping list | `List` place label | `Add` primary action | Search, Clear checked |"
+                "W1 | Compact shell",
+                "W2 | Recipe detail",
+                "W5 | Kitchen",
+                "W6 | Kitchen/Cookbooks",
+                "W9 | Whole app",
+                "| Kitchen | Page masthead",
+                "| Recipe detail | Editorial hero",
+                "| Cook mode | High-contrast task page",
+                "| Shopping list | Receipt page",
+                "| Signed out/loading/error | Branded Spoonjoy page"
             ]
         )
     }

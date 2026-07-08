@@ -51,19 +51,15 @@ struct ProfileView: View {
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                ProfileHero(viewModel: viewModel, openRoute: openRoute)
-                statusBanner
-                ProfileRecipeShelf(recipes: viewModel.recipes, openRoute: openRoute)
-                ProfileCookbookShelf(cookbooks: viewModel.cookbooks, openRoute: openRoute)
-                RecentSpoonsSection(spoons: viewModel.recentSpoons, openRoute: openRoute)
-                FellowChefsSection(link: graphLink(.fellowChefs), openRoute: openRoute)
-                KitchenVisitorsSection(link: graphLink(.kitchenVisitors), openRoute: openRoute)
-            }
-            .padding()
+        KitchenTablePage {
+            ProfileHero(viewModel: viewModel, openRoute: openRoute)
+            statusBanner
+            ProfileRecipeShelf(recipes: viewModel.recipes, openRoute: openRoute)
+            ProfileCookbookShelf(cookbooks: viewModel.cookbooks, openRoute: openRoute)
+            RecentSpoonsSection(spoons: viewModel.recentSpoons, openRoute: openRoute)
+            FellowChefsSection(link: graphLink(.fellowChefs), openRoute: openRoute)
+            KitchenVisitorsSection(link: graphLink(.kitchenVisitors), openRoute: openRoute)
         }
-        .background(KitchenTableTheme.bone)
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -90,15 +86,14 @@ private struct ProfileHero: View {
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             ProfileAvatar(url: viewModel.header.photoURL)
-            VStack(alignment: .leading, spacing: 8) {
-                Text(viewModel.header.username)
-                    .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                Text(viewModel.header.joinedLabel)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+
+            KitchenTableHeader(
+                eyebrow: "Chef",
+                title: "@\(viewModel.header.username)",
+                subtitle: viewModel.header.joinedLabel
+            ) {
                 graphSummary
                 if viewModel.ownerActions.isVisible, let editRoute = viewModel.ownerActions.editProfileRoute {
                     Button {
@@ -106,14 +101,14 @@ private struct ProfileHero: View {
                     } label: {
                         Label("Edit Profile", systemImage: "pencil")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
                 }
             }
         }
     }
 
     private var graphSummary: some View {
-        HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             ForEach(viewModel.graphLinks, id: \.direction) { link in
                 Button {
                     openRoute(link.route)
@@ -152,24 +147,23 @@ private struct ProfileRecipeShelf: View {
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recipes")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+        KitchenTableSection(title: "Recipes") {
             if recipes.isEmpty {
-                ContentUnavailableView("No recipes yet", systemImage: "book.closed")
+                KitchenEmptySection(title: "No recipes yet", systemImage: "book.closed", tint: KitchenTableTheme.brass)
             } else {
-                ScrollView(.horizontal) {
-                    HStack(alignment: .top, spacing: 12) {
-                        ForEach(recipes, id: \.id) { recipe in
-                            Button {
-                                openRoute(recipe.openRoute)
-                            } label: {
-                                ProfileRecipeCard(recipe: recipe)
-                            }
-                            .buttonStyle(.plain)
+                ForEach(recipes, id: \.id) { recipe in
+                    Button {
+                        openRoute(recipe.openRoute)
+                    } label: {
+                        KitchenTableObjectRow(title: recipe.title, subtitle: recipe.coverProvenanceLabel) {
+                            RecipeCoverImage(url: recipe.coverImageURL)
+                        } trailing: {
+                            Text("Open")
+                                .font(KitchenTableTheme.uiLabel)
+                                .foregroundStyle(KitchenTableTheme.brass)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -202,23 +196,25 @@ private struct ProfileCookbookShelf: View {
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Cookbooks")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+        KitchenTableSection(title: "Cookbooks") {
             if cookbooks.isEmpty {
-                ContentUnavailableView("No cookbooks yet", systemImage: "books.vertical")
+                KitchenEmptySection(title: "No cookbooks yet", systemImage: "books.vertical", tint: KitchenTableTheme.brass)
             } else {
                 ForEach(cookbooks, id: \.id) { cookbook in
                     Button {
                         openRoute(cookbook.openRoute)
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(cookbook.title)
-                                .font(KitchenTableTheme.bodyNote)
-                            Text(cookbook.recipeCountLabel)
+                        KitchenTableObjectRow(title: cookbook.title, subtitle: cookbook.recipeCountLabel) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                                    .fill(KitchenTableTheme.brass.opacity(0.16))
+                                Image(systemName: "books.vertical")
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                            }
+                        } trailing: {
+                            Image(systemName: "chevron.forward")
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(KitchenTableTheme.brass)
                         }
                     }
                     .buttonStyle(.plain)
@@ -233,26 +229,21 @@ private struct RecentSpoonsSection: View {
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recent Spoons")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+        KitchenTableSection(title: "Recent Spoons") {
             if spoons.isEmpty {
-                ContentUnavailableView("No spoons yet", systemImage: "fork.knife")
+                KitchenEmptySection(title: "No spoons yet", systemImage: "fork.knife", tint: KitchenTableTheme.brass)
             } else {
                 ForEach(spoons, id: \.id) { spoon in
                     Button {
                         openRoute(spoon.recipe.openRoute)
                     } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(spoon.recipe.title)
-                                .font(KitchenTableTheme.bodyNote)
-                            if let note = spoon.note {
-                                Text(note)
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(.secondary)
+                        KitchenTableObjectRow(title: spoon.recipe.title, subtitle: spoon.note) {
+                            RecipeCoverImage(url: nil)
+                        } trailing: {
+                            Image(systemName: "fork.knife")
+                                .font(KitchenTableTheme.uiLabel)
+                                .foregroundStyle(KitchenTableTheme.brass)
                             }
-                        }
                     }
                     .buttonStyle(.plain)
                 }

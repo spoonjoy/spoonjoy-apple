@@ -185,14 +185,15 @@ struct CookModeView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(recipe.title)
-                .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+            KitchenTableHeader(
+                eyebrow: viewModel.stepProgressLabel,
+                title: recipe.title,
+                subtitle: viewModel.recipeProgressLabel
+            )
 
             HStack(spacing: 12) {
-                Label(viewModel.stepProgressLabel, systemImage: "list.number")
                 Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
-                Label(viewModel.recipeProgressLabel, systemImage: "fork.knife")
+                Label("Hands free", systemImage: "fork.knife")
             }
             .font(KitchenTableTheme.uiLabel)
             .foregroundStyle(KitchenTableTheme.brass)
@@ -211,7 +212,7 @@ struct CookModeView: View {
             } label: {
                 Label("Add Ingredients", systemImage: "cart.badge.plus")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
 
             if let shoppingStatusMessage {
                 Label(shoppingStatusMessage, systemImage: "checkmark.circle")
@@ -306,10 +307,8 @@ struct CookModeView: View {
         VStack(spacing: 10) {
             Button(action: markCurrentStepComplete) {
                 Label("Done", systemImage: "checkmark.circle.fill")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(KitchenTableTheme.herb)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
             .accessibilityLabel("Mark the current step done")
 
             SpoonDock(context: SpoonDockContext.cookMode(
@@ -320,9 +319,8 @@ struct CookModeView: View {
 
             Button(action: close) {
                 Label("Recipe", systemImage: "text.book.closed")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             .accessibilityLabel("Return to recipe detail")
         }
         .padding(.horizontal, 12)

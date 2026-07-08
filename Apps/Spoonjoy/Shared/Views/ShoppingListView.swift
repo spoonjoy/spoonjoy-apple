@@ -129,17 +129,12 @@ struct ShoppingListView: View {
     }
 
     private var header: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline) {
-                shoppingTitleBlock
-                Spacer()
-                shoppingHeaderTools
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                shoppingTitleBlock
-                shoppingHeaderTools
-            }
+        KitchenTableHeader(
+            eyebrow: "Market Run",
+            title: "Shopping List",
+            subtitle: viewModel.activeCountLabel
+        ) {
+            shoppingHeaderTools
         }
         .padding(.horizontal)
     }
@@ -167,8 +162,17 @@ struct ShoppingListView: View {
                     }
                 } label: {
                     Label("List Actions", systemImage: "ellipsis.circle")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .background(KitchenTableTheme.paper, in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                        }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
             }
 
 #if os(iOS)
@@ -186,21 +190,12 @@ struct ShoppingListView: View {
     }
 
     private var addItemControls: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                itemNameField
+        VStack(alignment: .leading, spacing: 10) {
+            itemNameField
+            HStack(spacing: 8) {
                 quantityField
                 unitField
                 addItemButton
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                itemNameField
-                HStack(spacing: 8) {
-                    quantityField
-                    unitField
-                    addItemButton
-                }
             }
         }
         .padding(.horizontal)
@@ -208,14 +203,30 @@ struct ShoppingListView: View {
 
     private var itemNameField: some View {
         TextField("Item", text: $addItemForm.itemName)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.bodyNote)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 46)
+            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
             .focused($isItemFieldFocused)
             .onSubmit(addItem)
     }
 
     private var quantityField: some View {
         TextField("Qty", text: $addItemForm.itemQuantity)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.bodyNote)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 46)
+            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
             .frame(width: 74)
 #if os(iOS)
             .keyboardType(.decimalPad)
@@ -224,7 +235,15 @@ struct ShoppingListView: View {
 
     private var unitField: some View {
         TextField("Unit", text: $addItemForm.itemUnit)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.bodyNote)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 46)
+            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .overlay {
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
             .frame(width: 96)
     }
 
@@ -232,7 +251,7 @@ struct ShoppingListView: View {
         Button(action: addItem) {
             Label("Add", systemImage: "plus.circle")
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
     }
 
     @ViewBuilder private var statusBanner: some View {

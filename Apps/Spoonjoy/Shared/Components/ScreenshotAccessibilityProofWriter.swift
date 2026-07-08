@@ -75,6 +75,33 @@ enum ScreenshotAccessibilityProofWriter {
 
     private static func routeEvidence(route: String, source: String) -> RouteAccessibilityEvidence {
         switch (route, source) {
+        case ("recipes", "RecipesView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Recipes", "Recipe Index", "Open"],
+                keyboardNavigationTargets: ["recipe index buttons", "recipe rows"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["RecipesView", "KitchenTableHeader", "KitchenTableSection", "KitchenTableObjectRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("cookbooks", "CookbooksView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
+                keyboardNavigationTargets: ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("capture", "CaptureDraftView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Capture", "Save Text", "Save URL", "Photo Library"],
+                keyboardNavigationTargets: ["text capture", "source capture", "image capture"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role"],
+                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "TextEditor", "PhotosPicker"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
         case ("search", "SearchView"):
             RouteAccessibilityEvidence(
                 voiceOverLabels: ["Search", "row.accessibilityLabel"],
@@ -90,8 +117,8 @@ enum ScreenshotAccessibilityProofWriter {
                 keyboardNavigationTargets: ["profile form fields", "security token controls", "notification toggles", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["SettingsView", "Form", "Section", "OfflineStatusView"],
-                layoutGuards: ["scroll-form", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
+                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "OfflineStatusView"],
+                layoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
             )
         case ("recipe-detail", "RecipeDetailView"):
             RouteAccessibilityEvidence(
@@ -99,8 +126,8 @@ enum ScreenshotAccessibilityProofWriter {
                 keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "ingredient rows"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "MobileActionFlow", "recipePrimaryActions", "recipeSecondaryActions"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "mobile-action-flow"]
+                hierarchyAnchors: ["RecipeDetailView", "KitchenTableActionButtonStyle", "recipePrimaryActions", "recipeSecondaryActions"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-mode", "CookModeView"):
             RouteAccessibilityEvidence(

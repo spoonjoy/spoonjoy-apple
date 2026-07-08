@@ -229,6 +229,9 @@ struct SpoonjoyRootView: View {
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {
         return VStack(spacing: 18) {
+            SpoonjoyIdentityMark()
+                .frame(width: 70, height: 70)
+                .accessibilityHidden(true)
             Text("Spoonjoy")
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
@@ -268,7 +271,7 @@ struct SpoonjoyRootView: View {
                     .multilineTextAlignment(.center)
                     .textSelection(.enabled)
             }
-            HStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Button {
                     Task {
                         await liveStore.bootstrap()
@@ -277,14 +280,14 @@ struct SpoonjoyRootView: View {
                 } label: {
                     Label("Try Again", systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
 
                 Button {
                     navigation.navigate(to: .settings)
                 } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }
             OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
         }

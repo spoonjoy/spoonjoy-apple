@@ -66,12 +66,18 @@ if [[ -n "$requested_route" ]]; then
 else
   if [[ "$unit_slug" == *recipe-detail* || "$unit_slug" == *recipe_detail* ]]; then
     screenshot_route="recipe-detail"
+  elif [[ "$unit_slug" == *recipes* ]]; then
+    screenshot_route="recipes"
   elif [[ "$unit_slug" == *cook-mode* || "$unit_slug" == *cook_mode* ]]; then
     screenshot_route="cook-mode"
+  elif [[ "$unit_slug" == *cookbooks* ]]; then
+    screenshot_route="cookbooks"
   elif [[ "$unit_slug" == *shopping-list* || "$unit_slug" == *shopping_list* || "$unit_slug" == *shopping* ]]; then
     screenshot_route="shopping-list"
   elif [[ "$unit_slug" == *search* ]]; then
     screenshot_route="search"
+  elif [[ "$unit_slug" == *capture* ]]; then
+    screenshot_route="capture"
   elif [[ "$unit_slug" == *settings* || "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
     screenshot_route="settings"
   fi
@@ -96,6 +102,12 @@ case "$screenshot_route" in
     deep_link_path="kitchen"
     macos_window_title="Kitchen"
     ;;
+  recipes)
+    capture_account_id="$kitchen_capture_account_id"
+    expected_recorded_route="recipes"
+    deep_link_path="recipes"
+    macos_window_title="Recipes"
+    ;;
   recipe-detail)
     capture_account_id="$kitchen_capture_account_id"
     expected_recorded_route="recipe:recipe_lemon_pantry_pasta"
@@ -107,6 +119,12 @@ case "$screenshot_route" in
     expected_recorded_route="recipe-cook:recipe_lemon_pantry_pasta"
     deep_link_path="recipes/recipe_lemon_pantry_pasta/cook"
     macos_window_title="Lemon Pantry Pasta"
+    ;;
+  cookbooks)
+    capture_account_id="$kitchen_capture_account_id"
+    expected_recorded_route="cookbooks"
+    deep_link_path="cookbooks"
+    macos_window_title="Cookbooks"
     ;;
   shopping-list)
     capture_account_id="$shopping_capture_account_id"
@@ -120,6 +138,12 @@ case "$screenshot_route" in
     expected_recorded_route="search:all:"
     deep_link_path="search"
     macos_window_title="Search"
+    ;;
+  capture)
+    capture_account_id="$kitchen_capture_account_id"
+    expected_recorded_route="capture"
+    deep_link_path="capture"
+    macos_window_title="Capture"
     ;;
   settings)
     capture_account_id="$settings_capture_account_id"
@@ -218,6 +242,9 @@ write_design_review_success() {
       manifest["searchScopes"] = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
       manifest["searchSeedAccountID"] = "chef_search_capture"
       manifest["searchSurfaceProofArtifacts"] = [ios_proof, macos_proof]
+    elsif route == "recipes"
+      manifest["recipesNativeSurface"] = true
+      manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
     elsif route == "recipe-detail"
       manifest["recipeDetailSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
@@ -226,9 +253,15 @@ write_design_review_success() {
       manifest["cookModeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+    elsif route == "cookbooks"
+      manifest["cookbooksNativeSurface"] = true
+      manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
     elsif route == "shopping-list"
       manifest["shoppingListSurface"] = true
       manifest["shoppingSeedAccountID"] = "chef_shopping_capture"
+    elsif route == "capture"
+      manifest["captureNativeSurface"] = true
+      manifest["captureSeedAccountID"] = "chef_kitchen_capture"
     else
       manifest["kitchenSignedInSurface"] = true
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
@@ -855,6 +888,9 @@ wait_for_accessibility_proof() {
       proof = JSON.parse(File.read(path))
       expected_source = case expected_route
                         when "kitchen" then "KitchenView"
+                        when "recipes" then "RecipesView"
+                        when "cookbooks" then "CookbooksView"
+                        when "capture" then "CaptureDraftView"
                         when "search" then "SearchView"
                         when "settings" then "SettingsView"
                         when "recipe-detail" then "RecipeDetailView"
@@ -884,21 +920,45 @@ wait_for_accessibility_proof() {
           "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
+        "recipes" => {
+          "voiceOverLabels" => ["Recipes", "Recipe Index", "Open"],
+          "keyboardNavigationTargets" => ["recipe index buttons", "recipe rows"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone"],
+          "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "KitchenTableSection", "KitchenTableObjectRow"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+        },
+        "cookbooks" => {
+          "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
+          "keyboardNavigationTargets" => ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone"],
+          "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+        },
+        "capture" => {
+          "voiceOverLabels" => ["Capture", "Save Text", "Save URL", "Photo Library"],
+          "keyboardNavigationTargets" => ["text capture", "source capture", "image capture"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
+          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "TextEditor", "PhotosPicker"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+        },
         "settings" => {
           "voiceOverLabels" => ["Settings", "Profile", "Security"],
           "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-          "hierarchyAnchors" => ["SettingsView", "Form", "Section"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+          "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
+          "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
         },
         "recipe-detail" => {
           "voiceOverLabels" => ["Start Cooking", "Add Ingredients", "More", "Ingredient Receipt"],
           "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "ingredient rows"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
-          "hierarchyAnchors" => ["RecipeDetailView", "MobileActionFlow", "recipePrimaryActions", "recipeSecondaryActions"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "mobile-action-flow"]
+          "hierarchyAnchors" => ["RecipeDetailView", "KitchenTableActionButtonStyle", "recipePrimaryActions", "recipeSecondaryActions"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cook-mode" => {
           "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Cook mode SpoonDock"],

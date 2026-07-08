@@ -39,17 +39,17 @@ struct OfflineStatusView: View {
         case .synced:
             "Saved for offline"
         case .offline:
-            "Using saved Spoonjoy data"
+            "Showing saved kitchen"
         case .stale:
-            "Saved Spoonjoy data may be stale"
+            "Saved kitchen may be out of date"
         case .dismissed:
             "Offline status hidden"
         case .queuedWork(let count, _):
-            "\(count) offline \(count == 1 ? "change" : "changes") queued"
+            "\(count) \(count == 1 ? "change" : "changes") waiting to sync"
         case .syncFailure:
-            "Sync could not finish"
+            "Sync needs another try"
         case .conflict:
-            "Offline conflict needs review"
+            "Changes need review"
         case .blocker(let blocker):
             switch blocker {
             case .providerSecret:
