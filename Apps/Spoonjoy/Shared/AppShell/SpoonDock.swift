@@ -110,17 +110,20 @@ struct SpoonDock: View {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .frame(width: 44, height: 44)
-                .background(.thinMaterial, in: Circle())
-                .background(KitchenTableTheme.paper.opacity(0.10), in: Circle())
+                .background(toolBackground(for: action), in: Circle())
                 .overlay {
                     Circle()
-                        .strokeBorder(KitchenTableTheme.paper.opacity(0.18), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.paper.opacity(action.isEnabled ? 0.22 : 0.55), lineWidth: 1)
                 }
         }
     }
 
     private func tintColor(for action: SpoonDockAction) -> Color? {
         action.role == .destructive ? KitchenTableTheme.tomato : nil
+    }
+
+    private func toolBackground(for action: SpoonDockAction) -> Color {
+        action.isEnabled ? KitchenTableTheme.action.opacity(0.92) : KitchenTableTheme.paper.opacity(0.86)
     }
 
     @ViewBuilder
@@ -150,7 +153,7 @@ struct SpoonDock: View {
         if prominence == .tool {
             Image(systemName: action.systemImage)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(action.role == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.paper)
+                .foregroundStyle(toolForeground(for: action))
                 .frame(width: 42, height: 42)
         } else {
             HStack(spacing: prominence == .primary ? 7 : 6) {
@@ -179,6 +182,13 @@ struct SpoonDock: View {
             .frame(maxWidth: .infinity, minHeight: 44, alignment: prominence == .primary ? .center : .leading)
             .padding(.horizontal, prominence == .primary ? 8 : 0)
         }
+    }
+
+    private func toolForeground(for action: SpoonDockAction) -> Color {
+        if action.role == .destructive {
+            return KitchenTableTheme.tomato
+        }
+        return action.isEnabled ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted
     }
 }
 
@@ -246,13 +256,40 @@ private enum SpoonDockActionProminence {
 }
 
 extension SpoonDockContext {
-    static func cookMode(previous: @escaping () -> Void, next: @escaping () -> Void, stepTitle: String) -> Self {
+    static func cookMode(
+        previous: @escaping () -> Void,
+        markComplete: @escaping () -> Void,
+        next: @escaping () -> Void,
+        canGoBack: Bool,
+        canAdvance: Bool,
+        stepTitle: String
+    ) -> Self {
         Self(
             routeIdentifier: "Cook mode",
-            leftZone: .back(id: "cook.previous", title: "Previous", systemImage: "chevron.backward", action: previous),
-            centerZone: .status(id: "cook.step", title: "Step", subtitle: stepTitle, systemImage: "flame", isEnabled: false),
+            leftZone: .back(
+                id: "cook.previous",
+                title: "Previous",
+                systemImage: "chevron.backward",
+                isEnabled: canGoBack,
+                action: previous
+            ),
+            centerZone: .primary(
+                id: "cook.done",
+                title: "Done",
+                subtitle: stepTitle,
+                systemImage: "checkmark.circle.fill",
+                accessibilityLabel: "Mark the current step done",
+                accessibilityHint: "Mark this step complete.",
+                action: markComplete
+            ),
             rightTools: [
-                .tool(id: "cook.next", title: "Next", systemImage: "chevron.forward", action: next)
+                .tool(
+                    id: "cook.next",
+                    title: "Next",
+                    systemImage: "chevron.forward",
+                    isEnabled: canAdvance,
+                    action: next
+                )
             ]
         )
     }
@@ -263,8 +300,8 @@ private extension SpoonDockAction {
         Self(id: id, title: title, systemImage: systemImage, role: .place, isEnabled: false)
     }
 
-    static func back(id: String, title: String, systemImage: String, action: @escaping () -> Void) -> Self {
-        Self(id: id, title: title, systemImage: systemImage, role: .back, accessibilityHint: "Return to \(title).", action: action)
+    static func back(id: String, title: String, systemImage: String, isEnabled: Bool = true, action: @escaping () -> Void) -> Self {
+        Self(id: id, title: title, systemImage: systemImage, role: .back, isEnabled: isEnabled, accessibilityHint: "Return to \(title).", action: action)
     }
 
     static func primary(
@@ -272,9 +309,20 @@ private extension SpoonDockAction {
         title: String,
         subtitle: String? = nil,
         systemImage: String,
+        accessibilityLabel: String? = nil,
+        accessibilityHint: String? = nil,
         action: @escaping () -> Void = {}
     ) -> Self {
-        Self(id: id, title: title, subtitle: subtitle, systemImage: systemImage, role: .primary, action: action)
+        Self(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            systemImage: systemImage,
+            role: .primary,
+            accessibilityLabel: accessibilityLabel,
+            accessibilityHint: accessibilityHint,
+            action: action
+        )
     }
 
     static func status(id: String, title: String, subtitle: String?, systemImage: String, isEnabled: Bool) -> Self {
