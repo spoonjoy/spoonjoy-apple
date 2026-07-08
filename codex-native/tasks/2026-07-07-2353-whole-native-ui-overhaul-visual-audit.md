@@ -3,7 +3,7 @@ schema_version: 1
 title: whole-native-ui-overhaul-visual-audit
 status: READY_FOR_PUBLISH
 created: '2026-07-08T06:53:51Z'
-updated: '2026-07-08T09:44:00Z'
+updated: '2026-07-08T12:27:00-07:00'
 track: spoonjoy
 repo: spoonjoy-apple
 feedback_instance: AL3GtjesS-4gK4LAwMY7WJI
@@ -23,9 +23,9 @@ feedback_instance: AL3GtjesS-4gK4LAwMY7WJI
 | id | surface | screenshot/proof | why users perceive it as broken | disposition |
 | --- | --- | --- | --- | --- |
 | W1 | Compact shell | feedback screenshot 1 | System nav chrome floats over authored recipe content and steals the top of the page. | fixed: compact iOS shell now uses a bottom SpoonDock handrail and Kitchen Table page background; release screenshots show no top chrome collision. |
-| W2 | Recipe detail | feedback screenshot 1 | Primary action compresses into a vertical "Start Cooking" strip; recipe actions are unusable. | fixed: recipe detail actions are full-width Kitchen Table controls with stable wrapping; `recipe-detail` screenshot validates. |
-| W3 | Recipe detail | feedback screenshot 1 | Blank gray columns and floating icons dominate the action area; food/recipe hierarchy disappears. | fixed: recipe detail now leads with food hero, editorial title, and vertical action/ingredient rhythm. |
-| W4 | Recipe detail | feedback screenshot 1 | Cookbook/ingredients sections start as generic cards and are partially below an enormous dead zone. | fixed: detail/receipt sections use Kitchen Table rows and the dock no longer overlays primary content. |
+| W2 | Recipe detail | feedback screenshot 1 | Primary action compresses into a vertical "Start Cooking" strip; recipe actions are unusable. | fixed: recipe detail actions are full-width Kitchen Table controls with stable wrapping; latest fixed screenshot `build/visual-qa/web-recipe-parity-recipe-detail/screenshots/manual-food-cover-compact-actions-ios-mobile.png` validates no compressed or duplicate action row. |
+| W3 | Recipe detail | feedback screenshot 1 | Blank gray columns and floating icons dominate the action area; food/recipe hierarchy disappears. | fixed: recipe detail now follows the web `RecipeHeader` structure with real food hero, editorial title, chef/yield language, and masthead actions. |
+| W4 | Recipe detail | feedback screenshot 1 | Cookbook/ingredients sections start as generic cards and are partially below an enormous dead zone. | fixed: detail content now follows the web `StepCard`/`IngredientList` structure: header controls, modal save flow, `Steps`, per-step `Ingredients`, checkable ingredient/dependency rows, and `Cooks`; runtime accessibility proof at `build/visual-qa/web-recipe-parity-recipe-detail/runtime-accessibility-proof-ios.json` exposes that full order. |
 | W5 | Kitchen | feedback screenshot 2 | Recipe index appears as a clipped nested card/island inside the scroll view. | fixed: Kitchen uses unframed receipt rows and a single page scroll; release screenshot validates. |
 | W6 | Kitchen/Cookbooks | feedback screenshot 2 | Cookbook shelf repeats the same cropped image, truncates text, and reads as a broken carousel. | fixed: Cookbooks route uses object rows with covers, counts, share actions, and no clipped carousel. |
 | W7 | Kitchen | feedback screenshot 2 | Hero overlay and action buttons look like default app chrome instead of a cookbook masthead. | fixed: Kitchen masthead/hero/action row now uses Kitchen Table typography and brass controls. |
@@ -44,7 +44,7 @@ feedback_instance: AL3GtjesS-4gK4LAwMY7WJI
 | --- | --- |
 | Kitchen | Page masthead, editorial lead, receipt/index rows, vertical cookbook shelf, SpoonDock: Kitchen/Capture/Search+List |
 | Recipes | Recipe index page, no grouped-list chrome, object rows with covers and stable action column |
-| Recipe detail | Editorial hero, vertical mobile action rail, ingredient receipt, method sections, save/spoon tools after content |
+| Recipe detail | Web-parity `RecipeHeader`: editorial food hero, title/chef/provenance/yield language, compact masthead actions, header scale and `Clear progress`; modal `Save to Cookbook`; web-parity `Steps` using per-step `Ingredients`, dependency rows, checkable ingredient rows, instructions, then `Cooks` |
 | Cook mode | High-contrast task page, step progress, checklist rows, compact handrail controls |
 | Shopping list | Receipt page with add form, category sections, stable amount column, embedded dock |
 | Search | Native search/index page with scopes, object rows, empty/error copy that is branded and useful |

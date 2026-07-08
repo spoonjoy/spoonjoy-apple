@@ -122,11 +122,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("recipe-detail", "RecipeDetailView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Start Cooking", "Add Ingredients", "More", "Ingredient Receipt"],
-                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "ingredient rows"],
+                voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
+                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "KitchenTableActionButtonStyle", "recipePrimaryActions", "recipeSecondaryActions"],
+                hierarchyAnchors: ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-mode", "CookModeView"):

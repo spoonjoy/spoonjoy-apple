@@ -37,8 +37,7 @@ public enum RecipeDetailReadSurface: Equatable, Hashable, Sendable {
     case cover
     case chefAttribution
     case sourceAttribution
-    case ingredientReceipt
-    case method
+    case steps
     case recentSpoons
     case cookbookSave
     case shoppingList
@@ -58,52 +57,56 @@ public struct RecipeDetailSourceAttribution: Equatable, Sendable {
     public let canonicalURL: URL?
 }
 
-public struct RecipeDetailIngredientReceipt: Equatable, Sendable {
-    public let rows: [RecipeDetailIngredientRow]
-}
-
 public struct RecipeDetailIngredientRow: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
-    public let quantityText: String
+    public let quantity: Double
+    public let unit: String?
 
     public init(ingredient: RecipeIngredient) {
         id = ingredient.id
         name = ingredient.name
-        quantityText = Self.quantityText(for: ingredient)
+        quantity = ingredient.quantity
+        unit = ingredient.unit
     }
 
-    private static func quantityText(for ingredient: RecipeIngredient) -> String {
-        let quantity = ingredient.quantity.formatted(.number.precision(.fractionLength(0...2)))
-        return [quantity, ingredient.unit].compactMap { $0 }.joined(separator: " ")
+    public func quantityText(scaleFactor: Double = 1) -> String {
+        let scaledQuantity = (quantity * scaleFactor).formatted(.number.precision(.fractionLength(0...2)))
+        return [scaledQuantity, unit].compactMap { $0 }.joined(separator: " ")
     }
 }
 
-public struct RecipeDetailMethodSection: Identifiable, Equatable, Sendable {
+public struct RecipeDetailStepSection: Identifiable, Equatable, Sendable {
     public let id: String
     public let stepNumber: Int
-    public let title: String
+    public let title: String?
     public let body: String
-    public let dependencies: [RecipeDetailMethodDependency]
+    public let dependencies: [RecipeDetailStepDependency]
     public let ingredients: [RecipeDetailIngredientRow]
 
     public init(step: RecipeStep) {
         id = step.id
         stepNumber = step.stepNum
-        title = step.stepTitle ?? "Step"
+        title = step.stepTitle
         body = step.description
-        dependencies = step.usingSteps.map(RecipeDetailMethodDependency.init(use:))
+        dependencies = step.usingSteps.map(RecipeDetailStepDependency.init(use:))
         ingredients = step.ingredients.map(RecipeDetailIngredientRow.init(ingredient:))
     }
 }
 
-public struct RecipeDetailMethodDependency: Equatable, Sendable {
+public struct RecipeDetailStepDependency: Identifiable, Equatable, Sendable {
+    public let id: String
     public let label: String
     public let outputStepNum: Int
 
     public init(use: RecipeStepOutputUse) {
+        id = use.id
         outputStepNum = use.outputStepNum
-        label = "Uses \(use.outputOfStep.stepTitle ?? "step \(use.outputStepNum)")"
+        if let title = use.outputOfStep.stepTitle {
+            label = "Step \(use.outputStepNum): \(title)"
+        } else {
+            label = "Step \(use.outputStepNum)"
+        }
     }
 }
 
@@ -203,8 +206,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     public let servingsLabel: String?
     public let cover: RecipeDetailCoverViewModel
     public let sourceAttribution: RecipeDetailSourceAttribution?
-    public let ingredientReceipt: RecipeDetailIngredientReceipt
-    public let methodSections: [RecipeDetailMethodSection]
+    public let stepSections: [RecipeDetailStepSection]
     public let spoonSummary: RecipeDetailSpoonSummary
     public let cookbookSave: RecipeDetailCookbookSaveState
     public let hasIngredientsInShoppingList: Bool
@@ -237,10 +239,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
                 canonicalURL: sourceRecipe.safeCanonicalURL
             )
         }
-        ingredientReceipt = RecipeDetailIngredientReceipt(
-            rows: recipe.steps.flatMap(\.ingredients).map(RecipeDetailIngredientRow.init(ingredient:))
-        )
-        methodSections = recipe.steps.map(RecipeDetailMethodSection.init(step:))
+        stepSections = recipe.steps.map(RecipeDetailStepSection.init(step:))
         spoonSummary = RecipeDetailSpoonSummary(
             rows: recipe.recentSpoons
                 .filter { $0.deletedAt == nil }
@@ -289,8 +288,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
             .cover,
             .chefAttribution,
             .sourceAttribution,
-            .ingredientReceipt,
-            .method,
+            .steps,
             .recentSpoons,
             .cookbookSave,
             .shoppingList,

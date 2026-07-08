@@ -41,7 +41,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 ## Design Language Invariants
 
 - Food or a real cooking object leads every primary screen.
-- Recipe detail keeps cookbook authorship: hero/provenance/actions, ingredient receipt, and numbered method sections.
+- Recipe detail keeps cookbook authorship: hero/provenance, header yield controls with `Clear progress`, masthead actions, a modal `Save to Cookbook` flow, web-parity `Steps` with per-step `Ingredients`, step-output dependency rows, checkable progress rows, and `Cooks`.
 - Shopping lists feel like receipts with large check targets.
 - Cook mode is focused on one step, with persistent progress and few distractions.
 - Search uses typed scopes and native result rows.

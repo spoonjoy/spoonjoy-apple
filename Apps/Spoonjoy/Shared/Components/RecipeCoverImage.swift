@@ -23,7 +23,7 @@ struct RecipeCoverImage: View {
         } else if let assetName {
             bundledCover(assetName)
         } else {
-            RecipeCoverFallback(title: title, subtitle: subtitle ?? "No cover yet", mode: .missing, showsLabel: showsFallbackLabel)
+            RecipeCoverFallback(title: title, subtitle: subtitle ?? "Cover coming soon", mode: .missing, showsLabel: showsFallbackLabel)
         }
     }
 
@@ -55,7 +55,7 @@ struct RecipeCoverImage: View {
             if let assetName {
                 bundledCover(assetName)
             } else {
-                RecipeCoverFallback(title: title, subtitle: subtitle ?? "No cover yet", mode: .missing, showsLabel: showsFallbackLabel)
+                RecipeCoverFallback(title: title, subtitle: subtitle ?? "Cover coming soon", mode: .missing, showsLabel: showsFallbackLabel)
             }
         }
     }
@@ -81,16 +81,13 @@ private struct RecipeCoverFallback: View {
 
     var body: some View {
         ZStack {
-            KitchenTableTheme.photoCharcoal
-
             LinearGradient(
-                colors: [
-                    KitchenTableTheme.photoCharcoal.opacity(0.08),
-                    KitchenTableTheme.photoOverlay.opacity(0.82)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
+                colors: palette.background,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
+
+            fallbackTexture
 
             GeometryReader { proxy in
                 if proxy.size.width < 150 || proxy.size.height < 110 {
@@ -108,11 +105,11 @@ private struct RecipeCoverFallback: View {
 
     private var compactMark: some View {
         ZStack {
-            Circle()
-                .fill(KitchenTableTheme.bone.opacity(0.94))
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                .fill(KitchenTableTheme.paper.opacity(0.94))
                 .overlay {
-                    Circle()
-                        .stroke(KitchenTableTheme.bone.opacity(0.34), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                        .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                 }
                 .frame(width: 38, height: 38)
             if let initials {
@@ -123,14 +120,14 @@ private struct RecipeCoverFallback: View {
             } else if mode == .loading {
                 Image(systemName: "clock")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(KitchenTableTheme.photoCharcoal)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
             } else {
-                Image(systemName: "fork.knife")
+                Image(systemName: "photo")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(KitchenTableTheme.photoCharcoal)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
             }
         }
-        .shadow(color: KitchenTableTheme.charcoal.opacity(0.28), radius: 5, y: 3)
+        .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 5, y: 3)
         .frame(width: 44, height: 44)
     }
 
@@ -150,23 +147,32 @@ private struct RecipeCoverFallback: View {
     }
 
     private var fullLabel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: mode == .loading ? "clock" : "fork.knife")
+        VStack(alignment: .center, spacing: 10) {
+            Image(systemName: mode == .loading ? "clock" : "photo")
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.onPhoto.opacity(0.78))
+                .foregroundStyle(palette.accent)
+                .frame(width: 48, height: 48)
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                        .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
+                }
+
             if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
                 Text(title)
                     .font(.system(.headline, design: .serif).weight(.bold))
-                    .foregroundStyle(KitchenTableTheme.onPhoto)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.75)
             }
             Text(subtitle)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.onPhotoMuted)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .multilineTextAlignment(.center)
                 .lineLimit(2)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private var accessibilityLabel: Text {
@@ -179,6 +185,26 @@ private struct RecipeCoverFallback: View {
 
     private var palette: RecipeCoverFallbackPalette {
         RecipeCoverFallbackPalette.palette(for: title ?? subtitle)
+    }
+
+    private var fallbackTexture: some View {
+        GeometryReader { proxy in
+            let stripeHeight = max(10, min(proxy.size.height * 0.045, 18))
+
+            VStack(spacing: max(8, stripeHeight * 0.8)) {
+                ForEach(0..<6, id: \.self) { index in
+                    Rectangle()
+                        .fill(index.isMultiple(of: 2) ? palette.accent.opacity(0.10) : KitchenTableTheme.line.opacity(0.12))
+                        .frame(height: stripeHeight)
+                        .frame(maxWidth: proxy.size.width * (index.isMultiple(of: 2) ? 0.72 : 0.52))
+                        .offset(x: index.isMultiple(of: 2) ? -proxy.size.width * 0.16 : proxy.size.width * 0.20)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .rotationEffect(.degrees(-8))
+            .opacity(0.8)
+            .accessibilityHidden(true)
+        }
     }
 }
 

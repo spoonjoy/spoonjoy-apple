@@ -175,9 +175,15 @@ struct RecipeDetailView: View {
     @State private var actionErrorMessage: String?
     @State private var actionStatusMessage: String?
     @State private var activeConfirmationDialog: RecipeActionConfirmationDialog?
+    @State private var isCookbookSaveSheetPresented = false
     @State private var localSavedCookbookIDs: Set<String>?
     @State private var localHasIngredientsInShoppingList: Bool?
+    @State private var checkedRecipeIngredientIDs: Set<String> = []
+    @State private var checkedRecipeStepDependencyIDs: Set<String> = []
     @State private var shoppingScaleFactor: Double = 1
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+#endif
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
@@ -186,9 +192,9 @@ struct RecipeDetailView: View {
             offlineIndicator
             hero
             recipeActionFlow
-            ingredientReceipt
-            method
-            cookbookSpread
+            recipeHeaderControls
+            ownerTools
+            stepsSection
             SpoonCookLogView(
                 viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
                 draft: spoonCookLogDraft(viewModel),
@@ -200,8 +206,21 @@ struct RecipeDetailView: View {
                 onDismissOfflineIndicator: onDismissOfflineIndicator
             )
             .id(viewModel.id)
-            cookbookSave
-            ownerTools
+        }
+        .sheet(isPresented: $isCookbookSaveSheetPresented) {
+            NavigationStack {
+                KitchenTablePage {
+                    cookbookSave
+                }
+                .navigationTitle("Save")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isCookbookSaveSheetPresented = false
+                        }
+                    }
+                }
+            }
         }
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
@@ -232,17 +251,27 @@ struct RecipeDetailView: View {
         .onAppear {
             syncSavedCookbookStateIfNeeded()
             syncShoppingStateIfNeeded()
+            loadRecipeProgress()
         }
         .onChange(of: viewModel.id) { _, _ in
             localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
             localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
-            shoppingScaleFactor = 1
+            loadRecipeProgress()
         }
         .onChange(of: viewModel.cookbookSave.savedCookbookIDs) { _, nextIDs in
             localSavedCookbookIDs = nextIDs
         }
         .onChange(of: viewModel.hasIngredientsInShoppingList) { _, hasIngredients in
             localHasIngredientsInShoppingList = hasIngredients
+        }
+        .onChange(of: shoppingScaleFactor) { _, _ in
+            persistRecipeProgress()
+        }
+        .onChange(of: checkedRecipeIngredientIDs) { _, _ in
+            persistRecipeProgress()
+        }
+        .onChange(of: checkedRecipeStepDependencyIDs) { _, _ in
+            persistRecipeProgress()
         }
         .task(id: viewModel.id) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
@@ -269,18 +298,21 @@ struct RecipeDetailView: View {
             RecipeCoverImage(
                 url: viewModel.cover.imageURL,
                 title: viewModel.title,
-                subtitle: viewModel.cover.provenanceLabel,
-                showsFallbackLabel: false
+                subtitle: coverPlaceholderLabel,
+                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id),
+                showsFallbackLabel: true
             )
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipped()
                 .overlay(alignment: .bottomLeading) {
-                    Text(provenance)
-                        .font(KitchenTableTheme.uiLabel)
-                        .padding(10)
-                        .background(KitchenTableTheme.photoOverlay, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                        .foregroundStyle(.white)
-                        .padding(12)
+                    if viewModel.cover.imageURL != nil {
+                        Text(provenance)
+                            .font(KitchenTableTheme.uiLabel)
+                            .padding(10)
+                            .background(KitchenTableTheme.photoOverlay, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                            .foregroundStyle(.white)
+                            .padding(12)
+                    }
                 }
                 .accessibilityLabel("\(viewModel.title) cover image")
 
@@ -317,46 +349,86 @@ struct RecipeDetailView: View {
         }
     }
 
+    private var recipeHeaderControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            RecipeScaleSelector(
+                scaleFactor: shoppingScaleFactor,
+                displayValue: scaledYieldLabel,
+                setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) }
+            )
+
+            Button {
+                clearRecipeProgress()
+            } label: {
+                Label("Clear progress", systemImage: "arrow.counterclockwise")
+            }
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.inkMuted)
+            .buttonStyle(.plain)
+            .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
+        }
+    }
+
+    private var coverPlaceholderLabel: String {
+        viewModel.ownerTools.isVisible ? "Awaiting first chef photo" : "Cover coming soon"
+    }
+
     private var recipeActionFlow: some View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
-            recipeSecondaryActions
+            if !usesCompactRecipeDock {
+                recipeSecondaryActions
+            }
             actionStatus
         }
     }
 
+    private var usesCompactRecipeDock: Bool {
+#if os(iOS)
+        horizontalSizeClass == .compact
+#else
+        false
+#endif
+    }
+
     @ViewBuilder private var recipePrimaryActions: some View {
-        if hasAction(.startCooking) {
-            Button {
-                openRoute(viewModel.actions.startCookingRoute)
-            } label: {
-                Label("Start Cooking", systemImage: "fork.knife")
+        VStack(alignment: .leading, spacing: 10) {
+            if hasAction(.startCooking) {
+                Button {
+                    openRoute(viewModel.actions.startCookingRoute)
+                } label: {
+                    Label("Cook mode", systemImage: "fork.knife")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-        }
 
-        if hasAction(.addToShoppingList) {
-            Stepper(value: $shoppingScaleFactor, in: 0.25...4, step: 0.25) {
-                Label("Scale \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x", systemImage: "person.2")
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.76)
-            }
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            if hasRecipeUtilityActions {
+                HStack(spacing: 10) {
+                    if hasAction(.saveToCookbook) {
+                        Button {
+                            isCookbookSaveSheetPresented = true
+                        } label: {
+                            Label("Save", systemImage: "book.closed")
+                        }
+                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                    }
 
-            Button {
-                addRecipeIngredients()
-            } label: {
-                Label(
-                    hasIngredientsInShoppingList ? "In List" : "Add Ingredients",
-                    systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
-                )
-                .lineLimit(1)
-                .minimumScaleFactor(0.76)
+                    if hasAction(.addToShoppingList) {
+                        Button {
+                            addRecipeIngredients()
+                        } label: {
+                            Label(
+                                hasIngredientsInShoppingList ? "In list" : "Add to list",
+                                systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
+                            )
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.76)
+                        }
+                        .disabled(hasIngredientsInShoppingList)
+                        .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
+                    }
+                }
             }
-            .disabled(hasIngredientsInShoppingList)
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
         }
     }
 
@@ -382,7 +454,7 @@ struct RecipeDetailView: View {
                     Button {
                         addRecipeIngredients()
                     } label: {
-                        Label("Add Ingredients", systemImage: "cart.badge.plus")
+                        Label("Add to list", systemImage: "cart.badge.plus")
                     }
                     .disabled(hasIngredientsInShoppingList)
                 }
@@ -397,67 +469,93 @@ struct RecipeDetailView: View {
         hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList)
     }
 
-    private var ingredientReceipt: some View {
-        KitchenTableSection(title: "Ingredient Receipt") {
-            ForEach(viewModel.ingredientReceipt.rows) { ingredient in
-                KitchenTableReceiptRow(name: ingredient.name, amount: ingredient.quantityText)
-            }
-        }
+    private var hasRecipeUtilityActions: Bool {
+        hasAction(.saveToCookbook) || hasAction(.addToShoppingList)
     }
 
-    private var cookbookSpread: some View {
-        KitchenTableSection(title: "Cookbook Spread") {
-            ForEach(viewModel.recipe.cookbooks, id: \.id) { cookbook in
-                HStack {
-                    Label(cookbook.title, systemImage: "book.closed")
-                    Spacer()
-                    Text(cookbook.canonicalURL.host() ?? "spoonjoy.app")
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.brass)
-                }
-                .padding(.vertical, 6)
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(KitchenTableTheme.line.opacity(0.35))
-                        .frame(height: 1)
+    private var stepsSection: some View {
+        KitchenTableSection(title: "Steps", subtitle: "Tap ingredients as you go") {
+            if viewModel.stepSections.isEmpty {
+                Text("No steps added yet")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 18)
+            } else {
+                ForEach(viewModel.stepSections) { section in
+                    recipeStepSection(section)
                 }
             }
         }
     }
 
-    private var method: some View {
-        KitchenTableSection(title: "Method") {
-            ForEach(viewModel.methodSections) { section in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("\(section.stepNumber). \(section.title)")
-                        .font(.headline)
+    private func recipeStepSection(_ section: RecipeDetailStepSection) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Step \(section.stepNumber)")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .textCase(.uppercase)
+                    .tracking(1.3)
+                    .accessibilityLabel("Step \(section.stepNumber)")
+
+                if let title = section.title, !title.isEmpty {
+                    Text(title)
+                        .font(KitchenTableTheme.sectionTitle)
                         .foregroundStyle(KitchenTableTheme.charcoal)
-
-                    if !section.dependencies.isEmpty {
-                        ForEach(section.dependencies, id: \.label) { dependency in
-                            Label(dependency.label, systemImage: "arrow.triangle.branch")
-                                .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(KitchenTableTheme.brass)
-                        }
-                    }
-
-                    Text(section.body)
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.vertical, 10)
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(KitchenTableTheme.line.opacity(0.35))
-                        .frame(height: 1)
-                }
             }
+
+            if !section.dependencies.isEmpty || !section.ingredients.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Ingredients")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .textCase(.uppercase)
+                        .tracking(1.1)
+                        .padding(.bottom, 6)
+
+                    ForEach(section.dependencies) { dependency in
+                        RecipeStepChecklistRow(
+                            title: dependency.label,
+                            note: dependencyIsChecked(dependency.id) ? "used" : "step output",
+                            amount: "",
+                            systemImage: "arrow.triangle.branch",
+                            isChecked: dependencyIsChecked(dependency.id),
+                            toggle: { toggleDependency(id: dependency.id) }
+                        )
+                    }
+
+                    ForEach(section.ingredients) { ingredient in
+                        RecipeStepChecklistRow(
+                            title: ingredient.name,
+                            note: ingredientIsChecked(ingredient.id) ? "used" : nil,
+                            amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
+                            systemImage: "cart",
+                            isChecked: ingredientIsChecked(ingredient.id),
+                            toggle: { toggleIngredient(id: ingredient.id) }
+                        )
+                    }
+                }
+                .accessibilityElement(children: .contain)
+            }
+
+            Text(section.body)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 18)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(KitchenTableTheme.line.opacity(0.35))
+                .frame(height: 1)
         }
     }
 
     private var cookbookSave: some View {
-        KitchenTableSection(title: "Save To Cookbook") {
+        KitchenTableSection(title: "Save to Cookbook") {
             ForEach(viewModel.cookbookSave.availableCookbooks) { cookbook in
                 let isSaved = isCookbookSaved(cookbook.id)
                 HStack {
@@ -510,13 +608,13 @@ struct RecipeDetailView: View {
 
     @ViewBuilder private var ownerTools: some View {
         if viewModel.ownerTools.isVisible {
-            KitchenTableSection(title: "Owner Tools") {
+            KitchenTableSection(title: "Recipe maintenance") {
                 Button {
                     if let editRoute = viewModel.ownerTools.editRoute {
                         openRoute(editRoute)
                     }
                 } label: {
-                    Label("Edit Recipe", systemImage: "pencil")
+                    Label("Edit recipe", systemImage: "pencil")
                 }
                 .font(KitchenTableTheme.bodyNote)
 
@@ -524,7 +622,7 @@ struct RecipeDetailView: View {
                     Button {
                         openRoute(coverControlsRoute)
                     } label: {
-                        Label("Manage Covers", systemImage: "photo.on.rectangle")
+                        Label("Manage covers", systemImage: "photo.on.rectangle")
                     }
                     .font(KitchenTableTheme.bodyNote)
                 }
@@ -536,7 +634,7 @@ struct RecipeDetailView: View {
                             clientMutationID: clientMutationID(prefix: "delete-recipe")
                         )
                     } label: {
-                        Label("Delete Recipe", systemImage: "trash")
+                        Label("Delete", systemImage: "trash")
                     }
                     .font(KitchenTableTheme.bodyNote)
                 }
@@ -631,7 +729,7 @@ struct RecipeDetailView: View {
                 actionErrorMessage = nil
                 actionStatusMessage = outcome == .queuedForSync
                     ? "Ingredients saved for sync"
-                    : "\(viewModel.ingredientReceipt.rows.count) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
+                    : "\(stepIngredientCount) ingredients added at \(shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2))))x"
             } catch {
                 actionStatusMessage = nil
                 actionErrorMessage = "Could not update shopping list."
@@ -685,6 +783,127 @@ struct RecipeDetailView: View {
         if localHasIngredientsInShoppingList == nil {
             localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
         }
+    }
+
+    private var scaledYieldLabel: String {
+        guard let rawServings = viewModel.recipe.servings?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawServings.isEmpty else {
+            return "\(formattedScaleFactor)x"
+        }
+
+        guard let baseServings = Double(rawServings) else {
+            return shoppingScaleFactor == 1 ? "Serves \(rawServings)" : "\(rawServings) at \(formattedScaleFactor)x"
+        }
+
+        return "Serves \(formattedServings(baseServings * shoppingScaleFactor))"
+    }
+
+    private var formattedScaleFactor: String {
+        shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private func formattedServings(_ servings: Double) -> String {
+        servings.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private var stepIngredientCount: Int {
+        viewModel.stepSections.reduce(0) { total, section in
+            total + section.ingredients.count
+        }
+    }
+
+    private func ingredientIsChecked(_ id: String) -> Bool {
+        checkedRecipeIngredientIDs.contains(id)
+    }
+
+    private func dependencyIsChecked(_ id: String) -> Bool {
+        checkedRecipeStepDependencyIDs.contains(id)
+    }
+
+    private func toggleIngredient(id: String) {
+        if checkedRecipeIngredientIDs.contains(id) {
+            checkedRecipeIngredientIDs.remove(id)
+        } else {
+            checkedRecipeIngredientIDs.insert(id)
+        }
+    }
+
+    private func toggleDependency(id: String) {
+        if checkedRecipeStepDependencyIDs.contains(id) {
+            checkedRecipeStepDependencyIDs.remove(id)
+        } else {
+            checkedRecipeStepDependencyIDs.insert(id)
+        }
+    }
+
+    private func clearRecipeProgress() {
+        shoppingScaleFactor = 1
+        checkedRecipeIngredientIDs = []
+        checkedRecipeStepDependencyIDs = []
+        persistRecipeProgress(
+            scaleFactor: 1,
+            checkedIngredientIDs: [],
+            checkedStepDependencyIDs: []
+        )
+    }
+
+    private func loadRecipeProgress() {
+        let validIngredientIDs = Set(viewModel.stepSections.flatMap { section in
+            section.ingredients.map(\.id)
+        })
+        let validDependencyIDs = Set(viewModel.stepSections.flatMap { section in
+            section.dependencies.map(\.id)
+        })
+        guard
+            let data = UserDefaults.standard.data(forKey: progressStorageKey),
+            let snapshot = try? JSONDecoder().decode(RecipeDetailCookProgressSnapshot.self, from: data),
+            snapshot.version == RecipeDetailCookProgressSnapshot.currentVersion
+        else {
+            shoppingScaleFactor = 1
+            checkedRecipeIngredientIDs = []
+            checkedRecipeStepDependencyIDs = []
+            return
+        }
+
+        shoppingScaleFactor = normalizedScaleFactor(snapshot.scaleFactor)
+        checkedRecipeIngredientIDs = Set(snapshot.checkedIngredientIDs).intersection(validIngredientIDs)
+        checkedRecipeStepDependencyIDs = Set(snapshot.checkedStepDependencyIDs).intersection(validDependencyIDs)
+    }
+
+    private func persistRecipeProgress() {
+        persistRecipeProgress(
+            scaleFactor: shoppingScaleFactor,
+            checkedIngredientIDs: checkedRecipeIngredientIDs,
+            checkedStepDependencyIDs: checkedRecipeStepDependencyIDs
+        )
+    }
+
+    private func persistRecipeProgress(
+        scaleFactor: Double,
+        checkedIngredientIDs: Set<String>,
+        checkedStepDependencyIDs: Set<String>
+    ) {
+        let snapshot = RecipeDetailCookProgressSnapshot(
+            scaleFactor: normalizedScaleFactor(scaleFactor),
+            checkedIngredientIDs: Array(checkedIngredientIDs).sorted(),
+            checkedStepDependencyIDs: Array(checkedStepDependencyIDs).sorted(),
+            updatedAt: timestamp()
+        )
+        guard let data = try? JSONEncoder().encode(snapshot) else {
+            return
+        }
+        UserDefaults.standard.set(data, forKey: progressStorageKey)
+    }
+
+    private var progressStorageKey: String {
+        "spoonjoy-cook-progress:\(viewModel.id)"
+    }
+
+    private func normalizedScaleFactor(_ value: Double) -> Double {
+        guard value.isFinite else {
+            return 1
+        }
+        return min(50, max(0.25, (value * 100).rounded() / 100))
     }
 
     private func applyLocalSuccess(for action: RecipeAction) {
@@ -750,6 +969,169 @@ private extension Recipe {
 private struct RecipeActionConfirmationDialog {
     let prompt: RecipeActionConfirmationPrompt
     let clientMutationID: String
+}
+
+private struct RecipeDetailCookProgressSnapshot: Codable, Equatable {
+    static let currentVersion = 1
+
+    let version: Int
+    let scaleFactor: Double
+    let checkedIngredientIDs: [String]
+    let checkedStepDependencyIDs: [String]
+    let updatedAt: String
+
+    init(
+        scaleFactor: Double,
+        checkedIngredientIDs: [String],
+        checkedStepDependencyIDs: [String],
+        updatedAt: String
+    ) {
+        version = Self.currentVersion
+        self.scaleFactor = scaleFactor
+        self.checkedIngredientIDs = checkedIngredientIDs
+        self.checkedStepDependencyIDs = checkedStepDependencyIDs
+        self.updatedAt = updatedAt
+    }
+}
+
+private struct RecipeScaleSelector: View {
+    let scaleFactor: Double
+    let displayValue: String
+    let setScaleFactor: (Double) -> Void
+
+    private let step = 0.25
+    private let minimum = 0.25
+    private let maximum = 50.0
+
+    var body: some View {
+        HStack(spacing: 0) {
+            scaleButton(systemImage: "minus", label: "Decrease scale", isDisabled: scaleFactor <= minimum) {
+                setScaleFactor(max(minimum, rounded(scaleFactor - step)))
+            }
+
+            VStack(spacing: 2) {
+                Text("Yield")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .textCase(.uppercase)
+                    .tracking(1.2)
+                Text(displayValue)
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .padding(.horizontal, 12)
+
+            scaleButton(systemImage: "plus", label: "Increase scale", isDisabled: scaleFactor >= maximum) {
+                setScaleFactor(min(maximum, rounded(scaleFactor + step)))
+            }
+        }
+        .background(KitchenTableTheme.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .stroke(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Yield")
+        .accessibilityValue(displayValue)
+    }
+
+    private func scaleButton(
+        systemImage: String,
+        label: String,
+        isDisabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.body.weight(.bold))
+                .frame(width: 52, height: 64)
+                .contentShape(Rectangle())
+        }
+        .disabled(isDisabled)
+        .foregroundStyle(isDisabled ? KitchenTableTheme.inkMuted.opacity(0.42) : KitchenTableTheme.charcoal)
+        .accessibilityLabel(label)
+    }
+
+    private func rounded(_ value: Double) -> Double {
+        (value * 100).rounded() / 100
+    }
+}
+
+private struct RecipeStepChecklistRow: View {
+    let title: String
+    let note: String?
+    let amount: String
+    let systemImage: String
+    let isChecked: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.brass)
+                    .frame(width: 32, alignment: .center)
+                    .accessibilityHidden(true)
+
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .strikethrough(isChecked, color: KitchenTableTheme.inkMuted)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let note, !note.isEmpty {
+                        Text(note)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .textCase(.uppercase)
+                    }
+                }
+
+                Spacer(minLength: 12)
+
+                if !amount.isEmpty {
+                    Text(amount)
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .multilineTextAlignment(.trailing)
+                        .frame(minWidth: 72, alignment: .trailing)
+                }
+            }
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(isChecked ? "used" : "not used")
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(KitchenTableTheme.line.opacity(0.34))
+                .frame(height: 1)
+        }
+    }
+
+    private var accessibilityLabel: String {
+        [title, amount, note].compactMap { value in
+            guard let value, !value.isEmpty else {
+                return nil
+            }
+            return value
+        }.joined(separator: ", ")
+    }
 }
 
 struct MobileActionFlow: View {

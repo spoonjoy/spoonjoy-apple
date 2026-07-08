@@ -315,7 +315,7 @@ struct PlatformNavigationView: View {
             .padding(.horizontal, 12)
             .padding(.top, 8)
             .padding(.bottom, 8)
-            .background(KitchenTableTheme.bone.opacity(0.98))
+            .background(KitchenTableTheme.bone)
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(KitchenTableTheme.line.opacity(0.8))

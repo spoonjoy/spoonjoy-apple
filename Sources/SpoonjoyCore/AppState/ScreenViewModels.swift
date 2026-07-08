@@ -1,6 +1,6 @@
 import Foundation
 
-public struct RecipeMethodSection: Equatable {
+public struct RecipeStepSection: Equatable {
     public let stepNumber: Int
     public let step: RecipeStep
 }
@@ -24,9 +24,9 @@ public struct RecipeDetailViewModel: Equatable {
         .recipeDetail(id: recipe.id, presentation: .cook)
     }
 
-    public var methodSections: [RecipeMethodSection] {
+    public var stepSections: [RecipeStepSection] {
         recipe.steps.enumerated().map { index, step in
-            RecipeMethodSection(stepNumber: index + 1, step: step)
+            RecipeStepSection(stepNumber: index + 1, step: step)
         }
     }
 }
