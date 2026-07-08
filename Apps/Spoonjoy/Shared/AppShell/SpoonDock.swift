@@ -1,28 +1,19 @@
 import SwiftUI
 
 struct SpoonDock: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let context: SpoonDockContext
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            dockButton(context.leftZone, prominence: .supporting)
-                .frame(minWidth: 82, maxWidth: 118, alignment: .leading)
-
-            Spacer(minLength: 4)
-
-            dockButton(context.centerZone, prominence: .primary)
-                .frame(minWidth: 132, maxWidth: 190)
-
-            Spacer(minLength: 4)
-
-            HStack(spacing: 8) {
-                ForEach(context.rightTools) { action in
-                    dockButton(action, prominence: .tool)
-                        .frame(width: 48, height: 48)
-                }
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                accessibilityDock
+            } else {
+                adaptiveDock
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial, in: Capsule())
@@ -35,15 +26,86 @@ struct SpoonDock: View {
         .accessibilityLabel(context.accessibilityLabel)
     }
 
+    private var adaptiveDock: some View {
+        ViewThatFits(in: .horizontal) {
+            horizontalDock
+            compactDock
+        }
+    }
+
+    private var horizontalDock: some View {
+        HStack(alignment: .center, spacing: 10) {
+            dockButton(context.leftZone, prominence: .supporting)
+                .frame(maxWidth: 112, alignment: .leading)
+                .layoutPriority(1)
+
+            Spacer(minLength: 4)
+
+            dockButton(context.centerZone, prominence: .primary)
+                .frame(maxWidth: .infinity)
+                .layoutPriority(2)
+
+            Spacer(minLength: 4)
+
+            toolRail
+                .layoutPriority(1)
+        }
+    }
+
+    private var compactDock: some View {
+        HStack(alignment: .center, spacing: 8) {
+            dockButton(context.leftZone, prominence: .tool)
+                .frame(width: 44, height: 44)
+                .layoutPriority(1)
+
+            dockButton(context.centerZone, prominence: .primary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .layoutPriority(2)
+
+            toolRail
+                .layoutPriority(1)
+        }
+    }
+
+    private var accessibilityDock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                dockButton(context.leftZone, prominence: .supporting)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                dockButton(context.centerZone, prominence: .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            toolRail
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private var toolRail: some View {
+        HStack(spacing: 6) {
+            ForEach(context.rightTools) { action in
+                dockButton(action, prominence: .tool)
+                    .frame(width: 44, height: 44)
+            }
+        }
+    }
+
     @ViewBuilder
     private func dockButton(_ action: SpoonDockAction, prominence: SpoonDockActionProminence) -> some View {
         if prominence == .primary {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.glassProminent)
+                .tint(tintColor(for: action))
         } else {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.glass)
+                .tint(tintColor(for: action))
         }
+    }
+
+    private func tintColor(for action: SpoonDockAction) -> Color? {
+        action.role == .destructive ? KitchenTableTheme.tomato : nil
     }
 
     @ViewBuilder

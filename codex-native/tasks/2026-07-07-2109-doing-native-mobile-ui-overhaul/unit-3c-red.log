@@ -1,0 +1,44 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (5.18s)
+Test Suite 'Selected tests' started at 2026-07-07 21:39:34.923.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-07 21:39:34.924.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-07 21:39:34.924.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-07 21:39:34.924.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "cook mode owns a compact SpoonDock handrail wired to step state" started.
+◇ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" started.
+◇ Test "shopping destructive actions stay behind confirmations" started.
+◇ Test "compact iOS shell owns SpoonDock instead of generic toolbar navigation" started.
+◇ Test "SpoonDock is registered in both app targets" started.
+◇ Test "shopping list owns add clear checked and search through a compact SpoonDock" started.
+◇ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" started.
+◇ Test "SpoonDock defines route matrix glass controls and accessibility labels" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" started.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.003 seconds.
+✔ Test "SpoonDock is registered in both app targets" passed after 0.004 seconds.
+✔ Test "shopping destructive actions stay behind confirmations" passed after 0.005 seconds.
+✔ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" passed after 0.005 seconds.
+✔ Test "SpoonDock defines route matrix glass controls and accessibility labels" passed after 0.005 seconds.
+✘ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" recorded an issue at NativeMobileDesignContractTests.swift:309:5: Expectation failed: (missing → ["@Environment(\\.dynamicTypeSize)", "dynamicTypeSize.isAccessibilitySize", "ViewThatFits(in: .horizontal)", "horizontalDock", "compactDock", "accessibilityDock", "layoutPriority", "role == .destructive"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift missing tokens: @Environment(\.dynamicTypeSize), dynamicTypeSize.isAccessibilitySize, ViewThatFits(in: .horizontal), horizontalDock, compactDock, accessibilityDock, layoutPriority, role == .destructive
+✘ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" recorded an issue at NativeMobileDesignContractTests.swift:310:5: Expectation failed: (forbidden → [".frame(minWidth: 82", ".frame(minWidth: 132", ".frame(width: 48, height: 48)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift contains forbidden tokens: .frame(minWidth: 82, .frame(minWidth: 132, .frame(width: 48, height: 48)
+✘ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" failed after 0.006 seconds with 2 issues.
+✔ Test "cook mode owns a compact SpoonDock handrail wired to step state" passed after 0.006 seconds.
+✔ Test "shopping list owns add clear checked and search through a compact SpoonDock" passed after 0.006 seconds.
+✔ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" passed after 0.008 seconds.
+✔ Test "compact iOS shell owns SpoonDock instead of generic toolbar navigation" passed after 0.009 seconds.
+✘ Suite "Native mobile design contract" failed after 0.009 seconds with 2 issues.
+✘ Test run with 10 tests in 1 suite failed after 0.009 seconds with 2 issues.

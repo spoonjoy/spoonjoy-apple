@@ -215,6 +215,53 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("SpoonDock has narrow phone and Dynamic Type fallbacks")
+    func spoonDockHasNarrowPhoneAndDynamicTypeFallbacks() throws {
+        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let dock = uncommentedSwift(try readRepoFile(dockPath))
+
+        expectContent(
+            dock,
+            in: dockPath,
+            contains: [
+                "@Environment(\\.dynamicTypeSize)",
+                "dynamicTypeSize.isAccessibilitySize",
+                "ViewThatFits(in: .horizontal)",
+                "horizontalDock",
+                "compactDock",
+                "accessibilityDock",
+                "layoutPriority",
+                "role == .destructive"
+            ],
+            forbids: [
+                ".frame(minWidth: 82",
+                ".frame(minWidth: 132",
+                ".frame(width: 48, height: 48)"
+            ]
+        )
+    }
+
+    @Test("shopping destructive actions stay behind confirmations")
+    func shoppingDestructiveActionsStayBehindConfirmations() throws {
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+
+        expectContent(
+            shopping,
+            in: shoppingPath,
+            contains: [
+                "activeConfirmationDialog",
+                "Button(dialog.prompt.confirmButtonTitle, role: dialog.prompt.isDestructive ? .destructive : nil)",
+                "Button(\"Cancel\", role: .cancel)",
+                "deleteItem(",
+                "confirmation: .required",
+                "clearCompleted(",
+                "clearAll(",
+                "confirmedAction(for action: ShoppingSurfaceAction)"
+            ]
+        )
+    }
+
     @Test("visual audit records all current feedback failures and no ready item can disappear")
     func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
         let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"
