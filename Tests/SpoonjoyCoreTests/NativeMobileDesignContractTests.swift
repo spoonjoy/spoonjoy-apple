@@ -20,7 +20,7 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationStack",
                 "NavigationSplitView",
-                ".safeAreaInset(edge: .bottom)",
+                ".safeAreaInset(edge: VerticalEdge.bottom)",
                 "SpoonDock(",
                 "SpoonDockContext"
             ]

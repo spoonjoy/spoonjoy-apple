@@ -525,7 +525,6 @@ if domain == "shopping"
     "bootstrapAndDrain scoped tombstone purge",
     /\bpublic\s+func\s+bootstrapAndDrain\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger,\s*scope: NativeSyncExecutionScope\s*\)/,
     [
-      "case .success(let cursor, let tombstones)",
       "ShoppingEntityIndexPurgePlan.tombstonePurge",
       "shoppingEntityAccountScopePurgePlan",
       "shoppingEntityPurgeIdentifiers",
@@ -535,6 +534,18 @@ if domain == "shopping"
       "ShoppingEntityCatalog.purgeDomainIdentifiers(",
       "NativeSyncResourceType.shoppingItem",
       "removedCacheKeys"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    sync_engine,
+    "applyBootstrap records legacy tombstones",
+    /\bprivate\s+func\s+applyBootstrap\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger/,
+    [
+      "case .success(let cursor, let tombstones)",
+      "store.appendTombstone(tombstone)",
+      "store.saveCheckpoint(checkpoint)"
     ],
     failures
   )
@@ -801,7 +812,6 @@ if domain == "spoon"
     "bootstrapAndDrain scoped spoon tombstone purge",
     /\bpublic\s+func\s+bootstrapAndDrain\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger,\s*scope: NativeSyncExecutionScope\s*\)/,
     [
-      "case .success(let cursor, let tombstones)",
       "SpoonEntityIndexPurgePlan.tombstonePurge",
       "spoonEntityAccountScopePurgePlan",
       "spoonEntityPurgeIdentifiers",
@@ -811,6 +821,18 @@ if domain == "spoon"
       "SpoonEntityCatalog.purgeDomainIdentifiers(",
       "NativeSyncResourceType.spoon",
       "removedCacheKeys"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    sync_engine,
+    "applyBootstrap records legacy spoon tombstones",
+    /\bprivate\s+func\s+applyBootstrap\(\s*configuration: APIClientConfiguration,\s*trigger: NativeCacheRevalidationTrigger/,
+    [
+      "case .success(let cursor, let tombstones)",
+      "store.appendTombstone(tombstone)",
+      "store.saveCheckpoint(checkpoint)"
     ],
     failures
   )

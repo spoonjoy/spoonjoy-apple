@@ -27,7 +27,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - [x] Source-contract checks cover SpoonDock, compact iOS navigation, and no-overflow mobile action composition.
 - [x] `visual-qa-dogfood` evidence captured, absurdity ledger closed, and automated visual metrics still pass.
 - [x] 100% test coverage on new layout contracts via source-contract proof for SwiftUI branches that are not unit-renderable in package tests.
-- [ ] All tests pass
+- [x] All tests pass
 - [x] No warnings in focused iOS/macOS app-target builds with `GCC_TREAT_WARNINGS_AS_ERRORS=YES`.
 - [x] If UI/rendering/layout changed: `visual-qa-dogfood` evidence captured, absurdity ledger closed, and automated visual metrics still pass
 
@@ -127,3 +127,8 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 22:38 Unit 4d dogfood found and fixed two extra issues beyond the TestFlight screenshots: compact routes still used giant default large titles, and embedded cook/shopping docks were vulnerable to stray global search chrome. Red/green proof: `unit-4e-search-chrome-red.log`, `unit-4e-search-chrome-green.log`, `unit-4f-compact-title-red.log`, and `unit-4f-compact-title-green.log`.
 - 2026-07-07 22:39 Unit 4d app-target validation passed after visual fixes: `unit-4f-xcodebuild-ios.log` and `unit-4f-xcodebuild-macos-rerun.log`. The first macOS attempt in `unit-4f-xcodebuild-macos.log` failed only because concurrent Xcode builds locked the shared build database.
 - 2026-07-07 22:45 Unit 4d screenshot evidence passed automated design review and human visual inspection for kitchen, recipe detail, cook mode, and shopping list: `unit-4f-kitchen-screenshots.log`, `unit-4f-recipe-detail-screenshots.log`, `unit-4f-cook-mode-screenshots.log`, and `unit-4f-shopping-list-screenshots.log`. Final screenshots live under `visual/{kitchen,recipe-detail,cook-mode,shopping-list}/screenshots/ios-mobile.png`.
+- 2026-07-07 22:53 Unit 5 full `swift test` initially found a stale source-contract token conflict between compact SpoonDock `.safeAreaInset` and the older platform navigation fixture guard. Fixed by spelling the shell inset as `VerticalEdge.bottom`; targeted greens: `unit-5-platform-navigation-contract-green.log` and `unit-5-mobile-contract-green.log`.
+- 2026-07-07 22:54 Unit 5 full `swift test` passed 534 tests in 46 suites: `unit-5-swift-test-green.log`.
+- 2026-07-07 22:55 Unit 5 final scenario verifier passed: `unit-5-native-scenarios.log` and `unit-5-native-scenarios.json`.
+- 2026-07-07 23:03 Unit 5 matrix initially found stale standalone App Intents script expectations for shopping/spoon tombstone purge. The Swift source-contract tests already encoded the current split between `bootstrapAndDrain` purge requests and `applyBootstrap` legacy tombstone recording; fixed `scripts/check-app-intents-contract.rb` and verified `unit-5-appintents-shopping-green.log`, `unit-5-appintents-spoon-green.log`, and `unit-5-shopping-spoon-entity-tests.log`.
+- 2026-07-07 23:06 Unit 5 native local matrix passed with `ok: true`, 39 passed rows, 0 failed rows, and 0 blocked rows. The matrix retained one canonical AASA production blocker for `spoonjoy.app` app IDs, which is unrelated to internal TestFlight publishing. Evidence: `unit-5-validate-native-local-green.log`, `unit-5-native-local/apple/validation-matrix.json`, and `unit-5-native-local/aasa-production-blocker.json`.
