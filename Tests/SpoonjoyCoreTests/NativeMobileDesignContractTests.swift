@@ -143,6 +143,78 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("cook mode owns a compact SpoonDock handrail wired to step state")
+    func cookModeOwnsCompactSpoonDockHandrail() throws {
+        let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let cook = uncommentedSwift(try readRepoFile(cookPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            cook,
+            in: cookPath,
+            contains: [
+                "@Environment(\\.horizontalSizeClass)",
+                "private var usesEmbeddedSpoonDock: Bool",
+                "compactCookControls",
+                "SpoonDock(",
+                "SpoonDockContext.cookMode(",
+                "previous: previous",
+                "next: advance",
+                "markCurrentStepComplete"
+            ]
+        )
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "shouldShowShellSpoonDock",
+                "case .recipeDetail(_, .cook), .shoppingList:"
+            ]
+        )
+    }
+
+    @Test("shopping list owns add clear checked and search through a compact SpoonDock")
+    func shoppingListOwnsCompactSpoonDockActions() throws {
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            shopping,
+            in: shoppingPath,
+            contains: [
+                "@FocusState private var isItemFieldFocused",
+                "openSearch: @escaping () -> Void",
+                "focusAddItem",
+                ".safeAreaInset(edge: .bottom)",
+                "SpoonDock(",
+                "SpoonDockContext.shoppingList(",
+                "add: focusAddItem",
+                "search: openSearch",
+                "clearChecked: clearCompleted",
+                "shoppingHeaderTools",
+                "Menu",
+                "ViewThatFits(in: .horizontal)"
+            ],
+            forbids: [
+                "Button(role: .destructive) {\n                    clearAll()",
+                "HStack(alignment: .firstTextBaseline, spacing: 10)"
+            ]
+        )
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "ShoppingListView(",
+                "openSearch: openSearchFromDock"
+            ]
+        )
+    }
+
     @Test("visual audit records all current feedback failures and no ready item can disappear")
     func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
         let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"

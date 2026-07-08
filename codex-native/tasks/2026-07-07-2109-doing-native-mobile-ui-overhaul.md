@@ -83,7 +83,7 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 **What**: Refactor duplicated mobile layout helpers, cover edge cases for empty/long titles/accessibility text, and ensure source-contract scripts encode no nested mobile list/card regressions.
 **Acceptance**: Focused tests and scripts pass; no warnings.
 
-### ⬜ Unit 3a: Cook Mode And Shopping SpoonDock Integration — Tests
+### ✅ Unit 3a: Cook Mode And Shopping SpoonDock Integration — Tests
 **What**: Add failing checks that cook mode uses SpoonDock as step handrail and shopping list exposes Add/Search/Clear checked through dock-compatible actions without crowding header controls.
 **Acceptance**: Focused tests fail red against current bottom button stack and crowded shopping header.
 
@@ -121,3 +121,4 @@ Make the native iOS Spoonjoy app look and behave like a first-class mobile Spoon
 - 2026-07-07 21:28 Unit 2a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms nested kitchen `List` and overflowing recipe detail action `HStack`.
 - 2026-07-07 21:31 Unit 2b green verified with `swift test --filter NativeMobileDesignContractTests` and `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
 - 2026-07-07 21:32 Unit 2c green verified long-title/accessibility contract plus `xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy macOS' -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build`.
+- 2026-07-07 21:34 Unit 3a red verified with `swift test --filter NativeMobileDesignContractTests`; failure confirms missing stateful cook/shopping docks and duplicate shell dock suppression.
