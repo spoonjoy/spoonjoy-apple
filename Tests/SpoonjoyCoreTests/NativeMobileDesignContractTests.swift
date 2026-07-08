@@ -74,6 +74,27 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("SpoonDock is registered in both app targets")
+    func spoonDockIsRegisteredInBothAppTargets() throws {
+        let projectPath = "Spoonjoy.xcodeproj/project.pbxproj"
+        let project = try readRepoFile(projectPath)
+
+        expectContent(
+            project,
+            in: projectPath,
+            contains: [
+                "SpoonDock.swift",
+                "SpoonDock.swift in Sources"
+            ]
+        )
+
+        let sourceMembershipCount = project
+            .components(separatedBy: .newlines)
+            .filter { $0.contains("/* SpoonDock.swift in Sources */,") }
+            .count
+        #expect(sourceMembershipCount == 2, Comment(rawValue: "\(projectPath) should register SpoonDock.swift in iOS and macOS sources; found \(sourceMembershipCount)."))
+    }
+
     @Test("visual audit records all current feedback failures and no ready item can disappear")
     func visualAuditRecordsAllCurrentFeedbackFailuresAndNoReadyItemCanDisappear() throws {
         let auditPath = "codex-native/tasks/2026-07-07-2109-native-mobile-ui-overhaul-visual-audit.md"
