@@ -22,3 +22,4 @@ Fix summary:
 
 - `smoke-ios-simulator.sh` now writes canonical `CoreSimulator` blockers for install and launch failures/timeouts.
 - Stale simulator uninstall is bounded through the existing smoke timeout wrapper and logged before continuing.
+- The smoke timeout wrapper now uses TERM/KILL process-group cleanup so post-timeout launch registration checks cannot hang.

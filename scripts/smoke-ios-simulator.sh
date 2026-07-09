@@ -74,6 +74,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 
 timeout_seconds = int(sys.argv[1])
 command = sys.argv[2]
@@ -88,10 +89,19 @@ try:
     stdout, _ = process.communicate(timeout=timeout_seconds)
 except subprocess.TimeoutExpired:
     try:
-        os.killpg(process.pid, signal.SIGKILL)
+        os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
         pass
-    stdout, _ = process.communicate()
+    time.sleep(0.2)
+    if process.poll() is None:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    try:
+        stdout, _ = process.communicate(timeout=1)
+    except subprocess.TimeoutExpired:
+        stdout = ""
     print(stdout, end="")
     print(f"command timed out after {timeout_seconds} seconds")
     sys.exit(124)
