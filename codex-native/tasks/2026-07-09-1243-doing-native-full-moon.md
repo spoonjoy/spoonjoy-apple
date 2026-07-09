@@ -503,3 +503,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:03 Quality review converged
 - 2026-07-09 13:04 Live feedback check found launchd services still pointing at retired `spoonjoy-apple-cookmode-ui-pass`; routed stale-service repair to Unit 6
 - 2026-07-09 13:05 Scrutiny pass added front-loaded feedback-service repair, pre-publish feedback reconciliation, distributed TestFlight smoke, macOS distribution disposition, and native-adjacent surface disposition
+- 2026-07-09 13:08 Scrutiny omission pass converged
