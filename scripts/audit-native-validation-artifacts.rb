@@ -38,6 +38,7 @@ FINAL_MATRIX_ARTIFACTS = [
   "apple/matrix-cook-shopping-contract.log",
   "apple/matrix-search-capture-contract.log",
   "apple/matrix-capture.log",
+  "apple/matrix-route-matrix.json",
   "apple/matrix-native-password-dogfood.log",
   "apple/matrix-native-password-dogfood-report.json",
   "apple/matrix-design-review.log",
@@ -366,6 +367,7 @@ required_scenario = [
 required_screenshots = [
   group_entry(artifact_root, "final screenshots or canonical blocker", [
     "apple/matrix-capture.log",
+    "apple/matrix-route-matrix.json",
     "screenshots/ios-mobile.png",
     "apple/matrix-screenshots-xcode-platform-blocker.json",
     "apple/matrix-screenshots-core-simulator-blocker.json",

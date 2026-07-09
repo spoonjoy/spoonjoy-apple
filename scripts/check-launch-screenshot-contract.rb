@@ -706,6 +706,70 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   )
   assert_missing(hard_fail_blocker, "iOS launch hard failure")
 
+  timeout_script_root = temp_root.join("ios-launch-timeout-retry")
+  timeout_script_root.join("scripts").mkpath
+  timeout_script_root.join(".github/scripts").mkpath
+  FileUtils.cp(ROOT.join("scripts/smoke-ios-simulator.sh"), timeout_script_root.join("scripts/smoke-ios-simulator.sh"))
+  write_executable(timeout_script_root.join(".github/scripts/resolve-ios-simulator-destination.py"), <<~'PY')
+    #!/usr/bin/env python3
+    print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
+  PY
+  launch_state_file = temp_root.join("ios-launch-timeout-state")
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      "simctl list runtimes") exit 0 ;;
+      simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
+      simctl\ install\ *) exit 0 ;;
+      simctl\ launch\ --terminate-running-process\ *)
+        count="0"
+        if [[ -f "${SIMCTL_LAUNCH_STATE_FILE:-}" ]]; then
+          count="$(cat "$SIMCTL_LAUNCH_STATE_FILE")"
+        fi
+        if [[ "$count" == "0" ]]; then
+          printf '1' > "$SIMCTL_LAUNCH_STATE_FILE"
+          sleep 2
+        fi
+        printf 'app.spoonjoy: 12345\n'
+        exit 0
+        ;;
+      simctl\ spawn\ *\ launchctl\ list)
+        printf 'UIKitApplication:com.apple.Preferences[abcd][rb-legacy]\n'
+        exit 0
+        ;;
+      *) exit 0 ;;
+    esac
+  SH
+  timeout_artifacts = temp_root.join("timeout-retry-artifacts")
+  timeout_log = timeout_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
+  timeout_blocker = timeout_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/smoke-ios-simulator.sh",
+      "--artifact-root",
+      timeout_artifacts,
+      "--log",
+      timeout_log,
+      "--blocker",
+      timeout_blocker
+    ],
+    "iOS app launch timeout retries before failing smoke",
+    env: {
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SIMCTL_LAUNCH_STATE_FILE" => launch_state_file.to_s,
+      "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
+    },
+    chdir: timeout_script_root
+  )
+  timeout_log_text = timeout_log.read
+  record_failure("iOS launch timeout retry did not record timeout") unless timeout_log_text.include?("command timed out after 1 seconds")
+  record_failure("iOS launch timeout retry did not reach second attempt") unless timeout_log_text.include?("simulator launch attempt 2 exit code: 0")
+  assert_missing(timeout_blocker, "iOS launch timeout retry")
+
   write_executable(bin_dir.join("xcodebuild"), <<~'SH')
     #!/usr/bin/env bash
     derived=""

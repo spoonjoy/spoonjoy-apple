@@ -49,6 +49,7 @@ rm -f \
   "$apple_dir/matrix-screenshots-xcode-platform-blocker.json" \
   "$apple_dir/matrix-screenshots-core-simulator-blocker.json" \
   "$apple_dir/matrix-screenshots-macos-launch-blocker.json" \
+  "$apple_dir/matrix-route-matrix.json" \
   "$artifact_root/design-review-blocked.json" \
   "$artifact_root/design-review.json" \
   "$artifact_root/screenshots/ios-mobile.png" \
@@ -82,6 +83,7 @@ required_hooks=(
   "scripts/smoke-macos.sh"
   "scripts/smoke-ios-simulator.sh"
   "scripts/capture-native-screenshots.sh"
+  "scripts/capture-native-screenshot-matrix.sh"
   "scripts/validate-design-review.rb"
   "scripts/validate-design-review-blocker.rb"
   "scripts/validate-aasa.rb"
@@ -354,7 +356,7 @@ if [[ -f "$apple_dir/matrix-xcode-platform-blocker.json" ]]; then
 else
   run_script_with_blocker_policy "macOS launch smoke" "$apple_dir/matrix-smoke-macos.log" "$apple_dir/matrix-smoke-macos-blocker.json" "MacOSLaunch" scripts/smoke-macos.sh --artifact-root "$artifact_root" --log "$apple_dir/matrix-smoke-macos-inner.log" --blocker "$apple_dir/matrix-smoke-macos-blocker.json" || overall_status=1
   run_script_with_blocker_policy "iOS simulator smoke" "$apple_dir/matrix-smoke-ios.log" "$apple_dir/matrix-smoke-ios-simulator-blocker.json" "CoreSimulator" scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" --log "$apple_dir/matrix-smoke-ios-inner.log" --blocker "$apple_dir/matrix-smoke-ios-simulator-blocker.json" || overall_status=1
-  run_required "screenshots and design review" "$apple_dir/matrix-capture.log" scripts/capture-native-screenshots.sh --artifact-root "$artifact_root" --unit-slug "matrix" || overall_status=1
+  run_required "screenshots and design review" "$apple_dir/matrix-capture.log" scripts/capture-native-screenshot-matrix.sh --artifact-root "$artifact_root" --unit-slug "matrix" || overall_status=1
   if [[ -f "$artifact_root/design-review-blocked.json" && -f "$artifact_root/design-review.json" ]]; then
     printf 'conflicting design review success and blocker artifacts\n' > "$apple_dir/matrix-design-review.log"
     overall_status=1

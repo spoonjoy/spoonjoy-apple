@@ -95,11 +95,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("capture", "CaptureDraftView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Import Status", "Agent Import", "Send to import agent"],
-                keyboardNavigationTargets: ["agent import status", "saved capture actions"],
+                voiceOverLabels: ["Import Status", "Spoonjoy Capture", "Send to Spoonjoy"],
+                keyboardNavigationTargets: ["import status", "saved capture actions"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role"],
-                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "AgentImportStatusPanel", "CaptureDraft"],
+                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "ImportStatusPanel", "CaptureDraft"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("search", "SearchView"):

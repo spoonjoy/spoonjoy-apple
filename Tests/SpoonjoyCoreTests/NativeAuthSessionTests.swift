@@ -884,6 +884,7 @@ struct NativeAuthSessionTests {
                 "matrix-smoke-ios-simulator-blocker.json",
                 "matrix-smoke-macos-blocker.json",
                 "scripts/verify-native-password-dogfood.sh",
+                "scripts/capture-native-screenshot-matrix.sh",
                 "matrix-native-password-dogfood-report.json",
                 "tasks/2026-06-16-1754-doing-siri-full-access-parity",
                 "XcodePlatform"
@@ -1262,7 +1263,8 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
             "verify-native-password-dogfood.sh": "#!/usr/bin/env bash\nset -euo pipefail\nreport=''\nwhile [[ $# -gt 0 ]]; do case \"$1\" in --report) report=\"$2\"; shift 2 ;; *) shift ;; esac; done\nif [[ -n \"$report\" ]]; then mkdir -p \"$(dirname \"$report\")\"; printf '{\"ok\":true,\"tokenType\":\"Bearer\",\"scopeCount\":6,\"syncEnvironment\":\"local\",\"syncEntryCount\":1,\"wroteVault\":true}\\n' > \"$report\"; fi\nexit 0\n",
             "smoke-macos.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
             "smoke-ios-simulator.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
-            "capture-native-screenshots.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n"
+            "capture-native-screenshots.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+            "capture-native-screenshot-matrix.sh": "#!/usr/bin/env bash\nset -euo pipefail\nartifact_root=''\nunit_slug='matrix'\nwhile [[ $# -gt 0 ]]; do case \"$1\" in --artifact-root) artifact_root=\"$2\"; shift 2 ;; --unit-slug) unit_slug=\"$2\"; shift 2 ;; *) shift ;; esac; done\nmkdir -p \"$artifact_root/apple\"\nprintf '{\"ok\":true,\"fullyValidated\":true,\"routes\":[]}\\n' > \"$artifact_root/apple/${unit_slug}-route-matrix.json\"\nprintf '{\"mobileScreenshot\":true,\"desktopScreenshot\":true,\"screenshotRoute\":\"kitchen\",\"dynamicType\":true,\"voiceOverLabels\":true,\"keyboardNavigation\":true,\"reduceMotion\":true,\"contrast\":true,\"kitchenTableHierarchy\":true,\"noOverlap\":true,\"accessibilityProofArtifacts\":[],\"blockers\":[]}\\n' > \"$artifact_root/design-review.json\"\nexit 0\n"
         ]
     for (name, source) in shellStubs {
         let url = scripts.appendingPathComponent(name)

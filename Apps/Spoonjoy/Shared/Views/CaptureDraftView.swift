@@ -105,9 +105,9 @@ struct CaptureDraftView: View {
 
     private var header: some View {
         KitchenTableHeader(
-            eyebrow: "Agent Import",
+            eyebrow: "Spoonjoy Capture",
             title: "Import Status",
-            subtitle: "Recipe links, text, and photos arrive here from the Spoonjoy import agent."
+            subtitle: "Recipe links, text, and photos sent to Spoonjoy appear here for review."
         ) {
             if let currentDraft {
                 Button {
@@ -122,7 +122,7 @@ struct CaptureDraftView: View {
     }
 
     private var agentImportStatus: some View {
-        AgentImportStatusPanel(hasCurrentDraft: currentDraft != nil, hasPendingImport: hasPendingImport)
+        ImportStatusPanel(hasCurrentDraft: currentDraft != nil, hasPendingImport: hasPendingImport)
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -166,7 +166,7 @@ struct CaptureDraftView: View {
                 Button {
                     Task { await submit(draft) }
                 } label: {
-                    Label(actionInFlight ? "Sending" : "Send to import agent", systemImage: "tray.and.arrow.up")
+                    Label(actionInFlight ? "Sending" : "Send to Spoonjoy", systemImage: "tray.and.arrow.up")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
                 .disabled(!draft.canCreateServerRecipe || actionInFlight)
@@ -442,7 +442,7 @@ struct CaptureDraftView: View {
     }
 }
 
-private struct AgentImportStatusPanel: View {
+private struct ImportStatusPanel: View {
     let hasCurrentDraft: Bool
     let hasPendingImport: Bool
 
@@ -473,7 +473,7 @@ private struct AgentImportStatusPanel: View {
         if hasCurrentDraft {
             return "Capture ready"
         }
-        return "Import agent ready"
+        return "Ready for imports"
     }
 
     private var statusBody: String {
@@ -483,7 +483,7 @@ private struct AgentImportStatusPanel: View {
         if hasCurrentDraft {
             return "Review or send the saved capture below."
         }
-        return "Send recipes to Spoonjoy through the agent workflow. New captures will appear here for review."
+        return "Send recipes to Spoonjoy. New captures will appear here for review."
     }
 
     private var statusSymbol: String {
