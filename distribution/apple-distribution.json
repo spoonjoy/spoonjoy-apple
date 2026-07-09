@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Fixes cook mode layout: a tighter focused header, one readable bottom cooking handrail, no overlapping ingredient rows, and cleaner saved-kitchen status behavior.",
+          "whatsNew": "Polishes the native UI across Kitchen, Recipes, Cook Mode, Search, Capture, and Settings; fixes overlapping text/tab-bar issues, cleans capture/settings language, and restores production Sign in with Apple.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
