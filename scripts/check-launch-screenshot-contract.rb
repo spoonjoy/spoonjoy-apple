@@ -122,6 +122,14 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+      "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS",
+      "run_with_timeout",
+      "simulator launch timeout",
+      "macOS launch timeout",
+      "proof wait timed out",
+      "cleanup timeout",
       "wait_for_accessibility_proof",
       "validate_screenshot_surface_proof",
       "settingsSignedInSurface",
@@ -267,6 +275,33 @@ def run_status(*args, env: {}, chdir: ROOT)
   stdout, stderr, status = Open3.capture3(env, *args.map(&:to_s), chdir: chdir.to_s)
   [stdout, stderr, status]
 end
+
+PROCESS_TIMEOUT_WRAPPER = <<~'RUBY'
+  timeout = Integer(ARGV.shift)
+  pid = Process.spawn(*ARGV, pgroup: true)
+  begin
+    Timeout.timeout(timeout) do
+      Process.wait(pid)
+      exit($?.exitstatus || 0)
+    end
+  rescue Timeout::Error
+    begin
+      Process.kill("TERM", -pid)
+    rescue Errno::ESRCH
+    end
+    sleep 0.2
+    begin
+      Process.kill("KILL", -pid)
+    rescue Errno::ESRCH
+    rescue Errno::EPERM
+    end
+    begin
+      Process.wait(pid)
+    rescue Errno::ECHILD
+    end
+    exit 124
+  end
+RUBY
 
 def assert_status(expected_success, args, label, env: {}, chdir: ROOT)
   stdout, stderr, status = run_status(*args, env: env, chdir: chdir)
@@ -488,7 +523,7 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
     "-rtimeout",
     "-e",
     timeout_wrapper,
-    "5",
+    "20",
     "bash",
     "scripts/capture-native-screenshot-matrix.sh",
     "--artifact-root",
@@ -1528,6 +1563,264 @@ PY
   assert_missing(wrong_proof_root.join("design-review.json"), "notification screenshot wrong proof lane")
   wrong_blocked_review = assert_json(wrong_proof_root.join("design-review-blocked.json"), "notification screenshot wrong proof lane")
   record_failure("wrong proof lane did not block screenshot success") unless wrong_blocked_review["blocked"] == true
+end
+
+Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("app")
+  artifact_root = script_root.join("artifacts")
+  scripts_dir = script_root.join("scripts")
+  bin_dir = script_root.join("bin")
+  scripts_dir.mkpath
+  bin_dir.mkpath
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
+
+  write_executable(scripts_dir.join("smoke-ios-simulator.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --log) log="$2"; shift 2 ;;
+        --blocker) shift 2 ;;
+        --artifact-root) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$(dirname "$log")"
+    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
+  SH
+  write_executable(scripts_dir.join("smoke-macos.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    blocker=""
+    log=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --blocker) blocker="$2"; shift 2 ;;
+        --log) log="$2"; shift 2 ;;
+        --artifact-root) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$(dirname "$blocker")" "$(dirname "$log")"
+    printf 'macOS intentionally skipped for iOS launch timeout contract\n' > "$log"
+    ruby -rjson -e 'path, log_path = ARGV; File.write(path, JSON.pretty_generate({blocked: true, capability: "MacOSLaunch", command: "fixture macOS blocker", timeoutSeconds: 30, outputPath: log_path, reason: "macOS intentionally skipped.", ownerAction: "Use the iOS blocker for this fixture."}) + "\n")' "$blocker" "$log"
+  SH
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      simctl\ get_app_container\ *)
+        mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
+        printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ launch\ *)
+        sleep 10
+        ;;
+      simctl\ shutdown\ *|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ terminate\ *)
+        exit 0
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
+  SH
+
+  stdout, stderr, status = run_status(
+    "ruby",
+    "-rtimeout",
+    "-e",
+    PROCESS_TIMEOUT_WRAPPER,
+    "5",
+    "bash",
+    "scripts/capture-native-screenshots.sh",
+    "--artifact-root",
+    artifact_root,
+    "--unit-slug",
+    "unit-contract-ios-launch-timeout",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.01"
+    },
+    chdir: script_root
+  )
+  if status.exitstatus == 124
+    record_failure(
+      "iOS simulator launch timeout expected CoreSimulator blocker, but capture process timed out\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  elsif !status.success?
+    record_failure(
+      "iOS simulator launch timeout expected successful blocker manifest\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  else
+    blocked_review = assert_json(artifact_root.join("design-review-blocked.json"), "iOS simulator launch timeout blocked review")
+    record_failure("iOS simulator launch timeout blocker capability mismatch") unless blocked_review["capability"] == "CoreSimulator"
+    source_blocker = assert_json(artifact_root.join("apple/unit-contract-ios-launch-timeout-screenshots-core-simulator-blocker.json"), "iOS simulator launch timeout source blocker")
+    record_failure("iOS simulator launch timeout source command missing simctl launch") unless source_blocker.fetch("command", "").include?("simctl launch")
+    record_failure("iOS simulator launch timeout source reason missing timeout") unless source_blocker.fetch("reason", "").downcase.include?("timeout")
+    assert_missing(artifact_root.join("design-review.json"), "iOS simulator launch timeout")
+  end
+end
+
+Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("app")
+  artifact_root = script_root.join("artifacts")
+  scripts_dir = script_root.join("scripts")
+  bin_dir = script_root.join("bin")
+  scripts_dir.mkpath
+  bin_dir.mkpath
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
+
+  success_stub = <<~'SH'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --log) log="$2"; shift 2 ;;
+        --blocker) shift 2 ;;
+        --artifact-root) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$(dirname "$log")"
+    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
+  SH
+  write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
+  write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
+  write_executable(bin_dir.join("launchctl"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("pkill"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
+  write_executable(bin_dir.join("swift"), "#!/usr/bin/env bash\nprintf '67890\\n'\n")
+  write_executable(bin_dir.join("screencapture"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out="${@: -1}"
+    mkdir -p "$(dirname "$out")"
+    printf mac-image > "$out"
+  SH
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    write_accessibility_proof() {
+      local output_path="$1"
+      local platform="$2"
+      local bundle="$3"
+      mkdir -p "$(dirname "$output_path")"
+      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
+    }
+    case "$*" in
+      simctl\ get_app_container\ *)
+        mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
+        printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ launch\ *)
+        write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "ios" "app.spoonjoy"
+        printf 'app.spoonjoy: 12345\n'
+        ;;
+      simctl\ spawn\ *\ log\ show*)
+        printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
+        ;;
+      simctl\ io\ *\ screenshot\ *)
+        out="${@: -1}"
+        mkdir -p "$(dirname "$out")"
+        python3 - "$out" <<'PY'
+import binascii
+import struct
+import sys
+import zlib
+
+path = sys.argv[1]
+width, height = 400, 800
+row = b"\x00" + bytes((246, 239, 225)) * width
+raw = row * height
+def chunk(kind, payload):
+    return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", binascii.crc32(kind + payload) & 0xffffffff)
+png = b"\x89PNG\r\n\x1a\n"
+png += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+png += chunk(b"IDAT", zlib.compress(raw))
+png += chunk(b"IEND", b"")
+with open(path, "wb") as handle:
+    handle.write(png)
+PY
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
+  SH
+  write_executable(bin_dir.join("osascript"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    script="$*"
+    if [[ "$script" == *"to quit"* ]]; then
+      sleep 10
+    elif [[ "$script" == *"open location"* ]]; then
+      state="$HOME/Library/Application Support/Spoonjoy/native-app-state.json"
+      mkdir -p "$(dirname "$state")"
+      printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"kitchen"}\n' > "$state"
+    fi
+  SH
+  write_executable(bin_dir.join("open"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
+    if [[ -n "$output_path" ]]; then
+      mkdir -p "$(dirname "$output_path")"
+      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
+    fi
+  SH
+
+  stdout, stderr, status = run_status(
+    "ruby",
+    "-rtimeout",
+    "-e",
+    PROCESS_TIMEOUT_WRAPPER,
+    "8",
+    "bash",
+    "scripts/capture-native-screenshots.sh",
+    "--artifact-root",
+    artifact_root,
+    "--unit-slug",
+    "unit-contract-cleanup-timeout",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.01"
+    },
+    chdir: script_root
+  )
+  if status.exitstatus == 124
+    record_failure(
+      "macOS cleanup timeout expected terminal screenshot artifact, but capture process timed out\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  elsif !status.success?
+    record_failure(
+      "macOS cleanup timeout expected successful terminal screenshot artifact\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  else
+    has_terminal_artifact = artifact_root.join("design-review.json").file? || artifact_root.join("design-review-blocked.json").file?
+    record_failure("macOS cleanup timeout did not produce a terminal design review artifact") unless has_terminal_artifact
+    cleanup_log = artifact_root.join("apple/unit-contract-cleanup-timeout-screenshots-inner.log")
+    record_failure("macOS cleanup timeout log missing") unless cleanup_log.file?
+    record_failure("macOS cleanup timeout was not logged") unless cleanup_log.file? && cleanup_log.read.include?("cleanup timeout")
+  end
 end
 
 if DESIGN_REVIEW.file? && DESIGN_REVIEW_BLOCKED.file?

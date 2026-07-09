@@ -103,7 +103,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Updated matrix script and contract fixtures.
 **Acceptance**: Unit 1a tests pass; a simulated hung route records status `blocked` or `fail` with artifact paths instead of hanging the matrix.
 
-### ⬜ Unit 1c: Native Screenshot Launch Cleanup — Tests
+### ✅ Unit 1c: Native Screenshot Launch Cleanup — Tests
 **What**: Add failing tests for `scripts/capture-native-screenshots.sh` covering `simctl launch`, macOS launch/relaunch, proof wait, and cleanup timeout behavior.
 **Output**: Failing test/contract log for missing launch cleanup or timeout behavior.
 **Acceptance**: The red failure is tied to iOS/macOS launch or proof-wait behavior, not incidental missing tools.
