@@ -63,7 +63,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 
 **CRITICAL: Every unit header MUST start with status emoji (⬜ for new units).**
 
-### ⬜ Unit 0a: Repo and Worktree Hygiene Evidence
+### ✅ Unit 0a: Repo and Worktree Hygiene Evidence
 **What**: Verify canonical checkout and active worktree state after retiring stale worktrees.
 **Output**: `unit-0a-worktrees.log`, `unit-0a-main-status.log`, and stash list for preserved stale-worktree changes.
 **Acceptance**: `git worktree list --porcelain` shows `/Users/arimendelow/Projects/spoonjoy-apple` on `main` plus this worktree only; both worktrees are clean except intentional task-doc edits.
@@ -516,3 +516,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:08 Scrutiny omission pass converged
 - 2026-07-09 13:10 Scrutiny deception pass added cookbook-detail capture support units, full upload command requirements, canonical feedback command checkout, and explicit artifact root
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
+- 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence

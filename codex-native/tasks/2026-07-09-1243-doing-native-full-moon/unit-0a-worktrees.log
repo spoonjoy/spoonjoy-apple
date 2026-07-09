@@ -1,0 +1,8 @@
+worktree /Users/arimendelow/Projects/spoonjoy-apple
+HEAD 2f6c3df61e9590fc9e3a3553c643373c803f21f4
+branch refs/heads/main
+
+worktree /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+HEAD 04fb728b133c87b22770db0303c156c2341b7648
+branch refs/heads/codex-native/native-full-moon
+
