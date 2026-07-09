@@ -2031,7 +2031,7 @@ private struct ShellPlaceholderView: View {
             Label(title, systemImage: systemImage)
                 .font(.title)
             Text(detail)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()

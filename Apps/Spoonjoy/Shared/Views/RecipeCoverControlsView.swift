@@ -36,7 +36,7 @@ struct RecipeCoverControlsRouteView: View {
             } else if let loadMessage {
                 Label(loadMessage, systemImage: "photo.on.rectangle")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding()
                     .background(KitchenTableTheme.bone)
@@ -149,7 +149,7 @@ struct RecipeCoverControlsView: View {
                 .foregroundStyle(KitchenTableTheme.charcoal)
             Text(recipe.title)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
             if connectivity == .offline {
                 Label("Changes will queue until Spoonjoy is online.", systemImage: "wifi.slash")
                     .font(KitchenTableTheme.uiLabel)
@@ -172,7 +172,7 @@ struct RecipeCoverControlsView: View {
         if let actionError {
             Label(actionError, systemImage: "exclamationmark.octagon")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.red)
+                .foregroundStyle(KitchenTableTheme.tomato)
         }
         if let providerBlocker {
             providerBlockerBanner(providerBlocker)
@@ -188,7 +188,7 @@ struct RecipeCoverControlsView: View {
             if blocker.ownerActionRequired {
                 Text("Owner setup is required before editorial cover generation can run.")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
         }
         .padding()
@@ -204,7 +204,7 @@ struct RecipeCoverControlsView: View {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                 Text("Use an explicit empty state for this recipe.")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
             Spacer()
             Button {
@@ -228,7 +228,7 @@ struct RecipeCoverControlsView: View {
             if data.covers.isEmpty {
                 Text("No saved covers yet.")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.background)
@@ -252,7 +252,7 @@ struct RecipeCoverControlsView: View {
                     HStack {
                         Text(cover.statusLabel)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
                         if cover.isActive {
                             Text("Current")
                                 .font(KitchenTableTheme.uiLabel)
@@ -261,7 +261,7 @@ struct RecipeCoverControlsView: View {
                     }
                     Text(cover.createdAtLabel)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
                     if let provenanceLabel = cover.provenanceLabel {
                         Text(provenanceLabel)
                             .font(KitchenTableTheme.bodyNote)
@@ -288,7 +288,7 @@ struct RecipeCoverControlsView: View {
                             .font(KitchenTableTheme.bodyNote)
                         Text(variant.variant.label)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
                     }
                     Spacer()
                     if variant.isActive {
@@ -391,7 +391,7 @@ struct RecipeCoverControlsView: View {
                                 .font(KitchenTableTheme.bodyNote)
                             Text(spoon.cookedAtLabel)
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(KitchenTableTheme.inkMuted)
                         }
                         Spacer()
                         Button {

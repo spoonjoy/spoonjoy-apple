@@ -361,7 +361,7 @@ private struct SearchSurfaceMessageView: View {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                 Text(message)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
         } icon: {
             Image(systemName: systemImage)

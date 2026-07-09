@@ -129,11 +129,11 @@ struct CaptureDraftView: View {
         if let actionErrorMessage {
             Label(actionErrorMessage, systemImage: "exclamationmark.triangle")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.red)
+                .foregroundStyle(KitchenTableTheme.tomato)
         } else if let statusMessage {
             Label(statusMessage, systemImage: "info.circle")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
         }
     }
 
@@ -150,17 +150,17 @@ struct CaptureDraftView: View {
             if draft.importReadiness == .needsTextRecognition {
                 Label("Needs Text Recognition", systemImage: "text.viewfinder")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
             if importViewModel?.connectivity == .offline {
                 Label("Saved locally", systemImage: "externaldrive.badge.checkmark")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
             if importViewModel?.pendingRetryMutation != nil {
                 Label("Waiting to retry", systemImage: "arrow.clockwise")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
             VStack(alignment: .leading, spacing: 10) {
                 Button {

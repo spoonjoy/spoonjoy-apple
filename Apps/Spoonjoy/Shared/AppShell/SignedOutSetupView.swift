@@ -141,7 +141,7 @@ struct SignedOutSetupView: View {
 
                 Text("Use the same Spoonjoy account you use on spoonjoy.app.")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 

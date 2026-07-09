@@ -285,7 +285,7 @@ private struct CookbookCover: View {
                 .foregroundStyle(KitchenTableTheme.charcoal)
             Text(row.recipeCountLabel)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
         }
         .frame(width: 132, alignment: .leading)
         .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
@@ -329,7 +329,7 @@ struct CookbookDetailRouteView: View {
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "books.vertical")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding()
                     .background(KitchenTableTheme.bone)
@@ -515,7 +515,7 @@ private struct CookbookDetailView: View {
                             if let servingsLabel = recipe.servingsLabel {
                                 Text(servingsLabel)
                                     .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(KitchenTableTheme.inkMuted)
                             }
                             if let coverProvenanceLabel = recipe.coverProvenanceLabel {
                                 Text(coverProvenanceLabel)

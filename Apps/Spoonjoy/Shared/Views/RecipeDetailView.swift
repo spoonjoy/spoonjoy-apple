@@ -389,7 +389,7 @@ struct RecipeDetailView: View {
             if let servingsLabel = viewModel.servingsLabel {
                 Text(servingsLabel)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
 
             if let sourceAttribution = viewModel.sourceAttribution {
@@ -766,7 +766,7 @@ struct RecipeDetailView: View {
         } else if let actionErrorMessage {
             Label(actionErrorMessage, systemImage: "exclamationmark.triangle")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.red)
+                .foregroundStyle(KitchenTableTheme.tomato)
         }
     }
 

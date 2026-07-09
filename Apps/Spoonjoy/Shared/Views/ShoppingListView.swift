@@ -159,7 +159,7 @@ struct ShoppingListView: View {
             if currentEditMode == .active {
                 Label("Editing", systemImage: "slider.horizontal.3")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
 #endif
         }

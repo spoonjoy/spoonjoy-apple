@@ -17,7 +17,7 @@ struct ProfileRouteView: View {
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "person.crop.circle")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding()
                     .background(KitchenTableTheme.bone)
@@ -327,7 +327,7 @@ struct ProfileGraphRouteView: View {
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "person.2")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding()
                     .background(KitchenTableTheme.bone)
@@ -378,7 +378,7 @@ private struct ProfileGraphList: View {
                                 .font(KitchenTableTheme.bodyNote)
                             Text(row.interactionSummary)
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(KitchenTableTheme.inkMuted)
                         }
                     }
                     .buttonStyle(.plain)

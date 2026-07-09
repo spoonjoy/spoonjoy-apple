@@ -125,7 +125,7 @@ struct SpoonCookLogView: View {
         if let actionErrorMessage {
             Label(actionErrorMessage, systemImage: "exclamationmark.triangle")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.red)
+                .foregroundStyle(KitchenTableTheme.tomato)
         }
     }
 
@@ -269,12 +269,12 @@ struct SpoonCookLogView: View {
                     Spacer()
                     Text(row.cookedAtLabel)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
                 }
                 if let note = row.note {
                     Text(note)
                         .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
                 }
                 if let nextTime = row.nextTime {
                     Label(nextTime, systemImage: "arrow.clockwise")

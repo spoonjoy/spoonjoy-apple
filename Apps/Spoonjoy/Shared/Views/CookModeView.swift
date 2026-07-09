@@ -50,7 +50,7 @@ struct CookModeRouteView: View {
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "fork.knife")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(KitchenTableTheme.pagePadding)
                     .background(KitchenTableTheme.bone)
@@ -309,7 +309,7 @@ struct CookModeView: View {
                 .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
             Text(step.description)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(.primary)
+                .foregroundStyle(KitchenTableTheme.charcoal)
             if let timer = viewModel.timer {
                 CookModeTimer(timer: timer)
                     .id(timer.stepID)
@@ -357,7 +357,7 @@ struct CookModeView: View {
                                 Spacer()
                                 Text(row.quantityText)
                                     .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(KitchenTableTheme.inkMuted)
                             }
                         }
                         .toggleStyle(.largeCheck)
