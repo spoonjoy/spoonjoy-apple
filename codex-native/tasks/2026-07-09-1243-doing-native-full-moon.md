@@ -68,7 +68,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: `unit-0a-worktrees.log`, `unit-0a-main-status.log`, and stash list for preserved stale-worktree changes.
 **Acceptance**: `git worktree list --porcelain` shows `/Users/arimendelow/Projects/spoonjoy-apple` on `main` plus this worktree only; both worktrees are clean except intentional task-doc edits.
 
-### ⬜ Unit 0b: TestFlight Feedback and Telemetry Intake
+### ✅ Unit 0b: TestFlight Feedback and Telemetry Intake
 **What**: Pull latest feedback, feedback automation status, doctor output, reconcile dry-run, newest build metadata, beta detail, internal group build relationship, and tester count.
 **Output**: Redacted JSON/text logs under `unit-0b-*`.
 **Acceptance**: No actionable unhandled TestFlight feedback is ignored; any actionable item becomes an absurdity ledger entry or a concrete unit update. If `doctor` reports launchd listener/tunnel/reconcile paths that point at a retired worktree, Unit 0e must repair that before Unit 1 begins.
@@ -517,3 +517,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:10 Scrutiny deception pass added cookbook-detail capture support units, full upload command requirements, canonical feedback command checkout, and explicit artifact root
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
+- 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
