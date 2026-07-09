@@ -192,7 +192,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 ### ⬜ Unit 3h: Cook Mode and Cook Log — Implementation
 **What**: Rework cook mode and cook logging for kitchen-safe use: one focused step, large controls, calm timers, clear progress, and balanced log form.
 **Output**: Updated cook-mode/log views and supporting models/helpers.
-**Acceptance**: Unit 3g tests pass; previously reported cook-mode UI breakage is absent.
+**Acceptance**: Unit 3g tests pass; the reported cook-mode breakages are absent: add-photo button text wrapping/hyphenation, center toggle floating without meaning, `Log Cook` button crowding, oversized empty media area, explanatory text card competing with the form, bottom dock overlap, dense top controls, and unstable layout across narrow phone and large Dynamic Type.
 
 ### ⬜ Unit 3i: Cook Mode and Cook Log Visual QA
 **What**: Manually exercise and capture cook mode and cook log in simulator and macOS, including progress changes, timers, reduced motion, and large Dynamic Type.
@@ -242,7 +242,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 ### ⬜ Unit 4f: Search Workflow Visual QA
 **What**: Capture and inspect Search across empty query, typed query, no results, recipe results, cookbook results, chef results, and shopping-list scope.
 **Output**: Screenshots, design-review artifacts, and closed search ledger entries.
-**Acceptance**: Search feels like an index, not a generic dashboard results page.
+**Acceptance**: Search uses native scopes, typed rows, compact object rows, stable result grouping, no-results copy that names the active scope, and direct navigation to recipe/cookbook/profile/shopping results without false unavailable flashes.
 
 ### ⬜ Unit 4g: Capture and Import Workflow — Tests
 **What**: Add failing tests for capture draft lifecycle, MCP/agent import language, Share Sheet/App Intents/Siri future affordance truthfulness, offline retry, blocked-provider states, and no server-write claims before support exists.
@@ -360,9 +360,9 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Acceptance**: Tests fail on a concrete macOS route adaptation gap.
 
 ### ⬜ Unit 7d: macOS Route Adaptation — Implementation
-**What**: Apply desktop-native route adaptations for planning, editing, organizing, importing, and browsing.
+**What**: Apply desktop-native route adaptations for Kitchen, Recipes, Recipe Detail, Cook Mode, Cookbooks, Cookbook Detail, Shopping, Search, Capture, Settings, notification settings, and profile/settings-adjacent flows.
 **Output**: Updated macOS route code/tests.
-**Acceptance**: Unit 7c tests pass; macOS route behavior is desktop-native.
+**Acceptance**: Unit 7c tests pass; each route named in Unit 7d has desktop navigation/layout evidence or a concrete follow-on ledger entry before Unit 7e visual QA begins.
 
 ### ⬜ Unit 7e: macOS Visual QA
 **What**: Capture and inspect macOS Kitchen, Recipes, Recipe Detail, Cook Mode, Cookbooks, Shopping, Search, Capture, Settings, and notification settings.
@@ -457,3 +457,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 12:55 Granularity Round 2 added cookbook route units and clarified red-test unit completion rules
 - 2026-07-09 12:56 Granularity review converged
 - 2026-07-09 12:59 Validation review converged
+- 2026-07-09 13:00 Ambiguity pass made cook-mode, search, and macOS route acceptance concrete
