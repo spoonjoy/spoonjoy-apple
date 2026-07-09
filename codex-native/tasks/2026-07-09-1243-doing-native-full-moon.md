@@ -68,7 +68,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 ### ⬜ Unit 0b: TestFlight Feedback and Telemetry Intake
 **What**: Pull latest feedback, feedback automation status, doctor output, reconcile dry-run, newest build metadata, beta detail, internal group build relationship, and tester count.
 **Output**: Redacted JSON/text logs under `unit-0b-*`.
-**Acceptance**: No actionable unhandled TestFlight feedback is ignored; any actionable item becomes an absurdity ledger entry or a concrete unit update.
+**Acceptance**: No actionable unhandled TestFlight feedback is ignored; any actionable item becomes an absurdity ledger entry or a concrete unit update. If `doctor` reports launchd listener/tunnel/reconcile paths that point at a retired worktree, route that stale-service defect to Unit 6.
 
 ### ⬜ Unit 0c: Baseline App Evidence Capture
 **What**: Capture or attempt current route screenshots before fixes using the current harness, then record exact failures, blockers, and visible absurdities.
@@ -331,14 +331,14 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Acceptance**: Unit 6a tests pass; no secrets printed.
 
 ### ⬜ Unit 6c: Feedback Event Handoff Contract — Tests
-**What**: Add failing tests/fixtures for webhook event payloads, screenshot download records, slugger/Ouro handoff, tunnel/listener health, crash feedback, screenshot-only feedback, and duplicate feedback.
+**What**: Add failing tests/fixtures for webhook event payloads, screenshot download records, slugger/Ouro handoff, tunnel/listener health, launchd stale-repo-path detection/repair, crash feedback, screenshot-only feedback, and duplicate feedback.
 **Output**: Red script test logs.
 **Acceptance**: Tests fail on a concrete handoff or ledger evidence gap.
 
 ### ⬜ Unit 6d: Feedback Event Handoff Contract — Implementation
-**What**: Harden feedback event ledger and handoff payloads so slugger can notify the operator with useful state and route work to Codex without opacity.
+**What**: Harden feedback event ledger, handoff payloads, and launchd install/repair behavior so slugger can notify the operator with useful state and route work to Codex without opacity, even after canonical repo paths change.
 **Output**: Updated feedback autopilot script/docs and event payload fixtures.
-**Acceptance**: Unit 6c tests pass; handoff records include evidence paths and deterministic event IDs.
+**Acceptance**: Unit 6c tests pass; handoff records include evidence paths and deterministic event IDs; `doctor` no longer reports listener/tunnel/reconcile paths pointing at retired worktrees after repair.
 
 ### ⬜ Unit 6e: Feedback Autopilot Live Dogfood
 **What**: Run live `status --plain`, `doctor`, `reconcile --dry-run`, inspect event directories, and run a safe test/dry-run handoff if supported.
@@ -463,3 +463,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:01 Ambiguity review converged
 - 2026-07-09 13:02 Quality pass added evidence-first rule for non-code/live verification units
 - 2026-07-09 13:03 Quality review converged
+- 2026-07-09 13:04 Live feedback check found launchd services still pointing at retired `spoonjoy-apple-cookmode-ui-pass`; routed stale-service repair to Unit 6
