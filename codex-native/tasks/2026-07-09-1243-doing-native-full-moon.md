@@ -93,7 +93,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Redacted post-repair feedback logs under `unit-0f-*`.
 **Acceptance**: No actionable feedback remains unhandled before Unit 1 begins.
 
-### ⬜ Unit 1a: Screenshot Matrix Timeout Contract — Tests
+### ✅ Unit 1a: Screenshot Matrix Timeout Contract — Tests
 **What**: Add failing contract coverage for route-level timeouts in `scripts/capture-native-screenshot-matrix.sh` and timeout/blocker handling in `scripts/check-launch-screenshot-contract.rb`.
 **Output**: Failing test/contract log proving a simulated hung route does not currently produce the required terminal blocker artifact.
 **Acceptance**: The red failure names missing timeout/blocker behavior.

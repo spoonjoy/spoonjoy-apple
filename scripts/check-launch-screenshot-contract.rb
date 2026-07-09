@@ -166,6 +166,23 @@ SCRIPT_CONTRACTS = {
       "ownerAction"
     ]
   },
+  "scripts/capture-native-screenshot-matrix.sh" => {
+    syntax: ["bash", "-n"],
+    tokens: [
+      "set -euo pipefail",
+      "--artifact-root",
+      "--unit-slug",
+      "record_route",
+      "summarize_routes",
+      "design-review.json",
+      "design-review-blocked.json",
+      "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
+      "timeoutSeconds",
+      "ScreenshotRouteTimeout",
+      "ownerAction",
+      "sourceBlockerPath"
+    ]
+  },
   "scripts/find-macos-window-id.swift" => {
     syntax: ["swiftc", "-parse"],
     tokens: [
@@ -388,6 +405,125 @@ SCRIPT_CONTRACTS.each do |relative_path, contract|
   record_failure("#{relative_path} missing required tokens: #{missing_tokens.join(", ")}") unless missing_tokens.empty?
 
   assert_status(true, [*contract.fetch(:syntax), path], "#{relative_path} syntax")
+end
+
+Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("matrix-fixture")
+  artifact_root = temp_root.join("artifacts")
+  script_root.join("scripts").mkpath
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshot-matrix.sh"), script_root.join("scripts/capture-native-screenshot-matrix.sh"))
+
+  write_executable(script_root.join("scripts/capture-native-screenshots.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    artifact_root=""
+    unit_slug=""
+    route=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --artifact-root)
+          artifact_root="$2"
+          shift 2
+          ;;
+        --unit-slug)
+          unit_slug="$2"
+          shift 2
+          ;;
+        --route)
+          route="$2"
+          shift 2
+          ;;
+        *)
+          exit 2
+          ;;
+      esac
+    done
+
+    mkdir -p "$artifact_root/apple" "$artifact_root/screenshots"
+    if [[ "$route" == "recipes" ]]; then
+      sleep 10
+    fi
+
+    ruby -rjson -e '
+      path, route = ARGV
+      fields = %w[
+        mobileScreenshot desktopScreenshot dynamicType voiceOverLabels
+        keyboardNavigation reduceMotion contrast kitchenTableHierarchy noOverlap
+      ].to_h { |field| [field, true] }
+      File.write(path, JSON.pretty_generate(fields.merge("blockers" => [], "screenshotRoute" => route)) + "\n")
+    ' "$artifact_root/design-review.json" "$route"
+  SH
+
+  timeout_wrapper = <<~'RUBY'
+    timeout = Integer(ARGV.shift)
+    pid = Process.spawn(*ARGV, pgroup: true)
+    begin
+      Timeout.timeout(timeout) do
+        Process.wait(pid)
+        exit($?.exitstatus || 0)
+      end
+    rescue Timeout::Error
+      begin
+        Process.kill("TERM", -pid)
+      rescue Errno::ESRCH
+      end
+      sleep 0.2
+      begin
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH
+      rescue Errno::EPERM
+      end
+      begin
+        Process.wait(pid)
+      rescue Errno::ECHILD
+      end
+      exit 124
+    end
+  RUBY
+
+  stdout, stderr, status = run_status(
+    "ruby",
+    "-rtimeout",
+    "-e",
+    timeout_wrapper,
+    "5",
+    "bash",
+    "scripts/capture-native-screenshot-matrix.sh",
+    "--artifact-root",
+    artifact_root,
+    "--unit-slug",
+    "unit-contract",
+    env: {
+      "PATH" => ENV.fetch("PATH"),
+      "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS" => "1"
+    },
+    chdir: script_root
+  )
+
+  if status.exitstatus == 124
+    record_failure(
+      "screenshot matrix route timeout expected terminal blocker artifact, but matrix process timed out\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  else
+    summary_path = artifact_root.join("apple/unit-contract-route-matrix.json")
+    summary = assert_json(summary_path, "screenshot matrix timeout summary")
+    recipes_row = summary.fetch("routes", []).find { |row| row["name"] == "recipes" }
+    record_failure("screenshot matrix timeout row missing for recipes route") unless recipes_row
+    if recipes_row
+      record_failure("screenshot matrix timeout row must be blocked") unless recipes_row["status"] == "blocked"
+      record_failure("screenshot matrix timeout row must point at design-review-blocked.json") unless recipes_row.dig("designReviewBlocked", "exists") == true
+    end
+
+    blocked_review_path = artifact_root.join("screenshot-routes/recipes/design-review-blocked.json")
+    blocked_review = assert_json(blocked_review_path, "screenshot matrix timeout blocked review")
+    record_failure("screenshot matrix timeout blocker capability mismatch") unless blocked_review["capability"] == "ScreenshotRouteTimeout"
+    record_failure("screenshot matrix timeout blocker missing timeoutSeconds") unless blocked_review["timeoutSeconds"].is_a?(Integer)
+    record_failure("screenshot matrix timeout blocker missing ownerAction") unless blocked_review["ownerAction"].is_a?(String) && !blocked_review["ownerAction"].empty?
+    record_failure("screenshot matrix timeout blocker missing sourceBlockerPath") unless blocked_review["sourceBlockerPath"].is_a?(String) && !blocked_review["sourceBlockerPath"].empty?
+  end
 end
 
 validator = ROOT.join("scripts/validate-design-review.rb")
