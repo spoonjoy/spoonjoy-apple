@@ -88,7 +88,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Before/after `doctor`, launchd, and health logs under `unit-0e-*`.
 **Acceptance**: Running `scripts/testflight-feedback-autopilot.mjs doctor` from `/Users/arimendelow/Projects/spoonjoy-apple` reports healthy service paths, local health, and public health, or a valid external/human-only blocker records schema, owner action, retry command, output path, and evidence. This unit must complete before Unit 1.
 
-### ⬜ Unit 0f: Latest Feedback Gate After Repair
+### ✅ Unit 0f: Latest Feedback Gate After Repair
 **What**: Re-run `status --plain`, `doctor`, and `reconcile --dry-run` after Unit 0e so the UI work starts from the repaired feedback loop.
 **Output**: Redacted post-repair feedback logs under `unit-0f-*`.
 **Acceptance**: No actionable feedback remains unhandled before Unit 1 begins.
