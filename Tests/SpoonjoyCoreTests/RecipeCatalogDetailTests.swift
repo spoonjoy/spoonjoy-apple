@@ -161,6 +161,26 @@ struct RecipeCatalogDetailTests {
         #expect(cached.offlineIndicator(now: Self.now, freshnessPolicy: .offlineProductContract).display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
     }
 
+    @Test("recipe detail ingredient quantity text stays compact without placeholder units")
+    func recipeDetailIngredientQuantityTextStaysCompactWithoutPlaceholderUnits() {
+        let unitless = RecipeDetailIngredientRow(ingredient: RecipeIngredient(
+            id: "ingredient_oil",
+            name: "olive oil",
+            quantity: 1.25,
+            unit: nil
+        ))
+        let measured = RecipeDetailIngredientRow(ingredient: RecipeIngredient(
+            id: "ingredient_garlic",
+            name: "garlic",
+            quantity: 2,
+            unit: "clove"
+        ))
+
+        #expect(unitless.quantityText() == "1.25")
+        #expect(unitless.quantityText(scaleFactor: 2) == "2.5")
+        #expect(measured.quantityText(scaleFactor: 0.5) == "1 clove")
+    }
+
     @Test("catalog and detail view models cover blank empty and deleted-spoon states")
     @MainActor
     func catalogAndDetailViewModelsCoverBlankEmptyAndDeletedSpoonStates() async throws {
