@@ -1,0 +1,95 @@
+Listing iOS simulator runtimes: xcrun simctl list runtimes
+== Runtimes ==
+iOS 26.5 (26.5 - 23F77) - com.apple.CoreSimulator.SimRuntime.iOS-26-5
+watchOS 26.5 (26.5 - 23T570) - com.apple.CoreSimulator.SimRuntime.watchOS-26-5
+runtime list exit code: 0
+resolved destination: platform=iOS Simulator,id=10C519CA-BBD2-4780-870C-925916412F67
+resolver exit code: 0
+Running iOS simulator build: xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" -derivedDataPath codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    GCC_TREAT_WARNINGS_AS_ERRORS = YES
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  SpoonjoyApple: /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon @ local
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (4 targets)
+    Target 'Spoonjoy iOS' in project 'Spoonjoy'
+        ➜ Explicit dependency on target 'SpoonjoyCore' in project 'SpoonjoyApple'
+    Target 'SpoonjoyCore' in project 'SpoonjoyApple'
+        ➜ Explicit dependency on target 'SpoonjoyCore' in project 'SpoonjoyApple'
+        ➜ Explicit dependency on target 'SpoonjoyApple_SpoonjoyCore' in project 'SpoonjoyApple'
+    Target 'SpoonjoyCore' in project 'SpoonjoyApple'
+        ➜ Explicit dependency on target 'SpoonjoyApple_SpoonjoyCore' in project 'SpoonjoyApple'
+    Target 'SpoonjoyApple_SpoonjoyCore' in project 'SpoonjoyApple' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: adec55bfcbb9be73772c4306d867e8b8
+Build description path: /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Intermediates.noindex/XCBuildData/adec55bfcbb9be73772c4306d867e8b8.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+    cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.5.sdk -o /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/SDKStatCaches.noindex/iphonesimulator26.5-23F81a-6cfe768891a92b912361537c460fe42b.sdkstatcache
+
+ProcessInfoPlistFile /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyApple_SpoonjoyCore.bundle/Info.plist /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyApple_SpoonjoyCore.build/empty-SpoonjoyApple_SpoonjoyCore.plist (in target 'SpoonjoyApple_SpoonjoyCore' from project 'SpoonjoyApple')
+    cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+    builtin-infoPlistUtility /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyApple_SpoonjoyCore.build/empty-SpoonjoyApple_SpoonjoyCore.plist -producttype com.apple.product-type.bundle -expandbuildsettings -format binary -platform iphonesimulator -o /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyApple_SpoonjoyCore.bundle/Info.plist
+
+Copy /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/SpoonjoyApple_SpoonjoyCore.bundle /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyApple_SpoonjoyCore.bundle (in target 'Spoonjoy iOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyApple_SpoonjoyCore.bundle /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app
+
+ProcessInfoPlistFile /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/Info.plist /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Info.plist (in target 'Spoonjoy iOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+    builtin-infoPlistUtility /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/PkgInfo -expandbuildsettings -format binary -platform iphonesimulator -additionalcontentfile /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug-iphonesimulator/Spoonjoy\ iOS.build/assetcatalog_generated_info.plist -scanforprivacyfile /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/SpoonjoyApple_SpoonjoyCore.bundle -o /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/Info.plist
+
+CopySwiftLibs /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app (in target 'Spoonjoy iOS' from project 'Spoonjoy')
+    cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/Spoonjoy.debug.dylib --scan-folder /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/Frameworks --scan-folder /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/PlugIns --scan-folder /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/SystemExtensions --scan-folder /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/Extensions --platform iphonesimulator --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug-iphonesimulator/Spoonjoy\ iOS.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os
+Ignoring --strip-bitcode because --sign was not passed
+
+** BUILD SUCCEEDED **
+
+iOS simulator build exit code: 0
+Booting simulator: xcrun simctl boot 10C519CA-BBD2-4780-870C-925916412F67
+Simulator was already booted; suppressed benign CoreSimulator boot diagnostic.
+simulator boot exit code: 0
+Uninstalling stale app before fresh install: 10C519CA-BBD2-4780-870C-925916412F67 app.spoonjoy
+simulator uninstall exit code: 0
+Installing app: codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app
+simulator install exit code: 0
+Launching app: xcrun simctl launch --terminate-running-process app.spoonjoy
+simulator launch attempt 1/3
+app.spoonjoy: 58102
+simulator launch attempt 1 exit code: 0
+simulator launch exit code: 0

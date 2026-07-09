@@ -113,7 +113,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Updated screenshot script and launch contract tests.
 **Acceptance**: Unit 1c tests pass; a failed launch writes a valid blocker with capability, command, output path, reason, owner action, and skipped artifacts.
 
-### ⬜ Unit 1e: Local Validation Harness Integration
+### ✅ Unit 1e: Local Validation Harness Integration
 **What**: Integrate the new timeout/blocker behavior with `scripts/validate-native-local.sh` and artifact auditing.
 **Output**: Validation matrix logs under `unit-1e-validation`.
 **Acceptance**: `scripts/validate-native-local.sh --artifact-root codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation` reaches a terminal pass or valid external/human-only blocker without silent hang.
