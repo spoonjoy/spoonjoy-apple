@@ -7,6 +7,7 @@ struct ScreenshotAccessibilityRuntimeContext {
 
 enum ScreenshotAccessibilityProofWriter {
     private static let environmentKey = "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"
+    private static let expectedRouteEnvironmentKey = "SPOONJOY_SCREENSHOT_EXPECTED_ROUTE"
 
     @MainActor static func writeIfNeeded(
         route: String,
@@ -20,6 +21,11 @@ enum ScreenshotAccessibilityProofWriter {
         }
         try? await Task.sleep(nanoseconds: 700_000_000)
         guard !Task.isCancelled else {
+            return
+        }
+        if let expectedRoute = ProcessInfo.processInfo.environment[expectedRouteEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !expectedRoute.isEmpty,
+           expectedRoute != route {
             return
         }
 

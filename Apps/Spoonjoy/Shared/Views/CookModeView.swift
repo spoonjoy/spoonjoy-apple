@@ -589,23 +589,25 @@ private struct CookModeTimer: View {
 
             Spacer()
 
-            Button(primaryButtonTitle) {
-                if isRunning {
-                    isRunning = false
-                } else {
-                    if remainingSeconds == 0 {
-                        remainingSeconds = timer.durationSeconds
+            HStack(spacing: 8) {
+                Button(primaryButtonTitle) {
+                    if isRunning {
+                        isRunning = false
+                    } else {
+                        if remainingSeconds == 0 {
+                            remainingSeconds = timer.durationSeconds
+                        }
+                        isRunning = true
                     }
-                    isRunning = true
                 }
-            }
-            .buttonStyle(.bordered)
+                .buttonStyle(CookModeTimerButtonStyle(prominence: .primary))
 
-            Button(timer.resetButtonTitle) {
-                remainingSeconds = timer.durationSeconds
-                isRunning = false
+                Button(timer.resetButtonTitle) {
+                    remainingSeconds = timer.durationSeconds
+                    isRunning = false
+                }
+                .buttonStyle(CookModeTimerButtonStyle(prominence: .secondary))
             }
-            .buttonStyle(.bordered)
         }
         .onReceive(ticker) { _ in
             guard isRunning else {
@@ -633,5 +635,57 @@ private struct CookModeTimer: View {
             return timer.pauseButtonTitle
         }
         return remainingSeconds == 0 ? timer.restartButtonTitle : timer.startButtonTitle
+    }
+}
+
+private struct CookModeTimerButtonStyle: ButtonStyle {
+    enum Prominence {
+        case primary
+        case secondary
+    }
+
+    let prominence: Prominence
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 38)
+            .foregroundStyle(foreground)
+            .background(background(configuration: configuration), in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(stroke, lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.82 : 1)
+    }
+
+    private var foreground: Color {
+        switch prominence {
+        case .primary:
+            KitchenTableTheme.paper
+        case .secondary:
+            KitchenTableTheme.charcoal
+        }
+    }
+
+    private func background(configuration _: Configuration) -> Color {
+        switch prominence {
+        case .primary:
+            KitchenTableTheme.action
+        case .secondary:
+            KitchenTableTheme.vellum.opacity(0.72)
+        }
+    }
+
+    private var stroke: Color {
+        switch prominence {
+        case .primary:
+            KitchenTableTheme.action
+        case .secondary:
+            KitchenTableTheme.line.opacity(0.68)
+        }
     }
 }

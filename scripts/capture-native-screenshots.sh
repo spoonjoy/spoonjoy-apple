@@ -664,6 +664,7 @@ ios_launch_app() {
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
   SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
     xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >> "$capture_log" 2>&1
@@ -677,6 +678,7 @@ open_macos_app() {
     SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
     SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
     SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+    SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
     SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
     SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
     SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
@@ -695,6 +697,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_ACCOUNT_ID \
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS \
+      SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
       SPOONJOY_API_BASE_URL
@@ -713,6 +716,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCOUNT_ID "$capture_account_id"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS "$settings_capture_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS "$search_capture_disable_focus"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
@@ -739,6 +743,7 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCOUNT_ID >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_API_BASE_URL >/dev/null 2>&1 || true

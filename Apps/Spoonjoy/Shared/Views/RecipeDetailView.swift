@@ -446,15 +446,17 @@ struct RecipeDetailView: View {
     @ViewBuilder private var recipePrimaryActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             if hasAction(.startCooking) {
-                Button {
-                    openRoute(viewModel.actions.startCookingRoute)
-                } label: {
-                    Label("Cook mode", systemImage: "fork.knife")
+                if usesCompactRecipeDock && hasCompactRecipeMenuActions {
+                    HStack(spacing: 10) {
+                        startCookingButton
+                        compactRecipeActionsMenu
+                    }
+                } else {
+                    startCookingButton
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
             }
 
-            if hasRecipeUtilityActions {
+            if hasRecipeUtilityActions && !usesCompactRecipeDock {
                 HStack(spacing: 10) {
                     if hasAction(.saveToCookbook) {
                         Button {
@@ -484,32 +486,36 @@ struct RecipeDetailView: View {
         }
     }
 
+    private var startCookingButton: some View {
+        Button {
+            openRoute(viewModel.actions.startCookingRoute)
+        } label: {
+            Label("Cook mode", systemImage: "fork.knife")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+    }
+
+    private var compactRecipeActionsMenu: some View {
+        Menu {
+            recipeMenuItems(includeSave: true, includeAddToList: true)
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.headline.weight(.semibold))
+                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
+                }
+        }
+        .accessibilityLabel("More")
+    }
+
     @ViewBuilder private var recipeSecondaryActions: some View {
         if hasSecondaryRecipeActions {
             Menu {
-                if hasAction(.fork) || hasAction(.makeVariation) {
-                    Button {
-                        runAction(.fork(
-                            clientMutationID: clientMutationID(prefix: "fork"),
-                            titleOverride: viewModel.actions.fork.titleOverride
-                        ))
-                    } label: {
-                        Label(viewModel.actions.fork.label, systemImage: "arrow.branch")
-                    }
-                }
-                if hasAction(.share), let shareURL = viewModel.actions.sharePayload?.publicURL {
-                    ShareLink(item: shareURL) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                }
-                if hasAction(.addToShoppingList) {
-                    Button {
-                        addRecipeIngredients()
-                    } label: {
-                        Label("Add to list", systemImage: "cart.badge.plus")
-                    }
-                    .disabled(hasIngredientsInShoppingList)
-                }
+                recipeMenuItems(includeSave: false, includeAddToList: true)
             } label: {
                 Label("More", systemImage: "ellipsis.circle")
             }
@@ -517,8 +523,45 @@ struct RecipeDetailView: View {
         }
     }
 
+    @ViewBuilder private func recipeMenuItems(includeSave: Bool, includeAddToList: Bool) -> some View {
+        if includeSave && hasAction(.saveToCookbook) {
+            Button {
+                isCookbookSaveSheetPresented = true
+            } label: {
+                Label("Save", systemImage: "book.closed")
+            }
+        }
+        if hasAction(.fork) || hasAction(.makeVariation) {
+            Button {
+                runAction(.fork(
+                    clientMutationID: clientMutationID(prefix: "fork"),
+                    titleOverride: viewModel.actions.fork.titleOverride
+                ))
+            } label: {
+                Label(viewModel.actions.fork.label, systemImage: "arrow.branch")
+            }
+        }
+        if hasAction(.share), let shareURL = viewModel.actions.sharePayload?.publicURL {
+            ShareLink(item: shareURL) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+        }
+        if includeAddToList && hasAction(.addToShoppingList) {
+            Button {
+                addRecipeIngredients()
+            } label: {
+                Label("Add to list", systemImage: "cart.badge.plus")
+            }
+            .disabled(hasIngredientsInShoppingList)
+        }
+    }
+
     private var hasSecondaryRecipeActions: Bool {
         hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList)
+    }
+
+    private var hasCompactRecipeMenuActions: Bool {
+        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share)
     }
 
     private var hasRecipeUtilityActions: Bool {

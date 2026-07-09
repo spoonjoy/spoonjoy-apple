@@ -29,7 +29,7 @@ enum KitchenTableTheme {
     static let pageSpacing: CGFloat = 24
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
-    static let compactDockReserve: CGFloat = 132
+    static let compactDockReserve: CGFloat = 92
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
@@ -47,10 +47,16 @@ enum KitchenTableTheme {
 }
 
 struct KitchenTablePage<Content: View>: View {
+    let maxContentWidth: CGFloat
     let bottomReserve: CGFloat
     @ViewBuilder let content: () -> Content
 
-    init(bottomReserve: CGFloat = KitchenTableTheme.compactDockReserve, @ViewBuilder content: @escaping () -> Content) {
+    init(
+        maxContentWidth: CGFloat = 720,
+        bottomReserve: CGFloat = KitchenTableTheme.compactDockReserve,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.maxContentWidth = maxContentWidth
         self.bottomReserve = bottomReserve
         self.content = content
     }
@@ -63,7 +69,7 @@ struct KitchenTablePage<Content: View>: View {
             .padding(.horizontal, KitchenTableTheme.pagePadding)
             .padding(.top, 20)
             .padding(.bottom, bottomReserve)
-            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(KitchenTableTheme.bone.ignoresSafeArea())

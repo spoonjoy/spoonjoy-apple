@@ -531,23 +531,7 @@ struct SettingsView: View {
         systemImage: String,
         prominence: SettingsRowProminence
     ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .semibold))
-            Text(title)
-                .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-            Spacer(minLength: 8)
-        }
-        .foregroundStyle(prominence.foreground)
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-        .background(prominence.background, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(prominence.stroke, lineWidth: 1)
-        }
+        SettingsRowLabel(title: title, systemImage: systemImage, prominence: prominence)
     }
 
     private func effectiveOfflineIndicator(_ localDisplay: OfflineIndicatorDisplay) -> OfflineIndicatorDisplay {
@@ -811,6 +795,38 @@ struct SettingsView: View {
     }
 }
 
+private struct SettingsRowLabel: View {
+    let title: String
+    let systemImage: String
+    let prominence: SettingsRowProminence
+
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+            Text(title)
+                .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+            Spacer(minLength: 8)
+        }
+        .foregroundStyle(effectiveProminence.foreground)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+        .background(effectiveProminence.background, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(effectiveProminence.stroke, lineWidth: 1)
+        }
+    }
+
+    private var effectiveProminence: SettingsRowProminence {
+        isEnabled ? prominence : .disabled
+    }
+}
+
 private struct PendingSettingsDestructiveAction: Identifiable {
     let id = UUID()
     let action: SettingsAction
@@ -823,6 +839,7 @@ private enum SettingsRowProminence {
     case primary
     case secondary
     case destructive
+    case disabled
 
     var foreground: Color {
         switch self {
@@ -832,6 +849,8 @@ private enum SettingsRowProminence {
             KitchenTableTheme.charcoal
         case .destructive:
             KitchenTableTheme.tomato
+        case .disabled:
+            KitchenTableTheme.inkMuted.opacity(0.62)
         }
     }
 
@@ -843,6 +862,8 @@ private enum SettingsRowProminence {
             KitchenTableTheme.paper
         case .destructive:
             KitchenTableTheme.paper
+        case .disabled:
+            KitchenTableTheme.paper.opacity(0.72)
         }
     }
 
@@ -854,6 +875,8 @@ private enum SettingsRowProminence {
             KitchenTableTheme.line.opacity(0.55)
         case .destructive:
             KitchenTableTheme.tomato.opacity(0.42)
+        case .disabled:
+            KitchenTableTheme.line.opacity(0.38)
         }
     }
 }
