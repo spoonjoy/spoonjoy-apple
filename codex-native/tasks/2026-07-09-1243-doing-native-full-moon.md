@@ -143,7 +143,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Theme/token and small call-site updates.
 **Acceptance**: Unit 2a tests pass; `scripts/check-native-web-palette-contract.rb` and `scripts/check-native-design-language.rb` pass.
 
-### ⬜ Unit 2c: Mobile Dock and Toolbar Contract — Tests
+### ✅ Unit 2c: Mobile Dock and Toolbar Contract — Tests
 **What**: Add failing tests/static checks for mobile dock visual weight, safe-area behavior, macOS exclusion, icon/button sizing, and native toolbar expectations.
 **Output**: Red contract log covering `SpoonDock.swift`, `PlatformNavigationView.swift`, and `SpoonjoyToolbar.swift`.
 **Acceptance**: Tests fail on at least one current dock/toolbar weight or platform behavior issue.
@@ -519,6 +519,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 16:14 Unit 1h complete: implemented `cookbook-detail` route capture through the matrix, deep link/state/cache seed, design-review validation, and app-emitted `CookbookDetailView` accessibility proof; focused iOS/macOS capture passed with `design-review.json`, screenshots, and proof artifacts. Logged follow-up visual issues for duplicate cookbook summary/cover treatment and macOS horizontal balance.
 - 2026-07-09 16:21 Unit 2a complete: expanded the native/web palette contract to scan SwiftUI app surfaces; red log proves 33 current `KitchenTableTheme` bypasses across 11 files, including `.secondary`, `.primary`, and `.red` foreground styles.
 - 2026-07-09 16:27 Unit 2b complete: replaced the 33 app-surface palette bypasses with `KitchenTableTheme` role tokens. Palette and native design-language contracts passed; iOS no-sign target build and macOS target build passed with warnings-as-errors.
+- 2026-07-09 16:33 Unit 2c complete: added native shell contract coverage for mobile dock chrome weight, centralized dock metrics, max width, target sizing, dark capsule avoidance, shadow weight, compact iOS-only dock use, safe-area placement, and toolbar primary action menu structure; red log fails on current overweight SpoonDock.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
