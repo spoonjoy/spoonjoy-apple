@@ -32,19 +32,21 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Paid/billing/account changes outside existing credentials and CLI-accessible Apple tooling.
 - Replacing the Spoonjoy backend or web product architecture.
 - New brand direction that contradicts the existing Spoonjoy web design language.
-- Shipping unsupported iOS 27-only features to iOS 26 without availability gates or fallbacks.
+- Shipping product support below the documented iOS 27/macOS 27 baseline unless the project baseline documents change first.
 
 ## Completion Criteria
 - [ ] `/Users/arimendelow/Projects/spoonjoy-apple` is the clean canonical native checkout, with stale worktrees retired or intentionally documented.
 - [ ] Screenshot capture and visual QA can run across the core iOS and macOS route matrix without hanging, with artifacts saved under task docs.
 - [ ] Every core route has fresh iOS and macOS screenshot evidence reviewed against the Spoonjoy native design language, with an absurdity ledger closed.
-- [ ] Kitchen, Recipe Detail, Cook Mode, Shopping, Search, Capture, Settings, and macOS shell show no overlapping text, false unavailable flashes, production-facing demo labels, or default-looking placeholder imagery.
+- [ ] Every visual route capture produces a valid `design-review.json` or valid `design-review-blocked.json`; success artifacts include app-emitted iOS and macOS accessibility proofs through `SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH`.
+- [ ] Dynamic Type, VoiceOver labels, keyboard navigation, Reduce Motion, contrast, route-specific hierarchy evidence, target size, text fit, no-tiny-cluster checks, and `OfflineStatusView` proof pass fail-closed validation.
+- [ ] Kitchen, Recipes, Recipe Detail, Cook Mode, Cookbooks, Cookbook Detail, Shopping, Search, Capture, Settings, auth/offline/error states, and macOS shell show no overlapping text, false unavailable flashes, production-facing demo labels, or default-looking placeholder imagery.
 - [ ] System blue, generic grouped-card styling, oversized dock chrome, and loud non-critical banners are removed or confined to appropriate native/system contexts.
 - [ ] Recipe and cook-mode structure matches the web product language where intentional, with native controls only where they improve the workflow.
 - [ ] Offline, loading, empty, stale, sync-failed, unauthenticated, and blocked-provider states are honest, graceful, telemetry-backed, and tested.
 - [ ] TestFlight feedback autopilot has a transparent ledger from feedback receipt through diagnosis, fix, build number, and confirmation state.
 - [ ] Latest TestFlight feedback screenshots and comments are reconciled before each TestFlight publish, with no actionable unhandled feedback left behind.
-- [ ] At least one new internal TestFlight build is uploaded, processed `VALID`, published to `Spoonjoy Internal`, and verified through App Store Connect API after the first coherent wave.
+- [ ] At least one new internal TestFlight build is uploaded, processed `VALID`, attached to `Spoonjoy Internal`, verified with nonzero group tester count, and has build beta detail `internalBuildState` of `IN_BETA_TESTING`.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
 - [ ] No warnings
@@ -64,7 +66,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - `/Users/arimendelow/Projects/spoonjoy-apple` is the canonical native repo path after retiring stale worktrees; `/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon` is the dedicated implementation worktree for this campaign.
 - The campaign optimizes for full-product native quality, not isolated screenshot improvements.
 - Visual validation infrastructure is Unit 0 because taste work is unreliable without deterministic app launch and screenshots.
-- iOS 26 should receive all practical native value that does not require newer APIs; iOS 27 App Intents, Spotlight entity, Siri, and Foundation Models work must remain availability-gated where required.
+- Product support follows the documented iOS 27/macOS 27 baseline; Xcode 26/iOS 26 simulator work remains a local bootstrap and validation detail, not product backport scope.
 - TestFlight feedback is product input, not a passive inbox; the automation must expose state clearly and close the loop with confirmed builds.
 
 ## Context / References
@@ -95,3 +97,4 @@ Fresh roadmap evidence showed the current build has strong platform plumbing but
 ## Progress Log
 - 2026-07-09 12:43 Created
 - 2026-07-09 12:44 Tinfoil pass added latest-feedback grounding before each wave
+- 2026-07-09 12:45 Addressed reviewer findings on iOS/macOS baseline, fail-closed design evidence, TestFlight verification, and route matrix scope
