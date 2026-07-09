@@ -108,7 +108,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Failing test/contract log for missing launch cleanup or timeout behavior.
 **Acceptance**: The red failure is tied to iOS/macOS launch or proof-wait behavior, not incidental missing tools.
 
-### ⬜ Unit 1d: Native Screenshot Launch Cleanup — Implementation
+### ✅ Unit 1d: Native Screenshot Launch Cleanup — Implementation
 **What**: Implement fail-closed timeout and cleanup behavior in `scripts/capture-native-screenshots.sh` using existing `design-review-blocked.json` and blocker schema rules.
 **Output**: Updated screenshot script and launch contract tests.
 **Acceptance**: Unit 1c tests pass; a failed launch writes a valid blocker with capability, command, output path, reason, owner action, and skipped artifacts.

@@ -91,6 +91,9 @@ settings_capture_focus="profile"
 search_capture_disable_focus="0"
 proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
 proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
+ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30}"
+macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
+cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
 expected_recorded_route="$screenshot_route"
 deep_link_path="$screenshot_route"
 macos_window_title="Kitchen"
@@ -207,6 +210,64 @@ write_design_review_blocked() {
   rm -f "$accessibility_proof_ios" "$accessibility_proof_macos"
   rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_macos_abs"
   rm -f "$design_review"
+}
+
+run_with_timeout() {
+  local label="$1"
+  local timeout_seconds="$2"
+  local output_path="$3"
+  shift 3
+  mkdir -p "$(dirname "$output_path")"
+  python3 - "$timeout_seconds" "$label" "$output_path" "$@" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+import time
+
+timeout_seconds = int(sys.argv[1])
+label = sys.argv[2]
+output_path = sys.argv[3]
+command = sys.argv[4:]
+
+with open(output_path, "ab") as output:
+    output.write(f"\nrun_with_timeout {label} ({timeout_seconds}s): {' '.join(command)}\n".encode())
+    process = subprocess.Popen(
+        command,
+        stdout=output,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    try:
+        sys.exit(process.wait(timeout=timeout_seconds))
+    except subprocess.TimeoutExpired:
+        output.write(f"\n{label} timed out after {timeout_seconds} seconds\n".encode())
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        time.sleep(0.2)
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait()
+        sys.exit(124)
+PY
+}
+
+run_cleanup_command() {
+  local description="$1"
+  shift
+  set +e
+  run_with_timeout "cleanup timeout" "$cleanup_timeout_seconds" "$capture_log" "$@"
+  local status=$?
+  set -e
+  if [[ "$status" -eq 124 ]]; then
+    printf 'cleanup timeout while running %s\n' "$description" >> "$capture_log"
+  fi
+  return "$status"
 }
 
 write_design_review_success() {
@@ -659,30 +720,33 @@ write_cache_state() {
 
 ios_launch_app() {
   local udid="$1"
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH=1 \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
-  SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
-    xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >> "$capture_log" 2>&1
+  run_with_timeout "simulator launch timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+    env \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH=1 \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
+      xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
 }
 
 open_macos_app() {
   set_macos_launch_environment
-  env \
-    SPOONJOY_SCREENSHOT_AUTH=1 \
-    SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
-    SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
-    SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
-    SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
-    SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
-    SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
-    SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
-    SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
-    open -n "$macos_app" >> "$capture_log" 2>&1
+  run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
+    env \
+      SPOONJOY_SCREENSHOT_AUTH=1 \
+      SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
+      SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
+      SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
+      SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+      SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
+      SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
+      SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
+      SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
+      open -n "$macos_app"
 }
 
 set_macos_launch_environment() {
@@ -879,6 +943,7 @@ wait_for_screenshot_proof() {
     fi
     sleep "$proof_sleep_seconds"
   done
+  printf 'proof wait timed out for screenshot proof %s expected route %s\n' "$proof_path" "$expected_route" >> "$capture_log"
   return 1
 }
 
@@ -1018,6 +1083,7 @@ wait_for_accessibility_proof() {
     fi
     sleep "$proof_sleep_seconds"
   done
+  printf 'proof wait timed out for accessibility proof %s expected route %s platform %s\n' "$proof_path" "$expected_route" "$expected_platform" >> "$capture_log"
   return 1
 }
 
@@ -1131,7 +1197,10 @@ capture_ios_app() {
     fi
   fi
   rm -f "$terminate_log"
-  ios_launch_app "$udid"
+  if ! ios_launch_app "$udid"; then
+    printf 'simulator launch timeout or failure for iOS route %s\n' "$screenshot_route" >> "$capture_log"
+    return 1
+  fi
   wait_for_ios_foreground "$udid" || return 1
   sleep 1
   if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
@@ -1153,7 +1222,7 @@ capture_ios_app() {
 }
 
 capture_macos_window() {
-  osascript -e "tell application \"$macos_app\" to activate" >> "$capture_log" 2>&1 || true
+  run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application \"$macos_app\" to activate" || true
   sleep 1
   local window_id=""
   local spoonjoy_pid=""
@@ -1237,7 +1306,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
       "CoreSimulator" \
       "xcrun simctl launch/io $ios_udid app.spoonjoy $ios_screenshot" \
       "$capture_log" \
-      "CoreSimulator could not capture a foreground Spoonjoy iOS screenshot for route $screenshot_route." \
+      "CoreSimulator could not capture a foreground Spoonjoy iOS screenshot for route $screenshot_route; simulator launch timeout, foreground wait timeout, proof wait timeout, or screenshot capture failure occurred." \
       "Boot an available iPhone simulator, confirm Spoonjoy stays foregrounded, and rerun screenshot capture."
   fi
 fi
@@ -1309,13 +1378,37 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   write_app_state "$state_file" "$expected_recorded_route"
   write_cache_state "$cache_file" "$screenshot_route"
   write_sync_store "$sync_file"
-  osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
-  pkill -x Spoonjoy >/dev/null 2>&1 || true
+  run_cleanup_command "quit Spoonjoy before capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+  run_cleanup_command "kill Spoonjoy before capture" pkill -x Spoonjoy || true
   sleep 1
-  open_macos_app
+  if ! open_macos_app; then
+    write_blocker \
+      "$macos_blocker" \
+      "MacOSLaunch" \
+      "open -n $macos_app" \
+      "$capture_log" \
+      "Spoonjoy macOS launch timeout or failure occurred before screenshot capture." \
+      "Launch the app from an unlocked desktop session and rerun screenshot capture."
+  fi
   sleep 3
-  pgrep -x Spoonjoy >/dev/null
-  osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\"" >> "$capture_log" 2>&1
+  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" pgrep -x Spoonjoy; then
+    write_blocker \
+      "$macos_blocker" \
+      "MacOSLaunch" \
+      "pgrep -x Spoonjoy" \
+      "$capture_log" \
+      "Spoonjoy macOS process was not running after launch." \
+      "Launch the app from an unlocked desktop session and rerun screenshot capture."
+  fi
+  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+    write_blocker \
+      "$macos_blocker" \
+      "MacOSLaunch" \
+      "spoonjoy://$deep_link_path" \
+      "$capture_log" \
+      "Spoonjoy macOS route open timeout or failure occurred before screenshot capture." \
+      "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
+  fi
   wait_for_route "$expected_recorded_route" || true
   proof_focus="$settings_capture_focus"
   if [[ "$screenshot_route" == "search" ]]; then
@@ -1342,13 +1435,15 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
   fi
-  ruby -rjson -e '
-    path, expected_route = ARGV
-    snapshot = JSON.parse(File.read(path))
-    abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
-    actual_route = snapshot.fetch("lastOpenedRoute")
-    abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
-  ' "$state_file" "$expected_recorded_route" >> "$capture_log" 2>&1
+  if [[ ! -f "$macos_blocker" ]]; then
+    ruby -rjson -e '
+      path, expected_route = ARGV
+      snapshot = JSON.parse(File.read(path))
+      abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
+      actual_route = snapshot.fetch("lastOpenedRoute")
+      abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
+    ' "$state_file" "$expected_recorded_route" >> "$capture_log" 2>&1
+  fi
   if [[ ! -f "$macos_blocker" ]] && ! validate_screenshot_surface_proof "$proof_file" "$macos_proof_artifact" "macos" >> "$capture_log" 2>&1; then
     write_blocker \
       "$macos_blocker" \
@@ -1360,18 +1455,42 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   fi
   if [[ ! -f "$macos_blocker" ]] && ! capture_macos_window; then
     printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
-    osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
-    pkill -x Spoonjoy >/dev/null 2>&1 || true
+    run_cleanup_command "quit Spoonjoy before relaunch" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+    run_cleanup_command "kill Spoonjoy before relaunch" pkill -x Spoonjoy || true
     sleep 1
     rm -f "$proof_file"
     rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
     write_app_state "$state_file" "$expected_recorded_route"
     write_cache_state "$cache_file" "$screenshot_route"
     write_sync_store "$sync_file"
-    open_macos_app
+    if ! open_macos_app; then
+      write_blocker \
+        "$macos_blocker" \
+        "MacOSLaunch" \
+        "open -n $macos_app" \
+        "$capture_log" \
+        "Spoonjoy macOS relaunch timeout or failure occurred before screenshot capture." \
+        "Launch the app from an unlocked desktop session and rerun screenshot capture."
+    fi
     sleep 3
-    pgrep -x Spoonjoy >/dev/null
-    osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\"" >> "$capture_log" 2>&1
+    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" pgrep -x Spoonjoy; then
+      write_blocker \
+        "$macos_blocker" \
+        "MacOSLaunch" \
+        "pgrep -x Spoonjoy" \
+        "$capture_log" \
+        "Spoonjoy macOS process was not running after relaunch." \
+        "Launch the app from an unlocked desktop session and rerun screenshot capture."
+    fi
+    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+      write_blocker \
+        "$macos_blocker" \
+        "MacOSLaunch" \
+        "spoonjoy://$deep_link_path" \
+        "$capture_log" \
+        "Spoonjoy macOS route open timeout or failure occurred after relaunch." \
+        "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
+    fi
     wait_for_route "$expected_recorded_route" || true
     if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus"; then
       printf 'Spoonjoy did not write the expected macOS screenshot proof after relaunch for %s\n' "$screenshot_route" >> "$capture_log"
@@ -1394,13 +1513,15 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
         "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
     fi
-    ruby -rjson -e '
-      path, expected_route = ARGV
-      snapshot = JSON.parse(File.read(path))
-      abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
-      actual_route = snapshot.fetch("lastOpenedRoute")
-      abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
-    ' "$state_file" "$expected_recorded_route" >> "$capture_log" 2>&1
+    if [[ ! -f "$macos_blocker" ]]; then
+      ruby -rjson -e '
+        path, expected_route = ARGV
+        snapshot = JSON.parse(File.read(path))
+        abort("first-run session was not completed") unless snapshot.fetch("hasCompletedFirstRun") == true
+        actual_route = snapshot.fetch("lastOpenedRoute")
+        abort("expected lastOpenedRoute #{expected_route}, got #{actual_route}") unless actual_route == expected_route
+      ' "$state_file" "$expected_recorded_route" >> "$capture_log" 2>&1
+    fi
     if [[ ! -f "$macos_blocker" ]] && ! validate_screenshot_surface_proof "$proof_file" "$macos_proof_artifact" "macos" >> "$capture_log" 2>&1; then
       write_blocker \
         "$macos_blocker" \
@@ -1424,8 +1545,8 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy window capture was unavailable in the macOS GUI session." \
       "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
   fi
-  osascript -e 'tell application id "app.spoonjoy.mac" to quit' >/dev/null 2>&1 || true
-  pkill -x Spoonjoy >/dev/null 2>&1 || true
+  run_cleanup_command "quit Spoonjoy after capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+  run_cleanup_command "kill Spoonjoy after capture" pkill -x Spoonjoy || true
 fi
 
 if [[ -f "$xcode_blocker" ]]; then

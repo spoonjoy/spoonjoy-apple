@@ -1787,7 +1787,7 @@ PY
     "-rtimeout",
     "-e",
     PROCESS_TIMEOUT_WRAPPER,
-    "8",
+    "20",
     "bash",
     "scripts/capture-native-screenshots.sh",
     "--artifact-root",
