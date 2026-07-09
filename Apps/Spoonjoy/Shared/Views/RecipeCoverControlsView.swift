@@ -34,16 +34,9 @@ struct RecipeCoverControlsRouteView: View {
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
             } else if let loadMessage {
-                Label(loadMessage, systemImage: "photo.on.rectangle")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: loadMessage, systemImage: "photo.on.rectangle")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading covers", subtitle: "Opening the recipe cover history.", systemImage: "photo.on.rectangle")
             }
         }
         .task(id: recipeID) {
@@ -69,7 +62,7 @@ struct RecipeCoverControlsRouteView: View {
                 loadMessage = nil
             } catch {
                 data = .snapshot(recipe: loadedRecipe)
-                loadMessage = "Cover history is unavailable; showing the current cached cover."
+                loadMessage = "Cover history did not load; showing the current cached cover."
             }
         } catch {
             loadMessage = "We couldn't load this recipe's covers."

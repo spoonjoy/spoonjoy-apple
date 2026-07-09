@@ -15,16 +15,9 @@ struct ProfileRouteView: View {
             if let profile {
                 ProfileView(viewModel: profile, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "person.crop.circle")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.crop.circle")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading profile", subtitle: "Opening this kitchen.", systemImage: "person.crop.circle")
             }
         }
         .task(id: identifier) {
@@ -39,7 +32,7 @@ struct ProfileRouteView: View {
             errorMessage = nil
         } catch {
             if profile == nil {
-                errorMessage = "Profile unavailable."
+                errorMessage = "We couldn't load this profile."
             }
         }
     }
@@ -325,16 +318,9 @@ struct ProfileGraphRouteView: View {
             if let graph {
                 ProfileGraphList(viewModel: graph, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "person.2")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.2")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading chefs", subtitle: "Opening this kitchen graph.", systemImage: "person.2")
             }
         }
         .task(id: "\(identifier)-\(direction.rawValue)-\(page)") {
@@ -349,7 +335,7 @@ struct ProfileGraphRouteView: View {
             errorMessage = nil
         } catch {
             if graph == nil {
-                errorMessage = "Chef graph unavailable."
+                errorMessage = "We couldn't load these chefs."
             }
         }
     }

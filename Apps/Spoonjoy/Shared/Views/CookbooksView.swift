@@ -99,7 +99,7 @@ struct CookbooksView: View {
             list = viewModel.list
             errorMessage = nil
         } catch {
-            errorMessage = "Cookbooks unavailable."
+            errorMessage = "We couldn't load your cookbooks."
         }
     }
 
@@ -327,16 +327,9 @@ struct CookbookDetailRouteView: View {
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "books.vertical")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "books.vertical")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading cookbook", subtitle: "Opening the cookbook shelf.", systemImage: "books.vertical")
             }
         }
         .task(id: cookbookID) {
@@ -351,7 +344,7 @@ struct CookbookDetailRouteView: View {
             errorMessage = nil
         } catch {
             if detail == nil {
-                errorMessage = "Cookbook unavailable."
+                errorMessage = "We couldn't load this cookbook."
             }
         }
     }

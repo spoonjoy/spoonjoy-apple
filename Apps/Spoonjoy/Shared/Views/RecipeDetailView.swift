@@ -86,11 +86,19 @@ struct RecipeDetailRouteView: View {
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
             } else if isLoadingRecipe {
-                RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)
+                KitchenTableLoadingStateView(
+                    title: loadingTitle ?? "Loading recipe",
+                    subtitle: loadingTitle == nil ? nil : "Loading recipe",
+                    systemImage: "text.book.closed"
+                )
             } else if let errorMessage {
-                RecipeDetailErrorView(message: errorMessage)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
             } else {
-                RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)
+                KitchenTableLoadingStateView(
+                    title: loadingTitle ?? "Loading recipe",
+                    subtitle: loadingTitle == nil ? nil : "Loading recipe",
+                    systemImage: "text.book.closed"
+                )
             }
         }
         .task(id: recipeID) {
@@ -154,53 +162,6 @@ struct RecipeDetailRouteView: View {
             }
             cursor = nextCursor
         }
-    }
-}
-
-private struct RecipeDetailLoadingView: View {
-    let recipeID: String
-    let title: String?
-
-    var body: some View {
-        VStack(spacing: 14) {
-            ProgressView()
-                .controlSize(.large)
-            Text(title ?? "Loading recipe")
-                .font(title == nil ? KitchenTableTheme.bodyNote : KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-            if title != nil {
-                Text("Loading recipe")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .padding(32)
-        .background(KitchenTableTheme.bone)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Loading recipe")
-        .accessibilityValue(title ?? recipeID)
-    }
-}
-
-private struct RecipeDetailErrorView: View {
-    let message: String
-
-    var body: some View {
-        Label {
-            Text(message)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-        } icon: {
-            Image(systemName: "text.book.closed")
-                .foregroundStyle(KitchenTableTheme.brass)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(KitchenTableTheme.bone)
     }
 }
 

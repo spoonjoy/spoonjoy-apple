@@ -279,25 +279,33 @@ private struct SearchSurfaceRowView: View {
 }
 
 private struct SearchSurfaceThumbnail: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let row: SearchSurfaceRow
 
     var body: some View {
         ZStack {
             if let imageURL = row.imageURL {
-                AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.18))) { phase in
-                    thumbnailContent(for: phase)
+                AsyncImage(url: imageURL, transaction: imageLoadingTransaction) { phase in
+                    KitchenTableImagePhaseView(phase: phase, reduceMotion: accessibilityReduceMotion) {
+                        thumbnailFill
+                    }
                 }
             } else if let fallbackAssetName {
                 Image(fallbackAssetName)
                     .resizable()
                     .scaledToFill()
-                    .transition(.opacity)
+                    .transition(accessibilityReduceMotion ? .identity : .opacity)
             } else {
                 thumbnailFill
             }
         }
         .frame(width: 48, height: 48)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+    }
+
+    private var imageLoadingTransaction: Transaction {
+        Transaction(animation: accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18))
     }
 
     private var thumbnailFill: some View {
@@ -318,22 +326,6 @@ private struct SearchSurfaceThumbnail: View {
             ?? RecipeCoverImage.fallbackFoodAssetName(forTitle: row.title)
     }
 
-    @ViewBuilder private func thumbnailContent(for phase: AsyncImagePhase) -> some View {
-        switch phase {
-        case .empty:
-            thumbnailFill
-        case .success(let image):
-            image
-                .resizable()
-                .scaledToFill()
-                .transition(.opacity)
-        case .failure:
-            thumbnailFill
-        @unknown default:
-            thumbnailFill
-        }
-    }
-
     private var accent: Color {
         switch row.result.type {
         case .recipe:
@@ -344,6 +336,28 @@ private struct SearchSurfaceThumbnail: View {
             KitchenTableTheme.herb
         case .shoppingListItem:
             KitchenTableTheme.charcoal
+        }
+    }
+}
+
+private struct KitchenTableImagePhaseView<Placeholder: View>: View {
+    let phase: AsyncImagePhase
+    let reduceMotion: Bool
+    @ViewBuilder let placeholder: () -> Placeholder
+
+    var body: some View {
+        switch phase {
+        case .empty:
+            placeholder()
+        case .success(let image):
+            image
+                .resizable()
+                .scaledToFill()
+                .transition(reduceMotion ? .identity : .opacity)
+        case .failure:
+            placeholder()
+        @unknown default:
+            placeholder()
         }
     }
 }

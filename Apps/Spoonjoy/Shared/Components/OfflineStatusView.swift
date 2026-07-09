@@ -132,7 +132,7 @@ struct OfflineStatusView: View {
         case .synced:
             KitchenTableTheme.herb
         case .offline, .stale:
-            KitchenTableTheme.brass
+            effectiveProminence == .quiet ? quietInformationalForegroundStyle : KitchenTableTheme.brass
         case .dismissed:
             KitchenTableTheme.charcoal.opacity(0.7)
         case .queuedWork:
@@ -140,6 +140,10 @@ struct OfflineStatusView: View {
         case .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             KitchenTableTheme.tomato
         }
+    }
+
+    private var quietInformationalForegroundStyle: Color {
+        KitchenTableTheme.inkMuted
     }
 }
 

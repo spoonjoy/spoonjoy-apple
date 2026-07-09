@@ -48,16 +48,9 @@ struct CookModeRouteView: View {
                     close: close
                 )
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "fork.knife")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(KitchenTableTheme.pagePadding)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "fork.knife")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading cook mode", subtitle: "Setting up the current step.", systemImage: "fork.knife")
             }
         }
         .task(id: recipeID) {
@@ -72,7 +65,7 @@ struct CookModeRouteView: View {
             errorMessage = nil
         } catch {
             if recipe == nil {
-                errorMessage = "Recipe unavailable for cook mode."
+                errorMessage = "We couldn't load this recipe for cook mode."
             }
         }
     }
