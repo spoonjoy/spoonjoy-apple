@@ -78,7 +78,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Baseline screenshot artifacts or canonical blocker artifacts plus `absurdity-ledger.md`.
 **Acceptance**: Every attempted route has a screenshot, a valid `design-review-blocked.json`, or a logged harness failure that feeds Unit 1; no visual claim is made without artifact evidence.
 
-### ⬜ Unit 0d: Autopilot State Refresh
+### ✅ Unit 0d: Autopilot State Refresh
 **What**: Update `AUTOPILOT-STATE.md` with Unit 0 evidence, current branch state, latest feedback status, and next executable unit.
 **Output**: Committed state-file update.
 **Acceptance**: A resumed agent can continue at Unit 1a without rereading the chat.
