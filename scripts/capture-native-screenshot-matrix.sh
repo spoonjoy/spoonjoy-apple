@@ -216,6 +216,7 @@ routes=(
   "recipe-detail|recipe-detail|$routes_dir/recipe-detail|$unit_slug-recipe-detail"
   "cook-mode|cook-mode|$routes_dir/cook-mode|$unit_slug-cook-mode"
   "cookbooks|cookbooks|$routes_dir/cookbooks|$unit_slug-cookbooks"
+  "cookbook-detail|cookbook-detail|$routes_dir/cookbook-detail|$unit_slug-cookbook-detail"
   "shopping-list|shopping-list|$routes_dir/shopping-list|$unit_slug-shopping-list"
   "search|search|$routes_dir/search|$unit_slug-search"
   "capture|capture|$routes_dir/capture|$unit_slug-capture"

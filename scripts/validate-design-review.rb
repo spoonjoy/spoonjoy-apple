@@ -16,7 +16,7 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-mode", "shopping-list", "search", "cookbooks", "capture", "settings"].freeze
+VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-mode", "shopping-list", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 ACCESSIBILITY_FIELDS = [
   "dynamicType",
@@ -75,6 +75,14 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
+  "cookbook-detail" => {
+    "voiceOverLabels" => ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
+    "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
+    "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
@@ -174,6 +182,8 @@ def expected_accessibility_source(route)
     "RecipesView"
   when "cookbooks"
     "CookbooksView"
+  when "cookbook-detail"
+    "CookbookDetailView"
   when "capture"
     "CaptureDraftView"
   when "settings"
@@ -306,6 +316,11 @@ when "shopping-list"
   fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbooks"
   fail_check("#{path} cookbooksNativeSurface must be true for cookbooks captures") unless manifest["cookbooksNativeSurface"] == true
+  seed_account_id = manifest["cookbookSeedAccountID"]
+  fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "cookbook-detail"
+  fail_check("#{path} cookbookDetailSurface must be true for cookbook detail captures") unless manifest["cookbookDetailSurface"] == true
+  fail_check("#{path} cookbookID must be cookbook_weeknights") unless manifest["cookbookID"] == "cookbook_weeknights"
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "capture"

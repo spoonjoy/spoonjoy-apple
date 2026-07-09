@@ -99,6 +99,15 @@ enum ScreenshotAccessibilityProofWriter {
                 hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
+        case ("cookbook-detail", "CookbookDetailView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
+                keyboardNavigationTargets: ["cookbook primary actions", "recipe rows", "share menu"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
         case ("capture", "CaptureDraftView"):
             RouteAccessibilityEvidence(
                 voiceOverLabels: ["Import Status", "Spoonjoy Capture", "Send to Spoonjoy"],

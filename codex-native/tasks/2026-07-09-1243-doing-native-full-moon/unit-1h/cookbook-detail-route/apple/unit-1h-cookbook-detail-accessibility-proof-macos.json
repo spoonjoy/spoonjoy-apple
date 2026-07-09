@@ -6,7 +6,7 @@
   "keyboardNavigation" : true,
   "kitchenTableHierarchy" : true,
   "launchEnvironmentProof" : {
-    "apiBaseURL" : "http:\/\/localhost:5173",
+    "apiBaseURL" : "https:\/\/spoonjoy.app",
     "screenshotAccountID" : "chef_kitchen_capture",
     "screenshotAuth" : "1",
     "screenshotRestoreCacheOnly" : "1"
@@ -48,46 +48,47 @@
   },
   "platform" : "macos",
   "reduceMotion" : true,
-  "route" : "kitchen",
+  "route" : "cookbook-detail",
   "routeEvidence" : {
     "contrastPairs" : [
       "charcoal on bone",
-      "white on photo overlay",
-      "brass on bone"
+      "brass on bone",
+      "secondary text on bone"
     ],
     "dynamicTypeTextStyles" : [
       "KitchenTableTheme.displayTitle",
-      "KitchenTableTheme.uiLabel",
-      ".title2"
+      "KitchenTableTheme.bodyNote",
+      "KitchenTableTheme.uiLabel"
     ],
     "hierarchyAnchors" : [
-      "KitchenView",
-      "KitchenMasthead",
-      "RecipeLead",
-      "RecipeIndex",
-      "CookbookShelf"
+      "CookbookDetailView",
+      "KitchenTableHeader",
+      "CookbookDetailHero",
+      "CookbookRecipeList",
+      "KitchenTableObjectRow"
     ],
     "keyboardNavigationTargets" : [
-      "lead recipe actions",
-      "recipe index buttons",
-      "cookbook shelf buttons"
+      "cookbook primary actions",
+      "recipe rows",
+      "share menu"
     ],
     "layoutGuards" : [
       "scroll-view",
       "text-fit",
       "no-tiny-clusters",
-      "fixed-cover-height"
+      "dock-safe-area"
     ],
     "voiceOverLabels" : [
-      "Spoonjoy Kitchen",
-      "Open Recipe",
-      "Start Cooking",
-      "Recipe Index",
-      "Cookbook Shelf"
+      "Weeknights",
+      "Recipes",
+      "Share Cookbook",
+      "Owner Tools",
+      "Lemon Pantry Pasta",
+      "Tomato Toast"
     ]
   },
-  "source" : "KitchenView",
+  "source" : "CookbookDetailView",
   "textFits" : true,
   "voiceOverLabels" : true,
-  "writtenAt" : "2026-07-09T22:45:32Z"
+  "writtenAt" : "2026-07-09T23:08:07Z"
 }

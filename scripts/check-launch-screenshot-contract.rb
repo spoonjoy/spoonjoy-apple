@@ -127,6 +127,8 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS",
       "run_with_timeout",
+      "is_transient_screenshot_launch_key",
+      "SPOONJOY_SCREENSHOT_*",
       "simulator launch timeout",
       "macOS launch timeout",
       "proof wait timed out",
@@ -384,7 +386,7 @@ def route_accessibility_evidence(route)
     }
   when "cookbook-detail"
     {
-      "voiceOverLabels" => ["Weeknights", "Recipes", "Share", "More", "Lemon Pantry Pasta", "Tomato Toast"],
+      "voiceOverLabels" => ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
       "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
@@ -1170,6 +1172,9 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         settings)
           route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
           ;;
+        cookbook-detail)
+          route_evidence='{"voiceOverLabels":["Weeknights","Recipes","Share Cookbook","Owner Tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","recipe rows","share menu"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookDetailHero","CookbookRecipeList","KitchenTableObjectRow"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          ;;
       esac
       mkdir -p "$(dirname "$output_path")"
       printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
@@ -1181,16 +1186,20 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         ;;
       simctl\ launch\ *)
         if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}" ]]; then
-          accessibility_route="kitchen"
+          accessibility_route="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE:-kitchen}"
           accessibility_source="KitchenView"
-          case "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}" in
-            chef_search_capture)
+          case "$accessibility_route" in
+            search)
               accessibility_route="search"
               accessibility_source="SearchView"
               ;;
-            chef_settings_capture)
+            settings)
               accessibility_route="settings"
               accessibility_source="SettingsView"
+              ;;
+            cookbook-detail)
+              accessibility_route="cookbook-detail"
+              accessibility_source="CookbookDetailView"
               ;;
           esac
           write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy" "$accessibility_source"
@@ -1283,6 +1292,10 @@ PY
         route="settings"
       elif [[ "$script" == *"spoonjoy://search"* ]]; then
         route="search:all:"
+      elif [[ "$script" == *"spoonjoy://cookbooks/cookbook_weeknights"* ]]; then
+        route="cookbook:cookbook_weeknights"
+      elif [[ "$script" == *"spoonjoy://cookbooks"* ]]; then
+        route="cookbooks"
       fi
       printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"%s"}\n' "$route" > "$state"
     fi
@@ -1310,12 +1323,16 @@ PY
         settings)
           route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
           ;;
+        cookbook-detail)
+          route_evidence='{"voiceOverLabels":["Weeknights","Recipes","Share Cookbook","Owner Tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","recipe rows","share menu"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookDetailHero","CookbookRecipeList","KitchenTableObjectRow"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          ;;
       esac
       mkdir -p "$(dirname "$output_path")"
       printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     proof_path="${SPOONJOY_SCREENSHOT_PROOF_PATH:-}"
     accessibility_proof_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
+    expected_route="${SPOONJOY_SCREENSHOT_EXPECTED_ROUTE:-}"
     focus="${SPOONJOY_SCREENSHOT_SETTINGS_FOCUS:-profile}"
     account_id="${SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
     while [[ $# -gt 0 ]]; do
@@ -1324,6 +1341,7 @@ PY
           env_pair="$2"
           case "$env_pair" in
             SPOONJOY_SCREENSHOT_ACCOUNT_ID=*) account_id="${env_pair#SPOONJOY_SCREENSHOT_ACCOUNT_ID=}" ;;
+            SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=*) expected_route="${env_pair#SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=}" ;;
             SPOONJOY_SCREENSHOT_PROOF_PATH=*) proof_path="${env_pair#SPOONJOY_SCREENSHOT_PROOF_PATH=}" ;;
             SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=*) accessibility_proof_path="${env_pair#SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=}" ;;
             SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=*) focus="${env_pair#SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=}" ;;
@@ -1368,16 +1386,20 @@ PY
       fi
     fi
     if [[ -n "$accessibility_proof_path" ]]; then
-      accessibility_route="kitchen"
+      accessibility_route="${expected_route:-kitchen}"
       accessibility_source="KitchenView"
-      case "$account_id" in
-        chef_search_capture)
+      case "$accessibility_route" in
+        search)
           accessibility_route="search"
           accessibility_source="SearchView"
           ;;
-        chef_settings_capture)
+        settings)
           accessibility_route="settings"
           accessibility_source="SettingsView"
+          ;;
+        cookbook-detail)
+          accessibility_route="cookbook-detail"
+          accessibility_source="CookbookDetailView"
           ;;
       esac
       write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.mac" "$accessibility_source"

@@ -366,6 +366,9 @@ struct CookbookDetailRouteView: View {
 }
 
 private struct CookbookDetailView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let viewModel: CookbookDetailViewModel
     let openRoute: (AppRoute) -> Void
     let performCookbookAction: @MainActor @Sendable (CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation?
@@ -424,6 +427,20 @@ private struct CookbookDetailView: View {
                 Text(message)
             }
         }
+        .task(id: viewModel.id) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "cookbook-detail",
+                source: "CookbookDetailView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
+        }
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var header: some View {

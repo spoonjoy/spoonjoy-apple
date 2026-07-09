@@ -70,6 +70,8 @@ else
     screenshot_route="recipes"
   elif [[ "$unit_slug" == *cook-mode* || "$unit_slug" == *cook_mode* ]]; then
     screenshot_route="cook-mode"
+  elif [[ "$unit_slug" == *cookbook-detail* || "$unit_slug" == *cookbook_detail* ]]; then
+    screenshot_route="cookbook-detail"
   elif [[ "$unit_slug" == *cookbooks* ]]; then
     screenshot_route="cookbooks"
   elif [[ "$unit_slug" == *shopping-list* || "$unit_slug" == *shopping_list* || "$unit_slug" == *shopping* ]]; then
@@ -86,6 +88,7 @@ settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
 search_capture_account_id="chef_search_capture"
 shopping_capture_account_id="chef_shopping_capture"
+cookbook_detail_id="cookbook_weeknights"
 capture_account_id="$kitchen_capture_account_id"
 settings_capture_focus="profile"
 search_capture_disable_focus="0"
@@ -128,6 +131,12 @@ case "$screenshot_route" in
     expected_recorded_route="cookbooks"
     deep_link_path="cookbooks"
     macos_window_title="Cookbooks"
+    ;;
+  cookbook-detail)
+    capture_account_id="$kitchen_capture_account_id"
+    expected_recorded_route="cookbook:cookbook_weeknights"
+    deep_link_path="cookbooks/$cookbook_detail_id"
+    macos_window_title="Weeknights"
     ;;
   shopping-list)
     capture_account_id="$shopping_capture_account_id"
@@ -317,6 +326,10 @@ write_design_review_success() {
     elsif route == "cookbooks"
       manifest["cookbooksNativeSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
+    elsif route == "cookbook-detail"
+      manifest["cookbookDetailSurface"] = true
+      manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
+      manifest["cookbookID"] = "cookbook_weeknights"
     elsif route == "shopping-list"
       manifest["shoppingListSurface"] = true
       manifest["shoppingSeedAccountID"] = "chef_shopping_capture"
@@ -414,6 +427,7 @@ write_sync_store() {
   ruby -rjson -rfileutils -e '
     path, account_id = ARGV
     recipes_path = "Sources/SpoonjoyCore/Fixtures/recipes-fixture.json"
+    cookbooks_path = "Sources/SpoonjoyCore/Fixtures/cookbooks-fixture.json"
     shopping_path = "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json"
     recipes = if File.file?(recipes_path)
                 JSON.parse(File.read(recipes_path)).fetch("recipes")
@@ -482,6 +496,30 @@ write_sync_store() {
                   }
                 ]
               end
+    cookbooks = if File.file?(cookbooks_path)
+                  JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
+                else
+                  [
+                    {
+                      "id" => "cookbook_weeknights",
+                      "title" => "Weeknights",
+                      "chef" => { "id" => "chef_ari", "username" => "ari" },
+                      "recipeCount" => 1,
+                      "coverImageUrls" => [],
+                      "href" => "/cookbooks/cookbook_weeknights",
+                      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+                      "attribution" => {
+                        "creditText" => "Weeknights by ari on Spoonjoy",
+                        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights"
+                      },
+                      "createdAt" => "2026-06-01T00:00:00.000Z",
+                      "updatedAt" => "2026-06-01T00:10:00.000Z",
+                      "recipes" => recipes.map do |recipe|
+                        recipe.slice("id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt")
+                      end
+                    }
+                  ]
+                end
     shopping = if File.file?(shopping_path)
                  JSON.parse(File.read(shopping_path))
                else
@@ -533,6 +571,14 @@ write_sync_store() {
         "kind" => "shoppingItem",
         "resourceID" => item.fetch("id"),
         "payload" => item,
+        "serverRevision" => nil
+      }
+    end)
+    records.concat(cookbooks.map do |cookbook|
+      {
+        "kind" => "cookbook",
+        "resourceID" => cookbook.fetch("id"),
+        "payload" => cookbook,
         "serverRevision" => nil
       }
     end)
@@ -592,6 +638,39 @@ write_cache_state() {
               "recipeDetail" => {
                 "id" => "recipe_lemon_pantry_pasta",
                 "title" => "Lemon Pantry Pasta"
+              }
+            }
+          },
+          {
+            "id" => "cookbook-list",
+            "metadata" => {
+              "accountID" => account_id,
+              "environment" => "production",
+              "schemaVersion" => 2,
+              "domain" => { "cookbookList" => {} },
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "sourceEndpoint" => "/api/v1/cookbooks",
+              "serverRevision" => { "cursor" => { "_0" => "screenshot-cookbooks" } }
+            },
+            "payload" => { "cookbookList" => { "cookbookIDs" => ["cookbook_weeknights"] } }
+          },
+          {
+            "id" => "cookbook-detail:cookbook_weeknights",
+            "metadata" => {
+              "accountID" => account_id,
+              "environment" => "production",
+              "schemaVersion" => 2,
+              "domain" => { "cookbookDetail" => { "id" => "cookbook_weeknights" } },
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "sourceEndpoint" => "/api/v1/cookbooks/cookbook_weeknights",
+              "serverRevision" => { "etag" => { "_0" => "\"cookbook-screenshot-v1\"" } }
+            },
+            "payload" => {
+              "cookbookDetail" => {
+                "id" => "cookbook_weeknights",
+                "title" => "Weeknights"
               }
             }
           }
@@ -786,6 +865,10 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
 }
 
+is_transient_screenshot_launch_key() {
+  [[ "$1" == SPOONJOY_SCREENSHOT_* ]]
+}
+
 clear_macos_launch_environment() {
   local uid
   uid="$(id -u)"
@@ -795,7 +878,11 @@ clear_macos_launch_environment() {
       if [[ "$line" == *=* ]]; then
         local key="${line%%=*}"
         local value="${line#*=}"
-        launchctl asuser "$uid" launchctl setenv "$key" "$value" >/dev/null 2>&1 || true
+        if is_transient_screenshot_launch_key "$key"; then
+          launchctl asuser "$uid" launchctl unsetenv "$key" >/dev/null 2>&1 || true
+        else
+          launchctl asuser "$uid" launchctl setenv "$key" "$value" >/dev/null 2>&1 || true
+        fi
       else
         launchctl asuser "$uid" launchctl unsetenv "$line" >/dev/null 2>&1 || true
       fi
@@ -960,6 +1047,7 @@ wait_for_accessibility_proof() {
                         when "kitchen" then "KitchenView"
                         when "recipes" then "RecipesView"
                         when "cookbooks" then "CookbooksView"
+                        when "cookbook-detail" then "CookbookDetailView"
                         when "capture" then "CaptureDraftView"
                         when "search" then "SearchView"
                         when "settings" then "SettingsView"
@@ -1004,6 +1092,14 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+        },
+        "cookbook-detail" => {
+          "voiceOverLabels" => ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
+          "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
+          "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
