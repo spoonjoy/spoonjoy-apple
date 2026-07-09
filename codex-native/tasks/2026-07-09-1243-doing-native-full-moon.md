@@ -118,7 +118,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Validation matrix logs under `unit-1e-validation`.
 **Acceptance**: `scripts/validate-native-local.sh --artifact-root codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation` reaches a terminal pass or valid external/human-only blocker without silent hang.
 
-### ⬜ Unit 1f: Harness Visual QA Dogfood
+### ✅ Unit 1f: Harness Visual QA Dogfood
 **What**: Run `scripts/capture-native-screenshot-matrix.sh` after harness fixes and inspect route matrix artifacts.
 **Output**: Screenshot matrix JSON, route artifacts, and harness-specific absurdity ledger updates.
 **Acceptance**: Every route has screenshot evidence or a valid blocker; no local-code timeout/hang is accepted as a blocker.
