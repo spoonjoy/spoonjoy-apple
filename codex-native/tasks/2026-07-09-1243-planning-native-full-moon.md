@@ -23,6 +23,8 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Make shopping feel like a store-run tool: receipt/list grammar, large reliable check targets, grouped items, offline confidence, duplicate handling, and native edit affordances.
 - Make capture/import coherent: current MCP/agent import reality, future Share Sheet/App Intents/Siri paths, local draft lifecycle, retryable failures, and clear blockers.
 - Verify App Intents, Spotlight, Universal Links, offline cache/queue, telemetry, and TestFlight feedback automation against real app behavior rather than source claims only.
+- Explicitly disposition native-adjacent surfaces: Widgets, Watch, Live Activities/lock-screen-adjacent surfaces, Siri, camera/OCR/barcode, and Foundation Models workflows.
+- Explicitly disposition macOS distribution for `app.spoonjoy.mac`: publish if current tooling/App Store Connect state supports it, or record the source-backed blocker/no-op with exact missing capability.
 - Add or update tests, scenario checks, visual metrics, telemetry assertions, and CI guards for every new behavior and every regression found.
 - Publish internal TestFlight builds after coherent waves and verify App Store Connect attachment to `Spoonjoy Internal`.
 - Update relevant native-app skills/docs with durable lessons learned, especially the Native Taste Bar and TestFlight feedback loop.
@@ -47,6 +49,9 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - [ ] TestFlight feedback autopilot has a transparent ledger from feedback receipt through diagnosis, fix, build number, and confirmation state.
 - [ ] Latest TestFlight feedback screenshots and comments are reconciled before each TestFlight publish, with no actionable unhandled feedback left behind.
 - [ ] At least one new internal TestFlight build is uploaded, processed `VALID`, attached to `Spoonjoy Internal`, verified with nonzero group tester count, and has build beta detail `internalBuildState` of `IN_BETA_TESTING`.
+- [ ] The distributed TestFlight build is install/launch smoked on an available eligible device, or a valid human-only/unavailable-hardware blocker records the exact device/account action needed.
+- [ ] macOS distribution for `app.spoonjoy.mac` is either published and verified through the configured Apple lane or explicitly dispositioned with source/App Store Connect evidence for why it is not currently publishable.
+- [ ] Widgets, Watch, Live Activities/lock-screen-adjacent surfaces, Siri, camera/OCR/barcode, and Foundation Models have implement-now/no-op/future dispositions grounded in product materiality and platform support.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
 - [ ] No warnings
@@ -99,3 +104,4 @@ Fresh roadmap evidence showed the current build has strong platform plumbing but
 - 2026-07-09 12:44 Tinfoil pass added latest-feedback grounding before each wave
 - 2026-07-09 12:45 Addressed reviewer findings on iOS/macOS baseline, fail-closed design evidence, TestFlight verification, and route matrix scope
 - 2026-07-09 12:46 Approved after sub-agent review convergence
+- 2026-07-09 13:05 Scrutiny pass added native-adjacent surface and macOS distribution dispositions plus distributed TestFlight smoke requirement

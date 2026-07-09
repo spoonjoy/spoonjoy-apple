@@ -31,6 +31,9 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - [ ] TestFlight feedback autopilot has a transparent ledger from feedback receipt through diagnosis, fix, build number, and confirmation state.
 - [ ] Latest TestFlight feedback screenshots and comments are reconciled before each TestFlight publish, with no actionable unhandled feedback left behind.
 - [ ] At least one new internal TestFlight build is uploaded, processed `VALID`, attached to `Spoonjoy Internal`, verified with nonzero group tester count, and has build beta detail `internalBuildState` of `IN_BETA_TESTING`.
+- [ ] The distributed TestFlight build is install/launch smoked on an available eligible device, or a valid human-only/unavailable-hardware blocker records the exact device/account action needed.
+- [ ] macOS distribution for `app.spoonjoy.mac` is either published and verified through the configured Apple lane or explicitly dispositioned with source/App Store Connect evidence for why it is not currently publishable.
+- [ ] Widgets, Watch, Live Activities/lock-screen-adjacent surfaces, Siri, camera/OCR/barcode, and Foundation Models have implement-now/no-op/future dispositions grounded in product materiality and platform support.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
 - [ ] No warnings
@@ -68,7 +71,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 ### ⬜ Unit 0b: TestFlight Feedback and Telemetry Intake
 **What**: Pull latest feedback, feedback automation status, doctor output, reconcile dry-run, newest build metadata, beta detail, internal group build relationship, and tester count.
 **Output**: Redacted JSON/text logs under `unit-0b-*`.
-**Acceptance**: No actionable unhandled TestFlight feedback is ignored; any actionable item becomes an absurdity ledger entry or a concrete unit update. If `doctor` reports launchd listener/tunnel/reconcile paths that point at a retired worktree, route that stale-service defect to Unit 6.
+**Acceptance**: No actionable unhandled TestFlight feedback is ignored; any actionable item becomes an absurdity ledger entry or a concrete unit update. If `doctor` reports launchd listener/tunnel/reconcile paths that point at a retired worktree, Unit 0e must repair that before Unit 1 begins.
 
 ### ⬜ Unit 0c: Baseline App Evidence Capture
 **What**: Capture or attempt current route screenshots before fixes using the current harness, then record exact failures, blockers, and visible absurdities.
@@ -79,6 +82,16 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **What**: Update `AUTOPILOT-STATE.md` with Unit 0 evidence, current branch state, latest feedback status, and next executable unit.
 **Output**: Committed state-file update.
 **Acceptance**: A resumed agent can continue at Unit 1a without rereading the chat.
+
+### ⬜ Unit 0e: Feedback Listener Path Repair
+**What**: Repair installed launchd listener, tunnel, and reconcile service paths so they point at canonical `/Users/arimendelow/Projects/spoonjoy-apple` instead of any retired or temporary worktree, then restart/reload the services through `scripts/testflight-feedback-autopilot.mjs`.
+**Output**: Before/after `doctor`, launchd, and health logs under `unit-0e-*`.
+**Acceptance**: Running `scripts/testflight-feedback-autopilot.mjs doctor` from `/Users/arimendelow/Projects/spoonjoy-apple` reports healthy service paths, local health, and public health, or a valid external/human-only blocker records schema, owner action, retry command, output path, and evidence. This unit must complete before Unit 1.
+
+### ⬜ Unit 0f: Latest Feedback Gate After Repair
+**What**: Re-run `status --plain`, `doctor`, and `reconcile --dry-run` after Unit 0e so the UI work starts from the repaired feedback loop.
+**Output**: Redacted post-repair feedback logs under `unit-0f-*`.
+**Acceptance**: No actionable feedback remains unhandled before Unit 1 begins.
 
 ### ⬜ Unit 1a: Screenshot Matrix Timeout Contract — Tests
 **What**: Add failing contract coverage for route-level timeouts in `scripts/capture-native-screenshot-matrix.sh` and timeout/blocker handling in `scripts/check-launch-screenshot-contract.rb`.
@@ -320,6 +333,11 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Coverage logs, scenario logs, screenshots, proof JSON, and redacted telemetry samples.
 **Acceptance**: 100% coverage on new integration code; no secrets leak; failure states are visible and actionable.
 
+### ⬜ Unit 5j: Native-Adjacent Surface Disposition
+**What**: Evaluate Widgets, Watch, Live Activities/lock-screen-adjacent surfaces, Siri/App Intents, camera, Photos, OCR, barcode, and Foundation Models against Spoonjoy product materiality, platform availability, existing source support, and release risk.
+**Output**: `unit-5j-native-adjacent-surface-disposition.md` with implement-now/no-op/future disposition, evidence, and tests/units created for any implement-now item.
+**Acceptance**: Every native-adjacent surface named in Unit 5j has a disposition; no no-op is accepted without source/product rationale; any implement-now item is completed or routed to a concrete new red-test/implementation unit before release.
+
 ### ⬜ Unit 6a: Feedback Autopilot Status Contract — Tests
 **What**: Add failing tests/fixtures for `scripts/testflight-feedback-autopilot.mjs status --plain`, `doctor`, `reconcile --dry-run`, and fixed-unconfirmed lifecycle clarity.
 **Output**: Red script test logs.
@@ -395,6 +413,11 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Final screenshot packet, design-review artifacts, and closed ledger.
 **Acceptance**: No visual, loading, overlap, placeholder, copy, or app-language blocker remains.
 
+### ⬜ Unit 8f: macOS Distribution Inventory
+**What**: Inspect `distribution/apple-distribution.json`, `docs/apple-distribution.md`, Xcode schemes, Apple Distribution Kit capabilities, and App Store Connect API state for `app.spoonjoy.mac`.
+**Output**: `unit-8f-macos-distribution-inventory.md` plus redacted ASC query logs.
+**Acceptance**: The doc states whether macOS is publishable now, what channel/script/app IDs exist or are missing, and whether Unit 9i should publish macOS or record a valid source-backed blocker/no-op.
+
 ### ⬜ Unit 9a: PR and Cold Self-Review
 **What**: Push branch, open PR, run independent cold self-review, address findings, and wait for required checks.
 **Output**: PR URL, review verdict, CI/check evidence, and any fix commits.
@@ -415,15 +438,30 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Upload log, ASC app/build/buildBetaDetail IDs, and processing poll logs.
 **Acceptance**: Newest uploaded iOS build for `app.spoonjoy` is `VALID`; build number/version match Unit 9c.
 
-### ⬜ Unit 9e: Internal TestFlight Publish
+### ⬜ Unit 9e: Immediate Pre-Publish Feedback Reconciliation
+**What**: Immediately before attaching the build to `Spoonjoy Internal`, re-run feedback `status --plain`, `doctor`, and `reconcile --dry-run` from the canonical checkout and inspect newly arrived feedback/screenshots/crashes.
+**Output**: Redacted pre-publish feedback logs under `unit-9e-*`.
+**Acceptance**: No actionable unhandled feedback exists at the moment of publish; any new actionable feedback pauses publish and is routed to a concrete fix unit unless it is a valid external/human-only blocker.
+
+### ⬜ Unit 9f: Internal TestFlight Publish
 **What**: Run TestFlight publish dry-run, inspect blockers, fix fixable blockers, then run publish apply for `Spoonjoy Internal`.
 **Output**: Dry-run/apply logs and publish plan artifact.
 **Acceptance**: Build is attached to `Spoonjoy Internal`; no public App Store submission occurs.
 
-### ⬜ Unit 9f: App Store Connect Final Verification
+### ⬜ Unit 9g: App Store Connect Final Verification
 **What**: Verify internal group build relationship, beta tester count, build beta detail state, tester notification state, and feedback autopilot latest state through App Store Connect/API scripts.
 **Output**: Final ASC verification JSON/logs and feedback status logs.
 **Acceptance**: Group has the build, tester count is nonzero, `internalBuildState=IN_BETA_TESTING`, tester notification state is recorded, and no actionable unhandled feedback remains.
+
+### ⬜ Unit 9h: Distributed TestFlight Install/Launch Smoke
+**What**: Attempt to install and launch the distributed TestFlight build on an available eligible physical device through CLI/device tooling or another non-browser automated path; if unavailable, prove the missing device/account capability with a valid human-only/unavailable-hardware blocker.
+**Output**: Device listing, install/launch/smoke logs, or blocker artifact under `unit-9h-*`.
+**Acceptance**: The exact distributed build is install/launch smoked, or the blocker names the required human/device action, retry command, output path, and evidence. Simulator/local IPA smoke is not a substitute for this distributed-build check.
+
+### ⬜ Unit 9i: macOS Distribution Disposition and Execution
+**What**: Follow Unit 8f: if macOS is publishable with existing tooling and credentials, package/upload/publish/verify `app.spoonjoy.mac`; if not, record the source/App Store Connect evidence-backed blocker/no-op and keep macOS local smoke evidence from Unit 7/8.
+**Output**: macOS publish logs and ASC IDs, or `unit-9i-macos-distribution-blocker.json` plus disposition note.
+**Acceptance**: macOS distribution is either verified live through the configured Apple lane or explicitly dispositioned with exact missing script/channel/App Store Connect/capability evidence.
 
 ### ⬜ Unit 10a: Skill and Documentation Lessons
 **What**: Update native app skill/docs with durable lessons from this run when they generalize beyond Spoonjoy.
@@ -446,7 +484,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Push after each unit complete
 - Run full test suite before marking unit done
 - Red-test units (`1a`, `1c`, `2a`, `2c`, `2e`, `2g`, `3a`, `3d`, `3g`, `3j`, `4a`, `4d`, `4g`, `4j`, `5a`, `5c`, `5e`, `5g`, `6a`, `6c`, `7a`, `7c`, `8b`) are complete when the intended new tests fail for the expected reason and are committed. Do not require the full suite to pass until the paired implementation/coverage unit. Push red-test commits only when the repo convention permits; otherwise defer push until the paired green unit.
-- Evidence/live/process units (`0a`, `0b`, `0c`, `0d`, visual QA units, live dogfood units, validation inventory, full local validation, PR/merge/upload/publish/verification units, docs lessons, cleanup, and continuation scan) are complete when their acceptance evidence is saved to artifacts and any discovered code defect is routed to a concrete red-test/implementation unit.
+- Evidence/live/process units (`0a`, `0b`, `0c`, `0d`, `0e`, `0f`, visual QA units, live dogfood units, native-adjacent disposition, validation inventory, macOS distribution inventory, full local validation, PR/merge/upload/publish/verification units, distributed TestFlight smoke, macOS distribution disposition, docs lessons, cleanup, and continuation scan) are complete when their acceptance evidence is saved to artifacts and any discovered code defect is routed to a concrete red-test/implementation unit.
 - For UI/rendering/layout units, run `visual-qa-dogfood` before declaring the unit or task complete
 - **All artifacts**: Save outputs, logs, data to `./2026-07-09-1243-doing-native-full-moon/` directory
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
@@ -464,3 +502,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:02 Quality pass added evidence-first rule for non-code/live verification units
 - 2026-07-09 13:03 Quality review converged
 - 2026-07-09 13:04 Live feedback check found launchd services still pointing at retired `spoonjoy-apple-cookmode-ui-pass`; routed stale-service repair to Unit 6
+- 2026-07-09 13:05 Scrutiny pass added front-loaded feedback-service repair, pre-publish feedback reconciliation, distributed TestFlight smoke, macOS distribution disposition, and native-adjacent surface disposition
