@@ -21,7 +21,7 @@ This run is complete only when:
 - Active branch: `codex-native/native-full-moon`
 - Planning doc: `codex-native/tasks/2026-07-09-1243-planning-native-full-moon.md`
 - Doing doc: `codex-native/tasks/2026-07-09-1243-doing-native-full-moon.md`
-- Current phase: doing doc drafted; running reviewer convergence passes
+- Current phase: doing doc drafted; scrutiny reviewer convergence in progress
 
 ## Terminal Evidence
 
@@ -31,6 +31,7 @@ This run is complete only when:
   - `retire stale worktree codex-native/testflight-nav-paths 2026-07-09`
   - `retire stale worktree codex-native/testflight-cook-mode-checklists 2026-07-09`
 - Planning reviewer Round 2 converged after fixes for iOS/macOS baseline, fail-closed design evidence, TestFlight verification, and route matrix scope.
+- Live feedback check on 2026-07-09 found no unhandled feedback, but `doctor` warned launchd listener/tunnel/reconcile services still point at retired `/Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass`; this is routed to Unit 6.
 
 ## Next Action
 
@@ -43,7 +44,7 @@ Reviewer-converge `codex-native/tasks/2026-07-09-1243-doing-native-full-moon.md`
 | Create doing doc and begin Unit 0 | ready | Planning doc approved; user delegated control; work-planner/work-doer skills read | Start now |
 | Fix screenshot matrix hang | ready | Fresh roadmap attempt hung at `simctl launch`; `scripts/capture-native-screenshot-matrix.sh` lacks per-route timeout handling | Unit 0 |
 | Route-by-route taste/product audit | ready | Current screenshots show system blue, heavy dock, loud banners, placeholder labels | Units 1-4 |
-| TestFlight feedback transparency | ready | Autopilot status has many `fixed_unconfirmed` records and user reported opacity | Later unit |
+| TestFlight feedback transparency and launchd path repair | ready | Autopilot status has many `fixed_unconfirmed` records, user reported opacity, and `doctor` points services at retired worktree | Unit 6 |
 
 ## Stop Condition
 
