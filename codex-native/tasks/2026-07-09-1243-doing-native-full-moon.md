@@ -148,7 +148,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red contract log covering `SpoonDock.swift`, `PlatformNavigationView.swift`, and `SpoonjoyToolbar.swift`.
 **Acceptance**: Tests fail on at least one current dock/toolbar weight or platform behavior issue.
 
-### ⬜ Unit 2d: Mobile Dock and Toolbar Contract — Implementation
+### ✅ Unit 2d: Mobile Dock and Toolbar Contract — Implementation
 **What**: Rebalance or replace mobile dock affordances with native-safe controls, reduce chrome dominance, preserve large targets, and keep macOS desktop-native.
 **Output**: Updated shell/dock/toolbar code.
 **Acceptance**: Unit 2c tests pass; no macOS primary route depends on mobile dock grammar.
@@ -520,6 +520,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 16:21 Unit 2a complete: expanded the native/web palette contract to scan SwiftUI app surfaces; red log proves 33 current `KitchenTableTheme` bypasses across 11 files, including `.secondary`, `.primary`, and `.red` foreground styles.
 - 2026-07-09 16:27 Unit 2b complete: replaced the 33 app-surface palette bypasses with `KitchenTableTheme` role tokens. Palette and native design-language contracts passed; iOS no-sign target build and macOS target build passed with warnings-as-errors.
 - 2026-07-09 16:33 Unit 2c complete: added native shell contract coverage for mobile dock chrome weight, centralized dock metrics, max width, target sizing, dark capsule avoidance, shadow weight, compact iOS-only dock use, safe-area placement, and toolbar primary action menu structure; red log fails on current overweight SpoonDock.
+- 2026-07-09 16:45 Unit 2d complete: replaced overweight mobile `SpoonDock` chrome with centralized metrics, a narrower light glass/paper shell, quieter shadow, and metric-driven target sizing. Shell, palette, and design-language contracts passed; focused cook-mode screenshot capture passed on clean simulator retry with iOS/macOS screenshots, design-review, and accessibility proofs.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
