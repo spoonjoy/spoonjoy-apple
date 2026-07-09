@@ -51,6 +51,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 4. **Verify pass**: Run tests, confirm they PASS (green)
 5. **Refactor**: Clean up, keep tests green
 6. **No skipping**: Never write implementation without failing test first
+7. **Evidence-first for non-code/live units**: Units whose output is evidence, live verification, release operations, docs lessons, cleanup, or continuation state do not create artificial red tests. They must instead save command output, API responses, screenshots, design-review artifacts, or state-file diffs that prove acceptance. If a non-code/live unit discovers a code or script defect, create or update the paired red-test unit before implementing the fix.
 
 ## Work Units
 
@@ -445,6 +446,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Push after each unit complete
 - Run full test suite before marking unit done
 - Red-test units (`1a`, `1c`, `2a`, `2c`, `2e`, `2g`, `3a`, `3d`, `3g`, `3j`, `4a`, `4d`, `4g`, `4j`, `5a`, `5c`, `5e`, `5g`, `6a`, `6c`, `7a`, `7c`, `8b`) are complete when the intended new tests fail for the expected reason and are committed. Do not require the full suite to pass until the paired implementation/coverage unit. Push red-test commits only when the repo convention permits; otherwise defer push until the paired green unit.
+- Evidence/live/process units (`0a`, `0b`, `0c`, `0d`, visual QA units, live dogfood units, validation inventory, full local validation, PR/merge/upload/publish/verification units, docs lessons, cleanup, and continuation scan) are complete when their acceptance evidence is saved to artifacts and any discovered code defect is routed to a concrete red-test/implementation unit.
 - For UI/rendering/layout units, run `visual-qa-dogfood` before declaring the unit or task complete
 - **All artifacts**: Save outputs, logs, data to `./2026-07-09-1243-doing-native-full-moon/` directory
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
@@ -459,3 +461,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 12:59 Validation review converged
 - 2026-07-09 13:00 Ambiguity pass made cook-mode, search, and macOS route acceptance concrete
 - 2026-07-09 13:01 Ambiguity review converged
+- 2026-07-09 13:02 Quality pass added evidence-first rule for non-code/live verification units
