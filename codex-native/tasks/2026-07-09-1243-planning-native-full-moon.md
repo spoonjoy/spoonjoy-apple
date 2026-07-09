@@ -1,6 +1,6 @@
 # Planning: Spoonjoy Native Full Moon
 
-**Status**: drafting
+**Status**: approved
 **Created**: 2026-07-09 12:43
 
 ## Goal
@@ -98,3 +98,4 @@ Fresh roadmap evidence showed the current build has strong platform plumbing but
 - 2026-07-09 12:43 Created
 - 2026-07-09 12:44 Tinfoil pass added latest-feedback grounding before each wave
 - 2026-07-09 12:45 Addressed reviewer findings on iOS/macOS baseline, fail-closed design evidence, TestFlight verification, and route matrix scope
+- 2026-07-09 12:46 Approved after sub-agent review convergence
