@@ -109,6 +109,7 @@ SCRIPT_CONTRACTS = {
       "Spoonjoy window not found for macOS screenshot capture",
       'screenshot_route="kitchen"',
       'screenshot_route="search"',
+      'screenshot_route="cookbook-detail"',
       'notification',
       'apns',
       "spoonjoy://$screenshot_route",
@@ -148,6 +149,12 @@ SCRIPT_CONTRACTS = {
       "searchSeedAccountID",
       "searchSurfaceProofArtifacts",
       "SearchView",
+      "cookbook-detail",
+      "CookbookDetailView",
+      "cookbookDetailSurface",
+      "cookbookID",
+      "cookbook:cookbook_weeknights",
+      "cookbooks/cookbook_weeknights",
       "routeIdentifier",
       "chef_search_capture",
       "expected_recorded_route",
@@ -185,6 +192,7 @@ SCRIPT_CONTRACTS = {
       "design-review.json",
       "design-review-blocked.json",
       "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
+      "cookbook-detail|cookbook-detail|",
       "timeoutSeconds",
       "ScreenshotRouteTimeout",
       "ownerAction",
@@ -216,6 +224,10 @@ SCRIPT_CONTRACTS = {
       "searchSurfaceProofArtifacts",
       "SearchView",
       "routeIdentifier",
+      "cookbook-detail",
+      "cookbookDetailSurface",
+      "cookbookID",
+      "CookbookDetailView",
       "settingsVisualFocus",
       "settingsProfileSurface",
       "settingsNotificationAPNsSurface",
@@ -343,6 +355,8 @@ def accessibility_source(route)
     "SearchView"
   when "settings"
     "SettingsView"
+  when "cookbook-detail"
+    "CookbookDetailView"
   else
     "KitchenView"
   end
@@ -367,6 +381,15 @@ def route_accessibility_evidence(route)
       "contrastPairs" => ["charcoal on bone", "brass label on bone"],
       "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
       "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
+    }
+  when "cookbook-detail"
+    {
+      "voiceOverLabels" => ["Weeknights", "Recipes", "Share", "More", "Lemon Pantry Pasta", "Tomato Toast"],
+      "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
+      "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
     }
   else
     {
@@ -600,6 +623,13 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "searchSeedAccountID" => "chef_search_capture",
     "searchSurfaceProofArtifacts" => ["apple/search-proof-ios.json", "apple/search-proof-macos.json"]
   )
+  valid_cookbook_detail_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+    "blockers" => [],
+    "screenshotRoute" => "cookbook-detail",
+    "cookbookDetailSurface" => true,
+    "cookbookSeedAccountID" => "chef_kitchen_capture",
+    "cookbookID" => "cookbook_weeknights"
+  )
   missing_manifest = valid_manifest.reject { |field, _| field == "mobileScreenshot" }
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
   missing_route_manifest = valid_manifest.reject { |field, _| field == "screenshotRoute" }
@@ -647,6 +677,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   {
     "valid.json" => [valid_manifest, true, "valid design review"],
     "valid-search.json" => [valid_search_manifest, true, "valid search design review"],
+    "valid-cookbook-detail.json" => [valid_cookbook_detail_manifest, true, "valid cookbook detail design review"],
     "valid-settings.json" => [valid_settings_manifest, true, "valid settings design review"],
     "valid-profile-settings.json" => [valid_profile_settings_manifest, true, "valid profile settings design review"],
     "missing.json" => [missing_manifest, false, "missing design review field"],
@@ -1394,6 +1425,39 @@ PY
   kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  cookbook_detail_root = temp_root.join("cookbook-detail-success")
+  cookbook_detail_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      cookbook_detail_root,
+      "--unit-slug",
+      "unit-contract-cookbook-detail",
+      "--route",
+      "cookbook-detail"
+    ],
+    "cookbook detail screenshot success lane",
+    env: { "HOME" => script_root.join("home").to_s, "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    chdir: script_root
+  )
+  cookbook_detail_review = assert_json(cookbook_detail_root.join("design-review.json"), "cookbook detail screenshot success lane")
+  record_failure("cookbook detail screenshot route mismatch") unless cookbook_detail_review["screenshotRoute"] == "cookbook-detail"
+  record_failure("cookbook detail missing native surface flag") unless cookbook_detail_review["cookbookDetailSurface"] == true
+  record_failure("cookbook detail account seed mismatch") unless cookbook_detail_review["cookbookSeedAccountID"] == "chef_kitchen_capture"
+  record_failure("cookbook detail ID mismatch") unless cookbook_detail_review["cookbookID"] == "cookbook_weeknights"
+  cookbook_detail_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
+    proof = assert_json(cookbook_detail_root.join(relative_path), "cookbook detail accessibility proof artifact")
+    record_failure("cookbook detail accessibility proof source mismatch") unless proof["source"] == "CookbookDetailView"
+    record_failure("cookbook detail accessibility proof route mismatch") unless proof["route"] == "cookbook-detail"
+  end
+  cookbook_detail_state_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-app-state.json"), "cookbook detail iOS app state")
+  record_failure("cookbook detail state route mismatch") unless cookbook_detail_state_json["lastOpenedRoute"] == "cookbook:cookbook_weeknights"
+  cookbook_detail_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "cookbook detail iOS cache seed")
+  record_failure("cookbook detail cache seed missing detail") unless cookbook_detail_cache_json.fetch("records", []).any? { |record| record["id"] == "cookbook-detail:cookbook_weeknights" }
 
   missing_accessibility_root = temp_root.join("missing-accessibility-proof-artifacts")
   missing_accessibility_root.mkpath
