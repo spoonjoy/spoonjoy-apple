@@ -1,0 +1,32 @@
+{
+  "mobileScreenshot": true,
+  "desktopScreenshot": true,
+  "screenshotRoute": "search",
+  "dynamicType": true,
+  "voiceOverLabels": true,
+  "keyboardNavigation": true,
+  "reduceMotion": true,
+  "contrast": true,
+  "kitchenTableHierarchy": true,
+  "noOverlap": true,
+  "accessibilityProofArtifacts": [
+    "apple/unit-0c-search-accessibility-proof-ios.json",
+    "apple/unit-0c-search-accessibility-proof-macos.json"
+  ],
+  "blockers": [
+
+  ],
+  "searchNativeSurface": true,
+  "searchScopes": [
+    "all",
+    "recipes",
+    "cookbooks",
+    "chefs",
+    "shopping-list"
+  ],
+  "searchSeedAccountID": "chef_search_capture",
+  "searchSurfaceProofArtifacts": [
+    "apple/unit-0c-search-screenshot-proof-ios.json",
+    "apple/unit-0c-search-screenshot-proof-macos.json"
+  ]
+}

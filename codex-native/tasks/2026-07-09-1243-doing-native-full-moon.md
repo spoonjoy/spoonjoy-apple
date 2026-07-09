@@ -73,7 +73,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Redacted JSON/text logs under `unit-0b-*`.
 **Acceptance**: No actionable unhandled TestFlight feedback is ignored; any actionable item becomes an absurdity ledger entry or a concrete unit update. If `doctor` reports launchd listener/tunnel/reconcile paths that point at a retired worktree, Unit 0e must repair that before Unit 1 begins.
 
-### ⬜ Unit 0c: Baseline App Evidence Capture
+### ✅ Unit 0c: Baseline App Evidence Capture
 **What**: Capture or attempt current route screenshots before fixes using the current harness, then record exact failures, blockers, and visible absurdities.
 **Output**: Baseline screenshot artifacts or canonical blocker artifacts plus `absurdity-ledger.md`.
 **Acceptance**: Every attempted route has a screenshot, a valid `design-review-blocked.json`, or a logged harness failure that feeds Unit 1; no visual claim is made without artifact evidence.

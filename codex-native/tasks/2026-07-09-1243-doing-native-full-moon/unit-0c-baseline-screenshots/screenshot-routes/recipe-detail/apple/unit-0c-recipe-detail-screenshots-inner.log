@@ -1,0 +1,12 @@
+Running iOS simulator smoke
+iOS simulator smoke ok
+Running macOS launch smoke
+macOS smoke ok
+app.spoonjoy: 91733
+getpwuid_r did not find a match for uid 501
+Timestamp               Ty Process[PID:TID]
+2026-07-09 13:50:37.407 Df SpringBoard[91289:27f31be] [com.apple.SpringBoard:Common] Front display did change: <SBApplication: 0x10cc7cd00; app.spoonjoy>
+Detected file type from extension: PNG
+Note: No display specified. Defaulting to display: 828DBEAE-22AB-4614-89F0-F2766FD653D4 (screenID: 1, name: LCD)
+Wrote screenshot to: /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-0c-baseline-screenshots/screenshot-routes/recipe-detail/screenshots/ios-mobile.png
+2026-07-09 13:51:04.704 osascript[92319:41895459] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
