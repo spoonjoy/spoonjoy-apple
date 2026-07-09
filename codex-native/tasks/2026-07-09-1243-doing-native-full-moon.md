@@ -128,7 +128,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red contract log for unsupported `cookbook-detail` route capture.
 **Acceptance**: Tests fail because `cookbook-detail` is unsupported or lacks route evidence before implementation.
 
-### ⬜ Unit 1h: Cookbook Detail Capture Contract — Implementation
+### ✅ Unit 1h: Cookbook Detail Capture Contract — Implementation
 **What**: Teach the screenshot harness and route matrix to capture Cookbook Detail on iOS/macOS with valid route state, app-emitted accessibility proof source, and design-review artifacts.
 **Output**: Updated harness scripts/contracts and cookbook-detail route artifacts.
 **Acceptance**: Unit 1g tests pass; `scripts/capture-native-screenshot-matrix.sh` includes `cookbook-detail` and produces screenshot evidence or a valid external/human-only blocker for that route.
@@ -516,6 +516,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:08 Scrutiny omission pass converged
 - 2026-07-09 13:10 Scrutiny deception pass added cookbook-detail capture support units, full upload command requirements, canonical feedback command checkout, and explicit artifact root
 - 2026-07-09 15:55 Unit 1g complete: added red screenshot harness contracts for `cookbook-detail`; red log proves missing matrix route, capture support, validator route support, `cookbook:cookbook_weeknights` state, durable cache seed, and `CookbookDetailView` accessibility proof.
+- 2026-07-09 16:14 Unit 1h complete: implemented `cookbook-detail` route capture through the matrix, deep link/state/cache seed, design-review validation, and app-emitted `CookbookDetailView` accessibility proof; focused iOS/macOS capture passed with `design-review.json`, screenshots, and proof artifacts. Logged follow-up visual issues for duplicate cookbook summary/cover treatment and macOS horizontal balance.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
