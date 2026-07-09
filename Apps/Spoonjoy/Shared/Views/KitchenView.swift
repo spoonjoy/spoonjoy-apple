@@ -11,17 +11,15 @@ struct KitchenView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+#if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+#endif
 
     var body: some View {
-        KitchenTablePage {
+        KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
             KitchenMasthead(kitchen: kitchen, ownerName: recipes.first?.chef.username)
 
-            if let leadRecipe {
-                RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
-            }
-
-            RecipeIndex(recipes: recipes, openRecipe: openRecipe)
-            CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
+            kitchenContent
         }
         .task {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
@@ -44,6 +42,52 @@ struct KitchenView: View {
         return recipes.first { $0.id == id }
     }
 
+    @ViewBuilder private var kitchenContent: some View {
+        if usesWideKitchenSpread, let leadRecipe {
+            HStack(alignment: .top, spacing: 28) {
+                RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
+                    .frame(maxWidth: 640, alignment: .topLeading)
+
+                kitchenIndexStack
+                    .frame(maxWidth: 408, alignment: .topLeading)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+                if let leadRecipe {
+                    RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
+                }
+
+                kitchenIndexStack
+            }
+        }
+    }
+
+    @ViewBuilder private var kitchenIndexStack: some View {
+        VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+            RecipeIndex(recipes: recipes, openRecipe: openRecipe)
+
+            if !cookbooks.isEmpty {
+                CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
+            }
+        }
+    }
+
+    private var usesWideKitchenSpread: Bool {
+#if os(iOS)
+        horizontalSizeClass == .regular
+#else
+        true
+#endif
+    }
+
+    private var pageMaxContentWidth: CGFloat {
+        usesWideKitchenSpread ? 1120 : 720
+    }
+
+    private var pageBottomReserve: CGFloat {
+        usesWideKitchenSpread ? 56 : KitchenTableTheme.compactDockReserve
+    }
+
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
         ScreenshotAccessibilityRuntimeContext(
             dynamicTypeSize: String(describing: dynamicTypeSize),
@@ -57,11 +101,9 @@ struct KitchenMasthead: View {
     let ownerName: String?
 
     var body: some View {
-        KitchenTableHeader(
-            eyebrow: dayLabel,
-            title: title,
-            subtitle: "Recipes \(kitchen.counts.recipes) - Cookbooks \(kitchen.counts.cookbooks) - Market \(kitchen.counts.shoppingItems)"
-        ) {
+        VStack(alignment: .leading, spacing: 10) {
+            KitchenTableHeader(eyebrow: dayLabel, title: title, subtitle: countSummary)
+
             statusBadge
         }
     }
@@ -99,12 +141,25 @@ struct KitchenMasthead: View {
         }
     }
 
+    private var countSummary: String {
+        [
+            countLabel(kitchen.counts.recipes, singular: "recipe"),
+            countLabel(kitchen.counts.cookbooks, singular: "cookbook"),
+            countLabel(kitchen.counts.shoppingItems, singular: "shopping item")
+        ].joined(separator: " / ")
+    }
+
+    private func countLabel(_ count: Int, singular: String) -> String {
+        let noun = count == 1 ? singular : "\(singular)s"
+        return "\(count) \(noun)"
+    }
+
     private var dayLabel: String {
         switch kitchen.status {
         case .bootstrap:
             "Setting the table"
         case .ready:
-            "Kitchen"
+            "Kitchen table"
         }
     }
 
@@ -209,11 +264,11 @@ struct RecipeLead: View {
     }
 
     @ViewBuilder private var leadButtons: some View {
-        leadButton(title: "Open Recipe", systemImage: "book", prominence: .primary) {
-            openRecipe(recipe.id)
-        }
-        leadButton(title: "Start Cooking", systemImage: "fork.knife", prominence: .secondary) {
+        leadButton(title: "Start Cooking", systemImage: "fork.knife", prominence: .primary) {
             startCooking(recipe.id)
+        }
+        leadButton(title: "Open Recipe", systemImage: "book", prominence: .secondary) {
+            openRecipe(recipe.id)
         }
     }
 

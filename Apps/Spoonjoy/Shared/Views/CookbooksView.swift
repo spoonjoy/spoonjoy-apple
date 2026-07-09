@@ -231,9 +231,11 @@ struct CookbookShelf: View {
                                 ShareLink(item: publicURL) {
                                     Image(systemName: "square.and.arrow.up")
                                         .font(.body.weight(.semibold))
-                                        .frame(width: 44, height: 44)
+                                        .frame(width: 36, height: 44)
                                         .foregroundStyle(KitchenTableTheme.brass)
                                 }
+                                .buttonStyle(.plain)
+                                .contentShape(Rectangle())
                                 .accessibilityLabel("Share \(row.title)")
                             }
                         }

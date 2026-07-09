@@ -129,7 +129,7 @@ struct PlatformNavigationView: View {
             }
         }
 #if os(macOS)
-        .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        .navigationSplitViewColumnWidth(min: 240, ideal: 280)
 #endif
     }
 
@@ -144,7 +144,7 @@ struct PlatformNavigationView: View {
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         NavigationStack {
             compactNavigationContent
-            .navigationTitle(title(for: navigation.route))
+            .navigationTitle(compactNavigationTitle(for: navigation.route))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
@@ -369,19 +369,29 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private var compactOfflineStatusBar: some View {
-        OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
-            .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
-            .padding(.horizontal, 12)
-            .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
-            .overlay {
-                Capsule()
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
-            }
+    @ViewBuilder private var compactOfflineStatusBar: some View {
+        if offlineIndicatorState.display.informationalOnly {
+            OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)
+                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                .padding(.horizontal, 4)
+        } else {
+            OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+                .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
+                .padding(.horizontal, 12)
+                .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
+                }
+        }
     }
 
     private var shellOfflineStatusBar: some View {
-        OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+        OfflineStatusView(
+            display: offlineIndicatorState.display,
+            prominence: offlineIndicatorState.display.informationalOnly ? .quiet : .standard,
+            onDismiss: dismissOfflineIndicator
+        )
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal)
             .padding(.vertical, 6)
@@ -398,7 +408,7 @@ struct PlatformNavigationView: View {
             sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
             sidebarLink(section: .shoppingList, title: "Shopping", systemImage: "checklist")
             sidebarLink(section: .search, title: "Search", systemImage: "magnifyingglass")
-            sidebarLink(section: .capture, title: "Import Status", systemImage: "tray.and.arrow.down")
+            sidebarLink(section: .capture, title: "Imports", systemImage: "tray.and.arrow.down")
             sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
         }
     }
@@ -666,11 +676,6 @@ struct PlatformNavigationView: View {
 
             destinationContent(for: compactPresentedRoute(for: section))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-#if os(iOS)
-            KitchenTableTheme.bone
-                .frame(height: 20)
-                .allowsHitTesting(false)
-#endif
         }
         .background(KitchenTableTheme.bone)
     }
@@ -770,7 +775,8 @@ struct PlatformNavigationView: View {
                     openRoute(.settings)
                 }
             } label: {
-                Label("More", systemImage: "ellipsis.circle")
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
             }
             .accessibilityLabel("More")
         }
@@ -852,6 +858,15 @@ struct PlatformNavigationView: View {
             "Settings"
         case .unknownLink:
             "Unknown Link"
+        }
+    }
+
+    private func compactNavigationTitle(for route: AppRoute) -> String {
+        switch route {
+        case .kitchen:
+            ""
+        default:
+            title(for: route)
         }
     }
 

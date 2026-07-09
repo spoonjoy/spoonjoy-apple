@@ -2,19 +2,30 @@ import SpoonjoyCore
 import SwiftUI
 
 struct OfflineStatusView: View {
+    enum Prominence {
+        case standard
+        case quiet
+    }
+
     let display: OfflineIndicatorDisplay
+    let prominence: Prominence?
     var onDismiss: (@MainActor @Sendable () -> Void)?
 
-    init(display: OfflineIndicatorDisplay, onDismiss: (@MainActor @Sendable () -> Void)? = nil) {
+    init(
+        display: OfflineIndicatorDisplay,
+        prominence: Prominence? = nil,
+        onDismiss: (@MainActor @Sendable () -> Void)? = nil
+    ) {
         self.display = display
+        self.prominence = prominence
         self.onDismiss = onDismiss
     }
 
     var body: some View {
         if display.isVisible {
             HStack(spacing: 8) {
-                Label(label, systemImage: symbol)
-                    .font(KitchenTableTheme.bodyNote)
+                Label(visibleLabel, systemImage: symbol)
+                    .font(statusFont)
                     .foregroundStyle(foregroundStyle)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
@@ -26,14 +37,43 @@ struct OfflineStatusView: View {
                             onDismiss()
                         } label: {
                             Image(systemName: "xmark.circle")
+                                .font(.caption.weight(.semibold))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Hide offline status")
                     }
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, effectiveProminence == .quiet ? 2 : 4)
         }
+    }
+
+    private var visibleLabel: String {
+        guard effectiveProminence == .quiet else {
+            return label
+        }
+
+        switch display {
+        case .offline:
+            return "Saved copy"
+        case .stale:
+            return "Saved copy may be stale"
+        default:
+            return label
+        }
+    }
+
+    private var statusFont: Font {
+        switch effectiveProminence {
+        case .standard:
+            KitchenTableTheme.bodyNote
+        case .quiet:
+            KitchenTableTheme.uiLabel
+        }
+    }
+
+    private var effectiveProminence: Prominence {
+        prominence ?? (display.informationalOnly ? .quiet : .standard)
     }
 
     private var label: String {

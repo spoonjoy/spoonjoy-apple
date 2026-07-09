@@ -44,9 +44,7 @@ struct SearchView: View {
             searchControls
 
             if viewModel.offlineIndicator.display.isVisible {
-                KitchenTableSection(title: "Sync") {
-                    OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
-                }
+                OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
 
             if let errorState = viewModel.errorState {
@@ -289,6 +287,11 @@ private struct SearchSurfaceThumbnail: View {
                 AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.18))) { phase in
                     thumbnailContent(for: phase)
                 }
+            } else if let fallbackAssetName {
+                Image(fallbackAssetName)
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity)
             } else {
                 thumbnailFill
             }
@@ -305,6 +308,14 @@ private struct SearchSurfaceThumbnail: View {
                 .foregroundStyle(accent)
                 .accessibilityHidden(true)
         }
+    }
+
+    private var fallbackAssetName: String? {
+        guard row.result.type == .recipe else {
+            return nil
+        }
+        return RecipeCoverImage.bundledAssetName(forRecipeID: row.result.id)
+            ?? RecipeCoverImage.fallbackFoodAssetName(forTitle: row.title)
     }
 
     @ViewBuilder private func thumbnailContent(for phase: AsyncImagePhase) -> some View {
