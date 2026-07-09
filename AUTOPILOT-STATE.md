@@ -21,7 +21,7 @@ This run is complete only when:
 - Active branch: `codex-native/native-full-moon`
 - Planning doc: `codex-native/tasks/2026-07-09-1243-planning-native-full-moon.md`
 - Doing doc: `codex-native/tasks/2026-07-09-1243-doing-native-full-moon.md`
-- Current phase: doing doc drafted; scrutiny reviewer convergence in progress
+- Current phase: doing doc ready; executing Unit 0a
 
 ## Terminal Evidence
 
@@ -35,7 +35,7 @@ This run is complete only when:
 
 ## Next Action
 
-Reviewer-converge `codex-native/tasks/2026-07-09-1243-doing-native-full-moon.md`, then execute Unit 0: setup/research and latest-feedback grounding.
+Execute Unit 0a: save repo/worktree hygiene evidence, then continue through Unit 0 feedback repair before any UI work.
 
 ## Continuation Scan
 
