@@ -25,6 +25,7 @@ apple_dir="$artifact_root/apple"
 routes_dir="$artifact_root/screenshot-routes"
 results_path="$apple_dir/${unit_slug}-route-matrix.jsonl"
 summary_path="$apple_dir/${unit_slug}-route-matrix.json"
+route_timeout_seconds="${SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS:-180}"
 
 mkdir -p "$apple_dir" "$routes_dir"
 rm -rf "$routes_dir"
@@ -66,6 +67,94 @@ record_route() {
   ' "$results_path" "$name" "$route" "$route_root" "$status" "$command"
 }
 
+write_route_timeout_blocker() {
+  local name="$1"
+  local route="$2"
+  local route_root="$3"
+  local route_slug="$4"
+  local command="$5"
+  local output_path="$6"
+  mkdir -p "$route_root/apple"
+  ruby -rjson -rfileutils -e '
+    name, route, route_root, route_slug, command, output_path, timeout_seconds = ARGV
+    source_path = File.join(route_root, "apple/#{route_slug}-screenshot-route-timeout-blocker.json")
+    review_path = File.join(route_root, "design-review-blocked.json")
+    reason = "Screenshot route #{name} exceeded #{timeout_seconds} seconds before producing terminal screenshot artifacts."
+    owner_action = "Inspect the route capture log and fix the local screenshot harness or app launch hang, then rerun the screenshot route matrix."
+    source_blocker = {
+      "blocked" => true,
+      "capability" => "ScreenshotRouteTimeout",
+      "route" => route,
+      "command" => command,
+      "timeoutSeconds" => Integer(timeout_seconds),
+      "outputPath" => output_path,
+      "reason" => reason,
+      "ownerAction" => owner_action
+    }
+    design_review_blocked = {
+      "blocked" => true,
+      "capability" => "ScreenshotRouteTimeout",
+      "sourceBlockerPath" => source_path,
+      "skippedArtifacts" => [
+        "screenshots/ios-mobile.png",
+        "screenshots/macos-desktop.png",
+        "design-review.json",
+        "apple/#{route_slug}-accessibility-proof-ios.json",
+        "apple/#{route_slug}-accessibility-proof-macos.json"
+      ],
+      "reason" => reason,
+      "ownerAction" => owner_action,
+      "timeoutSeconds" => Integer(timeout_seconds)
+    }
+    FileUtils.mkdir_p(File.dirname(source_path))
+    File.write(source_path, JSON.pretty_generate(source_blocker) + "\n")
+    File.write(review_path, JSON.pretty_generate(design_review_blocked) + "\n")
+  ' "$name" "$route" "$route_root" "$route_slug" "$command" "$output_path" "$route_timeout_seconds"
+  rm -f "$route_root/screenshots/ios-mobile.png" "$route_root/screenshots/macos-desktop.png"
+  rm -f "$route_root/design-review.json"
+  rm -f "$route_root/apple/${route_slug}-accessibility-proof-ios.json" "$route_root/apple/${route_slug}-accessibility-proof-macos.json"
+}
+
+run_route_capture_with_timeout() {
+  local output_path="$1"
+  shift
+  python3 - "$route_timeout_seconds" "$output_path" "$@" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+import time
+
+timeout_seconds = int(sys.argv[1])
+output_path = sys.argv[2]
+command = sys.argv[3:]
+
+with open(output_path, "wb") as output:
+    process = subprocess.Popen(
+        command,
+        stdout=output,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    try:
+        sys.exit(process.wait(timeout=timeout_seconds))
+    except subprocess.TimeoutExpired:
+        output.write(f"\nCommand timed out after {timeout_seconds} seconds\n".encode())
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        time.sleep(0.2)
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait()
+        sys.exit(124)
+PY
+}
+
 summarize_routes() {
   ruby -rjson -rtime -e '
     results_path, summary_path = ARGV
@@ -94,14 +183,19 @@ capture_route() {
   local route_root="$3"
   local route_slug="$4"
   local command="scripts/capture-native-screenshots.sh --artifact-root $route_root --unit-slug $route_slug --route $route"
+  local route_output="$route_root/apple/${route_slug}-screenshot-route.log"
   local command_status=0
   local status="pass"
 
-  mkdir -p "$route_root"
+  mkdir -p "$route_root/apple"
   printf 'capturing native route %s (%s)\n' "$name" "$route"
-  scripts/capture-native-screenshots.sh --artifact-root "$route_root" --unit-slug "$route_slug" --route "$route" || command_status=$?
+  run_route_capture_with_timeout "$route_output" \
+    scripts/capture-native-screenshots.sh --artifact-root "$route_root" --unit-slug "$route_slug" --route "$route" || command_status=$?
 
-  if [[ -f "$route_root/design-review-blocked.json" ]]; then
+  if [[ "$command_status" -eq 124 ]]; then
+    write_route_timeout_blocker "$name" "$route" "$route_root" "$route_slug" "$command" "$route_output"
+    status="blocked"
+  elif [[ -f "$route_root/design-review-blocked.json" ]]; then
     status="blocked"
   elif [[ ! -f "$route_root/design-review.json" ]]; then
     status="fail"

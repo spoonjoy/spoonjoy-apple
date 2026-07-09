@@ -98,7 +98,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Failing test/contract log proving a simulated hung route does not currently produce the required terminal blocker artifact.
 **Acceptance**: The red failure names missing timeout/blocker behavior.
 
-### ⬜ Unit 1b: Screenshot Matrix Timeout Contract — Implementation
+### ✅ Unit 1b: Screenshot Matrix Timeout Contract — Implementation
 **What**: Add deterministic per-route timeout handling and route-level blocker recording to `scripts/capture-native-screenshot-matrix.sh`.
 **Output**: Updated matrix script and contract fixtures.
 **Acceptance**: Unit 1a tests pass; a simulated hung route records status `blocked` or `fail` with artifact paths instead of hanging the matrix.
