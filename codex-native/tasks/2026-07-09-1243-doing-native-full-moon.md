@@ -199,6 +199,21 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshots, design-review artifacts, and closed cook-mode ledger entries.
 **Acceptance**: Cook mode is usable without dense clusters, overlap, or visually unstable controls.
 
+### ⬜ Unit 3j: Cookbooks and Cookbook Detail — Tests
+**What**: Add failing tests for `CookbooksView`, cookbook detail route behavior, cookbook shelf/index grammar, cookbook cover/no-photo policy, recipe membership rows, empty/loading/offline states, and native navigation from Kitchen/Search.
+**Output**: Red Swift/static tests for cookbooks and cookbook detail.
+**Acceptance**: Tests fail on a current cookbook route structure, language, navigation, image, or state gap.
+
+### ⬜ Unit 3k: Cookbooks and Cookbook Detail — Implementation
+**What**: Rework Cookbooks and Cookbook Detail as native cookbook objects with Spoonjoy shelf/spread language, balanced cover treatment, honest empty/offline states, and stable recipe membership navigation.
+**Output**: Updated cookbook views/models/helpers.
+**Acceptance**: Unit 3j tests pass; Cookbooks/Cookbook Detail no longer look like generic grids or omit the native cookbook hierarchy.
+
+### ⬜ Unit 3l: Cookbooks and Cookbook Detail Visual QA
+**What**: Capture and inspect Cookbooks and Cookbook Detail on iOS/macOS across normal, empty, loading, missing-cover, and offline states.
+**Output**: Screenshots, design-review artifacts, and closed cookbook ledger entries.
+**Acceptance**: No cookbook route overlap, fake cover, generic-card dominance, or navigation dead end remains.
+
 ### ⬜ Unit 4a: Shopping Workflow — Tests
 **What**: Add failing tests for shopping receipt grammar, grouped/source-aware rows, duplicate handling, check targets, edit mode, offline queue state, and all-complete/empty states.
 **Output**: Red tests over `ShoppingListView`, `ReceiptListView`, shopping models, and surface contracts.
@@ -429,6 +444,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Commit after each phase (1a, 1b, 1c)
 - Push after each unit complete
 - Run full test suite before marking unit done
+- Red-test units (`1a`, `1c`, `2a`, `2c`, `2e`, `2g`, `3a`, `3d`, `3g`, `3j`, `4a`, `4d`, `4g`, `4j`, `5a`, `5c`, `5e`, `5g`, `6a`, `6c`, `7a`, `7c`, `8b`) are complete when the intended new tests fail for the expected reason and are committed. Do not require the full suite to pass until the paired implementation/coverage unit. Push red-test commits only when the repo convention permits; otherwise defer push until the paired green unit.
 - For UI/rendering/layout units, run `visual-qa-dogfood` before declaring the unit or task complete
 - **All artifacts**: Save outputs, logs, data to `./2026-07-09-1243-doing-native-full-moon/` directory
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
@@ -438,3 +454,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 ## Progress Log
 - 2026-07-09 12:49 Created from planning doc
 - 2026-07-09 12:53 Granularity pass split broad buckets into route/workflow/release phases and tightened blocker eligibility
+- 2026-07-09 12:55 Granularity Round 2 added cookbook route units and clarified red-test unit completion rules
