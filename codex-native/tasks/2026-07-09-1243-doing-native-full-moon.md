@@ -123,6 +123,16 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshot matrix JSON, route artifacts, and harness-specific absurdity ledger updates.
 **Acceptance**: Every route has screenshot evidence or a valid blocker; no local-code timeout/hang is accepted as a blocker.
 
+### ⬜ Unit 1g: Cookbook Detail Capture Contract — Tests
+**What**: Add failing tests/contracts showing `scripts/capture-native-screenshot-matrix.sh` and `scripts/capture-native-screenshots.sh` must support a `cookbook-detail` route with a seeded cookbook id/state, matching `AppRoute.cookbookDetail`.
+**Output**: Red contract log for unsupported `cookbook-detail` route capture.
+**Acceptance**: Tests fail because `cookbook-detail` is unsupported or lacks route evidence before implementation.
+
+### ⬜ Unit 1h: Cookbook Detail Capture Contract — Implementation
+**What**: Teach the screenshot harness and route matrix to capture Cookbook Detail on iOS/macOS with valid route state, app-emitted accessibility proof source, and design-review artifacts.
+**Output**: Updated harness scripts/contracts and cookbook-detail route artifacts.
+**Acceptance**: Unit 1g tests pass; `scripts/capture-native-screenshot-matrix.sh` includes `cookbook-detail` and produces screenshot evidence or a valid external/human-only blocker for that route.
+
 ### ⬜ Unit 2a: Palette and Theme Token Contract — Tests
 **What**: Add failing tests/static checks for banned system blue, raw color literals, and web-palette drift in primary SwiftUI surfaces.
 **Output**: Red contract log covering `KitchenTableTheme`, `SpoonjoyToolbar`, `SpoonDock`, and primary route files.
@@ -359,7 +369,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Acceptance**: Unit 6c tests pass; handoff records include evidence paths and deterministic event IDs; `doctor` no longer reports listener/tunnel/reconcile paths pointing at retired worktrees after repair.
 
 ### ⬜ Unit 6e: Feedback Autopilot Live Dogfood
-**What**: Run live `status --plain`, `doctor`, `reconcile --dry-run`, inspect event directories, and run a safe test/dry-run handoff if supported.
+**What**: From canonical `/Users/arimendelow/Projects/spoonjoy-apple`, run live `status --plain`, `doctor`, `reconcile --dry-run`, inspect event directories, and run a safe test/dry-run handoff if supported.
 **Output**: Live logs and ledger proof saved under `unit-6e-*`.
 **Acceptance**: The feedback loop is live and transparent, or a valid external/human-only blocker records schema, owner action, retry command, and evidence.
 
@@ -434,12 +444,12 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Acceptance**: `build/apple/testflight/Spoonjoy.ipa` exists; packaging logs contain no secrets.
 
 ### ⬜ Unit 9d: Upload and Poll Build Processing
-**What**: Upload IPA with `scripts/apple-distribution-kit.sh xcode run --kind altool-upload --platform ios --mode apply`, then poll newest build for `VALID`.
+**What**: Upload IPA with the full documented Apple Distribution Kit altool command, including `--package-path build/apple/testflight/Spoonjoy.ipa`, App Store Connect API key id, issuer id, private key path read from local kit config without printing secrets, `--provider-public-id 9735080289`, `--platform ios`, and `--mode apply`; then poll newest build for `VALID`.
 **Output**: Upload log, ASC app/build/buildBetaDetail IDs, and processing poll logs.
 **Acceptance**: Newest uploaded iOS build for `app.spoonjoy` is `VALID`; build number/version match Unit 9c.
 
 ### ⬜ Unit 9e: Immediate Pre-Publish Feedback Reconciliation
-**What**: Immediately before attaching the build to `Spoonjoy Internal`, re-run feedback `status --plain`, `doctor`, and `reconcile --dry-run` from the canonical checkout and inspect newly arrived feedback/screenshots/crashes.
+**What**: Immediately before attaching the build to `Spoonjoy Internal`, re-run feedback `status --plain`, `doctor`, and `reconcile --dry-run` from canonical `/Users/arimendelow/Projects/spoonjoy-apple` and inspect newly arrived feedback/screenshots/crashes.
 **Output**: Redacted pre-publish feedback logs under `unit-9e-*`.
 **Acceptance**: No actionable unhandled feedback exists at the moment of publish; any new actionable feedback pauses publish and is routed to a concrete fix unit unless it is a valid external/human-only blocker.
 
@@ -483,10 +493,10 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Commit after each phase (1a, 1b, 1c)
 - Push after each unit complete
 - Run full test suite before marking unit done
-- Red-test units (`1a`, `1c`, `2a`, `2c`, `2e`, `2g`, `3a`, `3d`, `3g`, `3j`, `4a`, `4d`, `4g`, `4j`, `5a`, `5c`, `5e`, `5g`, `6a`, `6c`, `7a`, `7c`, `8b`) are complete when the intended new tests fail for the expected reason and are committed. Do not require the full suite to pass until the paired implementation/coverage unit. Push red-test commits only when the repo convention permits; otherwise defer push until the paired green unit.
+- Red-test units (`1a`, `1c`, `1g`, `2a`, `2c`, `2e`, `2g`, `3a`, `3d`, `3g`, `3j`, `4a`, `4d`, `4g`, `4j`, `5a`, `5c`, `5e`, `5g`, `6a`, `6c`, `7a`, `7c`, `8b`) are complete when the intended new tests fail for the expected reason and are committed. Do not require the full suite to pass until the paired implementation/coverage unit. Push red-test commits only when the repo convention permits; otherwise defer push until the paired green unit.
 - Evidence/live/process units (`0a`, `0b`, `0c`, `0d`, `0e`, `0f`, visual QA units, live dogfood units, native-adjacent disposition, validation inventory, macOS distribution inventory, full local validation, PR/merge/upload/publish/verification units, distributed TestFlight smoke, macOS distribution disposition, docs lessons, cleanup, and continuation scan) are complete when their acceptance evidence is saved to artifacts and any discovered code defect is routed to a concrete red-test/implementation unit.
 - For UI/rendering/layout units, run `visual-qa-dogfood` before declaring the unit or task complete
-- **All artifacts**: Save outputs, logs, data to `./2026-07-09-1243-doing-native-full-moon/` directory
+- **All artifacts**: Save outputs, logs, and data under `codex-native/tasks/2026-07-09-1243-doing-native-full-moon/` from the repo root, or the same absolute path in the canonical checkout when a unit explicitly runs there.
 - **Fixes/blockers**: Spawn sub-agent immediately — don't ask, just do it
 - **Decisions made**: Update docs immediately, commit right away
 - **Canonical blockers**: Treat a blocker as acceptance only for external/human-only capabilities or genuinely unrecoverable shared-state operations. Local-code failures, script hangs, test failures, layout regressions, and missing telemetry are not acceptable blockers; fix them. Every accepted blocker must include schema, owner action, retry command, output path, and evidence.
@@ -504,3 +514,4 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:04 Live feedback check found launchd services still pointing at retired `spoonjoy-apple-cookmode-ui-pass`; routed stale-service repair to Unit 6
 - 2026-07-09 13:05 Scrutiny pass added front-loaded feedback-service repair, pre-publish feedback reconciliation, distributed TestFlight smoke, macOS distribution disposition, and native-adjacent surface disposition
 - 2026-07-09 13:08 Scrutiny omission pass converged
+- 2026-07-09 13:10 Scrutiny deception pass added cookbook-detail capture support units, full upload command requirements, canonical feedback command checkout, and explicit artifact root
