@@ -13,17 +13,16 @@ struct SpoonDock: View {
                 adaptiveDock
             }
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 8)
-        .frame(maxWidth: 351)
-        .background(KitchenTableTheme.bone, in: Capsule())
+        .padding(.horizontal, SpoonDockMetrics.horizontalPadding)
+        .padding(.vertical, SpoonDockMetrics.verticalPadding)
+        .frame(maxWidth: SpoonDockMetrics.maximumWidth)
         .background(.ultraThinMaterial, in: Capsule())
-        .background(KitchenTableTheme.photoCharcoal.opacity(0.92), in: Capsule())
+        .background(KitchenTableTheme.paper.opacity(0.82), in: Capsule())
         .overlay {
             Capsule()
-                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.42), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.22), radius: 16, x: 0, y: 8)
+        .shadow(color: KitchenTableTheme.charcoal.opacity(0.12), radius: 10, x: 0, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(context.accessibilityLabel)
     }
@@ -36,13 +35,13 @@ struct SpoonDock: View {
     }
 
     private var horizontalDock: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: SpoonDockMetrics.itemSpacing) {
             dockButton(context.leftZone, prominence: .supporting)
-                .frame(width: 92, alignment: .leading)
+                .frame(width: SpoonDockMetrics.supportingWidth, alignment: .leading)
                 .layoutPriority(1)
 
             dockButton(context.centerZone, prominence: .primary)
-                .frame(minWidth: 126, maxWidth: .infinity)
+                .frame(minWidth: SpoonDockMetrics.primaryMinWidth, maxWidth: .infinity)
                 .layoutPriority(2)
 
             toolRail
@@ -51,13 +50,13 @@ struct SpoonDock: View {
     }
 
     private var compactDock: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: SpoonDockMetrics.itemSpacing) {
             dockButton(context.leftZone, prominence: .tool)
-                .frame(width: 44, height: 44)
+                .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
                 .layoutPriority(1)
 
             dockButton(context.centerZone, prominence: .primary)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: SpoonDockMetrics.minimumTargetSize)
                 .layoutPriority(2)
 
             toolRail
@@ -66,8 +65,8 @@ struct SpoonDock: View {
     }
 
     private var accessibilityDock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpoonDockMetrics.itemSpacing) {
+            HStack(spacing: SpoonDockMetrics.itemSpacing) {
                 dockButton(context.leftZone, prominence: .supporting)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -81,10 +80,10 @@ struct SpoonDock: View {
     }
 
     private var toolRail: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: SpoonDockMetrics.toolSpacing) {
             ForEach(context.rightTools) { action in
                 dockButton(action, prominence: .tool)
-                    .frame(width: 44, height: 44)
+                    .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
             }
         }
     }
@@ -99,9 +98,9 @@ struct SpoonDock: View {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .padding(.horizontal, 10)
-                .frame(minHeight: 44)
+                .frame(minHeight: SpoonDockMetrics.minimumTargetSize)
                 .background(.thinMaterial, in: Capsule())
-                .background(KitchenTableTheme.paper.opacity(0.84), in: Capsule())
+                .background(KitchenTableTheme.paper.opacity(0.78), in: Capsule())
                 .overlay {
                     Capsule()
                         .strokeBorder(KitchenTableTheme.line.opacity(0.35), lineWidth: 1)
@@ -109,11 +108,11 @@ struct SpoonDock: View {
         } else {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
-                .frame(width: 44, height: 44)
+                .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
                 .background(toolBackground(for: action), in: Circle())
                 .overlay {
                     Circle()
-                        .strokeBorder(KitchenTableTheme.paper.opacity(action.isEnabled ? 0.22 : 0.55), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.line.opacity(action.isEnabled ? 0.55 : 0.34), lineWidth: 1)
                 }
         }
     }
@@ -123,7 +122,7 @@ struct SpoonDock: View {
     }
 
     private func toolBackground(for action: SpoonDockAction) -> Color {
-        action.isEnabled ? KitchenTableTheme.action.opacity(0.92) : KitchenTableTheme.paper.opacity(0.86)
+        action.isEnabled ? KitchenTableTheme.paper.opacity(0.92) : KitchenTableTheme.vellum.opacity(0.72)
     }
 
     @ViewBuilder
@@ -154,7 +153,7 @@ struct SpoonDock: View {
             Image(systemName: action.systemImage)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(toolForeground(for: action))
-                .frame(width: 42, height: 42)
+                .frame(width: SpoonDockMetrics.toolGlyphFrame, height: SpoonDockMetrics.toolGlyphFrame)
         } else {
             HStack(spacing: prominence == .primary ? 7 : 6) {
                 if prominence != .primary || action.role == .status {
@@ -179,7 +178,7 @@ struct SpoonDock: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: prominence == .primary ? .center : .leading)
+            .frame(maxWidth: .infinity, minHeight: SpoonDockMetrics.minimumTargetSize, alignment: prominence == .primary ? .center : .leading)
             .padding(.horizontal, prominence == .primary ? 8 : 0)
         }
     }
@@ -188,8 +187,21 @@ struct SpoonDock: View {
         if action.role == .destructive {
             return KitchenTableTheme.tomato
         }
-        return action.isEnabled ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted
+        return action.isEnabled ? KitchenTableTheme.charcoal : KitchenTableTheme.inkMuted
     }
+}
+
+private enum SpoonDockMetrics {
+    static let maximumWidth: CGFloat = 326
+    static let horizontalPadding: CGFloat = 8
+    static let verticalPadding: CGFloat = 7
+    static let itemSpacing: CGFloat = 6
+    static let toolSpacing: CGFloat = 5
+    static let supportingWidth: CGFloat = 82
+    static let primaryMinWidth: CGFloat = 118
+    static let minimumTargetSize: CGFloat = 44
+    static let toolTargetSize: CGFloat = 42
+    static let toolGlyphFrame: CGFloat = 40
 }
 
 struct SpoonDockContext {

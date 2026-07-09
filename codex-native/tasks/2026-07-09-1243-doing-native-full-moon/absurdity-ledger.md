@@ -18,6 +18,7 @@ This ledger is evidence-led. Items here are from TestFlight feedback, App Store 
 - Problem: the floating dock overlaps useful lower content and the selected pill feels like an invented control rather than a native tab/navigation affordance.
 - Impact: Recipes, Recipe Detail, and Search read as cramped even when their core content is stronger.
 - Routed to: Units 2c-2d and route visual QA units.
+- 2026-07-09 Unit 2d update: `SpoonDock` chrome is now metric-driven, narrower, light glass/paper instead of dark capsule, and screenshot-proven on cook mode at `unit-2d/cook-mode-route-retry/screenshots/ios-mobile.png`. Keep open for broader route dock/tab/search-chip QA.
 
 ### A-003 - Stale/offline status treatment is too loud for normal content reading
 
@@ -39,6 +40,7 @@ This ledger is evidence-led. Items here are from TestFlight feedback, App Store 
 - Problem: the focused cooking layout is much improved, but the bottom command bar is large, shadowy, and could be calmer; timer secondary controls also need review across steps and Dynamic Type.
 - Impact: the strongest route still feels more like a custom chrome experiment than the final kitchen-safe native mode.
 - Routed to: Units 3g-3i.
+- 2026-07-09 Unit 2d update: mobile `SpoonDock` is calmer and no longer a dark heavy bar. Keep open for cook-mode workflow QA and macOS bottom-control adaptation.
 
 ### A-006 - Route evidence is missing for cookbook detail, settings, auth, and error/offline state matrix
 
