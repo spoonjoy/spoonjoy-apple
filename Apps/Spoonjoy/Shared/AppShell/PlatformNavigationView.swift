@@ -280,7 +280,7 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private var compactNavigationContent: some View {
-        if navigation.route.isCookModeActive {
+        if navigation.route.isCookModeActive || navigation.route.usesCompactAuxiliaryShell {
             compactImmersiveRouteContent(for: navigation.route)
         } else {
             compactTabShell
@@ -320,6 +320,10 @@ struct PlatformNavigationView: View {
                 .tag(AppSection.search)
         }
         .tint(KitchenTableTheme.action)
+#if os(iOS)
+        .toolbarBackground(KitchenTableTheme.bone, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+#endif
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 
@@ -662,6 +666,11 @@ struct PlatformNavigationView: View {
 
             destinationContent(for: compactPresentedRoute(for: section))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+#if os(iOS)
+            KitchenTableTheme.bone
+                .frame(height: 20)
+                .allowsHitTesting(false)
+#endif
         }
         .background(KitchenTableTheme.bone)
     }
@@ -1965,6 +1974,27 @@ private extension View {
     }
 }
 #endif
+
+private extension AppRoute {
+    var usesCompactAuxiliaryShell: Bool {
+        switch self {
+        case .capture, .settings, .unknownLink:
+            true
+        case .kitchen,
+             .recipes,
+             .recipeDetail,
+             .recipeEditor,
+             .recipeCoverControls,
+             .cookbooks,
+             .cookbookDetail,
+             .profile,
+             .profileGraph,
+             .shoppingList,
+             .search:
+            false
+        }
+    }
+}
 
 private struct ActiveSearchSurfaceState: Equatable {
     let identity: String

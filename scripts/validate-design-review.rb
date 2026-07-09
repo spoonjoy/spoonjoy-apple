@@ -78,11 +78,11 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
-    "voiceOverLabels" => ["Import Status", "Agent Import", "Send to import agent"],
-    "keyboardNavigationTargets" => ["agent import status", "saved capture actions"],
+    "voiceOverLabels" => ["Import Status", "Spoonjoy Capture", "Send to Spoonjoy"],
+    "keyboardNavigationTargets" => ["import status", "saved capture actions"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
-    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "AgentImportStatusPanel", "CaptureDraft"],
+    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "ImportStatusPanel", "CaptureDraft"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "settings" => {

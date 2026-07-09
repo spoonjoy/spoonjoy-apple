@@ -37,7 +37,8 @@ legacy_blocker_path="$artifact_root/smoke-ios-simulator-blocker.json"
 log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-ios-inner.log}"
 blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-ios-simulator-blocker.json}"
 derived_data_path="$artifact_root/DerivedData-iOS"
-timeout_seconds=30
+timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
+launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -69,21 +70,48 @@ write_blocker() {
 run_with_timeout() {
   local command="$1"
   python3 - "$timeout_seconds" "$command" <<'PY'
+import os
+import signal
 import subprocess
 import sys
 
 timeout_seconds = int(sys.argv[1])
 command = sys.argv[2]
-completed = subprocess.run(
+process = subprocess.Popen(
     ["bash", "-c", command],
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
-    timeout=timeout_seconds,
+    start_new_session=True,
 )
-print(completed.stdout, end="")
-sys.exit(completed.returncode)
+try:
+    stdout, _ = process.communicate(timeout=timeout_seconds)
+except subprocess.TimeoutExpired:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    stdout, _ = process.communicate()
+    print(stdout, end="")
+    print(f"command timed out after {timeout_seconds} seconds")
+    sys.exit(124)
+print(stdout, end="")
+sys.exit(process.returncode)
 PY
+}
+
+app_is_registered_as_running() {
+  local launchctl_output=""
+  local launchctl_status=0
+  set +e
+  launchctl_output="$(run_with_timeout "xcrun simctl spawn $udid launchctl list" 2>&1)"
+  launchctl_status=$?
+  set -e
+  printf 'launchctl app registration exit code: %s\n' "$launchctl_status"
+  if [[ -n "$launchctl_output" ]]; then
+    printf '%s\n' "$launchctl_output"
+  fi
+  [[ "$launchctl_status" -eq 0 && "$launchctl_output" == *"UIKitApplication:app.spoonjoy"* ]]
 }
 
 {
@@ -195,11 +223,35 @@ if [[ "$install_status" -ne 0 ]]; then
 fi
 
 {
-  printf 'Launching app: %s app.spoonjoy\n' "$launch_command"
-  set +e
-  run_with_timeout "$launch_command $udid app.spoonjoy"
-  launch_status=$?
-  set -e
+  printf 'Launching app: %s --terminate-running-process app.spoonjoy\n' "$launch_command"
+  launch_status=1
+  attempt=1
+  while [[ "$attempt" -le "$launch_attempts" ]]; do
+    printf 'simulator launch attempt %s/%s\n' "$attempt" "$launch_attempts"
+    set +e
+    run_with_timeout "$launch_command --terminate-running-process $udid app.spoonjoy"
+    launch_status=$?
+    set -e
+    printf 'simulator launch attempt %s exit code: %s\n' "$attempt" "$launch_status"
+    if [[ "$launch_status" -eq 0 ]]; then
+      break
+    fi
+    if [[ "$launch_status" -eq 124 ]]; then
+      printf 'simulator launch attempt %s timed out; checking whether Spoonjoy is already registered as running\n' "$attempt"
+      if app_is_registered_as_running; then
+        printf 'Spoonjoy is registered as running after a simctl launch timeout; accepting launch smoke\n'
+        launch_status=0
+        break
+      fi
+      if [[ "$attempt" -lt "$launch_attempts" ]]; then
+        printf 'Retrying simulator launch after timeout\n'
+        sleep 2
+        attempt=$((attempt + 1))
+        continue
+      fi
+    fi
+    break
+  done
   printf 'simulator launch exit code: %s\n' "$launch_status"
 } >> "$log_path" 2>&1
 

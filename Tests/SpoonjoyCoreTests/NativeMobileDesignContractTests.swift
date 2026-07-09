@@ -221,10 +221,10 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
-                "eyebrow: \"Agent Import\"",
+                "eyebrow: \"Spoonjoy Capture\"",
                 "title: \"Import Status\"",
                 "agentImportStatus",
-                "AgentImportStatusPanel",
+                "ImportStatusPanel",
                 "draftPreview(currentDraft)"
             ],
             forbids: [

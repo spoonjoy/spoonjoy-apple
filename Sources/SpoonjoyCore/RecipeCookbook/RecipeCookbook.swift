@@ -592,11 +592,9 @@ extension Cookbook: Codable {
         attribution = summary.attribution
         createdAt = summary.createdAt
         updatedAt = summary.updatedAt
-        if container.contains(.recipes) {
-            recipes = try container.decode([RecipeSummary].self, forKey: .recipes)
-        } else {
-            recipes = []
-        }
+        recipes = try container.contains(.recipes)
+            ? container.decode([RecipeSummary].self, forKey: .recipes)
+            : []
     }
 
     public func encode(to encoder: Encoder) throws {

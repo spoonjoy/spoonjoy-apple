@@ -858,7 +858,7 @@ private enum SettingsRowProminence {
     }
 }
 
-private struct SettingsPanel<Content: View>: View {
+struct SettingsPanel<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
