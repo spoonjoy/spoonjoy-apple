@@ -1,0 +1,231 @@
+--- com.spoonjoy.testflight-feedback-listener
+gui/501/com.spoonjoy.testflight-feedback-listener = {
+	active count = 1
+	path = /Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-listener.plist
+	type = LaunchAgent
+	state = running
+
+	program = /opt/homebrew/bin/node
+	arguments = {
+		/opt/homebrew/bin/node
+		/Users/arimendelow/Projects/spoonjoy-apple/scripts/testflight-feedback-autopilot.mjs
+		listen
+	}
+
+	working directory = /Users/arimendelow/Projects/spoonjoy-apple
+
+	stdout path = /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/listener.launchd.log
+	stderr path = /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/listener.launchd.err
+	inherited environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.apple.launchd.X3TBi1Abwl/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		SPOONJOY_CODEX_THREAD_ID => 019f2e25-2fc3-75b2-8ba3-335f3777115a
+		SPOONJOY_NATIVE_REPO => /Users/arimendelow/Projects/spoonjoy-apple
+		OURO_CLI_PATH => /Users/arimendelow/.ouro-cli/bin/ouro
+		PATH => /Users/arimendelow/.codex/tmp/arg0/codex-arg0VEpNqa:/Users/arimendelow/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin:/Users/arimendelow/.ouro-cli/bin:/Users/arimendelow/Library/pnpm:/Users/arimendelow/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/arimendelow/.config/agency/CurrentVersion:/Users/arimendelow/.azureauth/0.9.2:/Applications/Codex.app/Contents/Resources
+		SPOONJOY_TESTFLIGHT_EVENT_AGENT => slugger
+		CODEX_CLI_PATH => /opt/homebrew/bin/codex
+		XPC_SERVICE_NAME => com.spoonjoy.testflight-feedback-listener
+	}
+
+	domain = gui/501 [100002]
+	asid = 100002
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	pid = 38736
+	immediate reason = inefficient
+	forks = 0
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	checked allocations = 0 (queried = 1)
+	checked allocations reason = no host
+	checked allocations flags = 0x0
+	last terminating signal = Terminated: 15
+
+	resource coalition = {
+		ID = 242525
+		type = resource
+		state = active
+		active count = 1
+		name = com.spoonjoy.testflight-feedback-listener
+	}
+
+	jetsam coalition = {
+		ID = 242526
+		type = jetsam
+		state = active
+		active count = 1
+		name = com.spoonjoy.testflight-feedback-listener
+	}
+
+	spawn type = background (5)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+
+	properties = keepalive | runatload | inferred program | system service | tle system
+}
+--- com.spoonjoy.testflight-feedback-tunnel
+gui/501/com.spoonjoy.testflight-feedback-tunnel = {
+	active count = 1
+	path = /Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-tunnel.plist
+	type = LaunchAgent
+	state = running
+
+	program = /opt/homebrew/bin/cloudflared
+	arguments = {
+		/opt/homebrew/bin/cloudflared
+		--config
+		[REDACTED_TUNNEL_CONFIG_PATH]
+		tunnel
+		run
+		spoonjoy-testflight-feedback
+	}
+
+	working directory = /Users/arimendelow/Projects/spoonjoy-apple
+
+	stdout path = /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/tunnel.launchd.log
+	stderr path = /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/tunnel.launchd.err
+	inherited environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.apple.launchd.X3TBi1Abwl/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		PATH => /Users/arimendelow/.codex/tmp/arg0/codex-arg0VEpNqa:/Users/arimendelow/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin:/Users/arimendelow/.ouro-cli/bin:/Users/arimendelow/Library/pnpm:/Users/arimendelow/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/arimendelow/.config/agency/CurrentVersion:/Users/arimendelow/.azureauth/0.9.2:/Applications/Codex.app/Contents/Resources
+		XPC_SERVICE_NAME => com.spoonjoy.testflight-feedback-tunnel
+	}
+
+	domain = gui/501 [100002]
+	asid = 100002
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	pid = 39209
+	immediate reason = inefficient
+	forks = 0
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	checked allocations = 0 (queried = 1)
+	checked allocations reason = no host
+	checked allocations flags = 0x0
+	last terminating signal = Terminated: 15
+
+	resource coalition = {
+		ID = 242527
+		type = resource
+		state = active
+		active count = 1
+		name = com.spoonjoy.testflight-feedback-tunnel
+	}
+
+	jetsam coalition = {
+		ID = 242528
+		type = jetsam
+		state = active
+		active count = 1
+		name = com.spoonjoy.testflight-feedback-tunnel
+	}
+
+	spawn type = background (5)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+
+	properties = keepalive | runatload | inferred program | system service | tle system
+}
+--- com.spoonjoy.testflight-feedback-reconcile
+gui/501/com.spoonjoy.testflight-feedback-reconcile = {
+	active count = 0
+	path = /Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-reconcile.plist
+	type = LaunchAgent
+	state = not running
+
+	program = /opt/homebrew/bin/node
+	arguments = {
+		/opt/homebrew/bin/node
+		/Users/arimendelow/Projects/spoonjoy-apple/scripts/testflight-feedback-autopilot.mjs
+		reconcile
+	}
+
+	working directory = /Users/arimendelow/Projects/spoonjoy-apple
+
+	stdout path = /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/reconcile.launchd.log
+	stderr path = /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/reconcile.launchd.err
+	inherited environment = {
+		SSH_AUTH_SOCK => /private/tmp/com.apple.launchd.X3TBi1Abwl/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		SPOONJOY_CODEX_THREAD_ID => 019f2e25-2fc3-75b2-8ba3-335f3777115a
+		SPOONJOY_NATIVE_REPO => /Users/arimendelow/Projects/spoonjoy-apple
+		OURO_CLI_PATH => /Users/arimendelow/.ouro-cli/bin/ouro
+		PATH => /Users/arimendelow/.codex/tmp/arg0/codex-arg0VEpNqa:/Users/arimendelow/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin:/Users/arimendelow/.ouro-cli/bin:/Users/arimendelow/Library/pnpm:/Users/arimendelow/.local/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/opt/homebrew/bin:/Users/arimendelow/.config/agency/CurrentVersion:/Users/arimendelow/.azureauth/0.9.2:/Applications/Codex.app/Contents/Resources
+		SPOONJOY_TESTFLIGHT_EVENT_AGENT => slugger
+		CODEX_CLI_PATH => /opt/homebrew/bin/codex
+		XPC_SERVICE_NAME => com.spoonjoy.testflight-feedback-reconcile
+	}
+
+	domain = gui/501 [100002]
+	asid = 100002
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 2
+	last exit code = 0
+
+	resource coalition = {
+		ID = 242529
+		type = resource
+		state = active
+		active count = 1
+		name = com.spoonjoy.testflight-feedback-reconcile
+	}
+
+	jetsam coalition = {
+		ID = 242530
+		type = jetsam
+		state = active
+		active count = 1
+		name = com.spoonjoy.testflight-feedback-reconcile
+	}
+
+	spawn type = background (5)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	run interval = 300 seconds
+
+	properties = runatload | inferred program | system service | tle system
+}

@@ -83,7 +83,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Committed state-file update.
 **Acceptance**: A resumed agent can continue at Unit 1a without rereading the chat.
 
-### ⬜ Unit 0e: Feedback Listener Path Repair
+### ✅ Unit 0e: Feedback Listener Path Repair
 **What**: Repair installed launchd listener, tunnel, and reconcile service paths so they point at canonical `/Users/arimendelow/Projects/spoonjoy-apple` instead of any retired or temporary worktree, then restart/reload the services through `scripts/testflight-feedback-autopilot.mjs`.
 **Output**: Before/after `doctor`, launchd, and health logs under `unit-0e-*`.
 **Acceptance**: Running `scripts/testflight-feedback-autopilot.mjs doctor` from `/Users/arimendelow/Projects/spoonjoy-apple` reports healthy service paths, local health, and public health, or a valid external/human-only blocker records schema, owner action, retry command, output path, and evidence. This unit must complete before Unit 1.
