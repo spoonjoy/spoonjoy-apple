@@ -123,7 +123,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshot matrix JSON, route artifacts, and harness-specific absurdity ledger updates.
 **Acceptance**: Every route has screenshot evidence or a valid blocker; no local-code timeout/hang is accepted as a blocker.
 
-### ⬜ Unit 1g: Cookbook Detail Capture Contract — Tests
+### ✅ Unit 1g: Cookbook Detail Capture Contract — Tests
 **What**: Add failing tests/contracts showing `scripts/capture-native-screenshot-matrix.sh` and `scripts/capture-native-screenshots.sh` must support a `cookbook-detail` route with a seeded cookbook id/state, matching `AppRoute.cookbookDetail`.
 **Output**: Red contract log for unsupported `cookbook-detail` route capture.
 **Acceptance**: Tests fail because `cookbook-detail` is unsupported or lacks route evidence before implementation.
@@ -515,6 +515,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 13:05 Scrutiny pass added front-loaded feedback-service repair, pre-publish feedback reconciliation, distributed TestFlight smoke, macOS distribution disposition, and native-adjacent surface disposition
 - 2026-07-09 13:08 Scrutiny omission pass converged
 - 2026-07-09 13:10 Scrutiny deception pass added cookbook-detail capture support units, full upload command requirements, canonical feedback command checkout, and explicit artifact root
+- 2026-07-09 15:55 Unit 1g complete: added red screenshot harness contracts for `cookbook-detail`; red log proves missing matrix route, capture support, validator route support, `cookbook:cookbook_weeknights` state, durable cache seed, and `CookbookDetailView` accessibility proof.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
