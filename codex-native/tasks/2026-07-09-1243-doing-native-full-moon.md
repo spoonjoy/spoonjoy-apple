@@ -158,7 +158,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red tests/contracts covering loading helpers, `OfflineStatusView`, route view models, and screenshot proof emitters.
 **Acceptance**: Tests fail on a current false unavailable flash, loud non-critical status, or missing transition policy.
 
-### ⬜ Unit 2f: Loading, Banner, and Transition Contract — Implementation
+### ✅ Unit 2f: Loading, Banner, and Transition Contract — Implementation
 **What**: Implement calm loading states, eager image/content transitions, reduced-motion-safe animations, and quiet severity-bound banners.
 **Output**: Updated shared state/banner/loading components and route call sites.
 **Acceptance**: Unit 2e tests pass; stale/offline/sync states are visible but do not visually dominate normal content.
@@ -522,6 +522,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 16:33 Unit 2c complete: added native shell contract coverage for mobile dock chrome weight, centralized dock metrics, max width, target sizing, dark capsule avoidance, shadow weight, compact iOS-only dock use, safe-area placement, and toolbar primary action menu structure; red log fails on current overweight SpoonDock.
 - 2026-07-09 16:45 Unit 2d complete: replaced overweight mobile `SpoonDock` chrome with centralized metrics, a narrower light glass/paper shell, quieter shadow, and metric-driven target sizing. Shell, palette, and design-language contracts passed; focused cook-mode screenshot capture passed on clean simulator retry with iOS/macOS screenshots, design-review, and accessibility proofs.
 - 2026-07-09 16:53 Unit 2e complete: added a loading/transition contract for authored loading/error surfaces, no generic `unavailable` route copy, reduce-motion-aware search image loading, and quiet informational offline/stale status; red log names the current raw spinners, unavailable copy, fixed image animation, and brass quiet-status treatment.
+- 2026-07-09 16:56 Unit 2f complete: added shared authored loading/error states, replaced guarded raw route spinners and generic unavailable copy, made search image transitions Reduce Motion aware, quieted informational offline/stale status, regenerated the Xcode project, and passed loading, palette, design-language, shell, Xcode project/generator, iOS no-sign, and macOS build checks.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
