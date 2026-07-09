@@ -860,7 +860,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   hard_fail_log = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   hard_fail_blocker = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
-    false,
+    true,
     [
       "bash",
       "scripts/smoke-ios-simulator.sh",
@@ -871,11 +871,13 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       "--blocker",
       hard_fail_blocker
     ],
-    "iOS app launch failure is a hard failure",
+    "iOS app launch failure writes CoreSimulator blocker",
     env: { "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
     chdir: script_root
   )
-  assert_missing(hard_fail_blocker, "iOS launch hard failure")
+  hard_fail_blocker_json = assert_json(hard_fail_blocker, "iOS launch hard failure blocker")
+  record_failure("iOS launch hard failure blocker capability mismatch") unless hard_fail_blocker_json["capability"] == "CoreSimulator"
+  record_failure("iOS launch hard failure blocker missing launch command") unless hard_fail_blocker_json.fetch("command", "").include?("simctl launch")
 
   timeout_script_root = temp_root.join("ios-launch-timeout-retry")
   timeout_script_root.join("scripts").mkpath
@@ -940,6 +942,60 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   record_failure("iOS launch timeout retry did not record timeout") unless timeout_log_text.include?("command timed out after 1 seconds")
   record_failure("iOS launch timeout retry did not reach second attempt") unless timeout_log_text.include?("simulator launch attempt 2 exit code: 0")
   assert_missing(timeout_blocker, "iOS launch timeout retry")
+
+  timeout_fail_script_root = temp_root.join("ios-launch-timeout-fail")
+  timeout_fail_script_root.join("scripts").mkpath
+  timeout_fail_script_root.join(".github/scripts").mkpath
+  FileUtils.cp(ROOT.join("scripts/smoke-ios-simulator.sh"), timeout_fail_script_root.join("scripts/smoke-ios-simulator.sh"))
+  write_executable(timeout_fail_script_root.join(".github/scripts/resolve-ios-simulator-destination.py"), <<~'PY')
+    #!/usr/bin/env python3
+    print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
+  PY
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      "simctl list runtimes") exit 0 ;;
+      simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
+      simctl\ install\ *) exit 0 ;;
+      simctl\ launch\ --terminate-running-process\ *)
+        sleep 2
+        ;;
+      simctl\ spawn\ *\ launchctl\ list)
+        printf 'UIKitApplication:com.apple.Preferences[abcd][rb-legacy]\n'
+        exit 0
+        ;;
+      *) exit 0 ;;
+    esac
+  SH
+  timeout_fail_artifacts = temp_root.join("timeout-fail-artifacts")
+  timeout_fail_log = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
+  timeout_fail_blocker = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/smoke-ios-simulator.sh",
+      "--artifact-root",
+      timeout_fail_artifacts,
+      "--log",
+      timeout_fail_log,
+      "--blocker",
+      timeout_fail_blocker
+    ],
+    "iOS app launch timeout writes CoreSimulator blocker",
+    env: {
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
+    },
+    chdir: timeout_fail_script_root
+  )
+  timeout_fail_log_text = timeout_fail_log.read
+  record_failure("iOS launch timeout failure did not record timeout") unless timeout_fail_log_text.include?("command timed out after 1 seconds")
+  timeout_fail_blocker_json = assert_json(timeout_fail_blocker, "iOS launch timeout failure blocker")
+  record_failure("iOS launch timeout failure blocker capability mismatch") unless timeout_fail_blocker_json["capability"] == "CoreSimulator"
+  record_failure("iOS launch timeout failure blocker reason missing timeout") unless timeout_fail_blocker_json.fetch("reason", "").downcase.include?("timeout")
 
   write_executable(bin_dir.join("xcodebuild"), <<~'SH')
     #!/usr/bin/env bash

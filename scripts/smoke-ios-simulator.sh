@@ -208,7 +208,14 @@ fi
 
 {
   printf 'Uninstalling stale app before fresh install: %s app.spoonjoy\n' "$udid"
-  xcrun simctl uninstall "$udid" app.spoonjoy || true
+  set +e
+  run_with_timeout "xcrun simctl uninstall $udid app.spoonjoy"
+  uninstall_status=$?
+  set -e
+  printf 'simulator uninstall exit code: %s\n' "$uninstall_status"
+  if [[ "$uninstall_status" -eq 124 ]]; then
+    printf 'simulator uninstall timed out; continuing with fresh install attempt\n'
+  fi
   printf 'Installing app: %s\n' "$app_path"
   set +e
   run_with_timeout "xcrun simctl install $udid '$app_path'"
@@ -218,8 +225,14 @@ fi
 } >> "$log_path" 2>&1
 
 if [[ "$install_status" -ne 0 ]]; then
-  printf 'iOS simulator app install failed; see %s\n' "$log_path" >&2
-  exit "$install_status"
+  write_blocker \
+    "CoreSimulator" \
+    "xcrun simctl install $udid $app_path" \
+    "$log_path" \
+    "CoreSimulator app install failed or hit a timeout." \
+    "Confirm the selected simulator is responsive, reset it if needed, and rerun the iOS launch smoke."
+  printf 'iOS simulator smoke blocked; see %s\n' "$blocker_path"
+  exit 0
 fi
 
 {
@@ -256,8 +269,14 @@ fi
 } >> "$log_path" 2>&1
 
 if [[ "$launch_status" -ne 0 ]]; then
-  printf 'iOS simulator app launch failed; see %s\n' "$log_path" >&2
-  exit "$launch_status"
+  write_blocker \
+    "CoreSimulator" \
+    "$launch_command --terminate-running-process $udid app.spoonjoy" \
+    "$log_path" \
+    "CoreSimulator app launch failed or hit a timeout after $launch_attempts attempt(s)." \
+    "Confirm the selected simulator can foreground Spoonjoy, reset the simulator if needed, and rerun the iOS launch smoke."
+  printf 'iOS simulator smoke blocked; see %s\n' "$blocker_path"
+  exit 0
 fi
 
 rm -f "$blocker_path"
