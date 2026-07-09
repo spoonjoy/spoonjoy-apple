@@ -17,6 +17,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - Rebuild the shared visual substrate: Spoonjoy palette, typography roles, safe-area rules, status banners, loading transitions, image policy, no-photo states, and navigation chrome.
 - Rework `SpoonDock` and platform navigation so mobile uses Apple-native affordances without overpowering content, while macOS uses desktop-native navigation instead of scaled mobile patterns.
 - Audit every visible route for product honesty: Kitchen, Recipes, Recipe Detail, Cook Mode, Cookbooks, Shopping, Search, Capture, Settings, auth/offline/error states, and macOS equivalents.
+- Pull latest TestFlight feedback, screenshots, crash data, app metadata, native telemetry, and backend signals before each wave so fixes start from observed app behavior.
 - Bring recipe detail and cook mode back to the web product structure and language while translating controls into native SwiftUI patterns.
 - Remove production-facing placeholder/demo language, fake-looking imagery, internal labels, transient "unavailable" flashes, and dead-end actions.
 - Make shopping feel like a store-run tool: receipt/list grammar, large reliable check targets, grouped items, offline confidence, duplicate handling, and native edit affordances.
@@ -42,6 +43,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - [ ] Recipe and cook-mode structure matches the web product language where intentional, with native controls only where they improve the workflow.
 - [ ] Offline, loading, empty, stale, sync-failed, unauthenticated, and blocked-provider states are honest, graceful, telemetry-backed, and tested.
 - [ ] TestFlight feedback autopilot has a transparent ledger from feedback receipt through diagnosis, fix, build number, and confirmation state.
+- [ ] Latest TestFlight feedback screenshots and comments are reconciled before each TestFlight publish, with no actionable unhandled feedback left behind.
 - [ ] At least one new internal TestFlight build is uploaded, processed `VALID`, published to `Spoonjoy Internal`, and verified through App Store Connect API after the first coherent wave.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
@@ -88,7 +90,8 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - `/Users/arimendelow/desk/spoonjoy/mobile-first-design-recalibration/task.md`
 
 ## Notes
-Fresh roadmap evidence showed the current build has strong platform plumbing but weak product/taste closure: system blue leakage, heavy dock chrome, demo-looking imagery, loud state banners, placeholder labels, and visual validation that can hang during simulator launch. The task should move in waves, with each wave ending in screenshots, tests, and TestFlight verification rather than a PR-only stop.
+Fresh roadmap evidence showed the current build has strong platform plumbing but weak product/taste closure: system blue leakage, heavy dock chrome, demo-looking imagery, loud state banners, placeholder labels, and visual validation that can hang during simulator launch. The task should move in waves, with each wave beginning from latest TestFlight/telemetry evidence and ending in screenshots, tests, and TestFlight verification rather than a PR-only stop.
 
 ## Progress Log
 - 2026-07-09 12:43 Created
+- 2026-07-09 12:44 Tinfoil pass added latest-feedback grounding before each wave
