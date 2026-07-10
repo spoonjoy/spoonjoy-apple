@@ -184,7 +184,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red Swift/static tests for kitchen and recipes.
 **Acceptance**: Tests fail on current route structure, language, or state gap.
 
-### ⬜ Unit 3b: Kitchen and Recipes Structure — Implementation
+### ✅ Unit 3b: Kitchen and Recipes Structure — Implementation
 **What**: Rework Kitchen and Recipes surfaces to follow Spoonjoy cookbook hierarchy while preserving native navigation and search.
 **Output**: Updated `KitchenView.swift`, `RecipesView.swift`, and supporting models/helpers.
 **Acceptance**: Unit 3a tests pass; Kitchen/Recipes no longer show overlap, fake placeholders, or redundant index-line commands.
@@ -528,6 +528,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 17:10 Unit 2h complete: removed bundled recipe fallback image assets, replaced fake food fallback behavior with an authored `KitchenTableNoPhotoView`, removed route-level fallback asset calls and provenance row noise, renamed cover-source labels, and passed image policy, palette, design-language, loading, shell, Xcode project/generator, focused Swift tests, iOS no-sign, and macOS build checks.
 - 2026-07-09 23:53 Unit 2i complete: closed shared substrate visual issues for tab/nav chrome, honest no-photo states, notification settings focus/copy, simulator resolver determinism, and stale screenshot evidence; Sagan cold review found two MINOR issues, both fixed; stale legacy no-photo call sites normalized; focused contracts, app-target builds, warning scan, and fresh 11-route iOS/macOS matrix passed.
 - 2026-07-10 00:06 Unit 3a complete: added red Kitchen/Recipes structure contracts for web-aligned masthead/lead/index/shelf hierarchy, lead/index separation, index-row ordinal/metadata language, structured recipes loading/offline/empty states, and richer screenshot proof expectations; focused Swift contract and kitchen surface script both fail red with artifacts under `unit-3a/`.
+- 2026-07-10 00:24 Unit 3b complete: implemented Kitchen/Recipes lead-plus-index hierarchy, removed redundant lead/index duplication and empty filler copy, added structured recipe empty/loading/offline states, refreshed screenshot accessibility proof expectations, and passed focused Kitchen/Recipes contracts, native mobile design contracts, static design contracts, full `swift test`, iOS/macOS app-target builds, warning scan, stale-source scan, and `git diff --check` with green evidence under `unit-3a/`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
