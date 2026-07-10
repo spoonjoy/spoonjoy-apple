@@ -1,0 +1,14 @@
+{
+  "blocked": true,
+  "capability": "CoreSimulator",
+  "sourceBlockerPath": "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail-after/apple/unit-3l-cookbook-detail-after-screenshots-core-simulator-blocker.json",
+  "skippedArtifacts": [
+    "screenshots/ios-mobile.png",
+    "screenshots/macos-desktop.png",
+    "design-review.json",
+    "apple/unit-3l-cookbook-detail-after-accessibility-proof-ios.json",
+    "apple/unit-3l-cookbook-detail-after-accessibility-proof-macos.json"
+  ],
+  "reason": "CoreSimulator app launch failed or hit a timeout after 3 attempt(s).",
+  "ownerAction": "Confirm the selected simulator can foreground Spoonjoy, reset the simulator if needed, and rerun the iOS launch smoke."
+}

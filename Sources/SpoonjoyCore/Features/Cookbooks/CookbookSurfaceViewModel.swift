@@ -204,6 +204,7 @@ public struct CookbookSurfaceRowViewModel: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
     public let chefLine: String
+    public let recipeCount: Int
     public let recipeCountLabel: String
     public let cover: CookbookCover
     public let openRoute: AppRoute
@@ -213,6 +214,7 @@ public struct CookbookSurfaceRowViewModel: Identifiable, Equatable, Sendable {
         id = summary.id
         title = summary.title
         chefLine = "By \(summary.chef.username)"
+        recipeCount = summary.recipeCount
         recipeCountLabel = Self.recipeCountLabel(summary.recipeCount)
         cover = summary.cover
         openRoute = .cookbookDetail(id: summary.id)

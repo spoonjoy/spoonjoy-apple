@@ -1,0 +1,3 @@
+scripts/capture-native-screenshots.sh --artifact-root codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail-after --unit-slug unit-3l-cookbook-detail-after --route cookbook-detail
+design review blocker ok
+native screenshot capture blocked: codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail-after/design-review-blocked.json

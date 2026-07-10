@@ -70,6 +70,7 @@ struct CookbookSurfaceParityTests {
         #expect(list.rows.map(\.id) == ["cookbook_weeknights"])
         #expect(list.rows.first?.title == "Weeknights")
         #expect(list.rows.first?.chefLine == "By ari")
+        #expect(list.rows.first?.recipeCount == 2)
         #expect(list.rows.first?.recipeCountLabel == "2 recipes")
         #expect(list.rows.first?.cover.primaryImageURL == nil)
         #expect(list.rows.first?.openRoute == .cookbookDetail(id: "cookbook_weeknights"))

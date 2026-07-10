@@ -1065,6 +1065,11 @@ struct NativeMobileDesignContractTests {
             in: cookbookPath,
             contains: [
                 "private var leadCookbook",
+                "current.cover.primaryImageURL != candidate.cover.primaryImageURL",
+                "current.recipeCount != candidate.recipeCount",
+                "private var usesCompactCookbookLayout",
+                "private var cookbookPageBottomReserve",
+                "private func leadCookbookActions",
                 "private var cookbookLibrarySpread",
                 "private var cookbookShelfStrip",
                 "private var cookbookIndexRows",
@@ -1073,9 +1078,17 @@ struct NativeMobileDesignContractTests {
                 "CookbookCoverArt(cookbook:",
                 "CookbookFallbackCover",
                 "CookbookImageCover",
+                ".system(.title2, design: .serif).weight(.bold)",
+                ".minimumScaleFactor(0.66)",
+                "private var detailHeaderWidth",
+                "private var detailShareAction",
+                "HStack(alignment: .top, spacing: 28)",
+                ".frame(width: detailHeaderWidth, alignment: .leading)",
+                "private var detailCoverWidth",
                 "ForEach(Array(viewModel.recipes.enumerated()), id: \\.element.id)",
                 "CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1",
                 "private struct CookbookRecipeIndexRow",
+                "if recipe.coverImageURL != nil",
                 "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",
                 "Label(\"Owner tools\", systemImage: \"wrench.and.screwdriver\")",
                 ".swipeActions(edge: .trailing, allowsFullSwipe: false)",
@@ -1087,6 +1100,7 @@ struct NativeMobileDesignContractTests {
                 "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)",
                 "Text(\"Owner Tools\")",
                 "Label(\"Remove\", systemImage: \"minus.circle\")",
+                "HStack(alignment: .bottom, spacing: 28) {\n                detailHeader",
                 "HStack(alignment: .firstTextBaseline) {\n                    TextField(\"Title\""
             ]
         )
