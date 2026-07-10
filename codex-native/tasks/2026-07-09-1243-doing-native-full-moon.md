@@ -224,7 +224,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshots, design-review artifacts, and closed cook-mode ledger entries.
 **Acceptance**: Cook mode is usable without dense clusters, overlap, or visually unstable controls.
 
-### ⬜ Unit 3j: Cookbooks and Cookbook Detail — Tests
+### ✅ Unit 3j: Cookbooks and Cookbook Detail — Tests
 **What**: Add failing tests for `CookbooksView`, cookbook detail route behavior, cookbook shelf/index grammar, cookbook cover/no-photo policy, recipe membership rows, empty/loading/offline states, and native navigation from Kitchen/Search.
 **Output**: Red Swift/static tests for cookbooks and cookbook detail.
 **Acceptance**: Tests fail on a current cookbook route structure, language, navigation, image, or state gap.
@@ -536,6 +536,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 01:40 Unit 3g complete: added red source contracts covering cook-mode compact task structure, kitchen-safe control deck language, cook-mode SpoonDock center action clarity, and cook-log media/action-bar layout; focused run fails red with eight current blockers under `unit-3g/red-cook-mode-cook-log-source-contract.log`.
 - 2026-07-10 01:55 Unit 3h complete: implemented kitchen-safe cook-mode and cook-log layout fixes: `Mark done` dock/control language, compact task header with separate cook-tools sheet, focused step card, quieter input/ingredient sections, balanced cook-log photo slot/action bar, and no decorative form panel. Focused source contract, affected Swift tests, design/accessibility contracts, iOS/macOS app-target builds, and warning scan passed with evidence under `unit-3g/`.
 - 2026-07-10 02:43 Unit 3i complete: captured Cook Mode and Cooks on iOS/macOS, fixed duplicate cook-mode progress, regular-width floating tools, macOS stretched cook-mode controls, missing deterministic `cook-log` route proof, duplicate Cooks sheet heading, and the iOS medium-sheet regression that exposed the no-photo background. Final evidence: `unit-3i/cook-mode-after/`, `unit-3i/cook-log-final/`, `unit-3i/visual-absurdity-ledger.md`, focused contracts, full `swift test`, native scenario metadata, iOS/macOS app-target builds, and warning scans.
+- 2026-07-10 02:53 Unit 3j complete: added a red native design contract for cookbook shelf/detail grammar, requiring an authored shelf spread, 3:4 cookbook cover art, contents index rows, disclosure-based owner tools, route proof anchors, and manifest validation fields. Focused red run fails on the current generic placeholder/detail/tool patterns with evidence at `unit-3j/red-cookbook-surface-grammar-contract.log`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1

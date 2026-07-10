@@ -1040,6 +1040,81 @@ struct NativeMobileDesignContractTests {
         }
     }
 
+    @Test("cookbook surfaces use authored shelf spread and native contents grammar")
+    func cookbookSurfacesUseAuthoredShelfSpreadAndNativeContentsGrammar() throws {
+        let cookbookPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let validatorPath = "scripts/validate-design-review.rb"
+        let cookbook = uncommentedSwift(try readRepoFile(cookbookPath))
+        let proof = uncommentedSwift(try readRepoFile(proofPath))
+        let capture = try readRepoFile(capturePath)
+        let validator = try readRepoFile(validatorPath)
+
+        expectContent(
+            cookbook,
+            in: cookbookPath,
+            contains: [
+                "private var leadCookbook",
+                "private var cookbookLibrarySpread",
+                "private var cookbookShelfStrip",
+                "private var cookbookIndexRows",
+                "ScrollView(.horizontal",
+                "CookbookCoverArt(row:",
+                "CookbookCoverArt(cookbook:",
+                "CookbookFallbackCover",
+                "CookbookImageCover",
+                "ForEach(Array(viewModel.recipes.enumerated()), id: \\.element.id)",
+                "CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1",
+                "private struct CookbookRecipeIndexRow",
+                "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",
+                "Label(\"Owner tools\", systemImage: \"wrench.and.screwdriver\")",
+                ".swipeActions(edge: .trailing, allowsFullSwipe: false)",
+                "Button(role: .destructive)"
+            ],
+            forbids: [
+                "title: \"\\(emptyState.title). \\(emptyState.message)\"",
+                "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
+                "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)",
+                "Text(\"Owner Tools\")",
+                "Label(\"Remove\", systemImage: \"minus.circle\")",
+                "HStack(alignment: .firstTextBaseline) {\n                    TextField(\"Title\""
+            ]
+        )
+
+        expectContent(
+            proof,
+            in: proofPath,
+            contains: [
+                "\"Shelf\"",
+                "\"Contents\"",
+                "\"CookbookCoverArt\"",
+                "\"CookbookRecipeIndexRow\"",
+                "\"CookbookOwnerToolsDisclosure\""
+            ]
+        )
+        expectContent(
+            capture,
+            in: capturePath,
+            contains: [
+                "\"cookbookShelfStrip\"",
+                "\"cookbookLibrarySpread\"",
+                "\"cookbookContentsIndex\"",
+                "\"cookbookOwnerToolsDisclosure\""
+            ]
+        )
+        expectContent(
+            validator,
+            in: validatorPath,
+            contains: [
+                "\"cookbookShelfStrip\"",
+                "\"cookbookLibrarySpread\"",
+                "\"cookbookContentsIndex\"",
+                "\"cookbookOwnerToolsDisclosure\""
+            ]
+        )
+    }
+
     @Test("shopping destructive actions stay behind confirmations")
     func shoppingDestructiveActionsStayBehindConfirmations() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
