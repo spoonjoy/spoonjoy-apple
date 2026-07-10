@@ -259,9 +259,10 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             )
         }
         if state.hasQuery {
+            let query = state.query
             return SearchSurfaceEmptyState(
-                title: "No matches",
-                message: "Try another recipe, cookbook, chef, or shopping item.",
+                title: "No matches for \"\(query)\"",
+                message: Self.noResultsMessage(query: query, scope: state.scope),
                 systemImage: "magnifyingglass"
             )
         }
@@ -270,6 +271,21 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             message: "Recipes, cookbooks, chefs, and shopping list items will gather here.",
             systemImage: "magnifyingglass"
         )
+    }
+
+    private static func noResultsMessage(query: String, scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "No Spoonjoy results match \"\(query)\"."
+        case .recipes:
+            "No saved recipes match \"\(query)\"."
+        case .cookbooks:
+            "No cookbooks match \"\(query)\"."
+        case .chefs:
+            "No chefs match \"\(query)\"."
+        case .shoppingList:
+            "No shopping items match \"\(query)\"."
+        }
     }
 
     private static func errorState(_ error: SearchSurfaceRepositoryError) -> SearchSurfaceErrorState {

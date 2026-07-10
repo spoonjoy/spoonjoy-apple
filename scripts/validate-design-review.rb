@@ -160,22 +160,57 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
 end
 
-def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id)
+def expected_search_proof(variant)
+  case variant
+  when "blank"
+    {
+      "query" => "",
+      "scope" => "all",
+      "routeIdentifier" => "search:all:",
+      "requiredSections" => ["Recipes", "Chefs"]
+    }
+  when "typed-results"
+    {
+      "query" => "lemon",
+      "scope" => "all",
+      "routeIdentifier" => "search:all:lemon",
+      "requiredSections" => ["Recipes"]
+    }
+  when "scoped-recipes"
+    {
+      "query" => "lemon",
+      "scope" => "recipes",
+      "routeIdentifier" => "search:recipes:lemon",
+      "requiredSections" => ["Recipes"]
+    }
+  when "no-results"
+    {
+      "query" => "kumquat",
+      "scope" => "recipes",
+      "routeIdentifier" => "search:recipes:kumquat",
+      "requiredSections" => []
+    }
+  else
+    fail_check("unsupported searchSurfaceVariant #{variant.inspect}")
+  end
+end
+
+def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id, expected)
   fail_check("#{manifest_path} searchSurfaceProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
   fail_check("#{manifest_path} missing search screenshot proof artifact #{proof_relative_path}") unless proof_path.file?
   proof = JSON.parse(proof_path.read)
   fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
   fail_check("#{proof_path} route must be search") unless proof["route"] == "search"
-  fail_check("#{proof_path} routeIdentifier must be search:all:") unless proof["routeIdentifier"] == "search:all:"
-  fail_check("#{proof_path} query must be blank") unless proof["query"] == ""
-  fail_check("#{proof_path} scope must be all") unless proof["scope"] == "all"
+  fail_check("#{proof_path} routeIdentifier must be #{expected["routeIdentifier"]}") unless proof["routeIdentifier"] == expected["routeIdentifier"]
+  fail_check("#{proof_path} query must be #{expected["query"].inspect}") unless proof["query"] == expected["query"]
+  fail_check("#{proof_path} scope must be #{expected["scope"]}") unless proof["scope"] == expected["scope"]
   fail_check("#{proof_path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless proof["searchScopes"] == EXPECTED_SEARCH_SCOPES
   fail_check("#{proof_path} accountID must be #{seed_account_id}") unless proof["accountID"] == seed_account_id
   fail_check("#{proof_path} source must be SearchView") unless proof["source"] == "SearchView"
   sections = proof["visibleSections"]
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
-  required_sections = ["Recipes", "Chefs"]
+  required_sections = expected["requiredSections"]
   missing_sections = required_sections.reject { |section| sections.include?(section) }
   fail_check("#{proof_path} visibleSections missing required search sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
 end
@@ -300,6 +335,11 @@ when "search"
   fail_check("#{path} searchNativeSurface must be true for search captures") unless manifest["searchNativeSurface"] == true
   seed_account_id = manifest["searchSeedAccountID"]
   fail_check("#{path} searchSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+  variant = manifest["searchSurfaceVariant"]
+  expected = expected_search_proof(variant)
+  fail_check("#{path} expectedQuery must be #{expected["query"].inspect}") unless manifest["expectedQuery"] == expected["query"]
+  fail_check("#{path} expectedScope must be #{expected["scope"]}") unless manifest["expectedScope"] == expected["scope"]
+  fail_check("#{path} expectedRouteIdentifier must be #{expected["routeIdentifier"]}") unless manifest["expectedRouteIdentifier"] == expected["routeIdentifier"]
   search_scopes = manifest["searchScopes"]
   fail_check("#{path} searchScopes must be an array") unless search_scopes.is_a?(Array)
   fail_check("#{path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless search_scopes == EXPECTED_SEARCH_SCOPES
@@ -308,7 +348,7 @@ when "search"
   fail_check("#{path} searchSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   proof_artifacts.each do |proof_relative_path|
     fail_check("#{path} searchSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
-    validate_search_proof!(path, proof_relative_path, seed_account_id)
+    validate_search_proof!(path, proof_relative_path, seed_account_id, expected)
   end
 when "recipe-detail"
   fail_check("#{path} recipeDetailSurface must be true for recipe detail captures") unless manifest["recipeDetailSurface"] == true

@@ -62,6 +62,7 @@ ios_accessibility_proof_runtime_path=""
 screenshot_proof_path=""
 screenshot_route="kitchen"
 shopping_capture_variant="normal"
+search_capture_variant="blank"
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
 else
@@ -89,6 +90,12 @@ else
     screenshot_route="shopping-list-offline-queued"
   elif [[ "$unit_slug" == *shopping-list* || "$unit_slug" == *shopping_list* || "$unit_slug" == *shopping* ]]; then
     screenshot_route="shopping-list"
+  elif [[ "$unit_slug" == *search-typed-results* || "$unit_slug" == *search_typed_results* ]]; then
+    screenshot_route="search-typed-results"
+  elif [[ "$unit_slug" == *search-scoped-recipes* || "$unit_slug" == *search_scoped_recipes* ]]; then
+    screenshot_route="search-scoped-recipes"
+  elif [[ "$unit_slug" == *search-no-results* || "$unit_slug" == *search_no_results* ]]; then
+    screenshot_route="search-no-results"
   elif [[ "$unit_slug" == *search* ]]; then
     screenshot_route="search"
   elif [[ "$unit_slug" == *capture* ]]; then
@@ -112,6 +119,15 @@ elif [[ "$screenshot_route" == "shopping-list-conflict" ]]; then
 elif [[ "$screenshot_route" == "shopping-list-offline-queued" ]]; then
   shopping_capture_variant="offline-queued"
   screenshot_route="shopping-list"
+elif [[ "$screenshot_route" == "search-typed-results" ]]; then
+  search_capture_variant="typed-results"
+  screenshot_route="search"
+elif [[ "$screenshot_route" == "search-scoped-recipes" ]]; then
+  search_capture_variant="scoped-recipes"
+  screenshot_route="search"
+elif [[ "$screenshot_route" == "search-no-results" ]]; then
+  search_capture_variant="no-results"
+  screenshot_route="search"
 fi
 settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
@@ -126,6 +142,9 @@ fi
 capture_account_id="$kitchen_capture_account_id"
 settings_capture_focus="profile"
 search_capture_disable_focus="0"
+expected_search_query=""
+expected_search_scope="all"
+expected_search_route_identifier="search:all:"
 recipe_detail_focus=""
 proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
 proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
@@ -189,8 +208,34 @@ case "$screenshot_route" in
   search)
     capture_account_id="$search_capture_account_id"
     search_capture_disable_focus="1"
-    expected_recorded_route="search:all:"
-    deep_link_path="search"
+    case "$search_capture_variant" in
+      blank)
+        expected_search_query=""
+        expected_search_scope="all"
+        ;;
+      typed-results)
+        expected_search_query="lemon"
+        expected_search_scope="all"
+        ;;
+      scoped-recipes)
+        expected_search_query="lemon"
+        expected_search_scope="recipes"
+        ;;
+      no-results)
+        expected_search_query="kumquat"
+        expected_search_scope="recipes"
+        ;;
+      *)
+        printf 'Unsupported search capture variant: %s\n' "$search_capture_variant" >&2
+        exit 2
+        ;;
+    esac
+    expected_search_route_identifier="search:${expected_search_scope}:${expected_search_query}"
+    expected_recorded_route="$expected_search_route_identifier"
+    deep_link_path="search?scope=${expected_search_scope}"
+    if [[ -n "$expected_search_query" ]]; then
+      deep_link_path="search?q=${expected_search_query}&scope=${expected_search_scope}"
+    fi
     macos_window_title="Search"
     ;;
   capture)
@@ -323,7 +368,7 @@ run_cleanup_command() {
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant = ARGV
+    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, expected_search_query, expected_search_scope, expected_search_route_identifier = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
@@ -353,6 +398,12 @@ write_design_review_success() {
       manifest["searchNativeSurface"] = true
       manifest["searchScopes"] = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
       manifest["searchSeedAccountID"] = "chef_search_capture"
+      manifest.merge!(
+        "searchSurfaceVariant" => search_capture_variant,
+        "expectedQuery" => expected_search_query,
+        "expectedScope" => expected_search_scope,
+        "expectedRouteIdentifier" => expected_search_route_identifier
+      )
       manifest["searchSurfaceProofArtifacts"] = [ios_proof, macos_proof]
     elsif route == "recipes"
       manifest["recipesNativeSurface"] = true
@@ -396,7 +447,7 @@ write_design_review_success() {
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier"
 }
 
 is_xcode_platform_blocker() {
@@ -1139,13 +1190,15 @@ wait_for_screenshot_proof() {
   local proof_path="$1"
   local expected_route="$2"
   local expected_focus="$3"
+  local expected_route_identifier="${4:-}"
   for _ in $(seq 1 "$proof_attempts"); do
     if ruby -rjson -e '
-      path, expected_route, expected_focus = ARGV
+      path, expected_route, expected_focus, expected_route_identifier = ARGV
       proof = JSON.parse(File.read(path))
       exit(1) unless proof.fetch("route") == expected_route
       exit(1) if !expected_focus.empty? && proof.fetch("visualFocus") != expected_focus
-    ' "$proof_path" "$expected_route" "$expected_focus" >/dev/null 2>&1; then
+      exit(1) if !expected_route_identifier.empty? && proof.fetch("routeIdentifier") != expected_route_identifier
+    ' "$proof_path" "$expected_route" "$expected_focus" "$expected_route_identifier" >/dev/null 2>&1; then
       return 0
     fi
     sleep "$proof_sleep_seconds"
@@ -1356,7 +1409,7 @@ validate_screenshot_surface_proof() {
     return 0
   fi
   ruby -rjson -rfileutils -e '
-    path, output_path, platform, screenshot_route, expected_focus, expected_recorded_route, capture_account_id = ARGV
+    path, output_path, platform, screenshot_route, expected_focus, expected_recorded_route, capture_account_id, expected_search_query, expected_search_scope, search_capture_variant = ARGV
     proof = JSON.parse(File.read(path))
     if screenshot_route == "settings"
       abort("#{platform} screenshot proof route mismatch") unless proof.fetch("route") == "settings"
@@ -1368,8 +1421,8 @@ validate_screenshot_surface_proof() {
       abort("#{platform} screenshot proof route identifier mismatch") unless proof.fetch("routeIdentifier") == expected_recorded_route
       abort("#{platform} screenshot proof source mismatch") unless proof.fetch("source") == "SearchView"
       abort("#{platform} screenshot proof account mismatch") unless proof.fetch("accountID") == capture_account_id
-      abort("#{platform} screenshot proof scope mismatch") unless proof.fetch("scope") == "all"
-      abort("#{platform} screenshot proof query mismatch") unless proof.fetch("query") == ""
+      abort("#{platform} screenshot proof scope mismatch") unless proof.fetch("scope") == expected_search_scope
+      abort("#{platform} screenshot proof query mismatch") unless proof.fetch("query") == expected_search_query
       abort("#{platform} screenshot proof searchable scopes mismatch") unless proof.fetch("searchScopes") == expected_scopes
     end
     sections = proof.fetch("visibleSections")
@@ -1383,13 +1436,18 @@ validate_screenshot_surface_proof() {
       missing = required_sections.reject { |section| sections.include?(section) }
       abort("#{platform} screenshot proof missing sections: #{missing.join(", ")}") unless missing.empty?
     else
-      required_sections = ["Recipes", "Chefs"]
+      required_sections = case search_capture_variant
+                          when "blank" then ["Recipes", "Chefs"]
+                          when "typed-results", "scoped-recipes" then ["Recipes"]
+                          when "no-results" then []
+                          else abort("#{platform} unsupported search capture variant #{search_capture_variant}")
+                          end
       missing = required_sections.reject { |section| sections.include?(section) }
       abort("#{platform} screenshot proof missing sections: #{missing.join(", ")}") unless missing.empty?
     end
     FileUtils.mkdir_p(File.dirname(output_path))
     File.write(output_path, JSON.pretty_generate(proof.merge("platform" => platform)) + "\n")
-  ' "$proof_path" "$output_path" "$platform" "$screenshot_route" "$settings_capture_focus" "$expected_recorded_route" "$capture_account_id"
+  ' "$proof_path" "$output_path" "$platform" "$screenshot_route" "$settings_capture_focus" "$expected_recorded_route" "$capture_account_id" "$expected_search_query" "$expected_search_scope" "$search_capture_variant"
 }
 
 capture_ios_app() {
@@ -1430,10 +1488,12 @@ capture_ios_app() {
   sleep 1
   if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
     local proof_focus="$settings_capture_focus"
+    local proof_route_identifier=""
     if [[ "$screenshot_route" == "search" ]]; then
       proof_focus=""
+      proof_route_identifier="$expected_search_route_identifier"
     fi
-    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" || return 1
+    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" "$proof_route_identifier" || return 1
     validate_screenshot_surface_proof "$screenshot_proof_path" "$ios_proof_artifact" "ios" >> "$capture_log" 2>&1 || return 1
   fi
   if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "$accessibility_proof_ios"; then
@@ -1636,10 +1696,12 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   fi
   wait_for_route "$expected_recorded_route" || true
   proof_focus="$settings_capture_focus"
+  proof_route_identifier=""
   if [[ "$screenshot_route" == "search" ]]; then
     proof_focus=""
+    proof_route_identifier="$expected_search_route_identifier"
   fi
-  if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus"; then
+  if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus" "$proof_route_identifier"; then
     printf 'Spoonjoy did not write the expected macOS screenshot proof for %s\n' "$screenshot_route" >> "$capture_log"
     write_blocker \
       "$macos_blocker" \
@@ -1717,7 +1779,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
     fi
     wait_for_route "$expected_recorded_route" || true
-    if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus"; then
+    if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]] && ! wait_for_screenshot_proof "$proof_file" "$screenshot_route" "$proof_focus" "$proof_route_identifier"; then
       printf 'Spoonjoy did not write the expected macOS screenshot proof after relaunch for %s\n' "$screenshot_route" >> "$capture_log"
       write_blocker \
         "$macos_blocker" \

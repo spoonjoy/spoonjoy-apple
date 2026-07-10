@@ -527,8 +527,8 @@ struct NativeSearchSurfaceTests {
             now: { Self.now }
         )
         #expect(noMatches.emptyState == SearchSurfaceEmptyState(
-            title: "No matches",
-            message: "Try another recipe, cookbook, chef, or shopping item.",
+            title: "No matches for \"kumquat\"",
+            message: "No saved recipes match \"kumquat\".",
             systemImage: "magnifyingglass"
         ))
 

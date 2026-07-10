@@ -8,7 +8,6 @@ struct SearchView: View {
 
     @Binding private var search: SearchState
     @State private var inFlightRequest: SearchSurfaceRequest?
-    @FocusState private var isSearchFocused: Bool
 
     private let viewModel: SearchSurfaceViewModel
     private let openRoute: (AppRoute) -> Void
@@ -41,8 +40,6 @@ struct SearchView: View {
                 subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)"
             )
 
-            searchControls
-
             if viewModel.offlineIndicator.display.isVisible {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
@@ -69,6 +66,17 @@ struct SearchView: View {
         }
         .tint(KitchenTableTheme.herb)
         .navigationTitle("Search")
+        .searchable(text: searchTextBinding, prompt: "Search Spoonjoy")
+        .searchScopes(searchScopeBinding) {
+            ForEach(searchableScopeOrder, id: \.rawValue) { scope in
+                Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
+            }
+        }
+        .onSubmit(of: .search) {
+            Task {
+                await searchTask(search)
+            }
+        }
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
@@ -83,58 +91,6 @@ struct SearchView: View {
         }
     }
 
-    private var searchControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(KitchenTableTheme.brass)
-                TextField("tomato beans", text: searchTextBinding)
-#if os(iOS)
-                    .textInputAutocapitalization(.never)
-#endif
-                    .autocorrectionDisabled()
-                    .focused($isSearchFocused)
-                    .onSubmit {
-                        Task {
-                            await searchTask(search)
-                        }
-                    }
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 48)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(searchableScopeOrder, id: \.rawValue) { scope in
-                        Button {
-                            search.update(query: search.query, scope: scope)
-                            Task {
-                                await searchTask(search)
-                            }
-                        } label: {
-                            Text(scopeLabel(scope))
-                                .font(KitchenTableTheme.uiLabel)
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 34)
-                                .foregroundStyle(scope == search.scope ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
-                                .background(scope == search.scope ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
-                                .overlay {
-                                    Capsule()
-                                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
-                                }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
     private var searchTextBinding: Binding<String> {
         Binding(
             get: { search.query },
@@ -144,19 +100,16 @@ struct SearchView: View {
         )
     }
 
-    private func scopeLabel(_ scope: SearchScope) -> String {
-        switch scope {
-        case .all:
-            "Everything"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
-        }
+    private var searchScopeBinding: Binding<SearchScope> {
+        Binding(
+            get: { search.scope },
+            set: { scope in
+                search.update(query: search.query, scope: scope)
+                Task {
+                    await searchTask(search)
+                }
+            }
+        )
     }
 
     private var searchableScopeOrder: [SearchScope] {
@@ -240,6 +193,23 @@ struct SearchView: View {
 private enum SearchSurfaceContract {
     static let searchableScopes = "searchable scopes"
     static let typedRows = "typed rows"
+}
+
+private enum SearchSurfaceNativeChrome {
+    static func title(for scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "Everything"
+        case .recipes:
+            "Recipes"
+        case .cookbooks:
+            "Cookbooks"
+        case .chefs:
+            "Chefs"
+        case .shoppingList:
+            "Shopping"
+        }
+    }
 }
 
 private struct SearchSurfaceSectionView: View {

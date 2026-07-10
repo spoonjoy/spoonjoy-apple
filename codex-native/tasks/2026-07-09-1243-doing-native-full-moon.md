@@ -259,7 +259,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red tests over `SearchView`, search models, and screenshot proof contracts.
 **Acceptance**: Tests fail on a current search scope/proof/navigation gap.
 
-### ⬜ Unit 4e: Search Workflow — Implementation
+### ✅ Unit 4e: Search Workflow — Implementation
 **What**: Rework search as a cookbook index with native scopes and stable result navigation.
 **Output**: Updated search view/models/helpers.
 **Acceptance**: Unit 4d tests pass; search does not navigate through false unavailable states.
@@ -543,6 +543,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 04:29 Unit 4b complete: implemented the shopping receipt workflow with `KitchenTablePage` header/composer, receipt action language, native `List`/`Section` receipt rows, source/duplicate row metadata, all-complete and queued receipt states, honest active counts, optimistic add-from-recipe rows, queued/offline optimistic list recording, stronger scenario verifier checks, and all-complete/offline screenshot aliases. Validation passed: focused shopping contracts, full `swift test`, native design/shell/palette/accessibility contracts, iOS app build, macOS app build, and build-log warning scan. Evidence is under `unit-4b/`.
 - 2026-07-10 05:34 Unit 4c complete: captured and inspected Shopping normal, empty, all-complete, duplicate, conflict, and offline-queued states on iOS/macOS; fixed the oversized composer, duplicate empty-state controls, sync-store variant seeding, duplicate queued banner, and missing deterministic conflict capture; validated all six design reviews and passed final full Swift tests, iOS/macOS app builds, native design/shell/accessibility/palette contracts, diff check, and warning scan. Evidence and ledger are under `unit-4c/`.
 - 2026-07-10 05:37 Unit 4d complete: added red search contracts for scoped no-results copy, native `.searchable`/`.searchScopes` ownership, typed/scoped/no-results screenshot routes, and variant-aware proof validation. Focused red runs fail on the current generic empty copy, custom search controls, and blank-only proof harness with evidence at `unit-4d/red-search-empty-state.log` and `unit-4d/red-search-native-proof-contract.log`.
+- 2026-07-10 05:47 Unit 4e complete: moved Search to native `.searchable` and `.searchScopes`, removed the custom text field/scope rail, added scoped no-results copy, upgraded scenario verifier search-source gates, and made search screenshot capture/validation variant-aware for blank, typed, scoped-recipes, and no-results states. Validation passed: focused red-to-green search tests, full `NativeSearchSurfaceTests`, full `NativeMobileDesignContractTests`, native scenario metadata, full `swift test`, native design/shell/accessibility/palette contracts, iOS/macOS app-target builds, script syntax checks, and warning scan. Evidence is under `unit-4e/`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1

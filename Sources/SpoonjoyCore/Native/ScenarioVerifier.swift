@@ -396,8 +396,8 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
-                    forbiddenTokens: [".searchable(", ".searchScopes("]
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
                     name: "capture surface source",
@@ -553,8 +553,8 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
-                    forbiddenTokens: [".searchable(", ".searchScopes("]
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
                     name: "capture surface source",
