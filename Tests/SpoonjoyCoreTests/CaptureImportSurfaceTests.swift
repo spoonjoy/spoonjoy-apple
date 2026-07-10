@@ -4,8 +4,8 @@ import Testing
 
 @Suite("Native capture and import parity")
 struct CaptureImportSurfaceTests {
-    @Test("capture surface only presents truthful agent and App Intents import paths")
-    func captureSurfaceOnlyPresentsTruthfulAgentAndIntentImportPaths() throws {
+    @Test("capture surface only presents truthful agent and Shortcuts import paths")
+    func captureSurfaceOnlyPresentsTruthfulAgentAndShortcutsImportPaths() throws {
         let failures = captureImportSurfaceSourceContractFailures(
             requiredFiles: [
                 "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
@@ -19,8 +19,10 @@ struct CaptureImportSurfaceTests {
                     "CaptureImportEntryPoint",
                     "agentMCP",
                     "appIntent",
-                    "MCP agent",
-                    "App Intents",
+                    "Spoonjoy agent",
+                    "Shortcuts & Siri",
+                    "Shortcuts and Siri",
+                    "Import queue",
                     "Siri",
                     "Submit import",
                     "Retry sync",
@@ -31,7 +33,7 @@ struct CaptureImportSurfaceTests {
                     "ImportStatusPanel("
                 ],
                 "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
-                    "Agent import",
+                    "Import queue",
                     "Submit import",
                     "Retry when online",
                     "SignedOutSetupView",
@@ -47,10 +49,11 @@ struct CaptureImportSurfaceTests {
                     "photoLibraryComingSoon",
                     "Submit import",
                     "Retry when online",
-                    "Resolve import setup"
+                    "Resolve import setup",
+                    "Capture surface reviews Spoonjoy agent and Shortcuts drafts"
                 ],
                 "scripts/capture-native-screenshots.sh": [
-                    "\"Agent import\"",
+                    "\"Import queue\"",
                     "\"Submit import\"",
                     "\"Retry when online\"",
                     "capture_surface_variant",
@@ -58,7 +61,7 @@ struct CaptureImportSurfaceTests {
                     "SignedOutSetupView"
                 ],
                 "scripts/validate-design-review.rb": [
-                    "\"Agent import\"",
+                    "\"Import queue\"",
                     "\"Submit import\"",
                     "\"Retry when online\"",
                     "EXPECTED_CAPTURE_VARIANTS",
@@ -68,6 +71,11 @@ struct CaptureImportSurfaceTests {
             ],
             forbiddenTokens: [
                 "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift": [
+                    "Agent import",
+                    "MCP agent",
+                    "MCP agent imports",
+                    "Use the Spoonjoy MCP agent",
+                    "App Intents",
                     "textSourceURLText",
                     "recipeURLText",
                     "videoURLText",

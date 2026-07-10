@@ -37,6 +37,9 @@ legacy_blocker_path="$artifact_root/smoke-ios-simulator-blocker.json"
 log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-ios-inner.log}"
 blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-ios-simulator-blocker.json}"
 derived_data_path="$artifact_root/DerivedData-iOS"
+prebuilt_app_path="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
+reuse_installed_app="${SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP:-0}"
+install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-}"
 timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
 launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
 list_runtimes_command="xcrun simctl list runtimes"
@@ -90,13 +93,13 @@ try:
 except subprocess.TimeoutExpired:
     try:
         os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         pass
     time.sleep(0.2)
     if process.poll() is None:
         try:
             os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
     try:
         stdout, _ = process.communicate(timeout=1)
@@ -162,7 +165,7 @@ if [[ "$resolver_status" -ne 0 || -z "$destination" ]]; then
 fi
 
 udid="${destination##*,id=}"
-app_path="$derived_data_path/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
+app_path="${prebuilt_app_path:-$derived_data_path/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app}"
 build_destination="generic/platform=iOS Simulator"
 build_label="xcodebuild -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -configuration BootstrapDebug -destination '$build_destination' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build"
 build_command=(
@@ -177,14 +180,27 @@ build_command=(
   build
 )
 
-{
-  printf 'Running iOS simulator build: %s\n' "$build_label"
-  set +e
-  "${build_command[@]}"
-  build_status=$?
-  set -e
-  printf 'iOS simulator build exit code: %s\n' "$build_status"
-} >> "$log_path" 2>&1
+if [[ -n "$prebuilt_app_path" ]]; then
+  {
+    printf 'Using prebuilt iOS simulator app from SPOONJOY_SCREENSHOT_IOS_APP_PATH: %s\n' "$app_path"
+    if [[ -d "$app_path" ]]; then
+      build_status=0
+    else
+      printf 'prebuilt iOS simulator app bundle missing at %s\n' "$app_path"
+      build_status=1
+    fi
+    printf 'iOS simulator build exit code: %s\n' "$build_status"
+  } >> "$log_path" 2>&1
+else
+  {
+    printf 'Running iOS simulator build: %s\n' "$build_label"
+    set +e
+    "${build_command[@]}"
+    build_status=$?
+    set -e
+    printf 'iOS simulator build exit code: %s\n' "$build_status"
+  } >> "$log_path" 2>&1
+fi
 
 if [[ "$build_status" -ne 0 ]]; then
   printf 'iOS simulator smoke build failed; see %s\n' "$log_path" >&2
@@ -217,21 +233,46 @@ if [[ "$boot_status" -ne 0 ]]; then
 fi
 
 {
-  printf 'Uninstalling stale app before fresh install: %s app.spoonjoy\n' "$udid"
-  set +e
-  run_with_timeout "xcrun simctl uninstall $udid app.spoonjoy"
-  uninstall_status=$?
-  set -e
-  printf 'simulator uninstall exit code: %s\n' "$uninstall_status"
-  if [[ "$uninstall_status" -eq 124 ]]; then
-    printf 'simulator uninstall timed out; continuing with fresh install attempt\n'
+  install_needed=1
+  install_status=0
+  if [[ "$reuse_installed_app" == "1" && -n "$install_marker" && -f "$install_marker" ]]; then
+    printf 'Checking reusable iOS simulator app install marker: %s\n' "$install_marker"
+    set +e
+    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy data")"
+    existing_status=$?
+    set -e
+    printf 'simulator reusable app container lookup exit code: %s\n' "$existing_status"
+    if [[ -n "$existing_container" ]]; then
+      printf '%s\n' "$existing_container"
+    fi
+    if [[ "$existing_status" -eq 0 && -n "$existing_container" ]]; then
+      install_needed=0
+      printf 'Reusing installed iOS simulator app for this screenshot route\n'
+    fi
   fi
-  printf 'Installing app: %s\n' "$app_path"
-  set +e
-  run_with_timeout "xcrun simctl install $udid '$app_path'"
-  install_status=$?
-  set -e
-  printf 'simulator install exit code: %s\n' "$install_status"
+
+  if [[ "$install_needed" -eq 1 ]]; then
+    printf 'Uninstalling stale app before fresh install: %s app.spoonjoy\n' "$udid"
+    set +e
+    run_with_timeout "xcrun simctl uninstall $udid app.spoonjoy"
+    uninstall_status=$?
+    set -e
+    printf 'simulator uninstall exit code: %s\n' "$uninstall_status"
+    if [[ "$uninstall_status" -eq 124 ]]; then
+      printf 'simulator uninstall timed out; continuing with fresh install attempt\n'
+    fi
+    printf 'Installing app: %s\n' "$app_path"
+    set +e
+    run_with_timeout "xcrun simctl install $udid '$app_path'"
+    install_status=$?
+    set -e
+    printf 'simulator install exit code: %s\n' "$install_status"
+    if [[ "$install_status" -eq 0 && "$reuse_installed_app" == "1" && -n "$install_marker" ]]; then
+      mkdir -p "$(dirname "$install_marker")"
+      printf '%s\n' "$app_path" > "$install_marker"
+      printf 'Wrote reusable iOS simulator app install marker: %s\n' "$install_marker"
+    fi
+  fi
 } >> "$log_path" 2>&1
 
 if [[ "$install_status" -ne 0 ]]; then

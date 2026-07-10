@@ -110,7 +110,7 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("capture", "CaptureDraftView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+                voiceOverLabels: ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
                 keyboardNavigationTargets: ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],

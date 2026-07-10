@@ -401,7 +401,7 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface reviews MCP-agent and App Intents drafts without presenting fake in-app import creation.",
+                    detail: "Capture surface reviews Spoonjoy agent and Shortcuts drafts without presenting fake in-app import creation.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
                     tokens: [
@@ -565,7 +565,7 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface reviews MCP-agent and App Intents drafts without presenting fake in-app import creation.",
+                    detail: "Capture surface reviews Spoonjoy agent and Shortcuts drafts without presenting fake in-app import creation.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
                     tokens: [

@@ -291,7 +291,7 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
-                "eyebrow: \"Agent import\"",
+                "eyebrow: \"Import queue\"",
                 "title: \"Capture\"",
                 "agentImportStatus",
                 "header\n            offlineStatus\n            agentImportStatus\n            if let currentDraft {\n                draftPreview(currentDraft)\n            }\n            entryPointLedger",
@@ -306,6 +306,10 @@ struct NativeMobileDesignContractTests {
                 "OfflineStatusView"
             ],
             forbids: [
+                "eyebrow: \"Agent import\"",
+                "MCP agent",
+                "MCP agent imports",
+                "Use the Spoonjoy MCP agent",
                 "eyebrow: \"Ouro Draft\"",
                 "eyebrow: \"Spoonjoy Capture\"",
                 "title: \"Import Status\"",
@@ -365,7 +369,7 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                "Button(\"Agent import\", systemImage: \"tray.and.arrow.down\")",
+                "Button(\"Import queue\", systemImage: \"tray.and.arrow.down\")",
                 "loadingTitle: recipeLoadingTitle(id: id)",
                 "private func recipeLoadingTitle(id: String) -> String?"
             ],
@@ -1409,12 +1413,12 @@ struct NativeMobileDesignContractTests {
             matrix,
             in: matrixPath,
             contains: [
-                "search-typed-results|search|",
-                "search-scoped-recipes|search|",
-                "search-scoped-cookbooks|search|",
-                "search-scoped-chefs|search|",
-                "search-scoped-shopping|search|",
-                "search-no-results|search|",
+                "search-typed-results|search-typed-results|",
+                "search-scoped-recipes|search-scoped-recipes|",
+                "search-scoped-cookbooks|search-scoped-cookbooks|",
+                "search-scoped-chefs|search-scoped-chefs|",
+                "search-scoped-shopping|search-scoped-shopping|",
+                "search-no-results|search-no-results|",
                 "capture-empty|capture-empty|",
                 "capture-draft|capture-draft|",
                 "capture-offline-retry|capture-offline-retry|",

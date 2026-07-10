@@ -815,7 +815,7 @@ struct PlatformNavigationView: View {
 
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button("Agent import", systemImage: "tray.and.arrow.down") {
+                Button("Import queue", systemImage: "tray.and.arrow.down") {
                     openRoute(.capture)
                 }
                 Button("Search", systemImage: "magnifyingglass") {
@@ -905,7 +905,7 @@ struct PlatformNavigationView: View {
         case .search:
             "Search"
         case .capture:
-            "Agent import"
+            "Import queue"
         case .settings:
             "Settings"
         case .unknownLink:

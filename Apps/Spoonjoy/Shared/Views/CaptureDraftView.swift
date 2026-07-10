@@ -85,9 +85,9 @@ struct CaptureDraftView: View {
 
     private var header: some View {
         KitchenTableHeader(
-            eyebrow: "Agent import",
+            eyebrow: "Import queue",
             title: "Capture",
-            subtitle: "MCP agent imports appear here for review. Native App Intents open the same local review and retry flow."
+            subtitle: "Recipes sent by your Spoonjoy agent appear here for review. Shortcuts and Siri use the same local retry flow."
         )
     }
 
@@ -139,7 +139,7 @@ struct CaptureDraftView: View {
 
     private func draftPreview(_ draft: CaptureDraft) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Agent import", systemImage: iconName(for: draft))
+            Label("Import source", systemImage: iconName(for: draft))
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.herb)
             ForEach(draft.previewLines, id: \.self) { line in
@@ -237,7 +237,7 @@ struct CaptureDraftView: View {
             }
             currentDraft = plan.captureDraftAfterCompletion
         } catch let error as CaptureDraftImportError where error == .needsTextRecognition {
-            actionErrorMessage = "App Intents import needs text recognition before submission."
+            actionErrorMessage = "Shortcuts import needs text recognition before submission."
         } catch {
             actionErrorMessage = "Import could not be submitted."
         }
@@ -270,9 +270,9 @@ private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .agentMCP:
-            "MCP agent"
+            "Spoonjoy agent"
         case .appIntent:
-            "App Intents"
+            "Shortcuts & Siri"
         }
     }
 
@@ -281,7 +281,7 @@ private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
         case .agentMCP:
             "Send an import-ready recipe capture from the Spoonjoy agent."
         case .appIntent:
-            "Open, submit, and delete captures from native actions and Siri."
+            "Open, submit, and delete captures from Shortcuts and Siri."
         }
     }
 
@@ -366,12 +366,12 @@ private struct ImportStatusPanel: View {
             return "Retry when online"
         }
         if hasCurrentDraft {
-            return "Agent import ready"
+            return "Import ready"
         }
         if isOffline {
             return "Offline import queue"
         }
-        return "Waiting for agent import"
+        return "Waiting for import"
     }
 
     private var statusBody: String {
@@ -385,9 +385,9 @@ private struct ImportStatusPanel: View {
             return "Review the captured source below. Submit import when it is ready."
         }
         if isOffline {
-            return "New MCP agent or App Intents imports can be kept locally until Spoonjoy reconnects."
+            return "New Spoonjoy agent or Shortcuts imports can be kept locally until Spoonjoy reconnects."
         }
-        return "Use the Spoonjoy MCP agent or App Intents to create a capture."
+        return "Use your Spoonjoy agent or Shortcuts to create a capture."
     }
 
     private var statusSymbol: String {

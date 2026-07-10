@@ -29,7 +29,7 @@ apple_dir="$artifact_root/apple"
 mkdir -p "$artifact_root/screenshots" "$apple_dir"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
-macos_app="$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app"
+macos_app="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app}"
 design_review="$artifact_root/design-review.json"
 design_review_blocked="$artifact_root/design-review-blocked.json"
 matrix_log="$artifact_root/apple/${unit_slug}-screenshots.log"
@@ -222,6 +222,8 @@ proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
 ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
+ios_smoke_attempts="${SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS:-2}"
+ios_capture_attempts="${SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS:-2}"
 expected_recorded_route="$screenshot_route"
 deep_link_path="$screenshot_route"
 macos_window_title="Kitchen"
@@ -432,13 +434,13 @@ with open(output_path, "ab") as output:
         output.write(f"\n{label} timed out after {timeout_seconds} seconds\n".encode())
         try:
             os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
         time.sleep(0.2)
         if process.poll() is None:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
                 pass
         process.wait()
         sys.exit(124)
@@ -1488,7 +1490,7 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
-          "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+          "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
           "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
@@ -1668,10 +1670,38 @@ validate_screenshot_surface_proof() {
                           end
       missing = required_sections.reject { |section| sections.include?(section) }
       abort("#{platform} screenshot proof missing sections: #{missing.join(", ")}") unless missing.empty?
+      if search_capture_variant == "no-results" && !sections.empty?
+        abort("#{platform} no-results search proof must not include result sections: #{sections.join(", ")}")
+      end
     end
     FileUtils.mkdir_p(File.dirname(output_path))
     File.write(output_path, JSON.pretty_generate(proof.merge("platform" => platform)) + "\n")
   ' "$proof_path" "$output_path" "$platform" "$screenshot_route" "$settings_capture_focus" "$expected_recorded_route" "$capture_account_id" "$expected_search_query" "$expected_search_scope" "$search_capture_variant"
+}
+
+resolve_ios_data_container() {
+  local udid="$1"
+  local container_log
+  local data_container
+  local get_container_status
+  container_log="$(mktemp)"
+  for _ in $(seq 1 5); do
+    : > "$container_log"
+    set +e
+    data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy data 2>"$container_log")"
+    get_container_status=$?
+    set -e
+    if [[ "$get_container_status" -eq 0 && -n "$data_container" && -d "$data_container" ]]; then
+      rm -f "$container_log"
+      printf '%s\n' "$data_container"
+      return 0
+    fi
+    printf 'simulator app data container lookup failed (exit %s, path %s)\n' "$get_container_status" "${data_container:-<empty>}" >> "$capture_log"
+    cat "$container_log" >> "$capture_log"
+    sleep 1
+  done
+  rm -f "$container_log"
+  return 1
 }
 
 capture_ios_app() {
@@ -1689,7 +1719,10 @@ capture_ios_app() {
     return 1
   fi
   rm -f "$bootstatus_log"
-  data_container="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)"
+  if ! data_container="$(resolve_ios_data_container "$udid")"; then
+    printf 'unable to resolve simulator app data container for app.spoonjoy on %s\n' "$udid" >> "$capture_log"
+    return 1
+  fi
   local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
   screenshot_proof_path="$ios_app_dir/native-screenshot-proof.json"
   ios_accessibility_proof_runtime_path="$ios_app_dir/native-accessibility-proof.json"
@@ -1733,6 +1766,25 @@ capture_ios_app() {
   xcrun simctl io "$udid" screenshot "$ios_screenshot" >> "$capture_log" 2>&1
   [[ -f "$ios_screenshot" && -s "$ios_screenshot" ]]
   validate_ios_screenshot >> "$capture_log" 2>&1
+}
+
+capture_ios_app_with_retries() {
+  local udid="$1"
+  local attempt=1
+  while [[ "$attempt" -le "$ios_capture_attempts" ]]; do
+    rm -f "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios" "$accessibility_proof_ios_abs"
+    if capture_ios_app "$udid"; then
+      return 0
+    fi
+    printf 'iOS screenshot capture attempt %s/%s failed for route %s\n' "$attempt" "$ios_capture_attempts" "$screenshot_route" >> "$capture_log"
+    if [[ "$attempt" -lt "$ios_capture_attempts" ]]; then
+      xcrun simctl terminate "$udid" app.spoonjoy >> "$capture_log" 2>&1 || true
+      xcrun simctl shutdown "$udid" >> "$capture_log" 2>&1 || true
+      sleep 2
+    fi
+    attempt=$((attempt + 1))
+  done
+  return 1
 }
 
 capture_macos_window() {
@@ -1798,6 +1850,29 @@ run_smoke() {
   fi
 }
 
+run_ios_smoke() {
+  local attempt=1
+  while [[ "$attempt" -le "$ios_smoke_attempts" ]]; do
+    rm -f "$ios_blocker"
+    run_smoke "iOS simulator" "$ios_smoke_log" "$ios_blocker" scripts/smoke-ios-simulator.sh
+    if [[ ! -f "$ios_blocker" || -f "$xcode_blocker" ]]; then
+      return 0
+    fi
+    printf 'iOS simulator smoke attempt %s/%s produced blocker\n' "$attempt" "$ios_smoke_attempts" >> "$capture_log"
+    if [[ "$attempt" -lt "$ios_smoke_attempts" ]]; then
+      local retry_udid=""
+      retry_udid="$(ios_udid_from_smoke_log || true)"
+      if [[ -n "$retry_udid" ]]; then
+        xcrun simctl shutdown "$retry_udid" >> "$capture_log" 2>&1 || true
+      else
+        xcrun simctl shutdown all >> "$capture_log" 2>&1 || true
+      fi
+      sleep 2
+    fi
+    attempt=$((attempt + 1))
+  done
+}
+
 : > "$capture_log"
 rm -f "$ios_screenshot" "$macos_screenshot"
 rm -f "$ios_proof_artifact" "$macos_proof_artifact"
@@ -1807,14 +1882,14 @@ rm -f "$design_review_blocked"
 rm -f "$design_review"
 rm -f "$xcode_blocker" "$ios_blocker" "$macos_blocker"
 
-run_smoke "iOS simulator" "$ios_smoke_log" "$ios_blocker" scripts/smoke-ios-simulator.sh
+run_ios_smoke
 if [[ ! -f "$xcode_blocker" ]]; then
   run_smoke "macOS launch" "$macos_smoke_log" "$macos_blocker" scripts/smoke-macos.sh
 fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
   ios_udid="$(ios_udid_from_smoke_log || true)"
-  if [[ -z "$ios_udid" ]] || ! capture_ios_app "$ios_udid"; then
+  if [[ -z "$ios_udid" ]] || ! capture_ios_app_with_retries "$ios_udid"; then
     write_blocker \
       "$ios_blocker" \
       "CoreSimulator" \

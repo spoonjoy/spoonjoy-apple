@@ -87,7 +87,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
-    "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+    "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
     "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
@@ -220,7 +220,8 @@ def expected_search_proof(variant)
       "query" => "kumquat",
       "scope" => "recipes",
       "routeIdentifier" => "search:recipes:kumquat",
-      "requiredSections" => []
+      "requiredSections" => [],
+      "requiresEmptySections" => true
     }
   else
     fail_check("unsupported searchSurfaceVariant #{variant.inspect}")
@@ -245,6 +246,9 @@ def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id, 
   required_sections = expected["requiredSections"]
   missing_sections = required_sections.reject { |section| sections.include?(section) }
   fail_check("#{proof_path} visibleSections missing required search sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+  if expected["requiresEmptySections"] && !sections.empty?
+    fail_check("#{proof_path} no-results search proof must not include visible result sections: #{sections.join(", ")}")
+  end
 end
 
 def expected_accessibility_source(route, manifest)

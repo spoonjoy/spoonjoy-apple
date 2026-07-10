@@ -47,6 +47,8 @@ SCRIPT_CONTRACTS = {
       "apple/${unit_slug}-smoke-macos-inner.log",
       "apple/${unit_slug}-smoke-macos-blocker.json",
       "Spoonjoy.app",
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH",
+      "Using prebuilt macOS app",
       "xcodebuild -project Spoonjoy.xcodeproj",
       "generic/platform=macOS",
       "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
@@ -72,6 +74,11 @@ SCRIPT_CONTRACTS = {
       "smoke-ios-simulator-blocker.json",
       "apple/${unit_slug}-smoke-ios-inner.log",
       "apple/${unit_slug}-smoke-ios-simulator-blocker.json",
+      "SPOONJOY_SCREENSHOT_IOS_APP_PATH",
+      "Using prebuilt iOS simulator app",
+      "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
+      "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
+      "Reusing installed iOS simulator app",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
       "xcrun simctl uninstall",
@@ -79,6 +86,7 @@ SCRIPT_CONTRACTS = {
       "timeoutSeconds",
       "30",
       "CoreSimulator",
+      "PermissionError",
       ".github/scripts/resolve-ios-simulator-destination.py",
       "ownerAction"
     ]
@@ -129,10 +137,13 @@ SCRIPT_CONTRACTS = {
       "spoonjoy://$screenshot_route",
       "validate_ios_screenshot",
       "get_app_container",
+      "resolve_ios_data_container",
+      "simulator app data container lookup failed",
       "native-durable-cache.json",
       "SPOONJOY_SCREENSHOT_AUTH",
       "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY",
       "SPOONJOY_SCREENSHOT_ACCOUNT_ID",
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH",
       "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS",
       "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
@@ -140,7 +151,12 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS",
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS",
       "run_with_timeout",
+      "PermissionError",
+      "run_ios_smoke",
+      "capture_ios_app_with_retries",
       "is_transient_screenshot_launch_key",
       "SPOONJOY_SCREENSHOT_*",
       "simulator launch timeout",
@@ -208,9 +224,20 @@ SCRIPT_CONTRACTS = {
       "design-review.json",
       "design-review-blocked.json",
       "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_MATRIX_BUILD_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES",
+      "SPOONJOY_SCREENSHOT_IOS_APP_PATH",
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH",
+      "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
+      "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
+      "scripts/run-xcodebuild-with-blocker.sh",
+      "shared-builds",
+      "shared-ios-xcodebuild.log",
+      "shared-macos-xcodebuild.log",
       "cookbook-detail|cookbook-detail|",
       "timeoutSeconds",
       "ScreenshotRouteTimeout",
+      "PermissionError",
       "ownerAction",
       "sourceBlockerPath"
     ]
@@ -411,7 +438,7 @@ def route_accessibility_evidence(route)
     }
   when "capture"
     {
-      "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+      "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
       "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
@@ -540,7 +567,11 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
   temp_root = Pathname.new(directory)
   script_root = temp_root.join("matrix-fixture")
   artifact_root = temp_root.join("artifacts")
+  prebuilt_ios_app = temp_root.join("prebuilt-ios/Spoonjoy.app")
+  prebuilt_macos_app = temp_root.join("prebuilt-macos/Spoonjoy.app")
   script_root.join("scripts").mkpath
+  prebuilt_ios_app.mkpath
+  prebuilt_macos_app.mkpath
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshot-matrix.sh"), script_root.join("scripts/capture-native-screenshot-matrix.sh"))
 
   write_executable(script_root.join("scripts/capture-native-screenshots.sh"), <<~'SH')
@@ -626,7 +657,9 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
     "unit-contract",
     env: {
       "PATH" => ENV.fetch("PATH"),
-      "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS" => "1"
+      "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => prebuilt_ios_app.to_s,
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH" => prebuilt_macos_app.to_s
     },
     chdir: script_root
   )
@@ -1253,7 +1286,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
           route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
           ;;
         capture)
-          route_evidence='{"voiceOverLabels":["Agent import","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
+          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -1413,7 +1446,7 @@ PY
           route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
           ;;
         capture)
-          route_evidence='{"voiceOverLabels":["Agent import","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
+          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -1880,6 +1913,7 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
       "HOME" => script_root.join("home").to_s,
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
       "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1",
       "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "1",
       "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.01"
     },

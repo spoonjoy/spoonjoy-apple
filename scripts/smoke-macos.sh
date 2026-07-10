@@ -37,7 +37,8 @@ legacy_blocker_path="$artifact_root/smoke-macos-blocker.json"
 log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-macos-inner.log}"
 blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-macos-blocker.json}"
 derived_data_path="$artifact_root/DerivedData-macOS"
-app_path="$derived_data_path/Build/Products/BootstrapDebug/Spoonjoy.app"
+prebuilt_app_path="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-}"
+app_path="${prebuilt_app_path:-$derived_data_path/Build/Products/BootstrapDebug/Spoonjoy.app}"
 state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 state_backup="$artifact_root/native-app-state-smoke-backup.json"
 route_query="codex-smoke-route-$(date +%s)"
@@ -122,14 +123,27 @@ assert_route_proof() {
   ' "$state_file" "$expected_route"
 }
 
-{
-  printf 'Running macOS smoke build: %s\n' "$build_label"
-  set +e
-  "${build_command[@]}"
-  build_status=$?
-  set -e
-  printf 'macOS build exit code: %s\n' "$build_status"
-} > "$log_path" 2>&1
+if [[ -n "$prebuilt_app_path" ]]; then
+  {
+    printf 'Using prebuilt macOS app from SPOONJOY_SCREENSHOT_MACOS_APP_PATH: %s\n' "$app_path"
+    if [[ -d "$app_path" ]]; then
+      build_status=0
+    else
+      printf 'prebuilt macOS app bundle missing at %s\n' "$app_path"
+      build_status=1
+    fi
+    printf 'macOS build exit code: %s\n' "$build_status"
+  } > "$log_path" 2>&1
+else
+  {
+    printf 'Running macOS smoke build: %s\n' "$build_label"
+    set +e
+    "${build_command[@]}"
+    build_status=$?
+    set -e
+    printf 'macOS build exit code: %s\n' "$build_status"
+  } > "$log_path" 2>&1
+fi
 
 if [[ "$build_status" -ne 0 ]]; then
   printf 'macOS smoke build failed; see %s\n' "$log_path" >&2
