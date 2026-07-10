@@ -1297,6 +1297,86 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("search uses native searchable chrome and captures typed scoped evidence")
+    func searchUsesNativeSearchableChromeAndCapturesTypedScopedEvidence() throws {
+        let searchPath = "Apps/Spoonjoy/Shared/Views/SearchView.swift"
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
+        let validatorPath = "scripts/validate-design-review.rb"
+        let search = uncommentedSwift(try readRepoFile(searchPath))
+        let capture = try readRepoFile(capturePath)
+        let matrix = try readRepoFile(matrixPath)
+        let validator = try readRepoFile(validatorPath)
+
+        expectContent(
+            search,
+            in: searchPath,
+            contains: [
+                ".searchable(text: searchTextBinding, prompt: \"Search Spoonjoy\")",
+                ".searchScopes(searchScopeBinding)",
+                "SearchSurfaceNativeChrome",
+                "onSubmit(of: .search)",
+                "searchScopeBinding"
+            ],
+            forbids: [
+                "TextField(\"tomato beans\"",
+                "ScrollView(.horizontal, showsIndicators: false)",
+                "scopeLabel(scope)",
+                "searchControls"
+            ]
+        )
+
+        expectContent(
+            capture,
+            in: capturePath,
+            contains: [
+                "search_capture_variant",
+                "search-typed-results",
+                "search-scoped-recipes",
+                "search-no-results",
+                "expected_search_query",
+                "expected_search_scope",
+                "expected_search_route_identifier",
+                "\"searchSurfaceVariant\" => search_capture_variant",
+                "\"expectedQuery\" => expected_search_query",
+                "\"expectedScope\" => expected_search_scope"
+            ],
+            forbids: [
+                "proof.fetch(\"scope\") == \"all\"",
+                "proof.fetch(\"query\") == \"\""
+            ]
+        )
+
+        expectContent(
+            matrix,
+            in: matrixPath,
+            contains: [
+                "search-typed-results|search|",
+                "search-scoped-recipes|search|",
+                "search-no-results|search|"
+            ]
+        )
+
+        expectContent(
+            validator,
+            in: validatorPath,
+            contains: [
+                "searchSurfaceVariant",
+                "expected_search_proof",
+                "\"typed-results\"",
+                "\"scoped-recipes\"",
+                "\"no-results\"",
+                "proof[\"query\"] == expected[\"query\"]",
+                "proof[\"scope\"] == expected[\"scope\"]"
+            ],
+            forbids: [
+                "routeIdentifier must be search:all:",
+                "query must be blank",
+                "scope must be all"
+            ]
+        )
+    }
+
     @Test("compact mobile routes do not duplicate large system titles above authored headers")
     func compactMobileRoutesDoNotDuplicateLargeSystemTitles() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"

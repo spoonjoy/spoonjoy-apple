@@ -577,6 +577,40 @@ struct NativeSearchSurfaceTests {
         #expect(cachedOfflineWithDefaultClock.offlineIndicator.display == .offline)
     }
 
+    @Test("search empty states speak in the selected scope")
+    func searchEmptyStatesSpeakInTheSelectedScope() {
+        let expectations: [(SearchScope, String)] = [
+            (.all, "No Spoonjoy results match \"kumquat\"."),
+            (.recipes, "No saved recipes match \"kumquat\"."),
+            (.cookbooks, "No cookbooks match \"kumquat\"."),
+            (.chefs, "No chefs match \"kumquat\"."),
+            (.shoppingList, "No shopping items match \"kumquat\".")
+        ]
+
+        for (scope, message) in expectations {
+            let state = SearchState(query: "kumquat", scope: scope)
+            let viewModel = SearchSurfaceViewModel(
+                page: SearchSurfacePage(
+                    query: state.query,
+                    scope: state.scope,
+                    limit: 20,
+                    isAuthenticated: true,
+                    results: [],
+                    source: .live(requestID: "req_search_empty_\(scope.rawValue)", validatedAt: Self.now)
+                ),
+                state: state,
+                context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+                now: { Self.now }
+            )
+
+            #expect(viewModel.emptyState == SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ))
+        }
+    }
+
     @Test("search rows expose stable native labels icons and fallback subtitles")
     func searchRowsExposeStableNativeLabelsIconsAndFallbackSubtitles() {
         let sections = SearchScope.allCases.map { SearchSurfaceSection(kind: $0, rows: []) }

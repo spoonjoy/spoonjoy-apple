@@ -1,0 +1,31 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+Test Suite 'Selected tests' started at 2026-07-10 05:36:30.380.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 05:36:30.381.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 05:36:30.381.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 05:36:30.381.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "search uses native searchable chrome and captures typed scoped evidence" started.
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1443:5: Expectation failed: (missing → [".searchable(text: searchTextBinding, prompt: \"Search Spoonjoy\")", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome", "onSubmit(of: .search)", "searchScopeBinding"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/SearchView.swift missing tokens: .searchable(text: searchTextBinding, prompt: "Search Spoonjoy"), .searchScopes(searchScopeBinding), SearchSurfaceNativeChrome, onSubmit(of: .search), searchScopeBinding
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1444:5: Expectation failed: (forbidden → ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)", "scopeLabel(scope)", "searchControls"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/SearchView.swift contains forbidden tokens: TextField("tomato beans", ScrollView(.horizontal, showsIndicators: false), scopeLabel(scope), searchControls
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1443:5: Expectation failed: (missing → ["search_capture_variant", "search-typed-results", "search-scoped-recipes", "search-no-results", "expected_search_query", "expected_search_scope", "expected_search_route_identifier", "\"searchSurfaceVariant\" => search_capture_variant", "\"expectedQuery\" => expected_search_query", "\"expectedScope\" => expected_search_scope"]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh missing tokens: search_capture_variant, search-typed-results, search-scoped-recipes, search-no-results, expected_search_query, expected_search_scope, expected_search_route_identifier, "searchSurfaceVariant" => search_capture_variant, "expectedQuery" => expected_search_query, "expectedScope" => expected_search_scope
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1444:5: Expectation failed: (forbidden → ["proof.fetch(\"scope\") == \"all\"", "proof.fetch(\"query\") == \"\""]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh contains forbidden tokens: proof.fetch("scope") == "all", proof.fetch("query") == ""
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1443:5: Expectation failed: (missing → ["search-typed-results|search|", "search-scoped-recipes|search|", "search-no-results|search|"]).isEmpty → false
+↳ scripts/capture-native-screenshot-matrix.sh missing tokens: search-typed-results|search|, search-scoped-recipes|search|, search-no-results|search|
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1443:5: Expectation failed: (missing → ["searchSurfaceVariant", "expected_search_proof", "\"typed-results\"", "\"scoped-recipes\"", "\"no-results\"", "proof[\"query\"] == expected[\"query\"]", "proof[\"scope\"] == expected[\"scope\"]"]).isEmpty → false
+↳ scripts/validate-design-review.rb missing tokens: searchSurfaceVariant, expected_search_proof, "typed-results", "scoped-recipes", "no-results", proof["query"] == expected["query"], proof["scope"] == expected["scope"]
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" recorded an issue at NativeMobileDesignContractTests.swift:1444:5: Expectation failed: (forbidden → ["routeIdentifier must be search:all:", "query must be blank", "scope must be all"]).isEmpty → false
+↳ scripts/validate-design-review.rb contains forbidden tokens: routeIdentifier must be search:all:, query must be blank, scope must be all
+✘ Test "search uses native searchable chrome and captures typed scoped evidence" failed after 0.035 seconds with 7 issues.
+✘ Suite "Native mobile design contract" failed after 0.035 seconds with 7 issues.
+✘ Test run with 1 test in 1 suite failed after 0.035 seconds with 7 issues.
