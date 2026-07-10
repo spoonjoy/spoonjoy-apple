@@ -60,11 +60,14 @@ struct SettingsAuthSurfaceContractTests {
         let failures = sourceContractFailures(
             requiredTokens: [
                 "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
+                    "\"Session\"",
+                    "\"Sign In\"",
                     "\"This Device\"",
                     "\"Push Delivery\"",
                     "\"Notification Sync\"",
                     "\"Turn On for This Device\"",
                     "\"Open System Settings\"",
+                    "\"session handoff controls\"",
                     "\"APNs device controls\"",
                     "\"notification sync status\"",
                     "\"NotificationAPNsSettingsView\"",
@@ -72,17 +75,50 @@ struct SettingsAuthSurfaceContractTests {
                     "\"NotificationDiagnosticsDisclosure\""
                 ],
                 "scripts/validate-design-review.rb": [
+                    "\"Session\"",
+                    "\"Sign In\"",
                     "\"This Device\"",
                     "\"Push Delivery\"",
                     "\"Notification Sync\"",
+                    "\"session handoff controls\"",
                     "\"APNs device controls\"",
-                    "\"NotificationAPNsSettingsView\""
+                    "\"NotificationAPNsSettingsView\"",
+                    "settingsSignedOutSurface",
+                    "settingsSignedOutHandoffSurface",
+                    "settingsAPNsPermissionState",
+                    "settingsAPNsRegistrationState"
                 ],
                 "scripts/capture-native-screenshots.sh": [
+                    "settings_capture_variant",
+                    "settings-signed-out",
+                    "apns-denied",
+                    "apns-not-determined",
+                    "apns-authorized",
+                    "apns-unregistered",
+                    "SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE",
+                    "SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE",
+                    "\"Session\"",
+                    "\"Sign In\"",
                     "\"Agent Access\"",
                     "\"This Device\"",
                     "\"Push Delivery\"",
                     "\"Notification Sync\""
+                ],
+                "scripts/capture-native-screenshot-matrix.sh": [
+                    "settings-signed-out",
+                    "settings-apns-denied",
+                    "settings-apns-not-determined",
+                    "settings-apns-authorized",
+                    "settings-apns-unregistered"
+                ],
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
+                    "SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE",
+                    "SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE",
+                    "screenshotNotificationAPNsSurfaceData"
+                ],
+                "Apps/Spoonjoy/Shared/Views/SettingsView.swift": [
+                    "case signedOut = \"signed-out\"",
+                    "\"Session\", \"Environment\", \"Offline\""
                 ]
             ],
             forbiddenTokens: [:]

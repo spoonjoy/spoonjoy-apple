@@ -66,6 +66,9 @@ screenshot_route="kitchen"
 shopping_capture_variant="normal"
 search_capture_variant="blank"
 capture_surface_variant="normal"
+settings_capture_variant="profile"
+settings_apns_permission_state=""
+settings_apns_registration_state=""
 screenshot_auth_enabled="1"
 expected_accessibility_source=""
 if [[ -n "$requested_route" ]]; then
@@ -174,6 +177,28 @@ elif [[ "$screenshot_route" == "capture-signed-out" ]]; then
   capture_surface_variant="signed-out"
   screenshot_auth_enabled="0"
   screenshot_route="capture"
+fi
+if [[ "$screenshot_route" == "settings" ]]; then
+  if [[ "$unit_slug" == *settings-signed-out* || "$unit_slug" == *settings_signed_out* ]]; then
+    settings_capture_variant="signed-out"
+    screenshot_auth_enabled="0"
+  elif [[ "$unit_slug" == *apns-denied* || "$unit_slug" == *apns_denied* ]]; then
+    settings_capture_variant="apns-denied"
+    settings_apns_permission_state="denied"
+    settings_apns_registration_state="none"
+  elif [[ "$unit_slug" == *apns-authorized* || "$unit_slug" == *apns_authorized* || "$unit_slug" == *apns-granted* || "$unit_slug" == *apns_granted* ]]; then
+    settings_capture_variant="apns-authorized"
+    settings_apns_permission_state="authorized"
+    settings_apns_registration_state="registered"
+  elif [[ "$unit_slug" == *apns-not-determined* || "$unit_slug" == *apns_not_determined* || "$unit_slug" == *apns-unknown* || "$unit_slug" == *apns_unknown* ]]; then
+    settings_capture_variant="apns-not-determined"
+    settings_apns_permission_state="not-determined"
+    settings_apns_registration_state="none"
+  elif [[ "$unit_slug" == *apns-unregistered* || "$unit_slug" == *apns_unregistered* ]]; then
+    settings_capture_variant="apns-unregistered"
+    settings_apns_permission_state="authorized"
+    settings_apns_registration_state="unregistered"
+  fi
 fi
 settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
@@ -310,7 +335,10 @@ case "$screenshot_route" in
     ;;
   settings)
     capture_account_id="$settings_capture_account_id"
-    if [[ "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
+    if [[ "$settings_capture_variant" == "signed-out" ]]; then
+      capture_account_id="signed-out"
+      settings_capture_focus="signed-out"
+    elif [[ "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
       settings_capture_focus="notifications"
     fi
     expected_recorded_route="settings"
@@ -432,7 +460,7 @@ run_cleanup_command() {
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, capture_surface_variant, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
+    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
@@ -448,16 +476,29 @@ write_design_review_success() {
       "blockers" => []
     }
     if route == "settings"
-      manifest["settingsSignedInSurface"] = true
+      manifest["settingsCaptureVariant"] = settings_capture_variant
+      manifest["settingsScreenshotAuth"] = screenshot_auth_enabled
+      manifest["settingsSignedInSurface"] = settings_capture_variant != "signed-out"
+      manifest["settingsSignedOutSurface"] = settings_capture_variant == "signed-out"
       manifest["settingsVisualFocus"] = settings_focus
       manifest["settingsSurfaceProofArtifacts"] = [ios_proof, macos_proof]
       if settings_focus == "notifications"
         manifest["settingsNotificationAPNsSurface"] = true
+        manifest["settingsAPNsPermissionState"] = settings_apns_permission_state.empty? ? "not-determined" : settings_apns_permission_state
+        manifest["settingsAPNsRegistrationState"] = settings_apns_registration_state.empty? ? "registered" : settings_apns_registration_state
+      elsif settings_focus == "signed-out"
+        manifest["settingsSignedOutHandoffSurface"] = true
       else
         manifest["settingsProfileSurface"] = true
       end
-      manifest["settingsSections"] = ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access", "Connections", "Environment", "Offline"]
-      manifest["settingsSeedAccountID"] = "chef_settings_capture"
+      manifest["settingsSections"] = if settings_focus == "signed-out"
+                                       ["Session", "Environment", "Offline"]
+                                     elsif settings_focus == "notifications"
+                                       ["Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access", "Offline"]
+                                     else
+                                       ["Profile", "Security", "Environment", "Offline"]
+                                     end
+      manifest["settingsSeedAccountID"] = settings_capture_variant == "signed-out" ? "signed-out" : "chef_settings_capture"
     elsif route == "search"
       manifest["searchNativeSurface"] = true
       manifest["searchScopes"] = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
@@ -514,7 +555,7 @@ write_design_review_success() {
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
 }
 
 is_xcode_platform_blocker() {
@@ -887,8 +928,20 @@ write_cache_state() {
   local path="$1"
   local route="$2"
   ruby -rjson -rfileutils -rtime -e '
-    path, route, account_id = ARGV
+    path, route, account_id, settings_variant, apns_registration_state = ARGV
     FileUtils.mkdir_p(File.dirname(path))
+    if route == "settings" && settings_variant == "signed-out"
+      File.write(path, JSON.pretty_generate({
+        "schemaVersion" => 2,
+        "accountID" => account_id,
+        "environment" => "production",
+        "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+        "records" => [],
+        "dismissedIndicators" => [],
+        "pendingMutationQueue" => { "mutations" => [] }
+      }) + "\n")
+      exit
+    end
     if route != "settings"
       File.write(path, JSON.pretty_generate({
         "schemaVersion" => 2,
@@ -984,6 +1037,7 @@ write_cache_state() {
         "serverRevision" => { "localRevision" => { "_0" => "screenshot-settings" } }
       }
     end
+    apns_registration_state = "registered" if apns_registration_state.nil? || apns_registration_state.empty?
     records = [
       {
         "id" => "settings",
@@ -1061,17 +1115,17 @@ write_cache_state() {
           }
         }
       },
-      {
+      (apns_registration_state == "none" ? nil : {
         "id" => "apns-status",
         "metadata" => metadata.call("apnsStatus", "/api/v1/me/apns-devices"),
         "payload" => {
           "apnsStatus" => {
             "deviceID" => "device_apns_capture",
-            "registrationState" => "registered"
+            "registrationState" => apns_registration_state
           }
         }
-      }
-    ]
+      })
+    ].compact
     snapshot = {
       "schemaVersion" => 2,
       "accountID" => account_id,
@@ -1082,7 +1136,7 @@ write_cache_state() {
       "pendingMutationQueue" => { "mutations" => [] }
     }
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$route" "$capture_account_id"
+  ' "$path" "$route" "$capture_account_id" "$settings_capture_variant" "$settings_apns_registration_state"
 }
 
 ios_launch_app() {
@@ -1095,6 +1149,8 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
@@ -1129,6 +1185,8 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
       SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
+      SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
+      SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
@@ -1150,6 +1208,8 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS \
       SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS \
+      SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE \
+      SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE \
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
@@ -1171,6 +1231,8 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS "$settings_capture_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS "$search_capture_disable_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS "$recipe_detail_focus"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE "$settings_apns_permission_state"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE "$settings_apns_registration_state"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID "$shopping_conflict_launch_client_mutation_id"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
@@ -1208,6 +1270,8 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
@@ -1440,8 +1504,8 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "settings" => {
-          "voiceOverLabels" => ["Settings", "Profile", "Security"],
-          "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+          "voiceOverLabels" => ["Settings", "Profile", "Security", "Session", "Sign In"],
+          "keyboardNavigationTargets" => ["profile form fields", "security token controls", "session handoff controls"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass label on bone"],
           "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
@@ -1585,6 +1649,8 @@ validate_screenshot_surface_proof() {
     if screenshot_route == "settings"
       required_sections = if expected_focus == "notifications"
                             ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                          elsif expected_focus == "signed-out"
+                            ["Session", "Environment", "Offline"]
                           else
                             ["Profile", "Security"]
                           end

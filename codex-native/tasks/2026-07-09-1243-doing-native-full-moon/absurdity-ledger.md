@@ -7,9 +7,9 @@ This ledger is evidence-led. Items here are from TestFlight feedback, App Store 
 ### A-006 - Route evidence is missing for settings, auth, and final error/offline state matrix
 
 - Evidence: Unit 0c route matrix only covers `kitchen`, `recipes`, `recipe-detail`, `cook-mode`, `cookbooks`, `shopping-list`, `search`, `capture`.
-- Problem: settings/auth and final release-state variants are not yet fully screenshot-proven. Cookbook detail and the core route matrix are now covered by Units 1h, 3l, 4c, 4f, and 4i.
+- Problem: final release-state variants are not yet fully screenshot-proven. Settings/auth/APNs are now covered by Unit 4l; cookbook detail and the core route matrix are covered by Units 1h, 3l, 4c, 4f, and 4i.
 - Impact: shipping confidence is not broad enough for the full-moon bar.
-- Routed to: Units 4j-4l, 7, and 8e.
+- Routed to: Units 7 and 8e.
 
 ## Closed
 

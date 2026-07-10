@@ -103,8 +103,8 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "settings" => {
-    "voiceOverLabels" => ["Settings", "Profile", "Security", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings"],
-    "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification sync status"],
+    "voiceOverLabels" => ["Settings", "Profile", "Security", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Session", "Sign In"],
+    "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification sync status", "session handoff controls"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
     "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView"],
@@ -162,6 +162,8 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
   required_sections = if visual_focus == "notifications"
                         ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                      elsif visual_focus == "signed-out"
+                        ["Session", "Environment", "Offline"]
                       else
                         ["Profile", "Security"]
                       end
@@ -435,20 +437,29 @@ when "capture"
   seed_account_id = manifest["captureSeedAccountID"]
   fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "settings"
-  fail_check("#{path} settingsSignedInSurface must be true for settings captures") unless manifest["settingsSignedInSurface"] == true
   seed_account_id = manifest["settingsSeedAccountID"]
   fail_check("#{path} settingsSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
   sections = manifest["settingsSections"]
   fail_check("#{path} settingsSections must be an array") unless sections.is_a?(Array)
   visual_focus = manifest["settingsVisualFocus"]
-  fail_check("#{path} settingsVisualFocus must be profile or notifications") unless ["profile", "notifications"].include?(visual_focus)
+  fail_check("#{path} settingsVisualFocus must be profile, notifications, or signed-out") unless ["profile", "notifications", "signed-out"].include?(visual_focus)
   proof_artifacts = manifest["settingsSurfaceProofArtifacts"]
   fail_check("#{path} settingsSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   required_sections = if visual_focus == "notifications"
+                        fail_check("#{path} settingsSignedInSurface must be true for settings/APNs captures") unless manifest["settingsSignedInSurface"] == true
                         fail_check("#{path} settingsNotificationAPNsSurface must be true for settings/APNs captures") unless manifest["settingsNotificationAPNsSurface"] == true
+                        fail_check("#{path} settingsAPNsPermissionState must be present for APNs captures") unless manifest["settingsAPNsPermissionState"].is_a?(String) && !manifest["settingsAPNsPermissionState"].empty?
+                        fail_check("#{path} settingsAPNsRegistrationState must be present for APNs captures") unless manifest["settingsAPNsRegistrationState"].is_a?(String) && !manifest["settingsAPNsRegistrationState"].empty?
                         ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                      elsif visual_focus == "signed-out"
+                        fail_check("#{path} settingsSignedInSurface must be false for signed-out settings captures") unless manifest["settingsSignedInSurface"] == false
+                        fail_check("#{path} settingsSignedOutSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutSurface"] == true
+                        fail_check("#{path} settingsSignedOutHandoffSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutHandoffSurface"] == true
+                        fail_check("#{path} settingsScreenshotAuth must be 0 for signed-out settings captures") unless manifest["settingsScreenshotAuth"] == "0"
+                        ["Session", "Environment", "Offline"]
                       else
+                        fail_check("#{path} settingsSignedInSurface must be true for profile settings captures") unless manifest["settingsSignedInSurface"] == true
                         fail_check("#{path} settingsProfileSurface must be true for profile settings captures") unless manifest["settingsProfileSurface"] == true
                         ["Profile", "Security"]
                       end

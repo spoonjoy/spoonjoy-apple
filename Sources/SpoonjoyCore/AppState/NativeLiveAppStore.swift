@@ -1025,6 +1025,12 @@ public struct NativeShellContentState {
     }
 
 #if DEBUG
+    public func debugApplyingNotificationAPNsSurfaceData(
+        _ notificationAPNsSurfaceData: NotificationAPNsSurfaceData
+    ) -> NativeShellContentState {
+        copy(notificationAPNsSurfaceData: .some(notificationAPNsSurfaceData))
+    }
+
     public func debugApplyingSyncOverlay(
         conflicts: [NativeSyncConflict],
         conflictMutationID: String

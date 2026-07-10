@@ -8,6 +8,7 @@ struct SettingsView: View {
     private enum ScreenshotSettingsFocus: String {
         case profile
         case notifications
+        case signedOut = "signed-out"
     }
 
     private static let screenshotFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"
@@ -83,6 +84,16 @@ struct SettingsView: View {
                         Self.writeScreenshotProof(
                             visualFocus: screenshotSettingsFocus,
                             visibleSections: ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                        )
+                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                            route: "settings",
+                            source: "SettingsView",
+                            runtimeContext: screenshotAccessibilityRuntimeContext
+                        )
+                    case .signedOut:
+                        Self.writeScreenshotProof(
+                            visualFocus: screenshotSettingsFocus,
+                            visibleSections: ["Session", "Environment", "Offline"]
                         )
                         await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                             route: "settings",

@@ -238,6 +238,11 @@ routes=(
   "capture-signed-out|capture-signed-out|$routes_dir/capture-signed-out|$unit_slug-capture-signed-out"
   "settings|settings|$routes_dir/settings|$unit_slug-settings"
   "settings-notifications|settings|$routes_dir/settings-notifications|$unit_slug-settings-notifications"
+  "settings-signed-out|settings|$routes_dir/settings-signed-out|$unit_slug-settings-signed-out"
+  "settings-apns-denied|settings|$routes_dir/settings-apns-denied|$unit_slug-settings-apns-denied"
+  "settings-apns-not-determined|settings|$routes_dir/settings-apns-not-determined|$unit_slug-settings-apns-not-determined"
+  "settings-apns-authorized|settings|$routes_dir/settings-apns-authorized|$unit_slug-settings-apns-authorized"
+  "settings-apns-unregistered|settings|$routes_dir/settings-apns-unregistered|$unit_slug-settings-apns-unregistered"
 )
 
 for entry in "${routes[@]}"; do

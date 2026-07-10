@@ -137,8 +137,8 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("settings", "SettingsView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Settings", "Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Hide offline status"],
-                keyboardNavigationTargets: ["profile form fields", "security token controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
+                voiceOverLabels: ["Settings", "Profile", "Security", "Session", "Sign In", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Hide offline status"],
+                keyboardNavigationTargets: ["profile form fields", "security token controls", "session handoff controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
                 hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
@@ -206,6 +206,8 @@ enum ScreenshotAccessibilityProofWriter {
             "screenshotAuth": environment["SPOONJOY_SCREENSHOT_AUTH"] ?? "",
             "screenshotRestoreCacheOnly": environment["SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY"] ?? "",
             "screenshotAccountID": environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "",
+            "screenshotAPNsPermissionState": environment["SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE"] ?? "",
+            "screenshotAPNsRegistrationState": environment["SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE"] ?? "",
             "apiBaseURL": environment["SPOONJOY_API_BASE_URL"] ?? ""
         ]
     }
