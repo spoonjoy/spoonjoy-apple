@@ -287,17 +287,27 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
-                "eyebrow: \"Spoonjoy Capture\"",
-                "title: \"Import Status\"",
+                "eyebrow: \"Agent import\"",
+                "title: \"Capture\"",
                 "agentImportStatus",
+                "CaptureImportEntryPoint",
+                "agentMCP",
+                "appIntent",
                 "ImportStatusPanel",
-                "draftPreview(currentDraft)"
+                "draftPreview(currentDraft)",
+                "Submit import",
+                "Retry when online"
             ],
             forbids: [
                 "eyebrow: \"Ouro Draft\"",
+                "eyebrow: \"Spoonjoy Capture\"",
+                "title: \"Import Status\"",
                 "Label(\"Local Draft\"",
                 "manualCaptureInputs",
-                "textCapture\n        sourceCapture\n        imageCapture"
+                "textCapture\n        sourceCapture\n        imageCapture",
+                "CaptureDraft.localText(",
+                "CaptureDraft.importURL(",
+                "\"Send to Spoonjoy\""
             ]
         )
         expectContent(
@@ -343,7 +353,7 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                "Button(\"Import Status\", systemImage: \"tray.and.arrow.down\")",
+                "Button(\"Agent import\", systemImage: \"tray.and.arrow.down\")",
                 "loadingTitle: recipeLoadingTitle(id: id)",
                 "private func recipeLoadingTitle(id: String) -> String?"
             ],

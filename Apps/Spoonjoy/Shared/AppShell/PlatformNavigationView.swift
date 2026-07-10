@@ -812,7 +812,7 @@ struct PlatformNavigationView: View {
 
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button("Import Status", systemImage: "tray.and.arrow.down") {
+                Button("Agent import", systemImage: "tray.and.arrow.down") {
                     openRoute(.capture)
                 }
                 Button("Search", systemImage: "magnifyingglass") {
@@ -902,7 +902,7 @@ struct PlatformNavigationView: View {
         case .search:
             "Search"
         case .capture:
-            "Import Status"
+            "Agent import"
         case .settings:
             "Settings"
         case .unknownLink:

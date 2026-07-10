@@ -1304,11 +1304,11 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
-          "voiceOverLabels" => ["Import Status", "Spoonjoy Capture", "Send to Spoonjoy"],
-          "keyboardNavigationTargets" => ["import status", "saved capture actions"],
+          "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online"],
+          "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
-          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "ImportStatusPanel", "CaptureDraft"],
+          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "settings" => {
