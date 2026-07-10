@@ -456,6 +456,34 @@ struct SpotlightShortcutTransferTests {
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|shopping-list-item|item_lemons", scope: scope) == .unknownLink)
     }
 
+    @Test("Spotlight account scopes are collision resistant after readable sanitization")
+    func spotlightAccountScopesAreCollisionResistantAfterReadableSanitization() {
+        let dottedAccountScope = SpotlightIndexScope(
+            accountID: "account.ari@example.com",
+            environment: .production
+        )
+        let dashedAccountScope = SpotlightIndexScope(
+            accountID: "account-ari-example-com",
+            environment: .production
+        )
+
+        #expect(dottedAccountScope.identifierPrefix != dashedAccountScope.identifierPrefix)
+        #expect(dottedAccountScope.domainPrefix != dashedAccountScope.domainPrefix)
+
+        let dottedAccountRecipe = SpotlightIndexPlan.recipeUniqueIdentifier(
+            recipeID: "recipe_private_lemon",
+            scope: dottedAccountScope
+        )
+
+        #expect(
+            SpotlightIndexPlan.route(
+                uniqueIdentifier: dottedAccountRecipe,
+                scope: dashedAccountScope
+            ) == .unknownLink,
+            "A Spotlight hit from one account must not route under another account whose sanitized label collides."
+        )
+    }
+
     @Test("Spotlight documents include semantic spoon capture draft and chef profile entities")
     func spotlightDocumentsIncludeSemanticSpoonCaptureDraftAndChefProfileEntities() {
         let scope = SpotlightIndexScope(accountID: "account_ari", environment: .local)
