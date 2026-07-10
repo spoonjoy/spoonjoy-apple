@@ -4,6 +4,120 @@ import Testing
 
 @Suite("Native capture and import parity")
 struct CaptureImportSurfaceTests {
+    @Test("capture surface only presents truthful agent and App Intents import paths")
+    func captureSurfaceOnlyPresentsTruthfulAgentAndIntentImportPaths() throws {
+        let failures = captureImportSurfaceSourceContractFailures(
+            requiredFiles: [
+                "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
+                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift",
+                "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
+                "scripts/capture-native-screenshots.sh",
+                "scripts/validate-design-review.rb"
+            ],
+            requiredTokens: [
+                "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift": [
+                    "CaptureImportEntryPoint",
+                    "agentMCP",
+                    "appIntent",
+                    "shareSheetComingSoon",
+                    "siriComingSoon",
+                    "cameraComingSoon",
+                    "photoLibraryComingSoon",
+                    "MCP agent",
+                    "App Intents",
+                    "Share Sheet",
+                    "Siri",
+                    "Submit import",
+                    "Retry when online",
+                    "Resolve import setup",
+                    "ImportStatusPanel("
+                ],
+                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
+                    "Agent import",
+                    "Submit import",
+                    "Retry when online"
+                ],
+                "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
+                    "CaptureImportEntryPoint",
+                    "agentMCP",
+                    "appIntent",
+                    "shareSheetComingSoon",
+                    "siriComingSoon",
+                    "cameraComingSoon",
+                    "photoLibraryComingSoon",
+                    "Submit import",
+                    "Retry when online",
+                    "Resolve import setup"
+                ],
+                "scripts/capture-native-screenshots.sh": [
+                    "\"Agent import\"",
+                    "\"Submit import\"",
+                    "\"Retry when online\""
+                ],
+                "scripts/validate-design-review.rb": [
+                    "\"Agent import\"",
+                    "\"Submit import\"",
+                    "\"Retry when online\""
+                ]
+            ],
+            forbiddenTokens: [
+                "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift": [
+                    "textSourceURLText",
+                    "recipeURLText",
+                    "videoURLText",
+                    "jsonLDText",
+                    "selectedPhoto",
+                    "isCameraPresented",
+                    "PhotosPickerItem",
+                    "CameraCaptureView",
+                    "CaptureImageTextRecognizer",
+                    "CaptureDraft.localText(",
+                    "CaptureDraft.importURL(",
+                    "CaptureDraft.videoURL(",
+                    "CaptureDraft.jsonLD(",
+                    "CaptureDraft.cameraImage(",
+                    "CaptureDraft.photoLibraryImage(",
+                    "private func createTextDraft",
+                    "private func createURLDraft",
+                    "private func createVideoDraft",
+                    "private func createJSONLDDraft",
+                    "createPhotoLibraryDraft",
+                    "createCameraDraft",
+                    "createImageDraft",
+                    "\"Recipe links, text, and photos sent to Spoonjoy appear here for review.\"",
+                    "\"Send recipes to Spoonjoy. New captures will appear here for review.\"",
+                    "\"Ready for imports\"",
+                    "\"Send to Spoonjoy\"",
+                    "\"Sending\"",
+                    "\"Local draft saved.\"",
+                    "\"Recipe URL saved.\"",
+                    "\"Import source saved.\"",
+                    "\"JSON-LD draft saved.\""
+                ],
+                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
+                    "\"Send to Spoonjoy\"",
+                    "\"Import Status\""
+                ],
+                "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
+                    "\"Send to Spoonjoy\"",
+                    "\"Capture surface creates native drafts and submits import-ready sources.\""
+                ],
+                "scripts/capture-native-screenshots.sh": [
+                    "\"Import Status\"",
+                    "\"Spoonjoy Capture\"",
+                    "\"Send to Spoonjoy\""
+                ],
+                "scripts/validate-design-review.rb": [
+                    "\"Import Status\"",
+                    "\"Spoonjoy Capture\"",
+                    "\"Send to Spoonjoy\""
+                ]
+            ]
+        )
+
+        #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
+    }
+
     @Test("capture draft sources produce canonical REST import mutations")
     func captureDraftSourcesProduceCanonicalRESTImportMutations() throws {
         let cases: [(CaptureDraft, [String: Any])] = [
@@ -844,4 +958,87 @@ struct CaptureImportSurfaceTests {
         return directory
     }
 
+}
+
+private func captureImportSurfaceSourceContractFailures(
+    requiredFiles: [String],
+    requiredTokens: [String: [String]],
+    forbiddenTokens: [String: [String]]
+) -> [String] {
+    var failures: [String] = []
+    for relativePath in requiredFiles {
+        guard let content = try? captureImportSurfaceReadRepoFile(relativePath) else {
+            failures.append("missing \(relativePath)")
+            continue
+        }
+        let uncommented = relativePath.hasSuffix(".swift") ? captureImportSurfaceUncommentedSwift(content) : content
+        for token in requiredTokens[relativePath, default: []] where !uncommented.contains(token) {
+            failures.append("\(relativePath) missing \(token)")
+        }
+        for token in forbiddenTokens[relativePath, default: []] where uncommented.contains(token) {
+            failures.append("\(relativePath) contains forbidden \(token)")
+        }
+    }
+    return failures
+}
+
+private func captureImportSurfaceReadRepoFile(_ relativePath: String) throws -> String {
+    let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+}
+
+private func captureImportSurfaceUncommentedSwift(_ content: String) -> String {
+    var output = ""
+    var index = content.startIndex
+    var inLineComment = false
+    var blockDepth = 0
+    var inString = false
+    var escaped = false
+
+    while index < content.endIndex {
+        let character = content[index]
+        let next = content.index(after: index)
+        let nextCharacter = next < content.endIndex ? content[next] : nil
+
+        if inLineComment {
+            if character == "\n" {
+                inLineComment = false
+                output.append(character)
+            }
+        } else if blockDepth > 0 {
+            if character == "/", nextCharacter == "*" {
+                blockDepth += 1
+                index = next
+            } else if character == "*", nextCharacter == "/" {
+                blockDepth -= 1
+                index = next
+            } else if character == "\n" {
+                output.append(character)
+            }
+        } else if inString {
+            output.append(character)
+            if escaped {
+                escaped = false
+            } else if character == "\\" {
+                escaped = true
+            } else if character == "\"" {
+                inString = false
+            }
+        } else if character == "/", nextCharacter == "/" {
+            inLineComment = true
+            index = next
+        } else if character == "/", nextCharacter == "*" {
+            blockDepth = 1
+            index = next
+        } else {
+            output.append(character)
+            if character == "\"" {
+                inString = true
+            }
+        }
+
+        index = content.index(after: index)
+    }
+
+    return output
 }
