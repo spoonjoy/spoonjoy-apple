@@ -77,8 +77,14 @@ else
     screenshot_route="cookbook-detail"
   elif [[ "$unit_slug" == *cookbooks* ]]; then
     screenshot_route="cookbooks"
+  elif [[ "$unit_slug" == *shopping-list-empty* || "$unit_slug" == *shopping_list_empty* ]]; then
+    screenshot_route="shopping-list-empty"
   elif [[ "$unit_slug" == *shopping-list-all-complete* || "$unit_slug" == *shopping_list_all_complete* ]]; then
     screenshot_route="shopping-list-all-complete"
+  elif [[ "$unit_slug" == *shopping-list-duplicate* || "$unit_slug" == *shopping_list_duplicate* ]]; then
+    screenshot_route="shopping-list-duplicate"
+  elif [[ "$unit_slug" == *shopping-list-conflict* || "$unit_slug" == *shopping_list_conflict* ]]; then
+    screenshot_route="shopping-list-conflict"
   elif [[ "$unit_slug" == *shopping-list-offline-queued* || "$unit_slug" == *shopping_list_offline_queued* ]]; then
     screenshot_route="shopping-list-offline-queued"
   elif [[ "$unit_slug" == *shopping-list* || "$unit_slug" == *shopping_list* || "$unit_slug" == *shopping* ]]; then
@@ -91,8 +97,17 @@ else
     screenshot_route="settings"
   fi
 fi
-if [[ "$screenshot_route" == "shopping-list-all-complete" ]]; then
+if [[ "$screenshot_route" == "shopping-list-empty" ]]; then
+  shopping_capture_variant="empty"
+  screenshot_route="shopping-list"
+elif [[ "$screenshot_route" == "shopping-list-all-complete" ]]; then
   shopping_capture_variant="all-complete"
+  screenshot_route="shopping-list"
+elif [[ "$screenshot_route" == "shopping-list-duplicate" ]]; then
+  shopping_capture_variant="duplicate"
+  screenshot_route="shopping-list"
+elif [[ "$screenshot_route" == "shopping-list-conflict" ]]; then
+  shopping_capture_variant="conflict"
   screenshot_route="shopping-list"
 elif [[ "$screenshot_route" == "shopping-list-offline-queued" ]]; then
   shopping_capture_variant="offline-queued"
@@ -103,6 +118,11 @@ kitchen_capture_account_id="chef_kitchen_capture"
 search_capture_account_id="chef_search_capture"
 shopping_capture_account_id="chef_shopping_capture"
 cookbook_detail_id="cookbook_weeknights"
+shopping_conflict_client_mutation_id="cm_shopping_conflict_capture"
+shopping_conflict_launch_client_mutation_id=""
+if [[ "$shopping_capture_variant" == "conflict" ]]; then
+  shopping_conflict_launch_client_mutation_id="$shopping_conflict_client_mutation_id"
+fi
 capture_account_id="$kitchen_capture_account_id"
 settings_capture_focus="profile"
 search_capture_disable_focus="0"
@@ -303,7 +323,7 @@ run_cleanup_command() {
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof = ARGV
+    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
@@ -366,6 +386,8 @@ write_design_review_success() {
     elsif route == "shopping-list"
       manifest["shoppingListSurface"] = true
       manifest["shoppingSeedAccountID"] = "chef_shopping_capture"
+      manifest["shoppingListVariant"] = shopping_variant
+      manifest["shoppingConflictState"] = true if shopping_variant == "conflict"
     elsif route == "capture"
       manifest["captureNativeSurface"] = true
       manifest["captureSeedAccountID"] = "chef_kitchen_capture"
@@ -374,7 +396,7 @@ write_design_review_success() {
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant"
 }
 
 is_xcode_platform_blocker() {
@@ -443,6 +465,15 @@ write_app_state() {
           "sortIndex" => index
         )
       end
+    elsif route == "shopping-list" && shopping_variant == "empty" && shopping_list
+      shopping_list["items"] = []
+    elsif route == "shopping-list" && shopping_variant == "duplicate" && shopping_list
+      duplicate = shopping_list.fetch("items").first.merge(
+        "id" => "item_duplicate_lemons",
+        "sortIndex" => shopping_list.fetch("items").length,
+        "updatedAt" => "2026-06-16T12:08:20.000Z"
+      )
+      shopping_list["items"] = shopping_list.fetch("items") + [duplicate]
     end
     snapshot = {
       "schemaVersion" => 1,
@@ -600,6 +631,24 @@ write_sync_store() {
                    ]
                  }
                end
+    if shopping_variant == "all-complete"
+      shopping["items"] = shopping.fetch("items").each_with_index.map do |item, index|
+        item.merge(
+          "checked" => true,
+          "checkedAt" => "2026-06-16T12:08:0#{index}.000Z",
+          "sortIndex" => index
+        )
+      end
+    elsif shopping_variant == "empty"
+      shopping["items"] = []
+    elsif shopping_variant == "duplicate"
+      duplicate = shopping.fetch("items").first.merge(
+        "id" => "item_duplicate_lemons",
+        "sortIndex" => shopping.fetch("items").length,
+        "updatedAt" => "2026-06-16T12:08:20.000Z"
+      )
+      shopping["items"] = shopping.fetch("items") + [duplicate]
+    end
     records = recipes.map do |recipe|
       {
         "kind" => "recipe",
@@ -625,11 +674,12 @@ write_sync_store() {
       }
     end)
     queue_mutations = []
-    if shopping_variant == "offline-queued"
+    if shopping_variant == "offline-queued" || shopping_variant == "conflict"
+      client_mutation_id = shopping_variant == "conflict" ? "cm_shopping_conflict_capture" : "cm_shopping_offline_capture"
       queue_mutations << {
         "schemaVersion" => 1,
-        "id" => "native:cm_shopping_offline_capture",
-        "clientMutationId" => "cm_shopping_offline_capture",
+        "id" => "native:#{client_mutation_id}",
+        "clientMutationId" => client_mutation_id,
         "createdAt" => "2026-06-16T12:08:30.000Z",
         "retryCount" => 0,
         "kind" => {
@@ -867,6 +917,7 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
@@ -883,6 +934,7 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
       SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
+      SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
@@ -903,6 +955,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS \
       SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS \
+      SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
@@ -923,6 +976,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS "$settings_capture_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS "$search_capture_disable_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS "$recipe_detail_focus"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID "$shopping_conflict_launch_client_mutation_id"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
@@ -959,6 +1013,7 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true

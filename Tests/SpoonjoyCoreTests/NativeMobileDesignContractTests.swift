@@ -931,7 +931,10 @@ struct NativeMobileDesignContractTests {
             screenshotHarness,
             in: screenshotHarnessPath,
             contains: [
+                "\"shopping-list-empty\"",
                 "\"shopping-list-all-complete\"",
+                "\"shopping-list-duplicate\"",
+                "\"shopping-list-conflict\"",
                 "\"shopping-list-offline-queued\"",
                 "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
             ],

@@ -129,11 +129,15 @@ struct SpoonjoyRootView: View {
     }
 
     private func platformNavigation(contentState: NativeShellContentState) -> some View {
-        PlatformNavigationView(
+        let visibleContentState = Self.screenshotAugmentedContentState(contentState)
+        return PlatformNavigationView(
             navigation: $navigation,
             search: $search,
-            contentState: contentState,
-            offlineIndicatorState: liveStore.offlineIndicatorState,
+            contentState: visibleContentState,
+            offlineIndicatorState: Self.screenshotAugmentedOfflineIndicatorState(
+                visibleContentState,
+                fallback: liveStore.offlineIndicatorState
+            ),
             dismissOfflineIndicator: liveStore.dismissOfflineIndicator,
             queueMutation: { mutation in
                 try await liveStore.queueMutation(mutation)
@@ -225,6 +229,46 @@ struct SpoonjoyRootView: View {
                 )
             }
         )
+    }
+
+    private static func screenshotAugmentedContentState(_ contentState: NativeShellContentState) -> NativeShellContentState {
+#if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        guard let mutationID = environment["SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !mutationID.isEmpty,
+              contentState.queuedMutations.contains(where: { $0.clientMutationID == mutationID }) else {
+            return contentState
+        }
+        let conflict = NativeSyncConflict(
+            clientMutationID: mutationID,
+            kind: .validation,
+            serverRevision: .updatedAt("screenshot-shopping-conflict"),
+            message: "Spoonjoy found a newer version of this receipt."
+        )
+        return contentState.debugApplyingSyncOverlay(
+            conflicts: [conflict],
+            conflictMutationID: mutationID
+        )
+#else
+        contentState
+#endif
+    }
+
+    private static func screenshotAugmentedOfflineIndicatorState(
+        _ contentState: NativeShellContentState,
+        fallback: OfflineIndicatorState
+    ) -> OfflineIndicatorState {
+#if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        guard let mutationID = environment["SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !mutationID.isEmpty,
+              contentState.syncConflicts.contains(where: { $0.clientMutationID == mutationID }) else {
+            return fallback
+        }
+        return contentState.offlineIndicatorState
+#else
+        fallback
+#endif
     }
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {

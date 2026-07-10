@@ -1024,6 +1024,19 @@ public struct NativeShellContentState {
         )
     }
 
+#if DEBUG
+    public func debugApplyingSyncOverlay(
+        conflicts: [NativeSyncConflict],
+        conflictMutationID: String
+    ) -> NativeShellContentState {
+        let offlineIndicatorState = OfflineIndicatorState(
+            display: .conflict(recordID: conflictMutationID, mutationID: conflictMutationID),
+            dismissal: nil
+        )
+        return copy(syncConflicts: conflicts, offlineIndicatorState: offlineIndicatorState)
+    }
+#endif
+
     static func empty(
         authSessionState: NativeAuthSessionState,
         environment: NativeCacheEnvironment,

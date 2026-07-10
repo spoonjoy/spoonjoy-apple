@@ -1,0 +1,17 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.17s)
+Test Suite 'Selected tests' started at 2026-07-10 05:07:23.040.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 05:07:23.042.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 05:07:23.042.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 05:07:23.042.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native shopping surface parity" started.
+◇ Test "shopping surface loads live state and exposes queued, conflict, and empty affordances" started.
+✔ Test "shopping surface loads live state and exposes queued, conflict, and empty affordances" passed after 0.011 seconds.
+✔ Suite "Native shopping surface parity" passed after 0.011 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.011 seconds.

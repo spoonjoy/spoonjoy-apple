@@ -34,7 +34,9 @@ struct ShoppingListView: View {
     var body: some View {
         KitchenTablePage(maxContentWidth: 760) {
             shoppingRunHeader
-            shoppingReceiptComposer
+            if viewModel.shoppingReceiptState == nil {
+                shoppingReceiptComposer
+            }
             statusBanner
             shoppingReceiptState
         }
@@ -157,15 +159,11 @@ struct ShoppingListView: View {
 
     private var shoppingReceiptComposer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            itemNameField
             HStack(spacing: 8) {
-                quantityField
-                unitField
+                itemNameField
+                compactAddItemButton
             }
-            VStack(alignment: .leading, spacing: 8) {
-                addItemButton
-                addFromRecipeButton
-            }
+            addFromRecipeButton
         }
     }
 
@@ -226,6 +224,18 @@ struct ShoppingListView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
     }
 
+    private var compactAddItemButton: some View {
+        Button(action: addItem) {
+            Image(systemName: "plus")
+                .font(.headline.weight(.bold))
+                .frame(width: 50, height: 50)
+                .foregroundStyle(KitchenTableTheme.paper)
+                .background(KitchenTableTheme.action, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add item")
+    }
+
     private var addFromRecipeButton: some View {
         Button(action: openSearch) {
             Label("Add from recipe", systemImage: "book")
@@ -259,11 +269,6 @@ struct ShoppingListView: View {
         VStack(alignment: .leading, spacing: 8) {
             if viewModel.offlineIndicator.display != .synced {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
-            }
-            if let queuedWorkSummary = viewModel.queuedWorkSummary {
-                Label(queuedWorkSummary, systemImage: "arrow.triangle.2.circlepath")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
             }
             if let conflictBanner = viewModel.conflictBanner {
                 Label(conflictBanner.message, systemImage: "exclamationmark.triangle")
