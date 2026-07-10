@@ -115,7 +115,8 @@ struct RecipeDetailRouteView: View {
 
     @MainActor private func loadRecipe() async {
         errorMessage = nil
-        if routeState.currentViewModel == nil {
+        let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID
+        if !hasVisibleCurrentRecipe {
             routeState = .loading(snapshotTitle: loadingTitle)
         }
         do {
@@ -124,12 +125,12 @@ struct RecipeDetailRouteView: View {
             routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
             errorMessage = nil
         } catch RecipeCatalogRepositoryError.recipeNotFound {
-            if routeState.currentViewModel == nil {
+            if !hasVisibleCurrentRecipe {
                 errorMessage = "We couldn't find this recipe."
                 routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
             }
         } catch {
-            if routeState.currentViewModel == nil {
+            if !hasVisibleCurrentRecipe {
                 errorMessage = "We couldn't load this recipe."
                 routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
             }
@@ -362,10 +363,15 @@ struct RecipeDetailView: View {
                     subtitle: viewModel.cover.noPhotoLabel,
                     showsFallbackLabel: true
                 )
-                    .frame(maxWidth: .infinity, minHeight: 168, maxHeight: 220)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: recipeNoPhotoHeight)
                     .accessibilityLabel(viewModel.cover.accessibilityLabel)
             }
         }
+    }
+
+    private var recipeNoPhotoHeight: CGFloat {
+        usesCompactRecipeDock ? 168 : 140
     }
 
     private var recipeIdentityAndProvenance: some View {
@@ -410,6 +416,7 @@ struct RecipeDetailView: View {
                 displayValue: scaledYieldLabel,
                 setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) }
             )
+            .frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)
 
             Button {
                 clearRecipeProgress()
@@ -426,11 +433,20 @@ struct RecipeDetailView: View {
     private var recipeMastheadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
-            if hasAction(.logCook) {
-                recipeMastheadLogCookAction
+            if usesCompactRecipeDock {
+                if hasAction(.logCook) {
+                    recipeMastheadLogCookAction
+                }
             }
             if !usesCompactRecipeDock {
-                recipeSecondaryActions
+                if hasAction(.logCook) || hasSecondaryRecipeActions {
+                    HStack(spacing: 10) {
+                        if hasAction(.logCook) {
+                            recipeMastheadLogCookAction
+                        }
+                        recipeSecondaryActions
+                    }
+                }
             }
             ownerTools
             actionStatus
@@ -1179,6 +1195,7 @@ private struct RecipeScaleSelector: View {
                 .frame(width: 52, height: 64)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .disabled(isDisabled)
         .foregroundStyle(isDisabled ? KitchenTableTheme.inkMuted.opacity(0.42) : KitchenTableTheme.charcoal)
         .accessibilityLabel(label)

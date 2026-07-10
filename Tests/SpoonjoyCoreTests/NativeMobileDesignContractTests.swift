@@ -489,6 +489,8 @@ struct NativeMobileDesignContractTests {
                 "case missing(message: String)",
                 "case failed(message: String)",
                 "@State private var routeState: RecipeDetailRouteState",
+                "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID",
+                "if !hasVisibleCurrentRecipe",
                 "private var recipeMasthead",
                 "private var recipeHeroMedia",
                 "private var recipeIdentityAndProvenance",
@@ -497,7 +499,11 @@ struct NativeMobileDesignContractTests {
                 "viewModel.cover.hasRealCover",
                 "subtitle: viewModel.cover.noPhotoLabel",
                 "showsFallbackLabel: true",
+                "private var recipeNoPhotoHeight: CGFloat",
+                "usesCompactRecipeDock ? 168 : 140",
                 "Label(\"Log\", systemImage: \"fork.knife.circle\")",
+                ".frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)",
+                ".buttonStyle(.plain)",
                 ".navigationTitle(\"Save to Cookbook\")"
             ],
             forbids: [

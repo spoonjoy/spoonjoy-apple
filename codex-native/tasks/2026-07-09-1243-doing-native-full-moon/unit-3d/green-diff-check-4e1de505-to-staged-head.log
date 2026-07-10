@@ -1,0 +1,1 @@
+git diff --check 4e1de505 --cached passed

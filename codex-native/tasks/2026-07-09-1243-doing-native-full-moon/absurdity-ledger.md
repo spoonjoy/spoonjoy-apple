@@ -26,6 +26,7 @@ This ledger is evidence-led. Items here are from TestFlight feedback, App Store 
 - Problem: `Saved copy` and `Saved copy may be stale` are truthful, but they sit high in the visual hierarchy and compete with page identity and search/results.
 - Impact: normal browsing feels like a warning state.
 - Routed to: Units 2e-2f.
+- 2026-07-10 Unit 3f update: Recipe Detail stale treatment is acceptable in the stale fixture after the masthead/yield fixes; see `unit-3f/visual-absurdity-ledger.md`. Keep open for Search/Recipes route QA until those fixtures are rechecked.
 
 ### A-004 - Search filter chips overflow at the right edge
 
@@ -51,4 +52,10 @@ This ledger is evidence-led. Items here are from TestFlight feedback, App Store 
 
 ## Closed
 
-None yet.
+### A-007 - Recipe Detail macOS yield controls paint as clipped slabs
+
+- Evidence: `unit-3f/before-yield-scale-fix/macos-desktop.png`
+- Problem: macOS default button styling made the Recipe Detail yield minus/plus controls render as giant clipped grey slabs.
+- Impact: the first viewport looked broken even though the route validation passed.
+- Fixed in: Unit 3f.
+- Verification: `unit-3f/screenshots/macos-desktop.png`, `unit-3f/visual-absurdity-ledger.md`, focused recipe-detail tests, iOS/macOS app builds, and warning scan.
