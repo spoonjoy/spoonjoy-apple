@@ -328,7 +328,7 @@ struct KitchenRecipeIndexRow: View {
                 RecipeCoverImage(
                     url: recipe.displayCoverImageURL,
                     title: recipe.title,
-                    subtitle: "No photo yet"
+                    subtitle: "Photo not added"
                 )
                     .aspectRatio(1, contentMode: .fill)
             } trailing: {

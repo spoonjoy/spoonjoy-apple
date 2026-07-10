@@ -12,7 +12,7 @@ struct SettingsView: View {
 
     private static let screenshotFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"
     private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
-    private static let notificationsFocusID = "settings-section-notification-apns-delivery"
+    private static let notificationsFocusID = "settings-section-notification-apns-device"
 
     let viewModel: SettingsViewModel
     var settingsSurfaceViewModel: SettingsSurfaceViewModel?
@@ -74,7 +74,7 @@ struct SettingsView: View {
                         )
                     case .notifications:
                         withAnimation(nil) {
-                            proxy.scrollTo(Self.notificationsFocusID, anchor: .center)
+                            proxy.scrollTo(Self.notificationsFocusID, anchor: .top)
                         }
                         try? await Task.sleep(nanoseconds: 200_000_000)
                         guard notificationAPNsSurfaceViewModel != nil else {
@@ -82,7 +82,7 @@ struct SettingsView: View {
                         }
                         Self.writeScreenshotProof(
                             visualFocus: screenshotSettingsFocus,
-                            visibleSections: ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                            visibleSections: ["This Device", "Push Delivery", "Notification Sync", "API Tokens"]
                         )
                         await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                             route: "settings",
@@ -269,24 +269,25 @@ struct SettingsView: View {
                         Toggle("Cookbook saves", isOn: $notifyCookbookSaveOfMine)
                         Toggle("Fellow-chef cooks", isOn: $notifyFellowChefOriginCook)
 
-                        Button {
-                            planSettingsAction(
-                                .updateNotificationPreferences(
-                                    SettingsNotificationPreferences(
-                                        notifySpoonOnMyRecipe: notifySpoonOnMyRecipe,
-                                        notifyForkOfMyRecipe: notifyForkOfMyRecipe,
-                                        notifyCookbookSaveOfMine: notifyCookbookSaveOfMine,
-                                        notifyFellowChefOriginCook: notifyFellowChefOriginCook
+                        if !notificationSaveDisabled(comparedWith: notifications) {
+                            Button {
+                                planSettingsAction(
+                                    .updateNotificationPreferences(
+                                        SettingsNotificationPreferences(
+                                            notifySpoonOnMyRecipe: notifySpoonOnMyRecipe,
+                                            notifyForkOfMyRecipe: notifyForkOfMyRecipe,
+                                            notifyCookbookSaveOfMine: notifyCookbookSaveOfMine,
+                                            notifyFellowChefOriginCook: notifyFellowChefOriginCook
+                                        ),
+                                        clientMutationID: "cm_settings_notifications_\(UUID().uuidString)"
                                     ),
-                                    clientMutationID: "cm_settings_notifications_\(UUID().uuidString)"
-                                ),
-                                using: surface.actionPlanner
-                            )
-                        } label: {
-                            settingsRowLabel("Save Notifications", systemImage: "bell.badge", prominence: .primary)
+                                    using: surface.actionPlanner
+                                )
+                            } label: {
+                                settingsRowLabel("Save Notifications", systemImage: "bell.badge", prominence: .primary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(notificationSaveDisabled(comparedWith: notifications))
                     }
                 }
                 .task(id: notificationIdentity(notifications)) {

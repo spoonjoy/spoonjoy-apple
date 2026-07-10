@@ -140,7 +140,7 @@ enum ScreenshotAccessibilityProofWriter {
                 voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
                 keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
+                contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
                 hierarchyAnchors: ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
@@ -167,7 +167,7 @@ enum ScreenshotAccessibilityProofWriter {
                 voiceOverLabels: ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking", "Recipe Index", "Cookbook Shelf"],
                 keyboardNavigationTargets: ["lead recipe actions", "recipe index buttons", "cookbook shelf buttons"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
-                contrastPairs: ["charcoal on bone", "white on photo overlay", "brass on bone"],
+                contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
                 hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "CookbookShelf"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "fixed-cover-height"]
             )

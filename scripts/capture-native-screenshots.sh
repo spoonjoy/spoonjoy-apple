@@ -305,7 +305,7 @@ write_design_review_success() {
       else
         manifest["settingsProfileSurface"] = true
       end
-      manifest["settingsSections"] = ["Profile", "Security", "Notifications", "Device Notifications", "APNs Delivery", "Notification Sync", "API Tokens", "Connections", "Environment", "Offline"]
+      manifest["settingsSections"] = ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "API Tokens", "Connections", "Environment", "Offline"]
       manifest["settingsSeedAccountID"] = "chef_settings_capture"
     elsif route == "search"
       manifest["searchNativeSurface"] = true
@@ -1066,7 +1066,7 @@ wait_for_accessibility_proof() {
           "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
           "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+          "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
           "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
@@ -1122,7 +1122,7 @@ wait_for_accessibility_proof() {
           "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
           "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
+          "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
           "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
@@ -1247,7 +1247,7 @@ validate_screenshot_surface_proof() {
     abort("#{platform} screenshot proof sections must be an array") unless sections.is_a?(Array)
     if screenshot_route == "settings"
       required_sections = if expected_focus == "notifications"
-                            ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                            ["This Device", "Push Delivery", "Notification Sync"]
                           else
                             ["Profile", "Security"]
                           end

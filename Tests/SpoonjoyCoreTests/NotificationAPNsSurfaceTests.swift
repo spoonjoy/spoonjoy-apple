@@ -73,7 +73,8 @@ struct NotificationAPNsSurfaceTests {
                     "requestNotificationPermission",
                     "requestDeviceRegistrationAction",
                     "KitchenTableTheme",
-                    "notificationAPNsDeliveryFocusID"
+                    "if !notificationSaveDisabled(comparedWith: viewModel.notificationDraft)",
+                    "notificationAPNsDeviceFocusID"
                 ],
                 "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift": [
                     "NotificationAPNsDeviceBridge",
@@ -123,8 +124,47 @@ struct NotificationAPNsSurfaceTests {
                     "permissionDenied",
                     "Notifications are off in System Settings",
                     "Open System Settings",
-                    "Register This Device",
-                    "settings-section-notification-apns-delivery"
+                    "Turn On for This Device",
+                    "settings-section-notification-apns-device"
+                ]
+            ]
+        )
+
+        #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
+    }
+
+    @Test("notification settings keeps APNs diagnostics out of user-facing copy")
+    func notificationSettingsKeepsAPNsDiagnosticsOutOfUserFacingCopy() throws {
+        let path = "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift"
+        let failures = sourceContractFailures(
+            requiredFiles: [path],
+            requiredTokens: [
+                path: [
+                    "NotificationDiagnosticsDisclosure"
+                ]
+            ],
+            forbiddenTokens: [
+                "KitchenTableSection(title: \"Device Notifications\"",
+                "KitchenTableSection(title: \"APNs Delivery\"",
+                "subtitle: \"Local permission and device token\"",
+                "subtitle: \"Production delivery status\"",
+                "NotificationFactRow(title: \"Device\", value: registration.deviceID)",
+                "NotificationFactRow(title: \"Platform\", value: registration.platform.rawValue)",
+                "NotificationFactRow(title: \"Environment\", value: registration.environment.rawValue)",
+                "NotificationFactRow(title: \"State\", value: registration.registrationState.rawValue)",
+                "Label(\"Development APNs registration can sync for local validation.\"",
+                "Label(\"Production push delivery not enabled\"",
+                "TestFlight push delivery waits on Apple push signing",
+                "NotificationFactRow(title: \"State\", value: blocker.blocked ? \"blocked\" : \"available\")",
+                ".disabled(notificationSaveDisabled(comparedWith: viewModel.notificationDraft))"
+            ],
+            stringAllowedTokens: [
+                path: [
+                    "KitchenTableSection(title: \"This Device\", subtitle: \"Permission and delivery on this device\")",
+                    "KitchenTableSection(title: \"Push Delivery\", subtitle: \"What will arrive on this build\")",
+                    "Device notifications are ready on this device.",
+                    "Push delivery is limited on this build.",
+                    "When full push delivery is available, Spoonjoy will use it automatically."
                 ]
             ]
         )

@@ -26,6 +26,8 @@ struct NativeMobileDesignContractTests {
                 "Label(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
                 "ToolbarItem(placement: .topBarTrailing)",
+                ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
+                ".toolbarBackground(.visible, for: .navigationBar)",
                 "compactOfflineStatusBar",
                 "desktopClassShell",
                 "NavigationStack",
@@ -54,6 +56,62 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Kitchen\")",
                 "Button(\"Capture Draft\")",
                 "Button(\"Settings\")"
+            ]
+        )
+    }
+
+    @Test("iOS tab bar appearance is opaque Spoonjoy bone")
+    func iOSTabBarAppearanceIsOpaqueSpoonjoyBone() throws {
+        let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
+        let app = uncommentedSwift(try readRepoFile(appPath))
+
+        expectContent(
+            app,
+            in: appPath,
+            contains: [
+                "configureChromeAppearance()",
+                "UITabBarAppearance()",
+                "configureWithOpaqueBackground()",
+                "appearance.backgroundColor = SpoonjoyUIColor.bone",
+                "UITabBar.appearance().isTranslucent = false",
+                "UITabBar.appearance().standardAppearance = appearance",
+                "UITabBar.appearance().scrollEdgeAppearance = appearance",
+                "private enum SpoonjoyUIColor",
+                "UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 1)"
+            ]
+        )
+    }
+
+    @Test("compact route pages reserve enough space for the floating native tab bar")
+    func compactRoutePagesReserveEnoughSpaceForFloatingNativeTabBar() throws {
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "static let compactDockReserve: CGFloat = 148",
+                ".padding(.bottom, bottomReserve)"
+            ]
+        )
+    }
+
+    @Test("Spoonjoy section headers keep titles legible before drawing dividers")
+    func spoonjoySectionHeadersKeepTitlesLegibleBeforeDrawingDividers() throws {
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "Text(title)",
+                ".font(KitchenTableTheme.sectionTitle)",
+                ".lineLimit(1)",
+                ".layoutPriority(1)",
+                "Rectangle()",
+                ".layoutPriority(-1)"
             ]
         )
     }
@@ -187,9 +245,9 @@ struct NativeMobileDesignContractTests {
             detail,
             in: detailPath,
             contains: [
-                "RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)",
-                "RecipeDetailErrorView(message: errorMessage)",
-                "isLoadingRecipe",
+                "KitchenTableLoadingStateView(",
+                "title: loadingTitle ?? \"Loading recipe\"",
+                "KitchenTableRouteErrorView(message: errorMessage",
                 "errorMessage = \"We couldn't load this recipe.\"",
                 "ownerToolsMenu"
             ],
@@ -238,17 +296,24 @@ struct NativeMobileDesignContractTests {
             cover,
             in: coverPath,
             contains: [
-                "AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.22)))",
-                ".transition(.opacity)",
+                "AsyncImage(url: url, transaction: imageTransaction)",
+                ".transition(accessibilityReduceMotion ? .identity : .opacity)",
+                "KitchenTableNoPhotoView",
+                "missingSubtitle",
+                "trimmingCharacters(in: .whitespacesAndNewlines)",
+                "Photo not added",
                 "compactMark",
-                "} else if let loadingFallbackAssetName",
-                "case .empty:\n            if let loadingFallbackAssetName",
-                "fallbackFoodAssetName(forTitle:",
-                "RecipeFallbackHummus",
-                "RecipeFallbackPizza"
+                "case .empty:",
+                "Loading photo"
             ],
             forbids: [
+                "fallbackFoodAssetName",
+                "loadingFallbackAssetName",
+                "RecipeFallback",
+                "assetName:",
                 "fallbackTexture",
+                "ForEach(0..<4",
+                "fork.knife.circle",
                 "Text(title)"
             ]
         )
@@ -256,9 +321,14 @@ struct NativeMobileDesignContractTests {
             search,
             in: searchPath,
             contains: [
-                "AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.18)))",
-                "thumbnailContent(for: phase)",
-                ".transition(.opacity)"
+                "AsyncImage(url: imageURL, transaction: imageLoadingTransaction)",
+                "KitchenTableImagePhaseView",
+                ".transition(reduceMotion ? .identity : .opacity)"
+            ],
+            forbids: [
+                "fallbackAssetName",
+                "fallbackFoodAssetName",
+                "RecipeFallback"
             ]
         )
         expectContent(
@@ -652,6 +722,10 @@ struct NativeMobileDesignContractTests {
         let detail = try readRepoFile(detailPath)
         let coverComponentPath = "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift"
         let coverComponent = uncommentedSwift(try readRepoFile(coverComponentPath))
+        let cookbookViewPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
+        let cookbookView = uncommentedSwift(try readRepoFile(cookbookViewPath))
+        let screenshotProofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let screenshotProof = uncommentedSwift(try readRepoFile(screenshotProofPath))
         let liveRoutePaths = [
             "Apps/Spoonjoy/Shared/Views/KitchenView.swift",
             "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
@@ -676,18 +750,26 @@ struct NativeMobileDesignContractTests {
             coverComponent,
             in: coverComponentPath,
             contains: [
-                "Cover",
-                "bundledAssetName(forRecipeID recipeID: String)",
-                "case \"recipe_lemon_pantry_pasta\"",
-                "\"LemonPantryPasta\"",
-                "LinearGradient(\n                colors: palette.background",
+                "missingSubtitle",
+                "trimmingCharacters(in: .whitespacesAndNewlines)",
+                "KitchenTableNoPhotoView",
+                "AsyncImage(url: url, transaction: imageTransaction)",
                 "KitchenTableTheme.paper",
                 "KitchenTableTheme.vellum",
-                "RecipeCoverFallbackPalette"
+                "Photo not added",
+                "photo.badge.plus",
+                "accessibilityLabel"
             ],
             forbids: [
-                "garnish",
-                "Capsule()",
+                "LinearGradient(",
+                "ForEach(0..<4",
+                "fork.knife.circle",
+                "bundledAssetName",
+                "fallbackFoodAssetName",
+                "loadingFallbackAssetName",
+                "RecipeFallback",
+                "LemonPantryPasta",
+                "assetName:",
                 "Circle().stroke(palette.accent",
                 "fallbackTexture",
                 "KitchenTableTheme.photoCharcoal"
@@ -697,17 +779,63 @@ struct NativeMobileDesignContractTests {
             try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"),
             in: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
             contains: [
+                "if let coverImageURL = viewModel.cover.imageURL",
+                "showsFallbackLabel: false"
+            ],
+            forbids: [
                 "coverPlaceholderLabel",
                 "Awaiting first chef photo",
                 "Cover coming soon",
-                "assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id)",
-                "showsFallbackLabel: false"
+                "assetName:",
+                "bundledAssetName(forRecipeID"
             ]
         )
-        expectContent(try readRepoFile("Apps/Spoonjoy/Shared/Views/KitchenView.swift"), in: "Apps/Spoonjoy/Shared/Views/KitchenView.swift", contains: ["assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)"])
-        expectContent(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipesView.swift"), in: "Apps/Spoonjoy/Shared/Views/RecipesView.swift", contains: ["assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id)"])
-        for routePath in liveRoutePaths.filter({ !$0.hasSuffix("KitchenView.swift") && !$0.hasSuffix("RecipeDetailView.swift") && !$0.hasSuffix("RecipesView.swift") }) {
-            expectContent(try readRepoFile(routePath), in: routePath, forbids: ["bundledAssetName(forRecipeID"])
+        expectContent(
+            cookbookView,
+            in: cookbookViewPath,
+            contains: [
+                "Cookbook cover not added",
+                "url: row.cover.primaryImageURL,",
+                "showsFallbackLabel: true",
+                "CookbookDetailHero"
+            ],
+            forbids: [
+                "if let imageURL = row.cover.primaryImageURL {\n            VStack(alignment: .leading, spacing: 8) {"
+            ]
+        )
+        expectContent(
+            screenshotProof,
+            in: screenshotProofPath,
+            contains: [
+                "\"media-aware contrast on real covers\"",
+                "\"secondary text on bone\""
+            ],
+            forbids: [
+                "\"white on photo overlay\""
+            ]
+        )
+        expectContent(
+            try readRepoFile("scripts/capture-native-screenshots.sh"),
+            in: "scripts/capture-native-screenshots.sh",
+            contains: [
+                "\"media-aware contrast on real covers\"",
+                "\"secondary text on bone\""
+            ],
+            forbids: [
+                "\"white on photo overlay\""
+            ]
+        )
+        for routePath in liveRoutePaths {
+            expectContent(
+                try readRepoFile(routePath),
+                in: routePath,
+                forbids: [
+                    "bundledAssetName(forRecipeID",
+                    "fallbackFoodAssetName",
+                    "RecipeFallback",
+                    "assetName:"
+                ]
+            )
         }
     }
 

@@ -1,0 +1,11 @@
+FAIL: simulator resolver must honor explicit available UDIDs even when the simulator name is not prefixed with iPhone
+STDOUT:
+
+STDERR:
+Requested iOS simulator UDID is not available: DOGFOOD-UDID
+
+FAIL: simulator resolver default path must keep selecting ordinary iPhone simulator names
+STDOUT:
+platform=iOS Simulator,id=4EAF4563-339C-4CCA-A13B-AD395C7A1F65
+
+STDERR:

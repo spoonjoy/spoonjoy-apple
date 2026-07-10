@@ -151,6 +151,10 @@ struct PlatformNavigationView: View {
             .toolbar {
                 compactNavigationToolbar
             }
+#if os(iOS)
+            .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+#endif
         }
         .navigationDestination(for: AppRoute.self) { route in
             destinationContent(for: route)

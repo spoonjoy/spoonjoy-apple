@@ -307,16 +307,16 @@ struct RecipeDetailView: View {
 
     private var hero: some View {
         VStack(alignment: .leading, spacing: 14) {
-            RecipeCoverImage(
-                url: viewModel.cover.imageURL,
-                title: viewModel.title,
-                subtitle: coverPlaceholderLabel,
-                showsFallbackLabel: false
-            )
-                .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
-                .clipped()
-                .overlay(alignment: .bottomLeading) {
-                    if viewModel.cover.imageURL != nil {
+            if let coverImageURL = viewModel.cover.imageURL {
+                RecipeCoverImage(
+                    url: coverImageURL,
+                    title: viewModel.title,
+                    subtitle: "Cover",
+                    showsFallbackLabel: false
+                )
+                    .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
+                    .clipped()
+                    .overlay(alignment: .bottomLeading) {
                         Text(provenance)
                             .font(KitchenTableTheme.uiLabel)
                             .padding(10)
@@ -324,8 +324,8 @@ struct RecipeDetailView: View {
                             .foregroundStyle(.white)
                             .padding(12)
                     }
-                }
-                .accessibilityLabel("\(viewModel.title) cover image")
+                    .accessibilityLabel("\(viewModel.title) cover image")
+            }
 
             Text("Recipe".uppercased())
                 .font(.caption2.weight(.bold))
@@ -378,10 +378,6 @@ struct RecipeDetailView: View {
             .buttonStyle(.plain)
             .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
         }
-    }
-
-    private var coverPlaceholderLabel: String {
-        "No photo yet"
     }
 
     private var recipeActionFlow: some View {

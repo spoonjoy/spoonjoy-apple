@@ -1,0 +1,210 @@
+[0/1] Planning build
+Building for debugging...
+[0/9] Write swift-version--58304C5D6DBC2206.txt
+[2/92] Compiling SpoonjoyCore APIClient.swift
+[3/92] Compiling SpoonjoyCore APIEnvelope.swift
+[4/92] Compiling SpoonjoyCore APIError.swift
+[5/92] Compiling SpoonjoyCore APIRequestBuilder.swift
+[6/92] Compiling SpoonjoyCore APIRequestSupport.swift
+[7/92] Compiling SpoonjoyCore APIRetryPolicy.swift
+[8/92] Compiling SpoonjoyCore APITransport.swift
+[9/92] Compiling SpoonjoyCore JSONValue.swift
+[10/92] Compiling SpoonjoyCore NativeAPIRequests.swift
+[11/92] Compiling SpoonjoyCore PaginationCursor.swift
+[12/101] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[13/101] Compiling SpoonjoyCore ShoppingListAPI.swift
+[14/101] Compiling SpoonjoyCore ShoppingListRequests.swift
+[15/101] Compiling SpoonjoyCore AppNavigationState.swift
+[16/101] Compiling SpoonjoyCore AppRoute.swift
+[17/101] Compiling SpoonjoyCore DeepLinkRouter.swift
+[18/101] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[19/101] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[20/101] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[21/101] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[22/101] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[23/101] Compiling SpoonjoyCore NativeDurableCache.swift
+[24/101] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[25/101] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[26/101] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[27/101] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[28/101] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[29/101] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[30/101] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[31/101] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[32/101] Compiling SpoonjoyCore CaptureDraft.swift
+[33/101] Compiling SpoonjoyCore CookModeProgress.swift
+[34/101] Compiling SpoonjoyCore KitchenFixtureState.swift
+[35/101] Compiling SpoonjoyCore SettingsState.swift
+[36/101] Compiling SpoonjoyCore ShoppingListState.swift
+[37/101] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[38/101] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[39/101] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[40/101] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[41/101] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[42/101] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[43/101] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[44/101] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[45/101] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[46/101] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[47/101] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[48/101] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[49/101] Compiling SpoonjoyCore NativePasswordSignInRequests.swift
+[50/101] Compiling SpoonjoyCore OAuthPKCE.swift
+[51/101] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[52/101] Compiling SpoonjoyCore OAuthRequests.swift
+[53/101] Compiling SpoonjoyCore OAuthResponses.swift
+[54/101] Compiling SpoonjoyCore RefreshCoordinator.swift
+[55/101] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[56/101] Compiling SpoonjoyCore TokenVault.swift
+[57/101] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[58/101] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[59/101] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[60/101] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[61/101] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[62/101] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[63/101] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[64/101] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[65/101] Compiling SpoonjoyCore NativeSharePayload.swift
+[66/101] Compiling SpoonjoyCore DeepLinkManifest.swift
+[67/101] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[68/101] Compiling SpoonjoyCore NativeIntentAction.swift
+[69/101] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[70/101] Compiling SpoonjoyCore ScenarioCommand.swift
+[71/101] Compiling SpoonjoyCore ScenarioReport.swift
+[72/101] Compiling SpoonjoyCore ScenarioVerifier.swift
+[73/101] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[74/101] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[75/101] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[76/101] Compiling SpoonjoyCore ScreenViewModels.swift
+[77/101] Compiling SpoonjoyCore SearchState.swift
+[78/101] Compiling SpoonjoyCore AuthSessionState.swift
+[79/101] Compiling SpoonjoyCore FileBackedTokenVault.swift
+[80/101] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[81/101] Compiling SpoonjoyCore KeychainTokenVault.swift
+[82/101] Compiling SpoonjoyCore NativeAppleSignInRequests.swift
+[83/101] Compiling SpoonjoyCore NativeAuthSession.swift
+[84/101] Emitting module SpoonjoyCore
+[85/101] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[86/101] Compiling SpoonjoyCore JSONFileStore.swift
+[87/101] Compiling SpoonjoyCore MutationQueue.swift
+[88/101] Compiling SpoonjoyCore OfflineSnapshot.swift
+[89/101] Compiling SpoonjoyCore SyncCheckpoint.swift
+[90/101] Compiling SpoonjoyCore RecipeCookbook.swift
+[91/101] Compiling SpoonjoyCore SpoonjoyCore.swift
+[92/101] Compiling SpoonjoyCore NativeSyncEngine.swift
+[93/101] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[94/106] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[95/106] Emitting module SpoonjoyScenarioVerifier
+[96/106] Compiling SpoonjoyScenarioVerifier main.swift
+[96/148] Write Objects.LinkFileList
+[98/149] Compiling SpoonjoyNativeDogfood main.swift
+[99/149] Emitting module SpoonjoyNativeDogfood
+[99/149] Write Objects.LinkFileList
+[100/149] Linking SpoonjoyScenarioVerifier
+[101/149] Applying SpoonjoyScenarioVerifier
+[102/149] Linking SpoonjoyNativeDogfood
+[103/149] Applying SpoonjoyNativeDogfood
+[105/149] Emitting module SpoonjoyCoreTests
+[106/153] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[107/153] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[108/153] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[109/153] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[110/153] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[111/153] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[112/153] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[113/153] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[114/153] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[115/153] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[116/153] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[117/153] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[118/153] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[119/153] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[120/153] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[121/153] Compiling SpoonjoyCoreTests CookbookIntentTests.swift
+[122/153] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[123/153] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[124/153] Compiling SpoonjoyCoreTests APITransportTests.swift
+[125/153] Compiling SpoonjoyCoreTests AppStateTests.swift
+[126/153] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[127/153] Compiling SpoonjoyCoreTests CaptureImportIntentTests.swift
+[128/153] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[129/153] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[130/153] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[131/153] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[132/153] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[133/153] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[134/153] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[135/153] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[136/153] Compiling SpoonjoyCoreTests ProfileSettingsIntentTests.swift
+[137/153] Compiling SpoonjoyCoreTests RecipeActionIntentTests.swift
+[138/153] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[139/153] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[140/153] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[141/153] Compiling SpoonjoyCoreTests NotificationIntentTests.swift
+[142/153] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[143/153] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[144/153] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[145/153] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[146/153] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[147/153] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[148/153] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[149/153] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[150/153] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[151/153] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[152/155] Emitting module SpoonjoyApplePackageTests
+[153/155] Compiling SpoonjoyApplePackageTests runner.swift
+[153/155] Write Objects.LinkFileList
+[154/155] Linking SpoonjoyApplePackageTests
+Build complete! (33.09s)
+Test Suite 'Selected tests' started at 2026-07-09 22:52:22.470.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-09 22:52:22.473.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-09 22:52:22.473.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-09 22:52:22.473.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "iOS tab bar appearance is opaque Spoonjoy bone" started.
+◇ Test "Spoonjoy section headers keep titles legible before drawing dividers" started.
+◇ Test "compact mobile routes do not duplicate large system titles above authored headers" started.
+◇ Test "compact tab routes use system navigation chrome without global searchable" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "cook mode owns a compact SpoonDock handrail wired to step state" started.
+◇ Test "shopping destructive actions stay behind confirmations" started.
+◇ Test "shopping list relies on native tab navigation instead of compact SpoonDock" started.
+◇ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" started.
+◇ Test "AI placeholder covers do not render as native food photography" started.
+◇ Test "native palette is pinned to the current Spoonjoy web tokens" started.
+◇ Test "compact route pages reserve enough space for the floating native tab bar" started.
+◇ Test "SpoonDock is registered in both app targets" started.
+◇ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" started.
+◇ Test "SpoonDock is limited to cook mode handrail controls" started.
+◇ Test "compact iOS shell uses native tab and navigation bars" started.
+◇ Test "TestFlight feedback polish removes clutter and placeholder overlap" started.
+◇ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" started.
+◇ Test "recipe detail follows web step language instead of invented receipt method copy" started.
+◇ Test "compact primary routes are native tab bar sections" started.
+✔ Test "iOS tab bar appearance is opaque Spoonjoy bone" passed after 0.008 seconds.
+✔ Test "Spoonjoy section headers keep titles legible before drawing dividers" passed after 0.008 seconds.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.008 seconds.
+✔ Test "shopping destructive actions stay behind confirmations" passed after 0.008 seconds.
+✔ Test "compact route pages reserve enough space for the floating native tab bar" passed after 0.008 seconds.
+✔ Test "native palette is pinned to the current Spoonjoy web tokens" passed after 0.008 seconds.
+✔ Test "compact mobile routes do not duplicate large system titles above authored headers" passed after 0.008 seconds.
+✔ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" passed after 0.008 seconds.
+✔ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" passed after 0.008 seconds.
+✔ Test "SpoonDock is limited to cook mode handrail controls" passed after 0.008 seconds.
+✔ Test "compact tab routes use system navigation chrome without global searchable" passed after 0.009 seconds.
+✔ Test "SpoonDock is registered in both app targets" passed after 0.012 seconds.
+✔ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" passed after 0.020 seconds.
+✔ Test "cook mode owns a compact SpoonDock handrail wired to step state" passed after 0.021 seconds.
+✔ Test "shopping list relies on native tab navigation instead of compact SpoonDock" passed after 0.022 seconds.
+✔ Test "compact iOS shell uses native tab and navigation bars" passed after 0.024 seconds.
+✔ Test "compact primary routes are native tab bar sections" passed after 0.028 seconds.
+✔ Test "TestFlight feedback polish removes clutter and placeholder overlap" passed after 0.029 seconds.
+✔ Test "recipe detail follows web step language instead of invented receipt method copy" passed after 0.030 seconds.
+✔ Test "AI placeholder covers do not render as native food photography" passed after 0.031 seconds.
+✔ Suite "Native mobile design contract" passed after 0.031 seconds.
+✔ Test run with 20 tests in 1 suite passed after 0.031 seconds.

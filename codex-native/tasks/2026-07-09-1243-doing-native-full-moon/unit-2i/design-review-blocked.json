@@ -1,0 +1,15 @@
+{
+  "blocked": true,
+  "capability": "ScreenshotRouteTimeout",
+  "sourceBlockerPath": "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-2i/apple/unit-2i-shared-substrate-screenshot-route-timeout-blocker.json",
+  "skippedArtifacts": [
+    "screenshots/ios-mobile.png",
+    "screenshots/macos-desktop.png",
+    "design-review.json",
+    "apple/unit-2i-shared-substrate-accessibility-proof-ios.json",
+    "apple/unit-2i-shared-substrate-accessibility-proof-macos.json"
+  ],
+  "reason": "Screenshot route kitchen exceeded 240 seconds before producing terminal screenshot artifacts.",
+  "ownerAction": "Inspect the route capture log and fix the local screenshot harness or app launch hang, then rerun the screenshot route matrix.",
+  "timeoutSeconds": 240
+}

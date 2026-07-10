@@ -218,7 +218,7 @@ def accessibility_proof(platform)
       "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
       "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-      "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+      "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
       "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
       "layoutGuards" => ["text-fit", "no-tiny-clusters"]
     },

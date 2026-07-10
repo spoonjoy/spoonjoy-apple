@@ -152,7 +152,7 @@ private struct ProfileRecipeShelf: View {
                             RecipeCoverImage(
                                 url: recipe.coverImageURL,
                                 title: recipe.title,
-                                subtitle: "No photo yet"
+                                subtitle: "Photo not added"
                             )
                         } trailing: {
                             Image(systemName: "chevron.forward")
@@ -183,7 +183,7 @@ private struct ProfileRecipeCard: View {
             RecipeCoverImage(
                 url: recipe.coverImageURL,
                 title: recipe.title,
-                subtitle: "No photo yet"
+                subtitle: "Photo not added"
             )
                 .frame(width: 132, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))

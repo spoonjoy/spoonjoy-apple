@@ -3,6 +3,7 @@
 **Status**: READY_FOR_EXECUTION
 **Execution Mode**: direct
 **Created**: 2026-07-09 12:49
+**Host context**: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon` / OS: `Darwin` / probed: 2026-07-10T00:45:29Z
 **Planning**: ./2026-07-09-1243-planning-native-full-moon.md
 **Artifacts**: ./2026-07-09-1243-doing-native-full-moon/
 
@@ -173,7 +174,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Updated media/no-photo components and route usage.
 **Acceptance**: Unit 2g tests pass; no production route presents a fake default image as real food.
 
-### ⬜ Unit 2i: Shared Substrate Coverage and Visual QA
+### ✅ Unit 2i: Shared Substrate Coverage and Visual QA
 **What**: Run shared substrate checks, coverage for new code, and full screenshot matrix focused on palette, dock/toolbar, loading, banners, images, text fit, and overlap.
 **Output**: Coverage logs, route screenshots, design-review artifacts, and closed shared-substrate ledger items.
 **Acceptance**: 100% coverage on new code; no warnings; automated design/accessibility contracts pass.
@@ -525,6 +526,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 16:56 Unit 2f complete: added shared authored loading/error states, replaced guarded raw route spinners and generic unavailable copy, made search image transitions Reduce Motion aware, quieted informational offline/stale status, regenerated the Xcode project, and passed loading, palette, design-language, shell, Xcode project/generator, iOS no-sign, and macOS build checks.
 - 2026-07-09 16:59 Unit 2g complete: added native image policy contract; red log proves bundled `RecipeFallback*` assets, title-hash fake food fallbacks, route-level bundled fallback image calls, search fallback thumbnails, visible row provenance noise, and production-facing `Chef photo` / `Imported photo` / `Editorialized chef photo` labels.
 - 2026-07-09 17:10 Unit 2h complete: removed bundled recipe fallback image assets, replaced fake food fallback behavior with an authored `KitchenTableNoPhotoView`, removed route-level fallback asset calls and provenance row noise, renamed cover-source labels, and passed image policy, palette, design-language, loading, shell, Xcode project/generator, focused Swift tests, iOS no-sign, and macOS build checks.
+- 2026-07-09 23:53 Unit 2i complete: closed shared substrate visual issues for tab/nav chrome, honest no-photo states, notification settings focus/copy, simulator resolver determinism, and stale screenshot evidence; Sagan cold review found two MINOR issues, both fixed; stale legacy no-photo call sites normalized; focused contracts, app-target builds, warning scan, and fresh 11-route iOS/macOS matrix passed.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1

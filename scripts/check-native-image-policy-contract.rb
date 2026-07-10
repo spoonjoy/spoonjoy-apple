@@ -51,7 +51,8 @@ end
 cover_source = uncommented_swift(RECIPE_COVER_IMAGE.read)
 required_cover_tokens = [
   "struct KitchenTableNoPhotoView",
-  "No photo yet",
+  "missingSubtitle",
+  "Photo not added",
   "accessibilityLabel"
 ]
 missing_cover_tokens = required_cover_tokens.reject { |token| cover_source.include?(token) }
@@ -64,7 +65,10 @@ banned_cover_tokens = {
   "loadingFallbackAssetName" => "loading/error states must not swap in fake food",
   "bundledCover(" => "bundled food covers hide missing media",
   "assetName:" => "cover callers should not provide fallback image assets",
-  "RecipeFallback" => "fallback recipe assets are not product media"
+  "RecipeFallback" => "fallback recipe assets are not product media",
+  "ForEach(0..<4" => "decorative stripe placeholders read as fake/generated food media",
+  "fork.knife.circle" => "missing media should not use food-ish placeholder glyphs",
+  "LinearGradient(" => "missing media should be an honest quiet panel, not a fake hero image"
 }.freeze
 banned_cover_tokens.each do |token, reason|
   next unless cover_source.include?(token)

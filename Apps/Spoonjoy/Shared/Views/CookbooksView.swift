@@ -269,16 +269,18 @@ private struct CookbookCover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                    .fill(KitchenTableTheme.brass.opacity(0.18))
-                    .aspectRatio(3 / 4, contentMode: .fit)
-                if let imageURL = row.cover.primaryImageURL {
-                    RecipeCoverImage(url: imageURL, title: row.title, subtitle: row.recipeCountLabel)
-                        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                        .accessibilityHidden(true)
-                }
+                RecipeCoverImage(
+                    url: row.cover.primaryImageURL,
+                    title: row.title,
+                    subtitle: row.cover.primaryImageURL == nil ? "Cookbook cover not added" : row.recipeCountLabel,
+                    showsFallbackLabel: true
+                )
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                .accessibilityHidden(true)
             }
+            .aspectRatio(3 / 4, contentMode: .fit)
             .frame(width: 120)
+            .accessibilityIdentifier("CookbookDetailHero")
 
             Text(row.title)
                 .font(.headline)
@@ -493,7 +495,7 @@ private struct CookbookDetailView: View {
                         RecipeCoverImage(
                             url: imageURL,
                             title: recipe.title,
-                            subtitle: "No photo yet"
+                            subtitle: "Photo not added"
                         )
                             .frame(width: 54, height: 54)
                             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))

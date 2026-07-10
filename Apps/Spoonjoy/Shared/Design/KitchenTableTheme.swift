@@ -29,7 +29,7 @@ enum KitchenTableTheme {
     static let pageSpacing: CGFloat = 24
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
-    static let compactDockReserve: CGFloat = 92
+    static let compactDockReserve: CGFloat = 148
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
@@ -163,9 +163,12 @@ struct KitchenTableSection<Content: View>: View {
                 Text(title)
                     .font(KitchenTableTheme.sectionTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 Rectangle()
                     .fill(KitchenTableTheme.line.opacity(0.55))
                     .frame(height: 1)
+                    .layoutPriority(-1)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)

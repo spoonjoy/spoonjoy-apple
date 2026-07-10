@@ -49,7 +49,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
     "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
+    "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
     "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
@@ -105,7 +105,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
     "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
+    "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
     "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
@@ -144,7 +144,7 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   sections = proof["visibleSections"]
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
   required_sections = if visual_focus == "notifications"
-                        ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                        ["This Device", "Push Delivery", "Notification Sync"]
                       else
                         ["Profile", "Security"]
                       end
@@ -340,7 +340,7 @@ when "settings"
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   required_sections = if visual_focus == "notifications"
                         fail_check("#{path} settingsNotificationAPNsSurface must be true for settings/APNs captures") unless manifest["settingsNotificationAPNsSurface"] == true
-                        ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                        ["This Device", "Push Delivery", "Notification Sync"]
                       else
                         fail_check("#{path} settingsProfileSurface must be true for profile settings captures") unless manifest["settingsProfileSurface"] == true
                         ["Profile", "Security"]
