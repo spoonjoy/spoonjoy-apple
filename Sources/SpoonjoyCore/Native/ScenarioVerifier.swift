@@ -55,6 +55,7 @@ public enum ScenarioVerifier {
             ],
             nativeCapabilities: ScenarioNativeCapabilities(
                 appIntents: [],
+                appIntentTelemetryEvents: [],
                 spotlightIndexedTypes: [],
                 searchableScopes: [],
                 shareActions: [],
@@ -302,13 +303,18 @@ public enum ScenarioVerifier {
                 profileSettingsSiriIntentsCheck(metadata: metadata),
                 notificationSiriIntentsCheck(metadata: metadata),
                 ScenarioCheck(
+                    name: "App Intent output telemetry",
+                    status: metadata.appIntentTelemetryEvents.isEmpty ? .fail : .pass,
+                    detail: "App Intent output telemetry reports completion and failure events for native action results."
+                ),
+                ScenarioCheck(
                     name: "deep link metadata",
                     status: deepLinkCheckStatus(metadata),
                     detail: "Associated-domain and custom-scheme routes are declared."
                 ),
                 ScenarioCheck(name: "app surfaces", status: .pending, detail: "SwiftUI surfaces land in Units 14-16.")
             ],
-            nativeCapabilities: metadata.scenarioCapabilities
+            nativeCapabilities: nativeCapabilities(metadata: metadata)
         )
     }
 
@@ -411,22 +417,34 @@ public enum ScenarioVerifier {
                         "CaptureImportEntryPoint",
                         "agentMCP",
                         "appIntent",
-                        "shareSheetComingSoon",
-                        "siriComingSoon",
-                        "cameraComingSoon",
-                        "photoLibraryComingSoon",
+                        "Spoonjoy agent",
+                        "Shortcuts & Siri",
+                        "Shortcuts and Siri",
+                        "Import queue",
+                        "agentImportStatus",
+                        "ImportStatusPanel(",
+                        "shellOfflineIndicatorState",
+                        "OfflineStatusView",
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
                         "Submit import",
+                        "Retry sync",
                         "Retry when online",
                         "Resolve import setup",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
                     forbiddenTokens: [
+                        "Agent import",
+                        "MCP agent",
+                        "App Intents",
                         "Promotion requires a separate reviewed flow",
                         "Send to " + "Spoonjoy",
+                        "shareSheet" + "ComingSoon",
+                        "siri" + "ComingSoon",
+                        "camera" + "ComingSoon",
+                        "photoLibrary" + "ComingSoon",
                         "CaptureDraft.local" + "Text(",
                         "CaptureDraft.import" + "URL(",
                         "CaptureDraft.video" + "URL(",
@@ -473,7 +491,7 @@ public enum ScenarioVerifier {
                     ]
                 )
             ],
-            nativeCapabilities: metadata.scenarioCapabilities
+            nativeCapabilities: nativeCapabilities(metadata: metadata)
         )
     }
 
@@ -575,22 +593,34 @@ public enum ScenarioVerifier {
                         "CaptureImportEntryPoint",
                         "agentMCP",
                         "appIntent",
-                        "shareSheetComingSoon",
-                        "siriComingSoon",
-                        "cameraComingSoon",
-                        "photoLibraryComingSoon",
+                        "Spoonjoy agent",
+                        "Shortcuts & Siri",
+                        "Shortcuts and Siri",
+                        "Import queue",
+                        "agentImportStatus",
+                        "ImportStatusPanel(",
+                        "shellOfflineIndicatorState",
+                        "OfflineStatusView",
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
                         "Submit import",
+                        "Retry sync",
                         "Retry when online",
                         "Resolve import setup",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
                     forbiddenTokens: [
+                        "Agent import",
+                        "MCP agent",
+                        "App Intents",
                         "Promotion requires a separate reviewed flow",
                         "Send to " + "Spoonjoy",
+                        "shareSheet" + "ComingSoon",
+                        "siri" + "ComingSoon",
+                        "camera" + "ComingSoon",
+                        "photoLibrary" + "ComingSoon",
                         "CaptureDraft.local" + "Text(",
                         "CaptureDraft.import" + "URL(",
                         "CaptureDraft.video" + "URL(",
@@ -649,7 +679,21 @@ public enum ScenarioVerifier {
                     ]
                 )
             ],
-            nativeCapabilities: capabilitiesWithLiveStoreFlows(metadata.scenarioCapabilities)
+            nativeCapabilities: capabilitiesWithLiveStoreFlows(nativeCapabilities(metadata: metadata))
+        )
+    }
+
+    private static func nativeCapabilities(metadata: NativeCapabilityMetadata) -> ScenarioNativeCapabilities {
+        ScenarioNativeCapabilities(
+            appIntents: metadata.appIntents,
+            appIntentTelemetryEvents: metadata.appIntentTelemetryEvents,
+            spotlightIndexedTypes: metadata.spotlightIndexedTypes,
+            searchableScopes: metadata.searchableScopes,
+            shareActions: metadata.shareActions,
+            offlineFlows: metadata.offlineFlows,
+            associatedDomains: metadata.associatedDomains,
+            urlSchemes: metadata.urlSchemes,
+            deepLinkRoutes: metadata.deepLinkRoutes
         )
     }
 
@@ -1960,6 +2004,7 @@ public enum ScenarioVerifier {
         ]
         return ScenarioNativeCapabilities(
             appIntents: capabilities.appIntents,
+            appIntentTelemetryEvents: capabilities.appIntentTelemetryEvents,
             spotlightIndexedTypes: capabilities.spotlightIndexedTypes,
             searchableScopes: capabilities.searchableScopes,
             shareActions: capabilities.shareActions,
@@ -1973,6 +2018,7 @@ public enum ScenarioVerifier {
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
         scenarioStatus([
             metadata.appIntents,
+            metadata.appIntentTelemetryEvents,
             metadata.spotlightIndexedTypes,
             metadata.searchableScopes,
             metadata.shareActions,

@@ -66,6 +66,7 @@ struct OpenRecipeIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let action = try NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)
+        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "OpenRecipeIntent", returnsValue: false)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening recipe in Spoonjoy")
     }
@@ -542,6 +543,7 @@ struct SearchSpoonjoyIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let action = NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)
+        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "SearchSpoonjoyIntent", returnsValue: false)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Searching Spoonjoy")
     }
@@ -622,6 +624,7 @@ struct ShareShoppingListIntent: AppIntent {
               case .privateTransfer = share.kind else {
             throw NativeIntentActionError.shareUnavailable(shoppingList.descriptor.route)
         }
+        await SpoonjoyIntentTelemetry.recordCompleted(share, intentName: "ShareShoppingListIntent", returnsValue: true)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(value: privateTransferValue, dialog: "Prepared a private Spoonjoy shopping-list transfer")
     }
@@ -1298,6 +1301,7 @@ struct SubmitCaptureImportIntent: AppIntent {
         let createdAt = SpoonjoyIntentClock.timestamp()
         let action = try NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "SubmitCaptureImportIntent", returnsValue: false)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued capture draft import in Spoonjoy")
@@ -1520,6 +1524,65 @@ struct SpoonjoyInteractionDonor {
 
     func deleteDonations<Intent: AppIntent>(matching intentType: Intent.Type) async throws {
         try await IntentDonationManager.shared.deleteDonations(matching: IntentDonationMatchingPredicate.intentType(intentType))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SpoonjoyIntentTelemetry {
+    static func recordCompleted(_ action: NativeIntentAction, intentName: String, returnsValue: Bool) async {
+        await record(action.telemetryDescriptor(intentName: intentName, returnsValue: returnsValue))
+    }
+
+    static func recordCompleted(_ share: NativeIntentShareValue, intentName: String, returnsValue: Bool) async {
+        await record(share.telemetryDescriptor(intentName: intentName, returnsValue: returnsValue))
+    }
+
+    static func recordFailed(_ error: Error, intentName: String) async {
+        await record(NativeIntentTelemetryDescriptor.failed(intentName: intentName, error: error))
+    }
+
+    private static func record(_ descriptor: NativeIntentTelemetryDescriptor) async {
+        do {
+            let refresher = SpoonjoyIntentAPIRefresher(vault: KeychainTokenVault())
+            let configuration = try await refresher.validConfiguration()
+            _ = try await URLSessionAPITransport(authenticationRefresher: refresher).send(
+                try NativeTelemetryRequests.recordEvent(descriptor.telemetryEvent(
+                    environment: "production",
+                    metadata: metadata()
+                )),
+                configuration: configuration,
+                decode: NativeTelemetryResponse.self
+            )
+        } catch {
+            return
+        }
+    }
+
+    private static func metadata() -> NativeTelemetryAppMetadata {
+        let info = Bundle.main.infoDictionary
+        return NativeTelemetryAppMetadata(
+            platform: platform(),
+            appVersion: nonblankInfoString(info?["CFBundleShortVersionString"]) ?? "0.0.0",
+            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0"
+        )
+    }
+
+    private static func platform() -> String {
+        #if os(iOS)
+        "ios"
+        #elseif os(macOS)
+        "macos"
+        #else
+        "unknown"
+        #endif
+    }
+
+    private static func nonblankInfoString(_ value: Any?) -> String? {
+        guard let string = value as? String else {
+            return nil
+        }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

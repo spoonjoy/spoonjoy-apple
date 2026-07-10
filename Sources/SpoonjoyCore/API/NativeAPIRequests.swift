@@ -207,6 +207,8 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
     public enum Name: String, Equatable, Sendable {
         case bootstrapFailed = "bootstrap_failed"
         case bootstrapOffline = "bootstrap_offline"
+        case appIntentCompleted = "app_intent_completed"
+        case appIntentFailed = "app_intent_failed"
         case settingsRefreshFailed = "settings_refresh_failed"
         case syncFailed = "sync_failed"
     }
@@ -227,6 +229,13 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
     public let cookbooks: Int?
     public let shoppingItems: Int?
     public let queuedMutations: Int?
+    public let intentName: String?
+    public let intentActionKind: String?
+    public let intentOutcome: String?
+    public let intentReturnsValue: Bool?
+    public let intentQueuedMutationID: String?
+    public let intentQueuedMutationKind: String?
+    public let intentOpensURL: String?
 
     public init(
         name: Name,
@@ -244,7 +253,14 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         recipes: Int? = nil,
         cookbooks: Int? = nil,
         shoppingItems: Int? = nil,
-        queuedMutations: Int? = nil
+        queuedMutations: Int? = nil,
+        intentName: String? = nil,
+        intentActionKind: String? = nil,
+        intentOutcome: String? = nil,
+        intentReturnsValue: Bool? = nil,
+        intentQueuedMutationID: String? = nil,
+        intentQueuedMutationKind: String? = nil,
+        intentOpensURL: String? = nil
     ) {
         self.name = name
         self.stage = stage
@@ -262,6 +278,13 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         self.cookbooks = cookbooks
         self.shoppingItems = shoppingItems
         self.queuedMutations = queuedMutations
+        self.intentName = intentName
+        self.intentActionKind = intentActionKind
+        self.intentOutcome = intentOutcome
+        self.intentReturnsValue = intentReturnsValue
+        self.intentQueuedMutationID = intentQueuedMutationID
+        self.intentQueuedMutationKind = intentQueuedMutationKind
+        self.intentOpensURL = intentOpensURL
     }
 }
 
@@ -291,6 +314,13 @@ public enum NativeTelemetryRequests {
         put(event.cookbooks, in: &body, key: "cookbooks")
         put(event.shoppingItems, in: &body, key: "shoppingItems")
         put(event.queuedMutations, in: &body, key: "queuedMutations")
+        put(event.intentName, in: &body, key: "intentName")
+        put(event.intentActionKind, in: &body, key: "intentActionKind")
+        put(event.intentOutcome, in: &body, key: "intentOutcome")
+        put(event.intentReturnsValue, in: &body, key: "intentReturnsValue")
+        put(event.intentQueuedMutationID, in: &body, key: "intentQueuedMutationId")
+        put(event.intentQueuedMutationKind, in: &body, key: "intentQueuedMutationKind")
+        put(event.intentOpensURL, in: &body, key: "intentOpensUrl")
         return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "native", "telemetry"],

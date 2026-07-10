@@ -778,6 +778,7 @@ struct NativeScenarioTests {
             let missingSourceChecks = Dictionary(uniqueKeysWithValues: missingSourceReport.checks.map { ($0.name, $0.status) })
             let emptyMetadata = NativeCapabilityMetadata(
                 appIntents: [],
+                appIntentTelemetryEvents: [],
                 spotlightIndexedTypes: [],
                 searchableScopes: [],
                 shareActions: [],

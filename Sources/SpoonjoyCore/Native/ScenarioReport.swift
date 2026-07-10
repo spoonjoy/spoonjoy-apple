@@ -27,6 +27,7 @@ public struct ScenarioCheck: Codable, Equatable, Sendable {
 
 public struct ScenarioNativeCapabilities: Codable, Equatable, Sendable {
     public let appIntents: [String]
+    public let appIntentTelemetryEvents: [String]
     public let spotlightIndexedTypes: [String]
     public let searchableScopes: [String]
     public let shareActions: [String]
@@ -37,6 +38,7 @@ public struct ScenarioNativeCapabilities: Codable, Equatable, Sendable {
 
     public init(
         appIntents: [String],
+        appIntentTelemetryEvents: [String],
         spotlightIndexedTypes: [String],
         searchableScopes: [String],
         shareActions: [String],
@@ -46,6 +48,7 @@ public struct ScenarioNativeCapabilities: Codable, Equatable, Sendable {
         deepLinkRoutes: [String]
     ) {
         self.appIntents = appIntents
+        self.appIntentTelemetryEvents = appIntentTelemetryEvents
         self.spotlightIndexedTypes = spotlightIndexedTypes
         self.searchableScopes = searchableScopes
         self.shareActions = shareActions

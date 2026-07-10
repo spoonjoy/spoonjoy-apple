@@ -43,11 +43,15 @@ struct CaptureImportSurfaceTests {
                     "CaptureImportEntryPoint",
                     "agentMCP",
                     "appIntent",
-                    "shareSheetComingSoon",
-                    "siriComingSoon",
-                    "cameraComingSoon",
-                    "photoLibraryComingSoon",
+                    "Spoonjoy agent",
+                    "Shortcuts & Siri",
+                    "Shortcuts and Siri",
+                    "Import queue",
+                    "ImportStatusPanel(",
+                    "shellOfflineIndicatorState",
+                    "OfflineStatusView",
                     "Submit import",
+                    "Retry sync",
                     "Retry when online",
                     "Resolve import setup",
                     "Capture surface reviews Spoonjoy agent and Shortcuts drafts"
@@ -120,7 +124,11 @@ struct CaptureImportSurfaceTests {
                 ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
                     "\"Send to Spoonjoy\"",
-                    "\"Capture surface creates native drafts and submits import-ready sources.\""
+                    "\"Capture surface creates native drafts and submits import-ready sources.\"",
+                    "shareSheetComingSoon",
+                    "siriComingSoon",
+                    "cameraComingSoon",
+                    "photoLibraryComingSoon"
                 ],
                 "scripts/capture-native-screenshots.sh": [
                     "\"Import Status\"",

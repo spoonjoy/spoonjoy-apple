@@ -141,6 +141,71 @@ struct AppIntentAvailabilityTelemetryContractTests {
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
     }
+
+    @Test("native intent telemetry descriptors preserve route queue share and failure outputs")
+    func nativeIntentTelemetryDescriptorsPreserveRouteQueueShareAndFailureOutputs() throws {
+        let resolver = NativeIntentActionResolver()
+        let metadata = NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "27")
+
+        let openAction = try resolver.openRecipe(recipeID: "recipe_lemon_pantry_pasta")
+        let openEvent = openAction
+            .telemetryDescriptor(intentName: "OpenRecipeIntent", returnsValue: false)
+            .telemetryEvent(environment: "production", metadata: metadata)
+        #expect(openEvent.name == .appIntentCompleted)
+        #expect(openEvent.stage == "app_intent.OpenRecipeIntent.open-route")
+        #expect(openEvent.route == openAction.route.stateIdentifier)
+        #expect(openEvent.intentName == "OpenRecipeIntent")
+        #expect(openEvent.intentActionKind == "open-route")
+        #expect(openEvent.intentOutcome == "completed")
+        #expect(openEvent.intentReturnsValue == false)
+        #expect(openEvent.intentOpensURL == openAction.url.absoluteString)
+
+        let shoppingAction = try resolver.addShoppingListItem(
+            name: "Preserved lemons",
+            quantity: 2,
+            unit: "jar",
+            createdAt: "2026-07-10T16:45:00.000Z"
+        )
+        let shoppingEvent = shoppingAction
+            .telemetryDescriptor(intentName: "AddShoppingListItemIntent", returnsValue: false)
+            .telemetryEvent(environment: "production", metadata: metadata)
+        #expect(shoppingEvent.intentQueuedMutationID == "intent-shopping-add-preserved-lemons-2026-07-10T16-45-00-000Z")
+        #expect(shoppingEvent.intentQueuedMutationKind == NativeQueuedMutationKind.shoppingAddItem.rawValue)
+
+        let shoppingList = ShoppingListEntityDescriptor(
+            id: "shopping-list-production-chef_ari",
+            scope: ShoppingEntityScope(accountID: "chef_ari", environment: .production),
+            title: "Shopping List",
+            subtitle: "2 active items",
+            disambiguationLabel: "Ari's Shopping List",
+            route: .shoppingList,
+            activeItemCount: 2,
+            transferValue: ShoppingEntityTransferValue(
+                kind: .shoppingList,
+                rawResourceID: "shopping-list",
+                title: "Shopping List",
+                routeIdentifier: AppRoute.shoppingList.stateIdentifier,
+                publicURL: nil,
+                privateTransferValue: "schema=app.spoonjoy.shopping-entity.v1;domain=shopping-list;title=Shopping List",
+                userVisibleSummary: "2 active items"
+            )
+        )
+        let share = try resolver.shareShoppingList(shoppingList: shoppingList)
+        let shareEvent = share
+            .telemetryDescriptor(intentName: "ShareShoppingListIntent", returnsValue: true)
+            .telemetryEvent(environment: "production", metadata: metadata)
+        #expect(shareEvent.intentActionKind == "share.shopping-list.private-transfer")
+        #expect(shareEvent.intentReturnsValue == true)
+        #expect(shareEvent.intentOpensURL == nil)
+
+        let failureEvent = NativeIntentTelemetryDescriptor
+            .failed(intentName: "OpenRecipeIntent", error: NativeIntentActionError.unresolvedRecipeEntity)
+            .telemetryEvent(environment: "production", metadata: metadata)
+        #expect(failureEvent.name == .appIntentFailed)
+        #expect(failureEvent.stage == "app_intent.OpenRecipeIntent.perform")
+        #expect(failureEvent.intentOutcome == "failed")
+        #expect(failureEvent.errorType?.contains("NativeIntentActionError") == true)
+    }
 }
 
 private func availabilityFailures(in source: String, relativePath: String) -> [String] {
