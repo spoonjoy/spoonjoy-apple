@@ -168,6 +168,37 @@ struct CookModeParityTests {
         } == "Cook mode step output use use_missing was not found.")
     }
 
+    @Test("checked step ingredients keep stable active then completed ordering")
+    func checkedStepIngredientsKeepStableActiveThenCompletedOrdering() throws {
+        let recipe = try cookModeParityRecipe()
+        let progress = try CookModeProgress
+            .starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+            .selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:01:00.000Z")
+            .togglingIngredient(id: "ingredient_lemon_pasta_lemon", checked: true, updatedAt: "2026-06-25T12:02:00.000Z")
+            .togglingIngredient(id: "ingredient_lemon_pasta_garlic", checked: true, updatedAt: "2026-06-25T12:03:00.000Z")
+
+        let rows = CookModeViewModel(recipe: recipe, progress: progress).ingredientChecklistRows
+        #expect(rows.map(\.id) == [
+            "ingredient_lemon_pasta_oil",
+            "ingredient_lemon_pasta_lemon",
+            "ingredient_lemon_pasta_garlic"
+        ])
+        #expect(rows.map(\.isChecked) == [false, true, true])
+
+        let unchecked = try progress.togglingIngredient(
+            id: "ingredient_lemon_pasta_lemon",
+            checked: false,
+            updatedAt: "2026-06-25T12:04:00.000Z"
+        )
+        let uncheckedRows = CookModeViewModel(recipe: recipe, progress: unchecked).ingredientChecklistRows
+        #expect(uncheckedRows.map(\.id) == [
+            "ingredient_lemon_pasta_lemon",
+            "ingredient_lemon_pasta_oil",
+            "ingredient_lemon_pasta_garlic"
+        ])
+        #expect(uncheckedRows.map(\.isChecked) == [false, false, true])
+    }
+
     @Test("duration timers exist only for duration bearing steps")
     func durationTimersExistOnlyForDurationBearingSteps() throws {
         let recipe = try cookModeParityRecipe()

@@ -647,7 +647,14 @@ struct NativeMobileDesignContractTests {
                 "private var currentStepCard",
                 "private var cookModeUtilitySheet",
                 "private var cookModeBottomActionRail",
-                "private var stepProgressRail"
+                "private var stepProgressRail",
+                "private var ingredientChecklistAnimation: Animation?",
+                "accessibilityReduceMotion ? nil : .easeInOut(duration: 0.24)",
+                "private var ingredientChecklistTransaction: Transaction",
+                "transaction.disablesAnimations = true",
+                "withTransaction(ingredientChecklistTransaction)",
+                ".animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)",
+                ".transition(.opacity.combined(with: .move(edge: .bottom)))"
             ],
             forbids: [
                 "Label(\"Add Ingredients\", systemImage: \"cart.badge.plus\")",

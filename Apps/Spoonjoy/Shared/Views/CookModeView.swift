@@ -188,6 +188,18 @@ struct CookModeView: View {
         )
     }
 
+    private var ingredientChecklistAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.24)
+    }
+
+    private var ingredientChecklistTransaction: Transaction {
+        var transaction = Transaction(animation: ingredientChecklistAnimation)
+        if accessibilityReduceMotion {
+            transaction.disablesAnimations = true
+        }
+        return transaction
+    }
+
     private var currentStep: RecipeStep? {
         guard let currentStepID = viewModel.currentStepID else {
             return recipe.steps.first
@@ -359,8 +371,10 @@ struct CookModeView: View {
                         }
                         .toggleStyle(.largeCheck)
                         .tint(KitchenTableTheme.herb)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
+                .animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)
                 .padding(.horizontal, 2)
             }
         }
@@ -505,7 +519,9 @@ struct CookModeView: View {
             return
         }
 
-        updateProgress(nextProgress)
+        withTransaction(ingredientChecklistTransaction) {
+            updateProgress(nextProgress)
+        }
     }
 
     private func progressAfterTogglingStepOutputUse(id: String, checked: Bool) {
