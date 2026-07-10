@@ -1,0 +1,38 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (5.43s)
+Test Suite 'Selected tests' started at 2026-07-10 01:39:38.357.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 01:39:38.361.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 01:39:38.361.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 01:39:38.361.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.004) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" started.
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1089:5: Expectation failed: (missing → ["private var compactTaskHeader", "private var currentStepCard", "private var cookModeUtilitySheet", "private var cookModeBottomActionRail", "private var stepProgressRail"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/CookModeView.swift missing tokens: private var compactTaskHeader, private var currentStepCard, private var cookModeUtilitySheet, private var cookModeBottomActionRail, private var stepProgressRail
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1090:5: Expectation failed: (forbidden → ["Label(\"Add Ingredients\", systemImage: \"cart.badge.plus\")", "ScaleSelector(scaleFactor: progress.scaleFactor)", "KitchenTableSection(title: \"Step Inputs\"", "KitchenTableSection(title: \"Step Ingredients\"", ".background(.background)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/CookModeView.swift contains forbidden tokens: Label("Add Ingredients", systemImage: "cart.badge.plus"), ScaleSelector(scaleFactor: progress.scaleFactor), KitchenTableSection(title: "Step Inputs", KitchenTableSection(title: "Step Ingredients", .background(.background)
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1089:5: Expectation failed: (missing → ["KitchenSafeControlDeck", "primaryStepAction", "secondaryStepActions", "Label(\"Mark done\", systemImage: \"checkmark.circle.fill\")"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift missing tokens: KitchenSafeControlDeck, primaryStepAction, secondaryStepActions, Label("Mark done", systemImage: "checkmark.circle.fill")
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1090:5: Expectation failed: (forbidden → ["Label(\"Done\", systemImage: \"checkmark.circle.fill\")", "Label(\"Recipe\", systemImage: \"text.book.closed\")", ".buttonStyle(.bordered)", "ViewThatFits(in: .horizontal)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift contains forbidden tokens: Label("Done", systemImage: "checkmark.circle.fill"), Label("Recipe", systemImage: "text.book.closed"), .buttonStyle(.bordered), ViewThatFits(in: .horizontal)
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1089:5: Expectation failed: (missing → ["title: \"Mark done\"", "subtitle: nil", "accessibilityHint: \"Mark this cooking step complete.\""]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift missing tokens: title: "Mark done", subtitle: nil, accessibilityHint: "Mark this cooking step complete."
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1090:5: Expectation failed: (forbidden → ["title: \"Done\"", "subtitle: stepTitle"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift contains forbidden tokens: title: "Done", subtitle: stepTitle
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1089:5: Expectation failed: (missing → ["private var cookLogForm", "private var cookLogPhotoSlot", "private var cookLogActionBar", "Image(systemName: hasStagedPhoto ? \"photo.fill\" : \"photo.badge.plus\")", "KitchenTableActionButtonStyle(prominence: .primary)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift missing tokens: private var cookLogForm, private var cookLogPhotoSlot, private var cookLogActionBar, Image(systemName: hasStagedPhoto ? "photo.fill" : "photo.badge.plus"), KitchenTableActionButtonStyle(prominence: .primary)
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1090:5: Expectation failed: (forbidden → ["Label(hasStagedPhoto ? \"Ready\" : \"Photo\"", "Label(\"Log\", systemImage: \"fork.knife\")", ".buttonStyle(.borderedProminent)", ".controlSize(.large)", "ViewThatFits(in: .horizontal)", ".background(KitchenTableTheme.paper)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift contains forbidden tokens: Label(hasStagedPhoto ? "Ready" : "Photo", Label("Log", systemImage: "fork.knife"), .buttonStyle(.borderedProminent), .controlSize(.large), ViewThatFits(in: .horizontal), .background(KitchenTableTheme.paper)
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" failed after 0.014 seconds with 8 issues.
+✘ Suite "Native mobile design contract" failed after 0.015 seconds with 8 issues.
+✘ Test run with 1 test in 1 suite failed after 0.015 seconds with 8 issues.

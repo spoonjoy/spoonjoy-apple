@@ -209,7 +209,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshots, design-review artifacts, and closed ledger entries for Recipe Detail.
 **Acceptance**: No recipe detail overlap, snap-in, false unavailable, or placeholder-image issue remains.
 
-### ⬜ Unit 3g: Cook Mode and Cook Log — Tests
+### ✅ Unit 3g: Cook Mode and Cook Log — Tests
 **What**: Add failing tests for `CookModeView`, `KitchenSafeControls`, and `SpoonCookLogView` covering focused-step grammar, progress persistence, timers, ingredient use labels, controls, completion, and cook-log form layout.
 **Output**: Red Swift/static tests for cook mode and cook logging.
 **Acceptance**: Tests fail on current control crowding, unnecessary labels, persistence gap, or broken cook-log layout.
@@ -533,6 +533,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 01:06 Unit 3d complete: added red recipe-detail structure contracts for real-cover/no-photo metadata, log-cook action/read-surface parity, web-faithful masthead/source-proof anchors, stable route-state enum coverage, and `Save to Cookbook` sheet title; focused Swift runs fail red with compile evidence under `unit-3d/`.
 - 2026-07-10 01:18 Unit 3e complete: implemented recipe-detail route-state loading/missing/failure handling, web-faithful masthead/media/no-photo/log-cook action, `Save to Cookbook` sheet title, and refreshed accessibility proof anchors; focused contracts, full Swift tests, static design contracts, iOS/macOS app-target builds, warning scan, and diff check passed with evidence under `unit-3d/`.
 - 2026-07-10 01:34 Unit 3f complete: captured Recipe Detail on iOS and macOS, fixed macOS yield controls rendering as clipped slabs, reduced regular-width no-photo masthead weight, fixed Avicenna's direct detail-to-detail stale-route finding, cleaned generated build-log whitespace, and passed focused/full Swift tests, static design/palette contracts, iOS/macOS app-target builds, warning scan, design review, and screenshot inspection with evidence under `unit-3f/`.
+- 2026-07-10 01:40 Unit 3g complete: added red source contracts covering cook-mode compact task structure, kitchen-safe control deck language, cook-mode SpoonDock center action clarity, and cook-log media/action-bar layout; focused run fails red with eight current blockers under `unit-3g/red-cook-mode-cook-log-source-contract.log`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1

@@ -613,6 +613,89 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("cook mode and cook log stay kitchen safe instead of crowded control chrome")
+    func cookModeAndCookLogStayKitchenSafeInsteadOfCrowdedControlChrome() throws {
+        let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let controlsPath = "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift"
+        let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let spoonLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
+        let cook = uncommentedSwift(try readRepoFile(cookPath))
+        let controls = uncommentedSwift(try readRepoFile(controlsPath))
+        let dock = uncommentedSwift(try readRepoFile(dockPath))
+        let spoonLog = uncommentedSwift(try readRepoFile(spoonLogPath))
+
+        expectContent(
+            cook,
+            in: cookPath,
+            contains: [
+                "private var compactTaskHeader",
+                "private var currentStepCard",
+                "private var cookModeUtilitySheet",
+                "private var cookModeBottomActionRail",
+                "private var stepProgressRail"
+            ],
+            forbids: [
+                "Label(\"Add Ingredients\", systemImage: \"cart.badge.plus\")",
+                "ScaleSelector(scaleFactor: progress.scaleFactor)",
+                "KitchenTableSection(title: \"Step Inputs\"",
+                "KitchenTableSection(title: \"Step Ingredients\"",
+                ".background(.background)"
+            ]
+        )
+
+        expectContent(
+            controls,
+            in: controlsPath,
+            contains: [
+                "KitchenSafeControlDeck",
+                "primaryStepAction",
+                "secondaryStepActions",
+                "Label(\"Mark done\", systemImage: \"checkmark.circle.fill\")"
+            ],
+            forbids: [
+                "Label(\"Done\", systemImage: \"checkmark.circle.fill\")",
+                "Label(\"Recipe\", systemImage: \"text.book.closed\")",
+                ".buttonStyle(.bordered)",
+                "ViewThatFits(in: .horizontal)"
+            ]
+        )
+
+        expectContent(
+            dock,
+            in: dockPath,
+            contains: [
+                "title: \"Mark done\"",
+                "subtitle: nil",
+                "accessibilityHint: \"Mark this cooking step complete.\""
+            ],
+            forbids: [
+                "title: \"Done\"",
+                "subtitle: stepTitle"
+            ]
+        )
+
+        expectContent(
+            spoonLog,
+            in: spoonLogPath,
+            contains: [
+                "private var cookLogForm",
+                "private var cookLogPhotoSlot",
+                "private var cookLogActionBar",
+                "Image(systemName: hasStagedPhoto ? \"photo.fill\" : \"photo.badge.plus\")",
+                "KitchenTableActionButtonStyle(prominence: .primary)",
+                "accessibilityLabel(hasStagedPhoto ? \"Cook photo ready\" : \"Add cook photo\")"
+            ],
+            forbids: [
+                "Label(hasStagedPhoto ? \"Ready\" : \"Photo\"",
+                "Label(\"Log\", systemImage: \"fork.knife\")",
+                ".buttonStyle(.borderedProminent)",
+                ".controlSize(.large)",
+                "ViewThatFits(in: .horizontal)",
+                ".background(KitchenTableTheme.paper)"
+            ]
+        )
+    }
+
     @Test("shopping list relies on native tab navigation instead of compact SpoonDock")
     func shoppingListReliesOnNativeTabNavigation() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
