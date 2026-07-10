@@ -162,7 +162,7 @@ struct NotificationAPNsSurfaceTests {
                 path: [
                     "KitchenTableSection(title: \"This Device\", subtitle: \"Permission and delivery on this device\")",
                     "KitchenTableSection(title: \"Push Delivery\", subtitle: \"What will arrive on this build\")",
-                    "Device notifications are ready on this device.",
+                    "Device setup is saved. Push delivery is limited on this build.",
                     "Push delivery is limited on this build.",
                     "When full push delivery is available, Spoonjoy will use it automatically."
                 ]

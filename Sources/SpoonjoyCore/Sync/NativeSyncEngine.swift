@@ -3493,9 +3493,9 @@ public enum NativeOfflineMutationPolicy {
         case .oauthCallback:
             NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "OAuth callback exchange is online-only and was not queued.")
         case .apiTokenCreate:
-            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "API token creation is online-only and was not queued.")
+            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Access key creation is online-only and was not queued.")
         case .apiTokenRevoke:
-            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "API token revocation is online-only and was not queued.")
+            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Access key revocation is online-only and was not queued.")
         case .providerConnectionDisconnect:
             NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Provider disconnect is online-only and was not queued.")
         case .logout:

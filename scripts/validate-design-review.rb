@@ -103,11 +103,11 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "settings" => {
-    "voiceOverLabels" => ["Settings", "Profile", "Security"],
-    "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+    "voiceOverLabels" => ["Settings", "Profile", "Security", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings"],
+    "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification sync status"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
+    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView"],
     "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
   },
   "recipe-detail" => {
@@ -161,7 +161,7 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   sections = proof["visibleSections"]
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
   required_sections = if visual_focus == "notifications"
-                        ["This Device", "Push Delivery", "Notification Sync"]
+                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
                       else
                         ["Profile", "Security"]
                       end
@@ -447,7 +447,7 @@ when "settings"
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   required_sections = if visual_focus == "notifications"
                         fail_check("#{path} settingsNotificationAPNsSurface must be true for settings/APNs captures") unless manifest["settingsNotificationAPNsSurface"] == true
-                        ["This Device", "Push Delivery", "Notification Sync"]
+                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
                       else
                         fail_check("#{path} settingsProfileSurface must be true for profile settings captures") unless manifest["settingsProfileSurface"] == true
                         ["Profile", "Security"]

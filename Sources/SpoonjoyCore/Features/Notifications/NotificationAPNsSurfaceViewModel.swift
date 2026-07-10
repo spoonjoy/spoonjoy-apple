@@ -24,6 +24,7 @@ public enum NotificationAPNsPermissionStatusToken: Equatable, Sendable {
 public enum NotificationAPNsNativeBridgeError: Error, Equatable, Sendable {
     case unavailable
     case deviceTokenRequestAlreadyPending
+    case deviceTokenRequestTimedOut
     case deviceTokenUnavailable
 }
 

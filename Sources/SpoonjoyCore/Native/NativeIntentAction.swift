@@ -85,7 +85,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
         case .unresolvedChefProfileEntity:
             "Choose a Spoonjoy chef profile before running this Siri action."
         case .unresolvedAPITokenEntity:
-            "Choose a Spoonjoy API token before running this Siri action."
+            "Choose a Spoonjoy access key before running this Siri action."
         case .unresolvedAccountConnectionEntity:
             "Choose a Spoonjoy account connection before running this Siri action."
         case .settingsProfilePhotoRejected(let reason):
@@ -241,10 +241,10 @@ public struct APITokenEntityDescriptor: Equatable, Sendable {
     public static let placeholder = APITokenEntityDescriptor(
         id: "api-token-placeholder",
         credentialID: "",
-        name: "API Token",
+        name: "Access Key",
         tokenPrefix: "",
         scopes: [],
-        subtitle: "Choose an API token",
+        subtitle: "Choose an access key",
         disambiguationLabel: "Spoonjoy settings",
         isPlaceholder: true
     )
@@ -587,7 +587,7 @@ public struct NativeIntentActionResolver {
             )
         }
         return NativeIntentSettingsAction(
-            plan: SettingsActionPlan(userFacingMessage: "Open Spoonjoy settings to create the API token so the one-time credential is shown in the app."),
+            plan: SettingsActionPlan(userFacingMessage: "Open Spoonjoy settings to create the access key so the one-time credential is shown in the app."),
             route: target.route,
             url: target.url
         )
@@ -601,7 +601,7 @@ public struct NativeIntentActionResolver {
         _ = TokenCredentialRequests.revokeToken(credentialID: credentialID)
         let plan = try settingsPlan(.revokeAPIToken(credentialID: credentialID), connectivity: connectivity)
         guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.apiTokenRevoke else {
-            throw NativeIntentActionError.settingsActionUnavailable("Unexpected API token revoke plan.")
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected access key revoke plan.")
         }
         return NativeIntentSettingsAction(
             plan: plan,

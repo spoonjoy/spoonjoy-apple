@@ -267,7 +267,7 @@ public enum SettingsSurfaceComponent: String, Equatable, Hashable, Sendable {
         case .notificationPreferences:
             "Notifications"
         case .apiTokens:
-            "API tokens"
+            "Agent access"
         case .oauthConnections:
             "Connections"
         }

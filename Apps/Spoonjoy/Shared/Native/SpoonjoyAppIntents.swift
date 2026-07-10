@@ -319,20 +319,20 @@ struct RemoveProfilePhotoIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct OpenAPITokensIntent: AppIntent {
-    static let title: LocalizedStringResource = "Open API Tokens"
-    static let description = IntentDescription("Open Spoonjoy API token settings.")
+    static let title: LocalizedStringResource = "Open Agent Access"
+    static let description = IntentDescription("Open Spoonjoy agent access key settings.")
 
     func perform() async throws -> some IntentResult {
         let action = NativeIntentActionResolver().openAPITokens()
         await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening API token settings in Spoonjoy")
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening agent access settings in Spoonjoy")
     }
 }
 
 @available(iOS 27.0, macOS 27.0, *)
 struct CreateAPITokenIntent: AppIntent {
-    static let title: LocalizedStringResource = "Create API Token"
-    static let description = IntentDescription("Create a Spoonjoy API token.")
+    static let title: LocalizedStringResource = "Create Agent Access Key"
+    static let description = IntentDescription("Create a Spoonjoy access key for agents and tools.")
 
     @Parameter(title: "Name")
     var name: String
@@ -357,7 +357,7 @@ struct CreateAPITokenIntent: AppIntent {
             connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity()
         )
         let offlineMessage = SettingsOnlineOnlyReason.apiTokenCreate.message
-        let message = action.onlineOnlyReason?.message ?? action.plan.userFacingMessage ?? "Opening API token settings in Spoonjoy."
+        let message = action.onlineOnlyReason?.message ?? action.plan.userFacingMessage ?? "Opening agent access settings in Spoonjoy."
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
     }
@@ -365,10 +365,10 @@ struct CreateAPITokenIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct RevokeAPITokenIntent: AppIntent {
-    static let title: LocalizedStringResource = "Revoke API Token"
-    static let description = IntentDescription("Revoke a Spoonjoy API token.")
+    static let title: LocalizedStringResource = "Revoke Agent Access Key"
+    static let description = IntentDescription("Revoke a Spoonjoy access key for agents and tools.")
 
-    @Parameter(title: "API Token", requestValueDialog: "Which API token should be revoked?")
+    @Parameter(title: "Access Key", requestValueDialog: "Which access key should be revoked?")
     var token: SpoonjoyAPITokenEntity
 
     init() {
@@ -384,7 +384,7 @@ struct RevokeAPITokenIntent: AppIntent {
         let action = try NativeIntentActionResolver().revokeAPIToken(token: token.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
         try await SpoonjoyIntentStateWriter().performSettingsAction(action)
         let offlineMessage = SettingsOnlineOnlyReason.apiTokenRevoke.message
-        let message = action.onlineOnlyReason?.message ?? "Revoked API token in Spoonjoy."
+        let message = action.onlineOnlyReason?.message ?? "Revoked access key in Spoonjoy."
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
     }

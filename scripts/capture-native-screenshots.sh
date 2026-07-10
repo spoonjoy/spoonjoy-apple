@@ -456,7 +456,7 @@ write_design_review_success() {
       else
         manifest["settingsProfileSurface"] = true
       end
-      manifest["settingsSections"] = ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "API Tokens", "Connections", "Environment", "Offline"]
+      manifest["settingsSections"] = ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access", "Connections", "Environment", "Offline"]
       manifest["settingsSeedAccountID"] = "chef_settings_capture"
     elsif route == "search"
       manifest["searchNativeSurface"] = true
@@ -1026,7 +1026,7 @@ write_cache_state() {
             "credentials" => [
               {
                 "id" => "credential_capture",
-                "name" => "Capture validation token",
+                "name" => "Capture validation key",
                 "tokenPrefix" => "sj_live_1234",
                 "scopes" => ["recipes:read", "shopping_list:read"],
                 "createdAt" => timestamp,
@@ -1100,6 +1100,23 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
       xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+}
+
+ios_app_is_registered_as_running() {
+  local udid="$1"
+  local launchctl_log
+  local launchctl_output
+  local launchctl_status
+  launchctl_log="$(mktemp)"
+  set +e
+  run_with_timeout "simulator launch registration check" 10 "$launchctl_log" \
+    xcrun simctl spawn "$udid" launchctl list
+  launchctl_status=$?
+  set -e
+  launchctl_output="$(cat "$launchctl_log")"
+  cat "$launchctl_log" >> "$capture_log"
+  rm -f "$launchctl_log"
+  [[ "$launchctl_status" -eq 0 && "$launchctl_output" == *"UIKitApplication:app.spoonjoy"* ]]
 }
 
 open_macos_app() {
@@ -1567,7 +1584,7 @@ validate_screenshot_surface_proof() {
     abort("#{platform} screenshot proof sections must be an array") unless sections.is_a?(Array)
     if screenshot_route == "settings"
       required_sections = if expected_focus == "notifications"
-                            ["This Device", "Push Delivery", "Notification Sync"]
+                            ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
                           else
                             ["Profile", "Security"]
                           end
@@ -1624,7 +1641,11 @@ capture_ios_app() {
   rm -f "$terminate_log"
   if ! ios_launch_app "$udid"; then
     printf 'simulator launch timeout or failure for iOS route %s\n' "$screenshot_route" >> "$capture_log"
-    return 1
+    if ios_app_is_registered_as_running "$udid"; then
+      printf 'Spoonjoy is registered as running after screenshot launch timeout; continuing to foreground/proof checks\n' >> "$capture_log"
+    else
+      return 1
+    fi
   fi
   wait_for_ios_foreground "$udid" || return 1
   sleep 1

@@ -137,11 +137,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("settings", "SettingsView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Settings", "Profile", "Security", "Notifications", "Hide offline status"],
-                keyboardNavigationTargets: ["profile form fields", "security token controls", "notification toggles", "offline status dismiss"],
+                voiceOverLabels: ["Settings", "Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Hide offline status"],
+                keyboardNavigationTargets: ["profile form fields", "security token controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "OfflineStatusView"],
+                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
                 layoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
             )
         case ("recipe-detail", "RecipeDetailView"):

@@ -2109,8 +2109,8 @@ struct NativeSyncEngineTests {
         let onlineOnlyCases: [(NativeOfflineAction, String)] = [
             (.oauthSignIn, "OAuth sign-in is online-only and was not queued."),
             (.oauthCallback, "OAuth callback exchange is online-only and was not queued."),
-            (.apiTokenCreate, "API token creation is online-only and was not queued."),
-            (.apiTokenRevoke, "API token revocation is online-only and was not queued."),
+            (.apiTokenCreate, "Access key creation is online-only and was not queued."),
+            (.apiTokenRevoke, "Access key revocation is online-only and was not queued."),
             (.providerConnectionDisconnect, "Provider disconnect is online-only and was not queued."),
             (.logout, "Logout is online-only and was not queued."),
             (.sessionRevoke, "Session revocation is online-only and was not queued."),

@@ -1436,7 +1436,7 @@ struct NativeLiveStoreTests {
             #expect(content.settingsSurfaceData?.account == settingsAccount)
             #expect(content.settingsSurfaceData?.partialFailures == [partialFailure, metadataFreeFailure])
             #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingspartial")
-            #expect(content.settingsSurfaceViewModel.partialFailureSummary == "Some account settings could not load: Notifications, API tokens.")
+            #expect(content.settingsSurfaceViewModel.partialFailureSummary == "Some account settings could not load: Notifications, Agent access.")
             #expect(content.settingsSurfaceViewModel.offlineIndicator.display == .syncFailure(errorID: "settings.notification_preferences", retryAfter: nil))
 
             let telemetryEvents = await telemetryRecorder.recordedEvents()
@@ -1665,7 +1665,7 @@ struct NativeLiveStoreTests {
                     payload: .tokenMetadata(credentials: [
                         NativeTokenMetadata(
                             id: "credential_capture",
-                            name: "Capture validation token",
+                            name: "Capture validation key",
                             tokenPrefix: "sj_live_1234",
                             scopes: ["recipes:read", "shopping_list:read"],
                             createdAt: Self.isoString(Self.now),
@@ -1738,7 +1738,7 @@ struct NativeLiveStoreTests {
             #expect(liveStore.restoredRoute == .settings)
             #expect(content.settingsSurfaceViewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline])
             #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingscapture")
-            #expect(content.settingsSurfaceViewModel.apiTokenRows.map(\.name) == ["Capture validation token"])
+            #expect(content.settingsSurfaceViewModel.apiTokenRows.map(\.name) == ["Capture validation key"])
             #expect(content.settingsSurfaceViewModel.oauthConnectionRows.map(\.clientName) == ["Capture OAuth App"])
             #expect(content.settingsSurfaceViewModel.primaryAuthAction == nil)
             #expect(content.settingsSurfaceViewModel.connectivity == .offline)

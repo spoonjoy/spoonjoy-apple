@@ -393,12 +393,12 @@ def route_accessibility_evidence(route)
     }
   when "settings"
     {
-      "voiceOverLabels" => ["Settings", "Profile", "Security"],
-      "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+      "voiceOverLabels" => ["Settings", "Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Hide offline status"],
+      "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-      "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
-      "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
+      "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
+      "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters", "offline-status-section"]
     }
   when "cookbook-detail"
     {
@@ -673,7 +673,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "settingsVisualFocus" => "notifications",
     "settingsNotificationAPNsSurface" => true,
     "settingsSeedAccountID" => "chef_settings_capture",
-    "settingsSections" => ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync"],
+    "settingsSections" => ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access"],
     "settingsSurfaceProofArtifacts" => ["apple/proof-ios.json", "apple/proof-macos.json"]
   )
   valid_profile_settings_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
@@ -1245,7 +1245,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
           route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["visible search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.visibleSearchField","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
           ;;
         cookbook-detail)
           route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
@@ -1315,7 +1315,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
               source="WrongView"
               sections='["Kitchen"]'
             elif [[ "$focus" == "notifications" ]]; then
-              sections='["Notifications","This Device","Push Delivery","Notification Sync"]'
+              sections='["Notifications","This Device","Push Delivery","Notification Sync","Agent Access"]'
             fi
             printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
           fi
@@ -1405,7 +1405,7 @@ PY
           route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["visible search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.visibleSearchField","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
           ;;
         cookbook-detail)
           route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
@@ -1467,7 +1467,7 @@ PY
           source="WrongView"
           sections='["Kitchen"]'
         elif [[ "$focus" == "notifications" ]]; then
-          sections='["Notifications","This Device","Push Delivery","Notification Sync"]'
+          sections='["Notifications","This Device","Push Delivery","Notification Sync","Agent Access"]'
         fi
         printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
       fi

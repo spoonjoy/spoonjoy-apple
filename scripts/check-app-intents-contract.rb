@@ -3743,7 +3743,7 @@ if domain == "profile-settings-intents"
     },
     "RevokeAPITokenIntent" => {
       required: [
-        "@Parameter(title: \"API Token\", requestValueDialog:",
+        "@Parameter(title: \"Access Key\", requestValueDialog:",
         "var token: SpoonjoyAPITokenEntity",
         "try await requestConfirmation(",
         "NativeIntentActionResolver().revokeAPIToken(token: token.descriptor",
@@ -3901,14 +3901,14 @@ if domain == "profile-settings-intents"
 
   require_body_tokens(
     settings_entities,
-    "API token entity display",
+    "access key entity display",
     /\bvar\s+displayRepresentation:\s+DisplayRepresentation\b/,
     ["subtitle: \"\\(descriptor.subtitle)\""],
     failures
   )
   forbid_body_tokens(
     settings_entities,
-    "API token entity display",
+    "access key entity display",
     /\bvar\s+displayRepresentation:\s+DisplayRepresentation\b/,
     ["descriptor.disambiguationLabel"],
     failures

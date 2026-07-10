@@ -1,0 +1,39 @@
+{
+  "mobileScreenshot": true,
+  "desktopScreenshot": true,
+  "screenshotRoute": "settings",
+  "dynamicType": true,
+  "voiceOverLabels": true,
+  "keyboardNavigation": true,
+  "reduceMotion": true,
+  "contrast": true,
+  "kitchenTableHierarchy": true,
+  "noOverlap": true,
+  "accessibilityProofArtifacts": [
+    "apple/unit-4k-settings-apns-key-final-accessibility-proof-ios.json",
+    "apple/unit-4k-settings-apns-key-final-accessibility-proof-macos.json"
+  ],
+  "blockers": [
+
+  ],
+  "settingsSignedInSurface": true,
+  "settingsVisualFocus": "notifications",
+  "settingsSurfaceProofArtifacts": [
+    "apple/unit-4k-settings-apns-key-final-screenshot-proof-ios.json",
+    "apple/unit-4k-settings-apns-key-final-screenshot-proof-macos.json"
+  ],
+  "settingsNotificationAPNsSurface": true,
+  "settingsSections": [
+    "Profile",
+    "Security",
+    "Notifications",
+    "This Device",
+    "Push Delivery",
+    "Notification Sync",
+    "Agent Access",
+    "Connections",
+    "Environment",
+    "Offline"
+  ],
+  "settingsSeedAccountID": "chef_settings_capture"
+}

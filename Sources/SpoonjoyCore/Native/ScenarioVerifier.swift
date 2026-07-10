@@ -1641,7 +1641,7 @@ public enum ScenarioVerifier {
         return ScenarioCheck(
             name: "settings token connection surface",
             status: status,
-            detail: "Settings renders account profile, notification preferences, API token metadata, OAuth connection state, and native offline status."
+            detail: "Settings renders account profile, notification preferences, agent access key metadata, OAuth connection state, and native offline status."
         )
     }
 

@@ -45,7 +45,7 @@ struct SettingsView: View {
     @State private var settingsActionError: String?
     @State private var createdCredentialValue: String?
     @State private var createdCredentialPrefix: String?
-    @State private var tokenName = "Native App Token"
+    @State private var tokenName = "Spoonjoy Agent Access"
     @State private var tokenCanReadRecipes = true
     @State private var tokenCanWriteRecipes = false
     @State private var tokenCanReadShoppingList = false
@@ -82,7 +82,7 @@ struct SettingsView: View {
                         }
                         Self.writeScreenshotProof(
                             visualFocus: screenshotSettingsFocus,
-                            visibleSections: ["This Device", "Push Delivery", "Notification Sync", "API Tokens"]
+                            visibleSections: ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
                         )
                         await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                             route: "settings",
@@ -297,23 +297,13 @@ struct SettingsView: View {
             }
 
             if surface.data.tokenManagementAvailability == .available {
-                KitchenTableSection(title: "API Tokens", subtitle: "Create and revoke app credentials") {
+                KitchenTableSection(title: "Agent access", subtitle: "Keys for agents and connected tools") {
                     SettingsPanel {
                         if let createdCredentialValue {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("New token")
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(KitchenTableTheme.brass)
-                                Text(createdCredentialValue)
-                                    .font(.system(.body, design: .monospaced))
-                                    .foregroundStyle(KitchenTableTheme.charcoal)
-                                    .textSelection(.enabled)
-                                if let createdCredentialPrefix {
-                                    Text(createdCredentialPrefix)
-                                        .font(KitchenTableTheme.uiLabel)
-                                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                                }
-                            }
+                            settingsCreatedCredentialDisclosure(
+                                credentialValue: createdCredentialValue,
+                                credentialPrefix: createdCredentialPrefix
+                            )
                         }
 
                         ForEach(surface.apiTokenRows) { token in
@@ -322,19 +312,19 @@ struct SettingsView: View {
                                 Button(role: .destructive) {
                                     confirmSettingsAction(
                                         .revokeAPIToken(credentialID: token.id),
-                                        title: "Revoke API token?",
-                                        message: "Apps using this token will lose access immediately.",
-                                        confirmButtonTitle: "Revoke Token"
+                                        title: "Revoke access key?",
+                                        message: "Agents and tools using this key will lose access immediately.",
+                                        confirmButtonTitle: "Revoke access key"
                                     )
                                 } label: {
-                                    settingsRowLabel("Revoke Token", systemImage: "trash", prominence: .destructive)
+                                    settingsRowLabel("Revoke access key", systemImage: "trash", prominence: .destructive)
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(onlineOnlyActionsDisabled(surface))
                             }
                         }
 
-                        settingsTextField("Token name", text: $tokenName)
+                        settingsTextField("Access key name", text: $tokenName)
                         Toggle("Recipes read", isOn: $tokenCanReadRecipes)
                         Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
                         Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
@@ -343,7 +333,7 @@ struct SettingsView: View {
                         Button {
                             planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
                         } label: {
-                            settingsRowLabel("Create Token", systemImage: "plus.circle", prominence: .primary)
+                            settingsRowLabel("Create access key", systemImage: "plus.circle", prominence: .primary)
                         }
                         .buttonStyle(.plain)
                         .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
@@ -437,11 +427,7 @@ struct SettingsView: View {
                         .font(KitchenTableTheme.bodyNote)
                         .foregroundStyle(KitchenTableTheme.herb)
                 }
-                if let settingsActionError {
-                    Label(settingsActionError, systemImage: "exclamationmark.triangle")
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.tomato)
-                }
+                settingsActionFailureBanner
                 if let partialFailureSummary = surface.partialFailureSummary {
                     Label(partialFailureSummary, systemImage: "exclamationmark.triangle")
                         .font(KitchenTableTheme.bodyNote)
@@ -527,6 +513,34 @@ struct SettingsView: View {
         .padding(.vertical, 4)
     }
 
+    private func settingsCreatedCredentialDisclosure(
+        credentialValue: String,
+        credentialPrefix: String?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("New access key")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+            Text(credentialValue)
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .textSelection(.enabled)
+            if let credentialPrefix {
+                Text(credentialPrefix)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+        }
+    }
+
+    @ViewBuilder private var settingsActionFailureBanner: some View {
+        if let settingsActionError {
+            Label(settingsActionError, systemImage: "exclamationmark.triangle")
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.tomato)
+        }
+    }
+
     nonisolated private func settingsRowLabel(
         _ title: String,
         systemImage: String,
@@ -568,7 +582,7 @@ struct SettingsView: View {
                     settingsActionMessage = "Account change queued."
                 }
             } catch {
-                settingsActionError = String(describing: error)
+                settingsActionError = settingsActionErrorMessage(for: error)
             }
         }
     }
@@ -626,7 +640,7 @@ struct SettingsView: View {
                 using: planner
             )
         } catch {
-            settingsActionError = String(describing: error)
+            settingsActionError = settingsActionErrorMessage(for: error)
         }
     }
 
@@ -654,6 +668,26 @@ struct SettingsView: View {
 
     private func onlineOnlyMessage(_ reason: SettingsOnlineOnlyReason) -> String {
         reason.message
+    }
+
+    private func settingsActionErrorMessage(for error: Error) -> String {
+        "Settings could not be updated. Try again. Code: \(settingsActionDiagnosticCode(for: error))."
+    }
+
+    private func settingsActionDiagnosticCode(for error: Error) -> String {
+        if let transportError = error as? APITransportError {
+            if let apiError = transportError.apiError {
+                return "settings_api_\(apiError.code)_\(apiError.status)"
+            }
+            if let statusCode = transportError.statusCode {
+                return "settings_http_\(statusCode)"
+            }
+            return "settings_transport"
+        }
+        if error is SettingsActionPlanningError {
+            return "settings_plan"
+        }
+        return "settings_unexpected"
     }
 
     private func onlineOnlyActionsDisabled(_ surface: SettingsSurfaceViewModel) -> Bool {

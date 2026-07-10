@@ -12,8 +12,10 @@ import AppKit
 final class NotificationAPNsDeviceBridge {
     static let shared = NotificationAPNsDeviceBridge()
 
+    private static let deviceTokenTimeoutNanoseconds: UInt64 = 15_000_000_000
     private let deviceIDKey = "app.spoonjoy.apns.deviceID"
     private var pendingDeviceTokenContinuation: CheckedContinuation<String, Error>?
+    private var pendingDeviceTokenTimeoutTask: Task<Void, Never>?
 
     func requestPermission() async throws -> APNsPermissionState {
         let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
@@ -49,19 +51,11 @@ final class NotificationAPNsDeviceBridge {
     }
 
     func didRegisterForRemoteNotifications(deviceToken: Data) {
-        guard let continuation = pendingDeviceTokenContinuation else {
-            return
-        }
-        pendingDeviceTokenContinuation = nil
-        continuation.resume(returning: Self.hexString(from: deviceToken))
+        completePendingDeviceToken(.success(Self.hexString(from: deviceToken)))
     }
 
     func didFailToRegisterForRemoteNotifications(error: Error) {
-        guard let continuation = pendingDeviceTokenContinuation else {
-            return
-        }
-        pendingDeviceTokenContinuation = nil
-        continuation.resume(throwing: error)
+        completePendingDeviceToken(.failure(error))
     }
 
     private func deviceToken() async throws -> String {
@@ -71,14 +65,36 @@ final class NotificationAPNsDeviceBridge {
 
         return try await withCheckedThrowingContinuation { continuation in
             pendingDeviceTokenContinuation = continuation
+            pendingDeviceTokenTimeoutTask = Task { @MainActor in
+                do {
+                    try await Task.sleep(nanoseconds: Self.deviceTokenTimeoutNanoseconds)
+                } catch {
+                    return
+                }
+                completePendingDeviceToken(.failure(NotificationAPNsNativeBridgeError.deviceTokenRequestTimedOut))
+            }
 #if os(iOS)
             UIApplication.shared.registerForRemoteNotifications()
 #elseif os(macOS)
             NSApplication.shared.registerForRemoteNotifications(matching: [.alert, .badge, .sound])
 #else
-            pendingDeviceTokenContinuation = nil
-            continuation.resume(throwing: NotificationAPNsNativeBridgeError.deviceTokenUnavailable)
+            completePendingDeviceToken(.failure(NotificationAPNsNativeBridgeError.deviceTokenUnavailable))
 #endif
+        }
+    }
+
+    private func completePendingDeviceToken(_ result: Result<String, Error>) {
+        guard let continuation = pendingDeviceTokenContinuation else {
+            return
+        }
+        pendingDeviceTokenContinuation = nil
+        pendingDeviceTokenTimeoutTask?.cancel()
+        pendingDeviceTokenTimeoutTask = nil
+        switch result {
+        case .success(let token):
+            continuation.resume(returning: token)
+        case .failure(let error):
+            continuation.resume(throwing: error)
         }
     }
 

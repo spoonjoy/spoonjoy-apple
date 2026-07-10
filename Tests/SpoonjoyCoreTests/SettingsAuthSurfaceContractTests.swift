@@ -23,6 +23,15 @@ struct SettingsAuthSurfaceContractTests {
                     "notificationActionDiagnosticCode(for:",
                     "Notification permission could not be checked.",
                     "Device notifications could not be updated."
+                ],
+                "Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift": [
+                    "deviceTokenTimeoutNanoseconds",
+                    "pendingDeviceTokenTimeoutTask",
+                    "completePendingDeviceToken(",
+                    "NotificationAPNsNativeBridgeError.deviceTokenRequestTimedOut"
+                ],
+                "Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift": [
+                    "case deviceTokenRequestTimedOut"
                 ]
             ],
             forbiddenTokens: [

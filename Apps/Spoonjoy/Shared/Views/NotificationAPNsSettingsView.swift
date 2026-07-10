@@ -124,7 +124,7 @@ struct NotificationAPNsSettingsView: View {
                 }
 
                 if let registration = viewModel.apnsRegistration {
-                    Label("Device notifications are ready on this device.", systemImage: "bell.badge")
+                    Label(deviceSetupReadyMessage, systemImage: "bell.badge")
                         .font(KitchenTableTheme.bodyNote.weight(.semibold))
                         .foregroundStyle(KitchenTableTheme.herb)
                     NotificationDiagnosticsDisclosure(
@@ -194,11 +194,7 @@ struct NotificationAPNsSettingsView: View {
                         .font(KitchenTableTheme.bodyNote)
                         .foregroundStyle(KitchenTableTheme.herb)
                 }
-                if let notificationActionError {
-                    Label(notificationActionError, systemImage: "exclamationmark.triangle")
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.tomato)
-                }
+                notificationActionFailureBanner
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
         }
@@ -265,7 +261,7 @@ struct NotificationAPNsSettingsView: View {
                 }
                 notificationActionError = nil
             } catch {
-                notificationActionError = String(describing: error)
+                notificationActionError = notificationActionErrorMessage(for: error, fallback: "Notification permission could not be checked.")
             }
         }
     }
@@ -284,7 +280,7 @@ struct NotificationAPNsSettingsView: View {
                 let action = try await requestDeviceRegistrationAction("cm_apns_register_\(UUID().uuidString)")
                 await performNotificationAPNsAction(action)
             } catch {
-                notificationActionError = String(describing: error)
+                notificationActionError = notificationActionErrorMessage(for: error, fallback: "Device notifications could not be updated.")
             }
         }
     }
@@ -304,12 +300,59 @@ struct NotificationAPNsSettingsView: View {
                 notificationActionMessage = nil
             }
         } catch {
-            notificationActionError = String(describing: error)
+            notificationActionError = notificationActionErrorMessage(for: error, fallback: "Notification settings could not be updated.")
         }
     }
 
     private var deliveryBlockerState: APNsDeliveryBlockerState {
         return viewModel.deliveryBlockerState
+    }
+
+    private var deviceSetupReadyMessage: String {
+        switch deliveryBlockerState {
+        case .developmentOnly, .blocked:
+            "Device setup is saved. Push delivery is limited on this build."
+        }
+    }
+
+    @ViewBuilder private var notificationActionFailureBanner: some View {
+        if let notificationActionError {
+            Label(notificationActionError, systemImage: "exclamationmark.triangle")
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.tomato)
+        }
+    }
+
+    private func notificationActionErrorMessage(for error: Error, fallback: String) -> String {
+        "\(fallback) Try again. Code: \(notificationActionDiagnosticCode(for: error))."
+    }
+
+    private func notificationActionDiagnosticCode(for error: Error) -> String {
+        if let bridgeError = error as? NotificationAPNsNativeBridgeError {
+            switch bridgeError {
+            case .unavailable:
+                return "apns_bridge_unavailable"
+            case .deviceTokenUnavailable:
+                return "apns_device_token_unavailable"
+            case .deviceTokenRequestAlreadyPending:
+                return "apns_device_token_pending"
+            case .deviceTokenRequestTimedOut:
+                return "apns_device_token_timeout"
+            }
+        }
+        if error is NotificationAPNsActionPlanningError {
+            return "apns_plan"
+        }
+        if let transportError = error as? APITransportError {
+            if let apiError = transportError.apiError {
+                return "apns_api_\(apiError.code)_\(apiError.status)"
+            }
+            if let statusCode = transportError.statusCode {
+                return "apns_http_\(statusCode)"
+            }
+            return "apns_transport"
+        }
+        return "apns_unexpected"
     }
 
     private func hydrateNotificationDraft(_ preferences: SettingsNotificationPreferences) {
