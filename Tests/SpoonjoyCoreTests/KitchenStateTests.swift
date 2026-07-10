@@ -39,7 +39,8 @@ struct KitchenStateTests {
 
         #expect(checkedLemons.checked)
         #expect(checkedLemons.checkedAt == "2026-06-01T00:20:00.000Z")
-        #expect(checked.activeItems.map(\.id) == ["item_spaghetti", "item_parmesan", "item_lemons"])
+        #expect(checked.activeItems.map(\.id) == ["item_spaghetti", "item_parmesan"])
+        #expect(checked.receiptItems.map(\.id) == ["item_spaghetti", "item_parmesan", "item_lemons"])
 
         let unchecked = try checked.settingChecked(
             false,
@@ -214,7 +215,7 @@ struct KitchenStateTests {
         #expect(restoredLemons.quantity == 3)
         #expect(!restoredLemons.checked)
         #expect(restoredLemons.checkedAt == nil)
-        #expect(restoredLemons.sortIndex == 5)
+        #expect(restoredLemons.sortIndex == 3)
         #expect(restoredChecked.shoppingList.activeItems.map(\.id) == ["item_spaghetti", "item_parmesan", "item_lemons"])
 
         let restoredDeleted = try state.addingOrRestoringItem(

@@ -358,17 +358,17 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "shopping surface source",
-                    detail: "Shopping surface includes native edit mode, add/remove/clear controls, and ShoppingSurfaceViewModel behavior.",
+                    detail: "Shopping surface includes native edit mode, authored receipt state, add/remove/clear controls, and ShoppingSurfaceViewModel behavior.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift",
-                    tokens: ["ShoppingListView", "ShoppingSurfaceViewModel", "ShoppingListState", "ReceiptListView", "TextField", "addItem", "clearAll"]
+                    tokens: ["ShoppingListView", "ShoppingSurfaceViewModel", "ShoppingListState", "ReceiptListView", "shoppingReceiptComposer", "shoppingReceiptState", "receiptActionsMenu", "Add from recipe", "clearAll"]
                 ),
                 sourceCheck(
                     name: "receipt controls source",
-                    detail: "Receipt list uses native list sections, large check toggles, and swipe actions.",
+                    detail: "Receipt list uses native list sections, source-aware rows, large check toggles, and swipe actions.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
-                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List", "Section", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
+                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List {", "Section {", "ShoppingReceiptRow", "sourceLine", "duplicateCountLabel", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",
@@ -877,12 +877,13 @@ public enum ScenarioVerifier {
             let item = plan.updatedShoppingList?.item(id: itemID)
             let status = scenarioStatus(item?.checked == true &&
                 item?.checkedAt == "2026-06-16T11:42:00.000Z" &&
-                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true)
+                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == false &&
+                plan.updatedShoppingList?.receiptItems.contains { $0.id == itemID } == true)
 
             return ScenarioCheck(
                 name: "shopping checkoff",
                 status: status,
-                detail: "Shopping list checkoff uses ShoppingSurfaceViewModel and preserves receipt sections."
+                detail: "Shopping list checkoff uses ShoppingSurfaceViewModel, removes checked rows from active sections, and preserves receipt history."
             )
         } catch {
             return ScenarioCheck(

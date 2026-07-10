@@ -817,14 +817,14 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
             ]
         )
         expectContent(
             screenshotHarness,
             in: screenshotHarnessPath,
             contains: [
-                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
             ]
         )
     }

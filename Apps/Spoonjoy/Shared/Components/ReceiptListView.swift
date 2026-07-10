@@ -17,39 +17,46 @@ struct ReceiptListView: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                ForEach(sections, id: \.title) { section in
-                    KitchenTableSection(title: section.title) {
-                        ForEach(section.items, id: \.id) { item in
-                            Toggle(isOn: checkedBinding(for: item)) {
-                                receiptRow(item)
-                            }
-                            .toggleStyle(.largeCheck)
-#if os(iOS)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    deleteItem(item)
-                                } label: {
-                                    Label("Remove", systemImage: "trash")
-                                }
-
-                                Button {
-                                    setChecked(item, true)
-                                } label: {
-                                    Label("Done", systemImage: "checkmark")
-                                }
-                                .tint(KitchenTableTheme.herb)
-                            }
-#endif
+        List {
+            ForEach(sections, id: \.title) { section in
+                Section {
+                    ForEach(section.items, id: \.id) { item in
+                        Toggle(isOn: checkedBinding(for: item)) {
+                            ShoppingReceiptRow(
+                                item: item,
+                                sourceLine: sourceLine(for: section),
+                                duplicateCountLabel: duplicateCountLabel(for: item)
+                            )
                         }
+                        .toggleStyle(.largeCheck)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(KitchenTableTheme.bone)
+                        .accessibilityHint("Double tap to check off this item.")
+#if os(iOS)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deleteItem(item)
+                            } label: {
+                                Label("Remove", systemImage: "trash")
+                            }
+                        }
+#endif
                     }
+                } header: {
+                    Text(section.title)
+                        .font(KitchenTableTheme.uiLabel)
+                        .textCase(.uppercase)
+                        .tracking(1.6)
+                        .foregroundStyle(KitchenTableTheme.brass)
+                        .padding(.top, 8)
                 }
             }
-            .padding(.horizontal, KitchenTableTheme.pagePadding)
-            .padding(.bottom, KitchenTableTheme.compactDockReserve)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
+        .frame(minHeight: receiptListHeight)
     }
 
     private func checkedBinding(for item: ShoppingListItem) -> Binding<Bool> {
@@ -59,12 +66,67 @@ struct ReceiptListView: View {
         )
     }
 
-    private func receiptRow(_ item: ShoppingListItem) -> some View {
-        KitchenTableReceiptRow(name: item.name, amount: item.displayQuantity) {
+    private var receiptListHeight: CGFloat {
+        let rowCount = sections.reduce(0) { $0 + $1.items.count }
+        let sectionCount = sections.count
+        let estimated = CGFloat(rowCount * 82 + sectionCount * 42 + 28)
+        return min(max(estimated, 260), 680)
+    }
+
+    private func sourceLine(for section: ShoppingListReceiptSection) -> String? {
+        section.title == "Other" ? nil : section.title
+    }
+
+    private func duplicateCountLabel(for item: ShoppingListItem) -> String? {
+        let matchCount = sections
+            .flatMap(\.items)
+            .filter { candidate in
+                candidate.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ==
+                    item.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() &&
+                    (candidate.unit ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ==
+                    (item.unit ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            }
+            .count
+
+        return matchCount > 1 ? "\(matchCount) on receipt" : nil
+    }
+}
+
+private struct ShoppingReceiptRow: View {
+    let item: ShoppingListItem
+    let sourceLine: String?
+    let duplicateCountLabel: String?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             Image(systemName: symbol(for: item))
                 .font(.body.weight(.semibold))
                 .foregroundStyle(KitchenTableTheme.brass)
-                .frame(width: 22)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.name)
+                    .font(KitchenTableTheme.objectTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    if !item.displayQuantity.isEmpty {
+                        Text(item.displayQuantity)
+                    }
+                    if let sourceLine {
+                        Text(sourceLine)
+                    }
+                    if let duplicateCountLabel {
+                        Text(duplicateCountLabel)
+                    }
+                }
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText(for: item))
@@ -87,7 +149,9 @@ struct ReceiptListView: View {
 
     private func accessibilityText(for item: ShoppingListItem) -> String {
         let quantity = item.displayQuantity.isEmpty ? "" : ", \(item.displayQuantity)"
-        return "\(item.name)\(quantity)"
+        let source = sourceLine.map { ", \($0)" } ?? ""
+        let duplicate = duplicateCountLabel.map { ", \($0)" } ?? ""
+        return "\(item.name)\(quantity)\(source)\(duplicate)"
     }
 }
 

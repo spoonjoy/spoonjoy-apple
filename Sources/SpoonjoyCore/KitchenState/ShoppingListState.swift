@@ -152,7 +152,7 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
         try JSONDecoder().decode(ShoppingListState.self, from: SpoonjoyFixture.data(named: "shopping-list-fixture"))
     }
 
-    public var activeItems: [ShoppingListItem] {
+    public var receiptItems: [ShoppingListItem] {
         items
             .filter { $0.deletedAt == nil }
             .sorted { left, right in
@@ -162,6 +162,14 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
 
                 return left.sortIndex < right.sortIndex
             }
+    }
+
+    public var activeItems: [ShoppingListItem] {
+        receiptItems.filter { !$0.checked && $0.checkedAt == nil }
+    }
+
+    public var completedItems: [ShoppingListItem] {
+        receiptItems.filter { $0.checked || $0.checkedAt != nil }
     }
 
     public var receiptSections: [ShoppingListReceiptSection] {
@@ -278,6 +286,29 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
             ),
             mutation: mutation
         )
+    }
+
+    public func addingRecipeIngredients(
+        recipeID: String,
+        scaleFactor: Double,
+        recipeIngredients: [RecipeIngredient],
+        clientMutationID: String
+    ) throws -> ShoppingListState {
+        var updated = self
+
+        for (index, ingredient) in recipeIngredients.enumerated() {
+            let result = try updated.addingOrRestoringItem(
+                name: ingredient.name,
+                quantity: ingredient.quantity * scaleFactor,
+                unit: ingredient.unit,
+                categoryKey: "from-recipe",
+                iconKey: "pasta",
+                clientMutationID: "\(clientMutationID)-ingredient-\(index + 1)"
+            )
+            updated = result.shoppingList
+        }
+
+        return updated
     }
 
     private func replacingItem(

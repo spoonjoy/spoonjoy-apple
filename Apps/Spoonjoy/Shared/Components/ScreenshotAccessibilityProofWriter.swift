@@ -164,11 +164,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("shopping-list", "ShoppingListView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"],
-                keyboardNavigationTargets: ["shopping item fields", "shopping header menu", "native tab bar"],
+                voiceOverLabels: ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
+                keyboardNavigationTargets: ["shopping receipt composer", "receipt actions menu", "native tab bar"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "TabView"],
+                hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
                 layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
             )
         default:

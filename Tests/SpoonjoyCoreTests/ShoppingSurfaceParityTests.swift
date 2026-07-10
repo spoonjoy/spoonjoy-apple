@@ -81,8 +81,8 @@ struct ShoppingSurfaceParityTests {
         #expect(emptyOffline.activeCountLabel == "0 active")
         #expect(emptyOffline.sections.isEmpty)
         #expect(emptyOffline.emptyState == ShoppingSurfaceEmptyState(
-            title: "Your shopping list is empty",
-            message: "Add ingredients from a recipe or jot down what you need.",
+            title: "Receipt is empty",
+            message: "Add an item or pull ingredients from a recipe.",
             systemImage: "cart"
         ))
         #expect(emptyOffline.offlineIndicator.display == .offline)
@@ -96,8 +96,8 @@ struct ShoppingSurfaceParityTests {
         )
         #expect(needsLiveLoad.loadState == .needsLiveLoad)
         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
-            title: "Load your shopping list",
-            message: "Connect to Spoonjoy to sync your current list.",
+            title: "Sync the receipt",
+            message: "Connect to Spoonjoy to load the current market run.",
             systemImage: "arrow.clockwise"
         ))
         #expect(needsLiveLoad.offlineIndicator.display == .synced)

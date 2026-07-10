@@ -61,6 +61,7 @@ accessibility_proof_macos_rel="apple/${unit_slug}-accessibility-proof-macos.json
 ios_accessibility_proof_runtime_path=""
 screenshot_proof_path=""
 screenshot_route="kitchen"
+shopping_capture_variant="normal"
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
 else
@@ -76,6 +77,10 @@ else
     screenshot_route="cookbook-detail"
   elif [[ "$unit_slug" == *cookbooks* ]]; then
     screenshot_route="cookbooks"
+  elif [[ "$unit_slug" == *shopping-list-all-complete* || "$unit_slug" == *shopping_list_all_complete* ]]; then
+    screenshot_route="shopping-list-all-complete"
+  elif [[ "$unit_slug" == *shopping-list-offline-queued* || "$unit_slug" == *shopping_list_offline_queued* ]]; then
+    screenshot_route="shopping-list-offline-queued"
   elif [[ "$unit_slug" == *shopping-list* || "$unit_slug" == *shopping_list* || "$unit_slug" == *shopping* ]]; then
     screenshot_route="shopping-list"
   elif [[ "$unit_slug" == *search* ]]; then
@@ -85,6 +90,13 @@ else
   elif [[ "$unit_slug" == *settings* || "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
     screenshot_route="settings"
   fi
+fi
+if [[ "$screenshot_route" == "shopping-list-all-complete" ]]; then
+  shopping_capture_variant="all-complete"
+  screenshot_route="shopping-list"
+elif [[ "$screenshot_route" == "shopping-list-offline-queued" ]]; then
+  shopping_capture_variant="offline-queued"
+  screenshot_route="shopping-list"
 fi
 settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
@@ -383,7 +395,7 @@ write_app_state() {
   local path="$1"
   local route="$2"
   ruby -rjson -rfileutils -e '
-    path, route, account_id = ARGV
+    path, route, account_id, shopping_variant = ARGV
     shopping_fixture_path = "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json"
     shopping_list = if route == "shopping-list" && File.file?(shopping_fixture_path)
                       JSON.parse(File.read(shopping_fixture_path))
@@ -423,6 +435,15 @@ write_app_state() {
                         ]
                       }
                     end
+    if route == "shopping-list" && shopping_variant == "all-complete" && shopping_list
+      shopping_list["items"] = shopping_list.fetch("items").each_with_index.map do |item, index|
+        item.merge(
+          "checked" => true,
+          "checkedAt" => "2026-06-16T12:08:0#{index}.000Z",
+          "sortIndex" => index
+        )
+      end
+    end
     snapshot = {
       "schemaVersion" => 1,
       "accountID" => account_id,
@@ -440,13 +461,13 @@ write_app_state() {
     }
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$route" "$capture_account_id"
+  ' "$path" "$route" "$capture_account_id" "$shopping_capture_variant"
 }
 
 write_sync_store() {
   local path="$1"
   ruby -rjson -rfileutils -e '
-    path, account_id = ARGV
+    path, account_id, shopping_variant = ARGV
     recipes_path = "Sources/SpoonjoyCore/Fixtures/recipes-fixture.json"
     cookbooks_path = "Sources/SpoonjoyCore/Fixtures/cookbooks-fixture.json"
     shopping_path = "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json"
@@ -603,17 +624,35 @@ write_sync_store() {
         "serverRevision" => nil
       }
     end)
+    queue_mutations = []
+    if shopping_variant == "offline-queued"
+      queue_mutations << {
+        "schemaVersion" => 1,
+        "id" => "native:cm_shopping_offline_capture",
+        "clientMutationId" => "cm_shopping_offline_capture",
+        "createdAt" => "2026-06-16T12:08:30.000Z",
+        "retryCount" => 0,
+        "kind" => {
+          "type" => "shopping.addItem",
+          "name" => "limes",
+          "quantity" => 4,
+          "unit" => "each",
+          "categoryKey" => "produce",
+          "iconKey" => "lemon"
+        }
+      }
+    end
     snapshot = {
       "accountID" => account_id,
       "environment" => "production",
       "checkpoint" => nil,
-      "queue" => { "mutations" => [] },
+      "queue" => { "mutations" => queue_mutations },
       "cachedRecords" => records,
       "tombstones" => []
     }
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$capture_account_id"
+  ' "$path" "$capture_account_id" "$shopping_capture_variant"
 }
 
 write_cache_state() {
@@ -1170,11 +1209,11 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "shopping-list" => {
-          "voiceOverLabels" => ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"],
-          "keyboardNavigationTargets" => ["shopping item fields", "shopping header menu", "native tab bar"],
+          "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
+          "keyboardNavigationTargets" => ["shopping receipt composer", "receipt actions menu", "native tab bar"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
-          "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "TabView"],
+          "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
         }
       }
