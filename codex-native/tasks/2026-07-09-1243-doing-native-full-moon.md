@@ -194,7 +194,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshots, design-review artifacts, and closed ledger entries for Kitchen/Recipes.
 **Acceptance**: No Kitchen/Recipes visual absurdity remains.
 
-### ⬜ Unit 3d: Recipe Detail Structure — Tests
+### ✅ Unit 3d: Recipe Detail Structure — Tests
 **What**: Add failing tests for `RecipeDetailView` covering hero/provenance, yield controls, masthead actions, save/add/share/more, steps with per-step ingredients, cooks, loading, stale/offline, and missing recipe states.
 **Output**: Red Swift/static tests for recipe detail.
 **Acceptance**: Tests fail on a current recipe detail parity or loading-state issue.
@@ -530,6 +530,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 00:06 Unit 3a complete: added red Kitchen/Recipes structure contracts for web-aligned masthead/lead/index/shelf hierarchy, lead/index separation, index-row ordinal/metadata language, structured recipes loading/offline/empty states, and richer screenshot proof expectations; focused Swift contract and kitchen surface script both fail red with artifacts under `unit-3a/`.
 - 2026-07-10 00:24 Unit 3b complete: implemented Kitchen/Recipes lead-plus-index hierarchy, removed redundant lead/index duplication and empty filler copy, added structured recipe empty/loading/offline states, refreshed screenshot accessibility proof expectations, and passed focused Kitchen/Recipes contracts, native mobile design contracts, static design contracts, full `swift test`, iOS/macOS app-target builds, warning scan, stale-source scan, and `git diff --check` with green evidence under `unit-3a/`.
 - 2026-07-10 00:58 Unit 3c complete: captured Kitchen and Recipes on iOS/macOS, fixed the coverless Kitchen lead blank slab, removed duplicated Recipes route offline chrome/proof claims, tightened no-photo Recipes lead behavior, passed focused/static/full Swift/app-target/warning/stale-source checks, and received Confucius cold-review PASS with screenshot evidence under `unit-3c/`.
+- 2026-07-10 01:06 Unit 3d complete: added red recipe-detail structure contracts for real-cover/no-photo metadata, log-cook action/read-surface parity, web-faithful masthead/source-proof anchors, stable route-state enum coverage, and `Save to Cookbook` sheet title; focused Swift runs fail red with compile evidence under `unit-3d/`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
