@@ -221,11 +221,13 @@ struct NativeMobileDesignContractTests {
                 "hasRealCover",
                 "photoLead",
                 "coverlessLead",
+                "coverlessNoPhotoBadge",
                 "showsFallbackLabel: false",
                 "Text(recipe.title)"
             ],
             forbids: [
-                "let hasCoverImage = recipe.displayCoverImageURL != nil"
+                "let hasCoverImage = recipe.displayCoverImageURL != nil",
+                ".frame(maxWidth: .infinity, minHeight: 210"
             ]
         )
         expectContent(
@@ -234,7 +236,9 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "Image(systemName: \"chevron.forward\")",
                 "subtitle: nil",
+                "subtitle: \"Photo not added\"",
                 "showsFallbackLabel: false",
+                "showsFallbackLabel: true",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [

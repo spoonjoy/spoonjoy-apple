@@ -233,11 +233,12 @@ struct RecipeLead: View {
     }
 
     private var coverlessLead: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
+            coverlessNoPhotoBadge
             leadText(foreground: KitchenTableTheme.charcoal, secondary: KitchenTableTheme.inkMuted, label: KitchenTableTheme.brass)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, minHeight: 210, alignment: .bottomLeading)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(KitchenTableTheme.paper)
         .overlay(alignment: .top) {
             Rectangle()
@@ -249,6 +250,22 @@ struct RecipeLead: View {
                 .stroke(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var coverlessNoPhotoBadge: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "photo.badge.plus")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.brass)
+                .frame(width: 22, height: 22)
+                .background(KitchenTableTheme.vellum.opacity(0.42))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            Text("Photo not added")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+        }
+        .accessibilityLabel("Photo not added")
     }
 
     private func leadText(foreground: Color, secondary: Color, label: Color) -> some View {

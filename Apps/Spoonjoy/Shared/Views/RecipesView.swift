@@ -30,8 +30,6 @@ struct RecipesView: View {
                 subtitle: state.resultCountLabel
             )
 
-            OfflineStatusView(indicator: state.offlineIndicator, prominence: .quiet)
-
             if isLoading, state.rows.isEmpty {
                 KitchenTableLoadingStateView(title: "Loading recipes", subtitle: "Opening your recipe index.", systemImage: "book.closed")
             } else if let emptyState = state.emptyState {
@@ -108,14 +106,7 @@ private struct RecipeCatalogLead: View {
             openRoute(row.openRoute)
         } label: {
             VStack(alignment: .leading, spacing: 10) {
-                RecipeCoverImage(
-                    url: row.coverImageURL,
-                    title: row.title,
-                    subtitle: nil,
-                    showsFallbackLabel: false
-                )
-                .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
-                .clipped()
+                leadCover
 
                 Text("Latest from the kitchen".uppercased())
                     .font(.caption2.weight(.bold))
@@ -134,6 +125,28 @@ private struct RecipeCatalogLead: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens recipe detail")
+    }
+
+    @ViewBuilder private var leadCover: some View {
+        if let coverImageURL = row.coverImageURL {
+            RecipeCoverImage(
+                url: coverImageURL,
+                title: row.title,
+                subtitle: nil,
+                showsFallbackLabel: false
+            )
+            .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
+            .clipped()
+        } else {
+            RecipeCoverImage(
+                url: nil,
+                title: row.title,
+                subtitle: "Photo not added",
+                showsFallbackLabel: true
+            )
+            .frame(maxWidth: .infinity, minHeight: 126, maxHeight: 126)
+            .clipped()
+        }
     }
 
     private var leadSubtitle: String {

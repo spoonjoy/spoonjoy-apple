@@ -62,12 +62,12 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "recipes" => {
-    "voiceOverLabels" => ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes", "OfflineStatusView"],
-    "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field", "offline status dismiss"],
+    "voiceOverLabels" => ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes"],
+    "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
-    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow", "OfflineStatusView"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "ordinal"]
+    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbooks" => {
     "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],

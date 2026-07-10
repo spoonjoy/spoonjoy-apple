@@ -22,12 +22,15 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeIndex(recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
                 "countLabel(kitchen.counts.recipes",
-                "countLabel(kitchen.counts.cookbooks"
+                "countLabel(kitchen.counts.cookbooks",
+                "coverlessNoPhotoBadge",
+                "Photo not added"
             ],
             forbids: [
                 "From your kitchen",
                 "kitchen.counts.shoppingItems",
-                "RecipeIndex(recipes: recipes"
+                "RecipeIndex(recipes: recipes",
+                ".frame(maxWidth: .infinity, minHeight: 210"
             ]
         )
     }
@@ -71,7 +74,6 @@ struct KitchenRecipesStructureContractTests {
                 "@State private var isLoading",
                 ".searchable(text: $query",
                 "KitchenTableLoadingStateView(title: \"Loading recipes\"",
-                "OfflineStatusView(indicator: state.offlineIndicator",
                 "RecipeCatalogEmptyState",
                 "emptyState.title",
                 "emptyState.message",
@@ -123,6 +125,20 @@ struct KitchenRecipesStructureContractTests {
         let proof = uncommentedSwift(try readRepoFile(proofPath))
         let capture = try readRepoFile(capturePath)
         let validator = try readRepoFile(validatorPath)
+
+        expectContent(
+            proof,
+            in: proofPath,
+            contains: [
+                "voiceOverLabels: [\"Recipes\", \"Latest from the kitchen\", \"Recipe index\", \"Loading recipes\"]",
+                "keyboardNavigationTargets: [\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\"]",
+                "layoutGuards: [\"scroll-view\", \"text-fit\", \"no-tiny-clusters\", \"dock-safe-area\"]"
+            ],
+            forbids: [
+                "\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\", \"offline status dismiss\"",
+                "\"dock-safe-area\", \"ordinal\""
+            ]
+        )
 
         for (path, content) in [
             (proofPath, proof),

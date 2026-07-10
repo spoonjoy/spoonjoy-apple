@@ -90,7 +90,6 @@ REQUIRED_TOKENS = {
     "@State private var isLoading",
     ".searchable(text: $query",
     "KitchenTableLoadingStateView(title: \"Loading recipes\"",
-    "OfflineStatusView(indicator: state.offlineIndicator",
     "RecipeCatalogEmptyState",
     "emptyState.title",
     "emptyState.message",

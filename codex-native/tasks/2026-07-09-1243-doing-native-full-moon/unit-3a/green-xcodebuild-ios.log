@@ -402,352 +402,352 @@ SwiftCompile normal x86_64 Compiling\ NativeFixtureFallbackPolicy.swift,\ Native
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/SearchState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/AuthSessionState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/FileBackedTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativeAppleSignInRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ resource_bundle_accessor.swift,\ APIClient.swift,\ APIEnvelope.swift,\ APIError.swift,\ APIRequestBuilder.swift,\ APIRequestSupport.swift,\ APIRetryPolicy.swift,\ APITransport.swift,\ JSONValue.swift,\ NativeAPIRequests.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/DerivedSources/resource_bundle_accessor.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIClient.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIEnvelope.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIError.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRequestBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRequestSupport.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRetryPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APITransport.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/JSONValue.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/DerivedSources/resource_bundle_accessor.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIClient.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIEnvelope.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRequestBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRequestSupport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/JSONValue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ SpoonEntityCatalog.swift,\ SpotlightIndexPlan.swift,\ JSONFileStore.swift,\ MutationQueue.swift,\ OfflineSnapshot.swift,\ SyncCheckpoint.swift,\ RecipeCookbook.swift,\ SpoonjoyCore.swift,\ NativeSyncEngine.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/JSONFileStore.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/MutationQueue.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/SpoonjoyCore.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/JSONFileStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/SpoonjoyCore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftEmitModule normal x86_64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 EmitSwiftModule normal x86_64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ TokenVault.swift,\ NativeCacheFreshnessPolicy.swift,\ NativeCachePrefetchPolicy.swift,\ NativeDurableCache.swift,\ NativeDurableCacheStore.swift,\ NativeIndicatorDismissalStore.swift,\ NativeMediaStagingPolicy.swift,\ OfflineFreshnessIndicator.swift,\ CaptureImportViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/TokenVault.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/TokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ NativeSharePayload.swift,\ ShoppingSurfaceViewModel.swift,\ SpoonCookLogViewModel.swift,\ CaptureDraft.swift,\ CookModeProgress.swift,\ KitchenFixtureState.swift,\ SettingsState.swift,\ ShoppingListState.swift,\ CaptureDraftEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Spoons/SpoonCookLogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/SettingsState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Spoons/SpoonCookLogViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/SettingsState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ ChefProfileEntityCatalog.swift,\ DeepLinkManifest.swift,\ NativeCapabilityMetadata.swift,\ NativeIntentAction.swift,\ RecipeCookbookEntityCatalog.swift,\ ScenarioCommand.swift,\ ScenarioReport.swift,\ ScenarioVerifier.swift,\ ShoppingEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/DeepLinkManifest.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/NativeIntentAction.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioCommand.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioReport.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ShoppingEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/DeepLinkManifest.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioReport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ShoppingEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ CookbookSurfaceRepository.swift,\ CookbookSurfaceViewModel.swift,\ RecipeCoverControlsViewModel.swift,\ NotificationAPNsSurfaceRepository.swift,\ NotificationAPNsSurfaceViewModel.swift,\ ProfileChefGraphSurfaceRepository.swift,\ ProfileChefGraphSurfaceViewModel.swift,\ RecipeActionsViewModel.swift,\ RecipeCatalogRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ RecipeCatalogViewModel.swift,\ RecipeDetailScreenViewModel.swift,\ RecipeEditorDraft.swift,\ RecipeEditorDraftChangePlanner.swift,\ RecipeEditorViewModel.swift,\ SearchSurfaceRepository.swift,\ SearchSurfaceViewModel.swift,\ SettingsSurfaceRepository.swift,\ SettingsSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraftChangePlanner.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraftChangePlanner.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 Compiling\ PaginationCursor.swift,\ PublicCatalogRequests.swift,\ ShoppingListAPI.swift,\ ShoppingListRequests.swift,\ AppNavigationState.swift,\ AppRoute.swift,\ DeepLinkRouter.swift,\ DeepLinkURLBuilder.swift,\ NativeAppSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/PaginationCursor.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/ShoppingListAPI.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/ShoppingListRequests.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/AppNavigationState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/AppRoute.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/PaginationCursor.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/ShoppingListAPI.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/ShoppingListRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/AppNavigationState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftExplicitDependencyGeneratePcm arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/ModuleCache.noindex/LocalAuthentication-20ULTRXMZ1GX1PUNXAT8AE8T7.pcm
 
@@ -759,45 +759,45 @@ SwiftCompile normal x86_64 Compiling\ NativeAuthSession.swift,\ NativeAuthSessio
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativePasswordSignInRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthResponses.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftEmitModule normal arm64 Emitting\ module\ for\ SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 EmitSwiftModule normal arm64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling resource_bundle_accessor.swift, APIClient.swift, APIEnvelope.swift, APIError.swift, APIRequestBuilder.swift, APIRequestSupport.swift, APIRetryPolicy.swift, APITransport.swift, JSONValue.swift, NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -805,39 +805,39 @@ SwiftCompile normal arm64 Compiling\ CookbookSurfaceRepository.swift,\ CookbookS
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Notifications/NotificationAPNsSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Profiles/ProfileChefGraphSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeActions/RecipeActionsViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Emitting module for SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -851,39 +851,39 @@ SwiftCompile normal arm64 Compiling\ TokenVault.swift,\ NativeCacheFreshnessPoli
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/TokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeCacheFreshnessPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeCachePrefetchPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeDurableCache.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeDurableCacheStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeIndicatorDismissalStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/NativeMediaStagingPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Cache/OfflineFreshnessIndicator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/CaptureImport/CaptureImportViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 Copy /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyCore.swiftmodule/x86_64-apple-ios-simulator.swiftmodule /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/Objects-normal/x86_64/SpoonjoyCore.swiftmodule (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
@@ -906,77 +906,77 @@ Copy /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/ta
 SwiftCompile normal arm64 Compiling\ SpoonEntityCatalog.swift,\ SpotlightIndexPlan.swift,\ JSONFileStore.swift,\ MutationQueue.swift,\ OfflineSnapshot.swift,\ SyncCheckpoint.swift,\ RecipeCookbook.swift,\ SpoonjoyCore.swift,\ NativeSyncEngine.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/JSONFileStore.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/MutationQueue.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/SpoonjoyCore.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpoonEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/SpotlightIndexPlan.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/JSONFileStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/MutationQueue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/OfflineSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Offline/SyncCheckpoint.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/RecipeCookbook/RecipeCookbook.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/SpoonjoyCore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ RecipeCatalogViewModel.swift,\ RecipeDetailScreenViewModel.swift,\ RecipeEditorDraft.swift,\ RecipeEditorDraftChangePlanner.swift,\ RecipeEditorViewModel.swift,\ SearchSurfaceRepository.swift,\ SearchSurfaceViewModel.swift,\ SettingsSurfaceRepository.swift,\ SettingsSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraftChangePlanner.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorDraftChangePlanner.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Settings/SettingsSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling NativeSharePayload.swift, ShoppingSurfaceViewModel.swift, SpoonCookLogViewModel.swift, CaptureDraft.swift, CookModeProgress.swift, KitchenFixtureState.swift, SettingsState.swift, ShoppingListState.swift, CaptureDraftEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -984,39 +984,39 @@ SwiftCompile normal arm64 Compiling\ NativeAuthSession.swift,\ NativeAuthSession
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativeAuthSession.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativeAuthSessionRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativePasswordSignInRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthPKCE.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthRedirectValidator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/OAuthResponses.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/RefreshCoordinator.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/SecureAuthWebHandoff.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for SpoonjoyCore (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -1030,39 +1030,39 @@ SwiftCompile normal arm64 Compiling\ PaginationCursor.swift,\ PublicCatalogReque
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/PaginationCursor.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/PublicCatalogRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/ShoppingListAPI.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/ShoppingListRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/AppNavigationState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/AppRoute.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/DeepLinkRouter.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/DeepLinkURLBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeAppSnapshot.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftMergeGeneratedHeaders /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/GeneratedModuleMaps-iphonesimulator/SpoonjoyCore-Swift.h /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/Objects-normal/arm64/SpoonjoyCore-Swift.h /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/Objects-normal/x86_64/SpoonjoyCore-Swift.h (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
@@ -1090,39 +1090,39 @@ SwiftCompile normal arm64 Compiling\ ChefProfileEntityCatalog.swift,\ DeepLinkMa
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ChefProfileEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/DeepLinkManifest.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/NativeCapabilityMetadata.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/NativeIntentAction.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/RecipeCookbookEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioCommand.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioReport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ScenarioVerifier.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/ShoppingEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling CookbookSurfaceRepository.swift, CookbookSurfaceViewModel.swift, RecipeCoverControlsViewModel.swift, NotificationAPNsSurfaceRepository.swift, NotificationAPNsSurfaceViewModel.swift, ProfileChefGraphSurfaceRepository.swift, ProfileChefGraphSurfaceViewModel.swift, RecipeActionsViewModel.swift, RecipeCatalogRepository.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -1130,77 +1130,77 @@ SwiftCompile normal arm64 Compiling\ NativeFixtureFallbackPolicy.swift,\ NativeL
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/ScreenViewModels.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/AppState/SearchState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/AuthSessionState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/FileBackedTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/InMemoryTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/KeychainTokenVault.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Auth/NativeAppleSignInRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 Compiling\ NativeSharePayload.swift,\ ShoppingSurfaceViewModel.swift,\ SpoonCookLogViewModel.swift,\ CaptureDraft.swift,\ CookModeProgress.swift,\ KitchenFixtureState.swift,\ SettingsState.swift,\ ShoppingListState.swift,\ CaptureDraftEntityCatalog.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Spoons/SpoonCookLogViewModel.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/SettingsState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Sharing/NativeSharePayload.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Features/Spoons/SpoonCookLogViewModel.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CaptureDraft.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/CookModeProgress.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/KitchenFixtureState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/SettingsState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/KitchenState/ShoppingListState.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/Native/CaptureDraftEntityCatalog.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling NativeAuthSession.swift, NativeAuthSessionRepository.swift, NativePasswordSignInRequests.swift, OAuthPKCE.swift, OAuthRedirectValidator.swift, OAuthRequests.swift, OAuthResponses.swift, RefreshCoordinator.swift, SecureAuthWebHandoff.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -1208,43 +1208,43 @@ SwiftCompile normal arm64 Compiling\ resource_bundle_accessor.swift,\ APIClient.
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/DerivedSources/resource_bundle_accessor.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIClient.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIEnvelope.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIError.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRequestBuilder.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRequestSupport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APIRetryPolicy.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/APITransport.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/JSONValue.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Sources/SpoonjoyCore/API/NativeAPIRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Spoonjoy.xcodeproj
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling NativeFixtureFallbackPolicy.swift, NativeLiveAppStore.swift, ScreenViewModels.swift, SearchState.swift, AuthSessionState.swift, FileBackedTokenVault.swift, InMemoryTokenVault.swift, KeychainTokenVault.swift, NativeAppleSignInRequests.swift (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
 
@@ -1639,117 +1639,117 @@ SwiftDriver\ Compilation SpoonjoyCore normal arm64 com.apple.xcode.tools.swift.c
 SwiftEmitModule normal x86_64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 EmitSwiftModule normal x86_64 (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 Compiling\ CaptureDraftView.swift,\ CookbooksView.swift,\ CookModeView.swift,\ KitchenSafeControls.swift,\ KitchenTableLoadingStateView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CookbooksView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CookModeView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/KitchenTableLoadingStateView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CookbooksView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/KitchenTableLoadingStateView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 Compiling\ ReceiptListView.swift,\ RecipeCoverControlsView.swift,\ RecipeCoverImage.swift,\ RecipeDetailView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/ReceiptListView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/ReceiptListView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 Compiling\ SpoonjoySpotlightIndexer.swift,\ SpoonjoyToolbar.swift,\ SpoonjoyWebAuthenticationSession.swift,\ GeneratedAssetSymbols.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug-iphonesimulator/Spoonjoy\ iOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug-iphonesimulator/Spoonjoy\ iOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 Compiling\ SpoonCookLogView.swift,\ SpoonDock.swift,\ SpoonjoyApp.swift,\ SpoonjoyAppIntents.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/SpoonjoyApp.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/SpoonjoyApp.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 Compiling\ SpoonjoyCaptureDraftEntities.swift,\ SpoonjoyChefProfileEntities.swift,\ SpoonjoyiOSApp.swift,\ SpoonjoyRecipeCookbookEntities.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 Compiling\ KitchenTableTheme.swift,\ KitchenView.swift,\ NativeAppleSignInTelemetry.swift,\ NotificationAPNsDeviceBridge.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/KitchenView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/KitchenView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 Ld /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/SpoonjoyApple.build/BootstrapDebug-iphonesimulator/SpoonjoyCore.build/Objects-normal/arm64/Binary/SpoonjoyCore.o normal arm64 (in target 'SpoonjoyCore' from project 'SpoonjoyApple')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
@@ -1759,19 +1759,19 @@ SwiftCompile normal x86_64 Compiling\ NotificationAPNsSettingsView.swift,\ Offli
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/ProfileView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftExplicitDependencyGeneratePcm arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/ModuleCache.noindex/Photos-CHF6AEX1VILKZ9WHLBI68D8P9.pcm
 
@@ -1783,19 +1783,19 @@ SwiftCompile normal x86_64 Compiling\ SpoonjoyRootView.swift,\ SpoonjoySettingsE
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftExplicitDependencyGeneratePcm arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/ModuleCache.noindex/SwiftUI-9YQB7S263YZ7NCUTEZHE2YZZG.pcm
 
@@ -1807,25 +1807,25 @@ SwiftEmitModule normal arm64 Emitting\ module\ for\ Spoonjoy (in target 'Spoonjo
 
 EmitSwiftModule normal arm64 (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 Compiling\ ReceiptListView.swift,\ RecipeCoverControlsView.swift,\ RecipeCoverImage.swift,\ RecipeDetailView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/ReceiptListView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/ReceiptListView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling SpoonjoySpotlightIndexer.swift, SpoonjoyToolbar.swift, SpoonjoyWebAuthenticationSession.swift, GeneratedAssetSymbols.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -1833,19 +1833,19 @@ SwiftCompile normal arm64 Compiling\ SpoonjoyCaptureDraftEntities.swift,\ Spoonj
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyCaptureDraftEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyChefProfileEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyRecipeCookbookEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling SpoonjoyCaptureDraftEntities.swift, SpoonjoyChefProfileEntities.swift, SpoonjoyiOSApp.swift, SpoonjoyRecipeCookbookEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -1853,19 +1853,19 @@ SwiftCompile normal arm64 Compiling\ NotificationAPNsSettingsView.swift,\ Offlin
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/ProfileView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling KitchenTableTheme.swift, KitchenView.swift, NativeAppleSignInTelemetry.swift, NotificationAPNsDeviceBridge.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -1873,19 +1873,19 @@ SwiftCompile normal arm64 Compiling\ SpoonjoyRootView.swift,\ SpoonjoySettingsEn
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyShoppingEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySpoonEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Emitting module for Spoonjoy (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -1898,19 +1898,19 @@ SwiftDriverJobDiscovery normal x86_64 Compiling SpoonjoyRootView.swift, Spoonjoy
 SwiftCompile normal arm64 Compiling\ SpoonCookLogView.swift,\ SpoonDock.swift,\ SpoonjoyApp.swift,\ SpoonjoyAppIntents.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/SpoonjoyApp.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/SpoonjoyApp.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Emitting module for Spoonjoy (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -1958,19 +1958,19 @@ SwiftCompile normal arm64 Compiling\ SpoonjoySpotlightIndexer.swift,\ SpoonjoyTo
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Auth/SpoonjoyWebAuthenticationSession.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Intermediates.noindex/Spoonjoy.build/BootstrapDebug-iphonesimulator/Spoonjoy\ iOS.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyCaptureDraftEntities.swift, SpoonjoyChefProfileEntities.swift, SpoonjoyiOSApp.swift, SpoonjoyRecipeCookbookEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -1978,41 +1978,41 @@ SwiftCompile normal arm64 Compiling\ CaptureDraftView.swift,\ CookbooksView.swif
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CookbooksView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/CookModeView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/KitchenTableLoadingStateView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 Compiling\ SettingsView.swift,\ ShareActions.swift,\ ShoppingListView.swift,\ SignedOutSetupView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SettingsView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SettingsView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoyRootView.swift, SpoonjoySettingsEntities.swift, SpoonjoyShoppingEntities.swift, SpoonjoySpoonEntities.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -2020,19 +2020,19 @@ SwiftCompile normal arm64 Compiling\ RecipeEditorView.swift,\ RecipesView.swift,
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipesView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SearchView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling SpoonjoySpotlightIndexer.swift, SpoonjoyToolbar.swift, SpoonjoyWebAuthenticationSession.swift, GeneratedAssetSymbols.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -2040,19 +2040,19 @@ SwiftCompile normal x86_64 Compiling\ RecipeEditorView.swift,\ RecipesView.swift
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/RecipesView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SearchView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling ReceiptListView.swift, RecipeCoverControlsView.swift, RecipeCoverImage.swift, RecipeDetailView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -2060,38 +2060,38 @@ SwiftCompile normal arm64 Compiling\ KitchenTableTheme.swift,\ KitchenView.swift
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/KitchenView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal arm64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Native/NotificationAPNsDeviceBridge.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal x86_64 Compiling CaptureDraftView.swift, CookbooksView.swift, CookModeView.swift, KitchenSafeControls.swift, KitchenTableLoadingStateView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
 SwiftCompile normal x86_64 Compiling\ SettingsView.swift,\ ShareActions.swift,\ ShoppingListView.swift,\ SignedOutSetupView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SettingsView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/SettingsView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/ShareActions.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/Views/ShoppingListView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftCompile normal x86_64 /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
     cd /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
-    
+
 
 SwiftDriverJobDiscovery normal arm64 Compiling ReceiptListView.swift, RecipeCoverControlsView.swift, RecipeCoverImage.swift, RecipeDetailView.swift (in target 'Spoonjoy iOS' from project 'Spoonjoy')
 
@@ -2236,4 +2236,3 @@ Touch /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/t
     /usr/bin/touch -c /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3a/build-ios-derived/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app
 
 ** BUILD SUCCEEDED **
-
