@@ -1287,6 +1287,9 @@ struct NativeMobileDesignContractTests {
                 "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)",
                 "searchableRouteNavigationStack",
                 ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
+                "@State private var isSearchPresented = false",
+                ".searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: \"Search Spoonjoy\")",
+                "focusCompactSearchFieldIfNeeded",
                 "compactMobileShell(spotlightPayload: spotlightPayload)",
                 "ToolbarItem(placement: .topBarTrailing)"
             ],
@@ -1313,6 +1316,13 @@ struct NativeMobileDesignContractTests {
             in: searchPath,
             contains: [
                 ".searchable(text: searchTextBinding, prompt: \"Search Spoonjoy\")",
+                "visibleSearchField",
+                "TextField(\"Search Spoonjoy\"",
+                "SearchSurfaceContract.visibleSearchField",
+                "@FocusState private var isSearchFieldFocused",
+                ".searchFocused($isSearchFieldFocused)",
+                "isSearchFieldFocused = true",
+                "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                 ".searchScopes(searchScopeBinding)",
                 "SearchSurfaceNativeChrome",
                 "onSubmit(of: .search)",
@@ -1333,6 +1343,9 @@ struct NativeMobileDesignContractTests {
                 "search_capture_variant",
                 "search-typed-results",
                 "search-scoped-recipes",
+                "search-scoped-cookbooks",
+                "search-scoped-chefs",
+                "search-scoped-shopping",
                 "search-no-results",
                 "expected_search_query",
                 "expected_search_scope",
@@ -1353,6 +1366,9 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "search-typed-results|search|",
                 "search-scoped-recipes|search|",
+                "search-scoped-cookbooks|search|",
+                "search-scoped-chefs|search|",
+                "search-scoped-shopping|search|",
                 "search-no-results|search|"
             ]
         )
@@ -1365,6 +1381,9 @@ struct NativeMobileDesignContractTests {
                 "expected_search_proof",
                 "\"typed-results\"",
                 "\"scoped-recipes\"",
+                "\"scoped-cookbooks\"",
+                "\"scoped-chefs\"",
+                "\"scoped-shopping\"",
                 "\"no-results\"",
                 "proof[\"query\"] == expected[\"query\"]",
                 "proof[\"scope\"] == expected[\"scope\"]"

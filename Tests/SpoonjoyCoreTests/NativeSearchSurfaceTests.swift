@@ -69,6 +69,13 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceRow",
                     "OfflineStatusView",
                     ".navigationTitle(\"Search\")",
+                    "visibleSearchField",
+                    "TextField(\"Search Spoonjoy\"",
+                    "SearchSurfaceContract.visibleSearchField",
+                    "@FocusState private var isSearchFieldFocused",
+                    ".searchFocused($isSearchFieldFocused)",
+                    "isSearchFieldFocused = true",
+                    "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                     "searchTask",
                     "debounce",
                     "SPOONJOY_SCREENSHOT_PROOF_PATH",
@@ -84,8 +91,12 @@ struct NativeSearchSurfaceTests {
                     "contentState.searchSurfaceViewModel",
                     "performSearch(",
                     "SearchView(",
+                    "@State private var isSearchPresented = false",
+                    ".searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: \"Search Spoonjoy\")",
                     ".searchFocused($isSearchFieldFocused)",
                     "isSearchFieldFocused = true",
+                    "isSearchPresented = true",
+                    "focusCompactSearchFieldIfNeeded",
                     "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                     "shouldAutoFocusSearchField",
                     "search.apply(route: routeSearch.route)",
@@ -1106,7 +1117,13 @@ struct NativeSearchSurfaceTests {
             source: .cache(serverRevision: .cursor("explicit"), lastValidatedAt: Self.staleValidatedAt)
         )
         #expect(content.performSearch(page: explicitPage, state: SearchState(query: "lemon", scope: .all)).sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
-        #expect(content.performSearch(error: .searchFailed(message: "boom"), state: SearchState(query: "lemon", scope: .all), cachedPage: explicitPage).errorState?.message == "boom")
+        let recoveredSearch = content.performSearch(
+            error: .searchFailed(message: "boom"),
+            state: SearchState(query: "lemon", scope: .all),
+            cachedPage: explicitPage
+        )
+        #expect(recoveredSearch.sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
+        #expect(recoveredSearch.errorState == nil)
 
         let severeDisplays: [OfflineIndicatorDisplay] = [
             .queuedWork(count: 2, oldestClientMutationID: nil),

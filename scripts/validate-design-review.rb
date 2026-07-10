@@ -55,10 +55,10 @@ EXPECTED_ROUTE_EVIDENCE = {
   },
   "search" => {
     "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
-    "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+    "keyboardNavigationTargets" => ["visible search field", "typed rows", "SearchSurfaceSectionView buttons"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
-    "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+    "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "recipes" => {
@@ -182,6 +182,27 @@ def expected_search_proof(variant)
       "scope" => "recipes",
       "routeIdentifier" => "search:recipes:lemon",
       "requiredSections" => ["Recipes"]
+    }
+  when "scoped-cookbooks"
+    {
+      "query" => "weeknights",
+      "scope" => "cookbooks",
+      "routeIdentifier" => "search:cookbooks:weeknights",
+      "requiredSections" => ["Cookbooks"]
+    }
+  when "scoped-chefs"
+    {
+      "query" => "ari",
+      "scope" => "chefs",
+      "routeIdentifier" => "search:chefs:ari",
+      "requiredSections" => ["Chefs"]
+    }
+  when "scoped-shopping"
+    {
+      "query" => "lemons",
+      "scope" => "shopping-list",
+      "routeIdentifier" => "search:shopping-list:lemons",
+      "requiredSections" => ["Shopping"]
     }
   when "no-results"
     {

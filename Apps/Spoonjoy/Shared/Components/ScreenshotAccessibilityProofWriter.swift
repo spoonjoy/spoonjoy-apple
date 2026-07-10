@@ -120,10 +120,10 @@ enum ScreenshotAccessibilityProofWriter {
         case ("search", "SearchView"):
             RouteAccessibilityEvidence(
                 voiceOverLabels: ["Search", "row.accessibilityLabel"],
-                keyboardNavigationTargets: ["typed rows", "SearchSurfaceSectionView buttons", "offline status dismiss"],
+                keyboardNavigationTargets: ["visible search field", "typed rows", "SearchSurfaceSectionView buttons", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "herb tint on bone", "status label on card"],
-                hierarchyAnchors: ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView", "OfflineStatusView"],
+                hierarchyAnchors: ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView", "OfflineStatusView"],
                 layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "offline-status-section"]
             )
         case ("settings", "SettingsView"):

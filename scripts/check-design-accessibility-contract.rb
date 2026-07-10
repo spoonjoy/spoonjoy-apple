@@ -106,6 +106,7 @@ CONTRACTS = {
     "routeEvidence(route: route, source: source)",
     "row.accessibilityLabel",
     "SearchSurfaceContract.searchableScopes",
+    "SearchSurfaceContract.visibleSearchField",
     "SearchSurfaceContract.typedRows",
     "OfflineStatusView.screenshotAccessibilityProof",
     "observedDynamicTypeSize",

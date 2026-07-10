@@ -17,6 +17,7 @@ struct PlatformNavigationView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
     @FocusState private var isSearchFieldFocused: Bool
+    @State private var isSearchPresented = false
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
 
@@ -142,6 +143,33 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
+#if os(iOS)
+        if compactTabSection(for: navigation.route) == .search {
+            compactMobileNavigationStack(spotlightPayload: spotlightPayload)
+                .searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: "Search Spoonjoy")
+                .searchFocused($isSearchFieldFocused)
+                .searchScopes(searchScope) {
+                    ForEach(availableSearchScopes, id: \.rawValue) { scope in
+                        Text(label(for: scope)).tag(scope)
+                    }
+                }
+                .onSubmit(of: .search) {
+                    Task {
+                        await performSearch(search)
+                    }
+                }
+                .onAppear {
+                    focusCompactSearchFieldIfNeeded()
+                }
+        } else {
+            compactMobileNavigationStack(spotlightPayload: spotlightPayload)
+        }
+#else
+        compactMobileNavigationStack(spotlightPayload: spotlightPayload)
+#endif
+    }
+
+    private func compactMobileNavigationStack(spotlightPayload: SpotlightIndexPayload) -> some View {
         NavigationStack {
             compactNavigationContent
             .navigationTitle(compactNavigationTitle(for: navigation.route))
@@ -187,6 +215,9 @@ struct PlatformNavigationView: View {
         .onChange(of: navigation.route) { _, route in
             if !routeKeepsSearchFocus(route) {
                 isSearchFieldFocused = false
+                isSearchPresented = false
+            } else {
+                focusCompactSearchFieldIfNeeded()
             }
             if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
                 liveSearchRequestMarker = nil
@@ -292,6 +323,10 @@ struct PlatformNavigationView: View {
     }
 
     private var compactTabShell: some View {
+        compactTabShellContent
+    }
+
+    private var compactTabShellContent: some View {
         TabView(selection: compactTabSelection) {
             compactTabContent(for: .kitchen)
                 .tabItem {
@@ -644,6 +679,16 @@ struct PlatformNavigationView: View {
 #else
         return true
 #endif
+    }
+
+    private func focusCompactSearchFieldIfNeeded() {
+        guard usesCompactMobileShell,
+              compactTabSection(for: navigation.route) == .search,
+              shouldAutoFocusSearchField else {
+            return
+        }
+        isSearchFieldFocused = true
+        isSearchPresented = true
     }
 
     private var sidebarSelection: Binding<AppSection?> {

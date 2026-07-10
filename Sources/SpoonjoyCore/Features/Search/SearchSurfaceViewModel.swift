@@ -207,9 +207,10 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
-        sections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
+        let recoveredSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
+        sections = recoveredSections
         emptyState = cachedPage.map { Self.emptyState(page: $0, state: state, context: context) } ?? nil
-        errorState = Self.errorState(error)
+        errorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
         self.offlineIndicator = offlineIndicator ?? Self.offlineIndicator(
             error: error,
             state: state,

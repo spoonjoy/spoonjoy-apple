@@ -94,6 +94,12 @@ else
     screenshot_route="search-typed-results"
   elif [[ "$unit_slug" == *search-scoped-recipes* || "$unit_slug" == *search_scoped_recipes* ]]; then
     screenshot_route="search-scoped-recipes"
+  elif [[ "$unit_slug" == *search-scoped-cookbooks* || "$unit_slug" == *search_scoped_cookbooks* ]]; then
+    screenshot_route="search-scoped-cookbooks"
+  elif [[ "$unit_slug" == *search-scoped-chefs* || "$unit_slug" == *search_scoped_chefs* ]]; then
+    screenshot_route="search-scoped-chefs"
+  elif [[ "$unit_slug" == *search-scoped-shopping* || "$unit_slug" == *search_scoped_shopping* ]]; then
+    screenshot_route="search-scoped-shopping"
   elif [[ "$unit_slug" == *search-no-results* || "$unit_slug" == *search_no_results* ]]; then
     screenshot_route="search-no-results"
   elif [[ "$unit_slug" == *search* ]]; then
@@ -124,6 +130,15 @@ elif [[ "$screenshot_route" == "search-typed-results" ]]; then
   screenshot_route="search"
 elif [[ "$screenshot_route" == "search-scoped-recipes" ]]; then
   search_capture_variant="scoped-recipes"
+  screenshot_route="search"
+elif [[ "$screenshot_route" == "search-scoped-cookbooks" ]]; then
+  search_capture_variant="scoped-cookbooks"
+  screenshot_route="search"
+elif [[ "$screenshot_route" == "search-scoped-chefs" ]]; then
+  search_capture_variant="scoped-chefs"
+  screenshot_route="search"
+elif [[ "$screenshot_route" == "search-scoped-shopping" ]]; then
+  search_capture_variant="scoped-shopping"
   screenshot_route="search"
 elif [[ "$screenshot_route" == "search-no-results" ]]; then
   search_capture_variant="no-results"
@@ -220,6 +235,18 @@ case "$screenshot_route" in
       scoped-recipes)
         expected_search_query="lemon"
         expected_search_scope="recipes"
+        ;;
+      scoped-cookbooks)
+        expected_search_query="weeknights"
+        expected_search_scope="cookbooks"
+        ;;
+      scoped-chefs)
+        expected_search_query="ari"
+        expected_search_scope="chefs"
+        ;;
+      scoped-shopping)
+        expected_search_query="lemons"
+        expected_search_scope="shopping-list"
         ;;
       no-results)
         expected_search_query="kumquat"
@@ -1246,10 +1273,10 @@ wait_for_accessibility_proof() {
         },
         "search" => {
           "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
-          "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+          "keyboardNavigationTargets" => ["visible search field", "typed rows", "SearchSurfaceSectionView buttons"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
-          "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+          "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "recipes" => {
@@ -1439,6 +1466,9 @@ validate_screenshot_surface_proof() {
       required_sections = case search_capture_variant
                           when "blank" then ["Recipes", "Chefs"]
                           when "typed-results", "scoped-recipes" then ["Recipes"]
+                          when "scoped-cookbooks" then ["Cookbooks"]
+                          when "scoped-chefs" then ["Chefs"]
+                          when "scoped-shopping" then ["Shopping"]
                           when "no-results" then []
                           else abort("#{platform} unsupported search capture variant #{search_capture_variant}")
                           end
