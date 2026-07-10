@@ -130,8 +130,12 @@ struct SpoonCookLogView: View {
     }
 
     private var createForm: some View {
+        cookLogForm
+    }
+
+    private var cookLogForm: some View {
         let hasStagedPhoto = stagedPhoto != nil
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 12) {
             TextField("What changed?", text: $note, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(2...4)
@@ -139,7 +143,8 @@ struct SpoonCookLogView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...3)
 
-            cookLogControls(hasStagedPhoto: hasStagedPhoto)
+            cookLogPhotoSlot
+            cookLogActionBar
 
             if hasStagedPhoto {
                 Toggle(isOn: $useAsRecipeCover) {
@@ -150,13 +155,6 @@ struct SpoonCookLogView: View {
                 .disabled(actionInFlight)
             }
         }
-        .padding(14)
-        .background(KitchenTableTheme.paper)
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.line.opacity(0.45), lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .onChange(of: note) { _, _ in
             persistDraft()
         }
@@ -168,42 +166,52 @@ struct SpoonCookLogView: View {
         }
     }
 
-    private func cookLogControls(hasStagedPhoto: Bool) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                photoPickerButton(hasStagedPhoto: hasStagedPhoto)
+    private var cookLogPhotoSlot: some View {
+        let hasStagedPhoto = stagedPhoto != nil
+        return PhotosPicker(selection: $selectedPhoto, matching: .images) {
+            HStack(spacing: 12) {
+                Image(systemName: hasStagedPhoto ? "photo.fill" : "photo.badge.plus")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .frame(width: 34, height: 34)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(hasStagedPhoto ? "Photo ready" : "Add photo")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .lineLimit(1)
+                    Text(hasStagedPhoto ? "Ready to attach to this cook." : "Optional cook photo.")
+                        .font(.caption)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
                 if hasStagedPhoto {
-                    clearPhotoButton
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.herb)
                 }
-                Spacer(minLength: 6)
-                logCookButton
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    photoPickerButton(hasStagedPhoto: hasStagedPhoto)
-                    if hasStagedPhoto {
-                        clearPhotoButton
-                    }
-                }
-                logCookButton
             }
         }
-    }
-
-    private func photoPickerButton(hasStagedPhoto: Bool) -> some View {
-        PhotosPicker(selection: $selectedPhoto, matching: .images) {
-            Label(hasStagedPhoto ? "Ready" : "Photo", systemImage: hasStagedPhoto ? "photo.fill" : "photo.badge.plus")
-                .lineLimit(1)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
+        .buttonStyle(.plain)
         .disabled(actionInFlight)
         .accessibilityLabel(hasStagedPhoto ? "Cook photo ready" : "Add cook photo")
         .onChange(of: selectedPhoto) { _, item in
             Task { @MainActor in
                 await loadPhoto(item)
             }
+        }
+    }
+
+    private var cookLogActionBar: some View {
+        let hasStagedPhoto = stagedPhoto != nil
+        return HStack(spacing: 10) {
+            if hasStagedPhoto {
+                clearPhotoButton
+            }
+            logCookButton
         }
     }
 
@@ -214,8 +222,9 @@ struct SpoonCookLogView: View {
             Label("Clear", systemImage: "xmark.circle")
                 .lineLimit(1)
         }
-        .buttonStyle(.borderless)
-        .controlSize(.large)
+        .buttonStyle(.plain)
+        .font(KitchenTableTheme.uiLabel)
+        .foregroundStyle(KitchenTableTheme.inkMuted)
         .disabled(actionInFlight)
         .accessibilityLabel("Clear cook photo")
     }
@@ -232,11 +241,15 @@ struct SpoonCookLogView: View {
                 clientMutationID: clientMutationID(prefix: "spoon-create")
             ))
         } label: {
-            Label("Log", systemImage: "fork.knife")
-                .lineLimit(1)
+            HStack(spacing: 8) {
+                Image(systemName: "fork.knife")
+                    .accessibilityHidden(true)
+                Text("Log cook")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
         .disabled(actionInFlight)
         .accessibilityLabel("Log cook")
     }

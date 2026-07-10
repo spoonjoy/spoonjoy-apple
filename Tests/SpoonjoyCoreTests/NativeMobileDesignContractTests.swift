@@ -134,7 +134,7 @@ struct NativeMobileDesignContractTests {
                 "rightTools",
                 ".accessibilityLabel",
                 "static func cookMode(",
-                "Done",
+                "Mark done",
                 "Previous",
                 "Next"
             ],
@@ -268,14 +268,17 @@ struct NativeMobileDesignContractTests {
             spoonLog,
             in: spoonLogPath,
             contains: [
-                "cookLogControls",
-                "ViewThatFits(in: .horizontal)",
-                "Label(hasStagedPhoto ? \"Ready\" : \"Photo\"",
+                "cookLogForm",
+                "cookLogPhotoSlot",
+                "cookLogActionBar",
+                "Image(systemName: hasStagedPhoto ? \"photo.fill\" : \"photo.badge.plus\")",
                 "if hasStagedPhoto",
-                "Label(\"Log\", systemImage: \"fork.knife\")"
+                "KitchenTableActionButtonStyle(prominence: .primary)"
             ],
             forbids: [
+                "Label(hasStagedPhoto ? \"Ready\" : \"Photo\"",
                 "Label(hasStagedPhoto ? \"Photo Ready\" : \"Add Photo\"",
+                "Label(\"Log\", systemImage: \"fork.knife\")",
                 "Label(\"Log Cook\", systemImage: \"fork.knife\")",
                 "Toggle(isOn: $useAsRecipeCover) {\n                    Label(\"Use as cover\""
             ]
@@ -545,8 +548,10 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "@Environment(\\.horizontalSizeClass)",
                 "private var usesEmbeddedSpoonDock: Bool",
-                "compactHeader",
-                "compactCookControls",
+                "compactTaskHeader",
+                "cookModeBottomActionRail",
+                "currentStepCard",
+                "stepProgressRail",
                 ".safeAreaInset(edge: .bottom, spacing: 0)",
                 "SpoonDock(",
                 "SpoonDockContext.cookMode(",
@@ -556,8 +561,8 @@ struct NativeMobileDesignContractTests {
                 "canGoBack: canGoBack",
                 "canAdvance: canAdvance",
                 "markCurrentStepComplete",
-                "KitchenTableSection(title: \"Step Inputs\"",
-                "KitchenTableSection(title: \"Step Ingredients\"",
+                "KitchenTableSection(title: \"Use from earlier\"",
+                "KitchenTableSection(title: \"Ingredients\"",
                 ".toggleStyle(.largeCheck)",
                 ".padding(.horizontal, KitchenTableTheme.pagePadding + 4)",
                 ".padding(.bottom, compactScrollBottomPadding)",

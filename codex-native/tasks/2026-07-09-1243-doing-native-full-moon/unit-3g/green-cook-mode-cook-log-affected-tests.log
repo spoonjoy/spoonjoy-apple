@@ -1,0 +1,99 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+Test Suite 'Selected tests' started at 2026-07-10 01:54:05.860.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 01:54:05.861.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 01:54:05.861.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 01:54:05.861.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native cook mode parity" started.
+◇ Suite "Native mobile design contract" started.
+◇ Suite "Native spoon cook-log surface parity" started.
+◇ Test "start and continue cook mode preserve active step route state" started.
+◇ Test "view model covers empty progress navigation bounds and quantity format edges" started.
+◇ Test "offline app snapshot restores exact cook mode progress" started.
+◇ Test "legacy cook progress rehydrates against a full recipe after placeholder restore" started.
+◇ Test "scale ingredient checkoff and step output checkoff match web cook mode" started.
+◇ Test "duration timers exist only for duration bearing steps" started.
+◇ Test "SpoonDock is limited to cook mode handrail controls" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "cook mode owns a compact SpoonDock handrail wired to step state" started.
+◇ Test "SpoonDock is registered in both app targets" started.
+◇ Test "Siri and deep links open or continue cook mode in the correct place" started.
+◇ Test "compact route pages reserve enough space for the floating native tab bar" started.
+◇ Test "native palette is pinned to the current Spoonjoy web tokens" started.
+◇ Test "spoon actions expose success messages and block unauthorized or empty edits" started.
+◇ Test "shopping destructive actions stay behind confirmations" started.
+◇ Test "shopping list relies on native tab navigation instead of compact SpoonDock" started.
+◇ Test "iOS tab bar appearance is opaque Spoonjoy bone" started.
+◇ Test "online spoon actions plan exact REST mutations with offline fallbacks" started.
+◇ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" started.
+◇ Test "cook-log view model covers equality queued online synced and skipped conflicts" started.
+◇ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" started.
+◇ Test "cook-log list data decodes defaults and summary-projected spoons" started.
+◇ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" started.
+◇ Test "compact iOS shell uses native tab and navigation bars" started.
+◇ Test "compact tab routes use system navigation chrome without global searchable" started.
+◇ Test "cook-log view model exposes ownership empty queued and conflict states" started.
+◇ Test "cook-log draft state normalizes text and persists staged photo metadata only" started.
+◇ Test "recipe detail preserves web masthead structure and stable route states" started.
+◇ Test "compact primary routes are native tab bar sections" started.
+◇ Test "TestFlight feedback polish removes clutter and placeholder overlap" started.
+◇ Test "recipe detail follows web step language instead of invented receipt method copy" started.
+◇ Test "empty spoon create is blocked before reaching the API" started.
+◇ Test "recipe detail wires the native spoon cook-log surface" started.
+◇ Test "photo spoon actions plan multipart uploads and offline staged media" started.
+◇ Test "cook-log view model enforces staged media policy" started.
+◇ Test "live spoon cook-log repository fetches public recipe spoons" started.
+◇ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" started.
+◇ Test "Spoonjoy section headers keep titles legible before drawing dividers" started.
+◇ Test "AI placeholder covers do not render as native food photography" started.
+◇ Test "compact mobile routes do not duplicate large system titles above authored headers" started.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.032 seconds.
+✔ Test "SpoonDock is registered in both app targets" passed after 0.032 seconds.
+✔ Test "compact route pages reserve enough space for the floating native tab bar" passed after 0.032 seconds.
+✔ Test "SpoonDock is limited to cook mode handrail controls" passed after 0.032 seconds.
+✔ Test "Siri and deep links open or continue cook mode in the correct place" passed after 0.032 seconds.
+✔ Test "native palette is pinned to the current Spoonjoy web tokens" passed after 0.032 seconds.
+✔ Test "shopping destructive actions stay behind confirmations" passed after 0.032 seconds.
+✔ Test "iOS tab bar appearance is opaque Spoonjoy bone" passed after 0.032 seconds.
+✔ Test "start and continue cook mode preserve active step route state" passed after 0.032 seconds.
+✔ Test "legacy cook progress rehydrates against a full recipe after placeholder restore" passed after 0.032 seconds.
+✔ Test "duration timers exist only for duration bearing steps" passed after 0.032 seconds.
+✔ Test "view model covers empty progress navigation bounds and quantity format edges" passed after 0.032 seconds.
+✔ Test "cook-log list data decodes defaults and summary-projected spoons" passed after 0.032 seconds.
+✔ Test "scale ingredient checkoff and step output checkoff match web cook mode" passed after 0.032 seconds.
+✔ Test "offline app snapshot restores exact cook mode progress" passed after 0.032 seconds.
+✔ Test "cook-log view model covers equality queued online synced and skipped conflicts" passed after 0.032 seconds.
+✔ Test "shopping list relies on native tab navigation instead of compact SpoonDock" passed after 0.032 seconds.
+✔ Test "cook-log draft state normalizes text and persists staged photo metadata only" passed after 0.032 seconds.
+✔ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" passed after 0.032 seconds.
+✔ Test "compact tab routes use system navigation chrome without global searchable" passed after 0.032 seconds.
+✔ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" passed after 0.032 seconds.
+✔ Test "cook mode owns a compact SpoonDock handrail wired to step state" passed after 0.032 seconds.
+✔ Test "empty spoon create is blocked before reaching the API" passed after 0.032 seconds.
+✔ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" passed after 0.032 seconds.
+✔ Test "recipe detail preserves web masthead structure and stable route states" passed after 0.032 seconds.
+✔ Test "photo spoon actions plan multipart uploads and offline staged media" passed after 0.032 seconds.
+✔ Test "live spoon cook-log repository fetches public recipe spoons" passed after 0.032 seconds.
+✔ Test "online spoon actions plan exact REST mutations with offline fallbacks" passed after 0.032 seconds.
+✔ Test "cook-log view model enforces staged media policy" passed after 0.032 seconds.
+✔ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" passed after 0.032 seconds.
+✔ Test "Spoonjoy section headers keep titles legible before drawing dividers" passed after 0.032 seconds.
+✔ Test "compact mobile routes do not duplicate large system titles above authored headers" passed after 0.032 seconds.
+✔ Suite "Native cook mode parity" passed after 0.033 seconds.
+✔ Test "spoon actions expose success messages and block unauthorized or empty edits" passed after 0.033 seconds.
+✔ Test "recipe detail wires the native spoon cook-log surface" passed after 0.034 seconds.
+✔ Test "cook-log view model exposes ownership empty queued and conflict states" passed after 0.035 seconds.
+✔ Suite "Native spoon cook-log surface parity" passed after 0.035 seconds.
+✔ Test "compact iOS shell uses native tab and navigation bars" passed after 0.038 seconds.
+✔ Test "compact primary routes are native tab bar sections" passed after 0.040 seconds.
+✔ Test "recipe detail follows web step language instead of invented receipt method copy" passed after 0.042 seconds.
+✔ Test "TestFlight feedback polish removes clutter and placeholder overlap" passed after 0.054 seconds.
+✔ Test "AI placeholder covers do not render as native food photography" passed after 0.060 seconds.
+✔ Suite "Native mobile design contract" passed after 0.060 seconds.
+✔ Test run with 40 tests in 3 suites passed after 0.061 seconds.

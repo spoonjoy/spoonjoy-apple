@@ -7,49 +7,51 @@ struct KitchenSafeControls: View {
     let close: () -> Void
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                markCompleteButton
-                advanceButton
-                closeButton
-            }
+        KitchenSafeControlDeck(
+            canAdvance: canAdvance,
+            markComplete: markComplete,
+            advance: advance,
+            close: close
+        )
+    }
+}
 
-            VStack(spacing: 12) {
-                markCompleteButton
-                advanceButton
-                closeButton
-            }
+struct KitchenSafeControlDeck: View {
+    let canAdvance: Bool
+    let markComplete: () -> Void
+    let advance: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            primaryStepAction
+            secondaryStepActions
         }
-        .controlSize(.large)
-        .labelStyle(.titleAndIcon)
     }
 
-    private var markCompleteButton: some View {
+    private var primaryStepAction: some View {
         Button(action: markComplete) {
-            Label("Done", systemImage: "checkmark.circle.fill")
-                .frame(maxWidth: .infinity)
+            Label("Mark done", systemImage: "checkmark.circle.fill")
         }
-        .buttonStyle(.borderedProminent)
-        .tint(KitchenTableTheme.herb)
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
         .accessibilityLabel("Mark the current step done")
+        .accessibilityHint("Mark this cooking step complete.")
     }
 
-    private var advanceButton: some View {
-        Button(action: advance) {
-            Label("Next", systemImage: "arrow.forward.circle")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .disabled(!canAdvance)
-        .accessibilityLabel("Move to the next step")
-    }
+    private var secondaryStepActions: some View {
+        HStack(spacing: 10) {
+            Button(action: advance) {
+                Label("Next step", systemImage: "arrow.forward.circle")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .disabled(!canAdvance)
+            .accessibilityLabel("Move to the next step")
 
-    private var closeButton: some View {
-        Button(action: close) {
-            Label("Recipe", systemImage: "text.book.closed")
-                .frame(maxWidth: .infinity)
+            Button(action: close) {
+                Label("Close", systemImage: "text.book.closed")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+            .accessibilityLabel("Return to recipe detail")
         }
-        .buttonStyle(.bordered)
-        .accessibilityLabel("Return to recipe detail")
     }
 }

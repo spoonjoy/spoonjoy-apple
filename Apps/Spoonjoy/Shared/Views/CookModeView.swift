@@ -89,6 +89,7 @@ struct CookModeView: View {
     @State private var progress: CookModeProgress
     @State private var shoppingStatusMessage: String?
     @State private var shoppingErrorMessage: String?
+    @State private var isCookModeUtilityPresented = false
     private let progressDidChange: (CookModeProgress) -> Void
     private let shoppingViewModel: ShoppingSurfaceViewModel
     private let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
@@ -113,6 +114,21 @@ struct CookModeView: View {
         cookModeBody
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
+        .sheet(isPresented: $isCookModeUtilityPresented) {
+            NavigationStack {
+                KitchenTablePage {
+                    cookModeUtilitySheet
+                }
+                .navigationTitle("Cook tools")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isCookModeUtilityPresented = false
+                        }
+                    }
+                }
+            }
+        }
         .onAppear(perform: normalizeProgressForCurrentRecipe)
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
             normalizeProgressForCurrentRecipe()
@@ -132,7 +148,7 @@ struct CookModeView: View {
                 cookModeScrollContent
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                compactCookControls
+                cookModeBottomActionRail
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
@@ -148,12 +164,9 @@ struct CookModeView: View {
     private var cookModeScrollContent: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
-
-            if let currentStep {
-                focusedStep(currentStep)
-                dependencyChecklist
-                ingredientChecklist
-            }
+            currentStepCard
+            dependencyChecklist
+            ingredientChecklist
         }
         .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
         .padding(.top, 20)
@@ -197,7 +210,7 @@ struct CookModeView: View {
 
     @ViewBuilder private var header: some View {
         if usesEmbeddedSpoonDock {
-            compactHeader
+            compactTaskHeader
         } else {
             regularHeader
         }
@@ -211,39 +224,13 @@ struct CookModeView: View {
                 subtitle: viewModel.recipeProgressLabel
             )
 
-            Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
-            .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.brass)
-
-            ProgressView(value: viewModel.recipeCheckoffFraction, total: 1)
-                .tint(KitchenTableTheme.herb)
-                .accessibilityLabel("Persisted progress")
-                .accessibilityValue(viewModel.recipeProgressLabel)
-
-            ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
-                updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
-            }
-
-            Button {
-                addRecipeIngredients(scaleFactor: progress.scaleFactor)
-            } label: {
-                Label("Add Ingredients", systemImage: "cart.badge.plus")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-
-            if let shoppingStatusMessage {
-                Label(shoppingStatusMessage, systemImage: "checkmark.circle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.herb)
-            } else if let shoppingErrorMessage {
-                Label(shoppingErrorMessage, systemImage: "exclamationmark.triangle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.tomato)
-            }
+            stepProgressRail
+            utilityButton
+            shoppingStatus
         }
     }
 
-    private var compactHeader: some View {
+    private var compactTaskHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(viewModel.stepProgressLabel.uppercased())
@@ -266,31 +253,72 @@ struct CookModeView: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
+            stepProgressRail
+            utilityButton
+            shoppingStatus
+        }
+    }
+
+    private var stepProgressRail: some View {
+        VStack(alignment: .leading, spacing: 8) {
             ProgressView(value: viewModel.recipeCheckoffFraction, total: 1)
                 .tint(KitchenTableTheme.herb)
                 .accessibilityLabel("Persisted progress")
                 .accessibilityValue(viewModel.recipeProgressLabel)
 
-            ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
-                updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
+            Label(viewModel.recipeProgressLabel, systemImage: "checkmark.circle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+    }
+
+    private var utilityButton: some View {
+        Button {
+            isCookModeUtilityPresented = true
+        } label: {
+            Label("Tools", systemImage: "slider.horizontal.3")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .accessibilityHint("Opens recipe scale and shopping-list tools.")
+    }
+
+    @ViewBuilder private var shoppingStatus: some View {
+        if let shoppingStatusMessage {
+            Label(shoppingStatusMessage, systemImage: "checkmark.circle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.herb)
+        } else if let shoppingErrorMessage {
+            Label(shoppingErrorMessage, systemImage: "exclamationmark.triangle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.tomato)
+        }
+    }
+
+    private var cookModeUtilitySheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            KitchenTableSection(title: "Scale") {
+                ScaleSelector(
+                    scaleFactor: progress.scaleFactor
+                ) { scaleFactor in
+                    updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
+                }
             }
 
             Button {
                 addRecipeIngredients(scaleFactor: progress.scaleFactor)
             } label: {
-                Label("Add Ingredients", systemImage: "cart.badge.plus")
+                Label("Add to list", systemImage: "cart.badge.plus")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-            if let shoppingStatusMessage {
-                Label(shoppingStatusMessage, systemImage: "checkmark.circle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.herb)
-            } else if let shoppingErrorMessage {
-                Label(shoppingErrorMessage, systemImage: "exclamationmark.triangle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.tomato)
-            }
+    @ViewBuilder private var currentStepCard: some View {
+        if let currentStep {
+            focusedStep(currentStep)
         }
     }
 
@@ -311,13 +339,13 @@ struct CookModeView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background)
+        .background(KitchenTableTheme.paper)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     @ViewBuilder private var dependencyChecklist: some View {
         if !viewModel.stepOutputChecklistRows.isEmpty {
-            KitchenTableSection(title: "Step Inputs") {
+            KitchenTableSection(title: "Use from earlier") {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(viewModel.stepOutputChecklistRows, id: \.id) { row in
                         Toggle(isOn: stepOutputBinding(for: row)) {
@@ -340,7 +368,7 @@ struct CookModeView: View {
 
     @ViewBuilder private var ingredientChecklist: some View {
         if !viewModel.ingredientChecklistRows.isEmpty {
-            KitchenTableSection(title: "Step Ingredients") {
+            KitchenTableSection(title: "Ingredients") {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
                         Toggle(isOn: ingredientBinding(for: row)) {
@@ -368,7 +396,7 @@ struct CookModeView: View {
                 Label("Previous", systemImage: "arrow.backward.circle")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
             .disabled(!canGoBack)
 
             KitchenSafeControls(
@@ -380,10 +408,10 @@ struct CookModeView: View {
         }
         .padding(.horizontal, KitchenTableTheme.pagePadding)
         .padding(.vertical, 12)
-        .background(.background.opacity(0.72))
+        .background(KitchenTableTheme.paper.opacity(0.72))
     }
 
-    private var compactCookControls: some View {
+    private var cookModeBottomActionRail: some View {
         SpoonDock(context: SpoonDockContext.cookMode(
             previous: previous,
             markComplete: markCurrentStepComplete,

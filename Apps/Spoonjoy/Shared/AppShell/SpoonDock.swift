@@ -287,11 +287,11 @@ extension SpoonDockContext {
             ),
             centerZone: .primary(
                 id: "cook.done",
-                title: "Done",
-                subtitle: stepTitle,
+                title: "Mark done",
+                subtitle: nil,
                 systemImage: "checkmark.circle.fill",
                 accessibilityLabel: "Mark the current step done",
-                accessibilityHint: "Mark this step complete.",
+                accessibilityHint: "Mark this cooking step complete.",
                 action: markComplete
             ),
             rightTools: [
