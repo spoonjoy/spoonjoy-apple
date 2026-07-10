@@ -829,6 +829,118 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("shopping workflow is an authored receipt, not a generic form and toggle stack")
+    func shoppingWorkflowIsAuthoredReceiptNotGenericFormAndToggleStack() throws {
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
+        let viewModelPath = "Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift"
+        let verifierPath = "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let screenshotHarnessPath = "scripts/capture-native-screenshots.sh"
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+        let receipt = uncommentedSwift(try readRepoFile(receiptPath))
+        let viewModel = uncommentedSwift(try readRepoFile(viewModelPath))
+        let verifier = uncommentedSwift(try readRepoFile(verifierPath))
+        let proof = uncommentedSwift(try readRepoFile(proofPath))
+        let screenshotHarness = try readRepoFile(screenshotHarnessPath)
+
+        expectContent(
+            shopping,
+            in: shoppingPath,
+            contains: [
+                "KitchenTablePage(",
+                "private var shoppingRunHeader",
+                "private var shoppingReceiptComposer",
+                "private var shoppingReceiptState",
+                "ShoppingReceiptStateView(",
+                "receiptActionsMenu",
+                "Clear checked",
+                "Add from recipe"
+            ],
+            forbids: [
+                "ContentUnavailableView(",
+                "Label(\"List Actions\"",
+                "TextField(\"Qty\"",
+                "TextField(\"Unit\""
+            ]
+        )
+
+        expectContent(
+            receipt,
+            in: receiptPath,
+            contains: [
+                "List {",
+                "Section {",
+                "private struct ShoppingReceiptRow",
+                "sourceLine",
+                "duplicateCountLabel",
+                ".accessibilityHint",
+                ".toggleStyle(.largeCheck)",
+                ".swipeActions"
+            ],
+            forbids: [
+                "ScrollView",
+                "LazyVStack",
+                "Label(\"Done\", systemImage: \"checkmark\")",
+                "KitchenTableReceiptRow(name: item.name, amount: item.displayQuantity)"
+            ]
+        )
+
+        expectContent(
+            viewModel,
+            in: viewModelPath,
+            contains: [
+                "ShoppingReceiptState",
+                "shoppingRunSummary",
+                "emptyReceiptState",
+                "allCompleteState",
+                "queuedReceiptState",
+                "duplicateCountLabel"
+            ],
+            forbids: [
+                "title: \"Load your shopping list\"",
+                "title: \"Your shopping list is empty\""
+            ]
+        )
+
+        expectContent(
+            verifier,
+            in: verifierPath,
+            contains: [
+                "\"List {\"",
+                "\"Section {\"",
+                "\"ShoppingReceiptRow\"",
+                "\"shoppingReceiptState\""
+            ],
+            forbids: [
+                "\"List\", \"Section\""
+            ]
+        )
+
+        expectContent(
+            proof,
+            in: proofPath,
+            contains: [
+                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+            ],
+            forbids: [
+                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+            ]
+        )
+        expectContent(
+            screenshotHarness,
+            in: screenshotHarnessPath,
+            contains: [
+                "\"shopping-list-all-complete\"",
+                "\"shopping-list-offline-queued\"",
+                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+            ],
+            forbids: [
+                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+            ]
+        )
+    }
+
     @Test("compact primary routes are native tab bar sections")
     func compactPrimaryRoutesAreNativeTabBarSections() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"

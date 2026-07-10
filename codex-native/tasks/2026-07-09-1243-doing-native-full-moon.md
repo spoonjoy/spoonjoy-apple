@@ -239,7 +239,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Screenshots, design-review artifacts, and closed cookbook ledger entries.
 **Acceptance**: No cookbook route overlap, fake cover, generic-card dominance, or navigation dead end remains.
 
-### ⬜ Unit 4a: Shopping Workflow — Tests
+### ✅ Unit 4a: Shopping Workflow — Tests
 **What**: Add failing tests for shopping receipt grammar, grouped/source-aware rows, duplicate handling, check targets, edit mode, offline queue state, and all-complete/empty states.
 **Output**: Red tests over `ShoppingListView`, `ReceiptListView`, shopping models, and surface contracts.
 **Acceptance**: Tests fail on at least one current shopping workflow gap.
@@ -539,6 +539,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 02:53 Unit 3j complete: added a red native design contract for cookbook shelf/detail grammar, requiring an authored shelf spread, 3:4 cookbook cover art, contents index rows, disclosure-based owner tools, route proof anchors, and manifest validation fields. Focused red run fails on the current generic placeholder/detail/tool patterns with evidence at `unit-3j/red-cookbook-surface-grammar-contract.log`.
 - 2026-07-10 03:04 Unit 3k complete: reworked Cookbooks and Cookbook Detail into authored native shelf/detail surfaces with a lead cookbook spread, horizontal cover shelf, index rows, book-like cover art/fallbacks, ordered contents rows, disclosure-based owner tools, and updated screenshot proof/manifest validation. Focused cookbook contracts, AI placeholder image policy, cookbook surface script, native design/shell scripts, full `swift test`, iOS/macOS app-target builds, and warning scan passed with evidence under `unit-3j/`.
 - 2026-07-10 03:49 Unit 3l complete: visually inspected Cookbooks and Cookbook Detail on iOS/macOS, fixed the compact index lead choosing an empty no-photo cookbook, kept actions above the dock, removed duplicate fallback-cover overlay text, top-aligned the macOS detail spread, hid no-photo placeholders from contents rows, tightened fallback cover typography, grouped the detail Share action with the title column after Curie review, cleaned generated DerivedData artifacts, and passed focused cookbook contracts plus final `validate-design-review.rb` checks. Final evidence: `unit-3l/cookbooks-after/`, `unit-3l/cookbook-detail-share-grouping-final/`, and `unit-3l/visual-absurdity-ledger.md`.
+- 2026-07-10 04:07 Unit 4a complete: added red shopping workflow coverage for authored receipt grammar, real native `List`/`Section` receipt controls, all-complete state honesty, optimistic add-from-recipe rows, offline optimistic list recording, stronger scenario-verifier tokens, and all-complete/offline screenshot proof routes. Focused red run fails for the expected gaps with evidence at `unit-4a/red-shopping-workflow-contract.log`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
