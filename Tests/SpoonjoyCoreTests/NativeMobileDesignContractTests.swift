@@ -995,12 +995,14 @@ struct NativeMobileDesignContractTests {
             cookbookView,
             in: cookbookViewPath,
             contains: [
-                "Cookbook cover not added",
-                "url: row.cover.primaryImageURL,",
-                "showsFallbackLabel: true",
+                "CookbookCoverArt(row:",
+                "CookbookCoverArt(cookbook:",
+                "CookbookFallbackCover",
+                "CookbookImageCover",
                 "CookbookDetailHero"
             ],
             forbids: [
+                "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
                 "if let imageURL = row.cover.primaryImageURL {\n            VStack(alignment: .leading, spacing: 8) {"
             ]
         )

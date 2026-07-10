@@ -92,20 +92,20 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("cookbooks", "CookbooksView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
-                keyboardNavigationTargets: ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+                voiceOverLabels: ["Cookbooks", "Shelf", "Index", "New Cookbook"],
+                keyboardNavigationTargets: ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+                hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cookbook-detail", "CookbookDetailView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
-                keyboardNavigationTargets: ["cookbook primary actions", "recipe rows", "share menu"],
+                voiceOverLabels: ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+                keyboardNavigationTargets: ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
+                hierarchyAnchors: ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("capture", "CaptureDraftView"):

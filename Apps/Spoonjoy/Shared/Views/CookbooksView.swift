@@ -30,18 +30,16 @@ struct CookbooksView: View {
     }
 
     var body: some View {
-        KitchenTablePage {
+        KitchenTablePage(maxContentWidth: 860) {
             header
             statusBanner
 
             if let emptyState = list.emptyState {
-                KitchenEmptySection(
-                    title: "\(emptyState.title). \(emptyState.message)",
-                    systemImage: emptyState.systemImage,
-                    tint: KitchenTableTheme.brass
-                )
+                cookbookEmptyState(emptyState)
             } else {
-                CookbookShelf(rows: list.rows, openRoute: openRoute)
+                cookbookLibrarySpread
+                cookbookShelfStrip
+                cookbookIndexRows
             }
         }
         .task {
@@ -66,7 +64,7 @@ struct CookbooksView: View {
     }
 
     private var header: some View {
-        KitchenTableHeader(eyebrow: "Library", title: "Cookbooks", subtitle: list.resultCountLabel) {
+        KitchenTableHeader(eyebrow: "Shelf", title: "Cookbooks", subtitle: list.resultCountLabel) {
             if canCreateCookbook {
                 Button {
                     newCookbookTitle = ""
@@ -77,6 +75,153 @@ struct CookbooksView: View {
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
             }
+        }
+    }
+
+    private var leadCookbook: CookbookSurfaceRowViewModel? {
+        list.rows.first
+    }
+
+    private var cookbookLibrarySpread: some View {
+        Group {
+            if let leadCookbook {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .bottom, spacing: 28) {
+                        CookbookCoverArt(row: leadCookbook)
+                            .frame(width: 220)
+                            .accessibilityIdentifier("cookbookLibrarySpread")
+                        leadCookbookStory(leadCookbook)
+                    }
+
+                    VStack(alignment: .leading, spacing: 18) {
+                        CookbookCoverArt(row: leadCookbook)
+                            .frame(maxWidth: 240)
+                            .accessibilityIdentifier("cookbookLibrarySpread")
+                        leadCookbookStory(leadCookbook)
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+        }
+    }
+
+    private func leadCookbookStory(_ cookbook: CookbookSurfaceRowViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Latest shelf")
+                .font(.caption2.weight(.bold))
+                .tracking(1.4)
+                .textCase(.uppercase)
+                .foregroundStyle(KitchenTableTheme.brass)
+            Text(cookbook.title)
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("\(cookbook.chefLine) - \(cookbook.recipeCountLabel)")
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+            HStack(spacing: 10) {
+                Button {
+                    openRoute(cookbook.openRoute)
+                } label: {
+                    Label("Open cookbook", systemImage: "text.book.closed")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .frame(maxWidth: 220)
+
+                if let payload = cookbook.sharePayload, let publicURL = payload.publicURL {
+                    ShareLink(item: publicURL) {
+                        Label("Share", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                    .frame(maxWidth: 160)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var cookbookShelfStrip: some View {
+        KitchenTableSection(title: "Shelf", subtitle: "\(list.rows.count) \(list.rows.count == 1 ? "cover" : "covers")") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 14) {
+                    ForEach(list.rows) { row in
+                        Button {
+                            openRoute(row.openRoute)
+                        } label: {
+                            CookbookCoverArt(row: row)
+                                .frame(width: 132)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .accessibilityIdentifier("cookbookShelfStrip")
+        }
+    }
+
+    private var cookbookIndexRows: some View {
+        KitchenTableSection(title: "Index", subtitle: list.resultCountLabel) {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(list.rows) { row in
+                    HStack(spacing: 10) {
+                        Button {
+                            openRoute(row.openRoute)
+                        } label: {
+                            KitchenTableObjectRow(title: row.title, subtitle: "\(row.chefLine) - \(row.recipeCountLabel)") {
+                                CookbookCoverArt(row: row)
+                            } trailing: {
+                                Image(systemName: "chevron.forward")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        if let payload = row.sharePayload, let publicURL = payload.publicURL {
+                            ShareLink(item: publicURL) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 36, height: 44)
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .accessibilityLabel("Share \(row.title)")
+                        }
+                    }
+                }
+            }
+            .accessibilityIdentifier("cookbookIndexRows")
+        }
+    }
+
+    private func cookbookEmptyState(_ emptyState: CookbookSurfaceEmptyState) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: emptyState.systemImage)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.brass)
+            Text(emptyState.title)
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(emptyState.message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(KitchenTableTheme.lineStrong.opacity(0.44))
+                .frame(height: 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(KitchenTableTheme.lineStrong.opacity(0.44))
+                .frame(height: 1)
         }
     }
 
@@ -250,47 +395,143 @@ private struct CookbookThumb: View {
     let row: CookbookSurfaceRowViewModel
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                .fill(KitchenTableTheme.brass.opacity(0.16))
-            if let imageURL = row.cover.primaryImageURL {
-                RecipeCoverImage(url: imageURL, title: row.title, subtitle: row.recipeCountLabel)
-            } else {
-                Image(systemName: "books.vertical")
-                    .foregroundStyle(KitchenTableTheme.brass)
-            }
-        }
+        CookbookCoverArt(row: row)
     }
 }
 
-private struct CookbookCover: View {
-    let row: CookbookSurfaceRowViewModel
+private struct CookbookCoverArt: View {
+    let title: String
+    let recipeCountLabel: String
+    let cover: CookbookCover
+
+    init(row: CookbookSurfaceRowViewModel) {
+        title = row.title
+        recipeCountLabel = row.recipeCountLabel
+        cover = row.cover
+    }
+
+    init(cookbook: Cookbook) {
+        title = cookbook.title
+        recipeCountLabel = "\(cookbook.recipeCount) \(cookbook.recipeCount == 1 ? "recipe" : "recipes")"
+        cover = cookbook.cover
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                RecipeCoverImage(
-                    url: row.cover.primaryImageURL,
-                    title: row.title,
-                    subtitle: row.cover.primaryImageURL == nil ? "Cookbook cover not added" : row.recipeCountLabel,
-                    showsFallbackLabel: true
-                )
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                .accessibilityHidden(true)
+        ZStack(alignment: .bottomLeading) {
+            if cover.primaryImageURL == nil {
+                CookbookFallbackCover(title: title, recipeCountLabel: recipeCountLabel)
+            } else {
+                CookbookImageCover(imageURLs: cover.imageURLs.compactMap { $0 }, title: title)
             }
-            .aspectRatio(3 / 4, contentMode: .fit)
-            .frame(width: 120)
-            .accessibilityIdentifier("CookbookDetailHero")
 
-            Text(row.title)
-                .font(.headline)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-            Text(row.recipeCountLabel)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Spoonjoy cookbook")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.1)
+                    .textCase(.uppercase)
+                    .foregroundStyle(KitchenTableTheme.onPhotoMuted)
+                Text(title)
+                    .font(.system(.title3, design: .serif).weight(.bold))
+                    .foregroundStyle(KitchenTableTheme.onPhoto)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(recipeCountLabel)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.onPhotoMuted)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(KitchenTableTheme.photoCharcoal.opacity(0.82))
         }
-        .frame(width: 132, alignment: .leading)
-        .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+        .aspectRatio(3 / 4, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                .strokeBorder(KitchenTableTheme.lineStrong.opacity(0.56), lineWidth: 1)
+        }
+        .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 10, y: 6)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(recipeCountLabel)")
+        .accessibilityIdentifier("CookbookCoverArt")
+    }
+}
+
+private struct CookbookImageCover: View {
+    let imageURLs: [URL]
+    let title: String
+
+    var body: some View {
+        GeometryReader { proxy in
+            let columns = imageURLs.count == 1 ? [GridItem(.flexible())] : [GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: 1) {
+                ForEach(Array(imageURLs.prefix(4).enumerated()), id: \.offset) { _, imageURL in
+                    AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.20))) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        case .empty:
+                            KitchenTableNoPhotoView(title: title, subtitle: "Loading photo", mode: .loading, showsLabel: false)
+                        default:
+                            KitchenTableNoPhotoView(title: title, subtitle: "Photo did not load", mode: .unavailable, showsLabel: false)
+                        }
+                    }
+                    .frame(height: imageURLs.count <= 2 ? proxy.size.height : proxy.size.height / 2)
+                    .clipped()
+                }
+            }
+        }
+        .background(KitchenTableTheme.paper)
+    }
+}
+
+private struct CookbookFallbackCover: View {
+    let title: String
+    let recipeCountLabel: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Spoonjoy")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                Spacer()
+                Text(recipeCountLabel)
+                    .font(.caption2.weight(.bold))
+                    .tracking(0.8)
+                    .textCase(.uppercase)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            .padding([.horizontal, .top], 14)
+            .padding(.bottom, 12)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(KitchenTableTheme.lineStrong.opacity(0.45))
+                    .frame(height: 1)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(title)
+                .font(.system(.title, design: .serif).weight(.bold))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Rectangle().frame(height: 1)
+                Rectangle().frame(width: 120, height: 1)
+                Rectangle().frame(width: 88, height: 1)
+            }
+            .foregroundStyle(KitchenTableTheme.line.opacity(0.72))
+            .padding(14)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.paper)
     }
 }
 
@@ -374,6 +615,7 @@ private struct CookbookDetailView: View {
     @State private var renameTitle: String
     @State private var selectedRecipeID: String?
     @State private var activeConfirmationDialog: CookbookConfirmationDialog?
+    @State private var isOwnerToolsExpanded = false
 
     init(
         viewModel: CookbookDetailViewModel,
@@ -390,8 +632,8 @@ private struct CookbookDetailView: View {
     }
 
     var body: some View {
-        KitchenTablePage {
-            header
+        KitchenTablePage(maxContentWidth: 860) {
+            cookbookDetailSpread
             statusBanner
             recipes
             ownerTools
@@ -438,10 +680,26 @@ private struct CookbookDetailView: View {
         )
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            CookbookCover(row: CookbookSurfaceRowViewModel(summary: CookbookSummary(cookbook: viewModel.cookbook)))
+    private var cookbookDetailSpread: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: 28) {
+                detailHeader
+                CookbookCoverArt(cookbook: viewModel.cookbook)
+                    .frame(width: 228)
+                    .accessibilityIdentifier("CookbookDetailHero")
+            }
 
+            VStack(alignment: .leading, spacing: 18) {
+                detailHeader
+                CookbookCoverArt(cookbook: viewModel.cookbook)
+                    .frame(maxWidth: 240)
+                    .accessibilityIdentifier("CookbookDetailHero")
+            }
+        }
+    }
+
+    private var detailHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
             KitchenTableHeader(
                 eyebrow: "Cookbook",
                 title: viewModel.title,
@@ -451,6 +709,7 @@ private struct CookbookDetailView: View {
                     Label("Share Cookbook", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .frame(maxWidth: 220)
             }
         }
     }
@@ -484,110 +743,131 @@ private struct CookbookDetailView: View {
     }
 
     private var recipes: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recipes")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-
-            ForEach(viewModel.recipes) { recipe in
-                HStack(spacing: 10) {
-                    if let imageURL = recipe.coverImageURL {
-                        RecipeCoverImage(
-                            url: imageURL,
-                            title: recipe.title,
-                            subtitle: "Photo not added"
-                        )
-                            .frame(width: 54, height: 54)
-                            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                    }
-
-                    Button {
-                        openRoute(recipe.openRoute)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(recipe.title)
-                                .font(KitchenTableTheme.bodyNote)
-                            if let servingsLabel = recipe.servingsLabel {
-                                Text(servingsLabel)
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    if viewModel.ownerTools.isVisible {
-                        Button(role: .destructive) {
+        KitchenTableSection(title: "Contents", subtitle: viewModel.recipeCountLabel) {
+            if viewModel.recipes.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("No recipes yet")
+                        .font(KitchenTableTheme.sectionTitle)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                    Text(viewModel.ownerTools.isVisible ? "Add recipes with owner tools below." : "This cookbook is empty.")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                }
+                .padding(.vertical, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(KitchenTableTheme.lineStrong.opacity(0.44))
+                        .frame(height: 1)
+                }
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(KitchenTableTheme.lineStrong.opacity(0.44))
+                        .frame(height: 1)
+                }
+            } else {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
+                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1) {
+                            openRoute(recipe.openRoute)
+                        } remove: {
                             runAction(.removeRecipe(
                                 recipeID: recipe.id,
                                 clientMutationID: clientMutationID(prefix: "cookbook-remove-recipe"),
                                 confirmation: .required
                             ))
-                        } label: {
-                            Label("Remove", systemImage: "minus.circle")
                         }
-                        .buttonStyle(.bordered)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if viewModel.ownerTools.isVisible {
+                                Button(role: .destructive) {
+                                    runAction(.removeRecipe(
+                                        recipeID: recipe.id,
+                                        clientMutationID: clientMutationID(prefix: "cookbook-remove-recipe"),
+                                        confirmation: .required
+                                    ))
+                                } label: {
+                                    Label("Remove from cookbook", systemImage: "minus.circle")
+                                }
+                            }
+                        }
                     }
                 }
-                .padding(.vertical, 4)
+                .accessibilityIdentifier("cookbookContentsIndex")
             }
         }
     }
 
     @ViewBuilder private var ownerTools: some View {
         if viewModel.ownerTools.isVisible {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Owner Tools")
-                    .font(.title2)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+            DisclosureGroup(isExpanded: $isOwnerToolsExpanded) {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Cookbook details")
+                            .font(KitchenTableTheme.sectionTitle)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                        TextField("Title", text: $renameTitle)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            runAction(.rename(
+                                title: renameTitle,
+                                clientMutationID: clientMutationID(prefix: "cookbook-rename")
+                            ))
+                        } label: {
+                            Label(viewModel.ownerTools.editTitleActionTitle, systemImage: "pencil")
+                        }
+                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                        .frame(maxWidth: 220)
+                    }
 
-                HStack(alignment: .firstTextBaseline) {
-                    TextField("Title", text: $renameTitle)
-                        .textFieldStyle(.roundedBorder)
-                    Button {
-                        runAction(.rename(
-                            title: renameTitle,
-                            clientMutationID: clientMutationID(prefix: "cookbook-rename")
+                    if !viewModel.ownerTools.availableRecipes.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Add recipe to cookbook")
+                                .font(KitchenTableTheme.sectionTitle)
+                                .foregroundStyle(KitchenTableTheme.charcoal)
+                            Picker("Recipe", selection: selectedRecipeBinding) {
+                                ForEach(viewModel.ownerTools.availableRecipes, id: \.id) { recipe in
+                                    Text(recipe.title).tag(Optional(recipe.id))
+                                }
+                            }
+                            Button {
+                                if let selectedRecipeID {
+                                    runAction(.addRecipe(
+                                        recipeID: selectedRecipeID,
+                                        clientMutationID: clientMutationID(prefix: "cookbook-add-recipe")
+                                    ))
+                                }
+                            } label: {
+                                Label(viewModel.ownerTools.addRecipeActionTitle, systemImage: "plus.circle")
+                            }
+                            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                            .frame(maxWidth: 220)
+                        }
+                    }
+
+                    Button(role: .destructive) {
+                        runAction(.deleteCookbook(
+                            clientMutationID: clientMutationID(prefix: "cookbook-delete"),
+                            confirmation: .required
                         ))
                     } label: {
-                        Label(viewModel.ownerTools.editTitleActionTitle, systemImage: "pencil")
+                        Label("Delete Cookbook", systemImage: "trash")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
+                    .frame(maxWidth: 220)
                 }
-
-                if !viewModel.ownerTools.availableRecipes.isEmpty {
-                    HStack(alignment: .firstTextBaseline) {
-                        Picker("Recipe", selection: selectedRecipeBinding) {
-                            ForEach(viewModel.ownerTools.availableRecipes, id: \.id) { recipe in
-                                Text(recipe.title).tag(Optional(recipe.id))
-                            }
-                        }
-                        Button {
-                            if let selectedRecipeID {
-                                runAction(.addRecipe(
-                                    recipeID: selectedRecipeID,
-                                    clientMutationID: clientMutationID(prefix: "cookbook-add-recipe")
-                                ))
-                            }
-                        } label: {
-                            Label(viewModel.ownerTools.addRecipeActionTitle, systemImage: "plus.circle")
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
-
-                Button(role: .destructive) {
-                    runAction(.deleteCookbook(
-                        clientMutationID: clientMutationID(prefix: "cookbook-delete"),
-                        confirmation: .required
-                    ))
-                } label: {
-                    Label("Delete Cookbook", systemImage: "trash")
-                }
-                .buttonStyle(.bordered)
+                .padding(.top, 10)
+            } label: {
+                Label("Owner tools", systemImage: "wrench.and.screwdriver")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
             }
+            .padding(.vertical, 12)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(KitchenTableTheme.line.opacity(0.55))
+                    .frame(height: 1)
+            }
+            .accessibilityIdentifier("CookbookOwnerToolsDisclosure")
         }
     }
 
@@ -663,8 +943,92 @@ private struct CookbookDetailView: View {
     }
 }
 
+private struct CookbookRecipeIndexRow: View {
+    let recipe: CookbookRecipeRowViewModel
+    let ordinal: Int
+    let open: () -> Void
+    let remove: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(String(ordinal).padStart(length: 2, pad: "0"))
+                    .font(.caption.weight(.bold))
+                    .tracking(1.0)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .frame(width: 30, alignment: .leading)
+
+                CookbookRecipeThumbnail(recipe: recipe)
+                    .frame(width: 58, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recipe.title)
+                        .font(KitchenTableTheme.objectTitle)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let servingsLabel = recipe.servingsLabel {
+                        Text(servingsLabel)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                    }
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.forward")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.brass)
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(KitchenTableTheme.line.opacity(0.35))
+                    .frame(height: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(ordinal). \(recipe.title)")
+    }
+}
+
+private struct CookbookRecipeThumbnail: View {
+    let recipe: CookbookRecipeRowViewModel
+
+    var body: some View {
+        if let imageURL = recipe.coverImageURL {
+            AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.20))) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                case .empty:
+                    KitchenTableNoPhotoView(title: recipe.title, subtitle: "Loading photo", mode: .loading, showsLabel: false)
+                default:
+                    KitchenTableNoPhotoView(title: recipe.title, subtitle: "Photo not added", mode: .missing, showsLabel: false)
+                }
+            }
+        } else {
+            KitchenTableNoPhotoView(title: recipe.title, subtitle: "Photo not added", mode: .missing, showsLabel: false)
+        }
+    }
+}
+
 private struct CookbookConfirmationDialog: Identifiable {
     let id = UUID()
     let prompt: CookbookActionConfirmationPrompt
     let confirmedAction: CookbookSurfaceAction
+}
+
+private extension String {
+    func padStart(length: Int, pad: Character) -> String {
+        if count >= length {
+            return self
+        }
+        return String(repeating: String(pad), count: length - count) + self
+    }
 }

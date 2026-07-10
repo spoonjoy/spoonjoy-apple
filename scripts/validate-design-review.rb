@@ -70,19 +70,19 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbooks" => {
-    "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
-    "keyboardNavigationTargets" => ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+    "voiceOverLabels" => ["Cookbooks", "Shelf", "Index", "New Cookbook"],
+    "keyboardNavigationTargets" => ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
-    "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+    "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbook-detail" => {
-    "voiceOverLabels" => ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
-    "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
+    "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+    "keyboardNavigationTargets" => ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
-    "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
+    "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
@@ -334,11 +334,15 @@ when "shopping-list"
   fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbooks"
   fail_check("#{path} cookbooksNativeSurface must be true for cookbooks captures") unless manifest["cookbooksNativeSurface"] == true
+  fail_check("#{path} cookbookLibrarySpread must be true for cookbooks captures") unless manifest["cookbookLibrarySpread"] == true
+  fail_check("#{path} cookbookShelfStrip must be true for cookbooks captures") unless manifest["cookbookShelfStrip"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbook-detail"
   fail_check("#{path} cookbookDetailSurface must be true for cookbook detail captures") unless manifest["cookbookDetailSurface"] == true
   fail_check("#{path} cookbookID must be cookbook_weeknights") unless manifest["cookbookID"] == "cookbook_weeknights"
+  fail_check("#{path} cookbookContentsIndex must be true for cookbook detail captures") unless manifest["cookbookContentsIndex"] == true
+  fail_check("#{path} cookbookOwnerToolsDisclosure must be true for cookbook detail captures") unless manifest["cookbookOwnerToolsDisclosure"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "capture"

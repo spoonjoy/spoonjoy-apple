@@ -343,10 +343,14 @@ write_design_review_success() {
     elsif route == "cookbooks"
       manifest["cookbooksNativeSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
+      manifest["cookbookLibrarySpread"] = true
+      manifest["cookbookShelfStrip"] = true
     elsif route == "cookbook-detail"
       manifest["cookbookDetailSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
       manifest["cookbookID"] = "cookbook_weeknights"
+      manifest["cookbookContentsIndex"] = true
+      manifest["cookbookOwnerToolsDisclosure"] = true
     elsif route == "shopping-list"
       manifest["shoppingListSurface"] = true
       manifest["shoppingSeedAccountID"] = "chef_shopping_capture"
@@ -1110,19 +1114,19 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cookbooks" => {
-          "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
-          "keyboardNavigationTargets" => ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+          "voiceOverLabels" => ["Cookbooks", "Shelf", "Index", "New Cookbook"],
+          "keyboardNavigationTargets" => ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
-          "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+          "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cookbook-detail" => {
-          "voiceOverLabels" => ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
-          "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
+          "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+          "keyboardNavigationTargets" => ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
-          "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
+          "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
