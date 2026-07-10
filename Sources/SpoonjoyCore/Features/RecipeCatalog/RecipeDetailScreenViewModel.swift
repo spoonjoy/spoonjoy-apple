@@ -39,6 +39,7 @@ public enum RecipeDetailReadSurface: Equatable, Hashable, Sendable {
     case sourceAttribution
     case steps
     case recentSpoons
+    case cookLogging
     case cookbookSave
     case shoppingList
     case ownerTools
@@ -49,6 +50,22 @@ public enum RecipeDetailReadSurface: Equatable, Hashable, Sendable {
 public struct RecipeDetailCoverViewModel: Equatable, Sendable {
     public let imageURL: URL?
     public let provenanceLabel: String?
+    public let hasRealCover: Bool
+    public let noPhotoLabel: String
+    public let accessibilityLabel: String
+
+    public init(imageURL: URL?, provenanceLabel: String?, title: String) {
+        self.imageURL = imageURL
+        self.provenanceLabel = provenanceLabel
+        hasRealCover = imageURL != nil
+        noPhotoLabel = "Photo not added"
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if imageURL != nil {
+            accessibilityLabel = trimmedTitle.isEmpty ? "Recipe cover image" : "\(trimmedTitle) cover image"
+        } else {
+            accessibilityLabel = trimmedTitle.isEmpty ? noPhotoLabel : "\(trimmedTitle): \(noPhotoLabel)"
+        }
+    }
 }
 
 public struct RecipeDetailSourceAttribution: Equatable, Sendable {
@@ -148,6 +165,7 @@ public struct RecipeDetailCookbookSaveState: Equatable, Sendable {
 
 public enum RecipeDetailActionID: String, Equatable, Sendable {
     case startCooking
+    case logCook
     case saveToCookbook
     case addToShoppingList
     case share
@@ -230,7 +248,8 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         servingsLabel = Self.servingsLabel(recipe.servings)
         cover = RecipeDetailCoverViewModel(
             imageURL: recipe.displayCoverImageURL,
-            provenanceLabel: recipe.displayCoverProvenanceLabel
+            provenanceLabel: recipe.displayCoverProvenanceLabel,
+            title: recipe.title
         )
         sourceAttribution = recipe.attribution.sourceRecipe.map { sourceRecipe in
             RecipeDetailSourceAttribution(
@@ -290,6 +309,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
             .sourceAttribution,
             .steps,
             .recentSpoons,
+            .cookLogging,
             .cookbookSave,
             .shoppingList,
             .ownerTools,
@@ -325,6 +345,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     private static func actionIDs(isOwner: Bool, canShare: Bool) -> [RecipeDetailActionID] {
         var actions: [RecipeDetailActionID] = [
             .startCooking,
+            .logCook,
             .saveToCookbook,
             .addToShoppingList
         ]

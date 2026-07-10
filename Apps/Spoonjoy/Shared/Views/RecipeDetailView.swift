@@ -1,6 +1,13 @@
 import SpoonjoyCore
 import SwiftUI
 
+private enum RecipeDetailRouteState {
+    case loading(snapshotTitle: String?)
+    case loaded(RecipeDetailScreenViewModel)
+    case missing(message: String)
+    case failed(message: String)
+}
+
 struct RecipeDetailRouteView: View {
     let recipeID: String
     let repository: any RecipeCatalogRepository
@@ -21,9 +28,8 @@ struct RecipeDetailRouteView: View {
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
-    @State private var viewModel: RecipeDetailScreenViewModel?
+    @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
-    @State private var isLoadingRecipe: Bool
 
     init(
         recipeID: String,
@@ -63,13 +69,13 @@ struct RecipeDetailRouteView: View {
         self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _viewModel = State(initialValue: initialViewModel)
-        _isLoadingRecipe = State(initialValue: initialViewModel == nil)
+        _routeState = State(initialValue: initialViewModel.map(RecipeDetailRouteState.loaded) ?? .loading(snapshotTitle: loadingTitle))
     }
 
     var body: some View {
         Group {
-            if let viewModel {
+            switch routeState {
+            case .loaded(let viewModel):
                 RecipeDetailView(
                     viewModel: viewModel,
                     actionConnectivity: actionConnectivity,
@@ -85,47 +91,47 @@ struct RecipeDetailRouteView: View {
                     performShoppingAction: performShoppingAction,
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
-            } else if isLoadingRecipe {
+            case .loading(let snapshotTitle):
+                let loadingTitle = snapshotTitle
                 KitchenTableLoadingStateView(
                     title: loadingTitle ?? "Loading recipe",
                     subtitle: loadingTitle == nil ? nil : "Loading recipe",
                     systemImage: "text.book.closed"
                 )
-            } else if let errorMessage {
+            case .missing(let errorMessage), .failed(let errorMessage):
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
-            } else {
-                KitchenTableLoadingStateView(
-                    title: loadingTitle ?? "Loading recipe",
-                    subtitle: loadingTitle == nil ? nil : "Loading recipe",
-                    systemImage: "text.book.closed"
-                )
             }
         }
         .task(id: recipeID) {
             await loadRecipe()
         }
         .onChange(of: snapshotViewModel) { _, nextViewModel in
-            guard let nextViewModel, nextViewModel != viewModel else {
+            guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
                 return
             }
-            viewModel = nextViewModel
+            routeState = .loaded(nextViewModel)
         }
     }
 
     @MainActor private func loadRecipe() async {
         errorMessage = nil
-        isLoadingRecipe = viewModel == nil
-        defer {
-            isLoadingRecipe = false
+        if routeState.currentViewModel == nil {
+            routeState = .loading(snapshotTitle: loadingTitle)
         }
         do {
             let result = try await repository.recipeDetail(id: recipeID)
             let detailResult = await detailResultByLoadingFullSpoonList(result)
-            viewModel = RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe))
+            routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
             errorMessage = nil
+        } catch RecipeCatalogRepositoryError.recipeNotFound {
+            if routeState.currentViewModel == nil {
+                errorMessage = "We couldn't find this recipe."
+                routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
+            }
         } catch {
-            if viewModel == nil {
+            if routeState.currentViewModel == nil {
                 errorMessage = "We couldn't load this recipe."
+                routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
             }
         }
     }
@@ -165,6 +171,17 @@ struct RecipeDetailRouteView: View {
     }
 }
 
+private extension RecipeDetailRouteState {
+    var currentViewModel: RecipeDetailScreenViewModel? {
+        switch self {
+        case .loaded(let viewModel):
+            viewModel
+        case .loading, .missing, .failed:
+            nil
+        }
+    }
+}
+
 private enum RecipeDetailCookLogPaginationError: Error {
     case missingNextCursor
     case repeatedCursor(String)
@@ -189,6 +206,7 @@ struct RecipeDetailView: View {
     @State private var actionStatusMessage: String?
     @State private var activeConfirmationDialog: RecipeActionConfirmationDialog?
     @State private var isCookbookSaveSheetPresented = false
+    @State private var isCookLogSheetPresented = false
     @State private var localSavedCookbookIDs: Set<String>?
     @State private var localHasIngredientsInShoppingList: Bool?
     @State private var checkedRecipeIngredientIDs: Set<String> = []
@@ -203,32 +221,35 @@ struct RecipeDetailView: View {
     var body: some View {
         KitchenTablePage {
             offlineIndicator
-            hero
-            recipeActionFlow
-            recipeHeaderControls
+            recipeMasthead
             stepsSection
-            SpoonCookLogView(
-                viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
-                draft: spoonCookLogDraft(viewModel),
-                actionDidPlan: performSpoonCookLogAction,
-                draftDidChange: { draft in
-                    recordSpoonCookLogDraft(draft, viewModel.id)
-                },
-                conflictDidRequestReview: discardSpoonCookLogConflict,
-                onDismissOfflineIndicator: onDismissOfflineIndicator
-            )
-            .id(viewModel.id)
+            cookLogView
         }
         .sheet(isPresented: $isCookbookSaveSheetPresented) {
             NavigationStack {
                 KitchenTablePage {
                     cookbookSave
                 }
-                .navigationTitle("Save")
+                .navigationTitle("Save to Cookbook")
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
                             isCookbookSaveSheetPresented = false
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $isCookLogSheetPresented) {
+            NavigationStack {
+                KitchenTablePage {
+                    cookLogView
+                }
+                .navigationTitle("Cooks")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            isCookLogSheetPresented = false
                         }
                     }
                 }
@@ -305,9 +326,18 @@ struct RecipeDetailView: View {
         viewModel.cover.provenanceLabel ?? viewModel.recipe.attribution.creditText
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if let coverImageURL = viewModel.cover.imageURL {
+    private var recipeMasthead: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            recipeHeroMedia
+            recipeIdentityAndProvenance
+            recipeMastheadActions
+            recipeHeaderControls
+        }
+    }
+
+    private var recipeHeroMedia: some View {
+        Group {
+            if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
                 RecipeCoverImage(
                     url: coverImageURL,
                     title: viewModel.title,
@@ -325,8 +355,21 @@ struct RecipeDetailView: View {
                             .padding(12)
                     }
                     .accessibilityLabel("\(viewModel.title) cover image")
+            } else {
+                RecipeCoverImage(
+                    url: nil,
+                    title: viewModel.title,
+                    subtitle: viewModel.cover.noPhotoLabel,
+                    showsFallbackLabel: true
+                )
+                    .frame(maxWidth: .infinity, minHeight: 168, maxHeight: 220)
+                    .accessibilityLabel(viewModel.cover.accessibilityLabel)
             }
+        }
+    }
 
+    private var recipeIdentityAndProvenance: some View {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Recipe".uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(1.3)
@@ -380,15 +423,27 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var recipeActionFlow: some View {
+    private var recipeMastheadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
+            if hasAction(.logCook) {
+                recipeMastheadLogCookAction
+            }
             if !usesCompactRecipeDock {
                 recipeSecondaryActions
             }
             ownerTools
             actionStatus
         }
+    }
+
+    private var recipeMastheadLogCookAction: some View {
+        Button {
+            isCookLogSheetPresented = true
+        } label: {
+            Label("Log", systemImage: "fork.knife.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
     }
 
     private var usesCompactRecipeDock: Bool {
@@ -655,6 +710,20 @@ struct RecipeDetailView: View {
                     .foregroundStyle(KitchenTableTheme.herb)
             }
         }
+    }
+
+    private var cookLogView: some View {
+        SpoonCookLogView(
+            viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
+            draft: spoonCookLogDraft(viewModel),
+            actionDidPlan: performSpoonCookLogAction,
+            draftDidChange: { draft in
+                recordSpoonCookLogDraft(draft, viewModel.id)
+            },
+            conflictDidRequestReview: discardSpoonCookLogConflict,
+            onDismissOfflineIndicator: onDismissOfflineIndicator
+        )
+        .id(viewModel.id)
     }
 
     @ViewBuilder private var ownerTools: some View {
