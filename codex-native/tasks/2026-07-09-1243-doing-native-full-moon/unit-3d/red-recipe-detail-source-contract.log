@@ -1,0 +1,84 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+[2/5] Emitting module SpoonjoyCoreTests
+[3/5] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:28:14: error: type 'Array<RecipeDetailActionID>.ArrayLiteralElement' (aka 'RecipeDetailActionID') has no member 'logCook'
+ 26 |         #expect(viewModel.actions.availableActionIDs == [
+ 27 |             .startCooking,
+ 28 |             .logCook,
+    |              `- error: type 'Array<RecipeDetailActionID>.ArrayLiteralElement' (aka 'RecipeDetailActionID') has no member 'logCook'
+ 29 |             .saveToCookbook,
+ 30 |             .addToShoppingList,
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeActionParityTests.swift:71:14: error: type 'Array<RecipeDetailActionID>.ArrayLiteralElement' (aka 'RecipeDetailActionID') has no member 'logCook'
+ 69 |         #expect(viewModel.actions.availableActionIDs == [
+ 70 |             .startCooking,
+ 71 |             .logCook,
+    |              `- error: type 'Array<RecipeDetailActionID>.ArrayLiteralElement' (aka 'RecipeDetailActionID') has no member 'logCook'
+ 72 |             .saveToCookbook,
+ 73 |             .addToShoppingList,
+[4/5] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:110:33: error: value of type 'RecipeDetailCoverViewModel' has no member 'hasRealCover'
+108 |         #expect(viewModel.cover.imageURL?.absoluteString == "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg")
+109 |         #expect(viewModel.cover.provenanceLabel == "Chef photo")
+110 |         #expect(viewModel.cover.hasRealCover)
+    |                                 `- error: value of type 'RecipeDetailCoverViewModel' has no member 'hasRealCover'
+111 |         #expect(viewModel.cover.noPhotoLabel == "Photo not added")
+112 |         #expect(viewModel.cover.accessibilityLabel == "Lemon Pantry Pasta cover image")
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:111:33: error: value of type 'RecipeDetailCoverViewModel' has no member 'noPhotoLabel'
+109 |         #expect(viewModel.cover.provenanceLabel == "Chef photo")
+110 |         #expect(viewModel.cover.hasRealCover)
+111 |         #expect(viewModel.cover.noPhotoLabel == "Photo not added")
+    |                                 `- error: value of type 'RecipeDetailCoverViewModel' has no member 'noPhotoLabel'
+112 |         #expect(viewModel.cover.accessibilityLabel == "Lemon Pantry Pasta cover image")
+113 |         #expect(viewModel.sourceAttribution?.title == "Original Lemon Pasta")
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:112:33: error: value of type 'RecipeDetailCoverViewModel' has no member 'accessibilityLabel'
+110 |         #expect(viewModel.cover.hasRealCover)
+111 |         #expect(viewModel.cover.noPhotoLabel == "Photo not added")
+112 |         #expect(viewModel.cover.accessibilityLabel == "Lemon Pantry Pasta cover image")
+    |                                 `- error: value of type 'RecipeDetailCoverViewModel' has no member 'accessibilityLabel'
+113 |         #expect(viewModel.sourceAttribution?.title == "Original Lemon Pasta")
+114 |         #expect(viewModel.sourceAttribution?.host == "example.com")
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:129:64: error: type 'RecipeDetailActionID' has no member 'logCook'
+127 |         #expect(viewModel.ownerTools.editPath == "/recipes/recipe_lemon_pantry_pasta/edit")
+128 |         #expect(viewModel.actions.startCookingRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+129 |         #expect(viewModel.actions.availableActionIDs.contains(.logCook))
+    |                                                                `- error: type 'RecipeDetailActionID' has no member 'logCook'
+130 |         #expect(viewModel.actions.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
+131 |         #expect(viewModel.actions.chefProfilePath == "/users/ari")
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:141:14: error: type 'RecipeDetailReadSurface' has no member 'cookLogging'
+139 |             .steps,
+140 |             .recentSpoons,
+141 |             .cookLogging,
+    |              `- error: type 'RecipeDetailReadSurface' has no member 'cookLogging'
+142 |             .cookbookSave,
+143 |             .shoppingList,
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:286:39: error: value of type 'RecipeDetailCoverViewModel' has no member 'hasRealCover'
+284 |         )
+285 |         #expect(sparseViewModel.servingsLabel == nil)
+286 |         #expect(sparseViewModel.cover.hasRealCover == false)
+    |                                       `- error: value of type 'RecipeDetailCoverViewModel' has no member 'hasRealCover'
+287 |         #expect(sparseViewModel.cover.noPhotoLabel == "Photo not added")
+288 |         #expect(sparseViewModel.cover.accessibilityLabel == "Manual Recipe: Photo not added")
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:287:39: error: value of type 'RecipeDetailCoverViewModel' has no member 'noPhotoLabel'
+285 |         #expect(sparseViewModel.servingsLabel == nil)
+286 |         #expect(sparseViewModel.cover.hasRealCover == false)
+287 |         #expect(sparseViewModel.cover.noPhotoLabel == "Photo not added")
+    |                                       `- error: value of type 'RecipeDetailCoverViewModel' has no member 'noPhotoLabel'
+288 |         #expect(sparseViewModel.cover.accessibilityLabel == "Manual Recipe: Photo not added")
+289 |         #expect(sparseViewModel.stepSections.map(\.title) == [nil, "Finish"])
+
+/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/Tests/SpoonjoyCoreTests/RecipeCatalogDetailTests.swift:288:39: error: value of type 'RecipeDetailCoverViewModel' has no member 'accessibilityLabel'
+286 |         #expect(sparseViewModel.cover.hasRealCover == false)
+287 |         #expect(sparseViewModel.cover.noPhotoLabel == "Photo not added")
+288 |         #expect(sparseViewModel.cover.accessibilityLabel == "Manual Recipe: Photo not added")
+    |                                       `- error: value of type 'RecipeDetailCoverViewModel' has no member 'accessibilityLabel'
+289 |         #expect(sparseViewModel.stepSections.map(\.title) == [nil, "Finish"])
+290 |         #expect(sparseViewModel.stepSections[1].dependencies.map(\.label) == ["Step 1"])
+error: fatalError

@@ -472,6 +472,52 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("recipe detail preserves web masthead structure and stable route states")
+    func recipeDetailPreservesWebMastheadStructureAndStableRouteStates() throws {
+        let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let detail = uncommentedSwift(try readRepoFile(detailPath))
+        let proof = uncommentedSwift(try readRepoFile(proofPath))
+
+        expectContent(
+            detail,
+            in: detailPath,
+            contains: [
+                "private enum RecipeDetailRouteState",
+                "case loading(snapshotTitle: String?)",
+                "case loaded(RecipeDetailScreenViewModel)",
+                "case missing(message: String)",
+                "case failed(message: String)",
+                "@State private var routeState: RecipeDetailRouteState",
+                "private var recipeMasthead",
+                "private var recipeHeroMedia",
+                "private var recipeIdentityAndProvenance",
+                "private var recipeMastheadActions",
+                "private var recipeMastheadLogCookAction",
+                "viewModel.cover.hasRealCover",
+                "subtitle: viewModel.cover.noPhotoLabel",
+                "showsFallbackLabel: true",
+                "Label(\"Log\", systemImage: \"fork.knife.circle\")",
+                ".navigationTitle(\"Save to Cookbook\")"
+            ],
+            forbids: [
+                ".navigationTitle(\"Save\")"
+            ]
+        )
+
+        expectContent(
+            proof,
+            in: proofPath,
+            contains: [
+                "\"RecipeDetailHeroMedia\"",
+                "\"RecipeDetailMasthead\"",
+                "\"recipeIdentityAndProvenance\"",
+                "\"recipeMastheadActions\"",
+                "\"recipeMastheadLogCookAction\""
+            ]
+        )
+    }
+
     @Test("cook mode owns a compact SpoonDock handrail wired to step state")
     func cookModeOwnsCompactSpoonDockHandrail() throws {
         let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"

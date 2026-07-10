@@ -107,6 +107,9 @@ struct RecipeCatalogDetailTests {
         #expect(viewModel.servingsLabel == "Serves 4")
         #expect(viewModel.cover.imageURL?.absoluteString == "https://spoonjoy.app/photos/recipes/recipe_lemon_pantry_pasta/cover.jpg")
         #expect(viewModel.cover.provenanceLabel == "Chef photo")
+        #expect(viewModel.cover.hasRealCover)
+        #expect(viewModel.cover.noPhotoLabel == "Photo not added")
+        #expect(viewModel.cover.accessibilityLabel == "Lemon Pantry Pasta cover image")
         #expect(viewModel.sourceAttribution?.title == "Original Lemon Pasta")
         #expect(viewModel.sourceAttribution?.host == "example.com")
         #expect(viewModel.stepSections.map(\.stepNumber) == [1, 2])
@@ -123,6 +126,7 @@ struct RecipeCatalogDetailTests {
         #expect(viewModel.ownerTools.isVisible)
         #expect(viewModel.ownerTools.editPath == "/recipes/recipe_lemon_pantry_pasta/edit")
         #expect(viewModel.actions.startCookingRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook))
+        #expect(viewModel.actions.availableActionIDs.contains(.logCook))
         #expect(viewModel.actions.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta")
         #expect(viewModel.actions.chefProfilePath == "/users/ari")
         #expect(viewModel.offlineIndicator.display == .stale(domain: .recipeDetail(id: "recipe_lemon_pantry_pasta")))
@@ -134,6 +138,7 @@ struct RecipeCatalogDetailTests {
             .sourceAttribution,
             .steps,
             .recentSpoons,
+            .cookLogging,
             .cookbookSave,
             .shoppingList,
             .ownerTools,
@@ -278,6 +283,9 @@ struct RecipeCatalogDetailTests {
             )
         )
         #expect(sparseViewModel.servingsLabel == nil)
+        #expect(sparseViewModel.cover.hasRealCover == false)
+        #expect(sparseViewModel.cover.noPhotoLabel == "Photo not added")
+        #expect(sparseViewModel.cover.accessibilityLabel == "Manual Recipe: Photo not added")
         #expect(sparseViewModel.stepSections.map(\.title) == [nil, "Finish"])
         #expect(sparseViewModel.stepSections[1].dependencies.map(\.label) == ["Step 1"])
         #expect(sparseViewModel.spoonSummary.rows.map(\.id) == ["spoon_visible"])
