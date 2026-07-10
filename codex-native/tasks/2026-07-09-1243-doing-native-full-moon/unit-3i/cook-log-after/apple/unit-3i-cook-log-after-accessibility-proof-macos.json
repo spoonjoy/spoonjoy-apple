@@ -1,0 +1,92 @@
+{
+  "bundleIdentifier" : "app.spoonjoy.mac",
+  "contrast" : true,
+  "dynamicType" : true,
+  "emittedBy" : "SpoonjoyApp",
+  "keyboardNavigation" : true,
+  "kitchenTableHierarchy" : true,
+  "launchEnvironmentProof" : {
+    "apiBaseURL" : "https:\/\/spoonjoy.app",
+    "screenshotAccountID" : "chef_kitchen_capture",
+    "screenshotAuth" : "1",
+    "screenshotRestoreCacheOnly" : "1"
+  },
+  "minimumTargetSize" : 44,
+  "noOverlap" : true,
+  "noTinyClusters" : true,
+  "observedDynamicTypeSize" : "large",
+  "observedReduceMotion" : false,
+  "offlineIndicatorProof" : {
+    "dismissButtonLabel" : "Hide offline status",
+    "dismissibleStates" : [
+      "offline",
+      "stale"
+    ],
+    "hiddenStates" : [
+      "synced",
+      "dismissed"
+    ],
+    "severeStates" : [
+      "queuedWork",
+      "syncFailure",
+      "conflict",
+      "blocker",
+      "destructiveConfirmation"
+    ],
+    "severityCorrect" : true,
+    "source" : "OfflineStatusView",
+    "visibleStates" : [
+      "offline",
+      "stale",
+      "queuedWork",
+      "syncFailure",
+      "conflict",
+      "blocker",
+      "destructiveConfirmation"
+    ],
+    "voiceOverLabel" : true
+  },
+  "platform" : "macos",
+  "reduceMotion" : true,
+  "route" : "cook-log",
+  "routeEvidence" : {
+    "contrastPairs" : [
+      "charcoal on bone",
+      "brass on bone",
+      "muted text on bone"
+    ],
+    "dynamicTypeTextStyles" : [
+      "KitchenTableTheme.bodyNote",
+      "KitchenTableTheme.uiLabel",
+      ".title2"
+    ],
+    "hierarchyAnchors" : [
+      "SpoonCookLogView",
+      "cookLogForm",
+      "cookLogPhotoSlot",
+      "cookLogActionBar"
+    ],
+    "keyboardNavigationTargets" : [
+      "cookLogForm fields",
+      "cookLogPhotoSlot",
+      "cookLogActionBar"
+    ],
+    "layoutGuards" : [
+      "scroll-view",
+      "text-fit",
+      "no-tiny-clusters",
+      "dock-safe-area"
+    ],
+    "voiceOverLabels" : [
+      "Cooks",
+      "What changed?",
+      "Next time",
+      "Add cook photo",
+      "Log cook"
+    ]
+  },
+  "source" : "SpoonCookLogView",
+  "textFits" : true,
+  "voiceOverLabels" : true,
+  "writtenAt" : "2026-07-10T09:26:59Z"
+}

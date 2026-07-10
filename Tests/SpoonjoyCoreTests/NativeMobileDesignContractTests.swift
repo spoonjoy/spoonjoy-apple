@@ -599,7 +599,9 @@ struct NativeMobileDesignContractTests {
                 content,
                 in: path,
                 contains: [
-                    "Step Ingredients"
+                    "cookModeBottomActionRail",
+                    "cookModeUtilitySheet",
+                    "Ingredients"
                 ]
             )
         }
@@ -623,11 +625,19 @@ struct NativeMobileDesignContractTests {
         let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
         let controlsPath = "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift"
         let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
+        let recipeDetailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
         let spoonLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let validatorPath = "scripts/validate-design-review.rb"
         let cook = uncommentedSwift(try readRepoFile(cookPath))
         let controls = uncommentedSwift(try readRepoFile(controlsPath))
         let dock = uncommentedSwift(try readRepoFile(dockPath))
+        let recipeDetail = uncommentedSwift(try readRepoFile(recipeDetailPath))
         let spoonLog = uncommentedSwift(try readRepoFile(spoonLogPath))
+        let proof = try readRepoFile(proofPath)
+        let capture = try readRepoFile(capturePath)
+        let validator = try readRepoFile(validatorPath)
 
         expectContent(
             cook,
@@ -699,6 +709,52 @@ struct NativeMobileDesignContractTests {
                 ".background(KitchenTableTheme.paper)"
             ]
         )
+
+        expectContent(
+            recipeDetail,
+            in: recipeDetailPath,
+            contains: [
+                "screenshotCookLogFocusEnvironmentKey",
+                "SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS",
+                "presentCookLogForScreenshotIfNeeded()",
+                "private var cookLogSheet",
+                "KitchenTablePage(maxContentWidth: 620, bottomReserve: 28)",
+                ".frame(minWidth: 560, idealWidth: 620, maxWidth: 700, minHeight: 400, idealHeight: 440, maxHeight: 480)",
+                "cookLogView(showsHeader: true)",
+                "cookLogView(showsHeader: false)",
+                "isCookLogSheetPresented = true"
+            ]
+        )
+
+        expectContent(
+            spoonLog,
+            in: spoonLogPath,
+            contains: [
+                "let showsHeader: Bool",
+                "showsHeader: Bool = true",
+                "if showsHeader",
+                "route: \"cook-log\"",
+                "source: \"SpoonCookLogView\""
+            ]
+        )
+
+        for (path, content) in [
+            (proofPath, proof),
+            (capturePath, capture),
+            (validatorPath, validator)
+        ] {
+            expectContent(
+                content,
+                in: path,
+                contains: [
+                    "\"cook-log\"",
+                    "SpoonCookLogView",
+                    "cookLogForm",
+                    "cookLogPhotoSlot",
+                    "cookLogActionBar"
+                ]
+            )
+        }
     }
 
     @Test("shopping list relies on native tab navigation instead of compact SpoonDock")

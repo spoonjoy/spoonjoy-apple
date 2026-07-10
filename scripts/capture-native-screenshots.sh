@@ -66,6 +66,8 @@ if [[ -n "$requested_route" ]]; then
 else
   if [[ "$unit_slug" == *recipe-detail* || "$unit_slug" == *recipe_detail* ]]; then
     screenshot_route="recipe-detail"
+  elif [[ "$unit_slug" == *cook-log* || "$unit_slug" == *cook_log* ]]; then
+    screenshot_route="cook-log"
   elif [[ "$unit_slug" == *recipes* ]]; then
     screenshot_route="recipes"
   elif [[ "$unit_slug" == *cook-mode* || "$unit_slug" == *cook_mode* ]]; then
@@ -92,6 +94,7 @@ cookbook_detail_id="cookbook_weeknights"
 capture_account_id="$kitchen_capture_account_id"
 settings_capture_focus="profile"
 search_capture_disable_focus="0"
+recipe_detail_focus=""
 proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
 proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
 ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30}"
@@ -119,6 +122,13 @@ case "$screenshot_route" in
     expected_recorded_route="recipe:recipe_lemon_pantry_pasta"
     deep_link_path="recipes/recipe_lemon_pantry_pasta"
     macos_window_title="Lemon Pantry Pasta"
+    ;;
+  cook-log)
+    capture_account_id="$kitchen_capture_account_id"
+    recipe_detail_focus="cook-log"
+    expected_recorded_route="recipe:recipe_lemon_pantry_pasta"
+    deep_link_path="recipes/recipe_lemon_pantry_pasta"
+    macos_window_title="Cooks"
     ;;
   cook-mode)
     capture_account_id="$kitchen_capture_account_id"
@@ -319,6 +329,13 @@ write_design_review_success() {
       manifest["recipeDetailSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+    elsif route == "cook-log"
+      manifest["cookLogSurface"] = true
+      manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
+      manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+      manifest["cookLogForm"] = true
+      manifest["cookLogPhotoSlot"] = true
+      manifest["cookLogActionBar"] = true
     elsif route == "cook-mode"
       manifest["cookModeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
@@ -806,6 +823,7 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
@@ -821,6 +839,7 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+      SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
@@ -840,6 +859,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_ACCOUNT_ID \
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS \
       SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS \
+      SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
@@ -859,6 +879,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCOUNT_ID "$capture_account_id"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS "$settings_capture_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS "$search_capture_disable_focus"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS "$recipe_detail_focus"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
@@ -894,6 +915,7 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCOUNT_ID >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true
@@ -1052,6 +1074,7 @@ wait_for_accessibility_proof() {
                         when "search" then "SearchView"
                         when "settings" then "SettingsView"
                         when "recipe-detail" then "RecipeDetailView"
+                        when "cook-log" then "SpoonCookLogView"
                         when "cook-mode" then "CookModeView"
                         when "shopping-list" then "ShoppingListView"
                         else abort("unsupported route #{expected_route}")
@@ -1126,12 +1149,20 @@ wait_for_accessibility_proof() {
           "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
+        "cook-log" => {
+          "voiceOverLabels" => ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
+          "keyboardNavigationTargets" => ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone", "muted text on bone"],
+          "hierarchyAnchors" => ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+        },
         "cook-mode" => {
-          "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Step Ingredients", "Cook mode SpoonDock"],
-          "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles"],
+          "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
+          "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
-          "hierarchyAnchors" => ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+          "hierarchyAnchors" => ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "shopping-list" => {

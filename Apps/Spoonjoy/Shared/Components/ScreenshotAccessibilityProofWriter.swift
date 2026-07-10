@@ -144,13 +144,22 @@ enum ScreenshotAccessibilityProofWriter {
                 hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
+        case ("cook-log", "SpoonCookLogView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
+                keyboardNavigationTargets: ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "muted text on bone"],
+                hierarchyAnchors: ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
         case ("cook-mode", "CookModeView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Step Ingredients", "Cook mode SpoonDock"],
-                keyboardNavigationTargets: ["cook step handrail", "ingredient toggles", "dependency toggles"],
+                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
+                keyboardNavigationTargets: ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "herb tint on bone", "status text on material"],
-                hierarchyAnchors: ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+                hierarchyAnchors: ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("shopping-list", "ShoppingListView"):

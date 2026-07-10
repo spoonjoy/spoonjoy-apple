@@ -1,3 +1,4 @@
+import Foundation
 import SpoonjoyCore
 import SwiftUI
 
@@ -189,6 +190,8 @@ private enum RecipeDetailCookLogPaginationError: Error {
 }
 
 struct RecipeDetailView: View {
+    private static let screenshotCookLogFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS"
+
     let viewModel: RecipeDetailScreenViewModel
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
@@ -208,6 +211,7 @@ struct RecipeDetailView: View {
     @State private var activeConfirmationDialog: RecipeActionConfirmationDialog?
     @State private var isCookbookSaveSheetPresented = false
     @State private var isCookLogSheetPresented = false
+    @State private var didPresentCookLogForScreenshot = false
     @State private var localSavedCookbookIDs: Set<String>?
     @State private var localHasIngredientsInShoppingList: Bool?
     @State private var checkedRecipeIngredientIDs: Set<String> = []
@@ -224,7 +228,7 @@ struct RecipeDetailView: View {
             offlineIndicator
             recipeMasthead
             stepsSection
-            cookLogView
+            cookLogView(showsHeader: true)
         }
         .sheet(isPresented: $isCookbookSaveSheetPresented) {
             NavigationStack {
@@ -242,19 +246,12 @@ struct RecipeDetailView: View {
             }
         }
         .sheet(isPresented: $isCookLogSheetPresented) {
-            NavigationStack {
-                KitchenTablePage {
-                    cookLogView
-                }
-                .navigationTitle("Cooks")
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            isCookLogSheetPresented = false
-                        }
-                    }
-                }
-            }
+#if os(iOS)
+            cookLogSheet
+#else
+            cookLogSheet
+                .frame(minWidth: 560, idealWidth: 620, maxWidth: 700, minHeight: 400, idealHeight: 440, maxHeight: 480)
+#endif
         }
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
@@ -286,11 +283,14 @@ struct RecipeDetailView: View {
             syncSavedCookbookStateIfNeeded()
             syncShoppingStateIfNeeded()
             loadRecipeProgress()
+            presentCookLogForScreenshotIfNeeded()
         }
         .onChange(of: viewModel.id) { _, _ in
+            didPresentCookLogForScreenshot = false
             localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
             localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
             loadRecipeProgress()
+            presentCookLogForScreenshotIfNeeded()
         }
         .onChange(of: viewModel.cookbookSave.savedCookbookIDs) { _, nextIDs in
             localSavedCookbookIDs = nextIDs
@@ -321,6 +321,27 @@ struct RecipeDetailView: View {
             dynamicTypeSize: String(describing: dynamicTypeSize),
             reduceMotionEnabled: accessibilityReduceMotion
         )
+    }
+
+    @MainActor private func presentCookLogForScreenshotIfNeeded() {
+#if DEBUG
+        guard !didPresentCookLogForScreenshot else {
+            return
+        }
+        let focus = ProcessInfo.processInfo.environment[Self.screenshotCookLogFocusEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard focus == "cook-log" else {
+            return
+        }
+        didPresentCookLogForScreenshot = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else {
+                return
+            }
+            isCookLogSheetPresented = true
+        }
+#endif
     }
 
     private var provenance: String {
@@ -460,6 +481,22 @@ struct RecipeDetailView: View {
             Label("Log", systemImage: "fork.knife.circle")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+    }
+
+    private var cookLogSheet: some View {
+        NavigationStack {
+            KitchenTablePage(maxContentWidth: 620, bottomReserve: 28) {
+                cookLogView(showsHeader: false)
+            }
+            .navigationTitle("Cooks")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isCookLogSheetPresented = false
+                    }
+                }
+            }
+        }
     }
 
     private var usesCompactRecipeDock: Bool {
@@ -728,9 +765,10 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var cookLogView: some View {
+    private func cookLogView(showsHeader: Bool) -> some View {
         SpoonCookLogView(
             viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
+            showsHeader: showsHeader,
             draft: spoonCookLogDraft(viewModel),
             actionDidPlan: performSpoonCookLogAction,
             draftDidChange: { draft in

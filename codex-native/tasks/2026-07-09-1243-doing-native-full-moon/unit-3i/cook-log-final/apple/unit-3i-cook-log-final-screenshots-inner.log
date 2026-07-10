@@ -1,0 +1,31 @@
+Running iOS simulator smoke
+iOS simulator smoke ok
+Running macOS launch smoke
+macOS smoke ok
+app.spoonjoy: 40213
+
+run_with_timeout simulator launch timeout (30s): env SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH=1 SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID=chef_kitchen_capture SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=profile SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS=0 SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS=cook-log SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=cook-log SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH=/Users/arimendelow/Library/Developer/CoreSimulator/Devices/10C519CA-BBD2-4780-870C-925916412F67/data/Containers/Data/Application/C24AB0FD-5D4C-4A65-B54D-2B5B30E826D4/Library/Application Support/Spoonjoy/native-screenshot-proof.json SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=/Users/arimendelow/Library/Developer/CoreSimulator/Devices/10C519CA-BBD2-4780-870C-925916412F67/data/Containers/Data/Application/C24AB0FD-5D4C-4A65-B54D-2B5B30E826D4/Library/Application Support/Spoonjoy/native-accessibility-proof.json xcrun simctl launch --terminate-running-process 10C519CA-BBD2-4780-870C-925916412F67 app.spoonjoy
+getpwuid_r did not find a match for uid 501
+Timestamp               Ty Process[PID:TID]
+2026-07-10 02:38:10.676 Df SpringBoard[40042:2cb04c1] [com.apple.SpringBoard:Common] Front display did change: <SBApplication: 0x107f84900; app.spoonjoy>
+Detected file type from extension: PNG
+Note: No display specified. Defaulting to display: 34FBA5BF-C76A-49D9-946A-381AB7875141 (screenID: 1, name: LCD)
+Wrote screenshot to: /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3i/cook-log-final/screenshots/ios-mobile.png
+
+run_with_timeout cleanup timeout (5s): osascript -e tell application id "app.spoonjoy.mac" to quit
+
+run_with_timeout cleanup timeout (5s): pkill -x Spoonjoy
+
+run_with_timeout macOS launch timeout (30s): env SPOONJOY_SCREENSHOT_AUTH=1 SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 SPOONJOY_SCREENSHOT_ACCOUNT_ID=chef_kitchen_capture SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=profile SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS=0 SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS=cook-log SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=cook-log SPOONJOY_SCREENSHOT_PROOF_PATH=/Users/arimendelow/Library/Application Support/Spoonjoy/native-screenshot-proof.json SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3i/cook-log-final/apple/unit-3i-cook-log-final-accessibility-proof-macos.json SPOONJOY_API_BASE_URL=https://spoonjoy.app open -n codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3i/cook-log-final/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app
+42903
+
+run_with_timeout macOS launch timeout (30s): pgrep -x Spoonjoy
+
+run_with_timeout macOS launch timeout (30s): osascript -e tell application id "app.spoonjoy.mac" to open location "spoonjoy://recipes/recipe_lemon_pantry_pasta"
+2026-07-10 02:38:27.638 osascript[42992:46865657] CFURLGetFSRef was passed a URL which has no scheme (the URL will not work with other CFURL routines)
+
+run_with_timeout macOS launch timeout (30s): osascript -e tell application "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3i/cook-log-final/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app" to activate
+
+run_with_timeout cleanup timeout (5s): osascript -e tell application id "app.spoonjoy.mac" to quit
+
+run_with_timeout cleanup timeout (5s): pkill -x Spoonjoy

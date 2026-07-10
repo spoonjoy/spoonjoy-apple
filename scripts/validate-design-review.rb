@@ -16,7 +16,7 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-mode", "shopping-list", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
+VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 ACCESSIBILITY_FIELDS = [
   "dynamicType",
@@ -109,12 +109,20 @@ EXPECTED_ROUTE_EVIDENCE = {
     "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
+  "cook-log" => {
+    "voiceOverLabels" => ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
+    "keyboardNavigationTargets" => ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "muted text on bone"],
+    "hierarchyAnchors" => ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
   "cook-mode" => {
-    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Step Ingredients", "Cook mode SpoonDock"],
-    "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles"],
+    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
+    "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
-    "hierarchyAnchors" => ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+    "hierarchyAnchors" => ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "shopping-list" => {
@@ -190,6 +198,8 @@ def expected_accessibility_source(route)
     "SettingsView"
   when "recipe-detail"
     "RecipeDetailView"
+  when "cook-log"
+    "SpoonCookLogView"
   when "cook-mode"
     "CookModeView"
   when "shopping-list"
@@ -303,6 +313,14 @@ when "search"
 when "recipe-detail"
   fail_check("#{path} recipeDetailSurface must be true for recipe detail captures") unless manifest["recipeDetailSurface"] == true
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  seed_account_id = manifest["recipeSeedAccountID"]
+  fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "cook-log"
+  fail_check("#{path} cookLogSurface must be true for cook log captures") unless manifest["cookLogSurface"] == true
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  fail_check("#{path} cookLogForm must be true") unless manifest["cookLogForm"] == true
+  fail_check("#{path} cookLogPhotoSlot must be true") unless manifest["cookLogPhotoSlot"] == true
+  fail_check("#{path} cookLogActionBar must be true") unless manifest["cookLogActionBar"] == true
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cook-mode"

@@ -294,7 +294,7 @@ cook_mode_required_tokens = [
   "horizontalSizeClass == .compact",
   "#else\n        false\n#endif",
   ".safeAreaInset(edge: .bottom, spacing: 0)",
-  "compactCookControls",
+  "cookModeBottomActionRail",
   "SpoonDock(context: SpoonDockContext.cookMode("
 ]
 cook_mode_missing = cook_mode_required_tokens.reject { |token| cook_mode_content.include?(token) }

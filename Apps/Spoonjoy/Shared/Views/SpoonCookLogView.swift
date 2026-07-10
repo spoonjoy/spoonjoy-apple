@@ -12,6 +12,7 @@ private let supportedSpoonPhotoContentTypes = [
 
 struct SpoonCookLogView: View {
     let viewModel: SpoonCookLogViewModel
+    let showsHeader: Bool
     let actionDidPlan: @MainActor (SpoonCookLogMutationPlan) async throws -> Void
     let draftDidChange: @MainActor (SpoonCookLogDraftState?) -> Void
     let conflictDidRequestReview: @MainActor (String) async throws -> Void
@@ -27,9 +28,12 @@ struct SpoonCookLogView: View {
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var actionInFlight = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         viewModel: SpoonCookLogViewModel,
+        showsHeader: Bool = true,
         draft: SpoonCookLogDraftState? = nil,
         actionDidPlan: @escaping @MainActor (SpoonCookLogMutationPlan) async throws -> Void,
         draftDidChange: @escaping @MainActor (SpoonCookLogDraftState?) -> Void = { _ in },
@@ -37,6 +41,7 @@ struct SpoonCookLogView: View {
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
+        self.showsHeader = showsHeader
         self.actionDidPlan = actionDidPlan
         self.draftDidChange = draftDidChange
         self.conflictDidRequestReview = conflictDidRequestReview
@@ -57,7 +62,9 @@ struct SpoonCookLogView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            header
+            if showsHeader {
+                header
+            }
             statusMessages
             createForm
             rows
@@ -85,6 +92,20 @@ struct SpoonCookLogView: View {
                 }
             )
         }
+        .task(id: viewModel.recipeID) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "cook-log",
+                source: "SpoonCookLogView",
+                runtimeContext: screenshotAccessibilityRuntimeContext
+            )
+        }
+    }
+
+    private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
+        ScreenshotAccessibilityRuntimeContext(
+            dynamicTypeSize: String(describing: dynamicTypeSize),
+            reduceMotionEnabled: accessibilityReduceMotion
+        )
     }
 
     private var header: some View {

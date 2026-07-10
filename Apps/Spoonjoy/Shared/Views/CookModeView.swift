@@ -220,14 +220,21 @@ struct CookModeView: View {
         VStack(alignment: .leading, spacing: 14) {
             KitchenTableHeader(
                 eyebrow: viewModel.stepProgressLabel,
-                title: recipe.title,
-                subtitle: viewModel.recipeProgressLabel
-            )
+                title: recipe.title
+            ) {
+                regularHeaderTools
+            }
 
             stepProgressRail
+        }
+    }
+
+    private var regularHeaderTools: some View {
+        VStack(alignment: .trailing, spacing: 8) {
             utilityButton
             shoppingStatus
         }
+        .frame(maxWidth: 220, alignment: .trailing)
     }
 
     private var compactTaskHeader: some View {
@@ -237,14 +244,6 @@ struct CookModeView: View {
                     .font(.caption2.weight(.bold))
                     .tracking(1.4)
                     .foregroundStyle(KitchenTableTheme.brass)
-
-                Spacer(minLength: 8)
-
-                Label(viewModel.currentPageProgressLabel, systemImage: "checkmark.circle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
             }
 
             Text(recipe.title)
@@ -281,6 +280,7 @@ struct CookModeView: View {
             Label("Tools", systemImage: "slider.horizontal.3")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .frame(maxWidth: 156, alignment: .leading)
         .accessibilityHint("Opens recipe scale and shopping-list tools.")
     }
 
@@ -391,21 +391,38 @@ struct CookModeView: View {
     }
 
     private var bottomControls: some View {
-        VStack(spacing: 12) {
+        HStack(spacing: 10) {
             Button(action: previous) {
                 Label("Previous", systemImage: "arrow.backward.circle")
-                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
             .disabled(!canGoBack)
+            .frame(maxWidth: 180)
 
-            KitchenSafeControls(
-                canAdvance: canAdvance,
-                markComplete: markCurrentStepComplete,
-                advance: advance,
-                close: close
-            )
+            Button(action: markCurrentStepComplete) {
+                Label("Mark done", systemImage: "checkmark.circle.fill")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+            .accessibilityLabel("Mark the current step done")
+            .frame(maxWidth: 260)
+
+            Button(action: advance) {
+                Label("Next step", systemImage: "arrow.forward.circle")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .disabled(!canAdvance)
+            .accessibilityLabel("Move to the next step")
+            .frame(maxWidth: 190)
+
+            Button(action: close) {
+                Label("Close", systemImage: "text.book.closed")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+            .accessibilityLabel("Return to recipe detail")
+            .frame(maxWidth: 150)
         }
+        .frame(maxWidth: 820, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, KitchenTableTheme.pagePadding)
         .padding(.vertical, 12)
         .background(KitchenTableTheme.paper.opacity(0.72))

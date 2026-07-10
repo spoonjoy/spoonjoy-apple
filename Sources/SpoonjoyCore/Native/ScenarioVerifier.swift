@@ -351,10 +351,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "cook mode surface source",
-                    detail: "Cook mode surface includes focused step, controls, progress, and persisted progress text.",
+                    detail: "Cook mode surface includes focused step card, progress rail, utility sheet, and bottom action rail.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
-                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "currentStep", "KitchenSafeControls"]
+                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "currentStepCard", "stepProgressRail", "cookModeUtilitySheet", "cookModeBottomActionRail"]
                 ),
                 sourceCheck(
                     name: "shopping surface source",
@@ -372,10 +372,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",
-                    detail: "Kitchen-safe controls use large native buttons with accessibility labels.",
+                    detail: "Kitchen-safe controls use compact native action decks with explicit accessibility labels.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift",
-                    tokens: ["KitchenSafeControls", "Button", "controlSize", "accessibilityLabel"]
+                    tokens: ["KitchenSafeControlDeck", "Button", "Label(\"Mark done\"", "Label(\"Next step\"", "Label(\"Close\"", "accessibilityLabel"]
                 ),
                 sourceCheck(
                     name: "navigation surface source",
