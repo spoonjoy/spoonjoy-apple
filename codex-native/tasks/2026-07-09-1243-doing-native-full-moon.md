@@ -168,7 +168,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red tests/contracts over media models and route views.
 **Acceptance**: Tests fail on current placeholder/default image language or behavior.
 
-### ⬜ Unit 2h: Image and No-Photo Policy — Implementation
+### ✅ Unit 2h: Image and No-Photo Policy — Implementation
 **What**: Replace default/fake-looking image behavior with appetizing, honest no-photo states and clear capture/import affordances.
 **Output**: Updated media/no-photo components and route usage.
 **Acceptance**: Unit 2g tests pass; no production route presents a fake default image as real food.
@@ -524,6 +524,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 16:53 Unit 2e complete: added a loading/transition contract for authored loading/error surfaces, no generic `unavailable` route copy, reduce-motion-aware search image loading, and quiet informational offline/stale status; red log names the current raw spinners, unavailable copy, fixed image animation, and brass quiet-status treatment.
 - 2026-07-09 16:56 Unit 2f complete: added shared authored loading/error states, replaced guarded raw route spinners and generic unavailable copy, made search image transitions Reduce Motion aware, quieted informational offline/stale status, regenerated the Xcode project, and passed loading, palette, design-language, shell, Xcode project/generator, iOS no-sign, and macOS build checks.
 - 2026-07-09 16:59 Unit 2g complete: added native image policy contract; red log proves bundled `RecipeFallback*` assets, title-hash fake food fallbacks, route-level bundled fallback image calls, search fallback thumbnails, visible row provenance noise, and production-facing `Chef photo` / `Imported photo` / `Editorialized chef photo` labels.
+- 2026-07-09 17:10 Unit 2h complete: removed bundled recipe fallback image assets, replaced fake food fallback behavior with an authored `KitchenTableNoPhotoView`, removed route-level fallback asset calls and provenance row noise, renamed cover-source labels, and passed image policy, palette, design-language, loading, shell, Xcode project/generator, focused Swift tests, iOS no-sign, and macOS build checks.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
