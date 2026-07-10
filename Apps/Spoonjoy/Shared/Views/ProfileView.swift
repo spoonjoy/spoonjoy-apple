@@ -148,11 +148,11 @@ private struct ProfileRecipeShelf: View {
                     Button {
                         openRoute(recipe.openRoute)
                     } label: {
-                        KitchenTableObjectRow(title: recipe.title, subtitle: recipe.coverProvenanceLabel) {
+                        KitchenTableObjectRow(title: recipe.title, subtitle: recipeSubtitle(recipe)) {
                             RecipeCoverImage(
                                 url: recipe.coverImageURL,
                                 title: recipe.title,
-                                subtitle: recipe.coverProvenanceLabel
+                                subtitle: "No photo yet"
                             )
                         } trailing: {
                             Image(systemName: "chevron.forward")
@@ -167,6 +167,12 @@ private struct ProfileRecipeShelf: View {
             }
         }
     }
+
+    private func recipeSubtitle(_ recipe: ProfileRecipeSummary) -> String? {
+        [recipe.description, recipe.servings]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
 }
 
 private struct ProfileRecipeCard: View {
@@ -177,20 +183,26 @@ private struct ProfileRecipeCard: View {
             RecipeCoverImage(
                 url: recipe.coverImageURL,
                 title: recipe.title,
-                subtitle: recipe.coverProvenanceLabel
+                subtitle: "No photo yet"
             )
                 .frame(width: 132, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
             Text(recipe.title)
                 .font(.headline)
                 .foregroundStyle(KitchenTableTheme.charcoal)
-            if let coverProvenanceLabel = recipe.coverProvenanceLabel {
-                Text(coverProvenanceLabel)
+            if let subtitle = recipeSubtitle {
+                Text(subtitle)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
         }
         .frame(width: 144, alignment: .leading)
+    }
+
+    private var recipeSubtitle: String? {
+        [recipe.description, recipe.servings]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
     }
 }
 

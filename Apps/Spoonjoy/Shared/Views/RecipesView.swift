@@ -79,7 +79,6 @@ private struct RecipeIndexRow: View {
                 url: row.coverImageURL,
                 title: row.title,
                 subtitle: nil,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id),
                 showsFallbackLabel: false
             )
         } trailing: {

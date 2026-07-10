@@ -1,42 +1,33 @@
 import SwiftUI
 
 struct RecipeCoverImage: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let url: URL?
     let title: String?
     let subtitle: String?
-    let assetName: String?
     let showsFallbackLabel: Bool
 
-    init(url: URL?, title: String? = nil, subtitle: String? = nil, assetName: String? = nil, showsFallbackLabel: Bool = true) {
+    init(url: URL?, title: String? = nil, subtitle: String? = nil, showsFallbackLabel: Bool = true) {
         self.url = url
         self.title = title
         self.subtitle = subtitle
-        self.assetName = assetName
         self.showsFallbackLabel = showsFallbackLabel
     }
 
     var body: some View {
         if let url {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.22))) { phase in
+            AsyncImage(url: url, transaction: imageTransaction) { phase in
                 cover(for: phase)
-                    .transition(.opacity)
+                    .transition(accessibilityReduceMotion ? .identity : .opacity)
             }
-        } else if let assetName {
-            bundledCover(assetName)
-        } else if let loadingFallbackAssetName {
-            bundledCover(loadingFallbackAssetName)
         } else {
-            RecipeCoverFallback(title: title, subtitle: subtitle ?? "Cover coming soon", mode: .missing, showsLabel: showsFallbackLabel)
+            noPhoto(subtitle: subtitle ?? "No photo yet", mode: .missing, showsLabel: showsFallbackLabel)
         }
     }
 
-    static func bundledAssetName(forRecipeID recipeID: String) -> String? {
-        switch recipeID {
-        case "recipe_lemon_pantry_pasta":
-            "LemonPantryPasta"
-        default:
-            nil
-        }
+    private var imageTransaction: Transaction {
+        Transaction(animation: accessibilityReduceMotion ? nil : .easeInOut(duration: 0.20))
     }
 
     @ViewBuilder
@@ -47,71 +38,20 @@ struct RecipeCoverImage: View {
                 .resizable()
                 .scaledToFill()
         case .empty:
-            if let loadingFallbackAssetName {
-                bundledCover(loadingFallbackAssetName)
-            } else {
-                RecipeCoverFallback(title: title, subtitle: "Loading cover", mode: .loading, showsLabel: false)
-            }
+            noPhoto(subtitle: "Loading photo", mode: .loading, showsLabel: false)
         case .failure:
-            if let loadingFallbackAssetName {
-                bundledCover(loadingFallbackAssetName)
-            } else {
-                RecipeCoverFallback(title: title, subtitle: "Cover unavailable", mode: .unavailable, showsLabel: showsFallbackLabel)
-            }
+            noPhoto(subtitle: "Photo did not load", mode: .unavailable, showsLabel: showsFallbackLabel)
         @unknown default:
-            if let loadingFallbackAssetName {
-                bundledCover(loadingFallbackAssetName)
-            } else {
-                RecipeCoverFallback(title: title, subtitle: subtitle ?? "Cover coming soon", mode: .missing, showsLabel: showsFallbackLabel)
-            }
+            noPhoto(subtitle: subtitle ?? "No photo yet", mode: .missing, showsLabel: showsFallbackLabel)
         }
     }
 
-    private var loadingFallbackAssetName: String? {
-        assetName ?? Self.fallbackFoodAssetName(forTitle: title)
-    }
-
-    static func fallbackFoodAssetName(forTitle title: String?) -> String? {
-        guard let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty else {
-            return nil
-        }
-
-        let lowercasedTitle = title.lowercased()
-        if lowercasedTitle.contains("hummus") {
-            return "RecipeFallbackHummus"
-        }
-        if lowercasedTitle.contains("challah") {
-            return "RecipeFallbackChallah"
-        }
-        if lowercasedTitle.contains("cinnamon") || lowercasedTitle.contains("bun") {
-            return "RecipeFallbackBuns"
-        }
-        if lowercasedTitle.contains("bread") || lowercasedTitle.contains("rye") {
-            return "RecipeFallbackBread"
-        }
-        if lowercasedTitle.contains("pizza") {
-            return "RecipeFallbackPizza"
-        }
-
-        let fallbacks = [
-            "RecipeFallbackHummus",
-            "RecipeFallbackChallah",
-            "RecipeFallbackBuns",
-            "RecipeFallbackBread",
-            "RecipeFallbackPizza"
-        ]
-        let bucket = title.unicodeScalars.map { Int($0.value) }.reduce(0, +) % fallbacks.count
-        return fallbacks[bucket]
-    }
-
-    private func bundledCover(_ assetName: String) -> some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFill()
+    private func noPhoto(subtitle: String, mode: KitchenTableNoPhotoView.Mode, showsLabel: Bool) -> some View {
+        KitchenTableNoPhotoView(title: title, subtitle: subtitle, mode: mode, showsLabel: showsLabel)
     }
 }
 
-private struct RecipeCoverFallback: View {
+struct KitchenTableNoPhotoView: View {
     enum Mode {
         case missing
         case loading
@@ -125,11 +65,7 @@ private struct RecipeCoverFallback: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: palette.background,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            noPhotoBackground
 
             GeometryReader { proxy in
                 if proxy.size.width < 150 || proxy.size.height < 110 {
@@ -138,11 +74,37 @@ private struct RecipeCoverFallback: View {
                 } else if showsLabel {
                     fullLabel
                         .padding(16)
-                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottomLeading)
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
                 }
             }
         }
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var noPhotoBackground: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    KitchenTableTheme.paper,
+                    KitchenTableTheme.vellum.opacity(0.78),
+                    KitchenTableTheme.bone
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 11) {
+                ForEach(0..<4, id: \.self) { index in
+                    Capsule()
+                        .fill(index.isMultiple(of: 2) ? KitchenTableTheme.brass.opacity(0.12) : KitchenTableTheme.herb.opacity(0.09))
+                        .frame(height: index == 1 ? 7 : 5)
+                        .padding(.horizontal, CGFloat(22 + index * 15))
+                        .offset(x: index.isMultiple(of: 2) ? -8 : 10)
+                }
+            }
+            .rotationEffect(.degrees(-5))
+            .opacity(0.82)
+        }
     }
 
     private var compactMark: some View {
@@ -164,7 +126,7 @@ private struct RecipeCoverFallback: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(KitchenTableTheme.charcoal)
             } else {
-                Image(systemName: "photo")
+                Image(systemName: "fork.knife.circle")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(KitchenTableTheme.charcoal)
             }
@@ -190,7 +152,7 @@ private struct RecipeCoverFallback: View {
 
     private var fullLabel: some View {
         VStack(alignment: .center, spacing: 10) {
-            Image(systemName: mode == .loading ? "clock" : "photo")
+            Image(systemName: mode == .loading ? "clock" : "fork.knife.circle")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(palette.accent)
                 .frame(width: 48, height: 48)
@@ -217,37 +179,24 @@ private struct RecipeCoverFallback: View {
         return Text(subtitle)
     }
 
-    private var palette: RecipeCoverFallbackPalette {
-        RecipeCoverFallbackPalette.palette(for: title ?? subtitle)
+    private var palette: KitchenTableNoPhotoPalette {
+        KitchenTableNoPhotoPalette.palette(for: title ?? subtitle)
     }
 }
 
-private struct RecipeCoverFallbackPalette {
-    let background: [Color]
+private struct KitchenTableNoPhotoPalette {
     let accent: Color
 
-    static func palette(for key: String) -> RecipeCoverFallbackPalette {
+    static func palette(for key: String) -> KitchenTableNoPhotoPalette {
         switch stableBucket(for: key) {
         case 0:
-            RecipeCoverFallbackPalette(
-                background: [KitchenTableTheme.paper, KitchenTableTheme.bone],
-                accent: KitchenTableTheme.brass
-            )
+            KitchenTableNoPhotoPalette(accent: KitchenTableTheme.brass)
         case 1:
-            RecipeCoverFallbackPalette(
-                background: [KitchenTableTheme.paper, KitchenTableTheme.vellum.opacity(0.72)],
-                accent: KitchenTableTheme.herb
-            )
+            KitchenTableNoPhotoPalette(accent: KitchenTableTheme.herb)
         case 2:
-            RecipeCoverFallbackPalette(
-                background: [KitchenTableTheme.paper, KitchenTableTheme.tomato.opacity(0.10)],
-                accent: KitchenTableTheme.tomato
-            )
+            KitchenTableNoPhotoPalette(accent: KitchenTableTheme.tomato)
         default:
-            RecipeCoverFallbackPalette(
-                background: [KitchenTableTheme.paper, KitchenTableTheme.vellum.opacity(0.82)],
-                accent: KitchenTableTheme.inkMuted
-            )
+            KitchenTableNoPhotoPalette(accent: KitchenTableTheme.inkMuted)
         }
     }
 

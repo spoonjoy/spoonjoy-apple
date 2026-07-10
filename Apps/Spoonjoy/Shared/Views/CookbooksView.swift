@@ -493,7 +493,7 @@ private struct CookbookDetailView: View {
                         RecipeCoverImage(
                             url: imageURL,
                             title: recipe.title,
-                            subtitle: recipe.coverProvenanceLabel
+                            subtitle: "No photo yet"
                         )
                             .frame(width: 54, height: 54)
                             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
@@ -509,11 +509,6 @@ private struct CookbookDetailView: View {
                                 Text(servingsLabel)
                                     .font(KitchenTableTheme.uiLabel)
                                     .foregroundStyle(KitchenTableTheme.inkMuted)
-                            }
-                            if let coverProvenanceLabel = recipe.coverProvenanceLabel {
-                                Text(coverProvenanceLabel)
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(KitchenTableTheme.brass)
                             }
                         }
                     }

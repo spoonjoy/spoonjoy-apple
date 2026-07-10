@@ -197,11 +197,7 @@ struct RecipeLead: View {
     }
 
     private var hasRealCover: Bool {
-        recipe.displayCoverImageURL != nil || coverAssetName != nil
-    }
-
-    private var coverAssetName: String? {
-        RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+        recipe.displayCoverImageURL != nil
     }
 
     private var photoLead: some View {
@@ -210,7 +206,6 @@ struct RecipeLead: View {
                 url: recipe.displayCoverImageURL,
                 title: recipe.title,
                 subtitle: "Cover",
-                assetName: coverAssetName,
                 showsFallbackLabel: false
             )
                 .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
@@ -328,13 +323,12 @@ struct KitchenRecipeIndexRow: View {
         Button(action: open) {
             KitchenTableObjectRow(
                 title: recipe.title,
-                subtitle: recipe.displayCoverProvenanceLabel ?? recipe.chef.username
+                subtitle: recipe.chef.username
             ) {
                 RecipeCoverImage(
                     url: recipe.displayCoverImageURL,
                     title: recipe.title,
-                    subtitle: recipe.displayCoverProvenanceLabel,
-                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+                    subtitle: "No photo yet"
                 )
                     .aspectRatio(1, contentMode: .fill)
             } trailing: {

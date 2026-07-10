@@ -311,7 +311,6 @@ struct RecipeDetailView: View {
                 url: viewModel.cover.imageURL,
                 title: viewModel.title,
                 subtitle: coverPlaceholderLabel,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id),
                 showsFallbackLabel: false
             )
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
@@ -382,7 +381,7 @@ struct RecipeDetailView: View {
     }
 
     private var coverPlaceholderLabel: String {
-        viewModel.ownerTools.isVisible ? "Awaiting first chef photo" : "Cover coming soon"
+        "No photo yet"
     }
 
     private var recipeActionFlow: some View {

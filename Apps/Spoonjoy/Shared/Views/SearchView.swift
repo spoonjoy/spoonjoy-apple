@@ -291,11 +291,6 @@ private struct SearchSurfaceThumbnail: View {
                         thumbnailFill
                     }
                 }
-            } else if let fallbackAssetName {
-                Image(fallbackAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .transition(accessibilityReduceMotion ? .identity : .opacity)
             } else {
                 thumbnailFill
             }
@@ -316,14 +311,6 @@ private struct SearchSurfaceThumbnail: View {
                 .foregroundStyle(accent)
                 .accessibilityHidden(true)
         }
-    }
-
-    private var fallbackAssetName: String? {
-        guard row.result.type == .recipe else {
-            return nil
-        }
-        return RecipeCoverImage.bundledAssetName(forRecipeID: row.result.id)
-            ?? RecipeCoverImage.fallbackFoodAssetName(forTitle: row.title)
     }
 
     private var accent: Color {
