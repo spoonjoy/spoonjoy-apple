@@ -179,7 +179,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Coverage logs, route screenshots, design-review artifacts, and closed shared-substrate ledger items.
 **Acceptance**: 100% coverage on new code; no warnings; automated design/accessibility contracts pass.
 
-### ⬜ Unit 3a: Kitchen and Recipes Structure — Tests
+### ✅ Unit 3a: Kitchen and Recipes Structure — Tests
 **What**: Add failing tests for `KitchenView` and `RecipesView` covering masthead, lead object, recipe index, cookbook shelf, list row language, empty/loading/offline states, and no unnecessary "Open" row labels.
 **Output**: Red Swift/static tests for kitchen and recipes.
 **Acceptance**: Tests fail on current route structure, language, or state gap.
@@ -527,6 +527,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-09 16:59 Unit 2g complete: added native image policy contract; red log proves bundled `RecipeFallback*` assets, title-hash fake food fallbacks, route-level bundled fallback image calls, search fallback thumbnails, visible row provenance noise, and production-facing `Chef photo` / `Imported photo` / `Editorialized chef photo` labels.
 - 2026-07-09 17:10 Unit 2h complete: removed bundled recipe fallback image assets, replaced fake food fallback behavior with an authored `KitchenTableNoPhotoView`, removed route-level fallback asset calls and provenance row noise, renamed cover-source labels, and passed image policy, palette, design-language, loading, shell, Xcode project/generator, focused Swift tests, iOS no-sign, and macOS build checks.
 - 2026-07-09 23:53 Unit 2i complete: closed shared substrate visual issues for tab/nav chrome, honest no-photo states, notification settings focus/copy, simulator resolver determinism, and stale screenshot evidence; Sagan cold review found two MINOR issues, both fixed; stale legacy no-photo call sites normalized; focused contracts, app-target builds, warning scan, and fresh 11-route iOS/macOS matrix passed.
+- 2026-07-10 00:06 Unit 3a complete: added red Kitchen/Recipes structure contracts for web-aligned masthead/lead/index/shelf hierarchy, lead/index separation, index-row ordinal/metadata language, structured recipes loading/offline/empty states, and richer screenshot proof expectations; focused Swift contract and kitchen surface script both fail red with artifacts under `unit-3a/`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
