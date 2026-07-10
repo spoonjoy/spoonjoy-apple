@@ -180,7 +180,8 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "struct KitchenRecipeIndexRow: View",
                 "LazyVStack",
-                "ForEach(recipes, id: \\.id)",
+                "ForEach(Array(recipes.enumerated()), id: \\.element.id)",
+                "KitchenRecipeIndexRow(recipe: recipe, ordinal: index + 1)",
                 "KitchenTableObjectRow",
                 ".aspectRatio(1, contentMode: .fill)",
                 "Image(systemName: \"chevron.forward\")",

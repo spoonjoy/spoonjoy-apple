@@ -46,12 +46,12 @@ EXPECTED_OFFLINE_SEVERE_STATES = [
 ].freeze
 EXPECTED_ROUTE_EVIDENCE = {
   "kitchen" => {
-    "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
-    "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+    "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+    "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
-    "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
   },
   "search" => {
     "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
@@ -62,12 +62,12 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "recipes" => {
-    "voiceOverLabels" => ["Recipes", "Recipe Index", "recipe rows"],
-    "keyboardNavigationTargets" => ["recipe index buttons", "recipe rows"],
+    "voiceOverLabels" => ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes", "OfflineStatusView"],
+    "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field", "offline status dismiss"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
-    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "KitchenTableSection", "KitchenTableObjectRow"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow", "OfflineStatusView"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "ordinal"]
   },
   "cookbooks" => {
     "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],

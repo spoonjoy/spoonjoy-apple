@@ -21,6 +21,14 @@ struct OfflineStatusView: View {
         self.onDismiss = onDismiss
     }
 
+    init(
+        indicator: OfflineIndicatorState,
+        prominence: Prominence? = nil,
+        onDismiss: (@MainActor @Sendable () -> Void)? = nil
+    ) {
+        self.init(display: indicator.display, prominence: prominence, onDismiss: onDismiss)
+    }
+
     var body: some View {
         if display.isVisible {
             HStack(spacing: 8) {
