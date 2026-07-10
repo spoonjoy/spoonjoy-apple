@@ -1747,6 +1747,105 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("restore cache only launch mode preserves capture import retry and blocker severity")
+    func restoreCacheOnlyLaunchModePreservesCaptureImportRetryAndBlockerSeverity() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_capture_restore"
+            let draft = try CaptureDraft.importURL(
+                id: "draft_restore_capture",
+                url: URL(string: "https://example.com/restore-capture")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let retryMutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_restore_capture_import",
+                createdAt: Self.isoString(Self.now)
+            )
+
+            let queuedDirectory = directory.appendingPathComponent("queued", isDirectory: true)
+            try FileManager.default.createDirectory(at: queuedDirectory, withIntermediateDirectories: true)
+            let queuedAppStateStore = NativeAppStateStore(fileURL: queuedDirectory.appendingPathComponent("native-app-state.json"))
+            try queuedAppStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: draft,
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "capture",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let queuedStore = Self.liveStore(
+                directory: queuedDirectory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: accountID,
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: try NativeMutationQueue(mutations: [retryMutation])
+                ),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                appStateStoreProvider: { queuedAppStateStore },
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            await queuedStore.bootstrap()
+
+            guard case .queuedWork(let queuedContent) = queuedStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to preserve queued capture import; got \(queuedStore.bootstrapState)")
+                return
+            }
+            #expect(queuedStore.restoredRoute == .capture)
+            #expect(queuedContent.captureDraft == draft)
+            #expect(queuedContent.queuedMutations.map(\.clientMutationID) == ["cm_restore_capture_import"])
+            #expect(queuedContent.offlineIndicatorState.display == .queuedWork(count: 1, oldestClientMutationID: "cm_restore_capture_import"))
+
+            let blockerDirectory = directory.appendingPathComponent("blocker", isDirectory: true)
+            try FileManager.default.createDirectory(at: blockerDirectory, withIntermediateDirectories: true)
+            let blockerAppStateStore = NativeAppStateStore(fileURL: blockerDirectory.appendingPathComponent("native-app-state.json"))
+            try blockerAppStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: draft,
+                captureImportProviderBlocker: "recipe-import",
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "capture",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let blockerStore = Self.liveStore(
+                directory: blockerDirectory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: InMemoryNativeSyncStore(accountID: accountID, environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                appStateStoreProvider: { blockerAppStateStore },
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            await blockerStore.bootstrap()
+
+            guard case .blocker(let blockerContent) = blockerStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to preserve capture import blocker; got \(blockerStore.bootstrapState)")
+                return
+            }
+            #expect(blockerStore.restoredRoute == .capture)
+            #expect(blockerContent.captureDraft == draft)
+            #expect(blockerContent.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "recipe-import")))
+        }
+    }
+
+    @MainActor
     @Test("restore cache only launch mode preserves expired signed-in cache without refreshing")
     func restoreCacheOnlyLaunchModePreservesExpiredSignedInCacheWithoutRefreshing() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

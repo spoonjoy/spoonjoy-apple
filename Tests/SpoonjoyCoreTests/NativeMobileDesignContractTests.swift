@@ -134,16 +134,20 @@ struct NativeMobileDesignContractTests {
                 "rightTools",
                 ".accessibilityLabel",
                 "static func cookMode(",
-                "Mark done",
-                "Previous",
-                "Next"
+                "cookModeIconHandrail",
+                "primaryIcon",
+                "Back step",
+                "Mark step",
+                "Next step"
             ],
             forbids: [
                 "static func kitchen(",
                 "static func recipes(",
                 "static func shoppingList(",
                 "static func search(",
-                "static func generic("
+                "static func generic(",
+                "title: \"Previous\"",
+                "title: \"Done\""
             ]
         )
     }
@@ -290,13 +294,16 @@ struct NativeMobileDesignContractTests {
                 "eyebrow: \"Agent import\"",
                 "title: \"Capture\"",
                 "agentImportStatus",
+                "header\n            offlineStatus\n            agentImportStatus\n            if let currentDraft {\n                draftPreview(currentDraft)\n            }\n            entryPointLedger",
                 "CaptureImportEntryPoint",
                 "agentMCP",
                 "appIntent",
                 "ImportStatusPanel",
                 "draftPreview(currentDraft)",
                 "Submit import",
-                "Retry when online"
+                "Retry when online",
+                "Resolve import setup",
+                "OfflineStatusView"
             ],
             forbids: [
                 "eyebrow: \"Ouro Draft\"",
@@ -307,7 +314,12 @@ struct NativeMobileDesignContractTests {
                 "textCapture\n        sourceCapture\n        imageCapture",
                 "CaptureDraft.localText(",
                 "CaptureDraft.importURL(",
-                "\"Send to Spoonjoy\""
+                "\"Send to Spoonjoy\"",
+                "shareSheetComingSoon",
+                "siriComingSoon",
+                "cameraComingSoon",
+                "photoLibraryComingSoon",
+                "Future entry points are listed"
             ]
         )
         expectContent(
@@ -506,21 +518,23 @@ struct NativeMobileDesignContractTests {
                 "if !hasVisibleCurrentRecipe",
                 "private var recipeMasthead",
                 "private var recipeHeroMedia",
+                "if viewModel.cover.hasRealCover",
+                "private var recipeNoPhotoStatus",
+                "Label(viewModel.cover.noPhotoLabel",
                 "private var recipeIdentityAndProvenance",
                 "private var recipeMastheadActions",
                 "private var recipeMastheadLogCookAction",
                 "viewModel.cover.hasRealCover",
-                "subtitle: viewModel.cover.noPhotoLabel",
-                "showsFallbackLabel: true",
-                "private var recipeNoPhotoHeight: CGFloat",
-                "usesCompactRecipeDock ? 168 : 140",
                 "Label(\"Log\", systemImage: \"fork.knife.circle\")",
                 ".frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)",
                 ".buttonStyle(.plain)",
                 ".navigationTitle(\"Save to Cookbook\")"
             ],
             forbids: [
-                ".navigationTitle(\"Save\")"
+                ".navigationTitle(\"Save\")",
+                "subtitle: viewModel.cover.noPhotoLabel",
+                "showsFallbackLabel: true",
+                "private var recipeNoPhotoHeight"
             ]
         )
 
@@ -696,13 +710,31 @@ struct NativeMobileDesignContractTests {
             dock,
             in: dockPath,
             contains: [
-                "title: \"Mark done\"",
+                "title: \"Mark step\"",
                 "subtitle: nil",
-                "accessibilityHint: \"Mark this cooking step complete.\""
+                "accessibilityHint: \"Mark this cooking step complete.\"",
+                "case primaryIcon",
+                "dockButton(context.centerZone, prominence: .primaryIcon)"
             ],
             forbids: [
                 "title: \"Done\"",
+                "title: \"Previous\"",
                 "subtitle: stepTitle"
+            ]
+        )
+
+        expectContent(
+            recipeDetail,
+            in: recipeDetailPath,
+            contains: [
+                "Image(systemName: \"ellipsis\")",
+                ".accessibilityLabel(\"Manage recipe\")",
+                ".accessibilityHint(\"Opens owner tools for this recipe.\")"
+            ],
+            forbids: [
+                "Text(provenance)",
+                "Label(\"Manage recipe\", systemImage: \"ellipsis.circle\")",
+                ".background(KitchenTableTheme.photoOverlay"
             ]
         )
 
@@ -1350,6 +1382,9 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
+                "capture_surface_variant",
+                "captureSignedOutSurface",
+                "SignedOutSetupView",
                 "search_capture_variant",
                 "search-typed-results",
                 "search-scoped-recipes",
@@ -1379,7 +1414,12 @@ struct NativeMobileDesignContractTests {
                 "search-scoped-cookbooks|search|",
                 "search-scoped-chefs|search|",
                 "search-scoped-shopping|search|",
-                "search-no-results|search|"
+                "search-no-results|search|",
+                "capture-empty|capture-empty|",
+                "capture-draft|capture-draft|",
+                "capture-offline-retry|capture-offline-retry|",
+                "capture-provider-blocked|capture-provider-blocked|",
+                "capture-signed-out|capture-signed-out|"
             ]
         )
 
@@ -1388,6 +1428,9 @@ struct NativeMobileDesignContractTests {
             in: validatorPath,
             contains: [
                 "searchSurfaceVariant",
+                "EXPECTED_CAPTURE_VARIANTS",
+                "captureSurfaceVariant",
+                "captureSignedOutSurface",
                 "expected_search_proof",
                 "\"typed-results\"",
                 "\"scoped-recipes\"",

@@ -19,23 +19,23 @@ struct CaptureImportSurfaceTests {
                     "CaptureImportEntryPoint",
                     "agentMCP",
                     "appIntent",
-                    "shareSheetComingSoon",
-                    "siriComingSoon",
-                    "cameraComingSoon",
-                    "photoLibraryComingSoon",
                     "MCP agent",
                     "App Intents",
-                    "Share Sheet",
                     "Siri",
                     "Submit import",
+                    "Retry sync",
                     "Retry when online",
                     "Resolve import setup",
+                    "shellOfflineIndicatorState",
+                    "OfflineStatusView",
                     "ImportStatusPanel("
                 ],
                 "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
                     "Agent import",
                     "Submit import",
-                    "Retry when online"
+                    "Retry when online",
+                    "SignedOutSetupView",
+                    "Opening Capture after sign-in"
                 ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
                     "CaptureImportEntryPoint",
@@ -52,12 +52,18 @@ struct CaptureImportSurfaceTests {
                 "scripts/capture-native-screenshots.sh": [
                     "\"Agent import\"",
                     "\"Submit import\"",
-                    "\"Retry when online\""
+                    "\"Retry when online\"",
+                    "capture_surface_variant",
+                    "captureSignedOutSurface",
+                    "SignedOutSetupView"
                 ],
                 "scripts/validate-design-review.rb": [
                     "\"Agent import\"",
                     "\"Submit import\"",
-                    "\"Retry when online\""
+                    "\"Retry when online\"",
+                    "EXPECTED_CAPTURE_VARIANTS",
+                    "captureSurfaceVariant",
+                    "captureSignedOutSurface"
                 ]
             ],
             forbiddenTokens: [
@@ -92,7 +98,13 @@ struct CaptureImportSurfaceTests {
                     "\"Local draft saved.\"",
                     "\"Recipe URL saved.\"",
                     "\"Import source saved.\"",
-                    "\"JSON-LD draft saved.\""
+                    "\"JSON-LD draft saved.\"",
+                    "shareSheetComingSoon",
+                    "siriComingSoon",
+                    "cameraComingSoon",
+                    "photoLibraryComingSoon",
+                    "Share Sheet",
+                    "Future entry points are listed"
                 ],
                 "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
                     "\"Send to Spoonjoy\"",

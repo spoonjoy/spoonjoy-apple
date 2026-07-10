@@ -390,9 +390,10 @@ struct PlatformNavigationView: View {
              .profileGraph,
              .shoppingList,
              .search,
+             .capture,
              .settings:
             true
-        case .kitchen, .recipes, .capture, .unknownLink:
+        case .kitchen, .recipes, .unknownLink:
             false
         }
     }
@@ -609,9 +610,11 @@ struct PlatformNavigationView: View {
             CaptureDraftView(
                 viewModel: captureViewModel,
                 importViewModel: captureImportViewModel,
+                shellOfflineIndicatorState: offlineIndicatorState,
                 draftDidChange: recordCaptureDraft(_:),
                 draftDidDiscard: discardCaptureDraft(_:),
-                importDidSubmit: performCaptureImport(draft:)
+                importDidSubmit: performCaptureImport(draft:),
+                onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .settings:
             SettingsView(

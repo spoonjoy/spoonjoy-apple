@@ -29,9 +29,23 @@ struct SpoonDock: View {
 
     private var adaptiveDock: some View {
         ViewThatFits(in: .horizontal) {
+            cookModeIconHandrail
             horizontalDock
             compactDock
         }
+    }
+
+    private var cookModeIconHandrail: some View {
+        HStack(alignment: .center, spacing: SpoonDockMetrics.handrailSpacing) {
+            dockButton(context.leftZone, prominence: .tool)
+                .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
+
+            dockButton(context.centerZone, prominence: .primaryIcon)
+                .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
+
+            toolRail
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private var horizontalDock: some View {
@@ -94,6 +108,15 @@ struct SpoonDock: View {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.glassProminent)
                 .tint(tintColor(for: action) ?? KitchenTableTheme.action)
+        } else if prominence == .primaryIcon {
+            dockTrigger(action, prominence: prominence)
+                .buttonStyle(.plain)
+                .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
+                .background(KitchenTableTheme.charcoal, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(KitchenTableTheme.paper.opacity(0.22), lineWidth: 1)
+                }
         } else if prominence == .supporting {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
@@ -149,10 +172,10 @@ struct SpoonDock: View {
 
     @ViewBuilder
     private func dockLabel(_ action: SpoonDockAction, prominence: SpoonDockActionProminence) -> some View {
-        if prominence == .tool {
+        if prominence == .tool || prominence == .primaryIcon {
             Image(systemName: action.systemImage)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(toolForeground(for: action))
+                .font(.system(size: prominence == .primaryIcon ? 18 : 17, weight: .semibold))
+                .foregroundStyle(prominence == .primaryIcon ? KitchenTableTheme.paper : toolForeground(for: action))
                 .frame(width: SpoonDockMetrics.toolGlyphFrame, height: SpoonDockMetrics.toolGlyphFrame)
         } else {
             HStack(spacing: prominence == .primary ? 7 : 6) {
@@ -196,9 +219,11 @@ private enum SpoonDockMetrics {
     static let horizontalPadding: CGFloat = 8
     static let verticalPadding: CGFloat = 7
     static let itemSpacing: CGFloat = 6
+    static let handrailSpacing: CGFloat = 14
     static let toolSpacing: CGFloat = 5
     static let supportingWidth: CGFloat = 82
     static let primaryMinWidth: CGFloat = 118
+    static let primaryIconWidth: CGFloat = 68
     static let minimumTargetSize: CGFloat = 44
     static let toolTargetSize: CGFloat = 42
     static let toolGlyphFrame: CGFloat = 40
@@ -264,6 +289,7 @@ enum SpoonDockActionRole {
 private enum SpoonDockActionProminence {
     case supporting
     case primary
+    case primaryIcon
     case tool
 }
 
@@ -280,16 +306,18 @@ extension SpoonDockContext {
             routeIdentifier: "Cook mode",
             leftZone: .back(
                 id: "cook.previous",
-                title: "Previous",
+                title: "Back step",
                 systemImage: "chevron.backward",
                 isEnabled: canGoBack,
+                accessibilityLabel: "Previous cooking step",
+                accessibilityHint: "Moves to the previous cooking step.",
                 action: previous
             ),
             centerZone: .primary(
                 id: "cook.done",
-                title: "Mark done",
+                title: "Mark step",
                 subtitle: nil,
-                systemImage: "checkmark.circle.fill",
+                systemImage: "checkmark",
                 accessibilityLabel: "Mark the current step done",
                 accessibilityHint: "Mark this cooking step complete.",
                 action: markComplete
@@ -297,9 +325,11 @@ extension SpoonDockContext {
             rightTools: [
                 .tool(
                     id: "cook.next",
-                    title: "Next",
+                    title: "Next step",
                     systemImage: "chevron.forward",
                     isEnabled: canAdvance,
+                    accessibilityLabel: "Next cooking step",
+                    accessibilityHint: "Moves to the next cooking step.",
                     action: next
                 )
             ]
@@ -312,8 +342,25 @@ private extension SpoonDockAction {
         Self(id: id, title: title, systemImage: systemImage, role: .place, isEnabled: false)
     }
 
-    static func back(id: String, title: String, systemImage: String, isEnabled: Bool = true, action: @escaping () -> Void) -> Self {
-        Self(id: id, title: title, systemImage: systemImage, role: .back, isEnabled: isEnabled, accessibilityHint: "Return to \(title).", action: action)
+    static func back(
+        id: String,
+        title: String,
+        systemImage: String,
+        isEnabled: Bool = true,
+        accessibilityLabel: String? = nil,
+        accessibilityHint: String? = nil,
+        action: @escaping () -> Void
+    ) -> Self {
+        Self(
+            id: id,
+            title: title,
+            systemImage: systemImage,
+            role: .back,
+            isEnabled: isEnabled,
+            accessibilityLabel: accessibilityLabel,
+            accessibilityHint: accessibilityHint ?? "Return to \(title).",
+            action: action
+        )
     }
 
     static func primary(
@@ -349,6 +396,8 @@ private extension SpoonDockAction {
         role: SpoonDockActionRole = .tool,
         isEnabled: Bool = true,
         shareURL: URL? = nil,
+        accessibilityLabel: String? = nil,
+        accessibilityHint: String? = nil,
         action: @escaping () -> Void = {}
     ) -> Self {
         Self(
@@ -359,6 +408,8 @@ private extension SpoonDockAction {
             role: role,
             isEnabled: isEnabled,
             shareURL: shareURL,
+            accessibilityLabel: accessibilityLabel,
+            accessibilityHint: accessibilityHint,
             action: action
         )
     }

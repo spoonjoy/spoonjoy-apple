@@ -18,6 +18,7 @@ REQUIRED_FIELDS = [
 
 VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
+EXPECTED_CAPTURE_VARIANTS = ["normal", "empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
 ACCESSIBILITY_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
@@ -86,12 +87,20 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
-    "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online"],
-    "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online"],
+    "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+    "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
-    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+  },
+  "capture-signed-out" => {
+    "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
+    "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
+    "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
+    "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "settings" => {
     "voiceOverLabels" => ["Settings", "Profile", "Security"],
@@ -236,7 +245,7 @@ def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id, 
   fail_check("#{proof_path} visibleSections missing required search sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
 end
 
-def expected_accessibility_source(route)
+def expected_accessibility_source(route, manifest)
   case route
   when "kitchen"
     "KitchenView"
@@ -249,7 +258,7 @@ def expected_accessibility_source(route)
   when "cookbook-detail"
     "CookbookDetailView"
   when "capture"
-    "CaptureDraftView"
+    manifest["captureSurfaceVariant"] == "signed-out" ? "SignedOutSetupView" : "CaptureDraftView"
   when "settings"
     "SettingsView"
   when "recipe-detail"
@@ -265,7 +274,11 @@ def expected_accessibility_source(route)
   end
 end
 
-def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
+def accessibility_evidence_key(route, manifest)
+  route == "capture" && manifest["captureSurfaceVariant"] == "signed-out" ? "capture-signed-out" : route
+end
+
+def validate_accessibility_proof!(manifest_path, proof_relative_path, route, manifest)
   fail_check("#{manifest_path} accessibilityProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
   fail_check("#{manifest_path} missing accessibility proof artifact #{proof_relative_path}") unless proof_path.file?
@@ -274,7 +287,8 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
   fail_check("#{proof_path} platform must be ios or macos") unless ["ios", "macos"].include?(proof["platform"])
   expected_bundle_identifier = proof["platform"] == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
   fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
-  fail_check("#{proof_path} source must be #{expected_accessibility_source(route)}") unless proof["source"] == expected_accessibility_source(route)
+  expected_source = expected_accessibility_source(route, manifest)
+  fail_check("#{proof_path} source must be #{expected_source}") unless proof["source"] == expected_source
   fail_check("#{proof_path} emittedBy must be SpoonjoyApp") unless proof["emittedBy"] == "SpoonjoyApp"
   fail_check("#{proof_path} bundleIdentifier must be #{expected_bundle_identifier}") unless proof["bundleIdentifier"] == expected_bundle_identifier
 
@@ -288,7 +302,7 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
 
   route_evidence = proof["routeEvidence"]
   fail_check("#{proof_path} routeEvidence must be an object") unless route_evidence.is_a?(Hash)
-  EXPECTED_ROUTE_EVIDENCE.fetch(route).each do |field, required_values|
+  EXPECTED_ROUTE_EVIDENCE.fetch(accessibility_evidence_key(route, manifest)).each do |field, required_values|
     actual_values = route_evidence[field]
     fail_check("#{proof_path} routeEvidence.#{field} must be an array") unless actual_values.is_a?(Array)
     missing_values = required_values.reject { |value| actual_values.include?(value) }
@@ -337,7 +351,7 @@ fail_check("#{path} accessibilityProofArtifacts must include iOS and macOS proof
 platforms = []
 accessibility_proofs.each do |proof_relative_path|
   fail_check("#{path} accessibilityProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
-  validate_accessibility_proof!(path, proof_relative_path, route)
+  validate_accessibility_proof!(path, proof_relative_path, route, manifest)
   proof_path = path.dirname.join(proof_relative_path).cleanpath
   platforms << JSON.parse(proof_path.read)["platform"]
 end
@@ -407,7 +421,17 @@ when "cookbook-detail"
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "capture"
-  fail_check("#{path} captureNativeSurface must be true for capture captures") unless manifest["captureNativeSurface"] == true
+  variant = manifest["captureSurfaceVariant"]
+  fail_check("#{path} captureSurfaceVariant must be one of #{EXPECTED_CAPTURE_VARIANTS.join(", ")}") unless EXPECTED_CAPTURE_VARIANTS.include?(variant)
+  expected_auth = variant == "signed-out" ? "0" : "1"
+  fail_check("#{path} captureScreenshotAuth must be #{expected_auth}") unless manifest["captureScreenshotAuth"] == expected_auth
+  if variant == "signed-out"
+    fail_check("#{path} captureSignedOutSurface must be true for signed-out capture") unless manifest["captureSignedOutSurface"] == true
+    fail_check("#{path} captureNativeSurface must be false for signed-out capture") unless manifest["captureNativeSurface"] == false
+  else
+    fail_check("#{path} captureNativeSurface must be true for signed-in capture captures") unless manifest["captureNativeSurface"] == true
+    fail_check("#{path} captureSignedOutSurface must be false for signed-in capture captures") unless manifest["captureSignedOutSurface"] == false
+  end
   seed_account_id = manifest["captureSeedAccountID"]
   fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "settings"

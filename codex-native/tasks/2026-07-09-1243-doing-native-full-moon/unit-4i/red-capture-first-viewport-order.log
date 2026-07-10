@@ -1,0 +1,30 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (4.74s)
+Test Suite 'Selected tests' started at 2026-07-10 09:15:32.790.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 09:15:32.791.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 09:15:32.791.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 09:15:32.791.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "TestFlight feedback polish removes clutter and placeholder overlap" started.
+✘ Test "TestFlight feedback polish removes clutter and placeholder overlap" recorded an issue at NativeMobileDesignContractTests.swift:1486:5: Expectation failed: (missing → ["header\n            offlineStatus\n            agentImportStatus\n            if let currentDraft {\n                draftPreview(currentDraft)\n            }\n            entryPointLedger"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift missing tokens: header
+              offlineStatus
+              agentImportStatus
+              if let currentDraft {
+                  draftPreview(currentDraft)
+              }
+              entryPointLedger
+✘ Test "TestFlight feedback polish removes clutter and placeholder overlap" failed after 0.034 seconds with 1 issue.
+✘ Suite "Native mobile design contract" failed after 0.034 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.034 seconds with 1 issue.

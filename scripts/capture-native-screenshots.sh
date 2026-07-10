@@ -43,10 +43,12 @@ state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 cache_file="${HOME}/Library/Application Support/Spoonjoy/native-durable-cache.json"
 sync_file="${HOME}/Library/Application Support/Spoonjoy/native-sync-store.json"
 proof_file="${HOME}/Library/Application Support/Spoonjoy/native-screenshot-proof.json"
+auth_file="${HOME}/Library/Application Support/Spoonjoy/debug-auth-session.json"
 state_backup="$artifact_root/native-app-state-capture-backup.json"
 cache_backup="$artifact_root/native-durable-cache-capture-backup.json"
 sync_backup="$artifact_root/native-sync-store-capture-backup.json"
 proof_backup="$artifact_root/native-screenshot-proof-capture-backup.json"
+auth_backup="$artifact_root/debug-auth-session-capture-backup.json"
 macos_launch_env_backup="$artifact_root/apple/${unit_slug}-macos-launch-env-backup.env"
 ios_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-ios.json"
 macos_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-macos.json"
@@ -63,6 +65,9 @@ screenshot_proof_path=""
 screenshot_route="kitchen"
 shopping_capture_variant="normal"
 search_capture_variant="blank"
+capture_surface_variant="normal"
+screenshot_auth_enabled="1"
+expected_accessibility_source=""
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
 else
@@ -104,6 +109,16 @@ else
     screenshot_route="search-no-results"
   elif [[ "$unit_slug" == *search* ]]; then
     screenshot_route="search"
+  elif [[ "$unit_slug" == *capture-signed-out* || "$unit_slug" == *capture_signed_out* ]]; then
+    screenshot_route="capture-signed-out"
+  elif [[ "$unit_slug" == *capture-provider-blocked* || "$unit_slug" == *capture_provider_blocked* ]]; then
+    screenshot_route="capture-provider-blocked"
+  elif [[ "$unit_slug" == *capture-offline-retry* || "$unit_slug" == *capture_offline_retry* ]]; then
+    screenshot_route="capture-offline-retry"
+  elif [[ "$unit_slug" == *capture-draft* || "$unit_slug" == *capture_draft* ]]; then
+    screenshot_route="capture-draft"
+  elif [[ "$unit_slug" == *capture-empty* || "$unit_slug" == *capture_empty* ]]; then
+    screenshot_route="capture-empty"
   elif [[ "$unit_slug" == *capture* ]]; then
     screenshot_route="capture"
   elif [[ "$unit_slug" == *settings* || "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
@@ -143,6 +158,22 @@ elif [[ "$screenshot_route" == "search-scoped-shopping" ]]; then
 elif [[ "$screenshot_route" == "search-no-results" ]]; then
   search_capture_variant="no-results"
   screenshot_route="search"
+elif [[ "$screenshot_route" == "capture-empty" ]]; then
+  capture_surface_variant="empty"
+  screenshot_route="capture"
+elif [[ "$screenshot_route" == "capture-draft" ]]; then
+  capture_surface_variant="draft"
+  screenshot_route="capture"
+elif [[ "$screenshot_route" == "capture-offline-retry" ]]; then
+  capture_surface_variant="offline-retry"
+  screenshot_route="capture"
+elif [[ "$screenshot_route" == "capture-provider-blocked" ]]; then
+  capture_surface_variant="provider-blocked"
+  screenshot_route="capture"
+elif [[ "$screenshot_route" == "capture-signed-out" ]]; then
+  capture_surface_variant="signed-out"
+  screenshot_auth_enabled="0"
+  screenshot_route="capture"
 fi
 settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
@@ -266,7 +297,13 @@ case "$screenshot_route" in
     macos_window_title="Search"
     ;;
   capture)
-    capture_account_id="$kitchen_capture_account_id"
+    if [[ "$capture_surface_variant" == "signed-out" ]]; then
+      capture_account_id="signed-out"
+      expected_accessibility_source="SignedOutSetupView"
+    else
+      capture_account_id="$kitchen_capture_account_id"
+      expected_accessibility_source="CaptureDraftView"
+    fi
     expected_recorded_route="capture"
     deep_link_path="capture"
     macos_window_title="Capture"
@@ -395,7 +432,7 @@ run_cleanup_command() {
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, expected_search_query, expected_search_scope, expected_search_route_identifier = ARGV
+    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, capture_surface_variant, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
@@ -467,14 +504,17 @@ write_design_review_success() {
       manifest["shoppingListVariant"] = shopping_variant
       manifest["shoppingConflictState"] = true if shopping_variant == "conflict"
     elsif route == "capture"
-      manifest["captureNativeSurface"] = true
-      manifest["captureSeedAccountID"] = "chef_kitchen_capture"
+      manifest["captureSurfaceVariant"] = capture_surface_variant
+      manifest["captureSignedOutSurface"] = capture_surface_variant == "signed-out"
+      manifest["captureNativeSurface"] = capture_surface_variant != "signed-out"
+      manifest["captureSeedAccountID"] = capture_surface_variant == "signed-out" ? "signed-out" : "chef_kitchen_capture"
+      manifest["captureScreenshotAuth"] = screenshot_auth_enabled
     else
       manifest["kitchenSignedInSurface"] = true
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
 }
 
 is_xcode_platform_blocker() {
@@ -495,7 +535,7 @@ write_app_state() {
   local path="$1"
   local route="$2"
   ruby -rjson -rfileutils -e '
-    path, route, account_id, shopping_variant = ARGV
+    path, route, account_id, shopping_variant, capture_variant = ARGV
     shopping_fixture_path = "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json"
     shopping_list = if route == "shopping-list" && File.file?(shopping_fixture_path)
                       JSON.parse(File.read(shopping_fixture_path))
@@ -553,6 +593,36 @@ write_app_state() {
       )
       shopping_list["items"] = shopping_list.fetch("items") + [duplicate]
     end
+    capture_url = "https://spoonjoy.app/recipes/lemon-pantry-import"
+    capture_draft = if route == "capture" && ["draft", "offline-retry", "provider-blocked"].include?(capture_variant)
+                      {
+                        "id" => "draft_capture_#{capture_variant.tr("-", "_")}",
+                        "source" => "url",
+                        "rawText" => capture_url,
+                        "imageAssetIdentifier" => nil,
+                        "sourceURL" => nil,
+                        "capturedURL" => capture_url,
+                        "jsonLD" => nil,
+                        "createdAt" => "2026-06-16T12:08:40.000Z",
+                        "status" => "localOnly"
+                      }
+                    end
+    capture_import_mutation = if route == "capture" && capture_variant == "offline-retry"
+                                {
+                                  "schemaVersion" => 1,
+                                  "id" => "native:cm_capture_import_retry",
+                                  "clientMutationId" => "cm_capture_import_retry",
+                                  "createdAt" => "2026-06-16T12:08:50.000Z",
+                                  "retryCount" => 0,
+                                  "kind" => {
+                                    "type" => "recipe.import.submit",
+                                    "source" => {
+                                      "type" => "url",
+                                      "url" => capture_url
+                                    }
+                                  }
+                                }
+                              end
     snapshot = {
       "schemaVersion" => 1,
       "accountID" => account_id,
@@ -561,22 +631,23 @@ write_app_state() {
       "cookProgressByRecipeID" => {},
       "spoonCookLogDraftsByRecipeID" => {},
       "shoppingList" => shopping_list,
-      "captureDraft" => nil,
-      "pendingCaptureImport" => nil,
-      "captureImportProviderBlocker" => nil,
+      "captureDraft" => capture_draft,
+      "pendingCaptureImport" => capture_import_mutation,
+      "captureImportProviderBlocker" => route == "capture" && capture_variant == "provider-blocked" ? "recipe-import" : nil,
       "pendingMutations" => { "mutations" => [] },
       "lastOpenedRoute" => route,
       "savedAt" => "2026-06-16T12:09:00.000Z"
     }
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$route" "$capture_account_id" "$shopping_capture_variant"
+  ' "$path" "$route" "$capture_account_id" "$shopping_capture_variant" "$capture_surface_variant"
 }
 
 write_sync_store() {
   local path="$1"
+  local route="$2"
   ruby -rjson -rfileutils -e '
-    path, account_id, shopping_variant = ARGV
+    path, route, account_id, shopping_variant, capture_variant = ARGV
     recipes_path = "Sources/SpoonjoyCore/Fixtures/recipes-fixture.json"
     cookbooks_path = "Sources/SpoonjoyCore/Fixtures/cookbooks-fixture.json"
     shopping_path = "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json"
@@ -647,6 +718,19 @@ write_sync_store() {
                   }
                 ]
               end
+    if route == "recipe-detail"
+      cover_asset_path = File.expand_path("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png")
+      recipes = recipes.map do |recipe|
+        next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
+
+        recipe.merge(
+          "coverImageUrl" => "file://#{cover_asset_path}",
+          "coverProvenanceLabel" => nil,
+          "coverSourceType" => "chef-upload",
+          "coverVariant" => "image"
+        )
+      end
+    end
     cookbooks = if File.file?(cookbooks_path)
                   JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
                 else
@@ -770,6 +854,22 @@ write_sync_store() {
         }
       }
     end
+    if capture_variant == "offline-retry"
+      queue_mutations << {
+        "schemaVersion" => 1,
+        "id" => "native:cm_capture_import_retry",
+        "clientMutationId" => "cm_capture_import_retry",
+        "createdAt" => "2026-06-16T12:08:50.000Z",
+        "retryCount" => 0,
+        "kind" => {
+          "type" => "recipe.import.submit",
+          "source" => {
+            "type" => "url",
+            "url" => "https://spoonjoy.app/recipes/lemon-pantry-import"
+          }
+        }
+      }
+    end
     snapshot = {
       "accountID" => account_id,
       "environment" => "production",
@@ -780,7 +880,7 @@ write_sync_store() {
     }
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$capture_account_id" "$shopping_capture_variant"
+  ' "$path" "$route" "$capture_account_id" "$shopping_capture_variant" "$capture_surface_variant"
 }
 
 write_cache_state() {
@@ -989,7 +1089,7 @@ ios_launch_app() {
   local udid="$1"
   run_with_timeout "simulator launch timeout" "$ios_launch_timeout_seconds" "$capture_log" \
     env \
-      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH=1 \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH="$screenshot_auth_enabled" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
@@ -1006,7 +1106,7 @@ open_macos_app() {
   set_macos_launch_environment
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
     env \
-      SPOONJOY_SCREENSHOT_AUTH=1 \
+      SPOONJOY_SCREENSHOT_AUTH="$screenshot_auth_enabled" \
       SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
       SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
       SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
@@ -1048,7 +1148,7 @@ set_macos_launch_environment() {
       fi
     done
   fi
-  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_AUTH 1
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_AUTH "$screenshot_auth_enabled"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY 1
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCOUNT_ID "$capture_account_id"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SETTINGS_FOCUS "$settings_capture_focus"
@@ -1239,9 +1339,10 @@ wait_for_accessibility_proof() {
   local expected_route="$2"
   local expected_platform="$3"
   local output_path="$4"
+  local source_override="${5:-}"
   for _ in $(seq 1 "$proof_attempts"); do
     if ruby -rjson -rfileutils -e '
-      path, expected_route, expected_platform, output_path = ARGV
+      path, expected_route, expected_platform, output_path, source_override = ARGV
       proof = JSON.parse(File.read(path))
       expected_source = case expected_route
                         when "kitchen" then "KitchenView"
@@ -1257,6 +1358,8 @@ wait_for_accessibility_proof() {
                         when "shopping-list" then "ShoppingListView"
                         else abort("unsupported route #{expected_route}")
                         end
+      expected_source = source_override unless source_override.empty?
+      evidence_key = expected_source == "SignedOutSetupView" ? "capture-signed-out" : expected_route
       expected_bundle = expected_platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
       expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast", "kitchenTableHierarchy", "noOverlap"]
       expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
@@ -1304,12 +1407,20 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
-          "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online"],
-          "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online"],
+          "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+          "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
-          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+        },
+        "capture-signed-out" => {
+          "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
+          "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
+          "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
+          "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "settings" => {
           "voiceOverLabels" => ["Settings", "Profile", "Security"],
@@ -1366,7 +1477,7 @@ wait_for_accessibility_proof() {
       abort("#{expected_platform} accessibility proof observedReduceMotion missing") unless [true, false].include?(proof.fetch("observedReduceMotion"))
       route_evidence = proof.fetch("routeEvidence")
       abort("#{expected_platform} accessibility proof routeEvidence mismatch") unless route_evidence.is_a?(Hash)
-      expected_route_evidence.fetch(expected_route).each do |field, required_values|
+      expected_route_evidence.fetch(evidence_key).each do |field, required_values|
         actual_values = route_evidence.fetch(field)
         abort("#{expected_platform} accessibility proof routeEvidence #{field} is not an array") unless actual_values.is_a?(Array)
         missing_values = required_values.reject { |value| actual_values.include?(value) }
@@ -1383,7 +1494,7 @@ wait_for_accessibility_proof() {
       abort("#{expected_platform} accessibility proof severityCorrect mismatch") unless offline.fetch("severityCorrect") == true
       FileUtils.mkdir_p(File.dirname(output_path))
       File.write(output_path, JSON.pretty_generate(proof) + "\n")
-    ' "$proof_path" "$expected_route" "$expected_platform" "$output_path" >/dev/null 2>&1; then
+    ' "$proof_path" "$expected_route" "$expected_platform" "$output_path" "$source_override" >/dev/null 2>&1; then
       return 0
     fi
     sleep "$proof_sleep_seconds"
@@ -1501,9 +1612,10 @@ capture_ios_app() {
   ios_accessibility_proof_runtime_path="$ios_app_dir/native-accessibility-proof.json"
   write_app_state "$ios_app_dir/native-app-state.json" "$expected_recorded_route"
   write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
-  write_sync_store "$ios_app_dir/native-sync-store.json"
+  write_sync_store "$ios_app_dir/native-sync-store.json" "$screenshot_route"
   rm -f "$screenshot_proof_path"
   rm -f "$ios_accessibility_proof_runtime_path"
+  rm -f "$ios_app_dir/debug-auth-session.json"
   if ! xcrun simctl terminate "$udid" app.spoonjoy >"$terminate_log" 2>&1; then
     if ! grep -qi "found nothing to terminate" "$terminate_log"; then
       cat "$terminate_log" >> "$capture_log"
@@ -1526,7 +1638,7 @@ capture_ios_app() {
     wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" "$proof_route_identifier" || return 1
     validate_screenshot_surface_proof "$screenshot_proof_path" "$ios_proof_artifact" "ios" >> "$capture_log" 2>&1 || return 1
   fi
-  if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "$accessibility_proof_ios"; then
+  if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "$accessibility_proof_ios" "$expected_accessibility_source"; then
     log_accessibility_proof_diagnostic "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "iOS"
     printf 'Spoonjoy did not write the expected iOS accessibility proof for %s\n' "$screenshot_route" >> "$capture_log"
     return 1
@@ -1656,6 +1768,13 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   else
     rm -f "$proof_backup"
   fi
+  auth_had_backup=false
+  if [[ -f "$auth_file" ]]; then
+    cp "$auth_file" "$auth_backup"
+    auth_had_backup=true
+  else
+    rm -f "$auth_backup"
+  fi
   restore_capture_state() {
     clear_macos_launch_environment
     if [[ "$state_had_backup" == "true" && -f "$state_backup" ]]; then
@@ -1682,17 +1801,24 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     else
       rm -f "$proof_file"
     fi
+    if [[ "$auth_had_backup" == "true" && -f "$auth_backup" ]]; then
+      mkdir -p "$(dirname "$auth_file")"
+      cp "$auth_backup" "$auth_file"
+    else
+      rm -f "$auth_file"
+    fi
   }
   trap restore_capture_state EXIT
   rm -f "$state_file"
   rm -f "$cache_file"
   rm -f "$sync_file"
   rm -f "$proof_file"
+  rm -f "$auth_file"
   rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
   screenshot_proof_path="$proof_file"
   write_app_state "$state_file" "$expected_recorded_route"
   write_cache_state "$cache_file" "$screenshot_route"
-  write_sync_store "$sync_file"
+  write_sync_store "$sync_file" "$screenshot_route"
   run_cleanup_command "quit Spoonjoy before capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
   run_cleanup_command "kill Spoonjoy before capture" pkill -x Spoonjoy || true
   sleep 1
@@ -1741,7 +1867,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy macOS did not prove the expected visible screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
   fi
-  if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs"; then
+  if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs" "$expected_accessibility_source"; then
     log_accessibility_proof_diagnostic "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "macOS"
     printf 'Spoonjoy did not write the expected macOS accessibility proof for %s\n' "$screenshot_route" >> "$capture_log"
     write_blocker \
@@ -1779,7 +1905,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
     write_app_state "$state_file" "$expected_recorded_route"
     write_cache_state "$cache_file" "$screenshot_route"
-    write_sync_store "$sync_file"
+    write_sync_store "$sync_file" "$screenshot_route"
     if ! open_macos_app; then
       write_blocker \
         "$macos_blocker" \
@@ -1819,7 +1945,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
         "Spoonjoy macOS did not prove the expected visible screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
     fi
-    if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs"; then
+    if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs" "$expected_accessibility_source"; then
       log_accessibility_proof_diagnostic "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "macOS relaunch"
       printf 'Spoonjoy did not write the expected macOS accessibility proof after relaunch for %s\n' "$screenshot_route" >> "$capture_log"
       write_blocker \

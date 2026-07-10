@@ -231,6 +231,11 @@ routes=(
   "search-scoped-shopping|search|$routes_dir/search-scoped-shopping|$unit_slug-search-scoped-shopping"
   "search-no-results|search|$routes_dir/search-no-results|$unit_slug-search-no-results"
   "capture|capture|$routes_dir/capture|$unit_slug-capture"
+  "capture-empty|capture-empty|$routes_dir/capture-empty|$unit_slug-capture-empty"
+  "capture-draft|capture-draft|$routes_dir/capture-draft|$unit_slug-capture-draft"
+  "capture-offline-retry|capture-offline-retry|$routes_dir/capture-offline-retry|$unit_slug-capture-offline-retry"
+  "capture-provider-blocked|capture-provider-blocked|$routes_dir/capture-provider-blocked|$unit_slug-capture-provider-blocked"
+  "capture-signed-out|capture-signed-out|$routes_dir/capture-signed-out|$unit_slug-capture-signed-out"
   "settings|settings|$routes_dir/settings|$unit_slug-settings"
   "settings-notifications|settings|$routes_dir/settings-notifications|$unit_slug-settings-notifications"
 )

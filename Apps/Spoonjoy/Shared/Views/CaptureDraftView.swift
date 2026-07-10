@@ -13,12 +13,21 @@ struct CaptureDraftView: View {
 
     private let inputDraft: CaptureDraft?
     private let importViewModel: CaptureImportViewModel?
+    private let shellOfflineIndicatorState: OfflineIndicatorState?
     private let draftDidChange: @MainActor (CaptureDraft) -> Void
     private let draftDidDiscard: @MainActor (CaptureDraft) async throws -> Void
     private let importDidSubmit: @MainActor (CaptureDraft) async throws -> CaptureImportPlan
+    private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     private var hasPendingImport: Bool {
         importViewModel?.pendingRetryMutation != nil
+    }
+
+    private var hasProviderBlocker: Bool {
+        if case .blocker(.providerSecret) = shellOfflineIndicatorState?.display {
+            return true
+        }
+        return false
     }
 
     private var isOffline: Bool {
@@ -28,27 +37,32 @@ struct CaptureDraftView: View {
     init(
         viewModel: CaptureDraftViewModel?,
         importViewModel: CaptureImportViewModel?,
+        shellOfflineIndicatorState: OfflineIndicatorState? = nil,
         draftDidChange: @escaping @MainActor (CaptureDraft) -> Void,
         draftDidDiscard: @escaping @MainActor (CaptureDraft) async throws -> Void,
-        importDidSubmit: @escaping @MainActor (CaptureDraft) async throws -> CaptureImportPlan
+        importDidSubmit: @escaping @MainActor (CaptureDraft) async throws -> CaptureImportPlan,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         let draft = viewModel?.draft
         _currentDraft = State(initialValue: draft)
         self.inputDraft = draft
         self.importViewModel = importViewModel
+        self.shellOfflineIndicatorState = shellOfflineIndicatorState
         self.draftDidChange = draftDidChange
         self.draftDidDiscard = draftDidDiscard
         self.importDidSubmit = importDidSubmit
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
     var body: some View {
         KitchenTablePage {
             header
-            entryPointLedger
+            offlineStatus
             agentImportStatus
             if let currentDraft {
                 draftPreview(currentDraft)
             }
+            entryPointLedger
             statusBanner
         }
         .onAppear {
@@ -73,18 +87,8 @@ struct CaptureDraftView: View {
         KitchenTableHeader(
             eyebrow: "Agent import",
             title: "Capture",
-            subtitle: "MCP agent and App Intents imports appear here for review. Share Sheet, Siri, camera, and photo imports stay marked until they are real."
-        ) {
-            if let currentDraft {
-                Button {
-                    Task { await discard(currentDraft) }
-                } label: {
-                    Label("Delete capture", systemImage: "trash")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
-                .disabled(actionInFlight)
-            }
-        }
+            subtitle: "MCP agent imports appear here for review. Native App Intents open the same local review and retry flow."
+        )
     }
 
     private var entryPointLedger: some View {
@@ -107,7 +111,18 @@ struct CaptureDraftView: View {
     }
 
     private var agentImportStatus: some View {
-        ImportStatusPanel(hasCurrentDraft: currentDraft != nil, hasPendingImport: hasPendingImport, isOffline: isOffline)
+        ImportStatusPanel(
+            hasCurrentDraft: currentDraft != nil,
+            hasPendingImport: hasPendingImport,
+            hasProviderBlocker: hasProviderBlocker,
+            isOffline: isOffline
+        )
+    }
+
+    @ViewBuilder private var offlineStatus: some View {
+        if let display = shellOfflineIndicatorState?.display, display.isVisible {
+            OfflineStatusView(display: display, onDismiss: onDismissOfflineIndicator)
+        }
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -177,7 +192,7 @@ struct CaptureDraftView: View {
     }
 
     private var submitButtonTitle: String {
-        hasPendingImport ? "Retry when online" : "Submit import"
+        hasPendingImport ? "Retry sync" : "Submit import"
     }
 
     private func reconcile(with draft: CaptureDraft?) {
@@ -249,10 +264,6 @@ struct CaptureDraftView: View {
 private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
     case agentMCP
     case appIntent
-    case shareSheetComingSoon
-    case siriComingSoon
-    case cameraComingSoon
-    case photoLibraryComingSoon
 
     var id: String { rawValue }
 
@@ -262,31 +273,15 @@ private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
             "MCP agent"
         case .appIntent:
             "App Intents"
-        case .shareSheetComingSoon:
-            "Share Sheet"
-        case .siriComingSoon:
-            "Siri"
-        case .cameraComingSoon:
-            "Camera"
-        case .photoLibraryComingSoon:
-            "Photo Library"
         }
     }
 
     var detail: String {
         switch self {
         case .agentMCP:
-            "Use the Spoonjoy agent to send an import-ready draft into this app."
+            "Send an import-ready recipe capture from the Spoonjoy agent."
         case .appIntent:
-            "Native intents can create, open, submit, and delete capture drafts."
-        case .shareSheetComingSoon:
-            "Not exposed until the extension can create the same durable draft."
-        case .siriComingSoon:
-            "Kept out of visible copy until the spoken flow is reviewed end to end."
-        case .cameraComingSoon:
-            "No camera promise until OCR, retry, and privacy review are complete."
-        case .photoLibraryComingSoon:
-            "No photo-library promise until OCR, retry, and privacy review are complete."
+            "Open, submit, and delete captures from native actions and Siri."
         }
     }
 
@@ -294,8 +289,6 @@ private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
         switch self {
         case .agentMCP, .appIntent:
             "Ready"
-        case .shareSheetComingSoon, .siriComingSoon, .cameraComingSoon, .photoLibraryComingSoon:
-            "Coming soon"
         }
     }
 
@@ -305,14 +298,6 @@ private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
             "wand.and.stars"
         case .appIntent:
             "sparkles"
-        case .shareSheetComingSoon:
-            "square.and.arrow.up"
-        case .siriComingSoon:
-            "waveform"
-        case .cameraComingSoon:
-            "camera"
-        case .photoLibraryComingSoon:
-            "photo.on.rectangle"
         }
     }
 }
@@ -350,13 +335,14 @@ private struct CaptureImportEntryPointRow: View {
 private struct ImportStatusPanel: View {
     let hasCurrentDraft: Bool
     let hasPendingImport: Bool
+    let hasProviderBlocker: Bool
     let isOffline: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(statusTitle, systemImage: statusSymbol)
                 .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(statusForeground)
             Text(statusBody)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
@@ -364,15 +350,18 @@ private struct ImportStatusPanel: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper)
+        .background(statusBackground)
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.line.opacity(0.45), lineWidth: 1)
+                .stroke(statusStroke, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     private var statusTitle: String {
+        if hasProviderBlocker {
+            return "Resolve import setup"
+        }
         if hasPendingImport {
             return "Retry when online"
         }
@@ -386,6 +375,9 @@ private struct ImportStatusPanel: View {
     }
 
     private var statusBody: String {
+        if hasProviderBlocker {
+            return "Recipe import setup is required before Spoonjoy can finish this capture. Fix the provider setup, then retry the saved import."
+        }
         if hasPendingImport {
             return "The import is saved locally. Spoonjoy will retry it when the account is back online."
         }
@@ -393,12 +385,51 @@ private struct ImportStatusPanel: View {
             return "Review the captured source below. Submit import when it is ready."
         }
         if isOffline {
-            return "New agent or App Intents imports can be kept locally until Spoonjoy reconnects."
+            return "New MCP agent or App Intents imports can be kept locally until Spoonjoy reconnects."
         }
-        return "Use the Spoonjoy MCP agent or App Intents to create a capture. Future entry points are listed honestly above."
+        return "Use the Spoonjoy MCP agent or App Intents to create a capture."
     }
 
     private var statusSymbol: String {
-        hasPendingImport ? "clock.arrow.circlepath" : "tray.and.arrow.down"
+        if hasProviderBlocker {
+            return "lock.shield.fill"
+        }
+        if hasPendingImport {
+            return "clock.arrow.circlepath"
+        }
+        if hasCurrentDraft {
+            return "tray.and.arrow.up.fill"
+        }
+        return "tray.and.arrow.down"
+    }
+
+    private var statusForeground: Color {
+        if hasProviderBlocker {
+            return KitchenTableTheme.tomato
+        }
+        if hasPendingImport {
+            return KitchenTableTheme.brass
+        }
+        return KitchenTableTheme.charcoal
+    }
+
+    private var statusBackground: Color {
+        if hasProviderBlocker {
+            return KitchenTableTheme.tomato.opacity(0.08)
+        }
+        if hasPendingImport {
+            return KitchenTableTheme.brass.opacity(0.10)
+        }
+        return KitchenTableTheme.paper
+    }
+
+    private var statusStroke: Color {
+        if hasProviderBlocker {
+            return KitchenTableTheme.tomato.opacity(0.35)
+        }
+        if hasPendingImport {
+            return KitchenTableTheme.brass.opacity(0.35)
+        }
+        return KitchenTableTheme.line.opacity(0.45)
     }
 }

@@ -1,0 +1,24 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SpoonjoyCoreTests
+[4/5] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (15.20s)
+Test Suite 'Selected tests' started at 2026-07-10 09:14:53.378.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 09:14:53.383.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 09:14:53.383.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 09:14:53.383.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.005) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "restore cache only launch mode preserves capture import retry and blocker severity" started.
+✘ Test "restore cache only launch mode preserves capture import retry and blocker severity" recorded an issue at NativeLiveStoreTests.swift:1800:29: Issue recorded
+↳ Expected restore-cache-only launch to preserve queued capture import; got .offlineStale(SpoonjoyCore.NativeShellContentState(recipes: [], cookbooks: [], cachedProfiles: [], kitchen: SpoonjoyCore.KitchenFixtureState(status: SpoonjoyCore.KitchenFixtureStatus.bootstrap, leadObject: SpoonjoyCore.KitchenLeadObject.recipe(id: "live-empty", title: "Spoonjoy"), primaryAction: SpoonjoyCore.KitchenPrimaryAction.startCookMode(recipeID: "live-empty"), counts: SpoonjoyCore.KitchenCounts(recipes: 0, cookbooks: 0, shoppingItems: 0), offlineRestore: SpoonjoyCore.OfflineRestoreMetadata(snapshotID: "chef_capture_restore:production", includesShoppingList: false)), shoppingList: nil, captureDraft: Optional(SpoonjoyCore.CaptureDraft(id: "draft_restore_capture", source: SpoonjoyCore.CaptureDraftSource.url, rawText: "https://example.com/restore-capture", imageAssetIdentifier: nil, sourceURL: nil, capturedURL: Optional(https://example.com/restore-capture), jsonLD: nil, createdAt: "2026-05-28T23:13:20.000Z", status: SpoonjoyCore.CaptureDraftStatus.localOnly)), cookProgressByRecipeID: [:], spoonCookLogDraftsByRecipeID: [:], queuedMutations: [SpoonjoyCore.NativeQueuedMutation(id: "native:cm_restore_capture_import", clientMutationID: "cm_restore_capture_import", createdAt: "2026-05-28T23:13:20.000Z", payloadSchemaVersion: 1, retryCount: 0, nextRetryAt: nil, lastError: nil, queueableKind: SpoonjoyCore.NativeQueuedMutationKind.recipeImportSubmit, values: ["source": SpoonjoyCore.JSONValue.object(["type": SpoonjoyCore.JSONValue.string("url"), "url": SpoonjoyCore.JSONValue.string("https://example.com/restore-capture")])], media: [:])], syncConflicts: [], searchResultsByScope: [SpoonjoyCore.SearchScope.chefs: [], SpoonjoyCore.SearchScope.recipes: [], SpoonjoyCore.SearchScope.all: [], SpoonjoyCore.SearchScope.cookbooks: [], SpoonjoyCore.SearchScope.shoppingList: []], searchSurfaceSnapshots: [], authSessionState: SpoonjoyCore.NativeAuthSessionState.authenticated(SpoonjoyCore.AuthSession(clientID: "client_live", accessToken: "sj_access_current", refreshToken: "sj_refresh_current", tokenType: "Bearer", expiresAt: 2026-05-28 23:23:20 +0000, scope: "kitchen:read kitchen:write shopping_list:read shopping_list:write account:read account:write", accountID: Optional("chef_capture_restore"))), environment: SpoonjoyCore.NativeCacheEnvironment.production, configuration: SpoonjoyCore.APIClientConfiguration(baseURL: https://spoonjoy.app, bearerToken: Optional("sj_access_current")), offlineIndicatorState: SpoonjoyCore.OfflineIndicatorState(display: SpoonjoyCore.OfflineIndicatorDisplay.offline, dismissal: nil), settingsSurfaceData: nil, notificationAPNsSurfaceData: nil))
+✘ Test "restore cache only launch mode preserves capture import retry and blocker severity" failed after 0.034 seconds with 1 issue.
+✘ Suite "Native live store and shell wiring" failed after 0.034 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.034 seconds with 1 issue.

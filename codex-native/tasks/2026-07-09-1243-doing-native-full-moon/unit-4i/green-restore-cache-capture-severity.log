@@ -1,0 +1,30 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/9] Emitting module SpoonjoyCore
+[4/9] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[4/11] Write Objects.LinkFileList
+[6/13] Linking SpoonjoyScenarioVerifier
+[7/13] Linking SpoonjoyNativeDogfood
+[8/13] Applying SpoonjoyScenarioVerifier
+[9/13] Applying SpoonjoyNativeDogfood
+[11/13] Emitting module SpoonjoyCoreTests
+[12/13] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[12/14] Write Objects.LinkFileList
+[13/14] Linking SpoonjoyApplePackageTests
+Build complete! (14.67s)
+Test Suite 'Selected tests' started at 2026-07-10 09:17:27.136.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 09:17:27.139.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 09:17:27.139.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 09:17:27.139.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native live store and shell wiring" started.
+◇ Test "restore cache only launch mode preserves capture import retry and blocker severity" started.
+✔ Test "restore cache only launch mode preserves capture import retry and blocker severity" passed after 0.012 seconds.
+✔ Suite "Native live store and shell wiring" passed after 0.012 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.012 seconds.

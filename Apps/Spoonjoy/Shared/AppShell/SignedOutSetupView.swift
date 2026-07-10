@@ -14,6 +14,8 @@ struct SignedOutSetupView: View {
     let openSettings: () -> Void
     let onSignedIn: @MainActor () async -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var emailOrUsername = ""
     @State private var password = ""
     @State private var authStatus = "Use your Spoonjoy email or username to sign in."
@@ -42,6 +44,7 @@ struct SignedOutSetupView: View {
         .task {
             appleSignInCapability = Self.currentAppleSignInCapability()
             await restoreState()
+            await writeCapturePendingProofIfNeeded()
         }
     }
 
@@ -587,6 +590,20 @@ struct SignedOutSetupView: View {
         case .unknownLink:
             "Opening Link"
         }
+    }
+
+    private func writeCapturePendingProofIfNeeded() async {
+        guard pendingRoute == .capture else {
+            return
+        }
+        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+            route: "capture",
+            source: "SignedOutSetupView",
+            runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                dynamicTypeSize: String(describing: dynamicTypeSize),
+                reduceMotionEnabled: accessibilityReduceMotion
+            )
+        )
     }
 }
 

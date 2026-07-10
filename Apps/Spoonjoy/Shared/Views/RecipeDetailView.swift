@@ -344,55 +344,39 @@ struct RecipeDetailView: View {
 #endif
     }
 
-    private var provenance: String {
-        viewModel.cover.provenanceLabel ?? viewModel.recipe.attribution.creditText
-    }
-
     private var recipeMasthead: some View {
         VStack(alignment: .leading, spacing: 16) {
-            recipeHeroMedia
+            if viewModel.cover.hasRealCover {
+                recipeHeroMedia
+            }
             recipeIdentityAndProvenance
+            if !viewModel.cover.hasRealCover {
+                recipeNoPhotoStatus
+            }
             recipeMastheadActions
             recipeHeaderControls
         }
     }
 
-    private var recipeHeroMedia: some View {
-        Group {
-            if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
-                RecipeCoverImage(
-                    url: coverImageURL,
-                    title: viewModel.title,
-                    subtitle: "Cover",
-                    showsFallbackLabel: false
-                )
-                    .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
-                    .clipped()
-                    .overlay(alignment: .bottomLeading) {
-                        Text(provenance)
-                            .font(KitchenTableTheme.uiLabel)
-                            .padding(10)
-                            .background(KitchenTableTheme.photoOverlay, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                            .foregroundStyle(.white)
-                            .padding(12)
-                    }
-                    .accessibilityLabel("\(viewModel.title) cover image")
-            } else {
-                RecipeCoverImage(
-                    url: nil,
-                    title: viewModel.title,
-                    subtitle: viewModel.cover.noPhotoLabel,
-                    showsFallbackLabel: true
-                )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: recipeNoPhotoHeight)
-                    .accessibilityLabel(viewModel.cover.accessibilityLabel)
-            }
+    @ViewBuilder private var recipeHeroMedia: some View {
+        if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
+            RecipeCoverImage(
+                url: coverImageURL,
+                title: viewModel.title,
+                subtitle: "Cover",
+                showsFallbackLabel: false
+            )
+                .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
+                .clipped()
+                .accessibilityLabel("\(viewModel.title) cover image")
         }
     }
 
-    private var recipeNoPhotoHeight: CGFloat {
-        usesCompactRecipeDock ? 168 : 140
+    private var recipeNoPhotoStatus: some View {
+        Label(viewModel.cover.noPhotoLabel, systemImage: "photo.badge.plus")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.inkMuted)
+            .accessibilityLabel(viewModel.cover.accessibilityLabel)
     }
 
     private var recipeIdentityAndProvenance: some View {
@@ -815,12 +799,19 @@ struct RecipeDetailView: View {
                 }
             }
         } label: {
-            Label("Manage recipe", systemImage: "ellipsis.circle")
+            Image(systemName: "ellipsis")
+                .font(.headline.weight(.semibold))
+                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
+                }
         }
-        .font(KitchenTableTheme.uiLabel)
-        .foregroundStyle(KitchenTableTheme.inkMuted)
         .buttonStyle(.plain)
         .accessibilityLabel("Manage recipe")
+        .accessibilityHint("Opens owner tools for this recipe.")
     }
 
     @ViewBuilder private var offlineIndicator: some View {

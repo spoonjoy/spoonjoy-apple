@@ -110,12 +110,21 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("capture", "CaptureDraftView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Agent import", "Capture", "Submit import", "Retry when online"],
-                keyboardNavigationTargets: ["entry point ledger", "saved capture actions", "Retry when online"],
+                voiceOverLabels: ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+                keyboardNavigationTargets: ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role"],
-                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+            )
+        case ("capture", "SignedOutSetupView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
+                keyboardNavigationTargets: ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
+                contrastPairs: ["charcoal on bone", "herb button on bone", "brass status on bone"],
+                hierarchyAnchors: ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters"]
             )
         case ("search", "SearchView"):
             RouteAccessibilityEvidence(

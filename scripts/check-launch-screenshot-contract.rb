@@ -373,6 +373,8 @@ def accessibility_source(route)
     "SettingsView"
   when "cookbook-detail"
     "CookbookDetailView"
+  when "capture"
+    "CaptureDraftView"
   else
     "KitchenView"
   end
@@ -400,21 +402,30 @@ def route_accessibility_evidence(route)
     }
   when "cookbook-detail"
     {
-      "voiceOverLabels" => ["Weeknights", "Recipes", "Share Cookbook", "Owner Tools", "Lemon Pantry Pasta", "Tomato Toast"],
-      "keyboardNavigationTargets" => ["cookbook primary actions", "recipe rows", "share menu"],
+      "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+      "keyboardNavigationTargets" => ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
-      "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookDetailHero", "CookbookRecipeList", "KitchenTableObjectRow"],
+      "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
       "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    }
+  when "capture"
+    {
+      "voiceOverLabels" => ["Agent import", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+      "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+      "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
     }
   else
     {
-      "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
-      "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+      "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
-      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
     }
   end
 end
@@ -681,6 +692,10 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "searchNativeSurface" => true,
     "searchScopes" => ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
     "searchSeedAccountID" => "chef_search_capture",
+    "searchSurfaceVariant" => "blank",
+    "expectedQuery" => "",
+    "expectedScope" => "all",
+    "expectedRouteIdentifier" => "search:all:",
     "searchSurfaceProofArtifacts" => ["apple/search-proof-ios.json", "apple/search-proof-macos.json"]
   )
   valid_cookbook_detail_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
@@ -688,7 +703,9 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "screenshotRoute" => "cookbook-detail",
     "cookbookDetailSurface" => true,
     "cookbookSeedAccountID" => "chef_kitchen_capture",
-    "cookbookID" => "cookbook_weeknights"
+    "cookbookID" => "cookbook_weeknights",
+    "cookbookContentsIndex" => true,
+    "cookbookOwnerToolsDisclosure" => true
   )
   missing_manifest = valid_manifest.reject { |field, _| field == "mobileScreenshot" }
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
@@ -1222,7 +1239,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      route_evidence='{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]}'
       case "$route" in
         search)
           route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["visible search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.visibleSearchField","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
@@ -1231,7 +1248,10 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
           route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
           ;;
         cookbook-detail)
-          route_evidence='{"voiceOverLabels":["Weeknights","Recipes","Share Cookbook","Owner Tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","recipe rows","share menu"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookDetailHero","CookbookRecipeList","KitchenTableObjectRow"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          ;;
+        capture)
+          route_evidence='{"voiceOverLabels":["Agent import","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -1258,6 +1278,10 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
             cookbook-detail)
               accessibility_route="cookbook-detail"
               accessibility_source="CookbookDetailView"
+              ;;
+            capture)
+              accessibility_route="capture"
+              accessibility_source="CaptureDraftView"
               ;;
           esac
           write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy" "$accessibility_source"
@@ -1354,6 +1378,8 @@ PY
         route="cookbook:cookbook_weeknights"
       elif [[ "$script" == *"spoonjoy://cookbooks"* ]]; then
         route="cookbooks"
+      elif [[ "$script" == *"spoonjoy://capture"* ]]; then
+        route="capture"
       fi
       printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"%s"}\n' "$route" > "$state"
     fi
@@ -1373,7 +1399,7 @@ PY
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      route_evidence='{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]}'
       case "$route" in
         search)
           route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["visible search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.visibleSearchField","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
@@ -1382,7 +1408,10 @@ PY
           route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
           ;;
         cookbook-detail)
-          route_evidence='{"voiceOverLabels":["Weeknights","Recipes","Share Cookbook","Owner Tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","recipe rows","share menu"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookDetailHero","CookbookRecipeList","KitchenTableObjectRow"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          ;;
+        capture)
+          route_evidence='{"voiceOverLabels":["Agent import","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -1458,6 +1487,10 @@ PY
         cookbook-detail)
           accessibility_route="cookbook-detail"
           accessibility_source="CookbookDetailView"
+          ;;
+        capture)
+          accessibility_route="capture"
+          accessibility_source="CaptureDraftView"
           ;;
       esac
       write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.mac" "$accessibility_source"
@@ -1918,7 +1951,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
       local platform="$2"
       local bundle="$3"
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -1978,7 +2011,7 @@ PY
     output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
     if [[ -n "$output_path" ]]; then
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
+      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
     fi
   SH
 

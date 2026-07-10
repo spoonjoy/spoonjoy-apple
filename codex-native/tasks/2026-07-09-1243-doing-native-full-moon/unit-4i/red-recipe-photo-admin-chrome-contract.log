@@ -1,0 +1,25 @@
+Another instance of SwiftPM (PID: 36795) is already running using '/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/.build', waiting until that process has finished execution...Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.20s)
+Test Suite 'Selected tests' started at 2026-07-10 09:30:37.363.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 09:30:37.364.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 09:30:37.364.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 09:30:37.364.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" started.
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1508:5: Expectation failed: (missing → ["title: \"Mark step\"", "case primaryIcon", "dockButton(context.centerZone, prominence: .primaryIcon)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift missing tokens: title: "Mark step", case primaryIcon, dockButton(context.centerZone, prominence: .primaryIcon)
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1509:5: Expectation failed: (forbidden → ["title: \"Previous\""]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift contains forbidden tokens: title: "Previous"
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1508:5: Expectation failed: (missing → [".accessibilityHint(\"Opens owner tools for this recipe.\")"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift missing tokens: .accessibilityHint("Opens owner tools for this recipe.")
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" recorded an issue at NativeMobileDesignContractTests.swift:1509:5: Expectation failed: (forbidden → ["Text(provenance)", "Label(\"Manage recipe\", systemImage: \"ellipsis.circle\")", ".background(KitchenTableTheme.photoOverlay"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift contains forbidden tokens: Text(provenance), Label("Manage recipe", systemImage: "ellipsis.circle"), .background(KitchenTableTheme.photoOverlay
+✘ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" failed after 0.032 seconds with 4 issues.
+✘ Suite "Native mobile design contract" failed after 0.032 seconds with 4 issues.
+✘ Test run with 1 test in 1 suite failed after 0.032 seconds with 4 issues.

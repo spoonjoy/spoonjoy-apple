@@ -3,7 +3,7 @@
 **Status**: READY_FOR_EXECUTION
 **Execution Mode**: direct
 **Created**: 2026-07-09 12:49
-**Host context**: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon` / OS: `Darwin` / probed: 2026-07-10T00:45:29Z
+**Host context**: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon` / OS: `Darwin` / probed: 2026-07-10T10:16:00Z
 **Planning**: ./2026-07-09-1243-planning-native-full-moon.md
 **Artifacts**: ./2026-07-09-1243-doing-native-full-moon/
 
@@ -279,7 +279,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Updated capture/import views/models/helpers.
 **Acceptance**: Unit 4g tests pass; no product-facing "Ouro draft" or fake import path remains.
 
-### ⬜ Unit 4i: Capture and Import Visual QA
+### ✅ Unit 4i: Capture and Import Visual QA
 **What**: Capture and inspect Capture normal, empty, draft, offline retry, blocked-provider, and signed-out states on iOS/macOS.
 **Output**: Screenshots, design-review artifacts, and closed capture ledger entries.
 **Acceptance**: Capture has no dead ends or fake promise states.
@@ -547,6 +547,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 08:10 Unit 4f complete: captured and inspected Search blank, typed-all, scoped recipes, scoped cookbooks, scoped chefs, scoped shopping, and no-results states on iOS/macOS; fixed cached-result error cards and added compact iOS visible native search-field chrome after SwiftUI toolbar search proved visually hidden in deterministic captures; cleaned stale feedback-autopilot/compiler jobs plus hidden stale worktree dirs that were affecting capture reliability; cleared generated DerivedData after disk pressure blocked Xcode. Validation passed: all seven design-review manifests, iOS/macOS contact-sheet inspection, focused Search Swift tests, mobile design contracts, screenshot/accessibility contracts, script syntax checks, iOS/macOS app-target builds, warning scan, and `git diff --check`. Evidence is under `unit-4f/`.
 - 2026-07-10 08:15 Unit 4g complete: added red capture/import truthfulness contract requiring MCP-agent and App Intents-backed import language, truthful future Share Sheet/Siri/camera/photo affordances, provider setup/retry actions, and updated screenshot proof contracts; red run fails on current manual URL/text/video/JSON/photo/camera draft creation code, "sent to Spoonjoy" copy, "Send to Spoonjoy" action language, and stale capture proof labels. Evidence is under `unit-4g/red-capture-import-truthful-surface.log`.
 - 2026-07-10 08:29 Unit 4h complete: reworked Capture into a truthful agent/App Intents review surface, removed fake text/URL/video/JSON/photo/camera draft creation paths and stale "Ouro draft"/"Send to Spoonjoy" language, added an entry-point ledger with ready vs coming-soon states, updated screenshot/accessibility proof contracts, retired orphan Spoonjoy Apple worktree directories, and validated focused capture/import tests, native mobile polish contract, native scenario tests, iOS/macOS app-target builds, warning scan, script syntax, and `git diff --check`. Evidence is under `unit-4g/`.
+- 2026-07-10 10:16 Unit 4i complete: inspected latest TestFlight screenshot feedback (`ACb3UVFX_NSiCkYtg2Wnnnw`, `ANvY9In1lrb9GoMUeYuBnog`, duplicate `ALRpvhgTFEtpfKVXemBBA9Y`), fixed the cook-mode bottom handrail balance, removed recipe photo/admin overlay noise and fake no-photo hero slabs, preserved capture retry/provider-blocker severity on restore-cache launches, tightened Capture copy to current MCP/App Intents paths only, refreshed iOS/macOS visual proof (`unit-4i/after-feedback-cook-mode/`, `unit-4i/after-recipe-seed-fix-recipe-detail/`, `unit-4i/final-capture-offline-retry/`), stopped duplicate feedback-spawned Codex agents that were waiting on human gates, and passed final capture/design/cache contracts plus iOS/macOS app-target builds with an empty warning scan. Remaining harness transparency/duplicate-agent work is routed to Unit 6.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1

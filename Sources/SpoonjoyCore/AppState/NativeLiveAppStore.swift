@@ -1763,13 +1763,12 @@ public final class NativeLiveAppStore: ObservableObject {
             if dependencies.bootstrapMode == .restoreCacheOnly {
                 configureForRestoredAuthState(restoredAuthState)
                 let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
-                let offlineContent = restoredContent.copy(
-                    offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
-                )
                 if case .signedOut = restoredAuthState {
-                    apply(.signedOut(offlineContent))
+                    apply(.signedOut(restoredContent.copy(
+                        offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+                    )))
                 } else {
-                    apply(.offlineStale(offlineContent))
+                    apply(restoreCacheOnlyBootstrapState(for: restoredContent))
                 }
                 return
             }
@@ -3229,6 +3228,25 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {
         bootstrapState.replacingContent(content)
+    }
+
+    private func restoreCacheOnlyBootstrapState(for content: NativeShellContentState) -> NativeAppBootstrapState {
+        switch content.offlineIndicatorState.display {
+        case .queuedWork:
+            return .queuedWork(content)
+        case .conflict:
+            return .conflict(content)
+        case .blocker:
+            return .blocker(content)
+        case .destructiveConfirmation:
+            return .destructiveConfirmation(content)
+        case .syncFailure:
+            return .syncFailed(content, message: "Spoonjoy could not finish syncing your account.")
+        case .synced, .offline, .stale, .dismissed:
+            return .offlineStale(content.copy(
+                offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+            ))
+        }
     }
 
     private static func uniquePreservingOrder(_ values: [String]) -> [String] {
