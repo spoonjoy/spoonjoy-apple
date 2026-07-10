@@ -38,12 +38,11 @@ REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift" => [
     "RecipeCoverImage",
     "AsyncImagePhase",
-    "RecipeCoverFallback",
-    "RecipeCoverFallbackPalette",
-    "bundledAssetName(forRecipeID",
-    "bundledCover",
-    "Cover coming soon",
-    "Cover unavailable",
+    "KitchenTableNoPhotoView",
+    "missingSubtitle",
+    "Photo not added",
+    "compactMark",
+    "photo.badge.plus",
     ".failure",
     ".empty",
     "scaledToFill"
@@ -67,6 +66,13 @@ REQUIRED_TOKENS = {
     "RecipeLead",
     "RecipeIndex",
     "CookbookShelf",
+    "Latest from the kitchen",
+    "indexedRecipes",
+    "recipe.id != leadRecipe.id",
+    "ordinal",
+    "recipe.description",
+    "recipe.servings",
+    "recipe.displayCoverProvenanceLabel",
     "KitchenFixtureState",
     "KitchenLeadObject",
     "KitchenTablePage",
@@ -78,7 +84,17 @@ REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Views/RecipesView.swift" => [
     "RecipesView",
     "RecipeCatalogViewModel",
-    "state.rows",
+    "state.leadRow",
+    "state.indexRows",
+    "@State private var query",
+    "@State private var isLoading",
+    ".searchable(text: $query",
+    "KitchenTableLoadingStateView(title: \"Loading recipes\"",
+    "OfflineStatusView(indicator: state.offlineIndicator",
+    "RecipeCatalogEmptyState",
+    "emptyState.title",
+    "emptyState.message",
+    "emptyState.systemImage",
     "viewModel.load",
     "KitchenTablePage",
     "KitchenTableHeader",
@@ -213,7 +229,11 @@ REQUIRED_TOKENS = {
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift" => [
     "RecipeCatalogViewModel",
     "RecipeCatalogState",
+    "RecipeCatalogEmptyState",
     "RecipeCatalogRowViewModel",
+    "leadRow",
+    "indexRows",
+    "rows.dropFirst()",
     "openRecipeRoute",
     "resultCountLabel",
     "OfflineIndicatorState"
@@ -246,7 +266,13 @@ FORBIDDEN_TOKENS = [
   "mealPlan",
   "RecipeComments",
   "SocialFeed",
-  "MealPlan"
+  "MealPlan",
+  "From your kitchen",
+  "kitchen.counts.shoppingItems",
+  "RecipeIndex(recipes: recipes",
+  "subtitle: recipe.chef.username",
+  "KitchenEmptySection(title: emptyState",
+  "emptyState: String?"
 ].freeze
 
 def fail_check(message)

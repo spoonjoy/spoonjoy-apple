@@ -1,0 +1,55 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.14s)
+Test Suite 'Selected tests' started at 2026-07-10 00:06:01.659.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 00:06:01.661.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 00:06:01.661.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 00:06:01.661.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Kitchen and recipes structure contract" started.
+◇ Test "Kitchen recipe index rows read as index entries instead of bare open rows" started.
+◇ Test "Kitchen follows the web kitchen-table masthead lead index and shelf hierarchy" started.
+◇ Test "Recipes view is a native searchable recipe index with loading offline and structured empty states" started.
+◇ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" started.
+◇ Test "Recipe catalog state exposes lead and index rows plus structured empty copy" started.
+✘ Test "Recipe catalog state exposes lead and index rows plus structured empty copy" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["public struct RecipeCatalogEmptyState", "public let message: String", "public let systemImage: String", "public var leadRow: RecipeCatalogRowViewModel?", "public var indexRows: [RecipeCatalogRowViewModel]", "rows.dropFirst()", "Start your recipe box"]).isEmpty → false
+↳ Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift missing required tokens: public struct RecipeCatalogEmptyState, public let message: String, public let systemImage: String, public var leadRow: RecipeCatalogRowViewModel?, public var indexRows: [RecipeCatalogRowViewModel], rows.dropFirst(), Start your recipe box
+✘ Test "Recipes view is a native searchable recipe index with loading offline and structured empty states" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["@State private var query", "@State private var isLoading", ".searchable(text: $query", "KitchenTableLoadingStateView(title: \"Loading recipes\"", "OfflineStatusView(indicator: state.offlineIndicator", "RecipeCatalogEmptyState", "emptyState.title", "emptyState.message", "emptyState.systemImage", "state.leadRow", "state.indexRows"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/RecipesView.swift missing required tokens: @State private var query, @State private var isLoading, .searchable(text: $query, KitchenTableLoadingStateView(title: "Loading recipes", OfflineStatusView(indicator: state.offlineIndicator, RecipeCatalogEmptyState, emptyState.title, emptyState.message, emptyState.systemImage, state.leadRow, state.indexRows
+✘ Test "Recipe catalog state exposes lead and index rows plus structured empty copy" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["public let emptyState: String?", "private static func emptyState(for query: String) -> String"]).isEmpty → false
+↳ Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift contains forbidden tokens: public let emptyState: String?, private static func emptyState(for query: String) -> String
+✘ Test "Recipes view is a native searchable recipe index with loading offline and structured empty states" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["KitchenEmptySection(title: emptyState", "catch {\n            state = viewModel.state\n        }"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/RecipesView.swift contains forbidden tokens: KitchenEmptySection(title: emptyState, catch {
+              state = viewModel.state
+          }
+✘ Test "Recipes view is a native searchable recipe index with loading offline and structured empty states" failed after 0.003 seconds with 2 issues.
+✘ Test "Recipe catalog state exposes lead and index rows plus structured empty copy" failed after 0.003 seconds with 2 issues.
+✘ Test "Kitchen follows the web kitchen-table masthead lead index and shelf hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["Latest from the kitchen", "private var indexedRecipes", "recipe.id != leadRecipe.id", "RecipeIndex(recipes: indexedRecipes"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/KitchenView.swift missing required tokens: Latest from the kitchen, private var indexedRecipes, recipe.id != leadRecipe.id, RecipeIndex(recipes: indexedRecipes
+✘ Test "Kitchen follows the web kitchen-table masthead lead index and shelf hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["From your kitchen", "kitchen.counts.shoppingItems", "RecipeIndex(recipes: recipes"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/KitchenView.swift contains forbidden tokens: From your kitchen, kitchen.counts.shoppingItems, RecipeIndex(recipes: recipes
+✘ Test "Kitchen follows the web kitchen-table masthead lead index and shelf hierarchy" failed after 0.003 seconds with 2 issues.
+✘ Test "Kitchen recipe index rows read as index entries instead of bare open rows" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["let ordinal: Int", "ordinalLabel", "String(format: \"%02d\", ordinal)", "recipe.description", "recipe.servings", "recipe.displayCoverProvenanceLabel", "shareRecipe", ".accessibilityHint(\"Opens recipe detail\")"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/KitchenView.swift missing required tokens: let ordinal: Int, ordinalLabel, String(format: "%02d", ordinal), recipe.description, recipe.servings, recipe.displayCoverProvenanceLabel, shareRecipe, .accessibilityHint("Opens recipe detail")
+✘ Test "Kitchen recipe index rows read as index entries instead of bare open rows" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["subtitle: recipe.chef.username"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/KitchenView.swift contains forbidden tokens: subtitle: recipe.chef.username
+✘ Test "Kitchen recipe index rows read as index entries instead of bare open rows" failed after 0.004 seconds with 2 issues.
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["Latest from the kitchen", "Recipe index", "Cookbook shelf", "RecipeIndexRow", "ordinal", "Loading recipes"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift missing required tokens: Latest from the kitchen, Recipe index, Cookbook shelf, RecipeIndexRow, ordinal, Loading recipes
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\""]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift contains forbidden tokens: Spoonjoy Kitchen", "Open Recipe", "Start Cooking"
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["Latest from the kitchen", "Recipe index", "Cookbook shelf", "RecipeIndexRow", "ordinal", "Loading recipes"]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh missing required tokens: Latest from the kitchen, Recipe index, Cookbook shelf, RecipeIndexRow, ordinal, Loading recipes
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\""]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh contains forbidden tokens: Spoonjoy Kitchen", "Open Recipe", "Start Cooking"
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:176:5: Expectation failed: (missing → ["Latest from the kitchen", "Recipe index", "Cookbook shelf", "RecipeIndexRow", "ordinal", "Loading recipes"]).isEmpty → false
+↳ scripts/validate-design-review.rb missing required tokens: Latest from the kitchen, Recipe index, Cookbook shelf, RecipeIndexRow, ordinal, Loading recipes
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" recorded an issue at KitchenRecipesStructureContractTests.swift:180:5: Expectation failed: (presentForbidden → ["Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\""]).isEmpty → false
+↳ scripts/validate-design-review.rb contains forbidden tokens: Spoonjoy Kitchen", "Open Recipe", "Start Cooking"
+✘ Test "Screenshot proof and validators name the richer kitchen and recipes hierarchy" failed after 0.022 seconds with 6 issues.
+✘ Suite "Kitchen and recipes structure contract" failed after 0.022 seconds with 14 issues.
+✘ Test run with 5 tests in 1 suite failed after 0.022 seconds with 14 issues.
