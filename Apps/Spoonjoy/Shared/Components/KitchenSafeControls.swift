@@ -27,6 +27,8 @@ struct KitchenSafeControlDeck: View {
             primaryStepAction
             secondaryStepActions
         }
+        .font(KitchenTableTheme.uiLabel)
+        .controlSize(.large)
     }
 
     private var primaryStepAction: some View {

@@ -405,7 +405,7 @@ struct CookModeView: View {
     }
 
     private var bottomControls: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .bottom, spacing: 10) {
             Button(action: previous) {
                 Label("Previous", systemImage: "arrow.backward.circle")
             }
@@ -413,27 +413,13 @@ struct CookModeView: View {
             .disabled(!canGoBack)
             .frame(maxWidth: 180)
 
-            Button(action: markCurrentStepComplete) {
-                Label("Mark done", systemImage: "checkmark.circle.fill")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            .accessibilityLabel("Mark the current step done")
-            .frame(maxWidth: 260)
-
-            Button(action: advance) {
-                Label("Next step", systemImage: "arrow.forward.circle")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .disabled(!canAdvance)
-            .accessibilityLabel("Move to the next step")
-            .frame(maxWidth: 190)
-
-            Button(action: close) {
-                Label("Close", systemImage: "text.book.closed")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .accessibilityLabel("Return to recipe detail")
-            .frame(maxWidth: 150)
+            KitchenSafeControls(
+                canAdvance: canAdvance,
+                markComplete: markCurrentStepComplete,
+                advance: advance,
+                close: close
+            )
+            .frame(maxWidth: 460)
         }
         .frame(maxWidth: 820, alignment: .center)
         .frame(maxWidth: .infinity, alignment: .center)

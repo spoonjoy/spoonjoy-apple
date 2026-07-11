@@ -191,6 +191,7 @@ private enum RecipeDetailCookLogPaginationError: Error {
 
 struct RecipeDetailView: View {
     private static let screenshotCookLogFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS"
+    private static let provenanceIconName = "link"
 
     let viewModel: RecipeDetailScreenViewModel
     let actionConnectivity: RecipeActionConnectivity
@@ -406,11 +407,15 @@ struct RecipeDetailView: View {
                     .foregroundStyle(KitchenTableTheme.inkMuted)
             }
 
-            if let sourceAttribution = viewModel.sourceAttribution {
-                Label(sourceText(sourceAttribution), systemImage: "link")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
+            recipeProvenance
+        }
+    }
+
+    @ViewBuilder private var recipeProvenance: some View {
+        if let sourceAttribution = viewModel.sourceAttribution {
+            Label(sourceProvenanceText(sourceAttribution), systemImage: Self.provenanceIconName)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
         }
     }
 
@@ -820,7 +825,7 @@ struct RecipeDetailView: View {
         }
     }
 
-    private func sourceText(_ attribution: RecipeDetailSourceAttribution) -> String {
+    private func sourceProvenanceText(_ attribution: RecipeDetailSourceAttribution) -> String {
         if let host = attribution.host {
             return "\(attribution.title) from \(host)"
         }

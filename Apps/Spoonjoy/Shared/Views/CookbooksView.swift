@@ -521,27 +521,43 @@ private struct CookbookImageCover: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let columns = imageURLs.count == 1 ? [GridItem(.flexible())] : [GridItem(.flexible()), GridItem(.flexible())]
-            LazyVGrid(columns: columns, spacing: 1) {
-                ForEach(Array(imageURLs.prefix(4).enumerated()), id: \.offset) { _, imageURL in
-                    AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.20))) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        case .empty:
-                            KitchenTableNoPhotoView(title: title, subtitle: "Loading photo", mode: .loading, showsLabel: false)
-                        default:
-                            KitchenTableNoPhotoView(title: title, subtitle: "Photo did not load", mode: .unavailable, showsLabel: false)
-                        }
-                    }
-                    .frame(height: imageURLs.count <= 2 ? proxy.size.height : proxy.size.height / 2)
-                    .clipped()
-                }
-            }
+            coverMosaic(in: proxy.size)
         }
         .background(KitchenTableTheme.paper)
+    }
+
+    @ViewBuilder private func coverMosaic(in size: CGSize) -> some View {
+        let URLs = Array(imageURLs.prefix(4))
+        if URLs.count <= 1 {
+            cookbookCoverTile(url: URLs.first, size: size)
+        } else if URLs.count == 2 {
+            HStack(spacing: 1) {
+                ForEach(Array(URLs.enumerated()), id: \.offset) { _, imageURL in
+                    cookbookCoverTile(url: imageURL, size: CGSize(width: (size.width - 1) / 2, height: size.height))
+                }
+            }
+        } else {
+            VStack(spacing: 1) {
+                cookbookCoverRow(URLs.prefix(2), size: CGSize(width: size.width, height: (size.height - 1) / 2))
+                cookbookCoverRow(URLs.dropFirst(2), size: CGSize(width: size.width, height: (size.height - 1) / 2))
+            }
+        }
+    }
+
+    private func cookbookCoverRow<C: Collection>(_ URLs: C, size: CGSize) -> some View where C.Element == URL {
+        let rowURLs = Array(URLs)
+        let tileWidth = rowURLs.isEmpty ? size.width : (size.width - CGFloat(max(rowURLs.count - 1, 0))) / CGFloat(rowURLs.count)
+        return HStack(spacing: 1) {
+            ForEach(Array(rowURLs.enumerated()), id: \.offset) { _, imageURL in
+                cookbookCoverTile(url: imageURL, size: CGSize(width: tileWidth, height: size.height))
+            }
+        }
+    }
+
+    private func cookbookCoverTile(url: URL?, size: CGSize) -> some View {
+        RecipeCoverImage(url: url, title: title, subtitle: "Cover", showsFallbackLabel: false)
+            .frame(width: size.width, height: size.height)
+            .clipped()
     }
 }
 
@@ -1093,22 +1109,7 @@ private struct CookbookRecipeThumbnail: View {
     let recipe: CookbookRecipeRowViewModel
 
     var body: some View {
-        if let imageURL = recipe.coverImageURL {
-            AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.20))) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .empty:
-                    KitchenTableNoPhotoView(title: recipe.title, subtitle: "Loading photo", mode: .loading, showsLabel: false)
-                default:
-                    KitchenTableNoPhotoView(title: recipe.title, subtitle: "Photo not added", mode: .missing, showsLabel: false)
-                }
-            }
-        } else {
-            KitchenTableNoPhotoView(title: recipe.title, subtitle: "Photo not added", mode: .missing, showsLabel: false)
-        }
+        RecipeCoverImage(url: recipe.coverImageURL, title: recipe.title, subtitle: "Photo not added", showsFallbackLabel: false)
     }
 }
 
