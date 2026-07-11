@@ -197,6 +197,16 @@ struct AppIntentAvailabilityTelemetryContractTests {
         #expect(shareEvent.intentActionKind == "share.shopping-list.private-transfer")
         #expect(shareEvent.intentReturnsValue == true)
         #expect(shareEvent.intentOpensURL == nil)
+        let shareFailureEvent = share
+            .telemetryDescriptor(
+                intentName: "ShareShoppingListIntent",
+                outcome: .failed,
+                returnsValue: true,
+                error: NativeIntentActionError.shareUnavailable(.shoppingList)
+            )
+            .telemetryEvent(environment: "production", metadata: metadata)
+        #expect(shareFailureEvent.name == .appIntentFailed)
+        #expect(shareFailureEvent.errorType?.contains("NativeIntentActionError") == true)
 
         let failureEvent = NativeIntentTelemetryDescriptor
             .failed(intentName: "OpenRecipeIntent", error: NativeIntentActionError.unresolvedRecipeEntity)
@@ -205,6 +215,111 @@ struct AppIntentAvailabilityTelemetryContractTests {
         #expect(failureEvent.stage == "app_intent.OpenRecipeIntent.perform")
         #expect(failureEvent.intentOutcome == "failed")
         #expect(failureEvent.errorType?.contains("NativeIntentActionError") == true)
+    }
+
+    @Test("native capability metadata and direct intent action cases stay telemetry addressable")
+    func nativeCapabilityMetadataAndDirectIntentActionCasesStayTelemetryAddressable() throws {
+        let capabilities = NativeCapabilityMetadata.spoonjoy.scenarioCapabilities
+        #expect(capabilities.appIntents.contains("OpenRecipeIntent"))
+        #expect(capabilities.appIntentTelemetryEvents == ["app_intent_completed", "app_intent_failed"])
+        #expect(capabilities.spotlightIndexedTypes.contains("recipe"))
+        #expect(capabilities.searchableScopes.contains("shopping-list"))
+        #expect(capabilities.shareActions.contains("native-shopping-list-transfer"))
+        #expect(capabilities.offlineFlows.contains("shopping-queue-replay"))
+        #expect(capabilities.associatedDomains == DeepLinkManifest.associatedDomains)
+        #expect(capabilities.urlSchemes == DeepLinkManifest.urlSchemes)
+        #expect(capabilities.deepLinkRoutes == DeepLinkManifest.routes)
+
+        let createdAt = "2026-07-10T18:00:00.000Z"
+        let legacyShopping = QueuedMutation(
+            id: "queue_cm_legacy",
+            clientMutationID: "cm_legacy",
+            createdAt: createdAt,
+            kind: .shoppingAdd(
+                name: "lemons",
+                quantity: 2,
+                unit: "each",
+                categoryKey: "produce",
+                iconKey: "lemon"
+            )
+        )
+        let nativeRecipeMutation = NativeQueuedMutation.recipeUpdate(
+            recipeID: "recipe_lemon",
+            clientMutationID: "cm_recipe",
+            title: "Lemon Pasta",
+            description: nil,
+            servings: nil,
+            createdAt: createdAt
+        )
+        let settingsMutation = NativeQueuedMutation.profileDisplayUpdate(
+            email: "ari@example.com",
+            username: "ari",
+            clientMutationID: "cm_profile",
+            createdAt: createdAt
+        )
+        let shoppingMutation = NativeQueuedMutation.shoppingCheckItem(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_check",
+            createdAt: createdAt
+        )
+        let draft = try CaptureDraft.localText(
+            id: "draft_manual",
+            rawText: "Pasta\nLemon",
+            createdAt: createdAt
+        )
+        let discardMutation = NativeQueuedMutation.captureDraftDiscard(
+            draftID: "draft_manual",
+            clientMutationID: "cm_discard",
+            createdAt: createdAt
+        )
+        let actions: [NativeIntentAction] = [
+            .openRoute(.kitchen, url: URL(string: "spoonjoy://kitchen")!),
+            .addShoppingListItem(legacyShopping, route: .shoppingList, url: URL(string: "spoonjoy://shopping")!),
+            .nativeMutation(nativeRecipeMutation, route: .recipeDetail(id: "recipe_lemon", presentation: .detail), url: URL(string: "spoonjoy://recipes/recipe_lemon")!),
+            .settingsAction(SettingsActionPlan(queuedMutation: settingsMutation), route: .settings, url: URL(string: "spoonjoy://settings")!),
+            .shoppingMutation(shoppingMutation, route: .shoppingList, url: URL(string: "spoonjoy://shopping")!),
+            .captureDraft(draft, route: .capture, url: URL(string: "spoonjoy://capture")!),
+            .captureDraftDiscard(discardMutation, draftID: "draft_manual", draftImportSource: nil, route: .capture, url: URL(string: "spoonjoy://capture")!)
+        ]
+
+        #expect(actions.map(\.telemetryActionKind) == [
+            "open-route",
+            "legacy-shopping-mutation",
+            "native-mutation",
+            "settings-action",
+            "shopping-mutation",
+            "capture-draft",
+            "capture-draft-discard"
+        ])
+        #expect(actions[5].captureDraft == draft)
+        #expect(actions[6].captureDraft == nil)
+        let settingsEvent = actions[3]
+            .telemetryDescriptor(intentName: "UpdateProfileDisplayIntent", returnsValue: false)
+            .telemetryEvent(environment: "production", metadata: NativeTelemetryAppMetadata(platform: "ios"))
+        #expect(settingsEvent.intentQueuedMutationID == "cm_profile")
+        #expect(settingsEvent.intentQueuedMutationKind == NativeQueuedMutationKind.profileDisplayUpdate.rawValue)
+
+        let fallbackSettingsEvent = NativeIntentAction
+            .settingsAction(
+                SettingsActionPlan(offlineFallbackMutation: settingsMutation),
+                route: .settings,
+                url: URL(string: "spoonjoy://settings")!
+            )
+            .telemetryDescriptor(intentName: "UpdateProfileDisplayIntent", returnsValue: false)
+            .telemetryEvent(environment: "production", metadata: NativeTelemetryAppMetadata(platform: "ios"))
+        #expect(fallbackSettingsEvent.intentQueuedMutationID == "cm_profile")
+
+        let actionFailureEvent = actions[2]
+            .telemetryDescriptor(
+                intentName: "ForkRecipeIntent",
+                outcome: .failed,
+                returnsValue: false,
+                error: NativeIntentActionError.invalidRecipeID("bad id")
+            )
+            .telemetryEvent(environment: "production", metadata: NativeTelemetryAppMetadata(platform: "ios"))
+        #expect(actionFailureEvent.name == .appIntentFailed)
+        #expect(actionFailureEvent.errorType?.contains("NativeIntentActionError") == true)
     }
 }
 

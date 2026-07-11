@@ -1774,7 +1774,7 @@ public final class NativeLiveAppStore: ObservableObject {
                         offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
                     )))
                 } else {
-                    apply(restoreCacheOnlyBootstrapState(for: restoredContent))
+                    apply(Self.restoreCacheOnlyBootstrapState(for: restoredContent))
                 }
                 return
             }
@@ -3236,7 +3236,13 @@ public final class NativeLiveAppStore: ObservableObject {
         bootstrapState.replacingContent(content)
     }
 
-    private func restoreCacheOnlyBootstrapState(for content: NativeShellContentState) -> NativeAppBootstrapState {
+    #if DEBUG
+    nonisolated public static func debugRestoreCacheOnlyBootstrapState(for content: NativeShellContentState) -> NativeAppBootstrapState {
+        restoreCacheOnlyBootstrapState(for: content)
+    }
+    #endif
+
+    nonisolated private static func restoreCacheOnlyBootstrapState(for content: NativeShellContentState) -> NativeAppBootstrapState {
         switch content.offlineIndicatorState.display {
         case .queuedWork:
             return .queuedWork(content)

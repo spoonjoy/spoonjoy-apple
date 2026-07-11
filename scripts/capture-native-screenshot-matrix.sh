@@ -29,11 +29,13 @@ summary_path="$apple_dir/${unit_slug}-route-matrix.json"
 route_timeout_seconds="${SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS:-180}"
 matrix_build_timeout_seconds="${SPOONJOY_SCREENSHOT_MATRIX_BUILD_TIMEOUT_SECONDS:-900}"
 reset_simulator_between_routes="${SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-1}"
+matrix_routes="${SPOONJOY_SCREENSHOT_MATRIX_ROUTES:-}"
 shared_ios_app_path="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
 shared_macos_app_path="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-}"
 shared_build_blocker="$apple_dir/${unit_slug}-shared-build-blocker.json"
 shared_xcode_blocker="$apple_dir/${unit_slug}-shared-xcode-platform-blocker.json"
 ios_install_marker="$apple_dir/${unit_slug}-ios-installed.marker"
+matrix_routes="${matrix_routes//[[:space:]]/}"
 
 mkdir -p "$apple_dir" "$routes_dir"
 rm -rf "$routes_dir"
@@ -333,6 +335,17 @@ capture_route() {
   [[ "$status" == "pass" ]]
 }
 
+route_is_selected() {
+  local name="$1"
+  local route="$2"
+  if [[ -z "$matrix_routes" ]]; then
+    return 0
+  fi
+
+  local selected=",$matrix_routes,"
+  [[ "$selected" == *",$name,"* || "$selected" == *",$route,"* ]]
+}
+
 overall_status=0
 routes=(
   "kitchen|kitchen|$artifact_root|$unit_slug"
@@ -372,6 +385,7 @@ routes=(
 if prepare_shared_builds; then
   for entry in "${routes[@]}"; do
     IFS="|" read -r name route route_root route_slug <<< "$entry"
+    route_is_selected "$name" "$route" || continue
     capture_route "$name" "$route" "$route_root" "$route_slug" || overall_status=1
   done
 else

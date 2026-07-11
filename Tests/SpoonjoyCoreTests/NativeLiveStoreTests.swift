@@ -4870,6 +4870,55 @@ struct NativeLiveStoreTests {
                 Issue.record("Expected \(state) to preserve state kind after content replacement; got \(replaced)")
             }
         }
+
+        let apnsData = NotificationAPNsSurfaceData(
+            preferences: .disabled,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.now)
+        )
+        #expect(original.debugApplyingNotificationAPNsSurfaceData(apnsData).notificationAPNsSurfaceData == apnsData)
+
+        let conflict = NativeSyncConflict(
+            clientMutationID: "cm_debug_conflict",
+            kind: .validation,
+            serverRevision: .updatedAt(Self.isoString(Self.now)),
+            message: "Debug conflict"
+        )
+        let debugOverlay = original.debugApplyingSyncOverlay(
+            conflicts: [conflict],
+            conflictMutationID: "cm_debug_conflict"
+        )
+        #expect(debugOverlay.syncConflicts == [conflict])
+        #expect(debugOverlay.offlineIndicatorState.display == .conflict(
+            recordID: "cm_debug_conflict",
+            mutationID: "cm_debug_conflict"
+        ))
+
+        let restoreCases: [(OfflineIndicatorDisplay, String)] = [
+            (.queuedWork(count: 2, oldestClientMutationID: "cm_oldest"), "queued"),
+            (.conflict(recordID: "record_conflict", mutationID: "cm_conflict"), "conflict"),
+            (.blocker(.providerSecret(resourceID: "OPENAI_API_KEY")), "blocker"),
+            (.destructiveConfirmation(actionID: "delete-recipe"), "destructive"),
+            (.syncFailure(errorID: "sync", retryAfter: .seconds(5)), "sync-failed"),
+            (.stale(domain: .recipeCatalog), "offline-stale")
+        ]
+        for (display, expectedKind) in restoreCases {
+            let restored = NativeLiveAppStore.debugRestoreCacheOnlyBootstrapState(for: original.copy(
+                offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: nil)
+            ))
+            switch (expectedKind, restored) {
+            case ("queued", .queuedWork),
+                 ("conflict", .conflict),
+                 ("blocker", .blocker),
+                 ("destructive", .destructiveConfirmation),
+                 ("sync-failed", .syncFailed),
+                 ("offline-stale", .offlineStale):
+                break
+            default:
+                Issue.record("Expected restore-cache-only state \(expectedKind), got \(restored)")
+            }
+        }
     }
 
     @Test("shell content settings surface view model covers signed-out loaded and signed-in unloaded states")

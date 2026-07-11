@@ -51,6 +51,7 @@ struct ShoppingSurfaceParityTests {
         let expectedActiveItems = try Self.shoppingList().activeItems
         #expect(viewModel.loadState == .loaded)
         #expect(viewModel.activeCountLabel == "3 active")
+        #expect(viewModel.shoppingRunSummary == "3 active")
         #expect(viewModel.sections.map(\.title) == ["Produce", "Pantry", "Dairy"])
         #expect(viewModel.sections.map { $0.items.map(\.id) } == [
             ["item_lemons"],
@@ -79,6 +80,7 @@ struct ShoppingSurfaceParityTests {
         )
         #expect(emptyOffline.loadState == .loaded)
         #expect(emptyOffline.activeCountLabel == "0 active")
+        #expect(emptyOffline.shoppingRunSummary == "0 active")
         #expect(emptyOffline.sections.isEmpty)
         #expect(emptyOffline.emptyState == ShoppingSurfaceEmptyState(
             title: "Receipt is empty",
@@ -95,6 +97,7 @@ struct ShoppingSurfaceParityTests {
             now: { Self.createdAt }
         )
         #expect(needsLiveLoad.loadState == .needsLiveLoad)
+        #expect(needsLiveLoad.shoppingRunSummary == "Ready to sync")
         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
             title: "Sync the receipt",
             message: "Connect to Spoonjoy to load the current market run.",
@@ -814,6 +817,7 @@ struct ShoppingSurfaceParityTests {
 
         #expect(completedOnly.activeItems.isEmpty)
         #expect(completedViewModel.activeCountLabel == "0 active")
+        #expect(completedViewModel.shoppingRunSummary == "0 active - 1 checked")
         #expect(completedViewModel.emptyState == ShoppingSurfaceEmptyState(
             title: "All checked off",
             message: "Nice. Clear checked items when you're ready to reset the receipt.",
@@ -854,6 +858,20 @@ struct ShoppingSurfaceParityTests {
         #expect(queuedViewModel.offlineIndicator.display == .queuedWork(
             count: 1,
             oldestClientMutationID: "cm_clear_waiting"
+        ))
+
+        let queuedEmpty = ShoppingSurfaceViewModel(
+            shoppingList: try Self.emptyShoppingList(),
+            queuedMutations: [queuedClear],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        #expect(queuedEmpty.shoppingReceiptState == ShoppingReceiptState(
+            title: "Saved for sync",
+            message: "1 shopping change waiting to sync",
+            systemImage: "arrow.triangle.2.circlepath",
+            actionTitle: "Review queued work"
         ))
 
         let replacement = try Self.emptyShoppingList()

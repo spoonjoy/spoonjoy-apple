@@ -61,6 +61,8 @@ struct RecipeCatalogDetailTests {
         #expect(state.hasMore)
         #expect(state.nextCursor == PaginationCursor(rawValue: "v1.next"))
         #expect(state.resultCountLabel == "1 recipe")
+        #expect(state.leadRow?.id == "recipe_lemon_pantry_pasta")
+        #expect(state.indexRows.isEmpty)
         #expect(state.emptyState == nil)
         #expect(state.rows.map(\.id) == ["recipe_lemon_pantry_pasta"])
         #expect(state.rows.first?.title == "Lemon Pantry Pasta")
@@ -74,6 +76,17 @@ struct RecipeCatalogDetailTests {
         #expect(await repository.listRequests == [
             RecipeCatalogListRequest(query: "lemon", limit: 20, cursor: nil)
         ])
+
+        let noRecipes: RecipeCatalogEmptyState = "No recipes yet"
+        let noMatches: RecipeCatalogEmptyState = "No matching recipes"
+        let custom: RecipeCatalogEmptyState = "No saved dinner party recipes"
+        #expect(noRecipes == .noRecipes)
+        #expect(noMatches == .noMatches)
+        #expect(custom == RecipeCatalogEmptyState(
+            title: "No saved dinner party recipes",
+            message: "",
+            systemImage: "book.closed"
+        ))
     }
 
     @Test("detail screen view model exposes current web read parity without inventing comments")

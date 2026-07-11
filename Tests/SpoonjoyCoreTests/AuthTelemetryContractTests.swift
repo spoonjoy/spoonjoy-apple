@@ -56,6 +56,76 @@ struct AuthTelemetryContractTests {
         #expect(!body.keys.contains("refreshToken"))
     }
 
+    @Test("auth telemetry descriptors preserve started completed and failed outcomes")
+    func authTelemetryDescriptorsPreserveStartedCompletedAndFailedOutcomes() {
+        let metadata = NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "28")
+        let started = NativeAuthTelemetryDescriptor(
+            authProvider: "apple",
+            phase: "authorization_request_started",
+            outcome: .started,
+            diagnosticCode: "apple_sheet_opened",
+            sessionState: "signed_out",
+            credentialPresent: false,
+            identityTokenPresent: false,
+            rawNoncePresent: true,
+            emailPresent: false,
+            fullNamePresent: false,
+            oauthStatePresent: false,
+            redirectScheme: "https",
+            redirectHost: "spoonjoy.app",
+            route: "kitchen",
+            errorType: nil,
+            requestID: nil,
+            status: nil,
+            apiCode: nil,
+            retry: nil,
+            accountBound: false
+        ).telemetryEvent(environment: "production", metadata: metadata)
+        let completed = NativeAuthTelemetryDescriptor(
+            authProvider: "apple",
+            phase: "backend_exchange_succeeded",
+            outcome: .completed
+        ).telemetryEvent(environment: "production", metadata: metadata)
+        let failed = NativeAuthTelemetryDescriptor(
+            authProvider: "apple",
+            phase: "backend_exchange_failed",
+            outcome: .failed,
+            errorType: "APITransportError",
+            requestID: "req_apple_exchange",
+            status: 401,
+            apiCode: "apple_identity_token_invalid",
+            retry: "do_not_retry"
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(started.name == .authFlowStarted)
+        #expect(started.stage == "auth")
+        #expect(started.environment == "production")
+        #expect(started.metadata == metadata)
+        #expect(started.route == "kitchen")
+        #expect(started.authProvider == "apple")
+        #expect(started.authPhase == "authorization_request_started")
+        #expect(started.authOutcome == "started")
+        #expect(started.authDiagnosticCode == "apple_sheet_opened")
+        #expect(started.authSessionState == "signed_out")
+        #expect(started.authCredentialPresent == false)
+        #expect(started.authIdentityTokenPresent == false)
+        #expect(started.authRawNoncePresent == true)
+        #expect(started.authEmailPresent == false)
+        #expect(started.authFullNamePresent == false)
+        #expect(started.authOAuthStatePresent == false)
+        #expect(started.authRedirectScheme == "https")
+        #expect(started.authRedirectHost == "spoonjoy.app")
+        #expect(started.accountBound == false)
+        #expect(completed.name == .authFlowCompleted)
+        #expect(completed.authOutcome == "completed")
+        #expect(failed.name == .authFlowFailed)
+        #expect(failed.errorType == "APITransportError")
+        #expect(failed.requestID == "req_apple_exchange")
+        #expect(failed.status == 401)
+        #expect(failed.apiCode == "apple_identity_token_invalid")
+        #expect(failed.retry == "do_not_retry")
+    }
+
     @Test("Apple sign-in sends structured native telemetry for every phase")
     func appleSignInSendsStructuredNativeTelemetryForEveryPhase() throws {
         let telemetry = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/NativeAppleSignInTelemetry.swift"))

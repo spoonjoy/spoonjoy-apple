@@ -151,7 +151,7 @@ public struct CookModeViewModel: Equatable {
                     return !left.1.isChecked && right.1.isChecked
                 }
                 if left.1.isChecked, right.1.isChecked {
-                    return (checkedOrder[left.1.id] ?? Int.max) < (checkedOrder[right.1.id] ?? Int.max)
+                    return checkedOrder[left.1.id]! < checkedOrder[right.1.id]!
                 }
                 return left.0 < right.0
             }
