@@ -121,8 +121,8 @@ struct AuthTelemetryContractTests {
     )
 }
 
-private func decodeTelemetryBody(_ request: URLRequest) throws -> [String: Any] {
-    let data = try #require(request.httpBody)
+private func decodeTelemetryBody(_ request: APIRequest) throws -> [String: Any] {
+    let data = try #require(request.body)
     let object = try JSONSerialization.jsonObject(with: data)
     return try #require(object as? [String: Any])
 }

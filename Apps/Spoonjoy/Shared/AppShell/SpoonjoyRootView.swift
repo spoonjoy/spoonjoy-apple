@@ -81,6 +81,7 @@ struct SpoonjoyRootView: View {
                 authRepository: liveStore.authSessionRepository,
                 pendingRoute: navigation.route,
                 openSettings: { navigation.navigate(to: .settings) },
+                appleSignInTelemetry: Self.defaultAppleSignInTelemetryClient(),
                 onSignedIn: {
                     await liveStore.bootstrap()
                     applyRestoredRouteIfNeeded()
@@ -499,6 +500,7 @@ struct SpoonjoyRootView: View {
         let vault: any TokenVault = KeychainTokenVault()
         let bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
 #endif
+        let appleSignInTelemetry = Self.defaultAppleSignInTelemetryClient()
         let authRepository = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple",
@@ -523,17 +525,38 @@ struct SpoonjoyRootView: View {
             },
             exchangeAppleCredential: { credential in
                 NativeAppleSignInTelemetry.logPhase("backend_request_started")
+                await appleSignInTelemetry.recordPhase("backend_request_started",
+                    credentialPresent: true,
+                    identityTokenPresent: !credential.identityToken.isEmpty,
+                    rawNoncePresent: !credential.rawNonce.isEmpty,
+                    emailPresent: credential.email?.isEmpty == false,
+                    fullNamePresent: credential.fullName?.isEmpty == false
+                )
                 do {
                     let response: OAuthTokenResponse = try await OAuthURLSessionSupport.sendDecoded(
                         try NativeAppleSignInRequests.exchangeCredential(credential),
                         configuration: configuration
                     )
                     NativeAppleSignInTelemetry.logPhase("backend_request_succeeded")
+                    await appleSignInTelemetry.recordPhase("backend_request_succeeded",
+                        outcome: .completed,
+                        credentialPresent: true,
+                        identityTokenPresent: !credential.identityToken.isEmpty,
+                        rawNoncePresent: !credential.rawNonce.isEmpty,
+                        emailPresent: credential.email?.isEmpty == false,
+                        fullNamePresent: credential.fullName?.isEmpty == false,
+                        sessionState: "authenticated"
+                    )
                     return response
                 } catch {
                     NativeAppleSignInTelemetry.logFailure(
                         phase: "backend_request_failed",
                         code: NativeAppleSignInTelemetry.diagnosticCode(for: error)
+                    )
+                    await appleSignInTelemetry.recordFailure(phase: "backend_request_failed",
+                        code: NativeAppleSignInTelemetry.diagnosticCode(for: error),
+                        credential: credential,
+                        error: error
                     )
                     throw error
                 }
@@ -621,6 +644,16 @@ struct SpoonjoyRootView: View {
             nativeTelemetryMetadata: Self.nativeTelemetryMetadata(),
             bootstrapMode: bootstrapMode,
             now: Date.init
+        )
+    }
+
+    private static func defaultAppleSignInTelemetryClient() -> NativeAppleSignInTelemetry.Client {
+        let environment = ProcessInfo.processInfo.environment
+        let configuration = Self.defaultAPIConfiguration(environment: environment)
+        return NativeAppleSignInTelemetry.Client(
+            environment: Self.defaultCacheEnvironment(configuration: configuration).rawValue,
+            metadata: Self.nativeTelemetryMetadata(),
+            configuration: configuration
         )
     }
 
