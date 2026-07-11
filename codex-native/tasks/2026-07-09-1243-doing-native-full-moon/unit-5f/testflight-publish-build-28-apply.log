@@ -1,0 +1,301 @@
+{
+  "ok": true,
+  "mode": "apply",
+  "requests": [
+    {
+      "method": "PATCH",
+      "path": "/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf",
+      "body": {
+        "data": {
+          "type": "builds",
+          "id": "f8e5be21-03ea-449c-8286-3297512a4ccf",
+          "attributes": {
+            "usesNonExemptEncryption": false
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/betaAppLocalizations",
+      "body": {
+        "data": {
+          "type": "betaAppLocalizations",
+          "attributes": {
+            "locale": "en-US",
+            "description": "Spoonjoy turns what you have into something worth eating.",
+            "feedbackEmail": "beta@spoonjoy.app",
+            "marketingUrl": "https://spoonjoy.app",
+            "privacyPolicyUrl": "https://spoonjoy.app/privacy"
+          },
+          "relationships": {
+            "app": {
+              "data": {
+                "type": "apps",
+                "id": "6787505444"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/betaGroups/31d60f58-aef9-4d44-b047-3a1f0dc61b5e/relationships/builds",
+      "body": {
+        "data": [
+          {
+            "type": "builds",
+            "id": "f8e5be21-03ea-449c-8286-3297512a4ccf"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/betaBuildLocalizations",
+      "body": {
+        "data": {
+          "type": "betaBuildLocalizations",
+          "attributes": {
+            "locale": "en-US",
+            "whatsNew": "Polishes the native UI across Kitchen, Recipes, Cook Mode, Search, Capture, and Settings; fixes overlapping text/tab-bar issues, cleans capture/settings language, and restores production Sign in with Apple."
+          },
+          "relationships": {
+            "build": {
+              "data": {
+                "type": "builds",
+                "id": "f8e5be21-03ea-449c-8286-3297512a4ccf"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/buildBetaDetails/f8e5be21-03ea-449c-8286-3297512a4ccf",
+      "body": {
+        "data": {
+          "type": "buildBetaDetails",
+          "id": "f8e5be21-03ea-449c-8286-3297512a4ccf",
+          "attributes": {
+            "autoNotifyEnabled": true
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/v1/buildBetaNotifications",
+      "body": {
+        "data": {
+          "type": "buildBetaNotifications",
+          "relationships": {
+            "build": {
+              "data": {
+                "type": "builds",
+                "id": "f8e5be21-03ea-449c-8286-3297512a4ccf"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "result": {
+    "ok": true,
+    "results": [
+      {
+        "data": {
+          "type": "builds",
+          "id": "f8e5be21-03ea-449c-8286-3297512a4ccf",
+          "attributes": {
+            "version": null,
+            "uploadedDate": null,
+            "expirationDate": null,
+            "expired": null,
+            "minOsVersion": null,
+            "lsMinimumSystemVersion": null,
+            "computedMinMacOsVersion": null,
+            "computedMinVisionOsVersion": null,
+            "iconAssetToken": "[REDACTED_SECRET]",
+            "processingState": null,
+            "buildAudienceType": null,
+            "usesNonExemptEncryption": false
+          },
+          "relationships": {
+            "preReleaseVersion": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/preReleaseVersion",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/preReleaseVersion"
+              }
+            },
+            "individualTesters": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/individualTesters",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/individualTesters"
+              }
+            },
+            "betaGroups": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/betaGroups"
+              }
+            },
+            "betaBuildLocalizations": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/betaBuildLocalizations",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/betaBuildLocalizations"
+              }
+            },
+            "appEncryptionDeclaration": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/appEncryptionDeclaration",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/appEncryptionDeclaration"
+              }
+            },
+            "betaAppReviewSubmission": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/betaAppReviewSubmission",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/betaAppReviewSubmission"
+              }
+            },
+            "app": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/app",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/app"
+              }
+            },
+            "buildBetaDetail": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/buildBetaDetail",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/buildBetaDetail"
+              }
+            },
+            "appStoreVersion": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/appStoreVersion",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/appStoreVersion"
+              }
+            },
+            "icons": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/icons",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/icons"
+              }
+            },
+            "perfPowerMetrics": {
+              "links": {
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/perfPowerMetrics"
+              }
+            },
+            "diagnosticSignatures": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/diagnosticSignatures",
+                "related": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf/diagnosticSignatures"
+              }
+            }
+          },
+          "links": {
+            "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf"
+          }
+        },
+        "links": {
+          "self": "https://api.appstoreconnect.apple.com/v1/builds/f8e5be21-03ea-449c-8286-3297512a4ccf"
+        }
+      },
+      {
+        "data": {
+          "type": "betaAppLocalizations",
+          "id": "7dc26c83-0624-4521-8faf-391ca58c1656",
+          "attributes": {
+            "feedbackEmail": "beta@spoonjoy.app",
+            "marketingUrl": "https://spoonjoy.app",
+            "privacyPolicyUrl": "https://spoonjoy.app/privacy",
+            "tvOsPrivacyPolicy": null,
+            "description": "Spoonjoy turns what you have into something worth eating.",
+            "locale": "en-US"
+          },
+          "relationships": {
+            "app": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/betaAppLocalizations/7dc26c83-0624-4521-8faf-391ca58c1656/relationships/app",
+                "related": "https://api.appstoreconnect.apple.com/v1/betaAppLocalizations/7dc26c83-0624-4521-8faf-391ca58c1656/app"
+              }
+            }
+          },
+          "links": {
+            "self": "https://api.appstoreconnect.apple.com/v1/betaAppLocalizations/7dc26c83-0624-4521-8faf-391ca58c1656"
+          }
+        },
+        "links": {
+          "self": "https://api.appstoreconnect.apple.com/v1/betaAppLocalizations/7dc26c83-0624-4521-8faf-391ca58c1656"
+        }
+      },
+      {
+        "ok": true
+      },
+      {
+        "data": {
+          "type": "betaBuildLocalizations",
+          "id": "8284ac99-c96b-44b0-997a-fbc5a6d31952",
+          "attributes": {
+            "whatsNew": "Polishes the native UI across Kitchen, Recipes, Cook Mode, Search, Capture, and Settings; fixes overlapping text/tab-bar issues, cleans capture/settings language, and restores production Sign in with Apple.",
+            "locale": "en-US"
+          },
+          "relationships": {
+            "build": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/betaBuildLocalizations/8284ac99-c96b-44b0-997a-fbc5a6d31952/relationships/build",
+                "related": "https://api.appstoreconnect.apple.com/v1/betaBuildLocalizations/8284ac99-c96b-44b0-997a-fbc5a6d31952/build"
+              }
+            }
+          },
+          "links": {
+            "self": "https://api.appstoreconnect.apple.com/v1/betaBuildLocalizations/8284ac99-c96b-44b0-997a-fbc5a6d31952"
+          }
+        },
+        "links": {
+          "self": "https://api.appstoreconnect.apple.com/v1/betaBuildLocalizations/8284ac99-c96b-44b0-997a-fbc5a6d31952"
+        }
+      },
+      {
+        "data": {
+          "type": "buildBetaDetails",
+          "id": "f8e5be21-03ea-449c-8286-3297512a4ccf",
+          "attributes": {
+            "autoNotifyEnabled": true,
+            "internalBuildState": "IN_BETA_TESTING",
+            "externalBuildState": "READY_FOR_BETA_SUBMISSION"
+          },
+          "relationships": {
+            "build": {
+              "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/buildBetaDetails/f8e5be21-03ea-449c-8286-3297512a4ccf/relationships/build",
+                "related": "https://api.appstoreconnect.apple.com/v1/buildBetaDetails/f8e5be21-03ea-449c-8286-3297512a4ccf/build"
+              }
+            }
+          },
+          "links": {
+            "self": "https://api.appstoreconnect.apple.com/v1/buildBetaDetails/f8e5be21-03ea-449c-8286-3297512a4ccf"
+          }
+        },
+        "links": {
+          "self": "https://api.appstoreconnect.apple.com/v1/buildBetaDetails/f8e5be21-03ea-449c-8286-3297512a4ccf"
+        }
+      },
+      {
+        "ok": true,
+        "skipped": true,
+        "path": "/v1/buildBetaNotifications",
+        "reason": "beta-notification-already-enabled-or-in-testing",
+        "buildId": "f8e5be21-03ea-449c-8286-3297512a4ccf",
+        "status": 409,
+        "code": "ENTITY_ERROR",
+        "message": "There is a problem with the request entity",
+        "autoNotifyEnabled": true,
+        "internalBuildState": "IN_BETA_TESTING"
+      }
+    ]
+  }
+}
