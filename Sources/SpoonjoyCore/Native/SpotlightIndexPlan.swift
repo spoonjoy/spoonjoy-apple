@@ -67,11 +67,15 @@ public struct SpotlightIndexScope: Equatable, Sendable {
     }
 
     public var identifierPrefix: String {
-        "\(environment.rawValue)|schema\(schemaVersion)|\(Self.safeComponent(accountID))"
+        "\(environment.rawValue)|schema\(schemaVersion)|\(accountScopeComponent)"
     }
 
     public var domainPrefix: String {
-        "app.spoonjoy.schema\(schemaVersion).\(environment.rawValue).\(Self.safeComponent(accountID))"
+        "app.spoonjoy.schema\(schemaVersion).\(environment.rawValue).\(accountScopeComponent)"
+    }
+
+    private var accountScopeComponent: String {
+        "\(Self.safeComponent(accountID))-\(Self.stableFingerprint(accountID))"
     }
 
     private static func safeComponent(_ value: String) -> String {
@@ -79,6 +83,17 @@ public struct SpotlightIndexScope: Equatable, Sendable {
             character.isLetter || character.isNumber || character == "_" || character == "-" ? String(character) : "-"
         }.joined()
         return filtered.isEmpty ? "unbound" : filtered
+    }
+
+    private static func stableFingerprint(_ value: String) -> String {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in value.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 1_099_511_628_211
+        }
+
+        let hex = String(hash, radix: 16)
+        return String(repeating: "0", count: max(0, 16 - hex.count)) + hex
     }
 }
 

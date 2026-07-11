@@ -314,7 +314,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 **Output**: Red tests over `SpoonjoySpotlightIndexer.swift`, `DeepLinkRouter`, and spotlight/link tests.
 **Acceptance**: Tests fail on a concrete indexing, purge, routing, or isolation gap.
 
-### ⬜ Unit 5d: Spotlight and Universal Links — Implementation
+### ✅ Unit 5d: Spotlight and Universal Links — Implementation
 **What**: Harden Spotlight and link behavior with observable route outcomes and clean purge semantics.
 **Output**: Updated Spotlight/link code/tests.
 **Acceptance**: Unit 5c tests pass; `scripts/validate-aasa.rb` and relevant scenario tests pass.
@@ -554,6 +554,7 @@ Make Spoonjoy native feel like a finished, high-taste Apple app rather than a Te
 - 2026-07-10 16:37 Unit 5a complete: added App Intent availability/telemetry contract tests. The availability/baseline gate passes; the red log at `unit-5a/red-app-intents-availability-telemetry-contract.log` fails on concrete missing App Intent output telemetry fields, core descriptors, capability metadata, scenario exposure, and representative intent recording calls.
 - 2026-07-10 16:56 Unit 5b complete: implemented App Intent completion/failure telemetry descriptors, NativeTelemetry payload fields, scenario capability exposure, and best-effort output telemetry recording for Open Recipe, Search Spoonjoy, Share Shopping List, and Submit Capture Import intents. Also corrected the capture surface scenario verifier to assert the real `Import queue` / `Spoonjoy agent` / `Shortcuts & Siri` surface instead of stale future-entry placeholders. Validation passed: focused App Intent telemetry tests, Native API telemetry expansion, capture import source contract, surfaces scenario verifier, app-intents contract domains, full `swift test` (564 tests), iOS/macOS app-target builds with warnings-as-errors, warning scans, and `git diff --check`. Evidence is under `unit-5a/`.
 - 2026-07-10 16:59 Unit 5c complete: added a red Spotlight scope-collision contract proving that `account.ari@example.com` and `account-ari-example-com` currently produce the same readable scope/domain prefix and allow a private recipe Spotlight hit from one account to route under the other. Focused Spotlight suite fails red with evidence at `unit-5c/red-spotlight-scope-collision-contract.log`.
+- 2026-07-10 17:07 Unit 5d complete: made Spotlight account scope prefixes/domains collision-resistant by preserving the readable account slug and appending a deterministic stable fingerprint, then updated scenario/entity tests to treat scope components as opaque. Validation passed: focused Spotlight/deep-link/native-scenario/spoon-entity tests, `scripts/verify-native-scenarios.sh`, `scripts/validate-aasa.rb`, full `swift test` (565 tests), iOS/macOS app-target builds with warnings-as-errors, warning scans, stale hard-coded scope scan, and `git diff --check`. Evidence is under `unit-5c/`.
 - 2026-07-09 13:11 Scrutiny deception review converged; doing doc ready for execution
 - 2026-07-09 13:14 Unit 0a complete: saved worktree, main status, branch status, and preserved-stash evidence
 - 2026-07-09 13:20 Unit 0b complete: saved feedback, webhook, latest build, beta detail, group, tester, and macOS ASC evidence; stale launchd repair required before Unit 1
