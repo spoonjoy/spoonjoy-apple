@@ -9,6 +9,8 @@ struct RecipesView: View {
     let viewModel: RecipeCatalogViewModel
     let openRoute: (AppRoute) -> Void
     @State private var state: RecipeCatalogState
+    @State private var query: String
+    @State private var isLoading = false
 
     init(
         viewModel: RecipeCatalogViewModel,
@@ -17,6 +19,7 @@ struct RecipesView: View {
         self.viewModel = viewModel
         self.openRoute = openRoute
         _state = State(initialValue: viewModel.state)
+        _query = State(initialValue: viewModel.state.query)
     }
 
     var body: some View {
@@ -27,23 +30,27 @@ struct RecipesView: View {
                 subtitle: state.resultCountLabel
             )
 
-            if let emptyState = state.emptyState {
-                KitchenEmptySection(title: emptyState, systemImage: "book.closed", tint: KitchenTableTheme.brass)
-            } else {
-                KitchenTableSection(title: "Recipe Index") {
-                    ForEach(state.rows) { row in
-                        Button {
-                            openRoute(row.openRoute)
-                        } label: {
-                            RecipeIndexRow(row: row)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            if isLoading, state.rows.isEmpty {
+                KitchenTableLoadingStateView(title: "Loading recipes", subtitle: "Opening your recipe index.", systemImage: "book.closed")
+            } else if let emptyState = state.emptyState {
+                recipesEmptyState(emptyState)
+            } else if let leadRow = state.leadRow {
+                RecipeCatalogLead(row: leadRow, openRoute: openRoute)
+                if !state.indexRows.isEmpty {
+                    recipeIndexSection(rows: state.indexRows)
                 }
+            } else {
+                recipeIndexSection(rows: state.rows)
+            }
+        }
+        .searchable(text: $query, prompt: "Search recipes")
+        .onSubmit(of: .search) {
+            Task {
+                await loadCatalog(query: query)
             }
         }
         .task {
-            await loadCatalog()
+            await loadCatalog(query: query)
             await RecipeCoverPrefetcher.prefetch(state.rows.compactMap(\.coverImageURL))
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "recipes",
@@ -56,12 +63,115 @@ struct RecipesView: View {
         }
     }
 
-    @MainActor private func loadCatalog() async {
+    private func recipesEmptyState(_ emptyState: RecipeCatalogEmptyState) -> some View {
+        KitchenTableSection(title: emptyState.title) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: emptyState.systemImage)
+                    .font(.title3)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .frame(width: 28)
+                Text(emptyState.message)
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .background(KitchenTableTheme.paper)
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        }
+    }
+
+    private func recipeIndexSection(rows: [RecipeCatalogRowViewModel]) -> some View {
+        KitchenTableSection(title: "Recipe Index") {
+            ForEach(rows) { row in
+                Button {
+                    openRoute(row.openRoute)
+                } label: {
+                    RecipeIndexRow(row: row)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct RecipeCatalogLead: View {
+    let row: RecipeCatalogRowViewModel
+    let openRoute: (AppRoute) -> Void
+
+    var body: some View {
+        Button {
+            openRoute(row.openRoute)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                leadCover
+
+                Text("Latest from the kitchen".uppercased())
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                Text(row.title)
+                    .font(KitchenTableTheme.displayTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(leadSubtitle)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens recipe detail")
+    }
+
+    @ViewBuilder private var leadCover: some View {
+        if let coverImageURL = row.coverImageURL {
+            RecipeCoverImage(
+                url: coverImageURL,
+                title: row.title,
+                subtitle: nil,
+                showsFallbackLabel: false
+            )
+            .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
+            .clipped()
+        } else {
+            RecipeCoverImage(
+                url: nil,
+                title: row.title,
+                subtitle: "Photo not added",
+                showsFallbackLabel: true
+            )
+            .frame(maxWidth: .infinity, minHeight: 126, maxHeight: 126)
+            .clipped()
+        }
+    }
+
+    private var leadSubtitle: String {
+        [
+            row.subtitle,
+            row.chefLine,
+            row.servingsLabel
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " - ")
+    }
+}
+
+extension RecipesView {
+    @MainActor private func loadCatalog(query: String) async {
+        isLoading = true
+        defer { isLoading = false }
         do {
-            try await viewModel.load(query: state.query, limit: state.limit)
+            try await viewModel.load(query: query, limit: state.limit)
             state = viewModel.state
+            self.query = viewModel.state.query
         } catch {
             state = viewModel.state
+            self.query = viewModel.state.query
         }
     }
 }
@@ -79,7 +189,6 @@ private struct RecipeIndexRow: View {
                 url: row.coverImageURL,
                 title: row.title,
                 subtitle: nil,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id),
                 showsFallbackLabel: false
             )
         } trailing: {

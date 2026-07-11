@@ -2236,7 +2236,7 @@ extension NativeQueuedMutation {
             return nil
         }
 
-        for item in updated.activeItems where predicate(item) {
+        for item in updated.receiptItems where predicate(item) {
             updated = try! updated.removingItem(id: item.id, deletedAt: deletedAt)
         }
 
@@ -3493,9 +3493,9 @@ public enum NativeOfflineMutationPolicy {
         case .oauthCallback:
             NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "OAuth callback exchange is online-only and was not queued.")
         case .apiTokenCreate:
-            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "API token creation is online-only and was not queued.")
+            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Access key creation is online-only and was not queued.")
         case .apiTokenRevoke:
-            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "API token revocation is online-only and was not queued.")
+            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Access key revocation is online-only and was not queued.")
         case .providerConnectionDisconnect:
             NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Provider disconnect is online-only and was not queued.")
         case .logout:
@@ -4879,10 +4879,10 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             return ([], [])
         }
 
-        let activeItems = updatedShoppingList.activeItems
-        let activeItemIDs = Set(activeItems.map(\.id))
-        let deletedCacheKeys = Set(cachedItems.map(\.id).filter { !activeItemIDs.contains($0) }.map { "\(NativeSyncEntryKind.shoppingItem.rawValue):\($0)" })
-        let upserts = try activeItems.map { item in
+        let receiptItems = updatedShoppingList.receiptItems
+        let receiptItemIDs = Set(receiptItems.map(\.id))
+        let deletedCacheKeys = Set(cachedItems.map(\.id).filter { !receiptItemIDs.contains($0) }.map { "\(NativeSyncEntryKind.shoppingItem.rawValue):\($0)" })
+        let upserts = try receiptItems.map { item in
             NativeSyncCachedRecord(
                 kind: .shoppingItem,
                 resourceID: item.id,

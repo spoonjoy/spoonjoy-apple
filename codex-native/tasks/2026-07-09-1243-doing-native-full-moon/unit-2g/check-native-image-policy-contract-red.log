@@ -1,0 +1,32 @@
+FAIL: native image policy contract failed:
+- remove bundled fake/default recipe fallback assets: Apps/Spoonjoy/Shared/Assets.xcassets/RecipeFallbackBread.imageset, Apps/Spoonjoy/Shared/Assets.xcassets/RecipeFallbackBuns.imageset, Apps/Spoonjoy/Shared/Assets.xcassets/RecipeFallbackChallah.imageset, Apps/Spoonjoy/Shared/Assets.xcassets/RecipeFallbackHummus.imageset, Apps/Spoonjoy/Shared/Assets.xcassets/RecipeFallbackPizza.imageset
+- Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift must expose an authored no-photo state: struct KitchenTableNoPhotoView, No photo yet
+- Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift contains "fallbackFoodAssetName": title-hash food fallback makes missing media look real
+- Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift contains "loadingFallbackAssetName": loading/error states must not swap in fake food
+- Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift contains "bundledCover(": bundled food covers hide missing media
+- Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift contains "assetName:": cover callers should not provide fallback image assets
+- Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift contains "RecipeFallback": fallback recipe assets are not product media
+- surface image/no-photo policy failed:
+- Apps/Spoonjoy/Shared/Views/KitchenView.swift:204: real routes must not synthesize covers from local bundled assets: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+- Apps/Spoonjoy/Shared/Views/KitchenView.swift:337: real routes must not synthesize covers from local bundled assets: assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+- Apps/Spoonjoy/Shared/Views/KitchenView.swift:213: RecipeCoverImage call sites should pass URL/title/subtitle only: assetName: coverAssetName,
+- Apps/Spoonjoy/Shared/Views/KitchenView.swift:337: RecipeCoverImage call sites should pass URL/title/subtitle only: assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+- Apps/Spoonjoy/Shared/Views/RecipesView.swift:82: real routes must not synthesize covers from local bundled assets: assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id),
+- Apps/Spoonjoy/Shared/Views/RecipesView.swift:82: RecipeCoverImage call sites should pass URL/title/subtitle only: assetName: RecipeCoverImage.bundledAssetName(forRecipeID: row.id),
+- Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift:314: real routes must not synthesize covers from local bundled assets: assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id),
+- Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift:314: RecipeCoverImage call sites should pass URL/title/subtitle only: assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id),
+- Apps/Spoonjoy/Shared/Views/CookbooksView.swift:496: cover provenance should not be row subtitle noise: subtitle: recipe.coverProvenanceLabel
+- Apps/Spoonjoy/Shared/Views/CookbooksView.swift:514: cover provenance should not be repeated as visible row text: Text(coverProvenanceLabel)
+- Apps/Spoonjoy/Shared/Views/ProfileView.swift:151: cover provenance should not be row subtitle noise: KitchenTableObjectRow(title: recipe.title, subtitle: recipe.coverProvenanceLabel) {
+- Apps/Spoonjoy/Shared/Views/ProfileView.swift:155: cover provenance should not be row subtitle noise: subtitle: recipe.coverProvenanceLabel
+- Apps/Spoonjoy/Shared/Views/ProfileView.swift:180: cover provenance should not be row subtitle noise: subtitle: recipe.coverProvenanceLabel
+- Apps/Spoonjoy/Shared/Views/ProfileView.swift:188: cover provenance should not be repeated as visible row text: Text(coverProvenanceLabel)
+- Apps/Spoonjoy/Shared/Views/SearchView.swift:325: real routes must not synthesize covers from local bundled assets: return RecipeCoverImage.bundledAssetName(forRecipeID: row.result.id)
+- Apps/Spoonjoy/Shared/Views/SearchView.swift:326: real routes must not synthesize covers from recipe titles: ?? RecipeCoverImage.fallbackFoodAssetName(forTitle: row.title)
+- Apps/Spoonjoy/Shared/Views/SearchView.swift:294: search/list thumbnails need honest no-photo states, not fallback food assets: } else if let fallbackAssetName {
+- Apps/Spoonjoy/Shared/Views/SearchView.swift:295: search/list thumbnails need honest no-photo states, not fallback food assets: Image(fallbackAssetName)
+- Apps/Spoonjoy/Shared/Views/SearchView.swift:321: search/list thumbnails need honest no-photo states, not fallback food assets: private var fallbackAssetName: String? {
+- production-facing provenance labels failed:
+- Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift:402: replace production-facing "Chef photo" with quieter source language or hide it
+- Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift:405: replace production-facing "Imported photo" with quieter source language or hide it
+- Sources/SpoonjoyCore/Features/Covers/RecipeCoverControlsViewModel.swift:399: replace production-facing "Editorialized chef photo" with quieter source language or hide it

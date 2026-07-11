@@ -1,0 +1,51 @@
+{
+  "ok": true,
+  "result": {
+    "data": [
+      {
+        "type": "betaTesters",
+        "id": "a3953889-3cbe-4ca4-92ad-426b3995ba6b",
+        "attributes": {
+          "lastName": "Mendelow",
+          "firstName": "Ari",
+          "inviteType": "EMAIL",
+          "state": "INSTALLED",
+          "appDevices": [],
+          "email": "ari@mendelow.me"
+        },
+        "relationships": {
+          "betaGroups": {
+            "links": {
+              "self": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b/relationships/betaGroups",
+              "related": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b/betaGroups"
+            }
+          },
+          "builds": {
+            "links": {
+              "self": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b/relationships/builds",
+              "related": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b/builds"
+            }
+          },
+          "apps": {
+            "links": {
+              "self": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b/relationships/apps",
+              "related": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b/apps"
+            }
+          }
+        },
+        "links": {
+          "self": "https://api.appstoreconnect.apple.com/v1/betaTesters/a3953889-3cbe-4ca4-92ad-426b3995ba6b"
+        }
+      }
+    ],
+    "links": {
+      "self": "https://api.appstoreconnect.apple.com/v1/betaGroups/31d60f58-aef9-4d44-b047-3a1f0dc61b5e/betaTesters?limit=200"
+    },
+    "meta": {
+      "paging": {
+        "total": 1,
+        "limit": 200
+      }
+    }
+  }
+}

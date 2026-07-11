@@ -4,11 +4,12 @@ import SwiftUI
 
 struct SearchView: View {
     private static let screenshotAccountIDEnvironmentKey = "SPOONJOY_SCREENSHOT_ACCOUNT_ID"
+    private static let screenshotDisableSearchFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS"
     private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
 
     @Binding private var search: SearchState
     @State private var inFlightRequest: SearchSurfaceRequest?
-    @FocusState private var isSearchFocused: Bool
+    @FocusState private var isSearchFieldFocused: Bool
 
     private let viewModel: SearchSurfaceViewModel
     private let openRoute: (AppRoute) -> Void
@@ -41,7 +42,9 @@ struct SearchView: View {
                 subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)"
             )
 
-            searchControls
+#if os(iOS)
+            visibleSearchField
+#endif
 
             if viewModel.offlineIndicator.display.isVisible {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
@@ -69,10 +72,30 @@ struct SearchView: View {
         }
         .tint(KitchenTableTheme.herb)
         .navigationTitle("Search")
+#if os(iOS)
+        .searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Spoonjoy")
+#else
+        .searchable(text: searchTextBinding, prompt: "Search Spoonjoy")
+#endif
+        .searchFocused($isSearchFieldFocused)
+        .searchScopes(searchScopeBinding) {
+            ForEach(searchableScopeOrder, id: \.rawValue) { scope in
+                Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
+            }
+        }
+        .onAppear {
+            focusSearchFieldIfNeeded()
+        }
+        .onSubmit(of: .search) {
+            Task {
+                await searchTask(search)
+            }
+        }
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
         .task(id: search.route.stateIdentifier) {
+            focusSearchFieldIfNeeded()
             await writeScreenshotProofIfNeeded()
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "search",
@@ -83,56 +106,70 @@ struct SearchView: View {
         }
     }
 
-    private var searchControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(KitchenTableTheme.brass)
-                TextField("tomato beans", text: searchTextBinding)
 #if os(iOS)
-                    .textInputAutocapitalization(.never)
-#endif
-                    .autocorrectionDisabled()
-                    .focused($isSearchFocused)
-                    .onSubmit {
-                        Task {
-                            await searchTask(search)
-                        }
-                    }
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 48)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
-            }
+    private var visibleSearchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .accessibilityHidden(true)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(searchableScopeOrder, id: \.rawValue) { scope in
-                        Button {
-                            search.update(query: search.query, scope: scope)
-                            Task {
-                                await searchTask(search)
-                            }
-                        } label: {
-                            Text(scopeLabel(scope))
-                                .font(KitchenTableTheme.uiLabel)
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 34)
-                                .foregroundStyle(scope == search.scope ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
-                                .background(scope == search.scope ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
-                                .overlay {
-                                    Capsule()
-                                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
-                                }
-                        }
-                        .buttonStyle(.plain)
+            TextField("Search Spoonjoy", text: searchTextBinding)
+                .textFieldStyle(.plain)
+                .submitLabel(.search)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .onSubmit {
+                    Task {
+                        await searchTask(search)
                     }
                 }
+
+            if !search.query.isEmpty {
+                Button {
+                    search.update(query: "", scope: search.scope)
+                    Task {
+                        await searchTask(search)
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.body.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .accessibilityLabel("Clear search")
             }
         }
+        .padding(.horizontal, 14)
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
+        }
+        .accessibilityIdentifier(SearchSurfaceContract.visibleSearchField)
+    }
+#endif
+
+    private var shouldAutoFocusSearchField: Bool {
+        !Self.truthy(ProcessInfo.processInfo.environment[Self.screenshotDisableSearchFocusEnvironmentKey])
+    }
+
+    private static func truthy(_ rawValue: String?) -> Bool {
+        guard let value = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
+            return false
+        }
+        return ["1", "true", "yes", "y", "on"].contains(value)
+    }
+
+    private func focusSearchFieldIfNeeded() {
+        guard shouldAutoFocusSearchField else {
+            isSearchFieldFocused = false
+            return
+        }
+        isSearchFieldFocused = true
     }
 
     private var searchTextBinding: Binding<String> {
@@ -144,19 +181,16 @@ struct SearchView: View {
         )
     }
 
-    private func scopeLabel(_ scope: SearchScope) -> String {
-        switch scope {
-        case .all:
-            "Everything"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
-        }
+    private var searchScopeBinding: Binding<SearchScope> {
+        Binding(
+            get: { search.scope },
+            set: { scope in
+                search.update(query: search.query, scope: scope)
+                Task {
+                    await searchTask(search)
+                }
+            }
+        )
     }
 
     private var searchableScopeOrder: [SearchScope] {
@@ -240,6 +274,24 @@ struct SearchView: View {
 private enum SearchSurfaceContract {
     static let searchableScopes = "searchable scopes"
     static let typedRows = "typed rows"
+    static let visibleSearchField = "visible search field"
+}
+
+private enum SearchSurfaceNativeChrome {
+    static func title(for scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "Everything"
+        case .recipes:
+            "Recipes"
+        case .cookbooks:
+            "Cookbooks"
+        case .chefs:
+            "Chefs"
+        case .shoppingList:
+            "Shopping"
+        }
+    }
 }
 
 private struct SearchSurfaceSectionView: View {
@@ -279,25 +331,28 @@ private struct SearchSurfaceRowView: View {
 }
 
 private struct SearchSurfaceThumbnail: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let row: SearchSurfaceRow
 
     var body: some View {
         ZStack {
             if let imageURL = row.imageURL {
-                AsyncImage(url: imageURL, transaction: Transaction(animation: .easeInOut(duration: 0.18))) { phase in
-                    thumbnailContent(for: phase)
+                AsyncImage(url: imageURL, transaction: imageLoadingTransaction) { phase in
+                    KitchenTableImagePhaseView(phase: phase, reduceMotion: accessibilityReduceMotion) {
+                        thumbnailFill
+                    }
                 }
-            } else if let fallbackAssetName {
-                Image(fallbackAssetName)
-                    .resizable()
-                    .scaledToFill()
-                    .transition(.opacity)
             } else {
                 thumbnailFill
             }
         }
         .frame(width: 48, height: 48)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+    }
+
+    private var imageLoadingTransaction: Transaction {
+        Transaction(animation: accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18))
     }
 
     private var thumbnailFill: some View {
@@ -307,30 +362,6 @@ private struct SearchSurfaceThumbnail: View {
             Image(systemName: row.systemImage)
                 .foregroundStyle(accent)
                 .accessibilityHidden(true)
-        }
-    }
-
-    private var fallbackAssetName: String? {
-        guard row.result.type == .recipe else {
-            return nil
-        }
-        return RecipeCoverImage.bundledAssetName(forRecipeID: row.result.id)
-            ?? RecipeCoverImage.fallbackFoodAssetName(forTitle: row.title)
-    }
-
-    @ViewBuilder private func thumbnailContent(for phase: AsyncImagePhase) -> some View {
-        switch phase {
-        case .empty:
-            thumbnailFill
-        case .success(let image):
-            image
-                .resizable()
-                .scaledToFill()
-                .transition(.opacity)
-        case .failure:
-            thumbnailFill
-        @unknown default:
-            thumbnailFill
         }
     }
 
@@ -348,6 +379,28 @@ private struct SearchSurfaceThumbnail: View {
     }
 }
 
+private struct KitchenTableImagePhaseView<Placeholder: View>: View {
+    let phase: AsyncImagePhase
+    let reduceMotion: Bool
+    @ViewBuilder let placeholder: () -> Placeholder
+
+    var body: some View {
+        switch phase {
+        case .empty:
+            placeholder()
+        case .success(let image):
+            image
+                .resizable()
+                .scaledToFill()
+                .transition(reduceMotion ? .identity : .opacity)
+        case .failure:
+            placeholder()
+        @unknown default:
+            placeholder()
+        }
+    }
+}
+
 private struct SearchSurfaceMessageView: View {
     let title: String
     let message: String
@@ -361,7 +414,7 @@ private struct SearchSurfaceMessageView: View {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                 Text(message)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
         } icon: {
             Image(systemName: systemImage)

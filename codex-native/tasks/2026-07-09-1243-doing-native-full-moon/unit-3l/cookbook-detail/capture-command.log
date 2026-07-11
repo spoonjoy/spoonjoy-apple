@@ -1,0 +1,3 @@
+scripts/capture-native-screenshots.sh --artifact-root codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail --unit-slug unit-3l-cookbook-detail --route cookbook-detail
+design review ok
+native screenshot capture complete: codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail/design-review.json

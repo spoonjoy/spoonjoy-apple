@@ -1,0 +1,10 @@
+{
+  "blocked": true,
+  "capability": "ScreenshotRouteTimeout",
+  "route": "kitchen",
+  "command": "scripts/capture-native-screenshots.sh --artifact-root codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-2i --unit-slug unit-2i-shared-substrate --route kitchen",
+  "timeoutSeconds": 240,
+  "outputPath": "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-2i/apple/unit-2i-shared-substrate-screenshot-route.log",
+  "reason": "Screenshot route kitchen exceeded 240 seconds before producing terminal screenshot artifacts.",
+  "ownerAction": "Inspect the route capture log and fix the local screenshot harness or app launch hang, then rerun the screenshot route matrix."
+}

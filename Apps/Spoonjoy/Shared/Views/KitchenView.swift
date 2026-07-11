@@ -1,4 +1,5 @@
 import SpoonjoyCore
+import Foundation
 import SwiftUI
 
 struct KitchenView: View {
@@ -64,7 +65,9 @@ struct KitchenView: View {
 
     @ViewBuilder private var kitchenIndexStack: some View {
         VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
-            RecipeIndex(recipes: recipes, openRecipe: openRecipe)
+            if !indexedRecipes.isEmpty {
+                RecipeIndex(recipes: indexedRecipes, openRecipe: openRecipe)
+            }
 
             if !cookbooks.isEmpty {
                 CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
@@ -78,6 +81,16 @@ struct KitchenView: View {
 #else
         true
 #endif
+    }
+
+    private var indexedRecipes: [Recipe] {
+        guard let leadRecipe else {
+            return recipes
+        }
+
+        return recipes.filter { recipe in
+            recipe.id != leadRecipe.id
+        }
     }
 
     private var pageMaxContentWidth: CGFloat {
@@ -144,9 +157,8 @@ struct KitchenMasthead: View {
     private var countSummary: String {
         [
             countLabel(kitchen.counts.recipes, singular: "recipe"),
-            countLabel(kitchen.counts.cookbooks, singular: "cookbook"),
-            countLabel(kitchen.counts.shoppingItems, singular: "shopping item")
-        ].joined(separator: " / ")
+            countLabel(kitchen.counts.cookbooks, singular: "cookbook")
+        ].joined(separator: " and ")
     }
 
     private func countLabel(_ count: Int, singular: String) -> String {
@@ -197,11 +209,7 @@ struct RecipeLead: View {
     }
 
     private var hasRealCover: Bool {
-        recipe.displayCoverImageURL != nil || coverAssetName != nil
-    }
-
-    private var coverAssetName: String? {
-        RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
+        recipe.displayCoverImageURL != nil
     }
 
     private var photoLead: some View {
@@ -210,7 +218,6 @@ struct RecipeLead: View {
                 url: recipe.displayCoverImageURL,
                 title: recipe.title,
                 subtitle: "Cover",
-                assetName: coverAssetName,
                 showsFallbackLabel: false
             )
                 .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
@@ -226,11 +233,12 @@ struct RecipeLead: View {
     }
 
     private var coverlessLead: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
+            coverlessNoPhotoBadge
             leadText(foreground: KitchenTableTheme.charcoal, secondary: KitchenTableTheme.inkMuted, label: KitchenTableTheme.brass)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, minHeight: 210, alignment: .bottomLeading)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(KitchenTableTheme.paper)
         .overlay(alignment: .top) {
             Rectangle()
@@ -244,9 +252,25 @@ struct RecipeLead: View {
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
+    private var coverlessNoPhotoBadge: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "photo.badge.plus")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.brass)
+                .frame(width: 22, height: 22)
+                .background(KitchenTableTheme.vellum.opacity(0.42))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            Text("Photo not added")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+        }
+        .accessibilityLabel("Photo not added")
+    }
+
     private func leadText(foreground: Color, secondary: Color, label: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("From your kitchen".uppercased())
+            Text("Latest from the kitchen".uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(1.2)
                 .foregroundStyle(label)
@@ -308,8 +332,8 @@ struct RecipeIndex: View {
                 )
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(recipes, id: \.id) { recipe in
-                        KitchenRecipeIndexRow(recipe: recipe) {
+                    ForEach(Array(recipes.enumerated()), id: \.element.id) { index, recipe in
+                        KitchenRecipeIndexRow(recipe: recipe, ordinal: index + 1) {
                             openRecipe(recipe.id)
                         }
                         .contentShape(Rectangle())
@@ -322,29 +346,69 @@ struct RecipeIndex: View {
 
 struct KitchenRecipeIndexRow: View {
     let recipe: Recipe
+    let ordinal: Int
     let open: () -> Void
 
     var body: some View {
-        Button(action: open) {
-            KitchenTableObjectRow(
-                title: recipe.title,
-                subtitle: recipe.displayCoverProvenanceLabel ?? recipe.chef.username
-            ) {
-                RecipeCoverImage(
-                    url: recipe.displayCoverImageURL,
+        HStack(spacing: 8) {
+            Button(action: open) {
+                KitchenTableObjectRow(
                     title: recipe.title,
-                    subtitle: recipe.displayCoverProvenanceLabel,
-                    assetName: RecipeCoverImage.bundledAssetName(forRecipeID: recipe.id)
-                )
-                    .aspectRatio(1, contentMode: .fill)
-            } trailing: {
-                Image(systemName: "chevron.forward")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    subtitle: rowSubtitle
+                ) {
+                    ZStack(alignment: .topLeading) {
+                        RecipeCoverImage(
+                            url: recipe.displayCoverImageURL,
+                            title: recipe.title,
+                            subtitle: "Photo not added"
+                        )
+                            .aspectRatio(1, contentMode: .fill)
+
+                        Text(ordinalLabel)
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(KitchenTableTheme.bone)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(KitchenTableTheme.charcoal.opacity(0.72))
+                    }
+                } trailing: {
+                    Image(systemName: "chevron.forward")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.brass)
+                }
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(recipe.title)
+            .accessibilityHint("Opens recipe detail")
+
+            ShareLink(item: shareRecipe) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share \(recipe.title)")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(recipe.title)
+    }
+
+    private var ordinalLabel: String {
+        String(format: "%02d", ordinal)
+    }
+
+    private var rowSubtitle: String {
+        [
+            recipe.description,
+            recipe.displayCoverProvenanceLabel,
+            recipe.servings.map { "Serves \($0)" }
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: " - ")
+    }
+
+    private var shareRecipe: URL {
+        recipe.attribution.canonicalURL
     }
 }
 

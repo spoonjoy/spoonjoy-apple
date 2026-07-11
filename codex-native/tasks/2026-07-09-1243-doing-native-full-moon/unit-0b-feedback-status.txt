@@ -1,0 +1,58 @@
+Spoonjoy TestFlight feedback autopilot: needs attention
+App Store Connect app: 6787505444 (app.spoonjoy)
+
+Warnings:
+- install: com.spoonjoy.testflight-feedback-listener: script path is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass/scripts/testflight-feedback-autopilot.mjs, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/scripts/testflight-feedback-autopilot.mjs
+- install: com.spoonjoy.testflight-feedback-listener: working directory is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- install: com.spoonjoy.testflight-feedback-listener: SPOONJOY_NATIVE_REPO is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- install: com.spoonjoy.testflight-feedback-tunnel: working directory is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- install: com.spoonjoy.testflight-feedback-reconcile: script path is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass/scripts/testflight-feedback-autopilot.mjs, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/scripts/testflight-feedback-autopilot.mjs
+- install: com.spoonjoy.testflight-feedback-reconcile: working directory is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- install: com.spoonjoy.testflight-feedback-reconcile: SPOONJOY_NATIVE_REPO is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- local health: repo is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- local health: script path is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass/scripts/testflight-feedback-autopilot.mjs, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/scripts/testflight-feedback-autopilot.mjs
+- public health: repo is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon
+- public health: script path is /Users/arimendelow/Projects/spoonjoy-apple-cookmode-ui-pass/scripts/testflight-feedback-autopilot.mjs, expected /Users/arimendelow/Projects/spoonjoy-apple-native-full-moon/scripts/testflight-feedback-autopilot.mjs
+
+Services
+- listener: running pid=41724
+- tunnel: running pid=42327
+- reconcile: not running lastExit=78
+- install: failed
+- local health: ok
+- public health: ok
+
+Feedback
+- total: 11
+- actionable: 0
+- awaiting confirmation: 9
+- running, delegated, or taken over: 0
+- AFJth_SZvu7Bh7NuKbFX1F0: fixed_unconfirmed Published iOS build 1.0 (22) to Spoonjoy Internal. Combined fix preserves web recipe structure/language (RecipeHeader/Steps/Ingredients/Cooks), honest cover handling, compact action layout, and includes the Shopping/List navigation Kitchen escape from the follow-up feedback.
+  artifacts: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T16-50-22-978Z-AFJth_SZvu7Bh7NuKbFX1F0
+  delegated: slugger via ouro_event
+  prompt: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T16-39-21-295Z-AFJth_SZvu7Bh7NuKbFX1F0/codex-prompt.md
+  log: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T16-50-22-978Z-AFJth_SZvu7Bh7NuKbFX1F0/codex-exec.jsonl
+  last message: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T16-50-22-978Z-AFJth_SZvu7Bh7NuKbFX1F0/codex-last-message.md
+- APHfmldUfhrmP2su-glLyMs: fixed_unconfirmed exit=0 Published iOS build 1.0 (22) to Spoonjoy Internal. Fix adds a direct Kitchen/Home affordance to compact SpoonDock routes for Shopping List, Recipes, Search, and Profile; simulator screenshot and accessibility proof confirm Shopping List exposes Kitchen and is not stranded.
+  artifacts: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T17-13-45-410Z-APHfmldUfhrmP2su-glLyMs
+  delegated: slugger via ouro_event
+  prompt: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T17-03-12-931Z-APHfmldUfhrmP2su-glLyMs/codex-prompt.md
+  log: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T17-13-45-410Z-APHfmldUfhrmP2su-glLyMs/codex-exec.jsonl
+  last message: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T17-13-45-410Z-APHfmldUfhrmP2su-glLyMs/codex-last-message.md
+- AL3GtjesS-4gK4LAwMY7WJI: fixed_unconfirmed Published iOS build 1.0 (20) to Spoonjoy Internal with the web-palette mobile UI fix, no-overlap SpoonDock layout, AI-placeholder cover filtering, and honest no-photo states; awaiting tester confirmation.
+  artifacts: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T06-38-36-898Z-AL3GtjesS-4gK4LAwMY7WJI
+  delegated: slugger via ouro_event
+  prompt: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-08T06-38-36-898Z-AL3GtjesS-4gK4LAwMY7WJI/codex-prompt.md
+- AKLYZZNFK-Kajjhmc_p0Ois: fixed_unconfirmed Build 1.0 (16) uploaded and published to Spoonjoy Internal. Fix clears stale invalid_cursor sync checkpoints and retries a clean account bootstrap.
+  artifacts: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-07T20-04-29-300Z-AKLYZZNFK-Kajjhmc_p0Ois
+  delegated: slugger via ouro_event
+  prompt: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-07T20-04-29-300Z-AKLYZZNFK-Kajjhmc_p0Ois/codex-prompt.md
+- ADxUVib8cX3K_lgV393Orec: fixed_unconfirmed Published iOS build 1.0 (14) to Spoonjoy Internal with a real Settings escape route during sync failure plus account sync diagnostics; awaiting tester confirmation.
+  artifacts: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-07T15-48-51-794Z-ADxUVib8cX3K_lgV393Orec
+  delegated: slugger via ouro_event
+  prompt: /Users/arimendelow/Library/Application Support/Spoonjoy/TestFlightFeedbackAutopilot/events/2026-07-07T15-48-51-794Z-ADxUVib8cX3K_lgV393Orec/codex-prompt.md
+
+Latest Apple deliveries
+- 2026-07-08T21:52:13.626-07:00 webhookPingCreated: SUCCEEDED HTTP 202
+
+Next: wait for the tester to confirm the current TestFlight build, or mark confirmed after verification.

@@ -146,9 +146,9 @@ public enum SettingsOnlineOnlyReason: Equatable, Sendable {
     public var message: String {
         switch self {
         case .apiTokenCreate:
-            "Connect to the internet to create an API token."
+            "Connect to the internet to create an access key."
         case .apiTokenRevoke:
-            "Connect to the internet to revoke this API token."
+            "Connect to the internet to revoke this access key."
         case .oauthConnectionDisconnect:
             "Connect to the internet to disconnect this OAuth app."
         case .logout:
@@ -477,7 +477,7 @@ public struct SettingsSurfaceViewModel: Sendable {
         self.data = data
         let hasAccount = data.account != nil
         let tokenManagementSections = data.tokenManagementAvailability == .available ? [
-            SettingsSurfaceSection(id: .apiTokens, title: "API Tokens"),
+            SettingsSurfaceSection(id: .apiTokens, title: "Agent access"),
             SettingsSurfaceSection(id: .connections, title: "Connections")
         ] : []
         sections = hasAccount ? [

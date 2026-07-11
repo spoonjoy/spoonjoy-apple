@@ -1,0 +1,12 @@
+
+ RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2-native-auth-telemetry
+
+ ✓ test/routes/api-v1-scopes.test.ts (4 tests) 440ms
+ ✓ test/routes/api-v1-native-telemetry.test.ts (11 tests) 172ms
+ ✓ test/lib/api-v1-openapi.server.test.ts (11 tests) 128ms
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  17:38:09
+   Duration  3.50s (transform 574ms, setup 251ms, import 1.56s, tests 740ms, environment 573ms)
+

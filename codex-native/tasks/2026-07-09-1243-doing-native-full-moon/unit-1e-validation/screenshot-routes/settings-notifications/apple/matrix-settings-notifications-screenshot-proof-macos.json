@@ -1,0 +1,13 @@
+{
+  "route": "settings",
+  "source": "SettingsView",
+  "visibleSections": [
+    "Notifications",
+    "Device Notifications",
+    "APNs Delivery",
+    "Notification Sync"
+  ],
+  "visualFocus": "notifications",
+  "writtenAt": "2026-07-09T22:46:17Z",
+  "platform": "macos"
+}

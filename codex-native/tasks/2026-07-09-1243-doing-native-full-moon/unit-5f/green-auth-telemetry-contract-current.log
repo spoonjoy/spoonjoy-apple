@@ -1,0 +1,19 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.20s)
+Test Suite 'Selected tests' started at 2026-07-10 18:03:48.499.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 18:03:48.503.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 18:03:48.503.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 18:03:48.503.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Auth telemetry contracts" started.
+◇ Test "native telemetry encodes auth events without secrets" started.
+◇ Test "Apple sign-in sends structured native telemetry for every phase" started.
+✔ Test "native telemetry encodes auth events without secrets" passed after 0.006 seconds.
+✔ Test "Apple sign-in sends structured native telemetry for every phase" passed after 0.013 seconds.
+✔ Suite "Auth telemetry contracts" passed after 0.013 seconds.
+✔ Test run with 2 tests in 1 suite passed after 0.014 seconds.

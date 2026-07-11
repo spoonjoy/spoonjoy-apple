@@ -1,0 +1,27 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+Test Suite 'Selected tests' started at 2026-07-10 08:25:49.010.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 08:25:49.012.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 08:25:49.012.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 08:25:49.012.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Capture import Siri intent contracts" started.
+◇ Test "capture import intent resolver rejects unresolved unsafe and non-owner draft entities" started.
+◇ Test "capture import intent resolver queues import-ready drafts through the native import API" started.
+◇ Test "capture import intent resolver reuses pending import mutations and opens drafts" started.
+◇ Test "capture import Siri intents require entity-backed lifecycle actions" started.
+◇ Test "capture import intent resolver discards drafts and preserves queued import cancellation metadata" started.
+◇ Test "capture import intent resolver can discard OCR-needed image drafts without import source" started.
+✔ Test "capture import intent resolver can discard OCR-needed image drafts without import source" passed after 0.002 seconds.
+✔ Test "capture import intent resolver rejects unresolved unsafe and non-owner draft entities" passed after 0.002 seconds.
+✔ Test "capture import intent resolver reuses pending import mutations and opens drafts" passed after 0.002 seconds.
+✔ Test "capture import intent resolver discards drafts and preserves queued import cancellation metadata" passed after 0.002 seconds.
+✔ Test "capture import intent resolver queues import-ready drafts through the native import API" passed after 0.006 seconds.
+✔ Test "capture import Siri intents require entity-backed lifecycle actions" passed after 0.223 seconds.
+✔ Suite "Capture import Siri intent contracts" passed after 0.223 seconds.
+✔ Test run with 6 tests in 1 suite passed after 0.223 seconds.

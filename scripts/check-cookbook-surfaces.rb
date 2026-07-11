@@ -74,7 +74,11 @@ REQUIRED_TOKENS = {
     "CookbooksView",
     "CookbookCreateSheet",
     "CookbookShelf",
-    "CookbookCover",
+    "CookbookCoverArt",
+    "CookbookFallbackCover",
+    "CookbookImageCover",
+    "CookbookRecipeIndexRow",
+    "DisclosureGroup(isExpanded",
     "CookbookSurfaceViewModel",
     "CookbookDetailRouteView",
     "NativeSharePayload.publicCookbook",
@@ -83,7 +87,6 @@ REQUIRED_TOKENS = {
     "confirmationDialog",
     "planCreate",
     "performAndApplyCookbookAction",
-    "RecipeCoverImage(",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift" => [
@@ -112,7 +115,6 @@ FORBIDDEN_TOKENS = [
   "className",
   "tailwind",
   "CardView",
-  "LazyVGrid",
   "Grid {",
   'Text("Cookbook shelf is next.")',
   "RecipeComments",

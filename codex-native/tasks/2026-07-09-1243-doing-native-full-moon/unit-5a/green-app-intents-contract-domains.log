@@ -1,0 +1,14 @@
+app intents contract ok: recipe-cookbook
+app intents contract ok: shopping
+app intents contract ok: spoon
+app intents contract ok: capture-draft
+app intents contract ok: chef-profile
+app intents contract ok: spotlight-shortcuts
+app intents contract ok: open-search-share-cook
+app intents contract ok: shopping-intents
+app intents contract ok: recipe-action
+app intents contract ok: spoon-intents
+app intents contract ok: capture-import-intents
+app intents contract ok: cookbook-intents
+app intents contract ok: profile-settings-intents
+app intents contract ok: notification-intents

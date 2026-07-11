@@ -1436,7 +1436,7 @@ struct NativeLiveStoreTests {
             #expect(content.settingsSurfaceData?.account == settingsAccount)
             #expect(content.settingsSurfaceData?.partialFailures == [partialFailure, metadataFreeFailure])
             #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingspartial")
-            #expect(content.settingsSurfaceViewModel.partialFailureSummary == "Some account settings could not load: Notifications, API tokens.")
+            #expect(content.settingsSurfaceViewModel.partialFailureSummary == "Some account settings could not load: Notifications, Agent access.")
             #expect(content.settingsSurfaceViewModel.offlineIndicator.display == .syncFailure(errorID: "settings.notification_preferences", retryAfter: nil))
 
             let telemetryEvents = await telemetryRecorder.recordedEvents()
@@ -1665,7 +1665,7 @@ struct NativeLiveStoreTests {
                     payload: .tokenMetadata(credentials: [
                         NativeTokenMetadata(
                             id: "credential_capture",
-                            name: "Capture validation token",
+                            name: "Capture validation key",
                             tokenPrefix: "sj_live_1234",
                             scopes: ["recipes:read", "shopping_list:read"],
                             createdAt: Self.isoString(Self.now),
@@ -1738,11 +1738,110 @@ struct NativeLiveStoreTests {
             #expect(liveStore.restoredRoute == .settings)
             #expect(content.settingsSurfaceViewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline])
             #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingscapture")
-            #expect(content.settingsSurfaceViewModel.apiTokenRows.map(\.name) == ["Capture validation token"])
+            #expect(content.settingsSurfaceViewModel.apiTokenRows.map(\.name) == ["Capture validation key"])
             #expect(content.settingsSurfaceViewModel.oauthConnectionRows.map(\.clientName) == ["Capture OAuth App"])
             #expect(content.settingsSurfaceViewModel.primaryAuthAction == nil)
             #expect(content.settingsSurfaceViewModel.connectivity == .offline)
             #expect(await syncTransport.capturedBearerTokens().isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("restore cache only launch mode preserves capture import retry and blocker severity")
+    func restoreCacheOnlyLaunchModePreservesCaptureImportRetryAndBlockerSeverity() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_capture_restore"
+            let draft = try CaptureDraft.importURL(
+                id: "draft_restore_capture",
+                url: URL(string: "https://example.com/restore-capture")!,
+                createdAt: Self.isoString(Self.now)
+            )
+            let retryMutation = NativeQueuedMutation.recipeImportSubmit(
+                source: try draft.importSource(),
+                clientMutationID: "cm_restore_capture_import",
+                createdAt: Self.isoString(Self.now)
+            )
+
+            let queuedDirectory = directory.appendingPathComponent("queued", isDirectory: true)
+            try FileManager.default.createDirectory(at: queuedDirectory, withIntermediateDirectories: true)
+            let queuedAppStateStore = NativeAppStateStore(fileURL: queuedDirectory.appendingPathComponent("native-app-state.json"))
+            try queuedAppStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: draft,
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "capture",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let queuedStore = Self.liveStore(
+                directory: queuedDirectory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: accountID,
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: try NativeMutationQueue(mutations: [retryMutation])
+                ),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                appStateStoreProvider: { queuedAppStateStore },
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            await queuedStore.bootstrap()
+
+            guard case .queuedWork(let queuedContent) = queuedStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to preserve queued capture import; got \(queuedStore.bootstrapState)")
+                return
+            }
+            #expect(queuedStore.restoredRoute == .capture)
+            #expect(queuedContent.captureDraft == draft)
+            #expect(queuedContent.queuedMutations.map(\.clientMutationID) == ["cm_restore_capture_import"])
+            #expect(queuedContent.offlineIndicatorState.display == .queuedWork(count: 1, oldestClientMutationID: "cm_restore_capture_import"))
+
+            let blockerDirectory = directory.appendingPathComponent("blocker", isDirectory: true)
+            try FileManager.default.createDirectory(at: blockerDirectory, withIntermediateDirectories: true)
+            let blockerAppStateStore = NativeAppStateStore(fileURL: blockerDirectory.appendingPathComponent("native-app-state.json"))
+            try blockerAppStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: draft,
+                captureImportProviderBlocker: "recipe-import",
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "capture",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let blockerStore = Self.liveStore(
+                directory: blockerDirectory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: InMemoryNativeSyncStore(accountID: accountID, environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                appStateStoreProvider: { blockerAppStateStore },
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            await blockerStore.bootstrap()
+
+            guard case .blocker(let blockerContent) = blockerStore.bootstrapState else {
+                Issue.record("Expected restore-cache-only launch to preserve capture import blocker; got \(blockerStore.bootstrapState)")
+                return
+            }
+            #expect(blockerStore.restoredRoute == .capture)
+            #expect(blockerContent.captureDraft == draft)
+            #expect(blockerContent.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "recipe-import")))
         }
     }
 
@@ -4771,6 +4870,55 @@ struct NativeLiveStoreTests {
                 Issue.record("Expected \(state) to preserve state kind after content replacement; got \(replaced)")
             }
         }
+
+        let apnsData = NotificationAPNsSurfaceData(
+            preferences: .disabled,
+            apnsRegistration: nil,
+            permissionState: .notDetermined,
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.now)
+        )
+        #expect(original.debugApplyingNotificationAPNsSurfaceData(apnsData).notificationAPNsSurfaceData == apnsData)
+
+        let conflict = NativeSyncConflict(
+            clientMutationID: "cm_debug_conflict",
+            kind: .validation,
+            serverRevision: .updatedAt(Self.isoString(Self.now)),
+            message: "Debug conflict"
+        )
+        let debugOverlay = original.debugApplyingSyncOverlay(
+            conflicts: [conflict],
+            conflictMutationID: "cm_debug_conflict"
+        )
+        #expect(debugOverlay.syncConflicts == [conflict])
+        #expect(debugOverlay.offlineIndicatorState.display == .conflict(
+            recordID: "cm_debug_conflict",
+            mutationID: "cm_debug_conflict"
+        ))
+
+        let restoreCases: [(OfflineIndicatorDisplay, String)] = [
+            (.queuedWork(count: 2, oldestClientMutationID: "cm_oldest"), "queued"),
+            (.conflict(recordID: "record_conflict", mutationID: "cm_conflict"), "conflict"),
+            (.blocker(.providerSecret(resourceID: "OPENAI_API_KEY")), "blocker"),
+            (.destructiveConfirmation(actionID: "delete-recipe"), "destructive"),
+            (.syncFailure(errorID: "sync", retryAfter: .seconds(5)), "sync-failed"),
+            (.stale(domain: .recipeCatalog), "offline-stale")
+        ]
+        for (display, expectedKind) in restoreCases {
+            let restored = NativeLiveAppStore.debugRestoreCacheOnlyBootstrapState(for: original.copy(
+                offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: nil)
+            ))
+            switch (expectedKind, restored) {
+            case ("queued", .queuedWork),
+                 ("conflict", .conflict),
+                 ("blocker", .blocker),
+                 ("destructive", .destructiveConfirmation),
+                 ("sync-failed", .syncFailed),
+                 ("offline-stale", .offlineStale):
+                break
+            default:
+                Issue.record("Expected restore-cache-only state \(expectedKind), got \(restored)")
+            }
+        }
     }
 
     @Test("shell content settings surface view model covers signed-out loaded and signed-in unloaded states")
@@ -5678,8 +5826,8 @@ struct NativeLiveStoreTests {
                 "SPOONJOY_SCREENSHOT_PROOF_PATH",
                 "writeScreenshotProof(",
                 #""source": "SettingsView""#,
-                "settings-section-notification-apns-delivery",
-                "proxy.scrollTo(Self.notificationsFocusID, anchor: .center)",
+                "settings-section-notification-apns-device",
+                "proxy.scrollTo(Self.notificationsFocusID, anchor: .top)",
                 "shellOfflineIndicatorState",
                 "effectiveOfflineIndicator(",
                 "!shellOfflineIndicatorState.display.informationalOnly",

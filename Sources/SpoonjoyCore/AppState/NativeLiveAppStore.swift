@@ -1024,6 +1024,25 @@ public struct NativeShellContentState {
         )
     }
 
+#if DEBUG
+    public func debugApplyingNotificationAPNsSurfaceData(
+        _ notificationAPNsSurfaceData: NotificationAPNsSurfaceData
+    ) -> NativeShellContentState {
+        copy(notificationAPNsSurfaceData: .some(notificationAPNsSurfaceData))
+    }
+
+    public func debugApplyingSyncOverlay(
+        conflicts: [NativeSyncConflict],
+        conflictMutationID: String
+    ) -> NativeShellContentState {
+        let offlineIndicatorState = OfflineIndicatorState(
+            display: .conflict(recordID: conflictMutationID, mutationID: conflictMutationID),
+            dismissal: nil
+        )
+        return copy(syncConflicts: conflicts, offlineIndicatorState: offlineIndicatorState)
+    }
+#endif
+
     static func empty(
         authSessionState: NativeAuthSessionState,
         environment: NativeCacheEnvironment,
@@ -1750,13 +1769,12 @@ public final class NativeLiveAppStore: ObservableObject {
             if dependencies.bootstrapMode == .restoreCacheOnly {
                 configureForRestoredAuthState(restoredAuthState)
                 let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
-                let offlineContent = restoredContent.copy(
-                    offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
-                )
                 if case .signedOut = restoredAuthState {
-                    apply(.signedOut(offlineContent))
+                    apply(.signedOut(restoredContent.copy(
+                        offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+                    )))
                 } else {
-                    apply(.offlineStale(offlineContent))
+                    apply(Self.restoreCacheOnlyBootstrapState(for: restoredContent))
                 }
                 return
             }
@@ -3216,6 +3234,31 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {
         bootstrapState.replacingContent(content)
+    }
+
+    #if DEBUG
+    nonisolated public static func debugRestoreCacheOnlyBootstrapState(for content: NativeShellContentState) -> NativeAppBootstrapState {
+        restoreCacheOnlyBootstrapState(for: content)
+    }
+    #endif
+
+    nonisolated private static func restoreCacheOnlyBootstrapState(for content: NativeShellContentState) -> NativeAppBootstrapState {
+        switch content.offlineIndicatorState.display {
+        case .queuedWork:
+            return .queuedWork(content)
+        case .conflict:
+            return .conflict(content)
+        case .blocker:
+            return .blocker(content)
+        case .destructiveConfirmation:
+            return .destructiveConfirmation(content)
+        case .syncFailure:
+            return .syncFailed(content, message: "Spoonjoy could not finish syncing your account.")
+        case .synced, .offline, .stale, .dismissed:
+            return .offlineStale(content.copy(
+                offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+            ))
+        }
     }
 
     private static func uniquePreservingOrder(_ values: [String]) -> [String] {

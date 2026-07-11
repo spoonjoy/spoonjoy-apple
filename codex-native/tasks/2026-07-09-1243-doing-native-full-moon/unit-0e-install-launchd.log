@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "repo": "/Users/arimendelow/Projects/spoonjoy-apple",
+  "scriptPath": "/Users/arimendelow/Projects/spoonjoy-apple/scripts/testflight-feedback-autopilot.mjs",
+  "plists": [
+    {
+      "label": "com.spoonjoy.testflight-feedback-listener",
+      "plistPath": "/Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-listener.plist"
+    },
+    {
+      "label": "com.spoonjoy.testflight-feedback-tunnel",
+      "plistPath": "/Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-tunnel.plist"
+    },
+    {
+      "label": "com.spoonjoy.testflight-feedback-reconcile",
+      "plistPath": "/Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-reconcile.plist"
+    }
+  ],
+  "services": {
+    "listener": {
+      "label": "com.spoonjoy.testflight-feedback-listener",
+      "loaded": true,
+      "state": "running",
+      "pid": 38736,
+      "runs": 2,
+      "lastExitCode": null
+    },
+    "tunnel": {
+      "label": "com.spoonjoy.testflight-feedback-tunnel",
+      "loaded": true,
+      "state": "running",
+      "pid": 39209,
+      "runs": 2,
+      "lastExitCode": null
+    },
+    "reconcile": {
+      "label": "com.spoonjoy.testflight-feedback-reconcile",
+      "loaded": true,
+      "state": "running",
+      "pid": 39675,
+      "runs": 2,
+      "lastExitCode": null
+    }
+  },
+  "install": {
+    "ok": true,
+    "repo": "/Users/arimendelow/Projects/spoonjoy-apple",
+    "scriptPath": "/Users/arimendelow/Projects/spoonjoy-apple/scripts/testflight-feedback-autopilot.mjs",
+    "items": {
+      "com.spoonjoy.testflight-feedback-listener": {
+        "plistPath": "/Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-listener.plist",
+        "ok": true,
+        "issues": []
+      },
+      "com.spoonjoy.testflight-feedback-tunnel": {
+        "plistPath": "/Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-tunnel.plist",
+        "ok": true,
+        "issues": []
+      },
+      "com.spoonjoy.testflight-feedback-reconcile": {
+        "plistPath": "/Users/arimendelow/Library/LaunchAgents/com.spoonjoy.testflight-feedback-reconcile.plist",
+        "ok": true,
+        "issues": []
+      }
+    },
+    "issues": []
+  }
+}

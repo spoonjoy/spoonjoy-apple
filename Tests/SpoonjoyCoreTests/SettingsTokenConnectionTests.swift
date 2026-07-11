@@ -515,7 +515,7 @@ struct SettingsTokenConnectionTests {
         )
         #expect(viewModel.sections.map(\.id).contains(.profile))
         #expect(viewModel.profileDraft?.username == "ari")
-        #expect(viewModel.partialFailureSummary == "Some account settings could not load: Notifications, API tokens, Connections.")
+        #expect(viewModel.partialFailureSummary == "Some account settings could not load: Notifications, Agent access, Connections.")
         #expect(viewModel.offlineIndicator.display == .syncFailure(errorID: "settings.notification_preferences", retryAfter: nil))
     }
 
@@ -1190,7 +1190,7 @@ struct SettingsTokenConnectionTests {
             "Upload Photo",
             "Remove Photo",
             "Notifications",
-            "API Tokens",
+            "Agent access",
             "Connections",
             "Passkeys",
             "Password",

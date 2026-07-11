@@ -423,37 +423,71 @@ struct SpotlightShortcutTransferTests {
         let spoonIdentifier = SpotlightIndexPlan.spoonUniqueIdentifier(spoonID: "spoon_lemon", recipeID: "recipe_pasta", scope: scope)
         let captureIdentifier = SpotlightIndexPlan.captureDraftUniqueIdentifier(draftID: "draft_url", scope: scope)
         let chefProfileIdentifier = SpotlightIndexPlan.chefProfileUniqueIdentifier(profileID: "chef_jules", scope: scope)
+        let accountScopeComponent = scope.identifierPrefix.split(separator: "|", omittingEmptySubsequences: false)[2]
 
-        #expect(shoppingIdentifier == "production|\(schemaComponent)|account-ari-example-com|shopping-list-item|item_lemons")
-        #expect(spoonIdentifier == "production|\(schemaComponent)|account-ari-example-com|spoon|spoon_lemon~recipe_pasta")
-        #expect(captureIdentifier == "production|\(schemaComponent)|account-ari-example-com|capture-draft|draft_url")
-        #expect(chefProfileIdentifier == "production|\(schemaComponent)|account-ari-example-com|chef-profile|chef_jules")
+        #expect(accountScopeComponent.hasPrefix("account-ari-example-com-"))
+        #expect(accountScopeComponent.count > "account-ari-example-com-".count)
+        #expect(scope.identifierPrefix == "production|\(schemaComponent)|\(accountScopeComponent)")
+        #expect(scope.domainPrefix == "app.spoonjoy.\(schemaComponent).production.\(accountScopeComponent)")
+        #expect(scope.identifierPrefix == SpotlightIndexScope(accountID: "account.ari@example.com", environment: .production).identifierPrefix)
+        #expect(shoppingIdentifier == "\(scope.identifierPrefix)|shopping-list-item|item_lemons")
+        #expect(spoonIdentifier == "\(scope.identifierPrefix)|spoon|spoon_lemon~recipe_pasta")
+        #expect(captureIdentifier == "\(scope.identifierPrefix)|capture-draft|draft_url")
+        #expect(chefProfileIdentifier == "\(scope.identifierPrefix)|chef-profile|chef_jules")
         #expect(SpotlightIndexPlan.domainIdentifiers(scope: scope) == [
-            "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.recipe",
-            "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.cookbook",
-            "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.shopping-list-item",
-            "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.spoon",
-            "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.capture-draft",
-            "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.chef-profile"
+            "\(scope.domainPrefix).recipe",
+            "\(scope.domainPrefix).cookbook",
+            "\(scope.domainPrefix).shopping-list-item",
+            "\(scope.domainPrefix).spoon",
+            "\(scope.domainPrefix).capture-draft",
+            "\(scope.domainPrefix).chef-profile"
         ])
-        #expect(SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: scope) == "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.shopping-list-item")
-        #expect(SpotlightIndexPlan.spoonDomainIdentifier(scope: scope) == "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.spoon")
-        #expect(SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope) == "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.capture-draft")
-        #expect(SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope) == "app.spoonjoy.\(schemaComponent).production.account-ari-example-com.chef-profile")
+        #expect(SpotlightIndexPlan.shoppingListItemDomainIdentifier(scope: scope) == "\(scope.domainPrefix).shopping-list-item")
+        #expect(SpotlightIndexPlan.spoonDomainIdentifier(scope: scope) == "\(scope.domainPrefix).spoon")
+        #expect(SpotlightIndexPlan.captureDraftDomainIdentifier(scope: scope) == "\(scope.domainPrefix).capture-draft")
+        #expect(SpotlightIndexPlan.chefProfileDomainIdentifier(scope: scope) == "\(scope.domainPrefix).chef-profile")
         #expect(!shoppingIdentifier.contains("@"))
         #expect(!spoonIdentifier.contains("@"))
         #expect(!captureIdentifier.contains("@"))
         #expect(!chefProfileIdentifier.contains("@"))
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|shopping-list-item|../secret", scope: scope) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|spoon|spoon_lemon~recipe_pasta", scope: scope) == .recipeDetail(id: "recipe_pasta", presentation: .detail))
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|spoon|spoon_lemon", scope: scope) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|capture-draft|draft_url", scope: scope) == .capture)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|chef-profile|chef_jules", scope: scope) == .profile(identifier: "chef_jules"))
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|chef-profile|chef..secret", scope: scope) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|shopping-list-item|item_lemons", scope: SpotlightIndexScope(accountID: "account-other-example-com", environment: .production)) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(schemaComponent)|account-ari-example-com|shopping-list-item|item_lemons", scope: SpotlightIndexScope(accountID: "account.ari@example.com", environment: .local)) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|schema1|account-ari-example-com|shopping-list-item|item_lemons", scope: scope) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|account-ari-example-com|shopping-list-item|item_lemons", scope: scope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|shopping-list-item|../secret", scope: scope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|spoon|spoon_lemon~recipe_pasta", scope: scope) == .recipeDetail(id: "recipe_pasta", presentation: .detail))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|spoon|spoon_lemon", scope: scope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|capture-draft|draft_url", scope: scope) == .capture)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|chef-profile|chef_jules", scope: scope) == .profile(identifier: "chef_jules"))
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|chef-profile|chef..secret", scope: scope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|shopping-list-item|item_lemons", scope: SpotlightIndexScope(accountID: "account-other-example-com", environment: .production)) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(scope.identifierPrefix)|shopping-list-item|item_lemons", scope: SpotlightIndexScope(accountID: "account.ari@example.com", environment: .local)) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|schema1|\(accountScopeComponent)|shopping-list-item|item_lemons", scope: scope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|\(accountScopeComponent)|shopping-list-item|item_lemons", scope: scope) == .unknownLink)
+    }
+
+    @Test("Spotlight account scopes are collision resistant after readable sanitization")
+    func spotlightAccountScopesAreCollisionResistantAfterReadableSanitization() {
+        let dottedAccountScope = SpotlightIndexScope(
+            accountID: "account.ari@example.com",
+            environment: .production
+        )
+        let dashedAccountScope = SpotlightIndexScope(
+            accountID: "account-ari-example-com",
+            environment: .production
+        )
+
+        #expect(dottedAccountScope.identifierPrefix != dashedAccountScope.identifierPrefix)
+        #expect(dottedAccountScope.domainPrefix != dashedAccountScope.domainPrefix)
+
+        let dottedAccountRecipe = SpotlightIndexPlan.recipeUniqueIdentifier(
+            recipeID: "recipe_private_lemon",
+            scope: dottedAccountScope
+        )
+
+        #expect(
+            SpotlightIndexPlan.route(
+                uniqueIdentifier: dottedAccountRecipe,
+                scope: dashedAccountScope
+            ) == .unknownLink,
+            "A Spotlight hit from one account must not route under another account whose sanitized label collides."
+        )
     }
 
     @Test("Spotlight documents include semantic spoon capture draft and chef profile entities")

@@ -69,6 +69,13 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceRow",
                     "OfflineStatusView",
                     ".navigationTitle(\"Search\")",
+                    "visibleSearchField",
+                    "TextField(\"Search Spoonjoy\"",
+                    "SearchSurfaceContract.visibleSearchField",
+                    "@FocusState private var isSearchFieldFocused",
+                    ".searchFocused($isSearchFieldFocused)",
+                    "isSearchFieldFocused = true",
+                    "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                     "searchTask",
                     "debounce",
                     "SPOONJOY_SCREENSHOT_PROOF_PATH",
@@ -84,8 +91,12 @@ struct NativeSearchSurfaceTests {
                     "contentState.searchSurfaceViewModel",
                     "performSearch(",
                     "SearchView(",
+                    "@State private var isSearchPresented = false",
+                    ".searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: \"Search Spoonjoy\")",
                     ".searchFocused($isSearchFieldFocused)",
                     "isSearchFieldFocused = true",
+                    "isSearchPresented = true",
+                    "focusCompactSearchFieldIfNeeded",
                     "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                     "shouldAutoFocusSearchField",
                     "search.apply(route: routeSearch.route)",
@@ -527,8 +538,8 @@ struct NativeSearchSurfaceTests {
             now: { Self.now }
         )
         #expect(noMatches.emptyState == SearchSurfaceEmptyState(
-            title: "No matches",
-            message: "Try another recipe, cookbook, chef, or shopping item.",
+            title: "No matches for \"kumquat\"",
+            message: "No saved recipes match \"kumquat\".",
             systemImage: "magnifyingglass"
         ))
 
@@ -575,6 +586,40 @@ struct NativeSearchSurfaceTests {
             context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true)
         )
         #expect(cachedOfflineWithDefaultClock.offlineIndicator.display == .offline)
+    }
+
+    @Test("search empty states speak in the selected scope")
+    func searchEmptyStatesSpeakInTheSelectedScope() {
+        let expectations: [(SearchScope, String)] = [
+            (.all, "No Spoonjoy results match \"kumquat\"."),
+            (.recipes, "No saved recipes match \"kumquat\"."),
+            (.cookbooks, "No cookbooks match \"kumquat\"."),
+            (.chefs, "No chefs match \"kumquat\"."),
+            (.shoppingList, "No shopping items match \"kumquat\".")
+        ]
+
+        for (scope, message) in expectations {
+            let state = SearchState(query: "kumquat", scope: scope)
+            let viewModel = SearchSurfaceViewModel(
+                page: SearchSurfacePage(
+                    query: state.query,
+                    scope: state.scope,
+                    limit: 20,
+                    isAuthenticated: true,
+                    results: [],
+                    source: .live(requestID: "req_search_empty_\(scope.rawValue)", validatedAt: Self.now)
+                ),
+                state: state,
+                context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+                now: { Self.now }
+            )
+
+            #expect(viewModel.emptyState == SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ))
+        }
     }
 
     @Test("search rows expose stable native labels icons and fallback subtitles")
@@ -1072,7 +1117,13 @@ struct NativeSearchSurfaceTests {
             source: .cache(serverRevision: .cursor("explicit"), lastValidatedAt: Self.staleValidatedAt)
         )
         #expect(content.performSearch(page: explicitPage, state: SearchState(query: "lemon", scope: .all)).sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
-        #expect(content.performSearch(error: .searchFailed(message: "boom"), state: SearchState(query: "lemon", scope: .all), cachedPage: explicitPage).errorState?.message == "boom")
+        let recoveredSearch = content.performSearch(
+            error: .searchFailed(message: "boom"),
+            state: SearchState(query: "lemon", scope: .all),
+            cachedPage: explicitPage
+        )
+        #expect(recoveredSearch.sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
+        #expect(recoveredSearch.errorState == nil)
 
         let severeDisplays: [OfflineIndicatorDisplay] = [
             .queuedWork(count: 2, oldestClientMutationID: nil),

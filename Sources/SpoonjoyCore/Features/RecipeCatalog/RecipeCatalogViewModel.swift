@@ -1,5 +1,44 @@
 import Foundation
 
+public struct RecipeCatalogEmptyState: Equatable, Sendable, ExpressibleByStringLiteral {
+    public let title: String
+    public let message: String
+    public let systemImage: String
+
+    public init(title: String, message: String, systemImage: String) {
+        self.title = title
+        self.message = message
+        self.systemImage = systemImage
+    }
+
+    public init(stringLiteral value: String) {
+        self = Self.state(forTitle: value)
+    }
+
+    public static let noRecipes = RecipeCatalogEmptyState(
+        title: "No recipes yet",
+        message: "Start your recipe box with the dishes you actually cook.",
+        systemImage: "book.closed"
+    )
+
+    public static let noMatches = RecipeCatalogEmptyState(
+        title: "No matching recipes",
+        message: "Try another title, ingredient, cookbook, or chef.",
+        systemImage: "magnifyingglass"
+    )
+
+    private static func state(forTitle title: String) -> RecipeCatalogEmptyState {
+        switch title {
+        case noRecipes.title:
+            noRecipes
+        case noMatches.title:
+            noMatches
+        default:
+            RecipeCatalogEmptyState(title: title, message: "", systemImage: "book.closed")
+        }
+    }
+}
+
 public struct RecipeCatalogRowViewModel: Identifiable, Equatable, Sendable {
     public let id: String
     public let title: String
@@ -39,7 +78,15 @@ public struct RecipeCatalogState: Equatable, Sendable {
     public let rows: [RecipeCatalogRowViewModel]
     public let source: RecipeCatalogDataSource?
     public let offlineIndicator: OfflineIndicatorState
-    public let emptyState: String?
+    public let emptyState: RecipeCatalogEmptyState?
+
+    public var leadRow: RecipeCatalogRowViewModel? {
+        rows.first
+    }
+
+    public var indexRows: [RecipeCatalogRowViewModel] {
+        Array(rows.dropFirst())
+    }
 
     public var resultCountLabel: String {
         "\(rows.count) \(rows.count == 1 ? "recipe" : "recipes")"
@@ -54,7 +101,7 @@ public struct RecipeCatalogState: Equatable, Sendable {
         rows: [RecipeCatalogRowViewModel],
         source: RecipeCatalogDataSource?,
         offlineIndicator: OfflineIndicatorState,
-        emptyState: String?
+        emptyState: RecipeCatalogEmptyState?
     ) {
         self.query = query
         self.limit = limit
@@ -77,7 +124,7 @@ public struct RecipeCatalogState: Equatable, Sendable {
             rows: [],
             source: nil,
             offlineIndicator: OfflineIndicatorState(display: .synced, dismissal: nil),
-            emptyState: "No recipes yet"
+            emptyState: .noRecipes
         )
     }
 }
@@ -133,7 +180,7 @@ public struct RecipeCatalogState: Equatable, Sendable {
         )
     }
 
-    private static func emptyState(for query: String) -> String {
-        query.isEmpty ? "No recipes yet" : "No matching recipes"
+    private static func emptyState(for query: String) -> RecipeCatalogEmptyState {
+        query.isEmpty ? .noRecipes : .noMatches
     }
 }

@@ -207,6 +207,11 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
     public enum Name: String, Equatable, Sendable {
         case bootstrapFailed = "bootstrap_failed"
         case bootstrapOffline = "bootstrap_offline"
+        case appIntentCompleted = "app_intent_completed"
+        case appIntentFailed = "app_intent_failed"
+        case authFlowStarted = "auth_flow_started"
+        case authFlowCompleted = "auth_flow_completed"
+        case authFlowFailed = "auth_flow_failed"
         case settingsRefreshFailed = "settings_refresh_failed"
         case syncFailed = "sync_failed"
     }
@@ -227,6 +232,26 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
     public let cookbooks: Int?
     public let shoppingItems: Int?
     public let queuedMutations: Int?
+    public let intentName: String?
+    public let intentActionKind: String?
+    public let intentOutcome: String?
+    public let intentReturnsValue: Bool?
+    public let intentQueuedMutationID: String?
+    public let intentQueuedMutationKind: String?
+    public let intentOpensURL: String?
+    public let authProvider: String?
+    public let authPhase: String?
+    public let authOutcome: String?
+    public let authDiagnosticCode: String?
+    public let authSessionState: String?
+    public let authCredentialPresent: Bool?
+    public let authIdentityTokenPresent: Bool?
+    public let authRawNoncePresent: Bool?
+    public let authEmailPresent: Bool?
+    public let authFullNamePresent: Bool?
+    public let authOAuthStatePresent: Bool?
+    public let authRedirectScheme: String?
+    public let authRedirectHost: String?
 
     public init(
         name: Name,
@@ -244,7 +269,27 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         recipes: Int? = nil,
         cookbooks: Int? = nil,
         shoppingItems: Int? = nil,
-        queuedMutations: Int? = nil
+        queuedMutations: Int? = nil,
+        intentName: String? = nil,
+        intentActionKind: String? = nil,
+        intentOutcome: String? = nil,
+        intentReturnsValue: Bool? = nil,
+        intentQueuedMutationID: String? = nil,
+        intentQueuedMutationKind: String? = nil,
+        intentOpensURL: String? = nil,
+        authProvider: String? = nil,
+        authPhase: String? = nil,
+        authOutcome: String? = nil,
+        authDiagnosticCode: String? = nil,
+        authSessionState: String? = nil,
+        authCredentialPresent: Bool? = nil,
+        authIdentityTokenPresent: Bool? = nil,
+        authRawNoncePresent: Bool? = nil,
+        authEmailPresent: Bool? = nil,
+        authFullNamePresent: Bool? = nil,
+        authOAuthStatePresent: Bool? = nil,
+        authRedirectScheme: String? = nil,
+        authRedirectHost: String? = nil
     ) {
         self.name = name
         self.stage = stage
@@ -262,11 +307,147 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         self.cookbooks = cookbooks
         self.shoppingItems = shoppingItems
         self.queuedMutations = queuedMutations
+        self.intentName = intentName
+        self.intentActionKind = intentActionKind
+        self.intentOutcome = intentOutcome
+        self.intentReturnsValue = intentReturnsValue
+        self.intentQueuedMutationID = intentQueuedMutationID
+        self.intentQueuedMutationKind = intentQueuedMutationKind
+        self.intentOpensURL = intentOpensURL
+        self.authProvider = authProvider
+        self.authPhase = authPhase
+        self.authOutcome = authOutcome
+        self.authDiagnosticCode = authDiagnosticCode
+        self.authSessionState = authSessionState
+        self.authCredentialPresent = authCredentialPresent
+        self.authIdentityTokenPresent = authIdentityTokenPresent
+        self.authRawNoncePresent = authRawNoncePresent
+        self.authEmailPresent = authEmailPresent
+        self.authFullNamePresent = authFullNamePresent
+        self.authOAuthStatePresent = authOAuthStatePresent
+        self.authRedirectScheme = authRedirectScheme
+        self.authRedirectHost = authRedirectHost
     }
 }
 
 public struct NativeTelemetryResponse: Decodable, Equatable, Sendable {
     public let accepted: Bool
+}
+
+public enum NativeAuthTelemetryOutcome: String, Equatable, Sendable {
+    case started
+    case completed
+    case failed
+
+    var eventName: NativeTelemetryEvent.Name {
+        switch self {
+        case .started:
+            .authFlowStarted
+        case .completed:
+            .authFlowCompleted
+        case .failed:
+            .authFlowFailed
+        }
+    }
+}
+
+public struct NativeAuthTelemetryDescriptor: Equatable, Sendable {
+    public let provider: String
+    public let phase: String
+    public let outcome: NativeAuthTelemetryOutcome
+    public let diagnosticCode: String?
+    public let sessionState: String?
+    public let credentialPresent: Bool?
+    public let identityTokenPresent: Bool?
+    public let rawNoncePresent: Bool?
+    public let emailPresent: Bool?
+    public let fullNamePresent: Bool?
+    public let oauthStatePresent: Bool?
+    public let redirectScheme: String?
+    public let redirectHost: String?
+    public let route: String?
+    public let errorType: String?
+    public let requestID: String?
+    public let status: Int?
+    public let apiCode: String?
+    public let retry: String?
+    public let accountBound: Bool?
+
+    public init(
+        authProvider provider: String,
+        phase: String,
+        outcome: NativeAuthTelemetryOutcome,
+        diagnosticCode: String? = nil,
+        sessionState: String? = nil,
+        credentialPresent: Bool? = nil,
+        identityTokenPresent: Bool? = nil,
+        rawNoncePresent: Bool? = nil,
+        emailPresent: Bool? = nil,
+        fullNamePresent: Bool? = nil,
+        oauthStatePresent: Bool? = nil,
+        redirectScheme: String? = nil,
+        redirectHost: String? = nil,
+        route: String? = nil,
+        errorType: String? = nil,
+        requestID: String? = nil,
+        status: Int? = nil,
+        apiCode: String? = nil,
+        retry: String? = nil,
+        accountBound: Bool? = nil
+    ) {
+        self.provider = provider
+        self.phase = phase
+        self.outcome = outcome
+        self.diagnosticCode = diagnosticCode
+        self.sessionState = sessionState
+        self.credentialPresent = credentialPresent
+        self.identityTokenPresent = identityTokenPresent
+        self.rawNoncePresent = rawNoncePresent
+        self.emailPresent = emailPresent
+        self.fullNamePresent = fullNamePresent
+        self.oauthStatePresent = oauthStatePresent
+        self.redirectScheme = redirectScheme
+        self.redirectHost = redirectHost
+        self.route = route
+        self.errorType = errorType
+        self.requestID = requestID
+        self.status = status
+        self.apiCode = apiCode
+        self.retry = retry
+        self.accountBound = accountBound
+    }
+
+    public func telemetryEvent(
+        environment: String,
+        metadata: NativeTelemetryAppMetadata
+    ) -> NativeTelemetryEvent {
+        NativeTelemetryEvent(
+            name: outcome.eventName,
+            stage: "auth",
+            environment: environment,
+            metadata: metadata,
+            route: route,
+            errorType: errorType,
+            requestID: requestID,
+            status: status,
+            apiCode: apiCode,
+            retry: retry,
+            accountBound: accountBound,
+            authProvider: provider,
+            authPhase: phase,
+            authOutcome: outcome.rawValue,
+            authDiagnosticCode: diagnosticCode,
+            authSessionState: sessionState,
+            authCredentialPresent: credentialPresent,
+            authIdentityTokenPresent: identityTokenPresent,
+            authRawNoncePresent: rawNoncePresent,
+            authEmailPresent: emailPresent,
+            authFullNamePresent: fullNamePresent,
+            authOAuthStatePresent: oauthStatePresent,
+            authRedirectScheme: redirectScheme,
+            authRedirectHost: redirectHost
+        )
+    }
 }
 
 public enum NativeTelemetryRequests {
@@ -291,6 +472,26 @@ public enum NativeTelemetryRequests {
         put(event.cookbooks, in: &body, key: "cookbooks")
         put(event.shoppingItems, in: &body, key: "shoppingItems")
         put(event.queuedMutations, in: &body, key: "queuedMutations")
+        put(event.intentName, in: &body, key: "intentName")
+        put(event.intentActionKind, in: &body, key: "intentActionKind")
+        put(event.intentOutcome, in: &body, key: "intentOutcome")
+        put(event.intentReturnsValue, in: &body, key: "intentReturnsValue")
+        put(event.intentQueuedMutationID, in: &body, key: "intentQueuedMutationId")
+        put(event.intentQueuedMutationKind, in: &body, key: "intentQueuedMutationKind")
+        put(event.intentOpensURL, in: &body, key: "intentOpensUrl")
+        put(event.authProvider, in: &body, key: "authProvider")
+        put(event.authPhase, in: &body, key: "authPhase")
+        put(event.authOutcome, in: &body, key: "authOutcome")
+        put(event.authDiagnosticCode, in: &body, key: "authDiagnosticCode")
+        put(event.authSessionState, in: &body, key: "authSessionState")
+        put(event.authCredentialPresent, in: &body, key: "authCredentialPresent")
+        put(event.authIdentityTokenPresent, in: &body, key: "authIdentityTokenPresent")
+        put(event.authRawNoncePresent, in: &body, key: "authRawNoncePresent")
+        put(event.authEmailPresent, in: &body, key: "authEmailPresent")
+        put(event.authFullNamePresent, in: &body, key: "authFullNamePresent")
+        put(event.authOAuthStatePresent, in: &body, key: "authOAuthStatePresent")
+        put(event.authRedirectScheme, in: &body, key: "authRedirectScheme")
+        put(event.authRedirectHost, in: &body, key: "authRedirectHost")
         return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "native", "telemetry"],

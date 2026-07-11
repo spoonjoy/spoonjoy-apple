@@ -65,7 +65,7 @@ struct CoverControlSurfaceTests {
         #expect(imageCover.thumbnailURL == URL(string: "https://spoonjoy.app/covers/lemon.jpg")!)
         #expect(imageCover.activeVariant == .image)
         #expect(imageCover.variants.map(\.variant) == [.image])
-        #expect(imageCover.variants.first?.provenanceLabel == "Chef photo")
+        #expect(imageCover.variants.first?.provenanceLabel == "Cooked cover")
         #expect(!imageCover.isServerBacked)
         #expect(!imageCover.canActivate)
         #expect(!imageCover.canMutate)
@@ -75,7 +75,7 @@ struct CoverControlSurfaceTests {
         #expect(stylizedCover.imageURL == nil)
         #expect(stylizedCover.stylizedImageURL == URL(string: "https://spoonjoy.app/covers/lemon.jpg")!)
         #expect(stylizedCover.activeVariant == .stylized)
-        #expect(stylizedCover.variants.first?.provenanceLabel == "Editorialized chef photo")
+        #expect(stylizedCover.variants.first?.provenanceLabel == "Editorial cover")
 
         let illustrationSnapshot = RecipeCoverControlsData.snapshot(recipe: Self.recipe(coverVariant: .illustration))
         #expect(illustrationSnapshot.covers.first?.activeVariant == nil)
@@ -113,7 +113,7 @@ struct CoverControlSurfaceTests {
         #expect(ready.canActivate)
         #expect(ready.canMutate)
         #expect(ready.createdAtLabel == "Jun 27, 2026")
-        #expect(ready.variants.map(\.provenanceLabel) == ["Chef photo", "Editorialized chef photo"])
+        #expect(ready.variants.map(\.provenanceLabel) == ["Cooked cover", "Editorial cover"])
         #expect(Self.cover(stylizedImageURL: URL(string: "https://spoonjoy.app/covers/stylized.jpg")!, displayURL: nil).thumbnailURL == URL(string: "https://spoonjoy.app/covers/stylized.jpg")!)
         #expect(Self.cover(imageURL: URL(string: "https://spoonjoy.app/covers/raw.jpg")!, stylizedImageURL: nil, displayURL: nil).thumbnailURL == URL(string: "https://spoonjoy.app/covers/raw.jpg")!)
         #expect(Self.cover(imageURL: nil, stylizedImageURL: nil, displayURL: nil).thumbnailURL == nil)
@@ -139,7 +139,7 @@ struct CoverControlSurfaceTests {
 
         #expect(RecipeCoverCandidate.dateLabel("2026-06-27T12:00:00Z") == "Jun 27, 2026")
         #expect(RecipeCoverCandidate.dateLabel("not-a-date") == "Saved cover")
-        #expect(RecipeCoverCandidate.provenanceLabel(sourceType: "import", variant: .image) == "Imported photo")
+        #expect(RecipeCoverCandidate.provenanceLabel(sourceType: "import", variant: .image) == "Imported cover")
         #expect(RecipeCoverCandidate.provenanceLabel(sourceType: "ai-placeholder", variant: .image) == "AI generated")
         #expect(RecipeCoverCandidate.provenanceLabel(sourceType: "unknown", variant: .image) == "Unknown source")
         #expect(RecipeCoverSpoonImage(

@@ -1,0 +1,152 @@
+Building for debugging...
+[0/8] Write sources
+[2/8] Write swift-version--58304C5D6DBC2206.txt
+[4/12] Compiling SpoonjoyCore NativeSyncEngine.swift
+[5/12] Compiling SpoonjoyCore ScenarioVerifier.swift
+[6/12] Emitting module SpoonjoyCore
+[7/12] Compiling SpoonjoyCore ShoppingListState.swift
+[7/15] Write Objects.LinkFileList
+[9/17] Linking SpoonjoyScenarioVerifier
+[10/17] Linking SpoonjoyNativeDogfood
+[11/17] Applying SpoonjoyNativeDogfood
+[11/17] Applying SpoonjoyScenarioVerifier
+[14/17] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[15/17] Emitting module SpoonjoyCoreTests
+[15/17] Write Objects.LinkFileList
+[16/17] Linking SpoonjoyApplePackageTests
+Build complete! (7.73s)
+Test Suite 'Selected tests' started at 2026-07-10 04:18:39.591.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 04:18:39.592.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 04:18:39.592.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 04:18:39.592.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Kitchen state domain" started.
+◇ Suite "Native sync engine and mutation queue" started.
+◇ Suite "Native scenario metadata" started.
+◇ Test "settings state describes auth environment and offline readiness" started.
+◇ Test "kitchen fixture associated values encode back to fixture shape" started.
+◇ Test "kitchen fixture supports explicit fallback construction" started.
+◇ Test "cook mode progress handles empty, duplicate, invalid, and stale state" started.
+◇ Test "kitchen fixture exposes the lead food object and restore metadata" started.
+◇ Test "text capture drafts stay local and import ready" started.
+◇ Test "shopping list fixture decodes receipt rows and active ordering" started.
+◇ Test "shopping list checkoff and removal keep receipt ordering stable" started.
+◇ Test "shopping list add or restore merges matching display items" started.
+◇ Test "capture drafts reject empty local text" started.
+◇ Test "cook mode progress persists current step and completion" started.
+◇ Test "shopping list operations report useful errors" started.
+◇ Test "shopping list restore matches normalized unit and moves restored rows to active tail" started.
+◇ Test "settings state handles signed-out local and kitchen-scope variants" started.
+◇ Test "drained add-from-recipe replays queued ingredient descriptors without cached recipe" started.
+◇ Test "optimistic shopping check and clear completed update stale timestamps" started.
+◇ Test "drained shopping mutations persist to file backed cache for restart" started.
+◇ Test "shopping list operations cover local create, display, grouping, and error edges" started.
+◇ Test "native metadata report exposes Apple-native capabilities" started.
+◇ Test "surfaces report fails when surface sources are missing" started.
+◇ Test "scenario command writes output and supports stdout mode" started.
+◇ Test "scenario command parses surfaces stage" started.
+◇ Test "final report proves search capture settings and deep link safety" started.
+◇ Test "shell content exposes spotlight scope only for bound signed in accounts" started.
+◇ Test "spotlight index plan builds route aware searchable documents" started.
+◇ Test "AASA validation requires app IDs and every deep link route component" started.
+◇ Test "final behavioral checks fail closed for weak settings offline and link safety" started.
+◇ Test "native metadata report encoding is deterministic" started.
+◇ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" started.
+◇ Test "scenario verifier covers root override and failing native metadata checks" started.
+◇ Test "native intent actions resolve routes local mutations and capture drafts" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+◇ Test "native metadata command parses stage and output path" started.
+◇ Test "app integration sources typecheck and declare expected native types" started.
+◇ Test "surfaces report proves kitchen recipe cook and shopping slices" started.
+◇ Test "surface behavioral checks fail closed for missing or throwing fixture data" started.
+✔ Test "kitchen fixture supports explicit fallback construction" passed after 0.005 seconds.
+✔ Test "text capture drafts stay local and import ready" passed after 0.005 seconds.
+✔ Test "settings state describes auth environment and offline readiness" passed after 0.007 seconds.
+✔ Test "capture drafts reject empty local text" passed after 0.009 seconds.
+✔ Test "cook mode progress handles empty, duplicate, invalid, and stale state" passed after 0.009 seconds.
+✔ Test "settings state handles signed-out local and kitchen-scope variants" passed after 0.012 seconds.
+✔ Test "cook mode progress persists current step and completion" passed after 0.012 seconds.
+✔ Test "optimistic shopping check and clear completed update stale timestamps" passed after 0.012 seconds.
+✔ Test "kitchen fixture exposes the lead food object and restore metadata" passed after 0.012 seconds.
+✔ Test "shopping list operations report useful errors" passed after 0.012 seconds.
+✔ Test "shopping list add or restore merges matching display items" passed after 0.012 seconds.
+✔ Test "shopping list checkoff and removal keep receipt ordering stable" passed after 0.012 seconds.
+✔ Test "shopping list restore matches normalized unit and moves restored rows to active tail" passed after 0.012 seconds.
+✔ Test "scenario command parses surfaces stage" passed after 0.012 seconds.
+✔ Test "shopping list fixture decodes receipt rows and active ordering" passed after 0.012 seconds.
+✔ Test "shopping list operations cover local create, display, grouping, and error edges" passed after 0.012 seconds.
+✔ Test "kitchen fixture associated values encode back to fixture shape" passed after 0.012 seconds.
+✔ Test "drained add-from-recipe replays queued ingredient descriptors without cached recipe" passed after 0.012 seconds.
+✔ Test "spotlight index plan covers fallback copy singular counts and uncategorized items" passed after 0.011 seconds.
+✔ Test "shell content exposes spotlight scope only for bound signed in accounts" passed after 0.012 seconds.
+✔ Test "drained shopping mutations persist to file backed cache for restart" passed after 0.012 seconds.
+✔ Test "final behavioral checks fail closed for weak settings offline and link safety" passed after 0.012 seconds.
+✔ Test "native intent actions resolve routes local mutations and capture drafts" passed after 0.012 seconds.
+✔ Test "native metadata command parses stage and output path" passed after 0.011 seconds.
+✔ Test "spotlight index plan builds route aware searchable documents" passed after 0.012 seconds.
+✔ Test "surfaces report fails when surface sources are missing" passed after 0.012 seconds.
+✔ Test "surface behavioral checks fail closed for missing or throwing fixture data" passed after 0.012 seconds.
+✔ Suite "Native sync engine and mutation queue" passed after 0.013 seconds.
+✔ Suite "Kitchen state domain" passed after 0.013 seconds.
+✔ Test "native metadata report exposes Apple-native capabilities" passed after 0.043 seconds.
+{
+  "checks" : [
+    {
+      "detail" : "Fixture resources are packaged.",
+      "name" : "fixture bundle",
+      "status" : "pass"
+    },
+    {
+      "detail" : "Native metadata lands in Unit 10.",
+      "name" : "native metadata",
+      "status" : "pending"
+    },
+    {
+      "detail" : "SwiftUI surfaces land in Units 13-16.",
+      "name" : "app surfaces",
+      "status" : "pending"
+    }
+  ],
+  "nativeCapabilities" : {
+    "appIntents" : [
+
+    ],
+    "associatedDomains" : [
+
+    ],
+    "deepLinkRoutes" : [
+
+    ],
+    "offlineFlows" : [
+      "offline-cache-restore"
+    ],
+    "searchableScopes" : [
+
+    ],
+    "shareActions" : [
+
+    ],
+    "spotlightIndexedTypes" : [
+
+    ],
+    "urlSchemes" : [
+
+    ]
+  },
+  "ok" : true,
+  "stage" : "bootstrap"
+}
+✔ Test "scenario command writes output and supports stdout mode" passed after 0.046 seconds.
+✔ Test "native metadata report encoding is deterministic" passed after 0.047 seconds.
+✔ Test "scenario verifier covers root override and failing native metadata checks" passed after 0.049 seconds.
+✔ Test "surfaces report proves kitchen recipe cook and shopping slices" passed after 0.059 seconds.
+✔ Test "final report proves search capture settings and deep link safety" passed after 0.080 seconds.
+✔ Test "AASA validation requires app IDs and every deep link route component" passed after 0.682 seconds.
+✔ Test "app integration sources typecheck and declare expected native types" passed after 3.724 seconds.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 16.578 seconds.
+✔ Suite "Native scenario metadata" passed after 16.579 seconds.
+✔ Test run with 36 tests in 3 suites passed after 16.579 seconds.

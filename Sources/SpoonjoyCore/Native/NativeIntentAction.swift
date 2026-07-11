@@ -85,7 +85,7 @@ public enum NativeIntentActionError: Error, Equatable, CustomStringConvertible {
         case .unresolvedChefProfileEntity:
             "Choose a Spoonjoy chef profile before running this Siri action."
         case .unresolvedAPITokenEntity:
-            "Choose a Spoonjoy API token before running this Siri action."
+            "Choose a Spoonjoy access key before running this Siri action."
         case .unresolvedAccountConnectionEntity:
             "Choose a Spoonjoy account connection before running this Siri action."
         case .settingsProfilePhotoRejected(let reason):
@@ -167,6 +167,128 @@ public enum NativeIntentAction: Equatable {
             nil
         }
     }
+
+    public var telemetryActionKind: String {
+        switch self {
+        case .openRoute:
+            "open-route"
+        case .addShoppingListItem:
+            "legacy-shopping-mutation"
+        case .nativeMutation:
+            "native-mutation"
+        case .settingsAction:
+            "settings-action"
+        case .shoppingMutation:
+            "shopping-mutation"
+        case .captureDraft:
+            "capture-draft"
+        case .captureDraftDiscard:
+            "capture-draft-discard"
+        }
+    }
+
+    public func telemetryDescriptor(intentName: String,
+        outcome: NativeIntentTelemetryOutcome = .completed,
+        returnsValue: Bool,
+        error: Error? = nil
+    ) -> NativeIntentTelemetryDescriptor {
+        let queuedMutation: NativeQueuedMutation?
+        switch self {
+        case .settingsAction(let plan, _, _):
+            queuedMutation = plan.queuedMutation ?? plan.offlineFallbackMutation
+        default:
+            queuedMutation = nativeQueuedMutation
+        }
+        return NativeIntentTelemetryDescriptor(
+            intentName: intentName,
+            actionKind: telemetryActionKind,
+            outcome: outcome,
+            route: route.stateIdentifier,
+            opensURL: url.absoluteString,
+            returnsValue: returnsValue,
+            queuedMutationID: queuedMutation?.clientMutationID,
+            queuedMutationKind: queuedMutation?.queueableKind.rawValue,
+            errorType: error.map { String(reflecting: Swift.type(of: $0)) }
+        )
+    }
+}
+
+public enum NativeIntentTelemetryOutcome: String, Equatable, Sendable {
+    case completed
+    case failed
+
+    public var eventName: NativeTelemetryEvent.Name {
+        switch self {
+        case .completed:
+            .appIntentCompleted
+        case .failed:
+            .appIntentFailed
+        }
+    }
+}
+
+public struct NativeIntentTelemetryDescriptor: Equatable, Sendable {
+    public let intentName: String
+    public let actionKind: String
+    public let outcome: NativeIntentTelemetryOutcome
+    public let route: String?
+    public let opensURL: String?
+    public let returnsValue: Bool
+    public let queuedMutationID: String?
+    public let queuedMutationKind: String?
+    public let errorType: String?
+
+    public init(
+        intentName: String,
+        actionKind: String,
+        outcome: NativeIntentTelemetryOutcome,
+        route: String?,
+        opensURL: String?,
+        returnsValue: Bool,
+        queuedMutationID: String? = nil,
+        queuedMutationKind: String? = nil,
+        errorType: String? = nil
+    ) {
+        self.intentName = intentName
+        self.actionKind = actionKind
+        self.outcome = outcome
+        self.route = route
+        self.opensURL = opensURL
+        self.returnsValue = returnsValue
+        self.queuedMutationID = queuedMutationID
+        self.queuedMutationKind = queuedMutationKind
+        self.errorType = errorType
+    }
+
+    public func telemetryEvent(environment: String, metadata: NativeTelemetryAppMetadata) -> NativeTelemetryEvent {
+        NativeTelemetryEvent(
+            name: outcome.eventName,
+            stage: "app_intent.\(intentName).\(actionKind)",
+            environment: environment,
+            metadata: metadata,
+            route: route,
+            errorType: errorType,
+            intentName: intentName,
+            intentActionKind: actionKind,
+            intentOutcome: outcome.rawValue,
+            intentReturnsValue: returnsValue,
+            intentQueuedMutationID: queuedMutationID,
+            intentQueuedMutationKind: queuedMutationKind,
+            intentOpensURL: opensURL
+        )
+    }
+
+    public static func failed(intentName: String, error: Error) -> NativeIntentTelemetryDescriptor {
+        NativeIntentTelemetryDescriptor(
+            intentName: intentName,
+            actionKind: "perform",
+            outcome: .failed,
+            route: nil,
+            opensURL: nil,
+            returnsValue: false,
+            errorType: String(reflecting: Swift.type(of: error))
+        )
+    }
 }
 
 public struct NativeIntentShareValue: Equatable, Sendable {
@@ -202,6 +324,27 @@ public struct NativeIntentShareValue: Equatable, Sendable {
 
     public var isPrivateTransfer: Bool {
         kind == NativeSharePayloadKind.privateTransfer
+    }
+
+    public var telemetryActionKind: String {
+        "share.\(domain.rawValue).\(kind.rawValue)"
+    }
+
+    public func telemetryDescriptor(
+        intentName: String,
+        outcome: NativeIntentTelemetryOutcome = .completed,
+        returnsValue: Bool,
+        error: Error? = nil
+    ) -> NativeIntentTelemetryDescriptor {
+        NativeIntentTelemetryDescriptor(
+            intentName: intentName,
+            actionKind: telemetryActionKind,
+            outcome: outcome,
+            route: route?.stateIdentifier,
+            opensURL: publicURL?.absoluteString,
+            returnsValue: returnsValue,
+            errorType: error.map { String(reflecting: Swift.type(of: $0)) }
+        )
     }
 }
 
@@ -241,10 +384,10 @@ public struct APITokenEntityDescriptor: Equatable, Sendable {
     public static let placeholder = APITokenEntityDescriptor(
         id: "api-token-placeholder",
         credentialID: "",
-        name: "API Token",
+        name: "Access Key",
         tokenPrefix: "",
         scopes: [],
-        subtitle: "Choose an API token",
+        subtitle: "Choose an access key",
         disambiguationLabel: "Spoonjoy settings",
         isPlaceholder: true
     )
@@ -587,7 +730,7 @@ public struct NativeIntentActionResolver {
             )
         }
         return NativeIntentSettingsAction(
-            plan: SettingsActionPlan(userFacingMessage: "Open Spoonjoy settings to create the API token so the one-time credential is shown in the app."),
+            plan: SettingsActionPlan(userFacingMessage: "Open Spoonjoy settings to create the access key so the one-time credential is shown in the app."),
             route: target.route,
             url: target.url
         )
@@ -601,7 +744,7 @@ public struct NativeIntentActionResolver {
         _ = TokenCredentialRequests.revokeToken(credentialID: credentialID)
         let plan = try settingsPlan(.revokeAPIToken(credentialID: credentialID), connectivity: connectivity)
         guard plan.onlineOnlyReason == nil || plan.onlineOnlyReason == SettingsOnlineOnlyReason.apiTokenRevoke else {
-            throw NativeIntentActionError.settingsActionUnavailable("Unexpected API token revoke plan.")
+            throw NativeIntentActionError.settingsActionUnavailable("Unexpected access key revoke plan.")
         }
         return NativeIntentSettingsAction(
             plan: plan,

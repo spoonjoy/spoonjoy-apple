@@ -1,0 +1,18 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.23s)
+Test Suite 'Selected tests' started at 2026-07-10 09:17:28.130.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 09:17:28.131.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 09:17:28.131.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 09:17:28.131.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "TestFlight feedback polish removes clutter and placeholder overlap" started.
+✔ Test "TestFlight feedback polish removes clutter and placeholder overlap" passed after 0.032 seconds.
+✔ Suite "Native mobile design contract" passed after 0.033 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.033 seconds.

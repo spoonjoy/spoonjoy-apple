@@ -15,16 +15,9 @@ struct ProfileRouteView: View {
             if let profile {
                 ProfileView(viewModel: profile, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "person.crop.circle")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.crop.circle")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading profile", subtitle: "Opening this kitchen.", systemImage: "person.crop.circle")
             }
         }
         .task(id: identifier) {
@@ -39,7 +32,7 @@ struct ProfileRouteView: View {
             errorMessage = nil
         } catch {
             if profile == nil {
-                errorMessage = "Profile unavailable."
+                errorMessage = "We couldn't load this profile."
             }
         }
     }
@@ -155,11 +148,11 @@ private struct ProfileRecipeShelf: View {
                     Button {
                         openRoute(recipe.openRoute)
                     } label: {
-                        KitchenTableObjectRow(title: recipe.title, subtitle: recipe.coverProvenanceLabel) {
+                        KitchenTableObjectRow(title: recipe.title, subtitle: recipeSubtitle(recipe)) {
                             RecipeCoverImage(
                                 url: recipe.coverImageURL,
                                 title: recipe.title,
-                                subtitle: recipe.coverProvenanceLabel
+                                subtitle: "Photo not added"
                             )
                         } trailing: {
                             Image(systemName: "chevron.forward")
@@ -174,6 +167,12 @@ private struct ProfileRecipeShelf: View {
             }
         }
     }
+
+    private func recipeSubtitle(_ recipe: ProfileRecipeSummary) -> String? {
+        [recipe.description, recipe.servings]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
 }
 
 private struct ProfileRecipeCard: View {
@@ -184,20 +183,26 @@ private struct ProfileRecipeCard: View {
             RecipeCoverImage(
                 url: recipe.coverImageURL,
                 title: recipe.title,
-                subtitle: recipe.coverProvenanceLabel
+                subtitle: "Photo not added"
             )
                 .frame(width: 132, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
             Text(recipe.title)
                 .font(.headline)
                 .foregroundStyle(KitchenTableTheme.charcoal)
-            if let coverProvenanceLabel = recipe.coverProvenanceLabel {
-                Text(coverProvenanceLabel)
+            if let subtitle = recipeSubtitle {
+                Text(subtitle)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
         }
         .frame(width: 144, alignment: .leading)
+    }
+
+    private var recipeSubtitle: String? {
+        [recipe.description, recipe.servings]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
     }
 }
 
@@ -325,16 +330,9 @@ struct ProfileGraphRouteView: View {
             if let graph {
                 ProfileGraphList(viewModel: graph, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {
-                Label(errorMessage, systemImage: "person.2")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding()
-                    .background(KitchenTableTheme.bone)
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.2")
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(KitchenTableTheme.bone)
+                KitchenTableLoadingStateView(title: "Loading chefs", subtitle: "Opening this kitchen graph.", systemImage: "person.2")
             }
         }
         .task(id: "\(identifier)-\(direction.rawValue)-\(page)") {
@@ -349,7 +347,7 @@ struct ProfileGraphRouteView: View {
             errorMessage = nil
         } catch {
             if graph == nil {
-                errorMessage = "Chef graph unavailable."
+                errorMessage = "We couldn't load these chefs."
             }
         }
     }
@@ -378,7 +376,7 @@ private struct ProfileGraphList: View {
                                 .font(KitchenTableTheme.bodyNote)
                             Text(row.interactionSummary)
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(KitchenTableTheme.inkMuted)
                         }
                     }
                     .buttonStyle(.plain)

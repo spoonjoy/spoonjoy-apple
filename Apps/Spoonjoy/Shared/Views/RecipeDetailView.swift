@@ -1,5 +1,13 @@
+import Foundation
 import SpoonjoyCore
 import SwiftUI
+
+private enum RecipeDetailRouteState {
+    case loading(snapshotTitle: String?)
+    case loaded(RecipeDetailScreenViewModel)
+    case missing(message: String)
+    case failed(message: String)
+}
 
 struct RecipeDetailRouteView: View {
     let recipeID: String
@@ -21,9 +29,8 @@ struct RecipeDetailRouteView: View {
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
-    @State private var viewModel: RecipeDetailScreenViewModel?
+    @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
-    @State private var isLoadingRecipe: Bool
 
     init(
         recipeID: String,
@@ -63,13 +70,13 @@ struct RecipeDetailRouteView: View {
         self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _viewModel = State(initialValue: initialViewModel)
-        _isLoadingRecipe = State(initialValue: initialViewModel == nil)
+        _routeState = State(initialValue: initialViewModel.map(RecipeDetailRouteState.loaded) ?? .loading(snapshotTitle: loadingTitle))
     }
 
     var body: some View {
         Group {
-            if let viewModel {
+            switch routeState {
+            case .loaded(let viewModel):
                 RecipeDetailView(
                     viewModel: viewModel,
                     actionConnectivity: actionConnectivity,
@@ -85,39 +92,48 @@ struct RecipeDetailRouteView: View {
                     performShoppingAction: performShoppingAction,
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
-            } else if isLoadingRecipe {
-                RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)
-            } else if let errorMessage {
-                RecipeDetailErrorView(message: errorMessage)
-            } else {
-                RecipeDetailLoadingView(recipeID: recipeID, title: loadingTitle)
+            case .loading(let snapshotTitle):
+                let loadingTitle = snapshotTitle
+                KitchenTableLoadingStateView(
+                    title: loadingTitle ?? "Loading recipe",
+                    subtitle: loadingTitle == nil ? nil : "Loading recipe",
+                    systemImage: "text.book.closed"
+                )
+            case .missing(let errorMessage), .failed(let errorMessage):
+                KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
             }
         }
         .task(id: recipeID) {
             await loadRecipe()
         }
         .onChange(of: snapshotViewModel) { _, nextViewModel in
-            guard let nextViewModel, nextViewModel != viewModel else {
+            guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
                 return
             }
-            viewModel = nextViewModel
+            routeState = .loaded(nextViewModel)
         }
     }
 
     @MainActor private func loadRecipe() async {
         errorMessage = nil
-        isLoadingRecipe = viewModel == nil
-        defer {
-            isLoadingRecipe = false
+        let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID
+        if !hasVisibleCurrentRecipe {
+            routeState = .loading(snapshotTitle: loadingTitle)
         }
         do {
             let result = try await repository.recipeDetail(id: recipeID)
             let detailResult = await detailResultByLoadingFullSpoonList(result)
-            viewModel = RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe))
+            routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
             errorMessage = nil
+        } catch RecipeCatalogRepositoryError.recipeNotFound {
+            if !hasVisibleCurrentRecipe {
+                errorMessage = "We couldn't find this recipe."
+                routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
+            }
         } catch {
-            if viewModel == nil {
+            if !hasVisibleCurrentRecipe {
                 errorMessage = "We couldn't load this recipe."
+                routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
             }
         }
     }
@@ -157,50 +173,14 @@ struct RecipeDetailRouteView: View {
     }
 }
 
-private struct RecipeDetailLoadingView: View {
-    let recipeID: String
-    let title: String?
-
-    var body: some View {
-        VStack(spacing: 14) {
-            ProgressView()
-                .controlSize(.large)
-            Text(title ?? "Loading recipe")
-                .font(title == nil ? KitchenTableTheme.bodyNote : KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-            if title != nil {
-                Text("Loading recipe")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
+private extension RecipeDetailRouteState {
+    var currentViewModel: RecipeDetailScreenViewModel? {
+        switch self {
+        case .loaded(let viewModel):
+            viewModel
+        case .loading, .missing, .failed:
+            nil
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .padding(32)
-        .background(KitchenTableTheme.bone)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Loading recipe")
-        .accessibilityValue(title ?? recipeID)
-    }
-}
-
-private struct RecipeDetailErrorView: View {
-    let message: String
-
-    var body: some View {
-        Label {
-            Text(message)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-        } icon: {
-            Image(systemName: "text.book.closed")
-                .foregroundStyle(KitchenTableTheme.brass)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(KitchenTableTheme.bone)
     }
 }
 
@@ -210,6 +190,9 @@ private enum RecipeDetailCookLogPaginationError: Error {
 }
 
 struct RecipeDetailView: View {
+    private static let screenshotCookLogFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS"
+    private static let provenanceIconName = "link"
+
     let viewModel: RecipeDetailScreenViewModel
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
@@ -228,6 +211,8 @@ struct RecipeDetailView: View {
     @State private var actionStatusMessage: String?
     @State private var activeConfirmationDialog: RecipeActionConfirmationDialog?
     @State private var isCookbookSaveSheetPresented = false
+    @State private var isCookLogSheetPresented = false
+    @State private var didPresentCookLogForScreenshot = false
     @State private var localSavedCookbookIDs: Set<String>?
     @State private var localHasIngredientsInShoppingList: Bool?
     @State private var checkedRecipeIngredientIDs: Set<String> = []
@@ -242,28 +227,16 @@ struct RecipeDetailView: View {
     var body: some View {
         KitchenTablePage {
             offlineIndicator
-            hero
-            recipeActionFlow
-            recipeHeaderControls
+            recipeMasthead
             stepsSection
-            SpoonCookLogView(
-                viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
-                draft: spoonCookLogDraft(viewModel),
-                actionDidPlan: performSpoonCookLogAction,
-                draftDidChange: { draft in
-                    recordSpoonCookLogDraft(draft, viewModel.id)
-                },
-                conflictDidRequestReview: discardSpoonCookLogConflict,
-                onDismissOfflineIndicator: onDismissOfflineIndicator
-            )
-            .id(viewModel.id)
+            cookLogView(showsHeader: true)
         }
         .sheet(isPresented: $isCookbookSaveSheetPresented) {
             NavigationStack {
                 KitchenTablePage {
                     cookbookSave
                 }
-                .navigationTitle("Save")
+                .navigationTitle("Save to Cookbook")
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") {
@@ -272,6 +245,14 @@ struct RecipeDetailView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $isCookLogSheetPresented) {
+#if os(iOS)
+            cookLogSheet
+#else
+            cookLogSheet
+                .frame(minWidth: 560, idealWidth: 620, maxWidth: 700, minHeight: 400, idealHeight: 440, maxHeight: 480)
+#endif
         }
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
@@ -303,11 +284,14 @@ struct RecipeDetailView: View {
             syncSavedCookbookStateIfNeeded()
             syncShoppingStateIfNeeded()
             loadRecipeProgress()
+            presentCookLogForScreenshotIfNeeded()
         }
         .onChange(of: viewModel.id) { _, _ in
+            didPresentCookLogForScreenshot = false
             localSavedCookbookIDs = viewModel.cookbookSave.savedCookbookIDs
             localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
             loadRecipeProgress()
+            presentCookLogForScreenshotIfNeeded()
         }
         .onChange(of: viewModel.cookbookSave.savedCookbookIDs) { _, nextIDs in
             localSavedCookbookIDs = nextIDs
@@ -340,33 +324,64 @@ struct RecipeDetailView: View {
         )
     }
 
-    private var provenance: String {
-        viewModel.cover.provenanceLabel ?? viewModel.recipe.attribution.creditText
+    @MainActor private func presentCookLogForScreenshotIfNeeded() {
+#if DEBUG
+        guard !didPresentCookLogForScreenshot else {
+            return
+        }
+        let focus = ProcessInfo.processInfo.environment[Self.screenshotCookLogFocusEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard focus == "cook-log" else {
+            return
+        }
+        didPresentCookLogForScreenshot = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled else {
+                return
+            }
+            isCookLogSheetPresented = true
+        }
+#endif
     }
 
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private var recipeMasthead: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if viewModel.cover.hasRealCover {
+                recipeHeroMedia
+            }
+            recipeIdentityAndProvenance
+            if !viewModel.cover.hasRealCover {
+                recipeNoPhotoStatus
+            }
+            recipeMastheadActions
+            recipeHeaderControls
+        }
+    }
+
+    @ViewBuilder private var recipeHeroMedia: some View {
+        if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
             RecipeCoverImage(
-                url: viewModel.cover.imageURL,
+                url: coverImageURL,
                 title: viewModel.title,
-                subtitle: coverPlaceholderLabel,
-                assetName: RecipeCoverImage.bundledAssetName(forRecipeID: viewModel.id),
+                subtitle: "Cover",
                 showsFallbackLabel: false
             )
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipped()
-                .overlay(alignment: .bottomLeading) {
-                    if viewModel.cover.imageURL != nil {
-                        Text(provenance)
-                            .font(KitchenTableTheme.uiLabel)
-                            .padding(10)
-                            .background(KitchenTableTheme.photoOverlay, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                            .foregroundStyle(.white)
-                            .padding(12)
-                    }
-                }
                 .accessibilityLabel("\(viewModel.title) cover image")
+        }
+    }
 
+    private var recipeNoPhotoStatus: some View {
+        Label(viewModel.cover.noPhotoLabel, systemImage: "photo.badge.plus")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.inkMuted)
+            .accessibilityLabel(viewModel.cover.accessibilityLabel)
+    }
+
+    private var recipeIdentityAndProvenance: some View {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Recipe".uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(1.3)
@@ -389,14 +404,18 @@ struct RecipeDetailView: View {
             if let servingsLabel = viewModel.servingsLabel {
                 Text(servingsLabel)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let sourceAttribution = viewModel.sourceAttribution {
-                Label(sourceText(sourceAttribution), systemImage: "link")
-                    .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
             }
+
+            recipeProvenance
+        }
+    }
+
+    @ViewBuilder private var recipeProvenance: some View {
+        if let sourceAttribution = viewModel.sourceAttribution {
+            Label(sourceProvenanceText(sourceAttribution), systemImage: Self.provenanceIconName)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
         }
     }
 
@@ -407,6 +426,7 @@ struct RecipeDetailView: View {
                 displayValue: scaledYieldLabel,
                 setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) }
             )
+            .frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)
 
             Button {
                 clearRecipeProgress()
@@ -420,18 +440,51 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var coverPlaceholderLabel: String {
-        viewModel.ownerTools.isVisible ? "Awaiting first chef photo" : "Cover coming soon"
-    }
-
-    private var recipeActionFlow: some View {
+    private var recipeMastheadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
+            if usesCompactRecipeDock {
+                if hasAction(.logCook) {
+                    recipeMastheadLogCookAction
+                }
+            }
             if !usesCompactRecipeDock {
-                recipeSecondaryActions
+                if hasAction(.logCook) || hasSecondaryRecipeActions {
+                    HStack(spacing: 10) {
+                        if hasAction(.logCook) {
+                            recipeMastheadLogCookAction
+                        }
+                        recipeSecondaryActions
+                    }
+                }
             }
             ownerTools
             actionStatus
+        }
+    }
+
+    private var recipeMastheadLogCookAction: some View {
+        Button {
+            isCookLogSheetPresented = true
+        } label: {
+            Label("Log", systemImage: "fork.knife.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+    }
+
+    private var cookLogSheet: some View {
+        NavigationStack {
+            KitchenTablePage(maxContentWidth: 620, bottomReserve: 28) {
+                cookLogView(showsHeader: false)
+            }
+            .navigationTitle("Cooks")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isCookLogSheetPresented = false
+                    }
+                }
+            }
         }
     }
 
@@ -701,6 +754,21 @@ struct RecipeDetailView: View {
         }
     }
 
+    private func cookLogView(showsHeader: Bool) -> some View {
+        SpoonCookLogView(
+            viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
+            showsHeader: showsHeader,
+            draft: spoonCookLogDraft(viewModel),
+            actionDidPlan: performSpoonCookLogAction,
+            draftDidChange: { draft in
+                recordSpoonCookLogDraft(draft, viewModel.id)
+            },
+            conflictDidRequestReview: discardSpoonCookLogConflict,
+            onDismissOfflineIndicator: onDismissOfflineIndicator
+        )
+        .id(viewModel.id)
+    }
+
     @ViewBuilder private var ownerTools: some View {
         if viewModel.ownerTools.isVisible {
             ownerToolsMenu
@@ -736,12 +804,19 @@ struct RecipeDetailView: View {
                 }
             }
         } label: {
-            Label("Manage recipe", systemImage: "ellipsis.circle")
+            Image(systemName: "ellipsis")
+                .font(.headline.weight(.semibold))
+                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
+                }
         }
-        .font(KitchenTableTheme.uiLabel)
-        .foregroundStyle(KitchenTableTheme.inkMuted)
         .buttonStyle(.plain)
         .accessibilityLabel("Manage recipe")
+        .accessibilityHint("Opens owner tools for this recipe.")
     }
 
     @ViewBuilder private var offlineIndicator: some View {
@@ -750,7 +825,7 @@ struct RecipeDetailView: View {
         }
     }
 
-    private func sourceText(_ attribution: RecipeDetailSourceAttribution) -> String {
+    private func sourceProvenanceText(_ attribution: RecipeDetailSourceAttribution) -> String {
         if let host = attribution.host {
             return "\(attribution.title) from \(host)"
         }
@@ -766,7 +841,7 @@ struct RecipeDetailView: View {
         } else if let actionErrorMessage {
             Label(actionErrorMessage, systemImage: "exclamationmark.triangle")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(.red)
+                .foregroundStyle(KitchenTableTheme.tomato)
         }
     }
 
@@ -1154,6 +1229,7 @@ private struct RecipeScaleSelector: View {
                 .frame(width: 52, height: 64)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .disabled(isDisabled)
         .foregroundStyle(isDisabled ? KitchenTableTheme.inkMuted.opacity(0.42) : KitchenTableTheme.charcoal)
         .accessibilityLabel(label)

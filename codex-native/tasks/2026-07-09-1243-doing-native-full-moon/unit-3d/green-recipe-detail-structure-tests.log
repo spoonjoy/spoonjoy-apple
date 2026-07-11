@@ -1,0 +1,89 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.15s)
+Test Suite 'Selected tests' started at 2026-07-10 01:15:25.284.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 01:15:25.287.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 01:15:25.287.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 01:15:25.287.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Recipe catalog and detail native parity" started.
+◇ Suite "Native mobile design contract" started.
+◇ Suite "Native recipe action parity" started.
+◇ Test "recipe detail preserves web masthead structure and stable route states" started.
+◇ Test "catalog and detail view models cover blank empty and deleted-spoon states" started.
+◇ Test "catalog view model trims query loads live rows and exposes route actions" started.
+◇ Test "visible repository path uses live first cached q filtering and stale detail fallback" started.
+◇ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" started.
+◇ Test "offline actions queue safe mutations and owner delete requires confirmation" started.
+◇ Test "recipe surfaces require feature layer wiring rather than raw fixture arrays" started.
+◇ Test "shopping list relies on native tab navigation instead of compact SpoonDock" started.
+◇ Test "recipe detail exposes native action metadata without inventing new social surfaces" started.
+◇ Test "SpoonDock is registered in both app targets" started.
+◇ Test "detail cache restore keeps full recipe payload instead of placeholder shell" started.
+◇ Test "recipe detail ingredient quantity text stays compact without placeholder units" started.
+◇ Test "online recipe actions plan exact REST mutations with offline fallbacks" started.
+◇ Test "platform navigation renders native cover controls instead of a placeholder" started.
+◇ Test "public recipe detail decodes dependencies recent spoons and provenance" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "Spoonjoy section headers keep titles legible before drawing dividers" started.
+◇ Test "compact primary routes are native tab bar sections" started.
+◇ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" started.
+◇ Test "TestFlight feedback polish removes clutter and placeholder overlap" started.
+◇ Test "compact iOS shell uses native tab and navigation bars" started.
+◇ Test "live repository builds public catalog requests and maps response envelopes" started.
+◇ Test "visitor recipe detail exposes fork but hides owner-only actions" started.
+◇ Test "iOS tab bar appearance is opaque Spoonjoy bone" started.
+◇ Test "compact route pages reserve enough space for the floating native tab bar" started.
+◇ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" started.
+◇ Test "recipe detail follows web step language instead of invented receipt method copy" started.
+◇ Test "detail screen view model exposes current web read parity without inventing comments" started.
+◇ Test "shopping destructive actions stay behind confirmations" started.
+◇ Test "SpoonDock is limited to cook mode handrail controls" started.
+◇ Test "compact mobile routes do not duplicate large system titles above authored headers" started.
+◇ Test "AI placeholder covers do not render as native food photography" started.
+◇ Test "compact tab routes use system navigation chrome without global searchable" started.
+◇ Test "cook mode owns a compact SpoonDock handrail wired to step state" started.
+◇ Test "native palette is pinned to the current Spoonjoy web tokens" started.
+✔ Test "SpoonDock is registered in both app targets" passed after 0.025 seconds.
+✔ Test "offline actions queue safe mutations and owner delete requires confirmation" passed after 0.025 seconds.
+✔ Test "detail cache restore keeps full recipe payload instead of placeholder shell" passed after 0.025 seconds.
+✔ Test "recipe detail exposes native action metadata without inventing new social surfaces" passed after 0.025 seconds.
+✔ Test "public recipe detail decodes dependencies recent spoons and provenance" passed after 0.025 seconds.
+✔ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" passed after 0.025 seconds.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.025 seconds.
+✔ Test "Spoonjoy section headers keep titles legible before drawing dividers" passed after 0.025 seconds.
+✔ Test "recipe detail preserves web masthead structure and stable route states" passed after 0.026 seconds.
+✔ Test "visible repository path uses live first cached q filtering and stale detail fallback" passed after 0.026 seconds.
+✔ Test "shopping list relies on native tab navigation instead of compact SpoonDock" passed after 0.026 seconds.
+✔ Test "recipe detail ingredient quantity text stays compact without placeholder units" passed after 0.026 seconds.
+✔ Test "visitor recipe detail exposes fork but hides owner-only actions" passed after 0.025 seconds.
+✔ Test "compact route pages reserve enough space for the floating native tab bar" passed after 0.026 seconds.
+✔ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" passed after 0.026 seconds.
+✔ Test "live repository builds public catalog requests and maps response envelopes" passed after 0.026 seconds.
+✔ Test "iOS tab bar appearance is opaque Spoonjoy bone" passed after 0.026 seconds.
+✔ Test "detail screen view model exposes current web read parity without inventing comments" passed after 0.026 seconds.
+✔ Test "online recipe actions plan exact REST mutations with offline fallbacks" passed after 0.027 seconds.
+✔ Test "shopping destructive actions stay behind confirmations" passed after 0.026 seconds.
+✔ Test "SpoonDock is limited to cook mode handrail controls" passed after 0.026 seconds.
+✔ Test "platform navigation renders native cover controls instead of a placeholder" passed after 0.027 seconds.
+✔ Test "compact mobile routes do not duplicate large system titles above authored headers" passed after 0.027 seconds.
+✔ Test "catalog and detail view models cover blank empty and deleted-spoon states" passed after 0.027 seconds.
+✔ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" passed after 0.027 seconds.
+✔ Test "native palette is pinned to the current Spoonjoy web tokens" passed after 0.027 seconds.
+✔ Suite "Native recipe action parity" passed after 0.028 seconds.
+✔ Test "catalog view model trims query loads live rows and exposes route actions" passed after 0.033 seconds.
+✔ Test "compact primary routes are native tab bar sections" passed after 0.035 seconds.
+✔ Test "compact iOS shell uses native tab and navigation bars" passed after 0.036 seconds.
+✔ Test "compact tab routes use system navigation chrome without global searchable" passed after 0.037 seconds.
+✔ Test "recipe surfaces require feature layer wiring rather than raw fixture arrays" passed after 0.040 seconds.
+✔ Suite "Recipe catalog and detail native parity" passed after 0.040 seconds.
+✔ Test "recipe detail follows web step language instead of invented receipt method copy" passed after 0.046 seconds.
+✔ Test "cook mode owns a compact SpoonDock handrail wired to step state" passed after 0.047 seconds.
+✔ Test "TestFlight feedback polish removes clutter and placeholder overlap" passed after 0.053 seconds.
+✔ Test "AI placeholder covers do not render as native food photography" passed after 0.062 seconds.
+✔ Suite "Native mobile design contract" passed after 0.062 seconds.
+✔ Test run with 35 tests in 3 suites passed after 0.062 seconds.

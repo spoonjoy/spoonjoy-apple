@@ -16,8 +16,9 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-mode", "shopping-list", "search", "cookbooks", "capture", "settings"].freeze
+VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
+EXPECTED_CAPTURE_VARIANTS = ["normal", "empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
 ACCESSIBILITY_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
@@ -46,75 +47,99 @@ EXPECTED_OFFLINE_SEVERE_STATES = [
 ].freeze
 EXPECTED_ROUTE_EVIDENCE = {
   "kitchen" => {
-    "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
-    "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+    "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+    "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
-    "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
+    "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
   },
   "search" => {
     "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
-    "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+    "keyboardNavigationTargets" => ["visible search field", "typed rows", "SearchSurfaceSectionView buttons"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
-    "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+    "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "recipes" => {
-    "voiceOverLabels" => ["Recipes", "Recipe Index", "recipe rows"],
-    "keyboardNavigationTargets" => ["recipe index buttons", "recipe rows"],
+    "voiceOverLabels" => ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes"],
+    "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
-    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "KitchenTableSection", "KitchenTableObjectRow"],
+    "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbooks" => {
-    "voiceOverLabels" => ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
-    "keyboardNavigationTargets" => ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+    "voiceOverLabels" => ["Cookbooks", "Shelf", "Index", "New Cookbook"],
+    "keyboardNavigationTargets" => ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
-    "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+    "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
+  "cookbook-detail" => {
+    "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+    "keyboardNavigationTargets" => ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
+    "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
-    "voiceOverLabels" => ["Import Status", "Spoonjoy Capture", "Send to Spoonjoy"],
-    "keyboardNavigationTargets" => ["import status", "saved capture actions"],
+    "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+    "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role"],
-    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "ImportStatusPanel", "CaptureDraft"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+  },
+  "capture-signed-out" => {
+    "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
+    "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
+    "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
+    "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "settings" => {
-    "voiceOverLabels" => ["Settings", "Profile", "Security"],
-    "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+    "voiceOverLabels" => ["Settings", "Profile", "Security", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Session", "Sign In"],
+    "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification sync status", "session handoff controls"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
+    "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView"],
     "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
   },
   "recipe-detail" => {
     "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
     "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
+    "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
     "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
+  "cook-log" => {
+    "voiceOverLabels" => ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
+    "keyboardNavigationTargets" => ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone", "muted text on bone"],
+    "hierarchyAnchors" => ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
   "cook-mode" => {
-    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Step Ingredients", "Cook mode SpoonDock"],
-    "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles"],
+    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
+    "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
-    "hierarchyAnchors" => ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+    "hierarchyAnchors" => ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "shopping-list" => {
-    "voiceOverLabels" => ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"],
-    "keyboardNavigationTargets" => ["shopping item fields", "shopping header menu", "native tab bar"],
+    "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
+    "keyboardNavigationTargets" => ["shopping receipt composer", "receipt actions menu", "native tab bar"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
-    "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "TabView"],
+    "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
   }
 }.freeze
@@ -136,7 +161,9 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   sections = proof["visibleSections"]
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
   required_sections = if visual_focus == "notifications"
-                        ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                      elsif visual_focus == "signed-out"
+                        ["Session", "Environment", "Offline"]
                       else
                         ["Profile", "Security"]
                       end
@@ -144,27 +171,87 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
 end
 
-def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id)
+def expected_search_proof(variant)
+  case variant
+  when "blank"
+    {
+      "query" => "",
+      "scope" => "all",
+      "routeIdentifier" => "search:all:",
+      "requiredSections" => ["Recipes", "Chefs"]
+    }
+  when "typed-results"
+    {
+      "query" => "lemon",
+      "scope" => "all",
+      "routeIdentifier" => "search:all:lemon",
+      "requiredSections" => ["Recipes"]
+    }
+  when "scoped-recipes"
+    {
+      "query" => "lemon",
+      "scope" => "recipes",
+      "routeIdentifier" => "search:recipes:lemon",
+      "requiredSections" => ["Recipes"]
+    }
+  when "scoped-cookbooks"
+    {
+      "query" => "weeknights",
+      "scope" => "cookbooks",
+      "routeIdentifier" => "search:cookbooks:weeknights",
+      "requiredSections" => ["Cookbooks"]
+    }
+  when "scoped-chefs"
+    {
+      "query" => "ari",
+      "scope" => "chefs",
+      "routeIdentifier" => "search:chefs:ari",
+      "requiredSections" => ["Chefs"]
+    }
+  when "scoped-shopping"
+    {
+      "query" => "lemons",
+      "scope" => "shopping-list",
+      "routeIdentifier" => "search:shopping-list:lemons",
+      "requiredSections" => ["Shopping"]
+    }
+  when "no-results"
+    {
+      "query" => "kumquat",
+      "scope" => "recipes",
+      "routeIdentifier" => "search:recipes:kumquat",
+      "requiredSections" => [],
+      "requiresEmptySections" => true
+    }
+  else
+    fail_check("unsupported searchSurfaceVariant #{variant.inspect}")
+  end
+end
+
+def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id, expected)
   fail_check("#{manifest_path} searchSurfaceProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
   fail_check("#{manifest_path} missing search screenshot proof artifact #{proof_relative_path}") unless proof_path.file?
   proof = JSON.parse(proof_path.read)
   fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
   fail_check("#{proof_path} route must be search") unless proof["route"] == "search"
-  fail_check("#{proof_path} routeIdentifier must be search:all:") unless proof["routeIdentifier"] == "search:all:"
-  fail_check("#{proof_path} query must be blank") unless proof["query"] == ""
-  fail_check("#{proof_path} scope must be all") unless proof["scope"] == "all"
+  fail_check("#{proof_path} routeIdentifier must be #{expected["routeIdentifier"]}") unless proof["routeIdentifier"] == expected["routeIdentifier"]
+  fail_check("#{proof_path} query must be #{expected["query"].inspect}") unless proof["query"] == expected["query"]
+  fail_check("#{proof_path} scope must be #{expected["scope"]}") unless proof["scope"] == expected["scope"]
   fail_check("#{proof_path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless proof["searchScopes"] == EXPECTED_SEARCH_SCOPES
   fail_check("#{proof_path} accountID must be #{seed_account_id}") unless proof["accountID"] == seed_account_id
   fail_check("#{proof_path} source must be SearchView") unless proof["source"] == "SearchView"
   sections = proof["visibleSections"]
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
-  required_sections = ["Recipes", "Chefs"]
+  required_sections = expected["requiredSections"]
   missing_sections = required_sections.reject { |section| sections.include?(section) }
   fail_check("#{proof_path} visibleSections missing required search sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+  if expected["requiresEmptySections"] && !sections.empty?
+    fail_check("#{proof_path} no-results search proof must not include visible result sections: #{sections.join(", ")}")
+  end
 end
 
-def expected_accessibility_source(route)
+def expected_accessibility_source(route, manifest)
   case route
   when "kitchen"
     "KitchenView"
@@ -174,12 +261,16 @@ def expected_accessibility_source(route)
     "RecipesView"
   when "cookbooks"
     "CookbooksView"
+  when "cookbook-detail"
+    "CookbookDetailView"
   when "capture"
-    "CaptureDraftView"
+    manifest["captureSurfaceVariant"] == "signed-out" ? "SignedOutSetupView" : "CaptureDraftView"
   when "settings"
     "SettingsView"
   when "recipe-detail"
     "RecipeDetailView"
+  when "cook-log"
+    "SpoonCookLogView"
   when "cook-mode"
     "CookModeView"
   when "shopping-list"
@@ -189,7 +280,11 @@ def expected_accessibility_source(route)
   end
 end
 
-def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
+def accessibility_evidence_key(route, manifest)
+  route == "capture" && manifest["captureSurfaceVariant"] == "signed-out" ? "capture-signed-out" : route
+end
+
+def validate_accessibility_proof!(manifest_path, proof_relative_path, route, manifest)
   fail_check("#{manifest_path} accessibilityProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
   fail_check("#{manifest_path} missing accessibility proof artifact #{proof_relative_path}") unless proof_path.file?
@@ -198,7 +293,8 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
   fail_check("#{proof_path} platform must be ios or macos") unless ["ios", "macos"].include?(proof["platform"])
   expected_bundle_identifier = proof["platform"] == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
   fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
-  fail_check("#{proof_path} source must be #{expected_accessibility_source(route)}") unless proof["source"] == expected_accessibility_source(route)
+  expected_source = expected_accessibility_source(route, manifest)
+  fail_check("#{proof_path} source must be #{expected_source}") unless proof["source"] == expected_source
   fail_check("#{proof_path} emittedBy must be SpoonjoyApp") unless proof["emittedBy"] == "SpoonjoyApp"
   fail_check("#{proof_path} bundleIdentifier must be #{expected_bundle_identifier}") unless proof["bundleIdentifier"] == expected_bundle_identifier
 
@@ -212,7 +308,7 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route)
 
   route_evidence = proof["routeEvidence"]
   fail_check("#{proof_path} routeEvidence must be an object") unless route_evidence.is_a?(Hash)
-  EXPECTED_ROUTE_EVIDENCE.fetch(route).each do |field, required_values|
+  EXPECTED_ROUTE_EVIDENCE.fetch(accessibility_evidence_key(route, manifest)).each do |field, required_values|
     actual_values = route_evidence[field]
     fail_check("#{proof_path} routeEvidence.#{field} must be an array") unless actual_values.is_a?(Array)
     missing_values = required_values.reject { |value| actual_values.include?(value) }
@@ -261,7 +357,7 @@ fail_check("#{path} accessibilityProofArtifacts must include iOS and macOS proof
 platforms = []
 accessibility_proofs.each do |proof_relative_path|
   fail_check("#{path} accessibilityProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
-  validate_accessibility_proof!(path, proof_relative_path, route)
+  validate_accessibility_proof!(path, proof_relative_path, route, manifest)
   proof_path = path.dirname.join(proof_relative_path).cleanpath
   platforms << JSON.parse(proof_path.read)["platform"]
 end
@@ -280,6 +376,11 @@ when "search"
   fail_check("#{path} searchNativeSurface must be true for search captures") unless manifest["searchNativeSurface"] == true
   seed_account_id = manifest["searchSeedAccountID"]
   fail_check("#{path} searchSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+  variant = manifest["searchSurfaceVariant"]
+  expected = expected_search_proof(variant)
+  fail_check("#{path} expectedQuery must be #{expected["query"].inspect}") unless manifest["expectedQuery"] == expected["query"]
+  fail_check("#{path} expectedScope must be #{expected["scope"]}") unless manifest["expectedScope"] == expected["scope"]
+  fail_check("#{path} expectedRouteIdentifier must be #{expected["routeIdentifier"]}") unless manifest["expectedRouteIdentifier"] == expected["routeIdentifier"]
   search_scopes = manifest["searchScopes"]
   fail_check("#{path} searchScopes must be an array") unless search_scopes.is_a?(Array)
   fail_check("#{path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless search_scopes == EXPECTED_SEARCH_SCOPES
@@ -288,11 +389,19 @@ when "search"
   fail_check("#{path} searchSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   proof_artifacts.each do |proof_relative_path|
     fail_check("#{path} searchSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
-    validate_search_proof!(path, proof_relative_path, seed_account_id)
+    validate_search_proof!(path, proof_relative_path, seed_account_id, expected)
   end
 when "recipe-detail"
   fail_check("#{path} recipeDetailSurface must be true for recipe detail captures") unless manifest["recipeDetailSurface"] == true
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  seed_account_id = manifest["recipeSeedAccountID"]
+  fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "cook-log"
+  fail_check("#{path} cookLogSurface must be true for cook log captures") unless manifest["cookLogSurface"] == true
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  fail_check("#{path} cookLogForm must be true") unless manifest["cookLogForm"] == true
+  fail_check("#{path} cookLogPhotoSlot must be true") unless manifest["cookLogPhotoSlot"] == true
+  fail_check("#{path} cookLogActionBar must be true") unless manifest["cookLogActionBar"] == true
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cook-mode"
@@ -306,27 +415,55 @@ when "shopping-list"
   fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbooks"
   fail_check("#{path} cookbooksNativeSurface must be true for cookbooks captures") unless manifest["cookbooksNativeSurface"] == true
+  fail_check("#{path} cookbookLibrarySpread must be true for cookbooks captures") unless manifest["cookbookLibrarySpread"] == true
+  fail_check("#{path} cookbookShelfStrip must be true for cookbooks captures") unless manifest["cookbookShelfStrip"] == true
+  seed_account_id = manifest["cookbookSeedAccountID"]
+  fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "cookbook-detail"
+  fail_check("#{path} cookbookDetailSurface must be true for cookbook detail captures") unless manifest["cookbookDetailSurface"] == true
+  fail_check("#{path} cookbookID must be cookbook_weeknights") unless manifest["cookbookID"] == "cookbook_weeknights"
+  fail_check("#{path} cookbookContentsIndex must be true for cookbook detail captures") unless manifest["cookbookContentsIndex"] == true
+  fail_check("#{path} cookbookOwnerToolsDisclosure must be true for cookbook detail captures") unless manifest["cookbookOwnerToolsDisclosure"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "capture"
-  fail_check("#{path} captureNativeSurface must be true for capture captures") unless manifest["captureNativeSurface"] == true
+  variant = manifest["captureSurfaceVariant"]
+  fail_check("#{path} captureSurfaceVariant must be one of #{EXPECTED_CAPTURE_VARIANTS.join(", ")}") unless EXPECTED_CAPTURE_VARIANTS.include?(variant)
+  expected_auth = variant == "signed-out" ? "0" : "1"
+  fail_check("#{path} captureScreenshotAuth must be #{expected_auth}") unless manifest["captureScreenshotAuth"] == expected_auth
+  if variant == "signed-out"
+    fail_check("#{path} captureSignedOutSurface must be true for signed-out capture") unless manifest["captureSignedOutSurface"] == true
+    fail_check("#{path} captureNativeSurface must be false for signed-out capture") unless manifest["captureNativeSurface"] == false
+  else
+    fail_check("#{path} captureNativeSurface must be true for signed-in capture captures") unless manifest["captureNativeSurface"] == true
+    fail_check("#{path} captureSignedOutSurface must be false for signed-in capture captures") unless manifest["captureSignedOutSurface"] == false
+  end
   seed_account_id = manifest["captureSeedAccountID"]
   fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "settings"
-  fail_check("#{path} settingsSignedInSurface must be true for settings captures") unless manifest["settingsSignedInSurface"] == true
   seed_account_id = manifest["settingsSeedAccountID"]
   fail_check("#{path} settingsSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
   sections = manifest["settingsSections"]
   fail_check("#{path} settingsSections must be an array") unless sections.is_a?(Array)
   visual_focus = manifest["settingsVisualFocus"]
-  fail_check("#{path} settingsVisualFocus must be profile or notifications") unless ["profile", "notifications"].include?(visual_focus)
+  fail_check("#{path} settingsVisualFocus must be profile, notifications, or signed-out") unless ["profile", "notifications", "signed-out"].include?(visual_focus)
   proof_artifacts = manifest["settingsSurfaceProofArtifacts"]
   fail_check("#{path} settingsSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   required_sections = if visual_focus == "notifications"
+                        fail_check("#{path} settingsSignedInSurface must be true for settings/APNs captures") unless manifest["settingsSignedInSurface"] == true
                         fail_check("#{path} settingsNotificationAPNsSurface must be true for settings/APNs captures") unless manifest["settingsNotificationAPNsSurface"] == true
-                        ["Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"]
+                        fail_check("#{path} settingsAPNsPermissionState must be present for APNs captures") unless manifest["settingsAPNsPermissionState"].is_a?(String) && !manifest["settingsAPNsPermissionState"].empty?
+                        fail_check("#{path} settingsAPNsRegistrationState must be present for APNs captures") unless manifest["settingsAPNsRegistrationState"].is_a?(String) && !manifest["settingsAPNsRegistrationState"].empty?
+                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                      elsif visual_focus == "signed-out"
+                        fail_check("#{path} settingsSignedInSurface must be false for signed-out settings captures") unless manifest["settingsSignedInSurface"] == false
+                        fail_check("#{path} settingsSignedOutSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutSurface"] == true
+                        fail_check("#{path} settingsSignedOutHandoffSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutHandoffSurface"] == true
+                        fail_check("#{path} settingsScreenshotAuth must be 0 for signed-out settings captures") unless manifest["settingsScreenshotAuth"] == "0"
+                        ["Session", "Environment", "Offline"]
                       else
+                        fail_check("#{path} settingsSignedInSurface must be true for profile settings captures") unless manifest["settingsSignedInSurface"] == true
                         fail_check("#{path} settingsProfileSurface must be true for profile settings captures") unless manifest["settingsProfileSurface"] == true
                         ["Profile", "Security"]
                       end

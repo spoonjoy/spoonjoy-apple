@@ -81,6 +81,7 @@ struct SpoonjoyRootView: View {
                 authRepository: liveStore.authSessionRepository,
                 pendingRoute: navigation.route,
                 openSettings: { navigation.navigate(to: .settings) },
+                appleSignInTelemetry: Self.defaultAppleSignInTelemetryClient(),
                 onSignedIn: {
                     await liveStore.bootstrap()
                     applyRestoredRouteIfNeeded()
@@ -129,11 +130,15 @@ struct SpoonjoyRootView: View {
     }
 
     private func platformNavigation(contentState: NativeShellContentState) -> some View {
-        PlatformNavigationView(
+        let visibleContentState = Self.screenshotAugmentedContentState(contentState)
+        return PlatformNavigationView(
             navigation: $navigation,
             search: $search,
-            contentState: contentState,
-            offlineIndicatorState: liveStore.offlineIndicatorState,
+            contentState: visibleContentState,
+            offlineIndicatorState: Self.screenshotAugmentedOfflineIndicatorState(
+                visibleContentState,
+                fallback: liveStore.offlineIndicatorState
+            ),
             dismissOfflineIndicator: liveStore.dismissOfflineIndicator,
             queueMutation: { mutation in
                 try await liveStore.queueMutation(mutation)
@@ -225,6 +230,123 @@ struct SpoonjoyRootView: View {
                 )
             }
         )
+    }
+
+    private static func screenshotAugmentedContentState(_ contentState: NativeShellContentState) -> NativeShellContentState {
+#if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        var augmentedContentState = contentState
+        if let notificationAPNsSurfaceData = contentState.notificationAPNsSurfaceData,
+           let screenshotAPNsSurfaceData = screenshotNotificationAPNsSurfaceData(
+            notificationAPNsSurfaceData,
+            environment: environment
+           ) {
+            augmentedContentState = augmentedContentState.debugApplyingNotificationAPNsSurfaceData(screenshotAPNsSurfaceData)
+        }
+
+        guard let mutationID = environment["SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !mutationID.isEmpty,
+              augmentedContentState.queuedMutations.contains(where: { $0.clientMutationID == mutationID }) else {
+            return augmentedContentState
+        }
+        let conflict = NativeSyncConflict(
+            clientMutationID: mutationID,
+            kind: .validation,
+            serverRevision: .updatedAt("screenshot-shopping-conflict"),
+            message: "Spoonjoy found a newer version of this receipt."
+        )
+        return augmentedContentState.debugApplyingSyncOverlay(
+            conflicts: [conflict],
+            conflictMutationID: mutationID
+        )
+#else
+        contentState
+#endif
+    }
+
+#if DEBUG
+    private static func screenshotNotificationAPNsSurfaceData(
+        _ data: NotificationAPNsSurfaceData,
+        environment: [String: String]
+    ) -> NotificationAPNsSurfaceData? {
+        let permissionState = screenshotAPNsPermissionState(environment: environment) ?? data.permissionState
+        let registration = screenshotAPNsRegistration(
+            existingRegistration: data.apnsRegistration,
+            environment: environment
+        )
+        guard permissionState != data.permissionState || registration != data.apnsRegistration else {
+            return nil
+        }
+        return NotificationAPNsSurfaceData(
+            preferences: data.preferences,
+            apnsRegistration: registration,
+            permissionState: permissionState,
+            deliveryCapability: data.deliveryCapability,
+            source: data.source
+        )
+    }
+
+    private static func screenshotAPNsPermissionState(environment: [String: String]) -> APNsPermissionState? {
+        let checkedAt = Date(timeIntervalSince1970: 1_782_899_000)
+        switch environment["SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "not-determined", "not_determined", "unknown":
+            return .notDetermined
+        case "authorized", "granted":
+            return .authorized(lastCheckedAt: checkedAt)
+        case "denied":
+            return .denied(lastCheckedAt: checkedAt)
+        default:
+            return nil
+        }
+    }
+
+    private static func screenshotAPNsRegistration(
+        existingRegistration: APNsRegistrationSummary?,
+        environment: [String: String]
+    ) -> APNsRegistrationSummary? {
+        let rawState = environment["SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard let rawState, !rawState.isEmpty else {
+            return existingRegistration
+        }
+        if rawState == "none" {
+            return nil
+        }
+        let registrationState: NativeAPNSRegistrationState
+        switch rawState {
+        case "registered":
+            registrationState = .registered
+        case "unregistered":
+            registrationState = .unregistered
+        default:
+            return existingRegistration
+        }
+        return APNsRegistrationSummary(
+            deviceID: existingRegistration?.deviceID ?? "device_apns_screenshot",
+            platform: existingRegistration?.platform ?? NativeAPNSRuntimeDefaults.currentPlatform,
+            environment: existingRegistration?.environment ?? NativeAPNSRuntimeDefaults.currentEnvironment,
+            registrationState: registrationState,
+            lastValidatedAt: existingRegistration?.lastValidatedAt ?? Date(timeIntervalSince1970: 1_782_899_000)
+        )
+    }
+#endif
+
+    private static func screenshotAugmentedOfflineIndicatorState(
+        _ contentState: NativeShellContentState,
+        fallback: OfflineIndicatorState
+    ) -> OfflineIndicatorState {
+#if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+        guard let mutationID = environment["SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !mutationID.isEmpty,
+              contentState.syncConflicts.contains(where: { $0.clientMutationID == mutationID }) else {
+            return fallback
+        }
+        return contentState.offlineIndicatorState
+#else
+        fallback
+#endif
     }
 
     private func restoringCacheView(contentState: NativeShellContentState) -> some View {
@@ -378,6 +500,7 @@ struct SpoonjoyRootView: View {
         let vault: any TokenVault = KeychainTokenVault()
         let bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
 #endif
+        let appleSignInTelemetry = Self.defaultAppleSignInTelemetryClient()
         let authRepository = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple",
@@ -402,17 +525,38 @@ struct SpoonjoyRootView: View {
             },
             exchangeAppleCredential: { credential in
                 NativeAppleSignInTelemetry.logPhase("backend_request_started")
+                await appleSignInTelemetry.recordPhase("backend_request_started",
+                    credentialPresent: true,
+                    identityTokenPresent: !credential.identityToken.isEmpty,
+                    rawNoncePresent: !credential.rawNonce.isEmpty,
+                    emailPresent: credential.email?.isEmpty == false,
+                    fullNamePresent: credential.fullName?.isEmpty == false
+                )
                 do {
                     let response: OAuthTokenResponse = try await OAuthURLSessionSupport.sendDecoded(
                         try NativeAppleSignInRequests.exchangeCredential(credential),
                         configuration: configuration
                     )
                     NativeAppleSignInTelemetry.logPhase("backend_request_succeeded")
+                    await appleSignInTelemetry.recordPhase("backend_request_succeeded",
+                        outcome: .completed,
+                        credentialPresent: true,
+                        identityTokenPresent: !credential.identityToken.isEmpty,
+                        rawNoncePresent: !credential.rawNonce.isEmpty,
+                        emailPresent: credential.email?.isEmpty == false,
+                        fullNamePresent: credential.fullName?.isEmpty == false,
+                        sessionState: "authenticated"
+                    )
                     return response
                 } catch {
                     NativeAppleSignInTelemetry.logFailure(
                         phase: "backend_request_failed",
                         code: NativeAppleSignInTelemetry.diagnosticCode(for: error)
+                    )
+                    await appleSignInTelemetry.recordFailure(phase: "backend_request_failed",
+                        code: NativeAppleSignInTelemetry.diagnosticCode(for: error),
+                        credential: credential,
+                        error: error
                     )
                     throw error
                 }
@@ -500,6 +644,16 @@ struct SpoonjoyRootView: View {
             nativeTelemetryMetadata: Self.nativeTelemetryMetadata(),
             bootstrapMode: bootstrapMode,
             now: Date.init
+        )
+    }
+
+    private static func defaultAppleSignInTelemetryClient() -> NativeAppleSignInTelemetry.Client {
+        let environment = ProcessInfo.processInfo.environment
+        let configuration = Self.defaultAPIConfiguration(environment: environment)
+        return NativeAppleSignInTelemetry.Client(
+            environment: Self.defaultCacheEnvironment(configuration: configuration).rawValue,
+            metadata: Self.nativeTelemetryMetadata(),
+            configuration: configuration
         )
     }
 

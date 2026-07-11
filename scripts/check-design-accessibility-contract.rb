@@ -106,6 +106,7 @@ CONTRACTS = {
     "routeEvidence(route: route, source: source)",
     "row.accessibilityLabel",
     "SearchSurfaceContract.searchableScopes",
+    "SearchSurfaceContract.visibleSearchField",
     "SearchSurfaceContract.typedRows",
     "OfflineStatusView.screenshotAccessibilityProof",
     "observedDynamicTypeSize",
@@ -215,12 +216,12 @@ def accessibility_proof(platform)
     "observedDynamicTypeSize" => "large",
     "observedReduceMotion" => false,
     "routeEvidence" => {
-      "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
-      "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+      "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-      "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
-      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+      "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
+      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
     },
     "offlineIndicatorProof" => {
       "source" => "OfflineStatusView",

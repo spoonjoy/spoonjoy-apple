@@ -280,13 +280,13 @@ struct NativeScenarioTests {
             shoppingList: shoppingList,
             scope: scope
         )
-        let recipe = try #require(documents.first { $0.uniqueIdentifier == "production|schema2|chef_ari|recipe|recipe_lemon_pantry_pasta" })
-        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "production|schema2|chef_ari|cookbook|cookbook_weeknights" })
-        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "production|schema2|chef_ari|shopping-list-item|item_lemons" })
+        let recipe = try #require(documents.first { $0.uniqueIdentifier == "\(scope.identifierPrefix)|recipe|recipe_lemon_pantry_pasta" })
+        let cookbook = try #require(documents.first { $0.uniqueIdentifier == "\(scope.identifierPrefix)|cookbook|cookbook_weeknights" })
+        let shoppingItem = try #require(documents.first { $0.uniqueIdentifier == "\(scope.identifierPrefix)|shopping-list-item|item_lemons" })
 
         #expect(documents.count == recipes.count + cookbooks.count + shoppingList.activeItems.count)
         #expect(recipe.type == .recipe)
-        #expect(recipe.domainIdentifier == "app.spoonjoy.schema2.production.chef_ari.recipe")
+        #expect(recipe.domainIdentifier == "\(scope.domainPrefix).recipe")
         #expect(recipe.title == "Lemon Pantry Pasta")
         #expect(recipe.contentDescription.contains("ari"))
         #expect(recipe.keywords.contains("Spoonjoy"))
@@ -295,13 +295,13 @@ struct NativeScenarioTests {
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: recipe.uniqueIdentifier, scope: scope) == recipe.route)
         #expect(DeepLinkURLBuilder.url(for: recipe.route) == URL(string: "spoonjoy://recipes/recipe_lemon_pantry_pasta"))
         #expect(cookbook.type == .cookbook)
-        #expect(cookbook.domainIdentifier == "app.spoonjoy.schema2.production.chef_ari.cookbook")
+        #expect(cookbook.domainIdentifier == "\(scope.domainPrefix).cookbook")
         #expect(cookbook.contentDescription.contains("2 recipes"))
         #expect(cookbook.route == .cookbookDetail(id: "cookbook_weeknights"))
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: cookbook.uniqueIdentifier, scope: scope) == cookbook.route)
         #expect(DeepLinkURLBuilder.url(for: cookbook.route) == URL(string: "spoonjoy://cookbooks/cookbook_weeknights"))
         #expect(shoppingItem.type == .shoppingListItem)
-        #expect(shoppingItem.domainIdentifier == "app.spoonjoy.schema2.production.chef_ari.shopping-list-item")
+        #expect(shoppingItem.domainIdentifier == "\(scope.domainPrefix).shopping-list-item")
         #expect(shoppingItem.title == "lemons")
         #expect(shoppingItem.contentDescription.contains("Shopping list"))
         #expect(shoppingItem.route == .shoppingList)
@@ -417,8 +417,8 @@ struct NativeScenarioTests {
         let shoppingDocument = SpotlightIndexPlan.document(shoppingListItem: shoppingItem, scope: scope)
 
         #expect(servingsDocument.contentDescription.contains("1 bowl"))
-        #expect(servingsDocument.uniqueIdentifier == "local|schema2|chef-fallback-example-com|recipe|recipe_spotlight_servings")
-        #expect(servingsDocument.domainIdentifier == "app.spoonjoy.schema2.local.chef-fallback-example-com.recipe")
+        #expect(servingsDocument.uniqueIdentifier == "\(scope.identifierPrefix)|recipe|recipe_spotlight_servings")
+        #expect(servingsDocument.domainIdentifier == "\(scope.domainPrefix).recipe")
         #expect(readyDocument.contentDescription.contains("Ready to cook in Spoonjoy."))
         #expect(cookbookDocument.contentDescription.contains("1 recipe"))
         #expect(shoppingDocument.keywords.contains("shopping"))
@@ -448,10 +448,12 @@ struct NativeScenarioTests {
             offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
         )
         let scope = try #require(signedIn.spotlightIndexScope)
+        let accountScopeComponent = scope.identifierPrefix.split(separator: "|", omittingEmptySubsequences: false)[2]
 
         #expect(signedOut.spotlightIndexScope == nil)
-        #expect(scope.identifierPrefix == "production|schema2|chef_ari")
-        #expect(scope.domainPrefix == "app.spoonjoy.schema2.production.chef_ari")
+        #expect(accountScopeComponent.hasPrefix("chef_ari-"))
+        #expect(scope.identifierPrefix == "production|schema2|\(accountScopeComponent)")
+        #expect(scope.domainPrefix == "app.spoonjoy.schema2.production.\(accountScopeComponent)")
     }
 
     @Test("surfaces report proves kitchen recipe cook and shopping slices")
@@ -778,6 +780,7 @@ struct NativeScenarioTests {
             let missingSourceChecks = Dictionary(uniqueKeysWithValues: missingSourceReport.checks.map { ($0.name, $0.status) })
             let emptyMetadata = NativeCapabilityMetadata(
                 appIntents: [],
+                appIntentTelemetryEvents: [],
                 spotlightIndexedTypes: [],
                 searchableScopes: [],
                 shareActions: [],

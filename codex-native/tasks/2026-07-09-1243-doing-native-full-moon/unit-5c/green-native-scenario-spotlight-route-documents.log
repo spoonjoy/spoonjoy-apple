@@ -1,0 +1,43 @@
+Building for debugging...
+[0/8] Write sources
+[2/8] Write swift-version--58304C5D6DBC2206.txt
+[4/10] Emitting module SpoonjoyCore
+[5/10] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[6/16] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[7/16] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[8/16] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[9/16] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[10/16] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[11/16] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[11/19] Write Objects.LinkFileList
+[13/29] Linking SpoonjoyNativeDogfood
+[14/29] Linking SpoonjoyScenarioVerifier
+[15/29] Applying SpoonjoyNativeDogfood
+[16/29] Applying SpoonjoyScenarioVerifier
+[18/29] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[19/29] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[20/29] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[21/29] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[22/29] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[23/29] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[24/29] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[25/29] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[26/29] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[27/29] Emitting module SpoonjoyCoreTests
+[27/29] Write Objects.LinkFileList
+[28/29] Linking SpoonjoyApplePackageTests
+Build complete! (15.86s)
+Test Suite 'Selected tests' started at 2026-07-10 17:02:39.689.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 17:02:39.690.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 17:02:39.690.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 17:02:39.691.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "spotlight index plan builds route aware searchable documents" started.
+✔ Test "spotlight index plan builds route aware searchable documents" passed after 0.010 seconds.
+✔ Suite "Native scenario metadata" passed after 0.010 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.010 seconds.

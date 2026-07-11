@@ -21,6 +21,14 @@ struct OfflineStatusView: View {
         self.onDismiss = onDismiss
     }
 
+    init(
+        indicator: OfflineIndicatorState,
+        prominence: Prominence? = nil,
+        onDismiss: (@MainActor @Sendable () -> Void)? = nil
+    ) {
+        self.init(display: indicator.display, prominence: prominence, onDismiss: onDismiss)
+    }
+
     var body: some View {
         if display.isVisible {
             HStack(spacing: 8) {
@@ -132,7 +140,7 @@ struct OfflineStatusView: View {
         case .synced:
             KitchenTableTheme.herb
         case .offline, .stale:
-            KitchenTableTheme.brass
+            effectiveProminence == .quiet ? quietInformationalForegroundStyle : KitchenTableTheme.brass
         case .dismissed:
             KitchenTableTheme.charcoal.opacity(0.7)
         case .queuedWork:
@@ -140,6 +148,10 @@ struct OfflineStatusView: View {
         case .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             KitchenTableTheme.tomato
         }
+    }
+
+    private var quietInformationalForegroundStyle: Color {
+        KitchenTableTheme.inkMuted
     }
 }
 

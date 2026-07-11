@@ -67,6 +67,32 @@ public struct ShoppingSurfaceEmptyState: Equatable, Sendable {
     }
 }
 
+public struct ShoppingReceiptState: Equatable, Sendable {
+    public let title: String
+    public let message: String
+    public let systemImage: String
+    public let actionTitle: String?
+    public let duplicateCountLabel: String?
+
+    public init(
+        title: String,
+        message: String,
+        systemImage: String,
+        actionTitle: String? = nil,
+        duplicateCountLabel: String? = nil
+    ) {
+        self.title = title
+        self.message = message
+        self.systemImage = systemImage
+        self.actionTitle = actionTitle
+        self.duplicateCountLabel = duplicateCountLabel
+    }
+
+    public var emptyState: ShoppingSurfaceEmptyState {
+        ShoppingSurfaceEmptyState(title: title, message: message, systemImage: systemImage)
+    }
+}
+
 public struct ShoppingSurfaceConflictBanner: Equatable, Sendable {
     public let localClientMutationID: String
     public let message: String
@@ -162,8 +188,15 @@ public enum ShoppingSurfaceMutationExecutor {
         executeRemoteRequest: (APIRequestBuilder) async throws -> Void,
         recordShoppingList: (ShoppingListState) -> Void
     ) async throws -> ShoppingSurfaceMutationOutcome {
+        func recordOptimisticListIfNeeded() {
+            if let updatedShoppingList = plan.updatedShoppingList {
+                recordShoppingList(updatedShoppingList)
+            }
+        }
+
         if let queuedMutation = plan.queuedMutation {
             try await queueMutation(queuedMutation)
+            recordOptimisticListIfNeeded()
             return .queuedForSync
         }
 
@@ -175,6 +208,7 @@ public enum ShoppingSurfaceMutationExecutor {
             } catch let error as APITransportError where error.isOffline {
                 if let offlineFallbackMutation = plan.offlineFallbackMutation {
                     try await queueMutation(offlineFallbackMutation)
+                    recordOptimisticListIfNeeded()
                     return .queuedForSync
                 }
                 throw error
@@ -309,23 +343,74 @@ public struct ShoppingSurfaceViewModel {
         "\(shoppingList?.activeItems.count ?? 0) active"
     }
 
-    public var emptyState: ShoppingSurfaceEmptyState? {
+    public var shoppingRunSummary: String {
         guard let shoppingList else {
-            return ShoppingSurfaceEmptyState(
-                title: "Load your shopping list",
-                message: "Connect to Spoonjoy to sync your current list.",
-                systemImage: "arrow.clockwise"
-            )
+            return "Ready to sync"
+        }
+
+        let activeCount = shoppingList.activeItems.count
+        let completedCount = shoppingList.completedItems.count
+        if completedCount > 0 {
+            return "\(activeCount) active - \(completedCount) checked"
+        }
+
+        return "\(activeCount) active"
+    }
+
+    public var shoppingReceiptState: ShoppingReceiptState? {
+        guard let shoppingList else {
+            return emptyReceiptState
         }
 
         guard shoppingList.activeItems.isEmpty else {
             return nil
         }
 
-        return ShoppingSurfaceEmptyState(
-            title: "Your shopping list is empty",
-            message: "Add ingredients from a recipe or jot down what you need.",
-            systemImage: "cart"
+        if let queuedReceiptState {
+            return queuedReceiptState
+        }
+
+        if !shoppingList.completedItems.isEmpty {
+            return allCompleteState
+        }
+
+        return emptyReceiptState
+    }
+
+    public var emptyState: ShoppingSurfaceEmptyState? {
+        shoppingReceiptState?.emptyState
+    }
+
+    public var emptyReceiptState: ShoppingReceiptState {
+        ShoppingReceiptState(
+            title: loadState == .needsLiveLoad ? "Sync the receipt" : "Receipt is empty",
+            message: loadState == .needsLiveLoad
+                ? "Connect to Spoonjoy to load the current market run."
+                : "Add an item or pull ingredients from a recipe.",
+            systemImage: loadState == .needsLiveLoad ? "arrow.clockwise" : "cart",
+            actionTitle: loadState == .needsLiveLoad ? nil : "Add item"
+        )
+    }
+
+    public var allCompleteState: ShoppingReceiptState {
+        ShoppingReceiptState(
+            title: "All checked off",
+            message: "Nice. Clear checked items when you're ready to reset the receipt.",
+            systemImage: "checkmark.circle",
+            actionTitle: "Clear checked"
+        )
+    }
+
+    public var queuedReceiptState: ShoppingReceiptState? {
+        guard let queuedWorkSummary else {
+            return nil
+        }
+
+        return ShoppingReceiptState(
+            title: "Saved for sync",
+            message: queuedWorkSummary,
+            systemImage: "arrow.triangle.2.circlepath",
+            actionTitle: "Review queued work"
         )
     }
 
@@ -475,7 +560,12 @@ public struct ShoppingSurfaceViewModel {
                     clientMutationID: clientMutationID,
                     createdAt: plannedAt
                 ),
-                updatedShoppingList: shoppingList
+                updatedShoppingList: try shoppingList?.addingRecipeIngredients(
+                    recipeID: recipeID,
+                    scaleFactor: scaleFactor,
+                    recipeIngredients: recipeIngredients,
+                    clientMutationID: clientMutationID
+                )
             )
         case .clearCompleted(let clientMutationID, let confirmation):
             guard confirmation == .confirmed else {
@@ -557,7 +647,7 @@ public struct ShoppingSurfaceViewModel {
             return nil
         }
 
-        for item in updated.activeItems where predicate(item) {
+        for item in updated.receiptItems where predicate(item) {
             updated = try updated.removingItem(id: item.id, deletedAt: deletedAt)
         }
 

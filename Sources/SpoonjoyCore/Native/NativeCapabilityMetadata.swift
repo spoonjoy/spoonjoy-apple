@@ -2,6 +2,7 @@ import Foundation
 
 public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
     public let appIntents: [String]
+    public let appIntentTelemetryEvents: [String]
     public let spotlightIndexedTypes: [String]
     public let searchableScopes: [String]
     public let shareActions: [String]
@@ -12,6 +13,7 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
 
     public init(
         appIntents: [String],
+        appIntentTelemetryEvents: [String],
         spotlightIndexedTypes: [String],
         searchableScopes: [String],
         shareActions: [String],
@@ -21,6 +23,7 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
         deepLinkRoutes: [String]
     ) {
         self.appIntents = appIntents
+        self.appIntentTelemetryEvents = appIntentTelemetryEvents
         self.spotlightIndexedTypes = spotlightIndexedTypes
         self.searchableScopes = searchableScopes
         self.shareActions = shareActions
@@ -101,6 +104,10 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
             "SpoonjoyAccountConnectionEntity",
             "SpoonjoyAccountConnectionEntityQuery"
         ],
+        appIntentTelemetryEvents: [
+            "app_intent_completed",
+            "app_intent_failed"
+        ],
         spotlightIndexedTypes: ["recipe", "cookbook", "shopping-list-item", "spoon", "capture-draft", "chef-profile"],
         searchableScopes: ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
         shareActions: [
@@ -131,6 +138,7 @@ public struct NativeCapabilityMetadata: Codable, Equatable, Sendable {
     public var scenarioCapabilities: ScenarioNativeCapabilities {
         ScenarioNativeCapabilities(
             appIntents: appIntents,
+            appIntentTelemetryEvents: appIntentTelemetryEvents,
             spotlightIndexedTypes: spotlightIndexedTypes,
             searchableScopes: searchableScopes,
             shareActions: shareActions,

@@ -1,0 +1,65 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (4.93s)
+Test Suite 'Selected tests' started at 2026-07-10 04:07:52.954.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 04:07:52.955.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 04:07:52.955.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 04:07:52.955.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native shopping surface parity" started.
+◇ Suite "Native mobile design contract" started.
+◇ Test "shopping surface executor does not clobber remote success and queues offline fallbacks" started.
+◇ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" started.
+◇ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" started.
+✘ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" recorded an issue at ShoppingSurfaceParityTests.swift:815:9: Expectation failed: (completedOnly.activeItems → [SpoonjoyCore.ShoppingListItem(id: "item_done_salt", name: "salt", quantity: Optional(1.0), unit: Optional("pinch"), checked: true, checkedAt: Optional("2026-06-26T02:00:00.000Z"), deletedAt: nil, categoryKey: nil, iconKey: nil, sortIndex: 0, updatedAt: "2026-06-26T02:00:00.000Z")]).isEmpty → false
+✘ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" recorded an issue at ShoppingSurfaceParityTests.swift:816:9: Expectation failed: (completedViewModel.activeCountLabel → "1 active") == "0 active"
+✘ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" recorded an issue at ShoppingSurfaceParityTests.swift:817:9: Expectation failed: (completedViewModel.emptyState → nil) == (ShoppingSurfaceEmptyState(
+            title: "All checked off",
+            message: "Nice. Clear checked items when you're ready to reset the receipt.",
+            systemImage: "checkmark.circle"
+        ) → ShoppingSurfaceEmptyState(title: "All checked off", message: "Nice. Clear checked items when you\'re ready to reset the receipt.", systemImage: "checkmark.circle"))
+✘ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" recorded an issue at ShoppingSurfaceParityTests.swift:836:9: Expectation failed: (optimisticList.activeItems.map(\.name) → []) == ["pasta", "lemons"]
+± removed ["pasta", "lemons"]
+✘ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" recorded an issue at ShoppingSurfaceParityTests.swift:837:9: Expectation failed: (optimisticList.activeItems.map(\.displayQuantity) → []) == ["16 oz", "4 each"]
+± removed ["16 oz", "4 each"]
+✘ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" failed after 0.007 seconds with 5 issues.
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1360:5: Expectation failed: (missing → ["KitchenTablePage(", "private var shoppingRunHeader", "private var shoppingReceiptComposer", "private var shoppingReceiptState", "ShoppingReceiptStateView(", "receiptActionsMenu", "Clear checked", "Add from recipe"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/ShoppingListView.swift missing tokens: KitchenTablePage(, private var shoppingRunHeader, private var shoppingReceiptComposer, private var shoppingReceiptState, ShoppingReceiptStateView(, receiptActionsMenu, Clear checked, Add from recipe
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1361:5: Expectation failed: (forbidden → ["ContentUnavailableView(", "Label(\"List Actions\"", "TextField(\"Qty\"", "TextField(\"Unit\""]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/ShoppingListView.swift contains forbidden tokens: ContentUnavailableView(, Label("List Actions", TextField("Qty", TextField("Unit"
+✘ Test "shopping surface executor does not clobber remote success and queues offline fallbacks" recorded an issue at ShoppingSurfaceParityTests.swift:1030:9: Expectation failed: (recordedShoppingLists → []) == ([expectedQueuedList] → [SpoonjoyCore.ShoppingListState(id: "shopping_list_ari", chef: SpoonjoyCore.ChefSummary(id: "chef_ari", username: "ari", photoURL: nil), items: [SpoonjoyCore.ShoppingListItem(id: "item_lemons", name: "lemons", quantity: Optional(2.0), unit: Optional("each"), checked: true, checkedAt: Optional("2026-06-26T02:00:00.000Z"), deletedAt: nil, categoryKey: Optional("produce"), iconKey: Optional("lemon"), sortIndex: 3, updatedAt: "2026-06-26T02:00:00.000Z"), SpoonjoyCore.ShoppingListItem(id: "item_spaghetti", name: "spaghetti", quantity: Optional(12.0), unit: Optional("oz"), checked: false, checkedAt: nil, deletedAt: nil, categoryKey: Optional("pantry"), iconKey: Optional("pasta"), sortIndex: 1, updatedAt: "2026-06-01T00:01:00.000Z"), SpoonjoyCore.ShoppingListItem(id: "item_parmesan", name: "parmesan", quantity: Optional(0.5), unit: Optional("cup"), checked: false, checkedAt: nil, deletedAt: nil, categoryKey: Optional("dairy"), iconKey: Optional("cheese"), sortIndex: 2, updatedAt: "2026-06-01T00:02:00.000Z"), SpoonjoyCore.ShoppingListItem(id: "item_removed_basil", name: "basil", quantity: Optional(1.0), unit: Optional("bunch"), checked: false, checkedAt: nil, deletedAt: Optional("2026-06-01T00:05:00.000Z"), categoryKey: Optional("produce"), iconKey: Optional("herb"), sortIndex: 3, updatedAt: "2026-06-01T00:05:00.000Z")], nextCursor: "v1.fixture.shopping.cursor", updatedAt: "2026-06-01T00:15:00.000Z")])
+± removed [SpoonjoyCore.ShoppingListState(id: "shopping_list_ari", chef: SpoonjoyCore.ChefSummary(id: "chef_ari", username: "ari", photoURL: nil), items: [SpoonjoyCore.ShoppingListItem(id: "item_lemons", name: "lemons", quantity: Optional(2.0), unit: Optional("each"), checked: true, checkedAt: Optional("2026-06-26T02:00:00.000Z"), deletedAt: nil, categoryKey: Optional("produce"), iconKey: Optional("lemon"), sortIndex: 3, updatedAt: "2026-06-26T02:00:00.000Z"), SpoonjoyCore.ShoppingListItem(id: "item_spaghetti", name: "spaghetti", quantity: Optional(12.0), unit: Optional("oz"), checked: false, checkedAt: nil, deletedAt: nil, categoryKey: Optional("pantry"), iconKey: Optional("pasta"), sortIndex: 1, updatedAt: "2026-06-01T00:01:00.000Z"), SpoonjoyCore.ShoppingListItem(id: "item_parmesan", name: "parmesan", quantity: Optional(0.5), unit: Optional("cup"), checked: false, checkedAt: nil, deletedAt: nil, categoryKey: Optional("dairy"), iconKey: Optional("cheese"), sortIndex: 2, updatedAt: "2026-06-01T00:02:00.000Z"), SpoonjoyCore.ShoppingListItem(id: "item_removed_basil", name: "basil", quantity: Optional(1.0), unit: Optional("bunch"), checked: false, checkedAt: nil, deletedAt: Optional("2026-06-01T00:05:00.000Z"), categoryKey: Optional("produce"), iconKey: Optional("herb"), sortIndex: 3, updatedAt: "2026-06-01T00:05:00.000Z")], nextCursor: "v1.fixture.shopping.cursor", updatedAt: "2026-06-01T00:15:00.000Z")]
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1360:5: Expectation failed: (missing → ["List {", "Section {", "private struct ShoppingReceiptRow", "sourceLine", "duplicateCountLabel", ".accessibilityHint"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ReceiptListView.swift missing tokens: List {, Section {, private struct ShoppingReceiptRow, sourceLine, duplicateCountLabel, .accessibilityHint
+✘ Test "shopping surface executor does not clobber remote success and queues offline fallbacks" failed after 0.008 seconds with 1 issue.
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1361:5: Expectation failed: (forbidden → ["ScrollView", "LazyVStack", "Label(\"Done\", systemImage: \"checkmark\")", "KitchenTableReceiptRow(name: item.name, amount: item.displayQuantity)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ReceiptListView.swift contains forbidden tokens: ScrollView, LazyVStack, Label("Done", systemImage: "checkmark"), KitchenTableReceiptRow(name: item.name, amount: item.displayQuantity)
+✘ Suite "Native shopping surface parity" failed after 0.008 seconds with 6 issues.
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1360:5: Expectation failed: (missing → ["ShoppingReceiptState", "shoppingRunSummary", "emptyReceiptState", "allCompleteState", "queuedReceiptState", "duplicateCountLabel"]).isEmpty → false
+↳ Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift missing tokens: ShoppingReceiptState, shoppingRunSummary, emptyReceiptState, allCompleteState, queuedReceiptState, duplicateCountLabel
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1361:5: Expectation failed: (forbidden → ["title: \"Load your shopping list\"", "title: \"Your shopping list is empty\""]).isEmpty → false
+↳ Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift contains forbidden tokens: title: "Load your shopping list", title: "Your shopping list is empty"
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1360:5: Expectation failed: (missing → ["\"List {\"", "\"Section {\"", "\"ShoppingReceiptRow\"", "\"shoppingReceiptState\""]).isEmpty → false
+↳ Sources/SpoonjoyCore/Native/ScenarioVerifier.swift missing tokens: "List {", "Section {", "ShoppingReceiptRow", "shoppingReceiptState"
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1361:5: Expectation failed: (forbidden → ["\"List\", \"Section\""]).isEmpty → false
+↳ Sources/SpoonjoyCore/Native/ScenarioVerifier.swift contains forbidden tokens: "List", "Section"
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1360:5: Expectation failed: (missing → ["voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift missing tokens: voiceOverLabels: ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"]
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1361:5: Expectation failed: (forbidden → ["voiceOverLabels: [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift contains forbidden tokens: voiceOverLabels: ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"]
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1360:5: Expectation failed: (missing → ["\"shopping-list-all-complete\"", "\"shopping-list-offline-queued\"", "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh missing tokens: "shopping-list-all-complete", "shopping-list-offline-queued", "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"]
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" recorded an issue at NativeMobileDesignContractTests.swift:1361:5: Expectation failed: (forbidden → ["\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh contains forbidden tokens: "voiceOverLabels" => ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"]
+✘ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" failed after 0.031 seconds with 12 issues.
+✘ Suite "Native mobile design contract" failed after 0.031 seconds with 12 issues.
+✘ Test run with 3 tests in 2 suites failed after 0.031 seconds with 18 issues.

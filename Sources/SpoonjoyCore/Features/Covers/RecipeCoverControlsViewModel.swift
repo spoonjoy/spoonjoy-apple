@@ -396,13 +396,13 @@ public struct RecipeCoverCandidate: Decodable, Equatable, Identifiable, Sendable
 
     public static func provenanceLabel(sourceType: String, variant: RecipeCoverAPIVariant) -> String {
         if (sourceType == "chef-upload" || sourceType == "spoon") && variant == .stylized {
-            return "Editorialized chef photo"
+            return "Editorial cover"
         }
         if sourceType == "chef-upload" || sourceType == "spoon" {
-            return "Chef photo"
+            return "Cooked cover"
         }
         if sourceType == "import" {
-            return "Imported photo"
+            return "Imported cover"
         }
         if sourceType == "ai-placeholder" {
             return "AI generated"

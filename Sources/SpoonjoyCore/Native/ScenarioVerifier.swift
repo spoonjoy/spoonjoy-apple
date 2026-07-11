@@ -55,6 +55,7 @@ public enum ScenarioVerifier {
             ],
             nativeCapabilities: ScenarioNativeCapabilities(
                 appIntents: [],
+                appIntentTelemetryEvents: [],
                 spotlightIndexedTypes: [],
                 searchableScopes: [],
                 shareActions: [],
@@ -302,13 +303,18 @@ public enum ScenarioVerifier {
                 profileSettingsSiriIntentsCheck(metadata: metadata),
                 notificationSiriIntentsCheck(metadata: metadata),
                 ScenarioCheck(
+                    name: "App Intent output telemetry",
+                    status: metadata.appIntentTelemetryEvents.isEmpty ? .fail : .pass,
+                    detail: "App Intent output telemetry reports completion and failure events for native action results."
+                ),
+                ScenarioCheck(
                     name: "deep link metadata",
                     status: deepLinkCheckStatus(metadata),
                     detail: "Associated-domain and custom-scheme routes are declared."
                 ),
                 ScenarioCheck(name: "app surfaces", status: .pending, detail: "SwiftUI surfaces land in Units 14-16.")
             ],
-            nativeCapabilities: metadata.scenarioCapabilities
+            nativeCapabilities: nativeCapabilities(metadata: metadata)
         )
     }
 
@@ -351,31 +357,31 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "cook mode surface source",
-                    detail: "Cook mode surface includes focused step, controls, progress, and persisted progress text.",
+                    detail: "Cook mode surface includes focused step card, progress rail, utility sheet, and bottom action rail.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
-                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "currentStep", "KitchenSafeControls"]
+                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "currentStepCard", "stepProgressRail", "cookModeUtilitySheet", "cookModeBottomActionRail"]
                 ),
                 sourceCheck(
                     name: "shopping surface source",
-                    detail: "Shopping surface includes native edit mode, add/remove/clear controls, and ShoppingSurfaceViewModel behavior.",
+                    detail: "Shopping surface includes native edit mode, authored receipt state, add/remove/clear controls, and ShoppingSurfaceViewModel behavior.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift",
-                    tokens: ["ShoppingListView", "ShoppingSurfaceViewModel", "ShoppingListState", "ReceiptListView", "TextField", "addItem", "clearAll"]
+                    tokens: ["ShoppingListView", "ShoppingSurfaceViewModel", "ShoppingListState", "ReceiptListView", "shoppingReceiptComposer", "shoppingReceiptState", "receiptActionsMenu", "Add from recipe", "clearAll"]
                 ),
                 sourceCheck(
                     name: "receipt controls source",
-                    detail: "Receipt list uses native list sections, large check toggles, and swipe actions.",
+                    detail: "Receipt list uses native list sections, source-aware rows, large check toggles, and swipe actions.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
-                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List", "Section", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
+                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List {", "Section {", "ShoppingReceiptRow", "sourceLine", "duplicateCountLabel", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",
-                    detail: "Kitchen-safe controls use large native buttons with accessibility labels.",
+                    detail: "Kitchen-safe controls use compact native action decks with explicit accessibility labels.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift",
-                    tokens: ["KitchenSafeControls", "Button", "controlSize", "accessibilityLabel"]
+                    tokens: ["KitchenSafeControlDeck", "Button", "Label(\"Mark done\"", "Label(\"Next step\"", "Label(\"Close\"", "accessibilityLabel"]
                 ),
                 sourceCheck(
                     name: "navigation surface source",
@@ -396,36 +402,55 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
-                    forbiddenTokens: [".searchable(", ".searchScopes("]
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface creates native drafts and submits import-ready sources.",
+                    detail: "Capture surface reviews Spoonjoy agent and Shortcuts drafts without presenting fake in-app import creation.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
                     tokens: [
                         "CaptureDraftView",
                         "CaptureDraftViewModel",
                         "CaptureImportViewModel",
-                        "CaptureDraft.localText",
-                        "CaptureDraft.importURL",
-                        "CaptureDraft.videoURL",
-                        "CaptureDraft.jsonLD",
-                        "CaptureDraft.cameraImage",
-                        "CaptureDraft.photoLibraryImage",
-                        "PhotosPicker",
-                        "CameraCaptureView",
-                        "VNRecognizeTextRequest",
+                        "CaptureImportEntryPoint",
+                        "agentMCP",
+                        "appIntent",
+                        "Spoonjoy agent",
+                        "Shortcuts & Siri",
+                        "Shortcuts and Siri",
+                        "Import queue",
+                        "agentImportStatus",
+                        "ImportStatusPanel(",
+                        "shellOfflineIndicatorState",
+                        "OfflineStatusView",
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
-                        "Send to Spoonjoy",
+                        "Submit import",
+                        "Retry sync",
+                        "Retry when online",
+                        "Resolve import setup",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
                     forbiddenTokens: [
-                        "Promotion requires a separate reviewed flow"
+                        "Agent import",
+                        "MCP agent",
+                        "App Intents",
+                        "Promotion requires a separate reviewed flow",
+                        "Send to " + "Spoonjoy",
+                        "shareSheet" + "ComingSoon",
+                        "siri" + "ComingSoon",
+                        "camera" + "ComingSoon",
+                        "photoLibrary" + "ComingSoon",
+                        "CaptureDraft.local" + "Text(",
+                        "CaptureDraft.import" + "URL(",
+                        "CaptureDraft.video" + "URL(",
+                        "CaptureDraft.json" + "LD(",
+                        "PhotosPickerItem",
+                        "Camera" + "CaptureView"
                     ]
                 ),
                 sourceCheck(
@@ -466,7 +491,7 @@ public enum ScenarioVerifier {
                     ]
                 )
             ],
-            nativeCapabilities: metadata.scenarioCapabilities
+            nativeCapabilities: nativeCapabilities(metadata: metadata)
         )
     }
 
@@ -553,36 +578,55 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce"],
-                    forbiddenTokens: [".searchable(", ".searchScopes("]
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface creates native drafts and submits import-ready sources.",
+                    detail: "Capture surface reviews Spoonjoy agent and Shortcuts drafts without presenting fake in-app import creation.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
                     tokens: [
                         "CaptureDraftView",
                         "CaptureDraftViewModel",
                         "CaptureImportViewModel",
-                        "CaptureDraft.localText",
-                        "CaptureDraft.importURL",
-                        "CaptureDraft.videoURL",
-                        "CaptureDraft.jsonLD",
-                        "CaptureDraft.cameraImage",
-                        "CaptureDraft.photoLibraryImage",
-                        "PhotosPicker",
-                        "CameraCaptureView",
-                        "VNRecognizeTextRequest",
+                        "CaptureImportEntryPoint",
+                        "agentMCP",
+                        "appIntent",
+                        "Spoonjoy agent",
+                        "Shortcuts & Siri",
+                        "Shortcuts and Siri",
+                        "Import queue",
+                        "agentImportStatus",
+                        "ImportStatusPanel(",
+                        "shellOfflineIndicatorState",
+                        "OfflineStatusView",
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
-                        "Send to Spoonjoy",
+                        "Submit import",
+                        "Retry sync",
+                        "Retry when online",
+                        "Resolve import setup",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
                     forbiddenTokens: [
-                        "Promotion requires a separate reviewed flow"
+                        "Agent import",
+                        "MCP agent",
+                        "App Intents",
+                        "Promotion requires a separate reviewed flow",
+                        "Send to " + "Spoonjoy",
+                        "shareSheet" + "ComingSoon",
+                        "siri" + "ComingSoon",
+                        "camera" + "ComingSoon",
+                        "photoLibrary" + "ComingSoon",
+                        "CaptureDraft.local" + "Text(",
+                        "CaptureDraft.import" + "URL(",
+                        "CaptureDraft.video" + "URL(",
+                        "CaptureDraft.json" + "LD(",
+                        "PhotosPickerItem",
+                        "Camera" + "CaptureView"
                     ]
                 ),
                 sourceCheck(
@@ -635,7 +679,21 @@ public enum ScenarioVerifier {
                     ]
                 )
             ],
-            nativeCapabilities: capabilitiesWithLiveStoreFlows(metadata.scenarioCapabilities)
+            nativeCapabilities: capabilitiesWithLiveStoreFlows(nativeCapabilities(metadata: metadata))
+        )
+    }
+
+    private static func nativeCapabilities(metadata: NativeCapabilityMetadata) -> ScenarioNativeCapabilities {
+        ScenarioNativeCapabilities(
+            appIntents: metadata.appIntents,
+            appIntentTelemetryEvents: metadata.appIntentTelemetryEvents,
+            spotlightIndexedTypes: metadata.spotlightIndexedTypes,
+            searchableScopes: metadata.searchableScopes,
+            shareActions: metadata.shareActions,
+            offlineFlows: metadata.offlineFlows,
+            associatedDomains: metadata.associatedDomains,
+            urlSchemes: metadata.urlSchemes,
+            deepLinkRoutes: metadata.deepLinkRoutes
         )
     }
 
@@ -877,12 +935,13 @@ public enum ScenarioVerifier {
             let item = plan.updatedShoppingList?.item(id: itemID)
             let status = scenarioStatus(item?.checked == true &&
                 item?.checkedAt == "2026-06-16T11:42:00.000Z" &&
-                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == true)
+                plan.updatedShoppingList?.receiptSections.flatMap(\.items).contains { $0.id == itemID } == false &&
+                plan.updatedShoppingList?.receiptItems.contains { $0.id == itemID } == true)
 
             return ScenarioCheck(
                 name: "shopping checkoff",
                 status: status,
-                detail: "Shopping list checkoff uses ShoppingSurfaceViewModel and preserves receipt sections."
+                detail: "Shopping list checkoff uses ShoppingSurfaceViewModel, removes checked rows from active sections, and preserves receipt history."
             )
         } catch {
             return ScenarioCheck(
@@ -1626,7 +1685,7 @@ public enum ScenarioVerifier {
         return ScenarioCheck(
             name: "settings token connection surface",
             status: status,
-            detail: "Settings renders account profile, notification preferences, API token metadata, OAuth connection state, and native offline status."
+            detail: "Settings renders account profile, notification preferences, agent access key metadata, OAuth connection state, and native offline status."
         )
     }
 
@@ -1945,6 +2004,7 @@ public enum ScenarioVerifier {
         ]
         return ScenarioNativeCapabilities(
             appIntents: capabilities.appIntents,
+            appIntentTelemetryEvents: capabilities.appIntentTelemetryEvents,
             spotlightIndexedTypes: capabilities.spotlightIndexedTypes,
             searchableScopes: capabilities.searchableScopes,
             shareActions: capabilities.shareActions,
@@ -1958,6 +2018,7 @@ public enum ScenarioVerifier {
     private static func metadataCheckStatus(_ metadata: NativeCapabilityMetadata) -> ScenarioCheckStatus {
         scenarioStatus([
             metadata.appIntents,
+            metadata.appIntentTelemetryEvents,
             metadata.spotlightIndexedTypes,
             metadata.searchableScopes,
             metadata.shareActions,

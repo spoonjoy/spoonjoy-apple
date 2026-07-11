@@ -1,0 +1,26 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (5.02s)
+Test Suite 'Selected tests' started at 2026-07-09 19:24:33.428.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-09 19:24:33.430.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-09 19:24:33.430.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-09 19:24:33.430.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native notification preferences and APNs surface parity" started.
+◇ Test "notification settings keeps APNs diagnostics out of user-facing copy" started.
+✘ Test "notification settings keeps APNs diagnostics out of user-facing copy" recorded an issue at NotificationAPNsSurfaceTests.swift:170:9: Expectation failed: (failures → ["Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift missing notification/APNs tokens: NotificationDiagnosticsDisclosure", "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift missing string-allowed notification/APNs tokens: KitchenTableSection(title: \"This Device\", subtitle: \"Permission and delivery on this device\"), KitchenTableSection(title: \"Push Delivery\", subtitle: \"What will arrive on this build\"), Device notifications are ready on this device., Push delivery is limited on this build., When full push delivery is available, Spoonjoy will use it automatically.", "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift contains forbidden notification/APNs tokens: KitchenTableSection(title: \"Device Notifications\", KitchenTableSection(title: \"APNs Delivery\", subtitle: \"Local permission and device token\", subtitle: \"Production delivery status\", NotificationFactRow(title: \"Device\", value: registration.deviceID), NotificationFactRow(title: \"Platform\", value: registration.platform.rawValue), NotificationFactRow(title: \"Environment\", value: registration.environment.rawValue), NotificationFactRow(title: \"State\", value: registration.registrationState.rawValue), Label(\"Development APNs registration can sync for local validation.\", Label(\"Production push delivery not enabled\", TestFlight push delivery waits on Apple push signing, NotificationFactRow(title: \"State\", value: blocker.blocked ? \"blocked\" : \"available\")"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift missing notification/APNs tokens: NotificationDiagnosticsDisclosure
+  Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift missing string-allowed notification/APNs tokens: KitchenTableSection(title: "This Device", subtitle: "Permission and delivery on this device"), KitchenTableSection(title: "Push Delivery", subtitle: "What will arrive on this build"), Device notifications are ready on this device., Push delivery is limited on this build., When full push delivery is available, Spoonjoy will use it automatically.
+  Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift contains forbidden notification/APNs tokens: KitchenTableSection(title: "Device Notifications", KitchenTableSection(title: "APNs Delivery", subtitle: "Local permission and device token", subtitle: "Production delivery status", NotificationFactRow(title: "Device", value: registration.deviceID), NotificationFactRow(title: "Platform", value: registration.platform.rawValue), NotificationFactRow(title: "Environment", value: registration.environment.rawValue), NotificationFactRow(title: "State", value: registration.registrationState.rawValue), Label("Development APNs registration can sync for local validation.", Label("Production push delivery not enabled", TestFlight push delivery waits on Apple push signing, NotificationFactRow(title: "State", value: blocker.blocked ? "blocked" : "available")
+✘ Test "notification settings keeps APNs diagnostics out of user-facing copy" failed after 0.036 seconds with 1 issue.
+✘ Suite "Native notification preferences and APNs surface parity" failed after 0.036 seconds with 1 issue.
+✘ Test run with 1 test in 1 suite failed after 0.037 seconds with 1 issue.

@@ -1,0 +1,26 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[4/5] Emitting module SpoonjoyCoreTests
+[4/6] Write Objects.LinkFileList
+[5/6] Linking SpoonjoyApplePackageTests
+Build complete! (4.79s)
+Test Suite 'Selected tests' started at 2026-07-10 03:22:33.781.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 03:22:33.782.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 03:22:33.782.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 03:22:33.782.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Suite "Native cookbook surface parity" started.
+◇ Test "cookbook surfaces use authored shelf spread and native contents grammar" started.
+◇ Test "cookbook list and detail load live state, share payloads, and owner tools" started.
+✔ Test "cookbook list and detail load live state, share payloads, and owner tools" passed after 0.007 seconds.
+✔ Suite "Native cookbook surface parity" passed after 0.007 seconds.
+✔ Test "cookbook surfaces use authored shelf spread and native contents grammar" passed after 0.022 seconds.
+✔ Suite "Native mobile design contract" passed after 0.022 seconds.
+✔ Test run with 2 tests in 2 suites passed after 0.022 seconds.

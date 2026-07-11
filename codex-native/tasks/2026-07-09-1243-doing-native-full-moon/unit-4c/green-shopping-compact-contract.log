@@ -1,0 +1,23 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.15s)
+Test Suite 'Selected tests' started at 2026-07-10 04:48:30.619.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 04:48:30.622.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 04:48:30.623.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 04:48:30.623.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Suite "Native shopping surface parity" started.
+◇ Test "shopping list relies on native tab navigation instead of compact SpoonDock" started.
+◇ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" started.
+◇ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" started.
+✔ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" passed after 0.011 seconds.
+✔ Suite "Native shopping surface parity" passed after 0.011 seconds.
+✔ Test "shopping list relies on native tab navigation instead of compact SpoonDock" passed after 0.015 seconds.
+✔ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" passed after 0.019 seconds.
+✔ Suite "Native mobile design contract" passed after 0.019 seconds.
+✔ Test run with 3 tests in 2 suites passed after 0.019 seconds.

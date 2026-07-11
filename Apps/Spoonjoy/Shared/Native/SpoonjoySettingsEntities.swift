@@ -10,7 +10,7 @@ private let spoonjoySettingsAuthProviderOptionContract = "struct SpoonjoySetting
 struct SpoonjoyAPITokenEntity: AppEntity {
     typealias DefaultQuery = SpoonjoyAPITokenEntityQuery
 
-    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "API Token")
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Access Key")
     static let defaultQuery = SpoonjoyAPITokenEntityQuery()
 
     let descriptor: APITokenEntityDescriptor

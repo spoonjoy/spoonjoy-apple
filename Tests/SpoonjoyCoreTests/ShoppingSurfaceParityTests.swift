@@ -51,6 +51,7 @@ struct ShoppingSurfaceParityTests {
         let expectedActiveItems = try Self.shoppingList().activeItems
         #expect(viewModel.loadState == .loaded)
         #expect(viewModel.activeCountLabel == "3 active")
+        #expect(viewModel.shoppingRunSummary == "3 active")
         #expect(viewModel.sections.map(\.title) == ["Produce", "Pantry", "Dairy"])
         #expect(viewModel.sections.map { $0.items.map(\.id) } == [
             ["item_lemons"],
@@ -79,10 +80,11 @@ struct ShoppingSurfaceParityTests {
         )
         #expect(emptyOffline.loadState == .loaded)
         #expect(emptyOffline.activeCountLabel == "0 active")
+        #expect(emptyOffline.shoppingRunSummary == "0 active")
         #expect(emptyOffline.sections.isEmpty)
         #expect(emptyOffline.emptyState == ShoppingSurfaceEmptyState(
-            title: "Your shopping list is empty",
-            message: "Add ingredients from a recipe or jot down what you need.",
+            title: "Receipt is empty",
+            message: "Add an item or pull ingredients from a recipe.",
             systemImage: "cart"
         ))
         #expect(emptyOffline.offlineIndicator.display == .offline)
@@ -95,9 +97,10 @@ struct ShoppingSurfaceParityTests {
             now: { Self.createdAt }
         )
         #expect(needsLiveLoad.loadState == .needsLiveLoad)
+        #expect(needsLiveLoad.shoppingRunSummary == "Ready to sync")
         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
-            title: "Load your shopping list",
-            message: "Connect to Spoonjoy to sync your current list.",
+            title: "Sync the receipt",
+            message: "Connect to Spoonjoy to load the current market run.",
             systemImage: "arrow.clockwise"
         ))
         #expect(needsLiveLoad.offlineIndicator.display == .synced)
@@ -793,6 +796,51 @@ struct ShoppingSurfaceParityTests {
         ) == true)
     }
 
+    @Test("shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows")
+    func shoppingReceiptStateDistinguishesEmptyAllCompleteAndOptimisticRecipeRows() throws {
+        let completedOnly = Self.shoppingList(items: [
+            Self.shoppingItem(
+                id: "item_done_salt",
+                name: "salt",
+                unit: "pinch",
+                checked: true,
+                checkedAt: Self.createdAt
+            )
+        ])
+        let completedViewModel = ShoppingSurfaceViewModel(
+            shoppingList: completedOnly,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+
+        #expect(completedOnly.activeItems.isEmpty)
+        #expect(completedViewModel.activeCountLabel == "0 active")
+        #expect(completedViewModel.shoppingRunSummary == "0 active - 1 checked")
+        #expect(completedViewModel.emptyState == ShoppingSurfaceEmptyState(
+            title: "All checked off",
+            message: "Nice. Clear checked items when you're ready to reset the receipt.",
+            systemImage: "checkmark.circle"
+        ))
+
+        let addRecipe = try ShoppingSurfaceViewModel(
+            shoppingList: try Self.emptyShoppingList(),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            now: { Self.createdAt }
+        ).plan(.addRecipeIngredients(
+            recipeID: "recipe_lemon_pantry_pasta",
+            scaleFactor: 2,
+            recipeIngredients: Self.recipeShoppingIngredients,
+            clientMutationID: "cm_recipe_receipt"
+        ))
+        let optimisticList = try #require(addRecipe.updatedShoppingList)
+        #expect(optimisticList.activeItems.map(\.name) == ["pasta", "lemons"])
+        #expect(optimisticList.activeItems.map(\.displayQuantity) == ["16 oz", "4 each"])
+    }
+
     @Test("shopping surface covers queued local validation and prompt edge states")
     func shoppingSurfaceCoversQueuedLocalValidationAndPromptEdgeStates() async throws {
         let queuedClear = NativeQueuedMutation.shoppingClearAll(
@@ -810,6 +858,20 @@ struct ShoppingSurfaceParityTests {
         #expect(queuedViewModel.offlineIndicator.display == .queuedWork(
             count: 1,
             oldestClientMutationID: "cm_clear_waiting"
+        ))
+
+        let queuedEmpty = ShoppingSurfaceViewModel(
+            shoppingList: try Self.emptyShoppingList(),
+            queuedMutations: [queuedClear],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+        #expect(queuedEmpty.shoppingReceiptState == ShoppingReceiptState(
+            title: "Saved for sync",
+            message: "1 shopping change waiting to sync",
+            systemImage: "arrow.triangle.2.circlepath",
+            actionTitle: "Review queued work"
         ))
 
         let replacement = try Self.emptyShoppingList()
@@ -982,7 +1044,8 @@ struct ShoppingSurfaceParityTests {
 
         #expect(queuedOutcome == .queuedForSync)
         #expect(executedRequestPaths == ["/api/v1/shopping-list/items/item_lemons"])
-        #expect(recordedShoppingLists.isEmpty)
+        let expectedQueuedList = try #require(plan.updatedShoppingList)
+        #expect(recordedShoppingLists == [expectedQueuedList])
         #expect(queuedMutations.map(\.queueableKind) == [.shoppingCheckItem])
         #expect(queuedMutations.map(\.clientMutationID) == ["cm_check_lemons_visible"])
     }
@@ -1110,15 +1173,17 @@ struct ShoppingSurfaceParityTests {
         id: String,
         name: String,
         unit: String?,
-        deletedAt: String? = nil
+        deletedAt: String? = nil,
+        checked: Bool = false,
+        checkedAt: String? = nil
     ) -> ShoppingListItem {
         ShoppingListItem(
             id: id,
             name: name,
             quantity: 1,
             unit: unit,
-            checked: false,
-            checkedAt: nil,
+            checked: checked,
+            checkedAt: checkedAt,
             deletedAt: deletedAt,
             categoryKey: nil,
             iconKey: nil,

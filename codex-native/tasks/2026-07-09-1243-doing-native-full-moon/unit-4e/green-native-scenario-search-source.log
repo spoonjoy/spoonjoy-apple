@@ -1,0 +1,26 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/9] Emitting module SpoonjoyCore
+[4/9] Compiling SpoonjoyCore ScenarioVerifier.swift
+[4/12] Write Objects.LinkFileList
+[7/12] Linking SpoonjoyScenarioVerifier
+[7/12] Linking SpoonjoyNativeDogfood
+[9/12] Applying SpoonjoyScenarioVerifier
+[10/12] Applying SpoonjoyNativeDogfood
+[11/12] Linking SpoonjoyApplePackageTests
+Build complete! (3.14s)
+Test Suite 'Selected tests' started at 2026-07-10 05:45:24.672.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 05:45:24.673.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 05:45:24.673.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 05:45:24.673.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native scenario metadata" started.
+◇ Test "verify native scenarios script gates native metadata behavior" started.
+✔ Test "verify native scenarios script gates native metadata behavior" passed after 14.973 seconds.
+✔ Suite "Native scenario metadata" passed after 14.973 seconds.
+✔ Test run with 1 test in 1 suite passed after 14.974 seconds.

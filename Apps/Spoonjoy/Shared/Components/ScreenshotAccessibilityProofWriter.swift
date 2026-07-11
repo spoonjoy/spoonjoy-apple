@@ -83,47 +83,65 @@ enum ScreenshotAccessibilityProofWriter {
         switch (route, source) {
         case ("recipes", "RecipesView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Recipes", "Recipe Index", "recipe rows"],
-                keyboardNavigationTargets: ["recipe index buttons", "recipe rows"],
+                voiceOverLabels: ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes"],
+                keyboardNavigationTargets: ["recipe lead button", "RecipeIndexRow buttons", "search field"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["RecipesView", "KitchenTableHeader", "KitchenTableSection", "KitchenTableObjectRow"],
+                hierarchyAnchors: ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cookbooks", "CookbooksView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cookbooks", "Cookbook Shelf", "New Cookbook"],
-                keyboardNavigationTargets: ["cookbook shelf buttons", "share buttons", "new cookbook action"],
+                voiceOverLabels: ["Cookbooks", "Shelf", "Index", "New Cookbook"],
+                keyboardNavigationTargets: ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookShelf", "KitchenTableObjectRow"],
+                hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("cookbook-detail", "CookbookDetailView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+                keyboardNavigationTargets: ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("capture", "CaptureDraftView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Import Status", "Spoonjoy Capture", "Send to Spoonjoy"],
-                keyboardNavigationTargets: ["import status", "saved capture actions"],
+                voiceOverLabels: ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+                keyboardNavigationTargets: ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role"],
-                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "ImportStatusPanel", "CaptureDraft"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+            )
+        case ("capture", "SignedOutSetupView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
+                keyboardNavigationTargets: ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
+                contrastPairs: ["charcoal on bone", "herb button on bone", "brass status on bone"],
+                hierarchyAnchors: ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters"]
             )
         case ("search", "SearchView"):
             RouteAccessibilityEvidence(
                 voiceOverLabels: ["Search", "row.accessibilityLabel"],
-                keyboardNavigationTargets: ["typed rows", "SearchSurfaceSectionView buttons", "offline status dismiss"],
+                keyboardNavigationTargets: ["visible search field", "typed rows", "SearchSurfaceSectionView buttons", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "herb tint on bone", "status label on card"],
-                hierarchyAnchors: ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView", "OfflineStatusView"],
+                hierarchyAnchors: ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView", "OfflineStatusView"],
                 layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "offline-status-section"]
             )
         case ("settings", "SettingsView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Settings", "Profile", "Security", "Notifications", "Hide offline status"],
-                keyboardNavigationTargets: ["profile form fields", "security token controls", "notification toggles", "offline status dismiss"],
+                voiceOverLabels: ["Settings", "Profile", "Security", "Session", "Sign In", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Hide offline status"],
+                keyboardNavigationTargets: ["profile form fields", "security token controls", "session handoff controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "OfflineStatusView"],
+                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
                 layoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
             )
         case ("recipe-detail", "RecipeDetailView"):
@@ -131,36 +149,45 @@ enum ScreenshotAccessibilityProofWriter {
                 voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
                 keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "white on photo overlay", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
+                contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
+                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("cook-log", "SpoonCookLogView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
+                keyboardNavigationTargets: ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "muted text on bone"],
+                hierarchyAnchors: ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-mode", "CookModeView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Step Ingredients", "Cook mode SpoonDock"],
-                keyboardNavigationTargets: ["cook step handrail", "ingredient toggles", "dependency toggles"],
+                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
+                keyboardNavigationTargets: ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "herb tint on bone", "status text on material"],
-                hierarchyAnchors: ["CookModeView", "compactCookControls", "SpoonDockContext.cookMode", "ScaleSelector"],
+                hierarchyAnchors: ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("shopping-list", "ShoppingListView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Shopping", "Kitchen", "List Actions", "Add", "Clear checked"],
-                keyboardNavigationTargets: ["shopping item fields", "shopping header menu", "native tab bar"],
+                voiceOverLabels: ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
+                keyboardNavigationTargets: ["shopping receipt composer", "receipt actions menu", "native tab bar"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "addItemControls", "TabView"],
+                hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
                 layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
             )
         default:
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking", "Recipe Index", "Cookbook Shelf"],
-                keyboardNavigationTargets: ["lead recipe actions", "recipe index buttons", "cookbook shelf buttons"],
+                voiceOverLabels: ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+                keyboardNavigationTargets: ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
-                contrastPairs: ["charcoal on bone", "white on photo overlay", "brass on bone"],
-                hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "CookbookShelf"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "fixed-cover-height"]
+                contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
+                hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "RecipeIndexRow", "CookbookShelf"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "fixed-cover-height", "ordinal"]
             )
         }
     }
@@ -179,6 +206,8 @@ enum ScreenshotAccessibilityProofWriter {
             "screenshotAuth": environment["SPOONJOY_SCREENSHOT_AUTH"] ?? "",
             "screenshotRestoreCacheOnly": environment["SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY"] ?? "",
             "screenshotAccountID": environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "",
+            "screenshotAPNsPermissionState": environment["SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE"] ?? "",
+            "screenshotAPNsRegistrationState": environment["SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE"] ?? "",
             "apiBaseURL": environment["SPOONJOY_API_BASE_URL"] ?? ""
         ]
     }

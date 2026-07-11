@@ -79,24 +79,24 @@ REQUIRED_TOKENS = {
     "CaptureDraftViewModel",
     "CaptureImportViewModel",
     "CaptureDraft",
-    "CaptureDraft.localText",
-    "CaptureDraft.importURL",
-    "CaptureDraft.videoURL",
-    "CaptureDraft.jsonLD",
-    "CaptureDraft.cameraImage",
-    "CaptureDraft.photoLibraryImage",
-    "VNRecognizeTextRequest",
+    "CaptureImportEntryPoint",
+    "agentMCP",
+    "appIntent",
+    "Spoonjoy agent",
+    "Shortcuts & Siri",
+    "Import queue",
+    "Siri",
+    "Recipes sent by your Spoonjoy agent appear here for review.",
+    "Use your Spoonjoy agent or Shortcuts to create a capture.",
     "onChange(of: inputDraft)",
     "reconcile(with: inputDraft)",
-	    "hasPendingImport",
-	    "Spoonjoy Capture",
-	    "Import Status",
-	    "ImportStatusPanel",
-	    "Send to Spoonjoy",
-	    "Delete capture",
-	    "plan.userFacingMessage",
-	    "canCreateServerRecipe",
-	    "KitchenTableTheme"
+    "hasPendingImport",
+    "ImportStatusPanel",
+    "Submit import",
+    "Delete capture",
+    "plan.userFacingMessage",
+    "canCreateServerRecipe",
+    "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/ProfileView.swift" => [
     "ProfileRouteView",
@@ -126,7 +126,7 @@ REQUIRED_TOKENS = {
     "Upload Photo",
     "Remove Photo",
     "Notifications",
-    "API Tokens",
+    "Agent access",
     "Connections",
     "Passkeys",
     "Password",
@@ -291,12 +291,7 @@ FORBIDDEN_TOKENS = [
 	  "Ouro Draft"
 	].freeze
 
-FORBIDDEN_BY_FILE = {
-  "Apps/Spoonjoy/Shared/Views/SearchView.swift" => [
-    ".searchable(",
-    ".searchScopes("
-  ]
-}.freeze
+FORBIDDEN_BY_FILE = {}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"

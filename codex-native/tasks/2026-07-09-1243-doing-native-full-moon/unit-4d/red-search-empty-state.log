@@ -1,0 +1,42 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+Test Suite 'Selected tests' started at 2026-07-10 05:36:23.508.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 05:36:23.509.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 05:36:23.509.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 05:36:23.509.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native search surface parity" started.
+◇ Test "search empty states speak in the selected scope" started.
+✘ Test "search empty states speak in the selected scope" recorded an issue at NativeSearchSurfaceTests.swift:606:13: Expectation failed: (viewModel.emptyState → SearchSurfaceEmptyState(title: "No matches", message: "Try another recipe, cookbook, chef, or shopping item.", systemImage: "magnifyingglass")) == (SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ) → SearchSurfaceEmptyState(title: "No matches for \"kumquat\"", message: "No Spoonjoy results match \"kumquat\".", systemImage: "magnifyingglass"))
+✘ Test "search empty states speak in the selected scope" recorded an issue at NativeSearchSurfaceTests.swift:606:13: Expectation failed: (viewModel.emptyState → SearchSurfaceEmptyState(title: "No matches", message: "Try another recipe, cookbook, chef, or shopping item.", systemImage: "magnifyingglass")) == (SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ) → SearchSurfaceEmptyState(title: "No matches for \"kumquat\"", message: "No saved recipes match \"kumquat\".", systemImage: "magnifyingglass"))
+✘ Test "search empty states speak in the selected scope" recorded an issue at NativeSearchSurfaceTests.swift:606:13: Expectation failed: (viewModel.emptyState → SearchSurfaceEmptyState(title: "No matches", message: "Try another recipe, cookbook, chef, or shopping item.", systemImage: "magnifyingglass")) == (SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ) → SearchSurfaceEmptyState(title: "No matches for \"kumquat\"", message: "No cookbooks match \"kumquat\".", systemImage: "magnifyingglass"))
+✘ Test "search empty states speak in the selected scope" recorded an issue at NativeSearchSurfaceTests.swift:606:13: Expectation failed: (viewModel.emptyState → SearchSurfaceEmptyState(title: "No matches", message: "Try another recipe, cookbook, chef, or shopping item.", systemImage: "magnifyingglass")) == (SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ) → SearchSurfaceEmptyState(title: "No matches for \"kumquat\"", message: "No chefs match \"kumquat\".", systemImage: "magnifyingglass"))
+✘ Test "search empty states speak in the selected scope" recorded an issue at NativeSearchSurfaceTests.swift:606:13: Expectation failed: (viewModel.emptyState → SearchSurfaceEmptyState(title: "No matches", message: "Try another recipe, cookbook, chef, or shopping item.", systemImage: "magnifyingglass")) == (SearchSurfaceEmptyState(
+                title: "No matches for \"kumquat\"",
+                message: message,
+                systemImage: "magnifyingglass"
+            ) → SearchSurfaceEmptyState(title: "No matches for \"kumquat\"", message: "No shopping items match \"kumquat\".", systemImage: "magnifyingglass"))
+✘ Test "search empty states speak in the selected scope" failed after 0.003 seconds with 5 issues.
+✘ Suite "Native search surface parity" failed after 0.003 seconds with 5 issues.
+✘ Test run with 1 test in 1 suite failed after 0.003 seconds with 5 issues.

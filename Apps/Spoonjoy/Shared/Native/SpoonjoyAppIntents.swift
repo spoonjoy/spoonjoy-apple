@@ -66,6 +66,7 @@ struct OpenRecipeIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let action = try NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)
+        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "OpenRecipeIntent", returnsValue: false)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening recipe in Spoonjoy")
     }
@@ -319,20 +320,20 @@ struct RemoveProfilePhotoIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct OpenAPITokensIntent: AppIntent {
-    static let title: LocalizedStringResource = "Open API Tokens"
-    static let description = IntentDescription("Open Spoonjoy API token settings.")
+    static let title: LocalizedStringResource = "Open Agent Access"
+    static let description = IntentDescription("Open Spoonjoy agent access key settings.")
 
     func perform() async throws -> some IntentResult {
         let action = NativeIntentActionResolver().openAPITokens()
         await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening API token settings in Spoonjoy")
+        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Opening agent access settings in Spoonjoy")
     }
 }
 
 @available(iOS 27.0, macOS 27.0, *)
 struct CreateAPITokenIntent: AppIntent {
-    static let title: LocalizedStringResource = "Create API Token"
-    static let description = IntentDescription("Create a Spoonjoy API token.")
+    static let title: LocalizedStringResource = "Create Agent Access Key"
+    static let description = IntentDescription("Create a Spoonjoy access key for agents and tools.")
 
     @Parameter(title: "Name")
     var name: String
@@ -357,7 +358,7 @@ struct CreateAPITokenIntent: AppIntent {
             connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity()
         )
         let offlineMessage = SettingsOnlineOnlyReason.apiTokenCreate.message
-        let message = action.onlineOnlyReason?.message ?? action.plan.userFacingMessage ?? "Opening API token settings in Spoonjoy."
+        let message = action.onlineOnlyReason?.message ?? action.plan.userFacingMessage ?? "Opening agent access settings in Spoonjoy."
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
     }
@@ -365,10 +366,10 @@ struct CreateAPITokenIntent: AppIntent {
 
 @available(iOS 27.0, macOS 27.0, *)
 struct RevokeAPITokenIntent: AppIntent {
-    static let title: LocalizedStringResource = "Revoke API Token"
-    static let description = IntentDescription("Revoke a Spoonjoy API token.")
+    static let title: LocalizedStringResource = "Revoke Agent Access Key"
+    static let description = IntentDescription("Revoke a Spoonjoy access key for agents and tools.")
 
-    @Parameter(title: "API Token", requestValueDialog: "Which API token should be revoked?")
+    @Parameter(title: "Access Key", requestValueDialog: "Which access key should be revoked?")
     var token: SpoonjoyAPITokenEntity
 
     init() {
@@ -384,7 +385,7 @@ struct RevokeAPITokenIntent: AppIntent {
         let action = try NativeIntentActionResolver().revokeAPIToken(token: token.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
         try await SpoonjoyIntentStateWriter().performSettingsAction(action)
         let offlineMessage = SettingsOnlineOnlyReason.apiTokenRevoke.message
-        let message = action.onlineOnlyReason?.message ?? "Revoked API token in Spoonjoy."
+        let message = action.onlineOnlyReason?.message ?? "Revoked access key in Spoonjoy."
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
     }
@@ -542,6 +543,7 @@ struct SearchSpoonjoyIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let action = NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)
+        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "SearchSpoonjoyIntent", returnsValue: false)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Searching Spoonjoy")
     }
@@ -622,6 +624,7 @@ struct ShareShoppingListIntent: AppIntent {
               case .privateTransfer = share.kind else {
             throw NativeIntentActionError.shareUnavailable(shoppingList.descriptor.route)
         }
+        await SpoonjoyIntentTelemetry.recordCompleted(share, intentName: "ShareShoppingListIntent", returnsValue: true)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
         return .result(value: privateTransferValue, dialog: "Prepared a private Spoonjoy shopping-list transfer")
     }
@@ -1298,6 +1301,7 @@ struct SubmitCaptureImportIntent: AppIntent {
         let createdAt = SpoonjoyIntentClock.timestamp()
         let action = try NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
         try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "SubmitCaptureImportIntent", returnsValue: false)
         await SpoonjoyInteractionDonor().donateBestEffort(self)
 
         return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued capture draft import in Spoonjoy")
@@ -1520,6 +1524,65 @@ struct SpoonjoyInteractionDonor {
 
     func deleteDonations<Intent: AppIntent>(matching intentType: Intent.Type) async throws {
         try await IntentDonationManager.shared.deleteDonations(matching: IntentDonationMatchingPredicate.intentType(intentType))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct SpoonjoyIntentTelemetry {
+    static func recordCompleted(_ action: NativeIntentAction, intentName: String, returnsValue: Bool) async {
+        await record(action.telemetryDescriptor(intentName: intentName, returnsValue: returnsValue))
+    }
+
+    static func recordCompleted(_ share: NativeIntentShareValue, intentName: String, returnsValue: Bool) async {
+        await record(share.telemetryDescriptor(intentName: intentName, returnsValue: returnsValue))
+    }
+
+    static func recordFailed(_ error: Error, intentName: String) async {
+        await record(NativeIntentTelemetryDescriptor.failed(intentName: intentName, error: error))
+    }
+
+    private static func record(_ descriptor: NativeIntentTelemetryDescriptor) async {
+        do {
+            let refresher = SpoonjoyIntentAPIRefresher(vault: KeychainTokenVault())
+            let configuration = try await refresher.validConfiguration()
+            _ = try await URLSessionAPITransport(authenticationRefresher: refresher).send(
+                try NativeTelemetryRequests.recordEvent(descriptor.telemetryEvent(
+                    environment: "production",
+                    metadata: metadata()
+                )),
+                configuration: configuration,
+                decode: NativeTelemetryResponse.self
+            )
+        } catch {
+            return
+        }
+    }
+
+    private static func metadata() -> NativeTelemetryAppMetadata {
+        let info = Bundle.main.infoDictionary
+        return NativeTelemetryAppMetadata(
+            platform: platform(),
+            appVersion: nonblankInfoString(info?["CFBundleShortVersionString"]) ?? "0.0.0",
+            buildNumber: nonblankInfoString(info?["CFBundleVersion"]) ?? "0"
+        )
+    }
+
+    private static func platform() -> String {
+        #if os(iOS)
+        "ios"
+        #elseif os(macOS)
+        "macos"
+        #else
+        "unknown"
+        #endif
+    }
+
+    private static func nonblankInfoString(_ value: Any?) -> String? {
+        guard let string = value as? String else {
+            return nil
+        }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

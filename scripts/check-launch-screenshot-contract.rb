@@ -47,6 +47,8 @@ SCRIPT_CONTRACTS = {
       "apple/${unit_slug}-smoke-macos-inner.log",
       "apple/${unit_slug}-smoke-macos-blocker.json",
       "Spoonjoy.app",
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH",
+      "Using prebuilt macOS app",
       "xcodebuild -project Spoonjoy.xcodeproj",
       "generic/platform=macOS",
       "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
@@ -72,6 +74,11 @@ SCRIPT_CONTRACTS = {
       "smoke-ios-simulator-blocker.json",
       "apple/${unit_slug}-smoke-ios-inner.log",
       "apple/${unit_slug}-smoke-ios-simulator-blocker.json",
+      "SPOONJOY_SCREENSHOT_IOS_APP_PATH",
+      "Using prebuilt iOS simulator app",
+      "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
+      "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
+      "Reusing installed iOS simulator app",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
       "xcrun simctl uninstall",
@@ -79,8 +86,23 @@ SCRIPT_CONTRACTS = {
       "timeoutSeconds",
       "30",
       "CoreSimulator",
+      "PermissionError",
       ".github/scripts/resolve-ios-simulator-destination.py",
       "ownerAction"
+    ]
+  },
+  ".github/scripts/resolve-ios-simulator-destination.py" => {
+    syntax: ["python3", "-m", "py_compile"],
+    tokens: [
+      "SPOONJOY_IOS_SIMULATOR_UDID",
+      "SPOONJOY_IOS_SIMULATOR_NAME",
+      "preferred_udid",
+      "preferred_name",
+      "all_available_ios_devices",
+      "default_iphone_matches",
+      "state_rank",
+      "os.environ",
+      "state"
     ]
   },
   "scripts/capture-native-screenshots.sh" => {
@@ -109,19 +131,38 @@ SCRIPT_CONTRACTS = {
       "Spoonjoy window not found for macOS screenshot capture",
       'screenshot_route="kitchen"',
       'screenshot_route="search"',
+      'screenshot_route="cookbook-detail"',
       'notification',
       'apns',
       "spoonjoy://$screenshot_route",
       "validate_ios_screenshot",
       "get_app_container",
+      "resolve_ios_data_container",
+      "simulator app data container lookup failed",
       "native-durable-cache.json",
       "SPOONJOY_SCREENSHOT_AUTH",
       "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY",
       "SPOONJOY_SCREENSHOT_ACCOUNT_ID",
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH",
       "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS",
       "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+      "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS",
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS",
+      "run_with_timeout",
+      "PermissionError",
+      "run_ios_smoke",
+      "capture_ios_app_with_retries",
+      "is_transient_screenshot_launch_key",
+      "SPOONJOY_SCREENSHOT_*",
+      "simulator launch timeout",
+      "macOS launch timeout",
+      "proof wait timed out",
+      "cleanup timeout",
       "wait_for_accessibility_proof",
       "validate_screenshot_surface_proof",
       "settingsSignedInSurface",
@@ -140,6 +181,12 @@ SCRIPT_CONTRACTS = {
       "searchSeedAccountID",
       "searchSurfaceProofArtifacts",
       "SearchView",
+      "cookbook-detail",
+      "CookbookDetailView",
+      "cookbookDetailSurface",
+      "cookbookID",
+      "cookbook:cookbook_weeknights",
+      "cookbooks/cookbook_weeknights",
       "routeIdentifier",
       "chef_search_capture",
       "expected_recorded_route",
@@ -164,6 +211,36 @@ SCRIPT_CONTRACTS = {
       "skippedArtifacts",
       "conflicting design review success and blocker artifacts",
       "ownerAction"
+    ]
+  },
+  "scripts/capture-native-screenshot-matrix.sh" => {
+    syntax: ["bash", "-n"],
+    tokens: [
+      "set -euo pipefail",
+      "--artifact-root",
+      "--unit-slug",
+      "record_route",
+      "summarize_routes",
+      "design-review.json",
+      "design-review-blocked.json",
+      "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_MATRIX_BUILD_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES",
+      "SPOONJOY_SCREENSHOT_MATRIX_ROUTES",
+      "SPOONJOY_SCREENSHOT_IOS_APP_PATH",
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH",
+      "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
+      "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
+      "scripts/run-xcodebuild-with-blocker.sh",
+      "shared-builds",
+      "shared-ios-xcodebuild.log",
+      "shared-macos-xcodebuild.log",
+      "cookbook-detail|cookbook-detail|",
+      "timeoutSeconds",
+      "ScreenshotRouteTimeout",
+      "PermissionError",
+      "ownerAction",
+      "sourceBlockerPath"
     ]
   },
   "scripts/find-macos-window-id.swift" => {
@@ -191,13 +268,17 @@ SCRIPT_CONTRACTS = {
       "searchSurfaceProofArtifacts",
       "SearchView",
       "routeIdentifier",
+      "cookbook-detail",
+      "cookbookDetailSurface",
+      "cookbookID",
+      "CookbookDetailView",
       "settingsVisualFocus",
       "settingsProfileSurface",
       "settingsNotificationAPNsSurface",
       "settingsSurfaceProofArtifacts",
       "visibleSections",
       "SettingsView",
-      "APNs Delivery",
+      "Push Delivery",
       "Notification Sync"
     ]
   },
@@ -251,6 +332,33 @@ def run_status(*args, env: {}, chdir: ROOT)
   [stdout, stderr, status]
 end
 
+PROCESS_TIMEOUT_WRAPPER = <<~'RUBY'
+  timeout = Integer(ARGV.shift)
+  pid = Process.spawn(*ARGV, pgroup: true)
+  begin
+    Timeout.timeout(timeout) do
+      Process.wait(pid)
+      exit($?.exitstatus || 0)
+    end
+  rescue Timeout::Error
+    begin
+      Process.kill("TERM", -pid)
+    rescue Errno::ESRCH
+    end
+    sleep 0.2
+    begin
+      Process.kill("KILL", -pid)
+    rescue Errno::ESRCH
+    rescue Errno::EPERM
+    end
+    begin
+      Process.wait(pid)
+    rescue Errno::ECHILD
+    end
+    exit 124
+  end
+RUBY
+
 def assert_status(expected_success, args, label, env: {}, chdir: ROOT)
   stdout, stderr, status = run_status(*args, env: env, chdir: chdir)
   return if status.success? == expected_success
@@ -291,6 +399,10 @@ def accessibility_source(route)
     "SearchView"
   when "settings"
     "SettingsView"
+  when "cookbook-detail"
+    "CookbookDetailView"
+  when "capture"
+    "CaptureDraftView"
   else
     "KitchenView"
   end
@@ -301,29 +413,47 @@ def route_accessibility_evidence(route)
   when "search"
     {
       "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
-      "keyboardNavigationTargets" => ["typed rows", "SearchSurfaceSectionView buttons"],
+      "keyboardNavigationTargets" => ["visible search field", "typed rows", "SearchSurfaceSectionView buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
-      "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+      "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
       "layoutGuards" => ["text-fit", "no-tiny-clusters"]
     }
   when "settings"
     {
-      "voiceOverLabels" => ["Settings", "Profile", "Security"],
-      "keyboardNavigationTargets" => ["profile form fields", "security token controls"],
+      "voiceOverLabels" => ["Settings", "Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Session", "Sign In", "Hide offline status"],
+      "keyboardNavigationTargets" => ["profile form fields", "security token controls", "APNs device controls", "notification toggles", "notification sync status", "session handoff controls", "offline status dismiss"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-      "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
-      "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
+      "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
+      "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters", "offline-status-section"]
+    }
+  when "cookbook-detail"
+    {
+      "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
+      "keyboardNavigationTargets" => ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
+      "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    }
+  when "capture"
+    {
+      "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
+      "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
+      "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+      "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
+      "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
     }
   else
     {
-      "voiceOverLabels" => ["Spoonjoy Kitchen", "Open Recipe", "Start Cooking"],
-      "keyboardNavigationTargets" => ["lead recipe actions", "recipe index buttons"],
+      "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-      "contrastPairs" => ["charcoal on bone", "white on photo overlay"],
-      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+      "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
+      "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
     }
   end
 end
@@ -390,6 +520,177 @@ SCRIPT_CONTRACTS.each do |relative_path, contract|
   assert_status(true, [*contract.fetch(:syntax), path], "#{relative_path} syntax")
 end
 
+Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  bin_dir = temp_root.join("bin")
+  bin_dir.mkpath
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "$*" == "simctl list devices available --json" ]]; then
+      printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-5":[{"name":"Spoonjoy Codex Fresh iPhone 17 Pro Max","udid":"DOGFOOD-UDID","state":"Shutdown","isAvailable":true},{"name":"iPhone 17","udid":"IPHONE-UDID","state":"Booted","isAvailable":true}],"com.apple.CoreSimulator.SimRuntime.watchOS-26-5":[{"name":"Apple Watch","udid":"WATCH-UDID","state":"Shutdown","isAvailable":true}]}}'
+      exit 0
+    fi
+    exit 70
+  SH
+
+  explicit_stdout, explicit_stderr, explicit_status = run_status(
+    "env",
+    "-i",
+    "PATH=#{bin_dir}:#{ENV.fetch("PATH")}",
+    "SPOONJOY_IOS_SIMULATOR_UDID=DOGFOOD-UDID",
+    "python3",
+    ROOT.join(".github/scripts/resolve-ios-simulator-destination.py"),
+  )
+  unless explicit_status.success? && explicit_stdout.strip == "platform=iOS Simulator,id=DOGFOOD-UDID"
+    record_failure(
+      "simulator resolver must honor explicit available UDIDs even when the simulator name is not prefixed with iPhone\n" \
+      "STDOUT:\n#{explicit_stdout}\nSTDERR:\n#{explicit_stderr}"
+    )
+  end
+
+  default_stdout, default_stderr, default_status = run_status(
+    "env",
+    "-i",
+    "PATH=#{bin_dir}:#{ENV.fetch("PATH")}",
+    "python3",
+    ROOT.join(".github/scripts/resolve-ios-simulator-destination.py"),
+  )
+  unless default_status.success? && default_stdout.strip == "platform=iOS Simulator,id=IPHONE-UDID"
+    record_failure(
+      "simulator resolver default path must keep selecting ordinary iPhone simulator names\n" \
+      "STDOUT:\n#{default_stdout}\nSTDERR:\n#{default_stderr}"
+    )
+  end
+end
+
+Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("matrix-fixture")
+  artifact_root = temp_root.join("artifacts")
+  prebuilt_ios_app = temp_root.join("prebuilt-ios/Spoonjoy.app")
+  prebuilt_macos_app = temp_root.join("prebuilt-macos/Spoonjoy.app")
+  script_root.join("scripts").mkpath
+  prebuilt_ios_app.mkpath
+  prebuilt_macos_app.mkpath
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshot-matrix.sh"), script_root.join("scripts/capture-native-screenshot-matrix.sh"))
+
+  write_executable(script_root.join("scripts/capture-native-screenshots.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    artifact_root=""
+    unit_slug=""
+    route=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --artifact-root)
+          artifact_root="$2"
+          shift 2
+          ;;
+        --unit-slug)
+          unit_slug="$2"
+          shift 2
+          ;;
+        --route)
+          route="$2"
+          shift 2
+          ;;
+        *)
+          exit 2
+          ;;
+      esac
+    done
+
+    mkdir -p "$artifact_root/apple" "$artifact_root/screenshots"
+    if [[ "$route" == "recipes" ]]; then
+      sleep 10
+    fi
+
+    ruby -rjson -e '
+      path, route = ARGV
+      fields = %w[
+        mobileScreenshot desktopScreenshot dynamicType voiceOverLabels
+        keyboardNavigation reduceMotion contrast kitchenTableHierarchy noOverlap
+      ].to_h { |field| [field, true] }
+      File.write(path, JSON.pretty_generate(fields.merge("blockers" => [], "screenshotRoute" => route)) + "\n")
+    ' "$artifact_root/design-review.json" "$route"
+  SH
+
+  timeout_wrapper = <<~'RUBY'
+    timeout = Integer(ARGV.shift)
+    pid = Process.spawn(*ARGV, pgroup: true)
+    begin
+      Timeout.timeout(timeout) do
+        Process.wait(pid)
+        exit($?.exitstatus || 0)
+      end
+    rescue Timeout::Error
+      begin
+        Process.kill("TERM", -pid)
+      rescue Errno::ESRCH
+      end
+      sleep 0.2
+      begin
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH
+      rescue Errno::EPERM
+      end
+      begin
+        Process.wait(pid)
+      rescue Errno::ECHILD
+      end
+      exit 124
+    end
+  RUBY
+
+  stdout, stderr, status = run_status(
+    "ruby",
+    "-rtimeout",
+    "-e",
+    timeout_wrapper,
+    "20",
+    "bash",
+    "scripts/capture-native-screenshot-matrix.sh",
+    "--artifact-root",
+    artifact_root,
+    "--unit-slug",
+    "unit-contract",
+    env: {
+      "PATH" => ENV.fetch("PATH"),
+      "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES" => "0",
+      "SPOONJOY_SCREENSHOT_MATRIX_ROUTES" => "recipes",
+      "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => prebuilt_ios_app.to_s,
+      "SPOONJOY_SCREENSHOT_MACOS_APP_PATH" => prebuilt_macos_app.to_s
+    },
+    chdir: script_root
+  )
+
+  if status.exitstatus == 124
+    record_failure(
+      "screenshot matrix route timeout expected terminal blocker artifact, but matrix process timed out\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  else
+    summary_path = artifact_root.join("apple/unit-contract-route-matrix.json")
+    summary = assert_json(summary_path, "screenshot matrix timeout summary")
+    recipes_row = summary.fetch("routes", []).find { |row| row["name"] == "recipes" }
+    record_failure("screenshot matrix timeout row missing for recipes route") unless recipes_row
+    if recipes_row
+      record_failure("screenshot matrix timeout row must be blocked") unless recipes_row["status"] == "blocked"
+      record_failure("screenshot matrix timeout row must point at design-review-blocked.json") unless recipes_row.dig("designReviewBlocked", "exists") == true
+    end
+
+    blocked_review_path = artifact_root.join("screenshot-routes/recipes/design-review-blocked.json")
+    blocked_review = assert_json(blocked_review_path, "screenshot matrix timeout blocked review")
+    record_failure("screenshot matrix timeout blocker capability mismatch") unless blocked_review["capability"] == "ScreenshotRouteTimeout"
+    record_failure("screenshot matrix timeout blocker missing timeoutSeconds") unless blocked_review["timeoutSeconds"].is_a?(Integer)
+    record_failure("screenshot matrix timeout blocker missing ownerAction") unless blocked_review["ownerAction"].is_a?(String) && !blocked_review["ownerAction"].empty?
+    record_failure("screenshot matrix timeout blocker missing sourceBlockerPath") unless blocked_review["sourceBlockerPath"].is_a?(String) && !blocked_review["sourceBlockerPath"].empty?
+  end
+end
+
 validator = ROOT.join("scripts/validate-design-review.rb")
 blocker_validator = ROOT.join("scripts/validate-design-review-blocker.rb")
 
@@ -407,8 +708,10 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "settingsSignedInSurface" => true,
     "settingsVisualFocus" => "notifications",
     "settingsNotificationAPNsSurface" => true,
+    "settingsAPNsPermissionState" => "authorized",
+    "settingsAPNsRegistrationState" => "registered",
     "settingsSeedAccountID" => "chef_settings_capture",
-    "settingsSections" => ["Profile", "Security", "Notifications", "Device Notifications", "APNs Delivery", "Notification Sync"],
+    "settingsSections" => ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access"],
     "settingsSurfaceProofArtifacts" => ["apple/proof-ios.json", "apple/proof-macos.json"]
   )
   valid_profile_settings_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
@@ -427,7 +730,20 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "searchNativeSurface" => true,
     "searchScopes" => ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
     "searchSeedAccountID" => "chef_search_capture",
+    "searchSurfaceVariant" => "blank",
+    "expectedQuery" => "",
+    "expectedScope" => "all",
+    "expectedRouteIdentifier" => "search:all:",
     "searchSurfaceProofArtifacts" => ["apple/search-proof-ios.json", "apple/search-proof-macos.json"]
+  )
+  valid_cookbook_detail_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+    "blockers" => [],
+    "screenshotRoute" => "cookbook-detail",
+    "cookbookDetailSurface" => true,
+    "cookbookSeedAccountID" => "chef_kitchen_capture",
+    "cookbookID" => "cookbook_weeknights",
+    "cookbookContentsIndex" => true,
+    "cookbookOwnerToolsDisclosure" => true
   )
   missing_manifest = valid_manifest.reject { |field, _| field == "mobileScreenshot" }
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
@@ -476,6 +792,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   {
     "valid.json" => [valid_manifest, true, "valid design review"],
     "valid-search.json" => [valid_search_manifest, true, "valid search design review"],
+    "valid-cookbook-detail.json" => [valid_cookbook_detail_manifest, true, "valid cookbook detail design review"],
     "valid-settings.json" => [valid_settings_manifest, true, "valid settings design review"],
     "valid-profile-settings.json" => [valid_profile_settings_manifest, true, "valid profile settings design review"],
     "missing.json" => [missing_manifest, false, "missing design review field"],
@@ -689,7 +1006,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   hard_fail_log = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   hard_fail_blocker = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
-    false,
+    true,
     [
       "bash",
       "scripts/smoke-ios-simulator.sh",
@@ -700,11 +1017,13 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       "--blocker",
       hard_fail_blocker
     ],
-    "iOS app launch failure is a hard failure",
+    "iOS app launch failure writes CoreSimulator blocker",
     env: { "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
     chdir: script_root
   )
-  assert_missing(hard_fail_blocker, "iOS launch hard failure")
+  hard_fail_blocker_json = assert_json(hard_fail_blocker, "iOS launch hard failure blocker")
+  record_failure("iOS launch hard failure blocker capability mismatch") unless hard_fail_blocker_json["capability"] == "CoreSimulator"
+  record_failure("iOS launch hard failure blocker missing launch command") unless hard_fail_blocker_json.fetch("command", "").include?("simctl launch")
 
   timeout_script_root = temp_root.join("ios-launch-timeout-retry")
   timeout_script_root.join("scripts").mkpath
@@ -769,6 +1088,60 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   record_failure("iOS launch timeout retry did not record timeout") unless timeout_log_text.include?("command timed out after 1 seconds")
   record_failure("iOS launch timeout retry did not reach second attempt") unless timeout_log_text.include?("simulator launch attempt 2 exit code: 0")
   assert_missing(timeout_blocker, "iOS launch timeout retry")
+
+  timeout_fail_script_root = temp_root.join("ios-launch-timeout-fail")
+  timeout_fail_script_root.join("scripts").mkpath
+  timeout_fail_script_root.join(".github/scripts").mkpath
+  FileUtils.cp(ROOT.join("scripts/smoke-ios-simulator.sh"), timeout_fail_script_root.join("scripts/smoke-ios-simulator.sh"))
+  write_executable(timeout_fail_script_root.join(".github/scripts/resolve-ios-simulator-destination.py"), <<~'PY')
+    #!/usr/bin/env python3
+    print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
+  PY
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      "simctl list runtimes") exit 0 ;;
+      simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
+      simctl\ install\ *) exit 0 ;;
+      simctl\ launch\ --terminate-running-process\ *)
+        sleep 2
+        ;;
+      simctl\ spawn\ *\ launchctl\ list)
+        printf 'UIKitApplication:com.apple.Preferences[abcd][rb-legacy]\n'
+        exit 0
+        ;;
+      *) exit 0 ;;
+    esac
+  SH
+  timeout_fail_artifacts = temp_root.join("timeout-fail-artifacts")
+  timeout_fail_log = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
+  timeout_fail_blocker = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/smoke-ios-simulator.sh",
+      "--artifact-root",
+      timeout_fail_artifacts,
+      "--log",
+      timeout_fail_log,
+      "--blocker",
+      timeout_fail_blocker
+    ],
+    "iOS app launch timeout writes CoreSimulator blocker",
+    env: {
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
+    },
+    chdir: timeout_fail_script_root
+  )
+  timeout_fail_log_text = timeout_fail_log.read
+  record_failure("iOS launch timeout failure did not record timeout") unless timeout_fail_log_text.include?("command timed out after 1 seconds")
+  timeout_fail_blocker_json = assert_json(timeout_fail_blocker, "iOS launch timeout failure blocker")
+  record_failure("iOS launch timeout failure blocker capability mismatch") unless timeout_fail_blocker_json["capability"] == "CoreSimulator"
+  record_failure("iOS launch timeout failure blocker reason missing timeout") unless timeout_fail_blocker_json.fetch("reason", "").downcase.include?("timeout")
 
   write_executable(bin_dir.join("xcodebuild"), <<~'SH')
     #!/usr/bin/env bash
@@ -904,13 +1277,19 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      route_evidence='{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]}'
       case "$route" in
         search)
-          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["visible search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.visibleSearchField","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Session","Sign In","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","session handoff controls","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
+          ;;
+        cookbook-detail)
+          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          ;;
+        capture)
+          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -923,16 +1302,24 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         ;;
       simctl\ launch\ *)
         if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}" ]]; then
-          accessibility_route="kitchen"
+          accessibility_route="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE:-kitchen}"
           accessibility_source="KitchenView"
-          case "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}" in
-            chef_search_capture)
+          case "$accessibility_route" in
+            search)
               accessibility_route="search"
               accessibility_source="SearchView"
               ;;
-            chef_settings_capture)
+            settings)
               accessibility_route="settings"
               accessibility_source="SettingsView"
+              ;;
+            cookbook-detail)
+              accessibility_route="cookbook-detail"
+              accessibility_source="CookbookDetailView"
+              ;;
+            capture)
+              accessibility_route="capture"
+              accessibility_source="CaptureDraftView"
               ;;
           esac
           write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy" "$accessibility_source"
@@ -966,7 +1353,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
               source="WrongView"
               sections='["Kitchen"]'
             elif [[ "$focus" == "notifications" ]]; then
-              sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+              sections='["Notifications","This Device","Push Delivery","Notification Sync","Agent Access"]'
             fi
             printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
           fi
@@ -1025,6 +1412,12 @@ PY
         route="settings"
       elif [[ "$script" == *"spoonjoy://search"* ]]; then
         route="search:all:"
+      elif [[ "$script" == *"spoonjoy://cookbooks/cookbook_weeknights"* ]]; then
+        route="cookbook:cookbook_weeknights"
+      elif [[ "$script" == *"spoonjoy://cookbooks"* ]]; then
+        route="cookbooks"
+      elif [[ "$script" == *"spoonjoy://capture"* ]]; then
+        route="capture"
       fi
       printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"%s"}\n' "$route" > "$state"
     fi
@@ -1044,13 +1437,19 @@ PY
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      route_evidence='{"voiceOverLabels":["Spoonjoy Kitchen","Open Recipe","Start Cooking"],"keyboardNavigationTargets":["lead recipe actions","recipe index buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","white on photo overlay"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+      route_evidence='{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]}'
       case "$route" in
         search)
-          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["visible search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.visibleSearchField","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security"],"keyboardNavigationTargets":["profile form fields","security token controls"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Session","Sign In","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","session handoff controls","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
+          ;;
+        cookbook-detail)
+          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          ;;
+        capture)
+          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
@@ -1058,6 +1457,7 @@ PY
     }
     proof_path="${SPOONJOY_SCREENSHOT_PROOF_PATH:-}"
     accessibility_proof_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
+    expected_route="${SPOONJOY_SCREENSHOT_EXPECTED_ROUTE:-}"
     focus="${SPOONJOY_SCREENSHOT_SETTINGS_FOCUS:-profile}"
     account_id="${SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
     while [[ $# -gt 0 ]]; do
@@ -1066,6 +1466,7 @@ PY
           env_pair="$2"
           case "$env_pair" in
             SPOONJOY_SCREENSHOT_ACCOUNT_ID=*) account_id="${env_pair#SPOONJOY_SCREENSHOT_ACCOUNT_ID=}" ;;
+            SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=*) expected_route="${env_pair#SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=}" ;;
             SPOONJOY_SCREENSHOT_PROOF_PATH=*) proof_path="${env_pair#SPOONJOY_SCREENSHOT_PROOF_PATH=}" ;;
             SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=*) accessibility_proof_path="${env_pair#SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=}" ;;
             SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=*) focus="${env_pair#SPOONJOY_SCREENSHOT_SETTINGS_FOCUS=}" ;;
@@ -1104,22 +1505,30 @@ PY
           source="WrongView"
           sections='["Kitchen"]'
         elif [[ "$focus" == "notifications" ]]; then
-          sections='["Notifications","Device Notifications","APNs Delivery","Notification Sync"]'
+          sections='["Notifications","This Device","Push Delivery","Notification Sync","Agent Access"]'
         fi
         printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
       fi
     fi
     if [[ -n "$accessibility_proof_path" ]]; then
-      accessibility_route="kitchen"
+      accessibility_route="${expected_route:-kitchen}"
       accessibility_source="KitchenView"
-      case "$account_id" in
-        chef_search_capture)
+      case "$accessibility_route" in
+        search)
           accessibility_route="search"
           accessibility_source="SearchView"
           ;;
-        chef_settings_capture)
+        settings)
           accessibility_route="settings"
           accessibility_source="SettingsView"
+          ;;
+        cookbook-detail)
+          accessibility_route="cookbook-detail"
+          accessibility_source="CookbookDetailView"
+          ;;
+        capture)
+          accessibility_route="capture"
+          accessibility_source="CaptureDraftView"
           ;;
       esac
       write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.mac" "$accessibility_source"
@@ -1167,6 +1576,39 @@ PY
   kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  cookbook_detail_root = temp_root.join("cookbook-detail-success")
+  cookbook_detail_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      cookbook_detail_root,
+      "--unit-slug",
+      "unit-contract-cookbook-detail",
+      "--route",
+      "cookbook-detail"
+    ],
+    "cookbook detail screenshot success lane",
+    env: { "HOME" => script_root.join("home").to_s, "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    chdir: script_root
+  )
+  cookbook_detail_review = assert_json(cookbook_detail_root.join("design-review.json"), "cookbook detail screenshot success lane")
+  record_failure("cookbook detail screenshot route mismatch") unless cookbook_detail_review["screenshotRoute"] == "cookbook-detail"
+  record_failure("cookbook detail missing native surface flag") unless cookbook_detail_review["cookbookDetailSurface"] == true
+  record_failure("cookbook detail account seed mismatch") unless cookbook_detail_review["cookbookSeedAccountID"] == "chef_kitchen_capture"
+  record_failure("cookbook detail ID mismatch") unless cookbook_detail_review["cookbookID"] == "cookbook_weeknights"
+  cookbook_detail_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
+    proof = assert_json(cookbook_detail_root.join(relative_path), "cookbook detail accessibility proof artifact")
+    record_failure("cookbook detail accessibility proof source mismatch") unless proof["source"] == "CookbookDetailView"
+    record_failure("cookbook detail accessibility proof route mismatch") unless proof["route"] == "cookbook-detail"
+  end
+  cookbook_detail_state_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-app-state.json"), "cookbook detail iOS app state")
+  record_failure("cookbook detail state route mismatch") unless cookbook_detail_state_json["lastOpenedRoute"] == "cookbook:cookbook_weeknights"
+  cookbook_detail_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "cookbook detail iOS cache seed")
+  record_failure("cookbook detail cache seed missing detail") unless cookbook_detail_cache_json.fetch("records", []).any? { |record| record["id"] == "cookbook-detail:cookbook_weeknights" }
 
   missing_accessibility_root = temp_root.join("missing-accessibility-proof-artifacts")
   missing_accessibility_root.mkpath
@@ -1357,13 +1799,13 @@ PY
   record_failure("notification screenshot route mismatch") unless notification_review["screenshotRoute"] == "settings"
   record_failure("notification screenshot focus mismatch") unless notification_review["settingsVisualFocus"] == "notifications"
   record_failure("notification screenshot missing APNs surface flag") unless notification_review["settingsNotificationAPNsSurface"] == true
-  record_failure("notification screenshot missing APNs delivery section") unless notification_review.fetch("settingsSections", []).include?("APNs Delivery")
+  record_failure("notification screenshot missing push delivery section") unless notification_review.fetch("settingsSections", []).include?("Push Delivery")
   record_failure("notification screenshot missing proof artifacts") unless notification_review.fetch("settingsSurfaceProofArtifacts", []).length >= 2
   notification_review.fetch("settingsSurfaceProofArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "notification screenshot proof artifact")
     record_failure("notification screenshot proof route mismatch") unless proof["route"] == "settings"
     record_failure("notification screenshot proof focus mismatch") unless proof["visualFocus"] == "notifications"
-    record_failure("notification screenshot proof missing APNs delivery") unless proof.fetch("visibleSections", []).include?("APNs Delivery")
+    record_failure("notification screenshot proof missing push delivery") unless proof.fetch("visibleSections", []).include?("Push Delivery")
     record_failure("notification screenshot proof source mismatch") unless proof["source"] == "SettingsView"
   end
 
@@ -1392,6 +1834,265 @@ PY
   assert_missing(wrong_proof_root.join("design-review.json"), "notification screenshot wrong proof lane")
   wrong_blocked_review = assert_json(wrong_proof_root.join("design-review-blocked.json"), "notification screenshot wrong proof lane")
   record_failure("wrong proof lane did not block screenshot success") unless wrong_blocked_review["blocked"] == true
+end
+
+Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("app")
+  artifact_root = script_root.join("artifacts")
+  scripts_dir = script_root.join("scripts")
+  bin_dir = script_root.join("bin")
+  scripts_dir.mkpath
+  bin_dir.mkpath
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
+
+  write_executable(scripts_dir.join("smoke-ios-simulator.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --log) log="$2"; shift 2 ;;
+        --blocker) shift 2 ;;
+        --artifact-root) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$(dirname "$log")"
+    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
+  SH
+  write_executable(scripts_dir.join("smoke-macos.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    blocker=""
+    log=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --blocker) blocker="$2"; shift 2 ;;
+        --log) log="$2"; shift 2 ;;
+        --artifact-root) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$(dirname "$blocker")" "$(dirname "$log")"
+    printf 'macOS intentionally skipped for iOS launch timeout contract\n' > "$log"
+    ruby -rjson -e 'path, log_path = ARGV; File.write(path, JSON.pretty_generate({blocked: true, capability: "MacOSLaunch", command: "fixture macOS blocker", timeoutSeconds: 30, outputPath: log_path, reason: "macOS intentionally skipped.", ownerAction: "Use the iOS blocker for this fixture."}) + "\n")' "$blocker" "$log"
+  SH
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      simctl\ get_app_container\ *)
+        mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
+        printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ launch\ *)
+        sleep 10
+        ;;
+      simctl\ shutdown\ *|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ terminate\ *)
+        exit 0
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
+  SH
+
+  stdout, stderr, status = run_status(
+    "ruby",
+    "-rtimeout",
+    "-e",
+    PROCESS_TIMEOUT_WRAPPER,
+    "5",
+    "bash",
+    "scripts/capture-native-screenshots.sh",
+    "--artifact-root",
+    artifact_root,
+    "--unit-slug",
+    "unit-contract-ios-launch-timeout",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.01"
+    },
+    chdir: script_root
+  )
+  if status.exitstatus == 124
+    record_failure(
+      "iOS simulator launch timeout expected CoreSimulator blocker, but capture process timed out\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  elsif !status.success?
+    record_failure(
+      "iOS simulator launch timeout expected successful blocker manifest\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  else
+    blocked_review = assert_json(artifact_root.join("design-review-blocked.json"), "iOS simulator launch timeout blocked review")
+    record_failure("iOS simulator launch timeout blocker capability mismatch") unless blocked_review["capability"] == "CoreSimulator"
+    source_blocker = assert_json(artifact_root.join("apple/unit-contract-ios-launch-timeout-screenshots-core-simulator-blocker.json"), "iOS simulator launch timeout source blocker")
+    record_failure("iOS simulator launch timeout source command missing simctl launch") unless source_blocker.fetch("command", "").include?("simctl launch")
+    record_failure("iOS simulator launch timeout source reason missing timeout") unless source_blocker.fetch("reason", "").downcase.include?("timeout")
+    assert_missing(artifact_root.join("design-review.json"), "iOS simulator launch timeout")
+  end
+end
+
+Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("app")
+  artifact_root = script_root.join("artifacts")
+  scripts_dir = script_root.join("scripts")
+  bin_dir = script_root.join("bin")
+  scripts_dir.mkpath
+  bin_dir.mkpath
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
+
+  success_stub = <<~'SH'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    log=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --log) log="$2"; shift 2 ;;
+        --blocker) shift 2 ;;
+        --artifact-root) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    mkdir -p "$(dirname "$log")"
+    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
+  SH
+  write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
+  write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
+  write_executable(bin_dir.join("launchctl"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("pkill"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
+  write_executable(bin_dir.join("swift"), "#!/usr/bin/env bash\nprintf '67890\\n'\n")
+  write_executable(bin_dir.join("screencapture"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out="${@: -1}"
+    mkdir -p "$(dirname "$out")"
+    printf mac-image > "$out"
+  SH
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    write_accessibility_proof() {
+      local output_path="$1"
+      local platform="$2"
+      local bundle="$3"
+      mkdir -p "$(dirname "$output_path")"
+      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
+    }
+    case "$*" in
+      simctl\ get_app_container\ *)
+        mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
+        printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ launch\ *)
+        write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "ios" "app.spoonjoy"
+        printf 'app.spoonjoy: 12345\n'
+        ;;
+      simctl\ spawn\ *\ log\ show*)
+        printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
+        ;;
+      simctl\ io\ *\ screenshot\ *)
+        out="${@: -1}"
+        mkdir -p "$(dirname "$out")"
+        python3 - "$out" <<'PY'
+import binascii
+import struct
+import sys
+import zlib
+
+path = sys.argv[1]
+width, height = 400, 800
+row = b"\x00" + bytes((246, 239, 225)) * width
+raw = row * height
+def chunk(kind, payload):
+    return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", binascii.crc32(kind + payload) & 0xffffffff)
+png = b"\x89PNG\r\n\x1a\n"
+png += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+png += chunk(b"IDAT", zlib.compress(raw))
+png += chunk(b"IEND", b"")
+with open(path, "wb") as handle:
+    handle.write(png)
+PY
+        ;;
+      *)
+        exit 0
+        ;;
+    esac
+  SH
+  write_executable(bin_dir.join("osascript"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    script="$*"
+    if [[ "$script" == *"to quit"* ]]; then
+      sleep 10
+    elif [[ "$script" == *"open location"* ]]; then
+      state="$HOME/Library/Application Support/Spoonjoy/native-app-state.json"
+      mkdir -p "$(dirname "$state")"
+      printf '{"hasCompletedFirstRun":true,"lastOpenedRoute":"kitchen"}\n' > "$state"
+    fi
+  SH
+  write_executable(bin_dir.join("open"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
+    if [[ -n "$output_path" ]]; then
+      mkdir -p "$(dirname "$output_path")"
+      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["Latest from the kitchen","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
+    fi
+  SH
+
+  stdout, stderr, status = run_status(
+    "ruby",
+    "-rtimeout",
+    "-e",
+    PROCESS_TIMEOUT_WRAPPER,
+    "20",
+    "bash",
+    "scripts/capture-native-screenshots.sh",
+    "--artifact-root",
+    artifact_root,
+    "--unit-slug",
+    "unit-contract-cleanup-timeout",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.01"
+    },
+    chdir: script_root
+  )
+  if status.exitstatus == 124
+    record_failure(
+      "macOS cleanup timeout expected terminal screenshot artifact, but capture process timed out\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  elsif !status.success?
+    record_failure(
+      "macOS cleanup timeout expected successful terminal screenshot artifact\n" \
+      "STDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    )
+  else
+    has_terminal_artifact = artifact_root.join("design-review.json").file? || artifact_root.join("design-review-blocked.json").file?
+    record_failure("macOS cleanup timeout did not produce a terminal design review artifact") unless has_terminal_artifact
+    cleanup_log = artifact_root.join("apple/unit-contract-cleanup-timeout-screenshots-inner.log")
+    record_failure("macOS cleanup timeout log missing") unless cleanup_log.file?
+    record_failure("macOS cleanup timeout was not logged") unless cleanup_log.file? && cleanup_log.read.include?("cleanup timeout")
+  end
 end
 
 if DESIGN_REVIEW.file? && DESIGN_REVIEW_BLOCKED.file?

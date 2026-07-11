@@ -32,29 +32,14 @@ struct ShoppingListView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            addItemControls
-            statusBanner
-
-            if let emptyState = viewModel.emptyState {
-                ContentUnavailableView(
-                    emptyState.title,
-                    systemImage: emptyState.systemImage,
-                    description: Text(emptyState.message)
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ReceiptListView(
-                    sections: viewModel.sections,
-                    setChecked: settingChecked,
-                    deleteItem: deleteItem
-                )
+        KitchenTablePage(maxContentWidth: 760) {
+            shoppingRunHeader
+            if viewModel.shoppingReceiptState == nil {
+                shoppingReceiptComposer
             }
+            statusBanner
+            shoppingReceiptState
         }
-        .padding(.top)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(KitchenTableTheme.bone)
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
             isPresented: Binding(
@@ -108,15 +93,14 @@ struct ShoppingListView: View {
         )
     }
 
-    private var header: some View {
+    private var shoppingRunHeader: some View {
         KitchenTableHeader(
             eyebrow: "Market Run",
-            title: "Shopping List",
-            subtitle: viewModel.activeCountLabel
+            title: "Shopping",
+            subtitle: viewModel.shoppingRunSummary
         ) {
             shoppingHeaderTools
         }
-        .padding(.horizontal)
     }
 
     private var shoppingTitleBlock: some View {
@@ -133,56 +117,62 @@ struct ShoppingListView: View {
     @ViewBuilder private var shoppingHeaderTools: some View {
         HStack(spacing: 8) {
             if shoppingList != nil {
-                Menu {
-                    Button("Clear Completed") {
-                        clearCompleted()
-                    }
-                    Button("Clear All", role: .destructive) {
-                        clearAll()
-                    }
-                } label: {
-                    Label("List Actions", systemImage: "ellipsis.circle")
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                        .background(KitchenTableTheme.paper, in: Capsule())
-                        .overlay {
-                            Capsule()
-                                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
-                        }
-                }
-                .buttonStyle(.plain)
+                receiptActionsMenu
             }
 
 #if os(iOS)
             if currentEditMode == .active {
                 Label("Editing", systemImage: "slider.horizontal.3")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
 #endif
         }
+    }
+
+    private var receiptActionsMenu: some View {
+        Menu {
+            Button("Clear checked") {
+                clearCompleted()
+            }
+            Button("Clear all", role: .destructive) {
+                clearAll()
+            }
+        } label: {
+            Label("Receipt actions", systemImage: "ellipsis.circle")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .padding(.horizontal, 12)
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .background(KitchenTableTheme.paper, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
     }
 
     private var shoppingList: ShoppingListState? {
         viewModel.shoppingList
     }
 
-    private var addItemControls: some View {
+    private var shoppingReceiptComposer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            itemNameField
             HStack(spacing: 8) {
-                quantityField
-                unitField
-                addItemButton
+                itemNameField
+                compactAddItemButton
             }
+            addFromRecipeButton
         }
-        .padding(.horizontal)
+    }
+
+    private var addItemControls: some View {
+        shoppingReceiptComposer
     }
 
     private var itemNameField: some View {
-        TextField("Item", text: $addItemForm.itemName)
+        TextField("Add an item", text: $addItemForm.itemName)
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 12)
@@ -197,7 +187,7 @@ struct ShoppingListView: View {
     }
 
     private var quantityField: some View {
-        TextField("Qty", text: $addItemForm.itemQuantity)
+        TextField("Amount", text: $addItemForm.itemQuantity)
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 12)
@@ -207,14 +197,14 @@ struct ShoppingListView: View {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
                     .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
             }
-            .frame(width: 74)
+            .frame(maxWidth: 120)
 #if os(iOS)
             .keyboardType(.decimalPad)
 #endif
     }
 
     private var unitField: some View {
-        TextField("Unit", text: $addItemForm.itemUnit)
+        TextField("Measure", text: $addItemForm.itemUnit)
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 12)
@@ -224,25 +214,61 @@ struct ShoppingListView: View {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
                     .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
             }
-            .frame(width: 96)
+            .frame(maxWidth: .infinity)
     }
 
     private var addItemButton: some View {
         Button(action: addItem) {
-            Label("Add", systemImage: "plus.circle")
+            Label("Add item", systemImage: "plus.circle")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+    }
+
+    private var compactAddItemButton: some View {
+        Button(action: addItem) {
+            Image(systemName: "plus")
+                .font(.headline.weight(.bold))
+                .frame(width: 50, height: 50)
+                .foregroundStyle(KitchenTableTheme.paper)
+                .background(KitchenTableTheme.action, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add item")
+    }
+
+    private var addFromRecipeButton: some View {
+        Button(action: openSearch) {
+            Label("Add from recipe", systemImage: "book")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+    }
+
+    @ViewBuilder private var shoppingReceiptState: some View {
+        if let receiptState = viewModel.shoppingReceiptState {
+            ShoppingReceiptStateView(
+                state: receiptState,
+                primaryAction: {
+                    if receiptState.actionTitle == "Clear checked" {
+                        clearCompleted()
+                    } else {
+                        focusAddItem()
+                    }
+                },
+                addFromRecipeAction: openSearch
+            )
+        } else {
+            ReceiptListView(
+                sections: viewModel.sections,
+                setChecked: settingChecked,
+                deleteItem: deleteItem
+            )
+        }
     }
 
     @ViewBuilder private var statusBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             if viewModel.offlineIndicator.display != .synced {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
-            }
-            if let queuedWorkSummary = viewModel.queuedWorkSummary {
-                Label(queuedWorkSummary, systemImage: "arrow.triangle.2.circlepath")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
             }
             if let conflictBanner = viewModel.conflictBanner {
                 Label(conflictBanner.message, systemImage: "exclamationmark.triangle")
@@ -260,7 +286,6 @@ struct ShoppingListView: View {
                     .foregroundStyle(KitchenTableTheme.tomato)
             }
         }
-        .padding(.horizontal)
     }
 
     private var visibleActionStatusMessage: String? {
@@ -375,4 +400,51 @@ private struct ShoppingConfirmationDialog: Identifiable {
     let id = UUID()
     let prompt: ShoppingActionConfirmationPrompt
     let confirmedAction: ShoppingSurfaceAction
+}
+
+private struct ShoppingReceiptStateView: View {
+    let state: ShoppingReceiptState
+    let primaryAction: () -> Void
+    let addFromRecipeAction: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: state.systemImage)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.brass)
+                .frame(width: 44, height: 44)
+                .background(KitchenTableTheme.paper, in: Circle())
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(state.title)
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(2)
+                Text(state.message)
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Button(action: primaryAction) {
+                    Label(state.actionTitle ?? "Add item", systemImage: state.actionTitle == "Clear checked" ? "checkmark.circle" : "plus.circle")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+
+                Button(action: addFromRecipeAction) {
+                    Label("Add from recipe", systemImage: "book")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+    }
 }

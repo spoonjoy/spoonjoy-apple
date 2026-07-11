@@ -1,0 +1,31 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.22s)
+Test Suite 'Selected tests' started at 2026-07-10 02:52:51.156.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 02:52:51.157.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 02:52:51.158.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 02:52:51.158.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native mobile design contract" started.
+◇ Test "cookbook surfaces use authored shelf spread and native contents grammar" started.
+✘ Test "cookbook surfaces use authored shelf spread and native contents grammar" recorded an issue at NativeMobileDesignContractTests.swift:1225:5: Expectation failed: (missing → ["private var leadCookbook", "private var cookbookLibrarySpread", "private var cookbookShelfStrip", "private var cookbookIndexRows", "ScrollView(.horizontal", "CookbookCoverArt(row:", "CookbookCoverArt(cookbook:", "CookbookFallbackCover", "CookbookImageCover", "ForEach(Array(viewModel.recipes.enumerated()), id: \\.element.id)", "CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1", "private struct CookbookRecipeIndexRow", "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)", "Label(\"Owner tools\", systemImage: \"wrench.and.screwdriver\")", ".swipeActions(edge: .trailing, allowsFullSwipe: false)"]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/CookbooksView.swift missing tokens: private var leadCookbook, private var cookbookLibrarySpread, private var cookbookShelfStrip, private var cookbookIndexRows, ScrollView(.horizontal, CookbookCoverArt(row:, CookbookCoverArt(cookbook:, CookbookFallbackCover, CookbookImageCover, ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id), CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1, private struct CookbookRecipeIndexRow, DisclosureGroup(isExpanded: $isOwnerToolsExpanded), Label("Owner tools", systemImage: "wrench.and.screwdriver"), .swipeActions(edge: .trailing, allowsFullSwipe: false)
+✘ Test "cookbook surfaces use authored shelf spread and native contents grammar" recorded an issue at NativeMobileDesignContractTests.swift:1226:5: Expectation failed: (forbidden → ["title: \"\\(emptyState.title). \\(emptyState.message)\"", "RecipeCoverImage(\n                    url: row.cover.primaryImageURL", "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)", "Text(\"Owner Tools\")", "Label(\"Remove\", systemImage: \"minus.circle\")", "HStack(alignment: .firstTextBaseline) {\n                    TextField(\"Title\""]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Views/CookbooksView.swift contains forbidden tokens: title: "\(emptyState.title). \(emptyState.message)", RecipeCoverImage(
+                      url: row.cover.primaryImageURL, Image(systemName: "books.vertical")
+                      .foregroundStyle(KitchenTableTheme.brass), Text("Owner Tools"), Label("Remove", systemImage: "minus.circle"), HStack(alignment: .firstTextBaseline) {
+                      TextField("Title"
+✘ Test "cookbook surfaces use authored shelf spread and native contents grammar" recorded an issue at NativeMobileDesignContractTests.swift:1225:5: Expectation failed: (missing → ["\"Shelf\"", "\"Contents\"", "\"CookbookCoverArt\"", "\"CookbookRecipeIndexRow\"", "\"CookbookOwnerToolsDisclosure\""]).isEmpty → false
+↳ Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift missing tokens: "Shelf", "Contents", "CookbookCoverArt", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"
+✘ Test "cookbook surfaces use authored shelf spread and native contents grammar" recorded an issue at NativeMobileDesignContractTests.swift:1225:5: Expectation failed: (missing → ["\"cookbookShelfStrip\"", "\"cookbookLibrarySpread\"", "\"cookbookContentsIndex\"", "\"cookbookOwnerToolsDisclosure\""]).isEmpty → false
+↳ scripts/capture-native-screenshots.sh missing tokens: "cookbookShelfStrip", "cookbookLibrarySpread", "cookbookContentsIndex", "cookbookOwnerToolsDisclosure"
+✘ Test "cookbook surfaces use authored shelf spread and native contents grammar" recorded an issue at NativeMobileDesignContractTests.swift:1225:5: Expectation failed: (missing → ["\"cookbookShelfStrip\"", "\"cookbookLibrarySpread\"", "\"cookbookContentsIndex\"", "\"cookbookOwnerToolsDisclosure\""]).isEmpty → false
+↳ scripts/validate-design-review.rb missing tokens: "cookbookShelfStrip", "cookbookLibrarySpread", "cookbookContentsIndex", "cookbookOwnerToolsDisclosure"
+✘ Test "cookbook surfaces use authored shelf spread and native contents grammar" failed after 0.035 seconds with 5 issues.
+✘ Suite "Native mobile design contract" failed after 0.035 seconds with 5 issues.
+✘ Test run with 1 test in 1 suite failed after 0.036 seconds with 5 issues.

@@ -129,6 +129,7 @@ public struct CookModeViewModel: Equatable {
         }
 
         let checkedIDs = Set(progress.checkedIngredientIDs)
+        let checkedOrder = Dictionary(uniqueKeysWithValues: progress.checkedIngredientIDs.enumerated().map { ($1, $0) })
         return activeStep.ingredients
             .enumerated()
             .map { index, ingredient in
@@ -148,6 +149,9 @@ public struct CookModeViewModel: Equatable {
             .sorted { left, right in
                 if left.1.isChecked != right.1.isChecked {
                     return !left.1.isChecked && right.1.isChecked
+                }
+                if left.1.isChecked, right.1.isChecked {
+                    return checkedOrder[left.1.id]! < checkedOrder[right.1.id]!
                 }
                 return left.0 < right.0
             }

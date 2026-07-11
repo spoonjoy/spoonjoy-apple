@@ -1,0 +1,89 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.14s)
+Test Suite 'Selected tests' started at 2026-07-10 04:16:06.114.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 04:16:06.117.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 04:16:06.118.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 04:16:06.118.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native shopping surface parity" started.
+◇ Suite "Native mobile design contract" started.
+◇ Test "recipe shopping coverage requires every ingredient name and unit" started.
+◇ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" started.
+◇ Test "TestFlight feedback polish removes clutter and placeholder overlap" started.
+◇ Test "native palette is pinned to the current Spoonjoy web tokens" started.
+◇ Test "SpoonDock is limited to cook mode handrail controls" started.
+◇ Test "live shopping repository fetches API read data into native state" started.
+◇ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" started.
+◇ Test "shopping surface loads live state and exposes queued, conflict, and empty affordances" started.
+◇ Test "shopping surface executor does not clobber remote success and queues offline fallbacks" started.
+◇ Test "SpoonDock is registered in both app targets" started.
+◇ Test "compact primary routes are native tab bar sections" started.
+◇ Test "offline shopping actions queue safe mutations and destructive clears require confirmation" started.
+◇ Test "AI placeholder covers do not render as native food photography" started.
+◇ Test "clear completed removes stale checked-at rows" started.
+◇ Test "shopping add form keeps draft on failure and clears only after accepted action" started.
+◇ Test "online shopping actions queue behind existing shopping work" started.
+◇ Test "shopping surface covers queued local validation and prompt edge states" started.
+◇ Test "shopping conflicts and queued work are scoped to shopping mutations" started.
+◇ Test "shopping destructive actions stay behind confirmations" started.
+◇ Test "iOS tab bar appearance is opaque Spoonjoy bone" started.
+◇ Test "online shopping actions plan exact REST mutations with offline fallbacks" started.
+◇ Test "compact tab routes use system navigation chrome without global searchable" started.
+◇ Test "compact iOS shell uses native tab and navigation bars" started.
+◇ Test "compact mobile routes do not duplicate large system titles above authored headers" started.
+◇ Test "cookbook surfaces use authored shelf spread and native contents grammar" started.
+◇ Test "Spoonjoy section headers keep titles legible before drawing dividers" started.
+◇ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" started.
+◇ Test "recipe detail follows web step language instead of invented receipt method copy" started.
+◇ Test "visual audit records all current feedback failures and no ready item can disappear" started.
+◇ Test "shopping list relies on native tab navigation instead of compact SpoonDock" started.
+◇ Test "recipe detail preserves web masthead structure and stable route states" started.
+◇ Test "compact route pages reserve enough space for the floating native tab bar" started.
+◇ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" started.
+◇ Test "cook mode owns a compact SpoonDock handrail wired to step state" started.
+◇ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" started.
+◇ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" started.
+✔ Test "native palette is pinned to the current Spoonjoy web tokens" passed after 0.023 seconds.
+✔ Test "recipe shopping coverage requires every ingredient name and unit" passed after 0.023 seconds.
+✔ Test "SpoonDock is registered in both app targets" passed after 0.023 seconds.
+✔ Test "live shopping repository fetches API read data into native state" passed after 0.023 seconds.
+✔ Test "kitchen recipe index is a scroll-friendly object layout, not a nested List island" passed after 0.023 seconds.
+✔ Test "clear completed removes stale checked-at rows" passed after 0.023 seconds.
+✔ Test "shopping surface loads live state and exposes queued, conflict, and empty affordances" passed after 0.023 seconds.
+✔ Test "iOS tab bar appearance is opaque Spoonjoy bone" passed after 0.023 seconds.
+✔ Test "SpoonDock is limited to cook mode handrail controls" passed after 0.023 seconds.
+✔ Test "shopping destructive actions stay behind confirmations" passed after 0.023 seconds.
+✔ Test "shopping conflicts and queued work are scoped to shopping mutations" passed after 0.023 seconds.
+✔ Test "online shopping actions queue behind existing shopping work" passed after 0.023 seconds.
+✔ Test "offline shopping actions queue safe mutations and destructive clears require confirmation" passed after 0.023 seconds.
+✔ Test "Spoonjoy section headers keep titles legible before drawing dividers" passed after 0.023 seconds.
+✔ Test "shopping receipt state distinguishes empty, all-complete, and optimistic recipe rows" passed after 0.023 seconds.
+✔ Test "online shopping actions plan exact REST mutations with offline fallbacks" passed after 0.023 seconds.
+✔ Test "visual audit records all current feedback failures and no ready item can disappear" passed after 0.023 seconds.
+✔ Test "compact mobile routes do not duplicate large system titles above authored headers" passed after 0.023 seconds.
+✔ Test "compact tab routes use system navigation chrome without global searchable" passed after 0.023 seconds.
+✔ Test "compact route pages reserve enough space for the floating native tab bar" passed after 0.023 seconds.
+✔ Test "recipe detail actions wrap with mobile action flow instead of one overflowing HStack" passed after 0.023 seconds.
+✔ Test "recipe detail preserves web masthead structure and stable route states" passed after 0.023 seconds.
+✔ Test "compact primary routes are native tab bar sections" passed after 0.023 seconds.
+✔ Test "SpoonDock has narrow phone and Dynamic Type fallbacks" passed after 0.023 seconds.
+✔ Test "shopping surface executor does not clobber remote success and queues offline fallbacks" passed after 0.023 seconds.
+✔ Test "shopping add form keeps draft on failure and clears only after accepted action" passed after 0.023 seconds.
+✔ Test "shopping surface covers queued local validation and prompt edge states" passed after 0.024 seconds.
+✔ Suite "Native shopping surface parity" passed after 0.024 seconds.
+✔ Test "shopping list relies on native tab navigation instead of compact SpoonDock" passed after 0.024 seconds.
+✔ Test "compact iOS shell uses native tab and navigation bars" passed after 0.026 seconds.
+✔ Test "recipe detail follows web step language instead of invented receipt method copy" passed after 0.034 seconds.
+✔ Test "shopping workflow is an authored receipt, not a generic form and toggle stack" passed after 0.034 seconds.
+✔ Test "TestFlight feedback polish removes clutter and placeholder overlap" passed after 0.036 seconds.
+✔ Test "cookbook surfaces use authored shelf spread and native contents grammar" passed after 0.038 seconds.
+✔ Test "AI placeholder covers do not render as native food photography" passed after 0.042 seconds.
+✔ Test "cook mode owns a compact SpoonDock handrail wired to step state" passed after 0.043 seconds.
+✔ Test "cook mode and cook log stay kitchen safe instead of crowded control chrome" passed after 0.044 seconds.
+✔ Suite "Native mobile design contract" passed after 0.044 seconds.
+✔ Test run with 36 tests in 2 suites passed after 0.045 seconds.

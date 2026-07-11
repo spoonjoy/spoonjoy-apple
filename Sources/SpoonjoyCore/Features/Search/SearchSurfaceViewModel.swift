@@ -207,9 +207,10 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
-        sections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
+        let recoveredSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
+        sections = recoveredSections
         emptyState = cachedPage.map { Self.emptyState(page: $0, state: state, context: context) } ?? nil
-        errorState = Self.errorState(error)
+        errorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
         self.offlineIndicator = offlineIndicator ?? Self.offlineIndicator(
             error: error,
             state: state,
@@ -259,9 +260,10 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             )
         }
         if state.hasQuery {
+            let query = state.query
             return SearchSurfaceEmptyState(
-                title: "No matches",
-                message: "Try another recipe, cookbook, chef, or shopping item.",
+                title: "No matches for \"\(query)\"",
+                message: Self.noResultsMessage(query: query, scope: state.scope),
                 systemImage: "magnifyingglass"
             )
         }
@@ -270,6 +272,21 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             message: "Recipes, cookbooks, chefs, and shopping list items will gather here.",
             systemImage: "magnifyingglass"
         )
+    }
+
+    private static func noResultsMessage(query: String, scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "No Spoonjoy results match \"\(query)\"."
+        case .recipes:
+            "No saved recipes match \"\(query)\"."
+        case .cookbooks:
+            "No cookbooks match \"\(query)\"."
+        case .chefs:
+            "No chefs match \"\(query)\"."
+        case .shoppingList:
+            "No shopping items match \"\(query)\"."
+        }
     }
 
     private static func errorState(_ error: SearchSurfaceRepositoryError) -> SearchSurfaceErrorState {

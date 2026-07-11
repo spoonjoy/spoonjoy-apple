@@ -465,16 +465,18 @@ struct SpoonEntityTests {
     @Test("spoon entity spotlight and intent error edges stay private and fail closed")
     func spoonEntitySpotlightAndIntentErrorEdgesStayPrivateAndFailClosed() {
         let emptyScope = SpotlightIndexScope(accountID: "", environment: .production)
-        #expect(emptyScope.identifierPrefix == "production|schema2|unbound")
-        #expect(emptyScope.domainPrefix == "app.spoonjoy.schema2.production.unbound")
+        let unboundScopeComponent = emptyScope.identifierPrefix.split(separator: "|", omittingEmptySubsequences: false)[2]
+        #expect(unboundScopeComponent.hasPrefix("unbound-"))
+        #expect(emptyScope.identifierPrefix == "production|schema2|\(unboundScopeComponent)")
+        #expect(emptyScope.domainPrefix == "app.spoonjoy.schema2.production.\(unboundScopeComponent)")
 
         let safeScope = SpotlightIndexScope(accountID: "account_ari", environment: .production)
         #expect(SpotlightIndexPlan.route(uniqueIdentifier: SpotlightIndexPlan.spoonUniqueIdentifier(
             spoonID: "spoon_ari_lemon",
             scope: safeScope
         ), scope: safeScope) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|schema2|account_ari|recipe|../unsafe", scope: safeScope) == .unknownLink)
-        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "production|schema2|account_ari|cookbook|../unsafe", scope: safeScope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(safeScope.identifierPrefix)|recipe|../unsafe", scope: safeScope) == .unknownLink)
+        #expect(SpotlightIndexPlan.route(uniqueIdentifier: "\(safeScope.identifierPrefix)|cookbook|../unsafe", scope: safeScope) == .unknownLink)
         #expect(NativeIntentActionError.unresolvedSpoonEntity.description == "Choose a Spoonjoy cook log before running this Siri action.")
     }
 

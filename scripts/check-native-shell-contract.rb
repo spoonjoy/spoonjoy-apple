@@ -14,6 +14,7 @@ REQUIRED_FILES = [
   "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
   "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
   "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
+  "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift",
   "Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift",
   "Apps/Spoonjoy/Shared/AppShell/ShareActions.swift",
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift",
@@ -153,6 +154,13 @@ REQUIRED_SOURCE_TOKENS = {
     "EditMode",
     "ShareActions"
   ],
+  "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift" => [
+    "SpoonDock",
+    "SpoonDockContext",
+    "SpoonDockAction",
+    "SpoonDockActionProminence",
+    "accessibilityLabel(context.accessibilityLabel)"
+  ],
   "Apps/Spoonjoy/Shared/AppShell/ShareActions.swift" => [
     "ShareLink",
     "AppRoute",
@@ -252,6 +260,57 @@ unexpected_web_tokens = app_shell_sources.flat_map do |path|
   end
 end
 fail_check("web-shell tokens are not allowed: #{unexpected_web_tokens.join(", ")}") unless unexpected_web_tokens.empty?
+
+dock_source = ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift")
+dock_content = uncommented_swift(dock_source.read)
+dock_failures = []
+
+dock_failures << "#{relative(dock_source)} must centralize dock dimensions in SpoonDockMetrics" unless dock_content.include?("private enum SpoonDockMetrics")
+dock_failures << "#{relative(dock_source)} must use SpoonDockMetrics.maximumWidth instead of a magic max width" unless dock_content.include?(".frame(maxWidth: SpoonDockMetrics.maximumWidth)")
+dock_failures << "#{relative(dock_source)} must use SpoonDockMetrics.toolTargetSize for icon-button frames" unless dock_content.include?("SpoonDockMetrics.toolTargetSize")
+dock_failures << "#{relative(dock_source)} must use SpoonDockMetrics.minimumTargetSize for text-button targets" unless dock_content.include?("SpoonDockMetrics.minimumTargetSize")
+
+raw_max_widths = dock_content.scan(/\.frame\(\s*maxWidth:\s*([0-9]+(?:\.[0-9]+)?)/).flatten.map(&:to_f)
+too_wide_max_widths = raw_max_widths.select { |width| width > 336 }
+dock_failures << "#{relative(dock_source)} has oversized raw dock max width(s): #{too_wide_max_widths.join(", ")}" unless too_wide_max_widths.empty?
+
+if dock_content.match?(/\.background\(\s*KitchenTableTheme\.photoCharcoal\.opacity\([^)]+\),\s*in:\s*Capsule\(\)\s*\)/)
+  dock_failures << "#{relative(dock_source)} must not paint the whole mobile dock as a dark photoCharcoal capsule"
+end
+
+dock_content.scan(/\.shadow\(color:\s*\.black\.opacity\(([0-9.]+)\),\s*radius:\s*([0-9.]+)/).each do |opacity_string, radius_string|
+  opacity = opacity_string.to_f
+  radius = radius_string.to_f
+  next if opacity <= 0.18 && radius <= 12
+
+  dock_failures << "#{relative(dock_source)} has too-heavy mobile dock shadow opacity/radius #{opacity}/#{radius}"
+end
+fail_check("mobile dock chrome contract failed: #{dock_failures.join("; ")}") unless dock_failures.empty?
+
+cook_mode_source = ROOT.join("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+cook_mode_content = uncommented_swift(cook_mode_source.read)
+cook_mode_required_tokens = [
+  "#if os(iOS)",
+  "horizontalSizeClass == .compact",
+  "#else\n        false\n#endif",
+  ".safeAreaInset(edge: .bottom, spacing: 0)",
+  "cookModeBottomActionRail",
+  "SpoonDock(context: SpoonDockContext.cookMode("
+]
+cook_mode_missing = cook_mode_required_tokens.reject { |token| cook_mode_content.include?(token) }
+fail_check("#{relative(cook_mode_source)} missing compact iOS-only SpoonDock/safe-area tokens: #{cook_mode_missing.join(", ")}") unless cook_mode_missing.empty?
+
+toolbar_source = ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift")
+toolbar_content = uncommented_swift(toolbar_source.read)
+toolbar_required_tokens = [
+  "ToolbarItem(placement: .primaryAction)",
+  "Menu",
+  "Label(\"Actions\", systemImage: \"ellipsis.circle\")",
+  "ShareActions(route: navigation.route)",
+  "EditMode"
+]
+toolbar_missing = toolbar_required_tokens.reject { |token| toolbar_content.include?(token) }
+fail_check("#{relative(toolbar_source)} missing native toolbar action menu tokens: #{toolbar_missing.join(", ")}") unless toolbar_missing.empty?
 
 fixture_usage_allowed = [
   "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",

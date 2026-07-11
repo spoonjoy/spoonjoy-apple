@@ -25,6 +25,7 @@ struct RecipeActionParityTests {
 
         #expect(viewModel.actions.availableActionIDs == [
             .startCooking,
+            .logCook,
             .saveToCookbook,
             .addToShoppingList,
             .share,
@@ -67,6 +68,7 @@ struct RecipeActionParityTests {
 
         #expect(viewModel.actions.availableActionIDs == [
             .startCooking,
+            .logCook,
             .saveToCookbook,
             .addToShoppingList,
             .share,

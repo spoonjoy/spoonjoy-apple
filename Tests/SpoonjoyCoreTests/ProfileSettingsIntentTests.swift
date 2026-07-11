@@ -321,7 +321,7 @@ struct ProfileSettingsIntentTests {
                     label: "RevokeAPITokenIntent",
                     pattern: #"struct\s+RevokeAPITokenIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"API Token\", requestValueDialog:",
+                        "@Parameter(title: \"Access Key\", requestValueDialog:",
                         "var token: SpoonjoyAPITokenEntity",
                         "try await requestConfirmation(",
                         "NativeIntentActionResolver().revokeAPIToken(token: token.descriptor",
@@ -547,7 +547,7 @@ struct ProfileSettingsIntentTests {
                 ),
                 (
                     relativePath: "Apps/Spoonjoy/Shared/Native/SpoonjoySettingsEntities.swift",
-                    label: "API token entity display",
+                    label: "access key entity display",
                     pattern: #"var\s+displayRepresentation:\s+DisplayRepresentation"#,
                     requiredTokens: [
                         "subtitle: \"\\(descriptor.subtitle)\""
@@ -891,7 +891,7 @@ struct ProfileSettingsIntentTests {
         let resolver = NativeIntentActionResolver()
         let createdAt = "2026-06-28T18:00:00.000Z"
 
-        #expect(NativeIntentActionError.unresolvedAPITokenEntity.description == "Choose a Spoonjoy API token before running this Siri action.")
+        #expect(NativeIntentActionError.unresolvedAPITokenEntity.description == "Choose a Spoonjoy access key before running this Siri action.")
         #expect(NativeIntentActionError.unresolvedAccountConnectionEntity.description == "Choose a Spoonjoy account connection before running this Siri action.")
         #expect(NativeIntentActionError.settingsActionUnavailable("Nope").description == "Nope")
 
@@ -991,7 +991,7 @@ struct ProfileSettingsIntentTests {
 
         let wrongReasonPlan = SettingsActionPlan(onlineOnlyReason: .apiTokenCreate)
         let wrongReasonResolver = profileSettingsIntentResolverReturning(wrongReasonPlan)
-        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected API token revoke plan.")) {
+        #expect(throws: NativeIntentActionError.settingsActionUnavailable("Unexpected access key revoke plan.")) {
             _ = try wrongReasonResolver.revokeAPIToken(
                 token: APITokenEntityDescriptor(
                     id: "token",

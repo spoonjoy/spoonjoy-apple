@@ -109,7 +109,7 @@ STRING_ALLOWED_TOKENS = {
     "permissionDenied",
     "Notifications are off in System Settings",
     "Open System Settings",
-    "Register This Device"
+    "Turn On for This Device"
   ]
 }.freeze
 

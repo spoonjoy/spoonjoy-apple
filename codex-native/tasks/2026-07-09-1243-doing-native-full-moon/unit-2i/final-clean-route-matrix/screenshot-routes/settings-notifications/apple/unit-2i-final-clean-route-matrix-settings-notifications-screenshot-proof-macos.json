@@ -1,0 +1,13 @@
+{
+  "route": "settings",
+  "source": "SettingsView",
+  "visibleSections": [
+    "This Device",
+    "Push Delivery",
+    "Notification Sync",
+    "API Tokens"
+  ],
+  "visualFocus": "notifications",
+  "writtenAt": "2026-07-10T06:52:55Z",
+  "platform": "macos"
+}

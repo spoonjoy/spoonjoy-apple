@@ -1,0 +1,13 @@
+{
+  "route": "settings",
+  "source": "SettingsView",
+  "visibleSections": [
+    "This Device",
+    "Push Delivery",
+    "Notification Sync",
+    "Agent Access"
+  ],
+  "visualFocus": "notifications",
+  "writtenAt": "2026-07-10T18:56:40Z",
+  "platform": "ios"
+}

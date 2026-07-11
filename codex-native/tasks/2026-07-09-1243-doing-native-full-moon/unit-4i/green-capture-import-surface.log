@@ -1,0 +1,46 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.32s)
+Test Suite 'Selected tests' started at 2026-07-10 08:49:24.472.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-10 08:49:24.475.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-10 08:49:24.475.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-10 08:49:24.475.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Native capture and import parity" started.
+◇ Test "empty import result copy never exposes machine import codes" started.
+◇ Test "provider-secret blockers produce user-facing blocked state without remote retry work" started.
+◇ Test "capture draft changes record and clear through durable app state store" started.
+◇ Test "recipe import mutations expose source for visible draft matching" started.
+◇ Test "compact capture import fallbacks stay covered and intentional" started.
+◇ Test "replacing capture drafts clears stale pending import metadata" started.
+◇ Test "capture surface only presents truthful agent and App Intents import paths" started.
+◇ Test "capture drafts and import retry survive snapshot and sync-store round trips" started.
+◇ Test "image drafts without recognized text stay local until native OCR produces importable text" started.
+◇ Test "non-provider import blockers and empty responses keep the visible draft" started.
+◇ Test "capture draft sources produce canonical REST import mutations" started.
+◇ Test "capture drafts fail closed for incomplete native source state" started.
+◇ Test "offline import queues retry, restores it, drains on reconnect, and routes imported recipe" started.
+◇ Test "capture import provider blockers persist and clear with retry or drained import" started.
+◇ Test "queued import sources decode every persisted source variant and fail closed for malformed payloads" started.
+✔ Test "image drafts without recognized text stay local until native OCR produces importable text" passed after 0.002 seconds.
+✔ Test "provider-secret blockers produce user-facing blocked state without remote retry work" passed after 0.002 seconds.
+✔ Test "recipe import mutations expose source for visible draft matching" passed after 0.002 seconds.
+✔ Test "non-provider import blockers and empty responses keep the visible draft" passed after 0.002 seconds.
+✔ Test "capture drafts fail closed for incomplete native source state" passed after 0.002 seconds.
+✔ Test "replacing capture drafts clears stale pending import metadata" passed after 0.002 seconds.
+✔ Test "compact capture import fallbacks stay covered and intentional" passed after 0.002 seconds.
+✔ Test "queued import sources decode every persisted source variant and fail closed for malformed payloads" passed after 0.002 seconds.
+✔ Test "capture import provider blockers persist and clear with retry or drained import" passed after 0.003 seconds.
+✔ Test "capture draft changes record and clear through durable app state store" passed after 0.004 seconds.
+✔ Test "empty import result copy never exposes machine import codes" passed after 0.005 seconds.
+✔ Test "capture drafts and import retry survive snapshot and sync-store round trips" passed after 0.005 seconds.
+✔ Test "capture draft sources produce canonical REST import mutations" passed after 0.006 seconds.
+✔ Test "offline import queues retry, restores it, drains on reconnect, and routes imported recipe" passed after 0.006 seconds.
+✔ Test "capture surface only presents truthful agent and App Intents import paths" passed after 0.056 seconds.
+✔ Suite "Native capture and import parity" passed after 0.056 seconds.
+✔ Test run with 15 tests in 1 suite passed after 0.056 seconds.
