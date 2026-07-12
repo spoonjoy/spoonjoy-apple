@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Polishes the native UI across Kitchen, Recipes, Cook Mode, Search, Capture, and Settings; fixes overlapping text/tab-bar issues, cleans capture/settings language, and restores production Sign in with Apple.",
+          "whatsNew": "Replaces Spoonjoy's built-in cook-mode countdown with native system timers for timed recipe steps, keeps recipe durations aligned as minutes across the app, and preserves the latest UI and Sign in with Apple polish.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
