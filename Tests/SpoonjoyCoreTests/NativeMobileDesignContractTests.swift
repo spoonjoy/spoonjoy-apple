@@ -173,6 +173,85 @@ struct NativeMobileDesignContractTests {
         #expect(sourceMembershipCount == 2, Comment(rawValue: "\(projectPath) should register SpoonDock.swift in iOS and macOS sources; found \(sourceMembershipCount)."))
     }
 
+    @Test("cook mode uses system AlarmKit timers instead of an in-app countdown")
+    func cookModeUsesSystemAlarmKitTimersInsteadOfAnInAppCountdown() throws {
+        let cookModePath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let viewModelPath = "Sources/SpoonjoyCore/AppState/ScreenViewModels.swift"
+        let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let infoPath = "Apps/Spoonjoy/Shared/Info.plist"
+        let cookMode = uncommentedSwift(try readRepoFile(cookModePath))
+        let viewModel = uncommentedSwift(try readRepoFile(viewModelPath))
+        let editor = uncommentedSwift(try readRepoFile(editorPath))
+        let info = try readRepoFile(infoPath)
+
+        expectContent(
+            cookMode,
+            in: cookModePath,
+            contains: [
+                "canImport(AlarmKit)",
+                "import AlarmKit",
+                "AlarmManager.shared.authorizationState",
+                "AlarmManager.shared.requestAuthorization()",
+                "AlarmManager.AlarmConfiguration",
+                ".timer(duration:",
+                "AlarmAttributes(",
+                "SpoonjoyCookTimerMetadata",
+                "CookModeSystemTimer",
+                "Set system timer"
+            ],
+            forbids: [
+                "Timer.publish(every:",
+                "remainingSeconds",
+                "isRunning",
+                "Pause timer",
+                "Reset timer",
+                "Restart timer"
+            ]
+        )
+
+        expectContent(
+            viewModel,
+            in: viewModelPath,
+            contains: [
+                "CookModeSystemTimerViewModel",
+                "public var systemTimer: CookModeSystemTimerViewModel?",
+                "durationMinutes",
+                "Set \\(durationLabel) timer"
+            ],
+            forbids: [
+                "CookModeTimerViewModel",
+                "formattedRemainingTime",
+                "remainingSeconds",
+                "isRunning",
+                "Pause timer",
+                "Reset timer",
+                "Restart timer"
+            ]
+        )
+
+        expectContent(
+            editor,
+            in: editorPath,
+            contains: [
+                "Duration \\(step.duration ?? 0) minutes",
+                "in: 0...720, step: 1"
+            ],
+            forbids: [
+                "Duration \\(step.duration ?? 0) seconds",
+                "0...7200, step: 30"
+            ]
+        )
+
+        expectContent(
+            info,
+            in: infoPath,
+            contains: [
+                "NSAlarmKitUsageDescription",
+                "Spoonjoy can set system cooking timers for timed recipe steps."
+            ]
+        )
+    }
+
     @Test("kitchen recipe index is a scroll-friendly object layout, not a nested List island")
     func kitchenRecipeIndexIsScrollFriendlyObjectLayout() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"

@@ -199,31 +199,32 @@ struct CookModeParityTests {
         #expect(uncheckedRows.map(\.isChecked) == [false, false, true])
     }
 
-    @Test("duration timers exist only for duration bearing steps")
-    func durationTimersExistOnlyForDurationBearingSteps() throws {
+    @Test("duration cues hand timed steps to the native system timer")
+    func durationCuesHandTimedStepsToTheNativeSystemTimer() throws {
         let recipe = try cookModeParityRecipe()
         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
-        let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).timer)
+        let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
 
         #expect(timer.stepID == "step_lemon_pasta_1")
+        #expect(timer.durationMinutes == 10)
         #expect(timer.durationSeconds == 600)
-        #expect(timer.remainingSeconds == 600)
-        #expect(timer.formattedRemainingTime == "10:00")
-        #expect(!timer.isRunning)
-        #expect(timer.startButtonTitle == "Start timer")
-        #expect(timer.pauseButtonTitle == "Pause timer")
-        #expect(timer.resetButtonTitle == "Reset timer")
-        #expect(timer.restartButtonTitle == "Restart timer")
+        #expect(timer.durationLabel == "10 min")
+        #expect(timer.startButtonTitle == "Set 10 min timer")
+        #expect(timer.systemUnavailableMessage == "System timers are available on iPhone and iPad.")
 
         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
-        let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).timer)
+        let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+        #expect(secondStepTimer.durationMinutes == 5)
         #expect(secondStepTimer.durationSeconds == 300)
-        #expect(secondStepTimer.formattedRemainingTime == "05:00")
+        #expect(secondStepTimer.durationLabel == "5 min")
 
         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
-        #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).timer == nil)
+        #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).systemTimer == nil)
+
+        let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+        #expect(CookModeViewModel(recipe: zeroTimerRecipe, progress: noTimerProgress).systemTimer == nil)
     }
 
     @Test("offline app snapshot restores exact cook mode progress")
