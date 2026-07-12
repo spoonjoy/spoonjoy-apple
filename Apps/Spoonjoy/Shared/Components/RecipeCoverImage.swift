@@ -21,6 +21,7 @@ struct RecipeCoverImage: View {
                 cover(for: phase)
                     .transition(accessibilityReduceMotion ? .identity : .opacity)
             }
+            .id(url.absoluteString)
         } else {
             noPhoto(subtitle: missingSubtitle, mode: .missing, showsLabel: showsFallbackLabel)
         }
@@ -78,6 +79,9 @@ struct KitchenTableNoPhotoView: View {
 
             GeometryReader { proxy in
                 if proxy.size.width < 150 || proxy.size.height < 110 {
+                    compactMark
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
+                } else if mode == .loading || mode == .unavailable {
                     compactMark
                         .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
                 } else if showsLabel {

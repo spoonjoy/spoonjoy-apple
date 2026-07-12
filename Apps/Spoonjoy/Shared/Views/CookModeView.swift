@@ -122,9 +122,12 @@ struct CookModeView: View {
                 .navigationTitle("Cook tools")
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
+                        Button {
                             isCookModeUtilityPresented = false
+                        } label: {
+                            Image(systemName: "xmark")
                         }
+                        .accessibilityLabel("Close cook tools")
                     }
                 }
             }
@@ -386,19 +389,14 @@ struct CookModeView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
                         Toggle(isOn: ingredientBinding(for: row)) {
-                            HStack(spacing: 12) {
-                                Text(row.title)
-                                    .foregroundStyle(KitchenTableTheme.charcoal)
-                                Spacer()
-                                Text(row.quantityText)
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                            }
+                            CookModeIngredientChecklistLabel(row: row)
                         }
                         .toggleStyle(.largeCheck)
                         .tint(KitchenTableTheme.herb)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
+                .animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)
                 .padding(.horizontal, 2)
             }
         }
@@ -407,7 +405,7 @@ struct CookModeView: View {
     private var bottomControls: some View {
         HStack(alignment: .bottom, spacing: 10) {
             Button(action: previous) {
-                Label("Previous", systemImage: "arrow.backward.circle")
+                Label("Back step", systemImage: "chevron.backward.circle")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
             .disabled(!canGoBack)
@@ -570,6 +568,35 @@ struct CookModeView: View {
 
     private func clientMutationID(prefix: String) -> String {
         "\(prefix)-\(UUID().uuidString)"
+    }
+}
+
+private struct CookModeIngredientChecklistLabel: View {
+    let row: CookModeChecklistRow
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(row.title)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+
+            Spacer(minLength: 8)
+
+            if !row.quantityText.isEmpty {
+                Text(row.quantityText)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
