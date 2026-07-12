@@ -70,7 +70,7 @@ struct RecipeEditorParityTests {
                 clientMutationID: "cm_non_owner_step_update",
                 title: "Finish pasta",
                 description: "Toss pasta with sauce.",
-                duration: 180,
+                    duration: 3,
                 outputStepNums: [1]
             ),
             .deleteStep(stepID: "step_boil", clientMutationID: "cm_non_owner_step_delete", confirmation: .confirmed),
@@ -119,7 +119,7 @@ struct RecipeEditorParityTests {
             "steps": [[
                 "stepTitle": "Toast bread",
                 "description": "Toast bread until crisp.",
-                "duration": 300,
+                "duration": 5,
                 "ingredients": [[
                     "quantity": 2,
                     "unit": "slice",
@@ -150,7 +150,7 @@ struct RecipeEditorParityTests {
                 stepNum: 1,
                 title: "Finish pasta",
                 description: "Toss pasta with lemon, garlic, and parmesan.",
-                duration: 240,
+                duration: 4,
                 ingredients: [
                     RecipeEditorIngredientDraft(id: "ingredient_lemon", name: "lemon juice", quantity: 2, unit: "tbsp"),
                     RecipeEditorIngredientDraft(id: "local_parmesan", name: "parmesan", quantity: 0.5, unit: "cup")
@@ -162,7 +162,7 @@ struct RecipeEditorParityTests {
                 stepNum: 2,
                 title: "Boil pasta",
                 description: "Boil spaghetti until al dente.",
-                duration: 600,
+                duration: 10,
                 ingredients: [],
                 outputStepNums: []
             ),
@@ -203,7 +203,7 @@ struct RecipeEditorParityTests {
                 clientMutationID: "cm_update-step-step_finish",
                 title: "Finish pasta",
                 description: "Toss pasta with lemon, garlic, and parmesan.",
-                duration: 240,
+                duration: 4,
                 outputStepNums: []
             ),
             .deleteIngredient(
@@ -528,7 +528,7 @@ struct RecipeEditorParityTests {
             clientMutationID: "cm_step_update",
             title: "Finish pasta",
             description: "Toss pasta with sauce.",
-            duration: 180,
+            duration: 3,
             outputStepNums: [1]
         ))
         let deleteStep = try editor.plan(.deleteStep(
@@ -588,7 +588,7 @@ struct RecipeEditorParityTests {
             "clientMutationId": "cm_step_update",
             "stepTitle": "Finish pasta",
             "description": "Toss pasta with sauce.",
-            "duration": 180,
+            "duration": 3,
             "outputStepNums": [1]
         ])
         try assertJSONRequest(try remoteRequest(from: deleteStep), method: .delete, path: "/api/v1/recipes/recipe_lemon_pantry_pasta/steps/step_boil", expected: [
@@ -661,7 +661,7 @@ struct RecipeEditorParityTests {
             clientMutationID: "cm_step_update_offline",
             title: "Finish pasta",
             description: "Toss pasta with sauce.",
-            duration: 180,
+            duration: 3,
             outputStepNums: [1]
         ))
         let deleteStep = try editor.plan(.deleteStep(stepID: "step_boil", clientMutationID: "cm_step_delete_offline", confirmation: .confirmed))
@@ -855,7 +855,7 @@ private func recipeCreateDraft() -> RecipeEditorDraft {
                 stepNum: 1,
                 title: "Toast bread",
             description: "Toast bread until crisp.",
-            duration: 300,
+            duration: 5,
             ingredients: [
                 RecipeEditorIngredientDraft(id: "local_bread", name: "bread", quantity: 2, unit: "slice")
                 ],
@@ -902,7 +902,7 @@ private func recipeEditorRecipe() -> Recipe {
                 stepNum: 1,
                 stepTitle: "Boil pasta",
                 description: "Boil spaghetti until al dente.",
-                duration: 600,
+                duration: 10,
                 ingredients: [
                     RecipeIngredient(id: "ingredient_spaghetti", name: "spaghetti", quantity: 1, unit: "lb")
                 ]
@@ -912,7 +912,7 @@ private func recipeEditorRecipe() -> Recipe {
                 stepNum: 2,
                 stepTitle: "Finish",
                 description: "Toss pasta with lemon and garlic.",
-                duration: 180,
+                duration: 3,
                 ingredients: [
                     RecipeIngredient(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: "each")
                 ],

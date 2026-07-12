@@ -18,6 +18,8 @@
 	<string>1.0</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Spoonjoy uses the camera to capture recipes from cookbooks, cards, and kitchen notes.</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Spoonjoy can set system cooking timers for timed recipe steps.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Spoonjoy uses selected photos to create local recipe capture drafts.</string>
 	<key>UILaunchScreen</key>

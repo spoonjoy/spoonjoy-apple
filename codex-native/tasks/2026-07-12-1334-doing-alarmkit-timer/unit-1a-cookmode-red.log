@@ -1,0 +1,397 @@
+Building for debugging...
+[0/18] /Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/.build/arm64-apple-macosx/debug/SpoonjoyApplePackageTests.derived/runner.swift
+[1/18] Write sources
+[6/18] Write SpoonjoyNativeDogfood-entitlement.plist
+[6/18] Write SpoonjoyScenarioVerifier-entitlement.plist
+[8/18] Copying Fixtures
+[9/18] Write swift-version--58304C5D6DBC2206.txt
+[11/101] Compiling SpoonjoyCore APIClient.swift
+[12/101] Compiling SpoonjoyCore APIEnvelope.swift
+[13/101] Compiling SpoonjoyCore APIError.swift
+[14/101] Compiling SpoonjoyCore APIRequestBuilder.swift
+[15/101] Compiling SpoonjoyCore APIRequestSupport.swift
+[16/101] Compiling SpoonjoyCore APIRetryPolicy.swift
+[17/101] Compiling SpoonjoyCore APITransport.swift
+[18/101] Compiling SpoonjoyCore JSONValue.swift
+[19/101] Compiling SpoonjoyCore NativeAPIRequests.swift
+[20/101] Compiling SpoonjoyCore PaginationCursor.swift
+[21/101] Compiling SpoonjoyCore RecipeDetailScreenViewModel.swift
+[22/101] Compiling SpoonjoyCore RecipeEditorDraft.swift
+[23/101] Compiling SpoonjoyCore RecipeEditorDraftChangePlanner.swift
+[24/101] Compiling SpoonjoyCore RecipeEditorViewModel.swift
+[25/101] Compiling SpoonjoyCore SearchSurfaceRepository.swift
+[26/101] Compiling SpoonjoyCore SearchSurfaceViewModel.swift
+[27/101] Compiling SpoonjoyCore SettingsSurfaceRepository.swift
+[28/101] Compiling SpoonjoyCore SettingsSurfaceViewModel.swift
+[29/101] Compiling SpoonjoyCore NativeSharePayload.swift
+[30/110] Compiling SpoonjoyCore CookbookSurfaceViewModel.swift
+[31/110] Compiling SpoonjoyCore RecipeCoverControlsViewModel.swift
+[32/110] Compiling SpoonjoyCore NotificationAPNsSurfaceRepository.swift
+[33/110] Compiling SpoonjoyCore NotificationAPNsSurfaceViewModel.swift
+[34/110] Compiling SpoonjoyCore ProfileChefGraphSurfaceRepository.swift
+[35/110] Compiling SpoonjoyCore ProfileChefGraphSurfaceViewModel.swift
+[36/110] Compiling SpoonjoyCore RecipeActionsViewModel.swift
+[37/110] Compiling SpoonjoyCore RecipeCatalogRepository.swift
+[38/110] Compiling SpoonjoyCore RecipeCatalogViewModel.swift
+[39/110] Compiling SpoonjoyCore PublicCatalogRequests.swift
+[40/110] Compiling SpoonjoyCore ShoppingListAPI.swift
+[41/110] Compiling SpoonjoyCore ShoppingListRequests.swift
+[42/110] Compiling SpoonjoyCore AppNavigationState.swift
+[43/110] Compiling SpoonjoyCore AppRoute.swift
+[44/110] Compiling SpoonjoyCore DeepLinkRouter.swift
+[45/110] Compiling SpoonjoyCore DeepLinkURLBuilder.swift
+[46/110] Compiling SpoonjoyCore NativeAppSnapshot.swift
+[47/110] Compiling SpoonjoyCore NativeFixtureFallbackPolicy.swift
+[48/110] Compiling SpoonjoyCore DeepLinkManifest.swift
+[49/110] Compiling SpoonjoyCore NativeCapabilityMetadata.swift
+[50/110] Compiling SpoonjoyCore NativeIntentAction.swift
+[51/110] Compiling SpoonjoyCore RecipeCookbookEntityCatalog.swift
+[52/110] Compiling SpoonjoyCore ScenarioCommand.swift
+[53/110] Compiling SpoonjoyCore ScenarioReport.swift
+[54/110] Compiling SpoonjoyCore ScenarioVerifier.swift
+[55/110] Compiling SpoonjoyCore ShoppingEntityCatalog.swift
+[56/110] Compiling SpoonjoyCore SpoonEntityCatalog.swift
+[57/110] Compiling SpoonjoyCore NativeCacheFreshnessPolicy.swift
+[58/110] Compiling SpoonjoyCore NativeCachePrefetchPolicy.swift
+[59/110] Compiling SpoonjoyCore NativeDurableCache.swift
+[60/110] Compiling SpoonjoyCore NativeDurableCacheStore.swift
+[61/110] Compiling SpoonjoyCore NativeIndicatorDismissalStore.swift
+[62/110] Compiling SpoonjoyCore NativeMediaStagingPolicy.swift
+[63/110] Compiling SpoonjoyCore OfflineFreshnessIndicator.swift
+[64/110] Compiling SpoonjoyCore CaptureImportViewModel.swift
+[65/110] Compiling SpoonjoyCore CookbookSurfaceRepository.swift
+[66/110] Emitting module SpoonjoyCore
+[67/110] Compiling SpoonjoyCore NativeAuthSessionRepository.swift
+[68/110] Compiling SpoonjoyCore NativePasswordSignInRequests.swift
+[69/110] Compiling SpoonjoyCore OAuthPKCE.swift
+[70/110] Compiling SpoonjoyCore OAuthRedirectValidator.swift
+[71/110] Compiling SpoonjoyCore OAuthRequests.swift
+[72/110] Compiling SpoonjoyCore OAuthResponses.swift
+[73/110] Compiling SpoonjoyCore RefreshCoordinator.swift
+[74/110] Compiling SpoonjoyCore SecureAuthWebHandoff.swift
+[75/110] Compiling SpoonjoyCore TokenVault.swift
+[76/110] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[77/110] Compiling SpoonjoyCore ScreenViewModels.swift
+[78/110] Compiling SpoonjoyCore SearchState.swift
+[79/110] Compiling SpoonjoyCore AuthSessionState.swift
+[80/110] Compiling SpoonjoyCore FileBackedTokenVault.swift
+[81/110] Compiling SpoonjoyCore InMemoryTokenVault.swift
+[82/110] Compiling SpoonjoyCore KeychainTokenVault.swift
+[83/110] Compiling SpoonjoyCore NativeAppleSignInRequests.swift
+[84/110] Compiling SpoonjoyCore NativeAuthSession.swift
+[85/110] Compiling SpoonjoyCore ShoppingSurfaceViewModel.swift
+[86/110] Compiling SpoonjoyCore SpoonCookLogViewModel.swift
+[87/110] Compiling SpoonjoyCore CaptureDraft.swift
+[88/110] Compiling SpoonjoyCore CookModeProgress.swift
+[89/110] Compiling SpoonjoyCore KitchenFixtureState.swift
+[90/110] Compiling SpoonjoyCore SettingsState.swift
+[91/110] Compiling SpoonjoyCore ShoppingListState.swift
+[92/110] Compiling SpoonjoyCore CaptureDraftEntityCatalog.swift
+[93/110] Compiling SpoonjoyCore ChefProfileEntityCatalog.swift
+[94/110] Compiling SpoonjoyCore SpotlightIndexPlan.swift
+[95/110] Compiling SpoonjoyCore JSONFileStore.swift
+[96/110] Compiling SpoonjoyCore MutationQueue.swift
+[97/110] Compiling SpoonjoyCore OfflineSnapshot.swift
+[98/110] Compiling SpoonjoyCore SyncCheckpoint.swift
+[99/110] Compiling SpoonjoyCore RecipeCookbook.swift
+[100/110] Compiling SpoonjoyCore SpoonjoyCore.swift
+[101/110] Compiling SpoonjoyCore NativeSyncEngine.swift
+[102/110] Compiling SpoonjoyCore resource_bundle_accessor.swift
+[103/161] Compiling SpoonjoyScenarioVerifier main.swift
+[104/161] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[105/161] Emitting module SpoonjoyScenarioVerifier
+[105/161] Write Objects.LinkFileList
+[107/161] Compiling SpoonjoyNativeDogfood main.swift
+[108/161] Emitting module SpoonjoyNativeDogfood
+[108/161] Write Objects.LinkFileList
+[109/161] Linking SpoonjoyScenarioVerifier
+[110/161] Applying SpoonjoyScenarioVerifier
+[111/161] Linking SpoonjoyNativeDogfood
+[112/161] Applying SpoonjoyNativeDogfood
+[114/161] Emitting module SpoonjoyCoreTests
+[115/166] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:108: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                                                                                                            `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:224:83: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+222 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
+223 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
+224 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                   `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:227:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+227 |         #expect(CookModeViewModel(recipe: zeroTimerRecipe, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+228 |     }
+229 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:21: warning: no calls to throwing functions occur within 'try' expression
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                     `- warning: no calls to throwing functions occur within 'try' expression
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:31: warning: no calls to throwing functions occur within 'try' expression
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                               `- warning: no calls to throwing functions occur within 'try' expression
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+[116/166] Compiling SpoonjoyCoreTests CaptureImportIntentTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:108: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                                                                                                            `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:224:83: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+222 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
+223 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
+224 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                   `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:227:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+227 |         #expect(CookModeViewModel(recipe: zeroTimerRecipe, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+228 |     }
+229 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:21: warning: no calls to throwing functions occur within 'try' expression
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                     `- warning: no calls to throwing functions occur within 'try' expression
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:31: warning: no calls to throwing functions occur within 'try' expression
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                               `- warning: no calls to throwing functions occur within 'try' expression
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+[117/166] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:108: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                                                                                                            `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:224:83: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+222 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
+223 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
+224 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                   `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:227:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+227 |         #expect(CookModeViewModel(recipe: zeroTimerRecipe, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+228 |     }
+229 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:21: warning: no calls to throwing functions occur within 'try' expression
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                     `- warning: no calls to throwing functions occur within 'try' expression
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:31: warning: no calls to throwing functions occur within 'try' expression
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                               `- warning: no calls to throwing functions occur within 'try' expression
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+[118/166] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:108: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                                                                                                            `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:224:83: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+222 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
+223 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
+224 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                   `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:227:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+227 |         #expect(CookModeViewModel(recipe: zeroTimerRecipe, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+228 |     }
+229 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:21: warning: no calls to throwing functions occur within 'try' expression
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                     `- warning: no calls to throwing functions occur within 'try' expression
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:31: warning: no calls to throwing functions occur within 'try' expression
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                               `- warning: no calls to throwing functions occur within 'try' expression
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+[119/166] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:108: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                                                                                                            `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:224:83: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+222 |         let noTimerStep = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: nil)
+223 |         let noTimerProgress = try secondStepProgress.selectingStep(id: "step_lemon_pasta_3", updatedAt: "2026-06-25T12:16:00.000Z")
+224 |         #expect(CookModeViewModel(recipe: noTimerStep, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                   `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:227:87: error: value of type 'CookModeViewModel' has no member 'systemTimer'
+225 | 
+226 |         let zeroTimerRecipe = recipe.replacingStepDuration(stepID: "step_lemon_pasta_3", duration: 0)
+227 |         #expect(CookModeViewModel(recipe: zeroTimerRecipe, progress: noTimerProgress).systemTimer == nil)
+    |                                                                                       `- error: value of type 'CookModeViewModel' has no member 'systemTimer'
+228 |     }
+229 | 
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:206:21: warning: no calls to throwing functions occur within 'try' expression
+204 |         let recipe = try cookModeParityRecipe()
+205 |         let started = CookModeProgress.starting(recipe: recipe, startedAt: "2026-06-25T12:00:00.000Z")
+206 |         let timer = try #require(CookModeViewModel(recipe: recipe, progress: started).systemTimer)
+    |                     `- warning: no calls to throwing functions occur within 'try' expression
+207 | 
+208 |         #expect(timer.stepID == "step_lemon_pasta_1")
+
+/Users/arimendelow/Projects/spoonjoy-apple-alarmkit-timer/Tests/SpoonjoyCoreTests/CookModeParityTests.swift:216:31: warning: no calls to throwing functions occur within 'try' expression
+214 | 
+215 |         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
+216 |         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
+    |                               `- warning: no calls to throwing functions occur within 'try' expression
+217 |         #expect(secondStepTimer.stepID == "step_lemon_pasta_2")
+218 |         #expect(secondStepTimer.durationMinutes == 5)
+[120/166] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[121/166] Compiling SpoonjoyCoreTests NotificationIntentTests.swift
+[122/166] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[123/166] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[124/166] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[125/166] Compiling SpoonjoyCoreTests CookbookIntentTests.swift
+[126/166] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[127/166] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[128/166] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[129/166] Compiling SpoonjoyCoreTests KitchenRecipesStructureContractTests.swift
+[130/166] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[131/166] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[132/166] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[133/166] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[134/166] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[135/166] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[136/166] Compiling SpoonjoyCoreTests ProfileSettingsIntentTests.swift
+[137/166] Compiling SpoonjoyCoreTests RecipeActionIntentTests.swift
+[138/166] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[139/166] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[140/166] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[141/166] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[142/166] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[143/166] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[144/166] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[145/166] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[146/166] Compiling SpoonjoyCoreTests APITransportTests.swift
+[147/166] Compiling SpoonjoyCoreTests AppIntentAvailabilityTelemetryContractTests.swift
+[148/166] Compiling SpoonjoyCoreTests AppStateTests.swift
+[149/166] Compiling SpoonjoyCoreTests AuthTelemetryContractTests.swift
+[150/166] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[151/166] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[152/166] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[153/166] Compiling SpoonjoyCoreTests SettingsAuthSurfaceContractTests.swift
+[154/166] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[155/166] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[156/166] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[157/166] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[158/166] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[159/166] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[160/166] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[161/166] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[162/166] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[163/166] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[164/166] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+error: fatalError
