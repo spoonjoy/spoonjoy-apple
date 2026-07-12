@@ -2226,7 +2226,7 @@ struct NativeSyncEngineTests {
                     stepNum: 1,
                     stepTitle: "Toast",
                     description: "Toast bread.",
-                    duration: 120,
+                    duration: 2,
                     ingredients: [
                         RecipeIngredientDraft(quantity: 2, unit: "cup", name: "zucchini"),
                         RecipeIngredientDraft(quantity: 1, unit: "whole", name: "apple")
@@ -2250,7 +2250,7 @@ struct NativeSyncEngineTests {
             clientMutationID: "cm_step_update_local",
             stepTitle: "Toast bread",
             description: "Toast bread until deeply golden.",
-            duration: 180,
+            duration: 3,
             outputStepNums: [],
             createdAt: Self.createdAt(2)
         )
@@ -4211,7 +4211,7 @@ struct NativeSyncEngineTests {
                     stepNum: 1,
                     stepTitle: "Toast",
                     description: "Toast bread.",
-                    duration: 120,
+                    duration: 2,
                     ingredients: [RecipeIngredientDraft(quantity: 2, unit: "slice", name: "bread")],
                     outputStepNums: []
                 )
@@ -5025,7 +5025,7 @@ struct NativeSyncEngineTests {
                     stepNum: 1,
                     stepTitle: "Boil",
                     description: "Boil pasta.",
-                    duration: 600,
+                    duration: 10,
                     ingredients: [
                         RecipeIngredient(id: "ingredient_water", name: "water", quantity: 1, unit: "pot")
                     ]
@@ -5035,7 +5035,7 @@ struct NativeSyncEngineTests {
                     stepNum: 2,
                     stepTitle: "Finish",
                     description: "Toss with lemon.",
-                    duration: 180,
+                    duration: 3,
                     ingredients: [
                         RecipeIngredient(id: "ingredient_lemon", name: "lemon", quantity: 1, unit: "each")
                     ],

@@ -90,8 +90,8 @@ struct RecipeEditorView: View {
                         TextField("Step title", text: optionalText($step.title))
                         TextEditor(text: $step.description)
                             .frame(minHeight: 72)
-                        Stepper(value: durationBinding($step.duration), in: 0...7200, step: 30) {
-                            Text("Duration \(step.duration ?? 0) seconds")
+                        Stepper(value: durationBinding($step.duration), in: 0...720, step: 1) {
+                            Text("Duration \(step.duration ?? 0) minutes")
                         }
 
                         let priorSteps = priorSteps(for: step)

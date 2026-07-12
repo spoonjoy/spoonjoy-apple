@@ -252,6 +252,47 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("native recipe duration fixtures use API minutes rather than legacy seconds")
+    func nativeRecipeDurationFixturesUseAPIMinutesRatherThanLegacySeconds() throws {
+        let nativeBriefPath = "docs/native-design-language.md"
+        let nativeBrief = try readRepoFile(nativeBriefPath)
+
+        expectContent(
+            nativeBrief,
+            in: nativeBriefPath,
+            contains: [
+                "Treat recipe step `duration` as Spoonjoy API minutes everywhere"
+            ]
+        )
+
+        let staleSecondsTokens = [
+            "duration: 120",
+            "duration: 180",
+            "duration: 240",
+            "duration: 300",
+            "duration: 600",
+            "duration: 7200",
+            "\"duration\": 120",
+            "\"duration\": 180",
+            "\"duration\": 240",
+            "\"duration\": 300",
+            "\"duration\": 600",
+            "\"duration\": 7200"
+        ]
+
+        for path in [
+            "Tests/SpoonjoyCoreTests/RecipeEditorParityTests.swift",
+            "Tests/SpoonjoyCoreTests/NativeLiveStoreTests.swift",
+            "Tests/SpoonjoyCoreTests/NativeSyncEngineTests.swift"
+        ] {
+            expectContent(
+                uncommentedSwift(try readRepoFile(path)),
+                in: path,
+                forbids: staleSecondsTokens
+            )
+        }
+    }
+
     @Test("kitchen recipe index is a scroll-friendly object layout, not a nested List island")
     func kitchenRecipeIndexIsScrollFriendlyObjectLayout() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"

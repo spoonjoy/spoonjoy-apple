@@ -38,32 +38,21 @@ public struct CookModeChecklistRow: Equatable {
     public let isChecked: Bool
 }
 
-public struct CookModeTimerViewModel: Equatable {
+public struct CookModeSystemTimerViewModel: Equatable {
     public let stepID: String
+    public let durationMinutes: Int
     public let durationSeconds: Int
-    public let remainingSeconds: Int
-    public let isRunning: Bool
 
-    public var formattedRemainingTime: String {
-        let minutes = remainingSeconds / 60
-        let seconds = remainingSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+    public var durationLabel: String {
+        "\(durationMinutes) min"
     }
 
     public var startButtonTitle: String {
-        "Start timer"
+        "Set \(durationLabel) timer"
     }
 
-    public var pauseButtonTitle: String {
-        "Pause timer"
-    }
-
-    public var resetButtonTitle: String {
-        "Reset timer"
-    }
-
-    public var restartButtonTitle: String {
-        "Restart timer"
+    public var systemUnavailableMessage: String {
+        "System timers are available on iPhone and iPad with iOS 26.1 or newer."
     }
 }
 
@@ -175,19 +164,17 @@ public struct CookModeViewModel: Equatable {
         }
     }
 
-    public var timer: CookModeTimerViewModel? {
+    public var systemTimer: CookModeSystemTimerViewModel? {
         guard let activeStep,
               let duration = activeStep.duration,
               duration > 0 else {
             return nil
         }
 
-        let durationSeconds = duration * 60
-        return CookModeTimerViewModel(
+        return CookModeSystemTimerViewModel(
             stepID: activeStep.id,
-            durationSeconds: durationSeconds,
-            remainingSeconds: durationSeconds,
-            isRunning: false
+            durationMinutes: duration,
+            durationSeconds: duration * 60
         )
     }
 

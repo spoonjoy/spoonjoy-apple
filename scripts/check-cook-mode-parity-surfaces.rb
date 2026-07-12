@@ -19,14 +19,15 @@ REQUIRED_TOKENS = {
   ],
   "Sources/SpoonjoyCore/AppState/ScreenViewModels.swift" => [
     "CookModeChecklistRow",
-    "CookModeTimerViewModel",
+    "CookModeSystemTimerViewModel",
     "activeStep",
     "stepProgressLabel",
     "recipeProgressLabel",
     "currentPageProgressLabel",
     "ingredientChecklistRows",
     "stepOutputChecklistRows",
-    "formattedRemainingTime",
+    "systemTimer",
+    "durationLabel",
     "progressAfterSelectingNext",
     "progressAfterSelectingPrevious"
   ],
@@ -35,7 +36,8 @@ REQUIRED_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/Views/CookModeView.swift" => [
     "ScaleSelector",
-    "CookModeTimer",
+    "CookModeSystemTimer",
+    "AlarmManager.AlarmConfiguration",
     "Toggle",
     "ingredientChecklistRows",
     "stepOutputChecklistRows",
@@ -50,7 +52,11 @@ FORBIDDEN_TOKENS = [
   "tailwind",
   "RecipeComments",
   "SocialFeed",
-  "MealPlan"
+  "MealPlan",
+  "Timer.publish(every:",
+  "Pause timer",
+  "Reset timer",
+  "Restart timer"
 ].freeze
 
 def fail_check(message)

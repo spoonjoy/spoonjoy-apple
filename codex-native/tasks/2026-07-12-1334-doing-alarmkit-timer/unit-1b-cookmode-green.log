@@ -1,0 +1,85 @@
+Building for debugging...
+[0/8] Write sources
+[1/8] Write swift-version--58304C5D6DBC2206.txt
+[3/10] Emitting module SpoonjoyCore
+[4/10] Compiling SpoonjoyCore ScreenViewModels.swift
+[5/12] Compiling SpoonjoyCore ScenarioVerifier.swift
+[6/12] Compiling SpoonjoyCore NativeLiveAppStore.swift
+[7/19] Compiling SpoonjoyScenarioVerifier ScenarioProcessMain.swift
+[8/19] Compiling SpoonjoyScenarioVerifier main.swift
+[9/19] Emitting module SpoonjoyScenarioVerifier
+[9/39] Write Objects.LinkFileList
+[11/65] Emitting module SpoonjoyNativeDogfood
+[12/65] Compiling SpoonjoyNativeDogfood main.swift
+[12/65] Write Objects.LinkFileList
+[13/65] Linking SpoonjoyScenarioVerifier
+[14/65] Linking SpoonjoyNativeDogfood
+[15/65] Applying SpoonjoyScenarioVerifier
+[15/65] Applying SpoonjoyNativeDogfood
+[18/65] Compiling SpoonjoyCoreTests CookbookIntentTests.swift
+[19/65] Compiling SpoonjoyCoreTests CookbookSurfaceParityTests.swift
+[20/65] Compiling SpoonjoyCoreTests CoverControlSurfaceTests.swift
+[21/65] Compiling SpoonjoyCoreTests DeepLinkRouterTests.swift
+[22/65] Compiling SpoonjoyCoreTests KitchenRecipesStructureContractTests.swift
+[23/70] Emitting module SpoonjoyCoreTests
+[24/70] Compiling SpoonjoyCoreTests ProfileChefGraphSurfaceTests.swift
+[25/70] Compiling SpoonjoyCoreTests ProfileSettingsIntentTests.swift
+[26/70] Compiling SpoonjoyCoreTests RecipeActionIntentTests.swift
+[27/70] Compiling SpoonjoyCoreTests RecipeActionParityTests.swift
+[28/70] Compiling SpoonjoyCoreTests RecipeCatalogDetailTests.swift
+[29/70] Compiling SpoonjoyCoreTests CaptureDraftEntityTests.swift
+[30/70] Compiling SpoonjoyCoreTests CaptureImportIntentTests.swift
+[31/70] Compiling SpoonjoyCoreTests CaptureImportSurfaceTests.swift
+[32/70] Compiling SpoonjoyCoreTests ChefProfileEntityTests.swift
+[33/70] Compiling SpoonjoyCoreTests CookModeParityTests.swift
+[34/70] Compiling SpoonjoyCoreTests APIReadClientTests.swift
+[35/70] Compiling SpoonjoyCoreTests APITransportTests.swift
+[36/70] Compiling SpoonjoyCoreTests AppIntentAvailabilityTelemetryContractTests.swift
+[37/70] Compiling SpoonjoyCoreTests AppStateTests.swift
+[38/70] Compiling SpoonjoyCoreTests AuthTelemetryContractTests.swift
+[39/70] Compiling SpoonjoyCoreTests ShoppingAPIClientTests.swift
+[40/70] Compiling SpoonjoyCoreTests ShoppingEntityTests.swift
+[41/70] Compiling SpoonjoyCoreTests ShoppingIntentTests.swift
+[42/70] Compiling SpoonjoyCoreTests ShoppingSurfaceParityTests.swift
+[43/70] Compiling SpoonjoyCoreTests SpoonCookLogSurfaceTests.swift
+[44/70] Compiling SpoonjoyCoreTests NotificationAPNsSurfaceTests.swift
+[45/70] Compiling SpoonjoyCoreTests NotificationIntentTests.swift
+[46/70] Compiling SpoonjoyCoreTests OAuthRequestTests.swift
+[47/70] Compiling SpoonjoyCoreTests OfflineStoreTests.swift
+[48/70] Compiling SpoonjoyCoreTests OpenSearchShareCookIntentTests.swift
+[49/70] Compiling SpoonjoyCoreTests RecipeCookbookEntityTests.swift
+[50/70] Compiling SpoonjoyCoreTests RecipeCookbookTests.swift
+[51/70] Compiling SpoonjoyCoreTests RecipeEditorParityTests.swift
+[52/70] Compiling SpoonjoyCoreTests SettingsAuthSurfaceContractTests.swift
+[53/70] Compiling SpoonjoyCoreTests SettingsTokenConnectionTests.swift
+[54/70] Compiling SpoonjoyCoreTests SpoonEntityTests.swift
+[55/70] Compiling SpoonjoyCoreTests SpoonIntentTests.swift
+[56/70] Compiling SpoonjoyCoreTests SpoonjoyCoreBootstrapTests.swift
+[57/70] Compiling SpoonjoyCoreTests SpotlightShortcutTransferTests.swift
+[58/70] Compiling SpoonjoyCoreTests TokenRefreshTests.swift
+[59/70] Compiling SpoonjoyCoreTests KitchenStateTests.swift
+[60/70] Compiling SpoonjoyCoreTests NativeAPIExpansionTests.swift
+[61/70] Compiling SpoonjoyCoreTests NativeAuthSessionTests.swift
+[62/70] Compiling SpoonjoyCoreTests NativeCacheFreshnessTests.swift
+[63/70] Compiling SpoonjoyCoreTests NativeLiveStoreTests.swift
+[64/70] Compiling SpoonjoyCoreTests NativeMobileDesignContractTests.swift
+[65/70] Compiling SpoonjoyCoreTests NativeScenarioTests.swift
+[66/70] Compiling SpoonjoyCoreTests NativeSearchSurfaceTests.swift
+[67/70] Compiling SpoonjoyCoreTests NativeSharingTests.swift
+[68/70] Compiling SpoonjoyCoreTests NativeSyncEngineTests.swift
+[69/72] Emitting module SpoonjoyApplePackageTests
+[70/72] Compiling SpoonjoyApplePackageTests runner.swift
+[70/72] Write Objects.LinkFileList
+[71/72] Linking SpoonjoyApplePackageTests
+Build complete! (25.05s)
+warning: No matching test cases were run
+Test Suite 'Selected tests' started at 2026-07-12 13:39:32.214.
+Test Suite 'SpoonjoyApplePackageTests.xctest' started at 2026-07-12 13:39:32.217.
+Test Suite 'SpoonjoyApplePackageTests.xctest' passed at 2026-07-12 13:39:32.217.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-12 13:39:32.217.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

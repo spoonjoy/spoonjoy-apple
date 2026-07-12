@@ -1,7 +1,11 @@
-import Combine
 import Foundation
 import SpoonjoyCore
 import SwiftUI
+#if os(iOS) && canImport(AlarmKit)
+import ActivityKit
+import AlarmKit
+import AppIntents
+#endif
 
 struct CookModeRouteView: View {
     let recipeID: String
@@ -346,8 +350,10 @@ struct CookModeView: View {
             Text(step.description)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.charcoal)
-            if let timer = viewModel.timer {
-                CookModeTimer(timer: timer)
+            if let timer = viewModel.systemTimer {
+                CookModeSystemTimer(timer: timer) {
+                    try await scheduleSystemTimer(timer, step: step)
+                }
                     .id(timer.stepID)
             }
         }
@@ -569,6 +575,10 @@ struct CookModeView: View {
     private func clientMutationID(prefix: String) -> String {
         "\(prefix)-\(UUID().uuidString)"
     }
+
+    @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
+        try await CookModeSystemTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+    }
 }
 
 private struct CookModeIngredientChecklistLabel: View {
@@ -634,125 +644,185 @@ private extension Recipe {
     }
 }
 
-private struct CookModeTimer: View {
-    let timer: CookModeTimerViewModel
+private struct CookModeSystemTimer: View {
+    let timer: CookModeSystemTimerViewModel
+    let schedule: () async throws -> String
 
-    @State private var remainingSeconds: Int
-    @State private var isRunning: Bool
-    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
-    init(timer: CookModeTimerViewModel) {
-        self.timer = timer
-        _remainingSeconds = State(initialValue: timer.remainingSeconds)
-        _isRunning = State(initialValue: timer.isRunning)
-    }
+    @State private var isScheduling = false
+    @State private var statusMessage: String?
+    @State private var errorMessage: String?
 
     var body: some View {
-        HStack(spacing: 12) {
-            Label(formattedRemainingTime, systemImage: "timer")
-                .font(.headline)
-                .monospacedDigit()
-                .foregroundStyle(KitchenTableTheme.charcoal)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Label(timer.durationLabel, systemImage: "timer")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .monospacedDigit()
 
-            Spacer()
+                Spacer(minLength: 8)
 
-            HStack(spacing: 8) {
-                Button(primaryButtonTitle) {
-                    if isRunning {
-                        isRunning = false
-                    } else {
-                        if remainingSeconds == 0 {
-                            remainingSeconds = timer.durationSeconds
-                        }
-                        isRunning = true
-                    }
-                }
-                .buttonStyle(CookModeTimerButtonStyle(prominence: .primary))
+                timerAction
+            }
 
-                Button(timer.resetButtonTitle) {
-                    remainingSeconds = timer.durationSeconds
-                    isRunning = false
-                }
-                .buttonStyle(CookModeTimerButtonStyle(prominence: .secondary))
+            if let statusMessage {
+                Label(statusMessage, systemImage: "checkmark.circle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.herb)
+            } else if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.tomato)
             }
         }
-        .onReceive(ticker) { _ in
-            guard isRunning else {
-                return
+        .padding(.top, 2)
+    }
+
+    private func scheduleTimer() {
+        isScheduling = true
+        statusMessage = nil
+        errorMessage = nil
+        Task {
+            do {
+                let message = try await schedule()
+                await MainActor.run {
+                    statusMessage = message
+                    isScheduling = false
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = CookModeSystemTimerScheduler.message(for: error, fallback: timer.systemUnavailableMessage)
+                    isScheduling = false
+                }
             }
-            remainingSeconds = max(remainingSeconds - 1, 0)
-            if remainingSeconds == 0 {
-                isRunning = false
-            }
-        }
-        .onChange(of: timer.stepID) { _, _ in
-            remainingSeconds = timer.remainingSeconds
-            isRunning = timer.isRunning
         }
     }
 
-    private var formattedRemainingTime: String {
-        let minutes = remainingSeconds / 60
-        let seconds = remainingSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+    @ViewBuilder private var timerAction: some View {
+#if os(iOS)
+        if #available(iOS 26.1, *) {
+            Button {
+                scheduleTimer()
+            } label: {
+                if isScheduling {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Setting system timer")
+                } else {
+                    Label("Set system timer", systemImage: "alarm")
+                }
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .disabled(isScheduling)
+            .accessibilityLabel(timer.startButtonTitle)
+        } else {
+            unavailableCue
+        }
+#else
+        unavailableCue
+#endif
     }
 
-    private var primaryButtonTitle: String {
-        if isRunning {
-            return timer.pauseButtonTitle
-        }
-        return remainingSeconds == 0 ? timer.restartButtonTitle : timer.startButtonTitle
+    private var unavailableCue: some View {
+        Label(timer.systemUnavailableMessage, systemImage: "iphone")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.inkMuted)
+            .lineLimit(2)
+            .multilineTextAlignment(.trailing)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-private struct CookModeTimerButtonStyle: ButtonStyle {
-    enum Prominence {
-        case primary
-        case secondary
+private enum CookModeSystemTimerScheduler {
+    enum SchedulerError: Error, Equatable {
+        case unsupportedPlatform
+        case denied
     }
 
-    let prominence: Prominence
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.subheadline.weight(.semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .padding(.horizontal, 14)
-            .frame(minHeight: 38)
-            .foregroundStyle(foreground)
-            .background(background(configuration: configuration), in: Capsule())
-            .overlay {
-                Capsule()
-                    .strokeBorder(stroke, lineWidth: 1)
+    @MainActor static func message(for error: Error, fallback: String) -> String {
+        if let schedulerError = error as? SchedulerError {
+            switch schedulerError {
+            case .unsupportedPlatform:
+                return fallback
+            case .denied:
+                return "Allow system timers in Settings to set this timer."
             }
-            .opacity(configuration.isPressed ? 0.82 : 1)
+        }
+        return "Could not set the system timer."
     }
 
-    private var foreground: Color {
-        switch prominence {
-        case .primary:
-            KitchenTableTheme.paper
-        case .secondary:
-            KitchenTableTheme.charcoal
-        }
-    }
+    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> String {
+#if os(iOS) && canImport(AlarmKit)
+        if #available(iOS 26.1, *) {
+            let authorizationState = AlarmManager.shared.authorizationState
+            let resolvedAuthorizationState: AlarmManager.AuthorizationState
+            switch authorizationState {
+            case .authorized:
+                resolvedAuthorizationState = .authorized
+            case .notDetermined:
+                resolvedAuthorizationState = try await AlarmManager.shared.requestAuthorization()
+            case .denied:
+                throw SchedulerError.denied
+            @unknown default:
+                throw SchedulerError.denied
+            }
 
-    private func background(configuration _: Configuration) -> Color {
-        switch prominence {
-        case .primary:
-            KitchenTableTheme.action
-        case .secondary:
-            KitchenTableTheme.vellum.opacity(0.72)
-        }
-    }
+            guard resolvedAuthorizationState == .authorized else {
+                throw SchedulerError.denied
+            }
 
-    private var stroke: Color {
-        switch prominence {
-        case .primary:
-            KitchenTableTheme.action
-        case .secondary:
-            KitchenTableTheme.line.opacity(0.68)
+            let alarmID = UUID()
+            let presentation = AlarmPresentation(
+                alert: AlarmPresentation.Alert(
+                    title: LocalizedStringResource("\(step.stepTitle ?? recipe.title) is ready")
+                ),
+                countdown: AlarmPresentation.Countdown(
+                    title: LocalizedStringResource("\(step.stepTitle ?? "Step \(step.stepNum)") timer"),
+                    pauseButton: AlarmButton(
+                        text: "Pause",
+                        textColor: .white,
+                        systemImageName: "pause.fill"
+                    )
+                ),
+                paused: AlarmPresentation.Paused(
+                    title: LocalizedStringResource("\(step.stepTitle ?? "Step \(step.stepNum)") timer paused"),
+                    resumeButton: AlarmButton(
+                        text: "Resume",
+                        textColor: .white,
+                        systemImageName: "play.fill"
+                    )
+                )
+            )
+            let metadata = SpoonjoyCookTimerMetadata(
+                recipeID: recipe.id,
+                recipeTitle: recipe.title,
+                stepID: step.id,
+                stepTitle: step.stepTitle ?? "Step \(step.stepNum)",
+                durationMinutes: timer.durationMinutes
+            )
+            let attributes = AlarmAttributes(
+                presentation: presentation,
+                metadata: metadata,
+                tintColor: KitchenTableTheme.herb
+            )
+            let configuration = AlarmManager.AlarmConfiguration.timer(duration: TimeInterval(timer.durationSeconds),
+                attributes: attributes
+            )
+            _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
+            return "\(timer.durationLabel) system timer set."
         }
+#endif
+        throw SchedulerError.unsupportedPlatform
     }
 }
+
+#if os(iOS) && canImport(AlarmKit)
+@available(iOS 26.0, *)
+private struct SpoonjoyCookTimerMetadata: AlarmMetadata {
+    let recipeID: String
+    let recipeTitle: String
+    let stepID: String
+    let stepTitle: String
+    let durationMinutes: Int
+}
+#endif

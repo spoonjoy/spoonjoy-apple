@@ -42,7 +42,7 @@ Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` 
 - `RecipeIndex` -> thumbnail `List` rows with `NavigationLink` and native search scopes.
 - `CookbookShelf` -> horizontal `ScrollView` of 3:4 cookbook cover objects.
 - `ReceiptList` / shopping list -> grouped `List` with large check controls, aisle/source sections, and stable ordering.
-- Cook mode -> full-screen pager or focused step surface with persisted progress, timers, large text, and hands-free affordances.
+- Cook mode -> full-screen pager or focused step surface with persisted progress, duration cues, native system timer handoff, large text, and hands-free affordances.
 
 ## Anti-Patterns
 
@@ -68,7 +68,7 @@ The manifest is not a substitute for screenshots or human-grade review, but it m
 - Kitchen includes a lead food/cookbook/list object, `KitchenMasthead`, `RecipeLead`, `RecipeIndex`, and `CookbookShelf`.
 - Recipe Detail follows the web recipe structure: hero/provenance, header yield controls with `Clear progress`, masthead actions (`Cook mode`, `Save`, `Add to list`, share/more), a modal `Save to Cookbook` flow, web-parity `Steps` with per-step `Ingredients`, step-output dependency rows, checkable progress rows, and `Cooks`.
 - Shopping List uses receipt rows, large check controls, native `List`/`Section` grouping, edit/check affordances, and stable ordering.
-- Cook Mode uses one focused step, persisted progress, large controls, progress/timer affordances, and no dense multi-step primary list.
+- Cook Mode uses one focused step, persisted progress, large controls, duration/native-timer affordances, and no dense multi-step primary list.
 - Search uses native `.searchable` scopes, typed rows, and the accepted scopes `all`, `recipes`, `cookbooks`, `chefs`, and `shopping-list`.
 - Capture creates a local draft and does not claim server recipe writes before backend support exists.
 - Settings shows offline/auth/environment state and validation state through quiet native rows or forms.
@@ -80,7 +80,7 @@ Later static app-surface checks should inspect SwiftUI sources directly for `Kit
 The web UI audit's product backlog becomes native product work, not porting leftovers:
 
 - Persist cook-mode progress across reloads, screen locks, and app relaunches.
-- Add step timers/rest cues where recipe data supports them.
+- Treat recipe step `duration` as Spoonjoy API minutes everywhere, add duration/rest cues where recipe data supports them, and hand actual countdowns to the native system timer instead of running a Spoonjoy-owned stopwatch.
 - Add a hands-free cook-mode text setting after kitchen use.
 - Group shopping-list items by recipe/source when multiple meal plans are active.
 - Add smarter duplicate review for near-matches before merging quantities.

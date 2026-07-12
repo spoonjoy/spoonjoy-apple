@@ -314,7 +314,7 @@ struct NativeLiveStoreTests {
                         stepNum: 1,
                         stepTitle: "Toast",
                         description: "Toast bread.",
-                        duration: 120,
+                        duration: 2,
                         ingredients: [RecipeIngredientDraft(quantity: 2, unit: "slice", name: "bread")],
                         outputStepNums: []
                     )

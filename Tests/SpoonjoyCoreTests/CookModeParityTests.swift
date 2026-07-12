@@ -210,7 +210,7 @@ struct CookModeParityTests {
         #expect(timer.durationSeconds == 600)
         #expect(timer.durationLabel == "10 min")
         #expect(timer.startButtonTitle == "Set 10 min timer")
-        #expect(timer.systemUnavailableMessage == "System timers are available on iPhone and iPad.")
+        #expect(timer.systemUnavailableMessage == "System timers are available on iPhone and iPad with iOS 26.1 or newer.")
 
         let secondStepProgress = try started.selectingStep(id: "step_lemon_pasta_2", updatedAt: "2026-06-25T12:15:00.000Z")
         let secondStepTimer = try #require(CookModeViewModel(recipe: recipe, progress: secondStepProgress).systemTimer)
