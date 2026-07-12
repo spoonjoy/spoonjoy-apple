@@ -335,8 +335,10 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableNoPhotoView",
                 "missingSubtitle",
                 "trimmingCharacters(in: .whitespacesAndNewlines)",
+                ".id(url.absoluteString)",
                 "Photo not added",
                 "compactMark",
+                "mode == .loading || mode == .unavailable",
                 "case .empty:",
                 "Loading photo"
             ],
@@ -682,9 +684,15 @@ struct NativeMobileDesignContractTests {
                 "transaction.disablesAnimations = true",
                 "withTransaction(ingredientChecklistTransaction)",
                 ".animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)",
+                "CookModeIngredientChecklistLabel(row: row)",
+                "HStack(alignment: .firstTextBaseline, spacing: 10)",
+                ".fixedSize(horizontal: false, vertical: true)",
+                ".layoutPriority(1)",
                 ".transition(.opacity.combined(with: .move(edge: .bottom)))"
             ],
             forbids: [
+                "Button(\"Done\")",
+                "Label(\"Previous\", systemImage: \"arrow.backward.circle\")",
                 "Label(\"Add Ingredients\", systemImage: \"cart.badge.plus\")",
                 "ScaleSelector(scaleFactor: progress.scaleFactor)",
                 "KitchenTableSection(title: \"Step Inputs\"",
@@ -1123,10 +1131,12 @@ struct NativeMobileDesignContractTests {
                 "trimmingCharacters(in: .whitespacesAndNewlines)",
                 "KitchenTableNoPhotoView",
                 "AsyncImage(url: url, transaction: imageTransaction)",
+                ".id(url.absoluteString)",
                 "KitchenTableTheme.paper",
                 "KitchenTableTheme.vellum",
                 "Photo not added",
                 "photo.badge.plus",
+                "mode == .loading || mode == .unavailable",
                 "accessibilityLabel"
             ],
             forbids: [
