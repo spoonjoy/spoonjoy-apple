@@ -197,7 +197,7 @@ struct NativeMobileDesignContractTests {
                 "AlarmAttributes(",
                 "SpoonjoyCookTimerMetadata",
                 "CookModeSystemTimer",
-                "Set system timer"
+                "timer.startButtonTitle"
             ],
             forbids: [
                 "Timer.publish(every:",
@@ -557,6 +557,7 @@ struct NativeMobileDesignContractTests {
                 "stepsSection",
                 "KitchenTableSection(title: \"Steps\", subtitle: \"Tap ingredients as you go\")",
                 "Text(\"Ingredients\")",
+                "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
                 "RecipeDetailCookProgressSnapshot",
                 "spoonjoy-cook-progress:\\(viewModel.id)",
@@ -592,6 +593,8 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "case steps",
                 "RecipeDetailStepSection",
+                "durationMinutes",
+                "durationLabel",
                 "RecipeDetailStepDependency",
                 "stepSections = recipe.steps.map(RecipeDetailStepSection.init(step:))"
             ],
@@ -612,9 +615,11 @@ struct NativeMobileDesignContractTests {
                 "\"Clear progress\"",
                 "\"Add to list\"",
                 "\"Steps\"",
+                "\"timer\"",
                 "\"Cooks\"",
                 "\"Ingredients\"",
                 "\"RecipeScaleSelector\"",
+                "\"RecipeStepDurationCue\"",
                 "\"RecipeStepChecklistRow\""
             ],
             forbids: [

@@ -146,11 +146,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("recipe-detail", "RecipeDetailView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
-                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
+                voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "timer", "Cooks"],
+                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows", "duration cues"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
+                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-log", "SpoonCookLogView"):
@@ -164,11 +164,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("cook-mode", "CookModeView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
-                keyboardNavigationTargets: ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
+                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Set 10 min timer", "Ingredients", "Cook tools"],
+                keyboardNavigationTargets: ["cook step handrail", "system timer button", "ingredient toggles", "dependency toggles", "cook tools"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "herb tint on bone", "status text on material"],
-                hierarchyAnchors: ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
+                hierarchyAnchors: ["CookModeView", "currentStepCard", "RecipeStepDurationCue", "CookModeSystemTimer", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("shopping-list", "ShoppingListView"):

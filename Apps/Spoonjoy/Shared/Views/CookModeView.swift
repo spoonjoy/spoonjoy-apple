@@ -343,10 +343,21 @@ struct CookModeView: View {
 
     private func focusedStep(_ step: RecipeStep) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("\(step.stepNum). \(step.stepTitle ?? "Step")")
-                .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    currentStepTitle(step)
+                    if let timer = viewModel.systemTimer {
+                        RecipeStepDurationCue(durationLabel: timer.durationLabel)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    currentStepTitle(step)
+                    if let timer = viewModel.systemTimer {
+                        RecipeStepDurationCue(durationLabel: timer.durationLabel)
+                    }
+                }
+            }
             Text(step.description)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.charcoal)
@@ -362,6 +373,13 @@ struct CookModeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(KitchenTableTheme.paper)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private func currentStepTitle(_ step: RecipeStep) -> some View {
+        Text("\(step.stepNum). \(step.stepTitle ?? "Step")")
+            .font(.title2)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
     }
 
     @ViewBuilder private var dependencyChecklist: some View {
@@ -638,6 +656,7 @@ private extension Recipe {
         (
             [id] +
             steps.map(\.id) +
+            steps.map { step in "duration:\(step.id):\(step.duration.map(String.init) ?? "none")" } +
             steps.flatMap { $0.ingredients.map(\.id) } +
             steps.flatMap { $0.usingSteps.map(\.id) }
         ).joined(separator: "|")
@@ -654,16 +673,8 @@ private struct CookModeSystemTimer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Label(timer.durationLabel, systemImage: "timer")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .monospacedDigit()
-
-                Spacer(minLength: 8)
-
-                timerAction
-            }
+            timerAction
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if let statusMessage {
                 Label(statusMessage, systemImage: "checkmark.circle")
@@ -675,7 +686,9 @@ private struct CookModeSystemTimer: View {
                     .foregroundStyle(KitchenTableTheme.tomato)
             }
         }
-        .padding(.top, 2)
+        .padding(12)
+        .background(KitchenTableTheme.vellum.opacity(0.42))
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     private func scheduleTimer() {
@@ -709,7 +722,7 @@ private struct CookModeSystemTimer: View {
                         .controlSize(.small)
                         .accessibilityLabel("Setting system timer")
                 } else {
-                    Label("Set system timer", systemImage: "alarm")
+                    Label(timer.startButtonTitle, systemImage: "alarm")
                 }
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))

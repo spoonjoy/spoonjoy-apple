@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Replaces Spoonjoy's built-in cook-mode countdown with native system timers for timed recipe steps, keeps recipe durations aligned as minutes across the app, and preserves the latest UI and Sign in with Apple polish.",
+          "whatsNew": "Makes timed recipe steps visible in recipe detail and cook mode, with clear native system timer actions for timed cooking steps.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },

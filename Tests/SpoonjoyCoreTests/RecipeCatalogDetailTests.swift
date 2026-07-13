@@ -127,6 +127,30 @@ struct RecipeCatalogDetailTests {
         #expect(viewModel.sourceAttribution?.host == "example.com")
         #expect(viewModel.stepSections.map(\.stepNumber) == [1, 2])
         #expect(viewModel.stepSections[0].title == "Boil Pasta")
+        #expect(viewModel.stepSections[0].durationMinutes == 10)
+        #expect(viewModel.stepSections[0].durationLabel == "10 min")
+        #expect(viewModel.stepSections[1].durationMinutes == 5)
+        #expect(viewModel.stepSections[1].durationLabel == "5 min")
+        let untimedStep = RecipeDetailStepSection(step: RecipeStep(
+            id: "step_untimed",
+            stepNum: 3,
+            stepTitle: "Serve",
+            description: "Serve immediately.",
+            duration: nil,
+            ingredients: []
+        ))
+        let zeroDurationStep = RecipeDetailStepSection(step: RecipeStep(
+            id: "step_zero_duration",
+            stepNum: 4,
+            stepTitle: "Taste",
+            description: "Taste and adjust.",
+            duration: 0,
+            ingredients: []
+        ))
+        #expect(untimedStep.durationMinutes == nil)
+        #expect(untimedStep.durationLabel == nil)
+        #expect(zeroDurationStep.durationMinutes == 0)
+        #expect(zeroDurationStep.durationLabel == nil)
         #expect(viewModel.stepSections[0].ingredients.map(\.name) == ["kosher salt", "spaghetti"])
         #expect(viewModel.stepSections[1].ingredients.map(\.name) == ["garlic", "lemon"])
         #expect(viewModel.stepSections[1].dependencies.map(\.label) == ["Step 1: Boil Pasta"])
