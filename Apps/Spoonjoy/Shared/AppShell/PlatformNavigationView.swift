@@ -144,7 +144,7 @@ struct PlatformNavigationView: View {
 
     @ViewBuilder private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
 #if os(iOS)
-        if compactTabSection(for: navigation.route) == .search {
+        if routeKeepsSearchFocus(navigation.route) {
             compactMobileNavigationStack(spotlightPayload: spotlightPayload)
                 .searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: "Search Spoonjoy")
                 .searchFocused($isSearchFieldFocused)
@@ -336,9 +336,15 @@ struct PlatformNavigationView: View {
 
             compactTabContent(for: .recipes)
                 .tabItem {
-                    Label("Recipes", systemImage: "book.closed")
+                    Label("My Recipes", systemImage: "book.closed")
                 }
                 .tag(AppSection.recipes)
+
+            compactTabContent(for: .savedRecipes)
+                .tabItem {
+                    Label("Saved", systemImage: "bookmark")
+                }
+                .tag(AppSection.savedRecipes)
 
             compactTabContent(for: .cookbooks)
                 .tabItem {
@@ -348,19 +354,13 @@ struct PlatformNavigationView: View {
 
             compactTabContent(for: .shoppingList)
                 .tabItem {
-                    Label("Shopping", systemImage: "checklist")
+                    Label("Shopping List", systemImage: "checklist")
                 }
                 .tag(AppSection.shoppingList)
-
-            compactTabContent(for: .search)
-                .tabItem {
-                    Label("Search", systemImage: "magnifyingglass")
-                }
-                .tag(AppSection.search)
         }
         .tint(KitchenTableTheme.action)
 #if os(iOS)
-        .toolbarBackground(KitchenTableTheme.bone, for: .tabBar)
+        .toolbarBackground(.regularMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
 #endif
         .background(KitchenTableTheme.bone.ignoresSafeArea())
@@ -388,12 +388,16 @@ struct PlatformNavigationView: View {
              .cookbookDetail,
              .profile,
              .profileGraph,
-             .shoppingList,
-             .search,
              .capture,
              .settings:
             true
-        case .kitchen, .recipes, .unknownLink:
+        case .kitchen,
+             .recipes,
+             .savedRecipes,
+             .chefs,
+             .shoppingList,
+             .search,
+             .unknownLink:
             false
         }
     }
@@ -444,10 +448,12 @@ struct PlatformNavigationView: View {
     private var sidebar: some View {
         List(selection: sidebarSelection) {
             sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
-            sidebarLink(section: .recipes, title: "Recipes", systemImage: "book.closed")
+            sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book.closed")
+            sidebarLink(section: .savedRecipes, title: "Saved Recipes", systemImage: "bookmark")
             sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
-            sidebarLink(section: .shoppingList, title: "Shopping", systemImage: "checklist")
-            sidebarLink(section: .search, title: "Search", systemImage: "magnifyingglass")
+            sidebarLink(section: .shoppingList, title: "Shopping List", systemImage: "checklist")
+            sidebarLink(section: .chefs, title: "Chefs", systemImage: "person.2")
+            sidebarLink(section: .search, title: "Kitchen Search", systemImage: "magnifyingglass")
             sidebarLink(section: .capture, title: "Imports", systemImage: "tray.and.arrow.down")
             sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
         }
@@ -483,7 +489,9 @@ struct PlatformNavigationView: View {
                 openCookbook: openCookbook
             )
         case .recipes:
-            RecipesView(viewModel: recipeCatalogViewModel, openRoute: openRoute)
+            RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
+        case .savedRecipes:
+            SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
         case .recipeDetail(let id, .detail):
             RecipeDetailRouteView(
                 recipeID: id,
@@ -578,6 +586,8 @@ struct PlatformNavigationView: View {
                 openRoute: openRoute,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
+        case .chefs:
+            ChefsView(profiles: chefProfiles, openRoute: openRoute)
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
@@ -686,7 +696,7 @@ struct PlatformNavigationView: View {
 
     private func focusCompactSearchFieldIfNeeded() {
         guard usesCompactMobileShell,
-              compactTabSection(for: navigation.route) == .search,
+              routeKeepsSearchFocus(navigation.route),
               shouldAutoFocusSearchField else {
             return
         }
@@ -744,10 +754,14 @@ struct PlatformNavigationView: View {
             .kitchen
         case .recipes:
             .recipes
+        case .savedRecipes:
+            .savedRecipes
         case .cookbooks:
             .cookbooks
         case .shoppingList:
             .shoppingList
+        case .chefs:
+            .chefs
         case .search:
             normalizedSearch(search).route
         case .capture:
@@ -763,14 +777,16 @@ struct PlatformNavigationView: View {
             .kitchen
         case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
             .recipes
+        case .savedRecipes:
+            .savedRecipes
         case .cookbooks, .cookbookDetail:
             .cookbooks
         case .shoppingList:
             .shoppingList
         case .search:
-            .search
-        case .profile, .profileGraph:
-            .search
+            .kitchen
+        case .chefs, .profile, .profileGraph:
+            .chefs
         case .capture, .settings, .unknownLink:
             .kitchen
         }
@@ -785,10 +801,14 @@ struct PlatformNavigationView: View {
             navigation.navigate(to: .kitchen)
         case .recipes:
             navigation.navigate(to: .recipes)
+        case .savedRecipes:
+            navigation.navigate(to: .savedRecipes)
         case .cookbooks:
             navigation.navigate(to: .cookbooks)
         case .shoppingList:
             navigation.navigate(to: .shoppingList)
+        case .chefs:
+            navigation.navigate(to: .chefs)
         case .search:
             Task {
                 await performSearch(search)
@@ -818,6 +838,9 @@ struct PlatformNavigationView: View {
                 Button("Import queue", systemImage: "tray.and.arrow.down") {
                     openRoute(.capture)
                 }
+                Button("Chefs", systemImage: "person.2") {
+                    openRoute(.chefs)
+                }
                 Button("Search", systemImage: "magnifyingglass") {
                     Task {
                         await performSearch(search)
@@ -844,14 +867,14 @@ struct PlatformNavigationView: View {
         case .recipeDetail(let id, .cook):
             (title: "Recipe", accessibilityLabel: "Back to recipe", route: .recipeDetail(id: id, presentation: .detail))
         case .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
-            (title: "Recipes", accessibilityLabel: "Back to Recipes", route: .recipes)
+            (title: "My Recipes", accessibilityLabel: "Back to My Recipes", route: .recipes)
         case .cookbookDetail:
             (title: "Cookbooks", accessibilityLabel: "Back to Cookbooks", route: .cookbooks)
         case .profile, .profileGraph:
-            (title: "Search", accessibilityLabel: "Back to Search", route: normalizedSearch(search).route)
+            (title: "Chefs", accessibilityLabel: "Back to Chefs", route: .chefs)
         case .capture, .settings, .unknownLink:
             (title: "Kitchen", accessibilityLabel: "Back to Kitchen", route: .kitchen)
-        case .kitchen, .recipes, .cookbooks, .shoppingList, .search:
+        case .kitchen, .recipes, .savedRecipes, .cookbooks, .shoppingList, .chefs, .search:
             nil
         }
     }
@@ -871,10 +894,14 @@ struct PlatformNavigationView: View {
             navigation.navigate(to: .kitchen)
         case .recipes:
             navigation.navigate(to: .recipes)
+        case .savedRecipes:
+            navigation.navigate(to: .savedRecipes)
         case .cookbooks:
             navigation.navigate(to: .cookbooks)
         case .shoppingList:
             navigation.navigate(to: .shoppingList)
+        case .chefs:
+            navigation.navigate(to: .chefs)
         case .search:
             Task {
                 await performSearch(search)
@@ -892,18 +919,24 @@ struct PlatformNavigationView: View {
             "Kitchen"
         case .recipeDetail(_, .cook):
             "Cook"
-        case .recipes, .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
+        case .recipes:
+            "My Recipes"
+        case .savedRecipes:
+            "Saved Recipes"
+        case .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
             "Recipes"
         case .cookbooks, .cookbookDetail:
             "Cookbooks"
+        case .chefs:
+            "Chefs"
         case .profile:
             "Profile"
         case .profileGraph(_, let direction, _):
             direction == .fellowChefs ? "Fellow Chefs" : "Kitchen Visitors"
         case .shoppingList:
-            "Shopping"
+            "Shopping List"
         case .search:
-            "Search"
+            "Kitchen Search"
         case .capture:
             "Import queue"
         case .settings:
@@ -1160,6 +1193,76 @@ struct PlatformNavigationView: View {
         let viewModel = RecipeCatalogViewModel(repository: recipeCatalogRepository)
         viewModel.apply(page: contentState.recipeCatalog)
         return viewModel
+    }
+
+    private var myRecipesCatalogRepository: any RecipeCatalogRepository {
+        personalRecipeCatalogRepository(page: contentState.myRecipesCatalog)
+    }
+
+    private var myRecipesCatalogViewModel: RecipeCatalogViewModel {
+        let viewModel = RecipeCatalogViewModel(repository: myRecipesCatalogRepository)
+        viewModel.apply(page: contentState.myRecipesCatalog)
+        return viewModel
+    }
+
+    private var savedRecipesCatalogRepository: any RecipeCatalogRepository {
+        personalRecipeCatalogRepository(page: contentState.savedRecipesCatalog)
+    }
+
+    private var savedRecipesCatalogViewModel: RecipeCatalogViewModel {
+        let viewModel = RecipeCatalogViewModel(repository: savedRecipesCatalogRepository)
+        viewModel.apply(page: contentState.savedRecipesCatalog)
+        return viewModel
+    }
+
+    private func personalRecipeCatalogRepository(page: RecipeCatalogPage) -> any RecipeCatalogRepository {
+        let savedRecipeIDs = Set(page.rows.map(\.id))
+        return SnapshotRecipeCatalogRepository(
+            page: page,
+            details: contentState.recipes
+                .filter { savedRecipeIDs.contains($0.id) }
+                .map { RecipeCatalogDetailResult(recipe: $0, source: page.source) }
+        )
+    }
+
+    private var chefProfiles: [NativeCachedProfile] {
+        var profilesByID: [String: NativeCachedProfile] = [:]
+        var orderedIDs: [String] = []
+
+        func append(_ profile: NativeCachedProfile) {
+            guard profile.profile.id != currentChefID,
+                  profilesByID[profile.profile.id] == nil else {
+                return
+            }
+            profilesByID[profile.profile.id] = profile
+            orderedIDs.append(profile.profile.id)
+        }
+
+        for profile in contentState.cachedProfiles {
+            append(profile)
+        }
+
+        for chef in contentState.recipes.map(\.chef) + contentState.cookbooks.map(\.chef) {
+            append(profileCandidate(chef: chef))
+        }
+
+        return orderedIDs.compactMap { profilesByID[$0] }
+    }
+
+    private func profileCandidate(chef: ChefSummary) -> NativeCachedProfile {
+        let encodedUsername = AppRoute.encodedProfileIdentifier(chef.username)
+        let href = "/users/\(encodedUsername)"
+        return NativeCachedProfile(
+            profile: ProfileSummary(
+                id: chef.id,
+                username: chef.username,
+                photoURL: chef.photoURL,
+                joinedLabel: "Joined Spoonjoy",
+                href: href,
+                canonicalURL: URL(string: "https://spoonjoy.app\(href)")!
+            ),
+            source: .cache(serverRevision: latestRecipeRevision, lastValidatedAt: .distantPast)
+        )
     }
 
     private var cookbookSurfaceRepository: any CookbookSurfaceRepository {
@@ -1864,6 +1967,8 @@ struct PlatformNavigationView: View {
             )
         case .kitchen,
              .recipes,
+             .savedRecipes,
+             .chefs,
              .cookbooks,
              .recipeEditor,
              .recipeCoverControls,
@@ -2045,19 +2150,17 @@ private extension View {
 private extension AppRoute {
     var usesCompactAuxiliaryShell: Bool {
         switch self {
-        case .capture, .settings, .unknownLink:
+        case .chefs, .profile, .profileGraph, .search, .capture, .settings, .unknownLink:
             true
         case .kitchen,
              .recipes,
+             .savedRecipes,
              .recipeDetail,
              .recipeEditor,
              .recipeCoverControls,
              .cookbooks,
              .cookbookDetail,
-             .profile,
-             .profileGraph,
-             .shoppingList,
-             .search:
+             .shoppingList:
             false
         }
     }

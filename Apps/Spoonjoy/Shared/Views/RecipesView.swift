@@ -8,16 +8,37 @@ struct RecipesView: View {
 
     let viewModel: RecipeCatalogViewModel
     let openRoute: (AppRoute) -> Void
+    private let headerEyebrow: String
+    private let title: String
+    private let searchPrompt: String
+    private let loadingTitle: String
+    private let loadingSubtitle: String
+    private let proofRoute: String
+    private let proofSource: String
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
 
     init(
         viewModel: RecipeCatalogViewModel,
-        openRoute: @escaping (AppRoute) -> Void
+        openRoute: @escaping (AppRoute) -> Void,
+        headerEyebrow: String = "My Kitchen",
+        title: String = "My Recipes",
+        searchPrompt: String = "Search my recipes",
+        loadingTitle: String = "Loading recipes",
+        loadingSubtitle: String = "Opening your recipe index.",
+        proofRoute: String = "recipes",
+        proofSource: String = "RecipesView"
     ) {
         self.viewModel = viewModel
         self.openRoute = openRoute
+        self.headerEyebrow = headerEyebrow
+        self.title = title
+        self.searchPrompt = searchPrompt
+        self.loadingTitle = loadingTitle
+        self.loadingSubtitle = loadingSubtitle
+        self.proofRoute = proofRoute
+        self.proofSource = proofSource
         _state = State(initialValue: viewModel.state)
         _query = State(initialValue: viewModel.state.query)
     }
@@ -25,13 +46,13 @@ struct RecipesView: View {
     var body: some View {
         KitchenTablePage {
             KitchenTableHeader(
-                eyebrow: "Cookbook",
-                title: "Recipes",
+                eyebrow: headerEyebrow,
+                title: title,
                 subtitle: state.resultCountLabel
             )
 
             if isLoading, state.rows.isEmpty {
-                KitchenTableLoadingStateView(title: "Loading recipes", subtitle: "Opening your recipe index.", systemImage: "book.closed")
+                KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book.closed")
             } else if let emptyState = state.emptyState {
                 recipesEmptyState(emptyState)
             } else if let leadRow = state.leadRow {
@@ -43,7 +64,7 @@ struct RecipesView: View {
                 recipeIndexSection(rows: state.rows)
             }
         }
-        .searchable(text: $query, prompt: "Search recipes")
+        .searchable(text: $query, prompt: searchPrompt)
         .onSubmit(of: .search) {
             Task {
                 await loadCatalog(query: query)
@@ -53,8 +74,8 @@ struct RecipesView: View {
             await loadCatalog(query: query)
             await RecipeCoverPrefetcher.prefetch(state.rows.compactMap(\.coverImageURL))
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
-                route: "recipes",
-                source: "RecipesView",
+                route: proofRoute,
+                source: proofSource,
                 runtimeContext: ScreenshotAccessibilityRuntimeContext(
                     dynamicTypeSize: String(describing: dynamicTypeSize),
                     reduceMotionEnabled: accessibilityReduceMotion
@@ -92,6 +113,74 @@ struct RecipesView: View {
                     RecipeIndexRow(row: row)
                 }
                 .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+struct SavedRecipesView: View {
+    let viewModel: RecipeCatalogViewModel
+    let openRoute: (AppRoute) -> Void
+
+    var body: some View {
+        RecipesView(
+            viewModel: viewModel,
+            openRoute: openRoute,
+            title: "Saved Recipes",
+            searchPrompt: "Search saved recipes",
+            loadingTitle: "Loading saved recipes",
+            loadingSubtitle: "Opening the recipes saved in your cookbooks.",
+            proofRoute: "saved-recipes",
+            proofSource: "SavedRecipesView"
+        )
+    }
+}
+
+struct ChefsView: View {
+    let profiles: [NativeCachedProfile]
+    let openRoute: (AppRoute) -> Void
+
+    var body: some View {
+        KitchenTablePage {
+            KitchenTableHeader(
+                eyebrow: "My Kitchen",
+                title: "Chefs",
+                subtitle: "\(profiles.count) \(profiles.count == 1 ? "chef" : "chefs")"
+            )
+
+            if profiles.isEmpty {
+                KitchenTableSection(title: "No fellow chefs yet") {
+                    Text("Cook, save, or fork another chef's recipe to start building your kitchen.")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                        .background(KitchenTableTheme.paper)
+                        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                }
+            } else {
+                KitchenTableSection(title: "Fellow Chefs") {
+                    ForEach(profiles.map(\.profile), id: \.id) { profile in
+                        Button {
+                            openRoute(.profile(identifier: profile.username))
+                        } label: {
+                            KitchenTableObjectRow(title: profile.username, subtitle: "Open kitchen profile") {
+                                Image(systemName: "person.crop.circle")
+                                    .font(.title2)
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                                    .frame(width: 44, height: 44)
+                                    .background(KitchenTableTheme.paper)
+                            } trailing: {
+                                Image(systemName: "chevron.forward")
+                                    .font(KitchenTableTheme.uiLabel)
+                                    .foregroundStyle(KitchenTableTheme.brass)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens chef profile")
+                    }
+                }
             }
         }
     }

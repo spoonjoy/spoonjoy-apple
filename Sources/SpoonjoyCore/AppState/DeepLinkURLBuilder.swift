@@ -10,6 +10,8 @@ public enum DeepLinkURLBuilder {
             components.host = "kitchen"
         case .recipes:
             components.host = "recipes"
+        case .savedRecipes:
+            components.host = "saved-recipes"
         case .recipeDetail(let id, .detail):
             components.host = "recipes"
             components.path = "/\(id)"
@@ -30,6 +32,8 @@ public enum DeepLinkURLBuilder {
         case .cookbookDetail(let id):
             components.host = "cookbooks"
             components.path = "/\(id)"
+        case .chefs:
+            components.host = "chefs"
         case .profile(let identifier):
             components.host = "users"
             components.percentEncodedPath = "/\(AppRoute.encodedProfileIdentifier(identifier))"

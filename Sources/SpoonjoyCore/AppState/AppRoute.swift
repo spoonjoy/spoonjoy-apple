@@ -16,8 +16,10 @@ public enum SearchScope: String, Codable, CaseIterable, Hashable, Sendable {
 public enum AppSection: Hashable, Sendable {
     case kitchen
     case recipes
+    case savedRecipes
     case cookbooks
     case shoppingList
+    case chefs
     case search
     case capture
     case settings
@@ -26,11 +28,13 @@ public enum AppSection: Hashable, Sendable {
 public enum AppRoute: Hashable, Sendable {
     case kitchen
     case recipes
+    case savedRecipes
     case recipeDetail(id: String, presentation: RecipePresentation)
     case recipeEditor(id: String?)
     case recipeCoverControls(id: String)
     case cookbooks
     case cookbookDetail(id: String)
+    case chefs
     case profile(identifier: String)
     case profileGraph(identifier: String, direction: ProfileGraphDirection, page: Int)
     case shoppingList
@@ -45,10 +49,12 @@ public enum AppRoute: Hashable, Sendable {
             .kitchen
         case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
             .recipes
+        case .savedRecipes:
+            .savedRecipes
         case .cookbooks, .cookbookDetail:
             .cookbooks
-        case .profile, .profileGraph:
-            .search
+        case .chefs, .profile, .profileGraph:
+            .chefs
         case .shoppingList:
             .shoppingList
         case .search:
@@ -86,6 +92,8 @@ public enum AppRoute: Hashable, Sendable {
             "kitchen"
         case .recipes:
             "recipes"
+        case .savedRecipes:
+            "saved-recipes"
         case .recipeDetail(let id, .detail):
             "recipe:\(id)"
         case .recipeDetail(let id, .cook):
@@ -100,6 +108,8 @@ public enum AppRoute: Hashable, Sendable {
             "cookbooks"
         case .cookbookDetail(let id):
             "cookbook:\(id)"
+        case .chefs:
+            "chefs"
         case .profile(let identifier):
             "profile:\(Self.encodedProfileIdentifier(identifier))"
         case .profileGraph(let identifier, let direction, let page):
@@ -123,6 +133,8 @@ public enum AppRoute: Hashable, Sendable {
             self = .kitchen
         } else if parts == ["recipes"] {
             self = .recipes
+        } else if parts == ["saved-recipes"] {
+            self = .savedRecipes
         } else if parts.count == 2, parts[0] == "recipe", Self.isSafeID(parts[1]) {
             self = .recipeDetail(id: parts[1], presentation: .detail)
         } else if parts.count == 2, parts[0] == "recipe-cook", Self.isSafeID(parts[1]) {
@@ -137,6 +149,8 @@ public enum AppRoute: Hashable, Sendable {
             self = .cookbooks
         } else if parts.count == 2, parts[0] == "cookbook", Self.isSafeID(parts[1]) {
             self = .cookbookDetail(id: parts[1])
+        } else if parts == ["chefs"] {
+            self = .chefs
         } else if parts.count == 2, parts[0] == "profile",
                   let identifier = Self.decodedProfileIdentifier(parts[1]) {
             self = .profile(identifier: identifier)
