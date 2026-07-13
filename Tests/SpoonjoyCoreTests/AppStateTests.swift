@@ -19,6 +19,14 @@ struct AppStateTests {
         #expect(navigation.route == .recipes)
         #expect(navigation.sidebarSelection == .recipes)
 
+        navigation.navigate(to: .savedRecipes)
+        #expect(navigation.route == .savedRecipes)
+        #expect(navigation.sidebarSelection == .savedRecipes)
+
+        navigation.navigate(to: .chefs)
+        #expect(navigation.route == .chefs)
+        #expect(navigation.sidebarSelection == .chefs)
+
         navigation.navigate(to: .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
         #expect(navigation.selectedRecipeID == "recipe_lemon_pantry_pasta")
         #expect(navigation.sidebarSelection == .recipes)
@@ -82,6 +90,62 @@ struct AppStateTests {
         #expect(search.query == "lemon")
         #expect(search.scope == .recipes)
         #expect(search.route == .search(query: "lemon", scope: .recipes))
+    }
+
+    @Test("personal recipe catalogs derive from the current chef and owned cookbooks")
+    func personalRecipeCatalogsDeriveFromCurrentChefAndOwnedCookbooks() throws {
+        let currentChef = ChefSummary(id: "chef_ari", username: "ari")
+        let otherChef = ChefSummary(id: "chef_jules", username: "jules")
+        let ownRecipe = Self.recipe(id: "recipe_own", title: "My Weeknight Beans", chef: currentChef, updatedAt: "2026-07-01T10:00:00.000Z")
+        let otherRecipe = Self.recipe(id: "recipe_other", title: "Jules Salad", chef: otherChef, updatedAt: "2026-07-02T10:00:00.000Z")
+        let savedShared = Self.recipe(id: "recipe_saved_shared", title: "Saved Rice", chef: otherChef, updatedAt: "2026-07-03T10:00:00.000Z")
+        let savedUnique = Self.recipe(id: "recipe_saved_unique", title: "Saved Lentils", chef: currentChef, updatedAt: "2026-07-04T10:00:00.000Z")
+        let foreignSaved = Self.recipe(id: "recipe_foreign_saved", title: "Foreign Saved Toast", chef: otherChef, updatedAt: "2026-07-05T10:00:00.000Z")
+        let content = NativeShellContentState.empty(
+            authSessionState: .authenticated(try Self.authSession(accountID: currentChef.id)),
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        .copy(
+            recipes: [otherRecipe, ownRecipe, savedShared, savedUnique, foreignSaved],
+            cookbooks: [
+                Self.cookbook(id: "cookbook_owned_one", title: "Ari Shelf One", chef: currentChef, recipes: [RecipeSummary(recipe: savedShared), RecipeSummary(recipe: savedUnique)]),
+                Self.cookbook(id: "cookbook_foreign", title: "Jules Shelf", chef: otherChef, recipes: [RecipeSummary(recipe: foreignSaved)]),
+                Self.cookbook(id: "cookbook_owned_two", title: "Ari Shelf Two", chef: currentChef, recipes: [RecipeSummary(recipe: savedShared)])
+            ]
+        )
+
+        #expect(content.currentChefID == currentChef.id)
+        #expect(content.myRecipesCatalog.rows.map(\.id) == ["recipe_own", "recipe_saved_unique"])
+        #expect(content.savedRecipesCatalog.rows.map(\.id) == ["recipe_saved_shared", "recipe_saved_unique"])
+        #expect(content.savedRecipesCatalog.rows.map(\.id).contains("recipe_foreign_saved") == false)
+    }
+
+    @Test("personal recipe catalogs are empty when the current chef is unavailable")
+    func personalRecipeCatalogsAreEmptyWhenCurrentChefIsUnavailable() throws {
+        let currentChef = ChefSummary(id: "chef_ari", username: "ari")
+        let content = NativeShellContentState.empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        )
+        .copy(
+            recipes: [Self.recipe(id: "recipe_own", title: "Should Not Leak", chef: currentChef, updatedAt: "2026-07-01T10:00:00.000Z")],
+            cookbooks: [
+                Self.cookbook(
+                    id: "cookbook_owned",
+                    title: "Should Not Leak Shelf",
+                    chef: currentChef,
+                    recipes: [RecipeSummary(recipe: Self.recipe(id: "recipe_saved", title: "Should Not Leak Saved", chef: currentChef, updatedAt: "2026-07-02T10:00:00.000Z"))]
+                )
+            ]
+        )
+
+        #expect(content.currentChefID == nil)
+        #expect(content.myRecipesCatalog.rows.isEmpty)
+        #expect(content.savedRecipesCatalog.rows.isEmpty)
     }
 
     @Test("screen view models delegate to existing domain state")
@@ -766,6 +830,7 @@ struct AppStateTests {
         let cases: [(AppRoute, String, String)] = [
             (.kitchen, "kitchen", "spoonjoy://kitchen"),
             (.recipes, "recipes", "spoonjoy://recipes"),
+            (.savedRecipes, "saved-recipes", "spoonjoy://saved-recipes"),
             (.recipeDetail(id: "recipe_lemon", presentation: .detail), "recipe:recipe_lemon", "spoonjoy://recipes/recipe_lemon"),
             (.recipeDetail(id: "recipe_lemon", presentation: .cook), "recipe-cook:recipe_lemon", "spoonjoy://recipes/recipe_lemon/cook"),
             (.recipeEditor(id: "recipe_lemon"), "recipe-editor:recipe_lemon", "spoonjoy://recipes/recipe_lemon/edit"),
@@ -773,6 +838,7 @@ struct AppStateTests {
             (.recipeCoverControls(id: "recipe_lemon"), "recipe-covers:recipe_lemon", "spoonjoy://recipes/recipe_lemon/covers"),
             (.cookbooks, "cookbooks", "spoonjoy://cookbooks"),
             (.cookbookDetail(id: "cookbook_weeknights"), "cookbook:cookbook_weeknights", "spoonjoy://cookbooks/cookbook_weeknights"),
+            (.chefs, "chefs", "spoonjoy://chefs"),
             (.profile(identifier: "ari"), "profile:ari", "spoonjoy://users/ari"),
             (.profile(identifier: "ari/space"), "profile:ari%2Fspace", "spoonjoy://users/ari%2Fspace"),
             (.profile(identifier: "ari space"), "profile:ari%20space", "spoonjoy://users/ari%20space"),
@@ -807,6 +873,63 @@ struct AppStateTests {
 
     private func url(_ rawURL: String) throws -> URL {
         try #require(URL(string: rawURL))
+    }
+
+    private static func authSession(accountID: String?) throws -> AuthSession {
+        try AuthSession(
+            clientID: NativeAuthSession.nativeAppClientID,
+            accessToken: "access-token",
+            refreshToken: "refresh-token",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 1_900_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: accountID
+        )
+    }
+
+    private static func recipe(id: String, title: String, chef: ChefSummary, updatedAt: String) -> Recipe {
+        let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
+        return Recipe(
+            id: id,
+            title: title,
+            description: nil,
+            servings: nil,
+            chef: chef,
+            coverImageURL: nil,
+            coverProvenanceLabel: nil,
+            coverSourceType: nil,
+            coverVariant: nil,
+            href: "/recipes/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: RecipeAttribution(
+                creditText: "Recipe by \(chef.username)",
+                canonicalURL: canonicalURL,
+                sourceURLRaw: nil,
+                sourceHost: nil,
+                sourceRecipe: nil
+            ),
+            createdAt: updatedAt,
+            updatedAt: updatedAt,
+            steps: [],
+            cookbooks: []
+        )
+    }
+
+    private static func cookbook(id: String, title: String, chef: ChefSummary, recipes: [RecipeSummary]) -> Cookbook {
+        let canonicalURL = URL(string: "https://spoonjoy.app/cookbooks/\(id)")!
+        return Cookbook(
+            id: id,
+            title: title,
+            chef: chef,
+            recipeCount: recipes.count,
+            cover: CookbookCover(imageURLs: recipes.map(\.displayCoverImageURL)),
+            href: "/cookbooks/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: CookbookAttribution(creditText: "Cookbook by \(chef.username)", canonicalURL: canonicalURL),
+            createdAt: recipes.first?.createdAt ?? "2026-07-01T10:00:00.000Z",
+            updatedAt: recipes.first?.updatedAt ?? "2026-07-01T10:00:00.000Z",
+            recipes: recipes
+        )
     }
 
     private static func jsonValue<T: Encodable>(_ value: T) throws -> JSONValue {
