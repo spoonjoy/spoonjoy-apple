@@ -20,10 +20,12 @@ struct NativeMobileDesignContractTests {
                 "TabView(selection: compactTabSelection)",
                 ".tabItem",
                 "Label(\"Kitchen\", systemImage: \"house\")",
-                "Label(\"Recipes\", systemImage: \"book.closed\")",
+                "Label(\"My Recipes\", systemImage: \"book.closed\")",
+                "Label(\"Saved\", systemImage: \"bookmark\")",
                 "Label(\"Cookbooks\", systemImage: \"books.vertical\")",
-                "Label(\"Shopping\", systemImage: \"checklist\")",
-                "Label(\"Search\", systemImage: \"magnifyingglass\")",
+                "Label(\"Shopping List\", systemImage: \"checklist\")",
+                "Button(\"Chefs\", systemImage: \"person.2\")",
+                "Button(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
                 "ToolbarItem(placement: .topBarTrailing)",
                 ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
@@ -39,6 +41,7 @@ struct NativeMobileDesignContractTests {
                 "compactBottomChrome",
                 ".safeAreaInset(edge: .bottom, spacing: 0)",
                 "ToolbarItemGroup(placement: .topBarTrailing)",
+                "compactTabContent(for: .search)",
                 "SpoonDock(context: spoonDockContext)",
                 "shouldShowShellSpoonDock",
                 "spoonDockContext"
@@ -60,8 +63,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("iOS tab bar appearance is opaque Spoonjoy bone")
-    func iOSTabBarAppearanceIsOpaqueSpoonjoyBone() throws {
+    @Test("iOS tab bar appearance uses translucent system material")
+    func iOSTabBarAppearanceUsesTranslucentSystemMaterial() throws {
         let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
         let app = uncommentedSwift(try readRepoFile(appPath))
 
@@ -71,13 +74,18 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "configureChromeAppearance()",
                 "UITabBarAppearance()",
-                "configureWithOpaqueBackground()",
-                "appearance.backgroundColor = SpoonjoyUIColor.bone",
-                "UITabBar.appearance().isTranslucent = false",
+                "configureWithTransparentBackground()",
+                "appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)",
+                "appearance.backgroundColor = SpoonjoyUIColor.glassBone",
+                "UITabBar.appearance().isTranslucent = true",
                 "UITabBar.appearance().standardAppearance = appearance",
                 "UITabBar.appearance().scrollEdgeAppearance = appearance",
                 "private enum SpoonjoyUIColor",
-                "UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 1)"
+                "UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 0.72)"
+            ],
+            forbids: [
+                "configureWithOpaqueBackground()",
+                "UITabBar.appearance().isTranslucent = false"
             ]
         )
     }
@@ -982,7 +990,7 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "TabView(selection: compactTabSelection)",
-                "Label(\"Shopping\", systemImage: \"checklist\")",
+                "Label(\"Shopping List\", systemImage: \"checklist\")",
                 ".tag(AppSection.shoppingList)",
                 "case .shoppingList:\n            navigation.navigate(to: .shoppingList)"
             ],
@@ -1138,15 +1146,17 @@ struct NativeMobileDesignContractTests {
                 "private var compactTabSelection: Binding<AppSection>",
                 "compactTabContent(for: .kitchen)",
                 "compactTabContent(for: .recipes)",
+                "compactTabContent(for: .savedRecipes)",
                 "compactTabContent(for: .cookbooks)",
                 "compactTabContent(for: .shoppingList)",
-                "compactTabContent(for: .search)",
                 "private func compactRootRoute(for section: AppSection) -> AppRoute",
                 "private func compactTabSection(for route: AppRoute) -> AppSection",
-                "case .profile, .profileGraph:\n            .search",
+                "case .search:\n            .kitchen",
+                "case .chefs, .profile, .profileGraph:\n            .chefs",
                 "case .capture, .settings, .unknownLink:\n            .kitchen"
             ],
             forbids: [
+                "compactTabContent(for: .search)",
                 ".toolbar(navigation.route.isCookModeActive ? .hidden : .automatic, for: .tabBar)",
                 "SpoonDockContext.recipes(",
                 "SpoonDockContext.search(",
@@ -1468,9 +1478,12 @@ struct NativeMobileDesignContractTests {
                 "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)",
                 "searchableRouteNavigationStack",
                 ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
+                "navigation.route.usesCompactAuxiliaryShell",
                 "@State private var isSearchPresented = false",
                 ".searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: \"Search Spoonjoy\")",
                 "focusCompactSearchFieldIfNeeded",
+                "routeKeepsSearchFocus",
+                "if case .search = route",
                 "compactMobileShell(spotlightPayload: spotlightPayload)",
                 "ToolbarItem(placement: .topBarTrailing)"
             ],
