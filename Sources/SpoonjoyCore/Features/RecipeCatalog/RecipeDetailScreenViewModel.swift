@@ -98,14 +98,23 @@ public struct RecipeDetailStepSection: Identifiable, Equatable, Sendable {
     public let stepNumber: Int
     public let title: String?
     public let body: String
+    public let durationMinutes: Int?
     public let dependencies: [RecipeDetailStepDependency]
     public let ingredients: [RecipeDetailIngredientRow]
+
+    public var durationLabel: String? {
+        guard let durationMinutes, durationMinutes > 0 else {
+            return nil
+        }
+        return "\(durationMinutes) min"
+    }
 
     public init(step: RecipeStep) {
         id = step.id
         stepNumber = step.stepNum
         title = step.stepTitle
         body = step.description
+        durationMinutes = step.duration
         dependencies = step.usingSteps.map(RecipeDetailStepDependency.init(use:))
         ingredients = step.ingredients.map(RecipeDetailIngredientRow.init(ingredient:))
     }

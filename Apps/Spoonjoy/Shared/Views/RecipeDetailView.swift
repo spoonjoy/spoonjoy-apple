@@ -640,12 +640,12 @@ struct RecipeDetailView: View {
     private func recipeStepSection(_ section: RecipeDetailStepSection) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Step \(section.stepNumber)")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                    .textCase(.uppercase)
-                    .tracking(1.3)
-                    .accessibilityLabel("Step \(section.stepNumber)")
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    stepEyebrow(section)
+                    if let durationLabel = section.durationLabel {
+                        RecipeStepDurationCue(durationLabel: durationLabel)
+                    }
+                }
 
                 if let title = section.title, !title.isEmpty {
                     Text(title)
@@ -700,6 +700,15 @@ struct RecipeDetailView: View {
                 .fill(KitchenTableTheme.line.opacity(0.35))
                 .frame(height: 1)
         }
+    }
+
+    private func stepEyebrow(_ section: RecipeDetailStepSection) -> some View {
+        Text("Step \(section.stepNumber)")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.brass)
+            .textCase(.uppercase)
+            .tracking(1.3)
+            .accessibilityLabel("Step \(section.stepNumber)")
     }
 
     private var cookbookSave: some View {
@@ -1309,6 +1318,23 @@ private struct RecipeStepChecklistRow: View {
             }
             return value
         }.joined(separator: ", ")
+    }
+}
+
+struct RecipeStepDurationCue: View {
+    let durationLabel: String
+
+    var body: some View {
+        Label("\(durationLabel) timer", systemImage: "timer")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.herb)
+            .monospacedDigit()
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(KitchenTableTheme.vellum.opacity(0.58))
+            .clipShape(Capsule())
+            .accessibilityLabel("\(durationLabel) timer")
     }
 }
 
