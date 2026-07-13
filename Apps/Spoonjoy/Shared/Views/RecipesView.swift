@@ -137,6 +137,9 @@ struct SavedRecipesView: View {
 }
 
 struct ChefsView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let profiles: [NativeCachedProfile]
     let openRoute: (AppRoute) -> Void
 
@@ -183,6 +186,16 @@ struct ChefsView: View {
                 }
             }
         }
+        .task {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "chefs",
+                source: "ChefsView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
+        }
     }
 }
 
@@ -197,7 +210,7 @@ private struct RecipeCatalogLead: View {
             VStack(alignment: .leading, spacing: 10) {
                 leadCover
 
-                Text("Latest from the kitchen".uppercased())
+                Text("On the Counter".uppercased())
                     .font(.caption2.weight(.bold))
                     .tracking(1.2)
                     .foregroundStyle(KitchenTableTheme.brass)

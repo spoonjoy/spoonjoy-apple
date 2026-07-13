@@ -16,7 +16,7 @@ REQUIRED_FIELDS = [
   "noOverlap"
 ].freeze
 
-VALID_ROUTES = ["kitchen", "recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
+VALID_ROUTES = ["kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "chefs", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 EXPECTED_CAPTURE_VARIANTS = ["normal", "empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
 ACCESSIBILITY_FIELDS = [
@@ -47,7 +47,7 @@ EXPECTED_OFFLINE_SEVERE_STATES = [
 ].freeze
 EXPECTED_ROUTE_EVIDENCE = {
   "kitchen" => {
-    "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+    "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
     "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
@@ -63,11 +63,19 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "recipes" => {
-    "voiceOverLabels" => ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes"],
+    "voiceOverLabels" => ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
     "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+  },
+  "saved-recipes" => {
+    "voiceOverLabels" => ["Saved Recipes", "Recipe index", "Loading saved recipes"],
+    "keyboardNavigationTargets" => ["saved recipe lead button", "RecipeIndexRow buttons", "search field"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone"],
+    "hierarchyAnchors" => ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbooks" => {
@@ -141,6 +149,14 @@ EXPECTED_ROUTE_EVIDENCE = {
     "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
     "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
+  },
+  "chefs" => {
+    "voiceOverLabels" => ["Chefs", "Fellow chefs", "Kitchen visitors"],
+    "keyboardNavigationTargets" => ["chef profile rows", "native More menu", "regular sidebar"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone"],
+    "hierarchyAnchors" => ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
+    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   }
 }.freeze
 
@@ -259,6 +275,8 @@ def expected_accessibility_source(route, manifest)
     "SearchView"
   when "recipes"
     "RecipesView"
+  when "saved-recipes"
+    "SavedRecipesView"
   when "cookbooks"
     "CookbooksView"
   when "cookbook-detail"
@@ -275,6 +293,8 @@ def expected_accessibility_source(route, manifest)
     "CookModeView"
   when "shopping-list"
     "ShoppingListView"
+  when "chefs"
+    "ChefsView"
   else
     fail_check("unsupported accessibility route #{route}")
   end

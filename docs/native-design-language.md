@@ -8,7 +8,7 @@ Spoonjoy's product language is **The Kitchen Table**: quiet bone paper, charcoal
 
 The native app should not copy the web UI surface-for-surface. It should preserve the product family while letting Apple platform conventions take over where they are better.
 
-Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `9c2ebdb8cbfa71e202a344099e23c544899482b256353a4c828f10d0c047ab56`. A changed source hash means the native brief and contract must be intentionally reviewed together.
+Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `764b9749a614482ac75debefa06547f21fae09d35cb8be38a09a9879d6307dae`. A changed source hash means the native brief and contract must be intentionally reviewed together.
 
 ## Invariants To Preserve
 
@@ -44,6 +44,24 @@ Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` 
 - `ReceiptList` / shopping list -> grouped `List` with large check controls, aisle/source sections, and stable ordering.
 - Cook mode -> full-screen pager or focused step surface with persisted progress, duration cues, native system timer handoff, large text, and hands-free affordances.
 
+## Main Kitchen Navigation
+
+The native app mirrors the web kitchen drawer model while using platform navigation:
+
+- `Kitchen` -> `/`
+- `My Recipes` -> `/recipes`
+- `Saved Recipes` -> `/saved-recipes`
+- `Cookbooks` -> `/cookbooks`
+- `Shopping List` -> `/shopping-list`
+- `Chefs` -> `/chefs`
+- `Kitchen Search` -> `/search`
+
+On compact iPhone, the compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`. Search stays in the trailing `More` menu and opens the native `.searchable` route with toolbar-principal placement and scopes. Chefs stays in the same menu and in the regular-width sidebar.
+
+Saved Recipes derive from cookbooks owned by the current chef: filter cookbooks to the authenticated chef, flatten cookbook recipes, dedupe by recipe ID, and preserve deterministic first-seen ordering. My Recipes means authored by the current chef, not every recipe they saved.
+
+The route matrix covers `kitchen`, `recipes`, `saved-recipes`, `cookbooks`, `shopping-list`, `chefs`, and `search` for this navigation model.
+
 ## Anti-Patterns
 
 - A generic grouped SwiftUI CRUD app.
@@ -70,6 +88,8 @@ The manifest is not a substitute for screenshots or human-grade review, but it m
 - Shopping List uses receipt rows, large check controls, native `List`/`Section` grouping, edit/check affordances, and stable ordering.
 - Cook Mode uses one focused step, persisted progress, large controls, duration/native-timer affordances, and no dense multi-step primary list.
 - Search uses native `.searchable` scopes, typed rows, and the accepted scopes `all`, `recipes`, `cookbooks`, `chefs`, and `shopping-list`.
+- My Recipes and Saved Recipes are separate personal drawers; Saved Recipes come from owned cookbook membership, not authorship.
+- Chefs is a first-class route and sidebar destination, not a search alias.
 - Capture creates a local draft and does not claim server recipe writes before backend support exists.
 - Settings shows offline/auth/environment state and validation state through quiet native rows or forms.
 

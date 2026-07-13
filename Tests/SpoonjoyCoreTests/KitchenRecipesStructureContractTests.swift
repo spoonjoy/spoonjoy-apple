@@ -16,7 +16,7 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeLead",
                 "RecipeIndex",
                 "CookbookShelf",
-                "Latest from the kitchen",
+                "On the Counter",
                 "private var indexedRecipes",
                 "recipe.id != leadRecipe.id",
                 "RecipeIndex(recipes: indexedRecipes",
@@ -73,7 +73,8 @@ struct KitchenRecipesStructureContractTests {
                 "@State private var query",
                 "@State private var isLoading",
                 ".searchable(text: $query",
-                "KitchenTableLoadingStateView(title: \"Loading recipes\"",
+                "loadingTitle: String = \"Loading recipes\"",
+                "KitchenTableLoadingStateView(title: loadingTitle",
                 "RecipeCatalogEmptyState",
                 "emptyState.title",
                 "emptyState.message",
@@ -130,7 +131,7 @@ struct KitchenRecipesStructureContractTests {
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Recipes\", \"Latest from the kitchen\", \"Recipe index\", \"Loading recipes\"]",
+                "voiceOverLabels: [\"Recipes\", \"On the Counter\", \"Recipe index\", \"Loading recipes\"]",
                 "keyboardNavigationTargets: [\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\"]",
                 "layoutGuards: [\"scroll-view\", \"text-fit\", \"no-tiny-clusters\", \"dock-safe-area\"]"
             ],
@@ -149,7 +150,7 @@ struct KitchenRecipesStructureContractTests {
                 content,
                 in: path,
                 contains: [
-                    "Latest from the kitchen",
+                    "On the Counter",
                     "Recipe index",
                     "Cookbook shelf",
                     "RecipeIndexRow",

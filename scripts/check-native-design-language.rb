@@ -8,7 +8,7 @@ require "pathname"
 ROOT = Pathname.new(__dir__).join("..").expand_path
 DEFAULT_NATIVE_DOC = ROOT.join("docs/native-design-language.md")
 DEFAULT_WEB_DOC = ROOT.join("docs/source/spoonjoy-v2-design-language.md")
-EXPECTED_WEB_DESIGN_SHA256 = "9c2ebdb8cbfa71e202a344099e23c544899482b256353a4c828f10d0c047ab56"
+EXPECTED_WEB_DESIGN_SHA256 = "764b9749a614482ac75debefa06547f21fae09d35cb8be38a09a9879d6307dae"
 ENV_WEB_DOC = ENV["SPOONJOY_WEB_DESIGN_DOC"]
 
 options = {
@@ -63,6 +63,7 @@ required_headings = [
   "## Invariants To Preserve",
   "## Native Elements That Should Take Over",
   "## SwiftUI Component Translation",
+  "## Main Kitchen Navigation",
   "## Anti-Patterns",
   "## Native Design Review Contract",
   "## Native Product Backlog Seeds",
@@ -152,6 +153,22 @@ surface_contract_phrases = [
   "offline/auth/environment state"
 ]
 assert_includes(native_content, surface_contract_phrases, "native surface contract", native_doc)
+
+kitchen_navigation_phrases = [
+  "Main Kitchen Navigation",
+  "`Kitchen` -> `/`",
+  "`My Recipes` -> `/recipes`",
+  "`Saved Recipes` -> `/saved-recipes`",
+  "`Cookbooks` -> `/cookbooks`",
+  "`Shopping List` -> `/shopping-list`",
+  "`Chefs` -> `/chefs`",
+  "`Kitchen Search` -> `/search`",
+  "compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`",
+  "Search stays in the trailing `More` menu",
+  "Saved Recipes derive from cookbooks owned by the current chef",
+  "route matrix covers `kitchen`, `recipes`, `saved-recipes`, `cookbooks`, `shopping-list`, `chefs`, and `search`"
+]
+assert_includes(native_content, kitchen_navigation_phrases, "kitchen navigation contract", native_doc)
 
 manifest_contract_phrases = [
   "design-review.json",

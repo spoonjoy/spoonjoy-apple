@@ -216,7 +216,7 @@ def accessibility_proof(platform)
     "observedDynamicTypeSize" => "large",
     "observedReduceMotion" => false,
     "routeEvidence" => {
-      "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+      "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
       "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],

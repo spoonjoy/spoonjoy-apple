@@ -83,11 +83,29 @@ enum ScreenshotAccessibilityProofWriter {
         switch (route, source) {
         case ("recipes", "RecipesView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes"],
+                voiceOverLabels: ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
                 keyboardNavigationTargets: ["recipe lead button", "RecipeIndexRow buttons", "search field"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("saved-recipes", "SavedRecipesView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Saved Recipes", "Recipe index", "Loading saved recipes"],
+                keyboardNavigationTargets: ["saved recipe lead button", "RecipeIndexRow buttons", "search field"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
+        case ("chefs", "ChefsView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Chefs", "Fellow chefs", "Kitchen visitors"],
+                keyboardNavigationTargets: ["chef profile rows", "native More menu", "regular sidebar"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cookbooks", "CookbooksView"):
@@ -182,7 +200,7 @@ enum ScreenshotAccessibilityProofWriter {
             )
         default:
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+                voiceOverLabels: ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
                 keyboardNavigationTargets: ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
