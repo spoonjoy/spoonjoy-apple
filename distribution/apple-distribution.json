@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Makes timed recipe steps visible in recipe detail and cook mode, with clear native system timer actions for timed cooking steps.",
+          "whatsNew": "Adds browser-based Google and GitHub sign-in from the native setup flow, so beta testers can sign in with their Spoonjoy web accounts.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },
