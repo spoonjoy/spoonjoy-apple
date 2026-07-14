@@ -34,6 +34,11 @@ Store Connect authentication arguments from streamed `xcodebuild` output.
 by the installed Xcode 26.x iOS SDK. Override it when building with an SDK that
 supports the repo's iOS 27 baseline.
 
+Set `SPOONJOY_TESTFLIGHT_BUILD_NUMBER` to let automation archive a build number
+that is newer than the checked-in `CURRENT_PROJECT_VERSION`. CI uses a dynamic
+build number so TestFlight publishing does not require source-only build bump
+commits.
+
 ```bash
 scripts/check-apple-distribution-kit.sh
 
@@ -147,6 +152,45 @@ externally testable; use `betaTesterInvitations` instead.
 
 External TestFlight and public App Store submission are intentionally outside
 this lane.
+
+## Automatic TestFlight Publishing
+
+`.github/workflows/testflight.yml` publishes internal TestFlight builds
+automatically after the `Native` workflow succeeds on `main`. It checks out the
+exact `workflow_run` source SHA that passed CI, builds the shared
+`ourostack/apple-distribution-kit` into `.ci/apple-distribution-kit`, prepares
+App Store Connect credentials from GitHub secrets, computes the next dynamic build number
+from App Store Connect, archives the iOS app, uploads the IPA, polls
+until Apple marks the uploaded build `VALID`, runs `testflight publish --mode
+dry-run`, runs `testflight publish --mode apply`, and verifies that the build is
+attached to `Spoonjoy Internal`.
+
+The workflow has a `workflow_dispatch` fallback for backfills and repair runs.
+The optional `build_number` input maps to `SPOONJOY_TESTFLIGHT_BUILD_NUMBER`;
+leave it empty unless App Store Connect needs a specific recovery build number.
+
+Required GitHub Actions secrets:
+
+- `APP_STORE_CONNECT_API_KEY_ID`
+- `APP_STORE_CONNECT_API_ISSUER_ID`
+- `APP_STORE_CONNECT_API_KEY_BASE64`
+- `APP_STORE_CONNECT_PROVIDER_PUBLIC_ID`
+
+The private key secret is the base64-encoded `.p8` contents. The workflow writes
+the decoded key to `$RUNNER_TEMP`, creates an Apple Distribution Kit config file,
+and never commits or prints credentials.
+
+The CI publish driver is `scripts/ci-publish-testflight.sh`. It fails the job if
+any of these validations fail:
+
+- the App Store Connect app for `app.spoonjoy` cannot be resolved;
+- the uploaded build does not become `VALID`;
+- the `Spoonjoy Internal` beta group cannot be resolved;
+- `testflight publish --mode dry-run` reports blockers;
+- `testflight publish --mode apply` fails;
+- `/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/builds` does not contain the build;
+- `/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/betaTesters` reports zero testers;
+- `/v1/buildBetaDetails/$ASC_BUILD_BETA_DETAIL_ID` is not `IN_BETA_TESTING`.
 
 ## Reactive TestFlight Feedback
 

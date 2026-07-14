@@ -1,0 +1,154 @@
+name: TestFlight
+
+on:
+  workflow_run:
+    workflows:
+      - Native
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: Optional App Store Connect build number override
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spoonjoy-testflight-main
+  cancel-in-progress: false
+
+jobs:
+  publish-internal:
+    name: Publish internal TestFlight
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - name: Check out triggering source revision
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Check out selected source revision
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v6
+
+      - name: Check out apple-distribution-kit
+        uses: actions/checkout@v6
+        with:
+          repository: ourostack/apple-distribution-kit
+          path: .ci/apple-distribution-kit
+
+      - name: Build apple-distribution-kit
+        working-directory: .ci/apple-distribution-kit
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+
+      - name: Verify Xcode 26.5+ runner
+        run: |
+          set -euo pipefail
+          xcode_version="$(xcodebuild -version)"
+          printf '%s\n' "$xcode_version"
+          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
+
+      - name: Prepare App Store Connect credentials
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          ASC_PROVIDER_PUBLIC_ID: ${{ secrets.APP_STORE_CONNECT_PROVIDER_PUBLIC_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$ASC_KEY_ID" ]] || missing+=("APP_STORE_CONNECT_API_KEY_ID")
+          [[ -n "$ASC_ISSUER_ID" ]] || missing+=("APP_STORE_CONNECT_API_ISSUER_ID")
+          [[ -n "$ASC_KEY_BASE64" ]] || missing+=("APP_STORE_CONNECT_API_KEY_BASE64")
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub secret(s): %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+          asc_dir="$RUNNER_TEMP/app-store-connect"
+          mkdir -p "$asc_dir"
+          key_path="$asc_dir/AuthKey.p8"
+          config_path="$asc_dir/config.json"
+
+          python3 - "$ASC_KEY_BASE64" "$key_path" <<'PY'
+          import base64
+          import pathlib
+          import sys
+
+          pathlib.Path(sys.argv[2]).write_bytes(base64.b64decode(sys.argv[1]))
+          PY
+          chmod 600 "$key_path"
+
+          python3 - "$config_path" "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$key_path" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          config_path, key_id, issuer_id, key_path = sys.argv[1:5]
+          pathlib.Path(config_path).write_text(
+              json.dumps({
+                  "keyId": key_id,
+                  "issuerId": issuer_id,
+                  "privateKeyPath": key_path
+              }),
+              encoding="utf-8",
+          )
+          PY
+
+          {
+            echo "APPLE_DISTRIBUTION_KIT_CONFIG=$config_path"
+            echo "APP_STORE_CONNECT_PROVIDER_PUBLIC_ID=${ASC_PROVIDER_PUBLIC_ID:-9735080289}"
+          } >> "$GITHUB_ENV"
+
+      - name: Publish to Spoonjoy Internal
+        env:
+          SPOONJOY_TESTFLIGHT_BUILD_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.build_number || '' }}
+        run: scripts/ci-publish-testflight.sh
+
+      - name: Summarize publish
+        if: always()
+        run: |
+          set -euo pipefail
+          summary_path="artifacts/apple/ci-testflight/testflight-publish-summary.json"
+          if [[ -f "$summary_path" ]]; then
+            {
+              echo "## TestFlight publish"
+              echo
+              jq -r '
+                "- App Store Connect app id: \(.appId)",
+                "- Build: \(.buildNumber) (\(.buildId))",
+                "- Build beta detail id: \(.buildBetaDetailId)",
+                "- Group: \(.groupName) (\(.groupId))",
+                "- Internal state: \(.internalBuildState)",
+                "- Testers notified requested: \(.testersNotifiedRequested)"
+              ' "$summary_path"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload publish artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-publish-artifacts
+          path: artifacts/apple/ci-testflight
+          if-no-files-found: ignore
