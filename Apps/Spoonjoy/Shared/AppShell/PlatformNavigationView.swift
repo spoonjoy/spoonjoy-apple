@@ -389,14 +389,14 @@ struct PlatformNavigationView: View {
              .profile,
              .profileGraph,
              .capture,
-             .settings:
+             .settings,
+             .shoppingList,
+             .search:
             true
         case .kitchen,
              .recipes,
              .savedRecipes,
              .chefs,
-             .shoppingList,
-             .search,
              .unknownLink:
             false
         }

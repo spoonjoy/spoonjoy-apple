@@ -992,7 +992,8 @@ struct NativeMobileDesignContractTests {
                 "TabView(selection: compactTabSelection)",
                 "Label(\"Shopping List\", systemImage: \"checklist\")",
                 ".tag(AppSection.shoppingList)",
-                "case .shoppingList:\n            navigation.navigate(to: .shoppingList)"
+                "case .shoppingList:\n            navigation.navigate(to: .shoppingList)",
+                ".settings,\n             .shoppingList,\n             .search:\n            true"
             ],
             forbids: [
                 "openKitchen: { openRoute(.kitchen) }",
@@ -1510,9 +1511,7 @@ struct NativeMobileDesignContractTests {
             in: searchPath,
             contains: [
                 ".searchable(text: searchTextBinding, prompt: \"Search Spoonjoy\")",
-                "visibleSearchField",
-                "TextField(\"Search Spoonjoy\"",
-                "SearchSurfaceContract.visibleSearchField",
+                ".searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
                 "@FocusState private var isSearchFieldFocused",
                 ".searchFocused($isSearchFieldFocused)",
                 "isSearchFieldFocused = true",
@@ -1524,6 +1523,9 @@ struct NativeMobileDesignContractTests {
             ],
             forbids: [
                 "TextField(\"tomato beans\"",
+                "visibleSearchField",
+                "TextField(\"Search Spoonjoy\"",
+                "SearchSurfaceContract.visibleSearchField",
                 "ScrollView(.horizontal, showsIndicators: false)",
                 "scopeLabel(scope)",
                 "searchControls"
