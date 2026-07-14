@@ -7,6 +7,7 @@ import SwiftUI
 struct SignedOutSetupView: View {
     private static let liveAppleSignInIdentifier = "native Apple sign-in"
     private static let livePasswordSignInIdentifier = "native password sign-in"
+    private static let liveBrowserOAuthSignInIdentifier = "native browser OAuth sign-in"
     private static let appleSignInEntitlement = "com.apple.developer.applesignin"
 
     let authRepository: NativeAuthSessionRepository
@@ -24,6 +25,9 @@ struct SignedOutSetupView: View {
     @State private var isSigningIn = false
     @State private var canDisconnect = false
     @State private var currentNonce: String?
+    @State private var pendingOAuthState: OAuthState?
+    @State private var pendingOAuthCodeVerifier: String?
+    @State private var webAuthenticationSession: SpoonjoyWebAuthenticationSession?
     @State private var appleSignInCapability = Self.currentAppleSignInCapability()
     @FocusState private var focusedField: SignInField?
 
@@ -229,6 +233,30 @@ struct SignedOutSetupView: View {
             }
             .accessibilityHidden(true)
 
+            Button {
+                Task {
+                    await handleBrowserOAuthSignIn()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "safari")
+                        .imageScale(.medium)
+                    Text("Continue with Google or GitHub")
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(isSigningIn ? KitchenTableTheme.charcoal.opacity(0.46) : KitchenTableTheme.charcoal)
+            .background(KitchenTableTheme.paper, in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(KitchenTableTheme.charcoal.opacity(0.14), lineWidth: 1)
+            }
+            .disabled(isSigningIn)
+            .accessibilityIdentifier(Self.liveBrowserOAuthSignInIdentifier)
+
             if appleSignInCapability == .available {
                 SignInWithAppleButton(.signIn) { request in
                     let nonce = Self.randomNonceString()
@@ -375,6 +403,82 @@ struct SignedOutSetupView: View {
         } catch {
             statusTone = .warning
             authStatus = "Spoonjoy could not restore this device session. Sign in again to continue."
+        }
+    }
+
+    private func handleBrowserOAuthSignIn() async {
+        guard !isSigningIn else {
+            return
+        }
+
+        isSigningIn = true
+        statusTone = .progress
+        authStatus = "Opening Spoonjoy sign-in."
+
+        do {
+            let verifier = OAuthPKCE.randomVerifier()
+            let challenge = try OAuthPKCE.codeChallenge(for: verifier)
+            guard let state = OAuthState(rawValue: OAuthPKCE.randomVerifier()) else {
+                throw BrowserOAuthSignInError.invalidState
+            }
+            let start = try await authRepository.startSignIn(state: state, codeChallenge: challenge)
+            pendingOAuthState = state
+            pendingOAuthCodeVerifier = verifier
+
+            let session = SpoonjoyWebAuthenticationSession(callbackURL: start.redirectURI) { callbackURL in
+                Task {
+                    await handleBrowserOAuthCallback(callbackURL)
+                }
+            }
+            webAuthenticationSession = session
+            guard try session.start(authorizationURL: start.authorizationURL, oauthState: state) else {
+                throw BrowserOAuthSignInError.couldNotStart
+            }
+
+            isSigningIn = false
+            authStatus = "Finish sign-in in the browser."
+        } catch {
+            pendingOAuthState = nil
+            pendingOAuthCodeVerifier = nil
+            webAuthenticationSession = nil
+            isSigningIn = false
+            statusTone = .error
+            authStatus = "Could not open browser sign-in. Check your connection and try again."
+        }
+    }
+
+    @MainActor
+    private func handleBrowserOAuthCallback(_ callbackURL: URL) async {
+        guard let state = pendingOAuthState,
+              let verifier = pendingOAuthCodeVerifier else {
+            statusTone = .error
+            authStatus = "Browser sign-in expired. Try again."
+            return
+        }
+
+        isSigningIn = true
+        statusTone = .progress
+        authStatus = "Finishing Spoonjoy sign-in."
+        defer {
+            isSigningIn = false
+            pendingOAuthState = nil
+            pendingOAuthCodeVerifier = nil
+            webAuthenticationSession = nil
+        }
+
+        do {
+            _ = try await authRepository.handleOAuthCallback(
+                callbackURL,
+                expectedState: state,
+                codeVerifier: verifier
+            )
+            canDisconnect = true
+            statusTone = .success
+            authStatus = "Signed in. Restoring Spoonjoy."
+            await onSignedIn()
+        } catch {
+            statusTone = .error
+            authStatus = "Could not finish browser sign-in. Try again."
         }
     }
 
@@ -678,6 +782,11 @@ private enum AuthStatusTone {
     case success
     case warning
     case error
+}
+
+private enum BrowserOAuthSignInError: Error {
+    case invalidState
+    case couldNotStart
 }
 
 private enum AppleSignInCapability: Equatable {
