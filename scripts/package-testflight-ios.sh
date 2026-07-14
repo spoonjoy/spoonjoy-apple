@@ -7,6 +7,7 @@ EXPORT_PATH="$ROOT_DIR/build/apple/testflight"
 IPA_PATH="$EXPORT_PATH/Spoonjoy.ipa"
 IOS_DEPLOYMENT_TARGET="${SPOONJOY_TESTFLIGHT_IOS_DEPLOYMENT_TARGET:-26.0}"
 SDK_STAT_CACHE_ENABLE_VALUE="${SPOONJOY_XCODE_SDK_STAT_CACHE_ENABLE:-NO}"
+BUILD_NUMBER="${SPOONJOY_TESTFLIGHT_BUILD_NUMBER:-}"
 
 fail() {
   printf 'package-testflight-ios failed: %s\n' "$1" >&2
@@ -43,6 +44,12 @@ if [[ -f "$ASC_CONFIG" ]]; then
   fi
 fi
 
+build_settings=()
+if [[ -n "$BUILD_NUMBER" ]]; then
+  [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]] || fail "SPOONJOY_TESTFLIGHT_BUILD_NUMBER must be numeric"
+  build_settings=(CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
+fi
+
 rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"
 mkdir -p "$(dirname "$ARCHIVE_PATH")" "$EXPORT_PATH"
 
@@ -56,6 +63,7 @@ run_xcodebuild \
   archive \
   -allowProvisioningUpdates \
   DEVELOPMENT_TEAM=743GT2AJ24 \
+  "${build_settings[@]}" \
   IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
   SDK_STAT_CACHE_ENABLE="$SDK_STAT_CACHE_ENABLE_VALUE"
 
