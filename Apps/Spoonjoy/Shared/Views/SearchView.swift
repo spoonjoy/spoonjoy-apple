@@ -42,10 +42,6 @@ struct SearchView: View {
                 subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)"
             )
 
-#if os(iOS)
-            visibleSearchField
-#endif
-
             if viewModel.offlineIndicator.display.isVisible {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
@@ -105,53 +101,6 @@ struct SearchView: View {
             await debounceSearch()
         }
     }
-
-#if os(iOS)
-    private var visibleSearchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .accessibilityHidden(true)
-
-            TextField("Search Spoonjoy", text: searchTextBinding)
-                .textFieldStyle(.plain)
-                .submitLabel(.search)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .onSubmit {
-                    Task {
-                        await searchTask(search)
-                    }
-                }
-
-            if !search.query.isEmpty {
-                Button {
-                    search.update(query: "", scope: search.scope)
-                    Task {
-                        await searchTask(search)
-                    }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.body.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .accessibilityLabel("Clear search")
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
-        }
-        .accessibilityIdentifier(SearchSurfaceContract.visibleSearchField)
-    }
-#endif
 
     private var shouldAutoFocusSearchField: Bool {
         !Self.truthy(ProcessInfo.processInfo.environment[Self.screenshotDisableSearchFocusEnvironmentKey])
@@ -274,7 +223,6 @@ struct SearchView: View {
 private enum SearchSurfaceContract {
     static let searchableScopes = "searchable scopes"
     static let typedRows = "typed rows"
-    static let visibleSearchField = "visible search field"
 }
 
 private enum SearchSurfaceNativeChrome {

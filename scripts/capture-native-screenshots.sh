@@ -78,6 +78,8 @@ else
     screenshot_route="recipe-detail"
   elif [[ "$unit_slug" == *cook-log* || "$unit_slug" == *cook_log* ]]; then
     screenshot_route="cook-log"
+  elif [[ "$unit_slug" == *saved-recipes* || "$unit_slug" == *saved_recipes* ]]; then
+    screenshot_route="saved-recipes"
   elif [[ "$unit_slug" == *recipes* ]]; then
     screenshot_route="recipes"
   elif [[ "$unit_slug" == *cook-mode* || "$unit_slug" == *cook_mode* ]]; then
@@ -98,6 +100,8 @@ else
     screenshot_route="shopping-list-offline-queued"
   elif [[ "$unit_slug" == *shopping-list* || "$unit_slug" == *shopping_list* || "$unit_slug" == *shopping* ]]; then
     screenshot_route="shopping-list"
+  elif [[ "$unit_slug" == *chefs* ]]; then
+    screenshot_route="chefs"
   elif [[ "$unit_slug" == *search-typed-results* || "$unit_slug" == *search_typed_results* ]]; then
     screenshot_route="search-typed-results"
   elif [[ "$unit_slug" == *search-scoped-recipes* || "$unit_slug" == *search_scoped_recipes* ]]; then
@@ -241,6 +245,12 @@ case "$screenshot_route" in
     deep_link_path="recipes"
     macos_window_title="Recipes"
     ;;
+  saved-recipes)
+    capture_account_id="$kitchen_capture_account_id"
+    expected_recorded_route="saved-recipes"
+    deep_link_path="saved-recipes"
+    macos_window_title="Saved Recipes"
+    ;;
   recipe-detail)
     capture_account_id="$kitchen_capture_account_id"
     expected_recorded_route="recipe:recipe_lemon_pantry_pasta"
@@ -277,6 +287,12 @@ case "$screenshot_route" in
     expected_recorded_route="shopping-list"
     deep_link_path="shopping-list"
     macos_window_title="Shopping"
+    ;;
+  chefs)
+    capture_account_id="$kitchen_capture_account_id"
+    expected_recorded_route="chefs"
+    deep_link_path="chefs"
+    macos_window_title="Chefs"
     ;;
   search)
     capture_account_id="$search_capture_account_id"
@@ -1430,6 +1446,7 @@ wait_for_accessibility_proof() {
       expected_source = case expected_route
                         when "kitchen" then "KitchenView"
                         when "recipes" then "RecipesView"
+                        when "saved-recipes" then "SavedRecipesView"
                         when "cookbooks" then "CookbooksView"
                         when "cookbook-detail" then "CookbookDetailView"
                         when "capture" then "CaptureDraftView"
@@ -1439,6 +1456,7 @@ wait_for_accessibility_proof() {
                         when "cook-log" then "SpoonCookLogView"
                         when "cook-mode" then "CookModeView"
                         when "shopping-list" then "ShoppingListView"
+                        when "chefs" then "ChefsView"
                         else abort("unsupported route #{expected_route}")
                         end
       expected_source = source_override unless source_override.empty?
@@ -1450,7 +1468,7 @@ wait_for_accessibility_proof() {
       expected_severe = ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
       expected_route_evidence = {
         "kitchen" => {
-          "voiceOverLabels" => ["Latest from the kitchen", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
+          "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
           "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
@@ -1459,18 +1477,26 @@ wait_for_accessibility_proof() {
         },
         "search" => {
           "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
-          "keyboardNavigationTargets" => ["visible search field", "typed rows", "SearchSurfaceSectionView buttons"],
+          "keyboardNavigationTargets" => ["native search field", "typed rows", "SearchSurfaceSectionView buttons"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
-          "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.visibleSearchField", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
+          "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "recipes" => {
-          "voiceOverLabels" => ["Recipes", "Latest from the kitchen", "Recipe index", "Loading recipes"],
+          "voiceOverLabels" => ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
           "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+        },
+        "saved-recipes" => {
+          "voiceOverLabels" => ["Saved Recipes", "Recipe index", "Loading saved recipes"],
+          "keyboardNavigationTargets" => ["saved recipe lead button", "RecipeIndexRow buttons", "search field"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone"],
+          "hierarchyAnchors" => ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cookbooks" => {
@@ -1544,6 +1570,14 @@ wait_for_accessibility_proof() {
           "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
           "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
+        },
+        "chefs" => {
+          "voiceOverLabels" => ["Chefs", "Fellow chefs", "Kitchen visitors"],
+          "keyboardNavigationTargets" => ["chef profile rows", "native More menu", "regular sidebar"],
+          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+          "contrastPairs" => ["charcoal on bone", "brass on bone"],
+          "hierarchyAnchors" => ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
+          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         }
       }
       abort("#{expected_platform} accessibility proof platform mismatch") unless proof.fetch("platform") == expected_platform

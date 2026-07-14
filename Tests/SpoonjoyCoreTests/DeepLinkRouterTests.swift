@@ -9,6 +9,7 @@ struct DeepLinkRouterTests {
         let cases: [(String, AppRoute)] = [
             ("https://spoonjoy.app/", .kitchen),
             ("https://spoonjoy.app/recipes", .recipes),
+            ("https://spoonjoy.app/saved-recipes", .savedRecipes),
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)),
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta/edit", .recipeEditor(id: "recipe_lemon_pantry_pasta")),
             ("https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta#cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
@@ -21,6 +22,7 @@ struct DeepLinkRouterTests {
             ("https://spoonjoy.app/users/ari/fellow-chefs?page=2", .profileGraph(identifier: "ari", direction: .fellowChefs, page: 2)),
             ("https://spoonjoy.app/users/ari%2Fspace/fellow-chefs?page=2", .profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 2)),
             ("https://spoonjoy.app/users/ari/kitchen-visitors?page=0", .profileGraph(identifier: "ari", direction: .kitchenVisitors, page: 1)),
+            ("https://spoonjoy.app/chefs", .chefs),
             ("https://spoonjoy.app/shopping-list", .shoppingList),
             ("https://spoonjoy.app/search", .search(query: "", scope: .all)),
             ("https://spoonjoy.app/search?scope=recipes", .search(query: "", scope: .recipes)),
@@ -33,6 +35,7 @@ struct DeepLinkRouterTests {
             ("https://spoonjoy.app/account/settings", .settings),
             ("spoonjoy://kitchen", .kitchen),
             ("spoonjoy://recipes", .recipes),
+            ("spoonjoy://saved-recipes", .savedRecipes),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta/cook", .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)),
             ("spoonjoy://recipes/recipe_lemon_pantry_pasta/edit", .recipeEditor(id: "recipe_lemon_pantry_pasta")),
@@ -46,6 +49,7 @@ struct DeepLinkRouterTests {
             ("spoonjoy://users/ari/fellow-chefs?page=3", .profileGraph(identifier: "ari", direction: .fellowChefs, page: 3)),
             ("spoonjoy://users/ari%2Fspace/fellow-chefs?page=3", .profileGraph(identifier: "ari/space", direction: .fellowChefs, page: 3)),
             ("spoonjoy://users/ari/kitchen-visitors", .profileGraph(identifier: "ari", direction: .kitchenVisitors, page: 1)),
+            ("spoonjoy://chefs", .chefs),
             ("spoonjoy://shopping-list", .shoppingList),
             ("spoonjoy://search", .search(query: "", scope: .all)),
             ("spoonjoy://search?scope=recipes", .search(query: "", scope: .recipes)),
@@ -133,10 +137,12 @@ struct DeepLinkRouterTests {
 
         #expect(AppRoute.cookbooks.section == .cookbooks)
         #expect(AppRoute.cookbookDetail(id: "cookbook_weeknight").section == .cookbooks)
+        #expect(AppRoute.savedRecipes.section == .savedRecipes)
         #expect(AppRoute.recipeEditor(id: "recipe_lemon").section == .recipes)
         #expect(AppRoute.recipeCoverControls(id: "recipe_lemon").section == .recipes)
-        #expect(AppRoute.profile(identifier: "ari").section == .search)
-        #expect(AppRoute.profileGraph(identifier: "ari", direction: .fellowChefs, page: 1).section == .search)
+        #expect(AppRoute.chefs.section == .chefs)
+        #expect(AppRoute.profile(identifier: "ari").section == .chefs)
+        #expect(AppRoute.profileGraph(identifier: "ari", direction: .fellowChefs, page: 1).section == .chefs)
         #expect(AppRoute.search(query: "rice", scope: .all).section == .search)
         #expect(AppRoute.capture.section == .capture)
         #expect(AppRoute.settings.section == .settings)

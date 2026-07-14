@@ -95,8 +95,8 @@ struct ShoppingListView: View {
 
     private var shoppingRunHeader: some View {
         KitchenTableHeader(
-            eyebrow: "Market Run",
-            title: "Shopping",
+            eyebrow: "Kitchen",
+            title: "Shopping List",
             subtitle: viewModel.shoppingRunSummary
         ) {
             shoppingHeaderTools

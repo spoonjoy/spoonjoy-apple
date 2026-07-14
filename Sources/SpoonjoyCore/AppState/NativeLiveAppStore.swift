@@ -319,6 +319,49 @@ public struct NativeShellContentState {
         recipes.first { $0.id == id }
     }
 
+    public var currentChefID: String? {
+        trustedAccountID
+    }
+
+    public var myRecipesCatalog: RecipeCatalogPage {
+        guard let currentChefID else {
+            return personalRecipeCatalogPage(rows: [])
+        }
+
+        return personalRecipeCatalogPage(
+            rows: recipes
+                .filter { $0.chef.id == currentChefID }
+                .map(RecipeSummary.init(recipe:))
+        )
+    }
+
+    public var savedRecipesCatalog: RecipeCatalogPage {
+        guard let currentChefID else {
+            return personalRecipeCatalogPage(rows: [])
+        }
+
+        var seenRecipeIDs = Set<String>()
+        let rows = cookbooks
+            .filter { $0.chef.id == currentChefID }
+            .flatMap(\.recipes)
+            .filter { recipe in
+                seenRecipeIDs.insert(recipe.id).inserted
+            }
+        return personalRecipeCatalogPage(rows: rows)
+    }
+
+    private func personalRecipeCatalogPage(rows: [RecipeSummary]) -> RecipeCatalogPage {
+        RecipeCatalogPage(
+            query: nil,
+            limit: max(48, rows.count),
+            cursor: nil,
+            nextCursor: nil,
+            hasMore: false,
+            rows: rows,
+            source: recipeCatalogSource
+        )
+    }
+
     public var settingsViewModel: SettingsViewModel {
         SettingsViewModel(
             settings: SettingsState(

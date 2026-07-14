@@ -385,7 +385,7 @@ public struct ShoppingSurfaceViewModel {
         ShoppingReceiptState(
             title: loadState == .needsLiveLoad ? "Sync the receipt" : "Receipt is empty",
             message: loadState == .needsLiveLoad
-                ? "Connect to Spoonjoy to load the current market run."
+                ? "Connect to Spoonjoy to load your current shopping list."
                 : "Add an item or pull ingredients from a recipe.",
             systemImage: loadState == .needsLiveLoad ? "arrow.clockwise" : "cart",
             actionTitle: loadState == .needsLiveLoad ? nil : "Add item"

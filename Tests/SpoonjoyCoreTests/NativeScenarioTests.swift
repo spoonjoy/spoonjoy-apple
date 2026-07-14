@@ -56,6 +56,7 @@ struct NativeScenarioTests {
     private let expectedDeepLinkRoutes = [
         "https://spoonjoy.app/",
         "https://spoonjoy.app/recipes",
+        "https://spoonjoy.app/saved-recipes",
         "https://spoonjoy.app/recipes/{id}",
         "https://spoonjoy.app/recipes/{id}/edit",
         "https://spoonjoy.app/recipes/{id}#cook",
@@ -65,6 +66,7 @@ struct NativeScenarioTests {
         "https://spoonjoy.app/users/{identifier}",
         "https://spoonjoy.app/users/{identifier}/fellow-chefs?page={page}",
         "https://spoonjoy.app/users/{identifier}/kitchen-visitors?page={page}",
+        "https://spoonjoy.app/chefs",
         "https://spoonjoy.app/shopping-list",
         "https://spoonjoy.app/search",
         "https://spoonjoy.app/search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
@@ -72,6 +74,7 @@ struct NativeScenarioTests {
         "https://spoonjoy.app/account/settings",
         "spoonjoy://kitchen",
         "spoonjoy://recipes",
+        "spoonjoy://saved-recipes",
         "spoonjoy://recipes/{id}",
         "spoonjoy://recipes/{id}/edit",
         "spoonjoy://recipes/{id}/covers",
@@ -82,6 +85,7 @@ struct NativeScenarioTests {
         "spoonjoy://users/{identifier}",
         "spoonjoy://users/{identifier}/fellow-chefs?page={page}",
         "spoonjoy://users/{identifier}/kitchen-visitors?page={page}",
+        "spoonjoy://chefs",
         "spoonjoy://shopping-list",
         "spoonjoy://search",
         "spoonjoy://search?q={query}&scope={all|recipes|cookbooks|chefs|shopping-list}",
@@ -1072,16 +1076,16 @@ struct NativeScenarioTests {
             let script = repoURL.appendingPathComponent("scripts/validate-aasa.rb")
 
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy","743GT2AJ24.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy","743GT2AJ24.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/saved-recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/chefs"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: completeFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy","743GT2AJ24.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["743GT2AJ24.app.spoonjoy","743GT2AJ24.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/saved-recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/chefs"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"}]}]}}
             """.write(to: missingComponentFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy","TEAMID.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["TEAMID.app.spoonjoy","TEAMID.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/saved-recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/chefs"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: placeholderAppIDFixture, atomically: true, encoding: .utf8)
             try """
-            {"applinks":{"apps":[],"details":[{"appIDs":["A123456789.app.spoonjoy","A123456789.app.spoonjoy.mac","B123456789.app.spoonjoy","B123456789.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
+            {"applinks":{"apps":[],"details":[{"appIDs":["A123456789.app.spoonjoy","A123456789.app.spoonjoy.mac","B123456789.app.spoonjoy","B123456789.app.spoonjoy.mac"],"components":[{"/":"/"},{"/":"/recipes"},{"/":"/saved-recipes"},{"/":"/recipes/*"},{"/":"/cookbooks"},{"/":"/cookbooks/*"},{"/":"/chefs"},{"/":"/users/*"},{"/":"/shopping-list"},{"/":"/search"},{"/":"/search","?":{"*":"*"}},{"/":"/recipes/new"},{"/":"/account/settings"}]}]}}
             """.write(to: ambiguousTeamFixture, atomically: true, encoding: .utf8)
 
             let valid = try runProcess(

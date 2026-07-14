@@ -270,7 +270,7 @@ struct RecipeLead: View {
 
     private func leadText(foreground: Color, secondary: Color, label: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Latest from the kitchen".uppercased())
+            Text("On the Counter".uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(1.2)
                 .foregroundStyle(label)

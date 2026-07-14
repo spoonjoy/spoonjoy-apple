@@ -20,11 +20,12 @@ struct SpoonjoyiOSApp: App {
 final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
     static func configureChromeAppearance() {
         let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = SpoonjoyUIColor.bone
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
+        appearance.backgroundColor = SpoonjoyUIColor.glassBone
         appearance.shadowColor = SpoonjoyUIColor.line
 
-        UITabBar.appearance().isTranslucent = false
+        UITabBar.appearance().isTranslucent = true
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
     }
@@ -46,5 +47,6 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
 
 private enum SpoonjoyUIColor {
     static let bone = UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 1)
+    static let glassBone = UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 0.72)
     static let line = UIColor(red: 40.0 / 255.0, green: 35.0 / 255.0, blue: 29.0 / 255.0, alpha: 0.18)
 }

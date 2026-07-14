@@ -50,6 +50,10 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .recipes
         }
 
+        if segments == ["saved-recipes"] {
+            return .savedRecipes
+        }
+
         if segments == ["recipes", "new"] {
             return .capture
         }
@@ -80,6 +84,10 @@ public struct DeepLinkRouter: Equatable, Sendable {
                 return .unknownLink
             }
             return .cookbookDetail(id: id)
+        }
+
+        if segments == ["chefs"] {
+            return .chefs
         }
 
         if segments.count == 2, segments[0] == "users" {
@@ -131,6 +139,10 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .recipes
         }
 
+        if segments == ["saved-recipes"] {
+            return .savedRecipes
+        }
+
         if segments.count == 2, segments[0] == "recipes" {
             let id = segments[1]
             guard safeID(id) else {
@@ -176,6 +188,10 @@ public struct DeepLinkRouter: Equatable, Sendable {
                 return .unknownLink
             }
             return .cookbookDetail(id: id)
+        }
+
+        if segments == ["chefs"] {
+            return .chefs
         }
 
         if segments.count == 2, segments[0] == "users" {

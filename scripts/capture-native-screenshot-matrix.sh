@@ -350,6 +350,7 @@ overall_status=0
 routes=(
   "kitchen|kitchen|$artifact_root|$unit_slug"
   "recipes|recipes|$routes_dir/recipes|$unit_slug-recipes"
+  "saved-recipes|saved-recipes|$routes_dir/saved-recipes|$unit_slug-saved-recipes"
   "recipe-detail|recipe-detail|$routes_dir/recipe-detail|$unit_slug-recipe-detail"
   "cook-mode|cook-mode|$routes_dir/cook-mode|$unit_slug-cook-mode"
   "cookbooks|cookbooks|$routes_dir/cookbooks|$unit_slug-cookbooks"
@@ -360,6 +361,7 @@ routes=(
   "shopping-list-duplicate|shopping-list-duplicate|$routes_dir/shopping-list-duplicate|$unit_slug-shopping-list-duplicate"
   "shopping-list-conflict|shopping-list-conflict|$routes_dir/shopping-list-conflict|$unit_slug-shopping-list-conflict"
   "shopping-list-offline-queued|shopping-list-offline-queued|$routes_dir/shopping-list-offline-queued|$unit_slug-shopping-list-offline-queued"
+  "chefs|chefs|$routes_dir/chefs|$unit_slug-chefs"
   "search|search|$routes_dir/search|$unit_slug-search"
   "search-typed-results|search-typed-results|$routes_dir/search-typed-results|$unit_slug-search-typed-results"
   "search-scoped-recipes|search-scoped-recipes|$routes_dir/search-scoped-recipes|$unit_slug-search-scoped-recipes"
