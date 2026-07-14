@@ -100,7 +100,7 @@ struct ShoppingSurfaceParityTests {
         #expect(needsLiveLoad.shoppingRunSummary == "Ready to sync")
         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
             title: "Sync the receipt",
-            message: "Connect to Spoonjoy to load the current market run.",
+            message: "Connect to Spoonjoy to load your current shopping list.",
             systemImage: "arrow.clockwise"
         ))
         #expect(needsLiveLoad.offlineIndicator.display == .synced)
