@@ -1065,11 +1065,11 @@ struct NativeSyncEngineTests {
             "spoon.createPhoto": ["recipeId", "photo", "note", "nextTime", "cookedAt", "useAsRecipeCover"],
             "spoon.update": ["recipeId", "spoonId", "note", "nextTime", "cookedAt", "photoUrl"],
             "spoon.delete": ["recipeId", "spoonId"],
-            "cover.upload": ["recipeId", "image", "activate", "generateEditorial"],
+            "cover.upload": ["recipeId", "photo", "activate", "generateEditorial", "postAsSpoon", "note", "nextTime", "cookedAt"],
             "cover.setActive": ["recipeId", "coverId", "variant"],
             "cover.setNoCover": ["recipeId", "confirmNoCover"],
             "cover.archive": ["recipeId", "coverId", "replacementCoverId", "replacementVariant", "confirmNoCover", "deleteSafeObjects"],
-            "cover.regenerate": ["recipeId", "coverId", "activateWhenReady"],
+            "cover.regenerate": ["recipeId", "coverId", "promptAddition", "activateWhenReady"],
             "cover.fromSpoon": ["recipeId", "spoonId", "activate", "generateEditorial"],
             "profile.display.update": ["email", "username"],
             "profile.photo.upload": ["photo"],
@@ -1097,12 +1097,17 @@ struct NativeSyncEngineTests {
             "contentType": "image/webp",
             "byteCount": 3
         ]))
-        #expect(dictionaryEquals(persistedKinds["cover.upload"]?["image"] as? [String: Any] ?? [:], [
+        #expect(dictionaryEquals(persistedKinds["cover.upload"]?["photo"] as? [String: Any] ?? [:], [
             "localStageId": "stage_cover_1",
             "fileName": "cover.png",
             "contentType": "image/png",
             "byteCount": 3
         ]))
+        #expect(persistedKinds["cover.upload"]?["postAsSpoon"] as? Bool == true)
+        #expect(persistedKinds["cover.upload"]?["note"] as? String == "Photo cook.")
+        #expect(persistedKinds["cover.upload"]?["nextTime"] as? String == "More lemon")
+        #expect(persistedKinds["cover.upload"]?["cookedAt"] as? String == "2026-06-16T09:30:00.000Z")
+        #expect(persistedKinds["cover.regenerate"]?["promptAddition"] as? String == "warmer light")
         #expect(dictionaryEquals(persistedKinds["profile.photo.upload"]?["photo"] as? [String: Any] ?? [:], [
             "localStageId": "stage_profile_1",
             "fileName": "profile.jpg",
@@ -1719,9 +1724,43 @@ struct NativeSyncEngineTests {
             NativeQueuedMutation.self,
             from: Self.queuedMutationJSON(schemaVersion: 1, type: "cover.upload", fields: ["recipeId": "recipe_lemon"])
         )
-        #expect(throws: NativeQueuedMutationRequestError.missingMedia("image")) {
+        #expect(throws: NativeQueuedMutationRequestError.missingMedia("photo")) {
             _ = try missingMediaMutation.requestBuilder()
         }
+
+        let legacyCoverUpload = try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: Self.queuedMutationJSON(
+                schemaVersion: 1,
+                type: "cover.upload",
+                fields: [
+                    "recipeId": "recipe_lemon",
+                    "image": [
+                        "localStageId": "stage_legacy_cover",
+                        "fileName": "legacy-cover.jpg",
+                        "contentType": "image/jpeg",
+                        "byteCount": 4
+                    ],
+                    "activate": true,
+                    "generateEditorial": true
+                ]
+            )
+        )
+        let legacyCoverRequest = try legacyCoverUpload.requestBuilder().urlRequest(configuration: configuration)
+        try assertMultipartBody(
+            legacyCoverRequest,
+            expected: ExpectedMultipartRequest(
+                fileField: "photo",
+                fileName: "legacy-cover.jpg",
+                contentType: "image/jpeg",
+                fields: [
+                    "clientMutationId": "cm_decode",
+                    "activate": "true",
+                    "generateEditorial": "true",
+                    "postAsSpoon": "false"
+                ]
+            )
+        )
 
         let fallbackDependencies = try [
             JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "cookbook.update", fields: ["title": "Missing cookbook"])).dependencyKey,
@@ -1901,10 +1940,25 @@ struct NativeSyncEngineTests {
                 "photoUrl": "/photos/spoons/updated.jpg"
             ]),
             .noBody(.spoonDelete(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_spoon_delete", createdAt: Self.createdAt(25)), .delete, "/api/v1/recipes/recipe%2Flemon/spoons/spoon%2Fcooked", extraHeaders: ["X-Client-Mutation-Id": "cm_spoon_delete"]),
-            .multipart(.coverUpload(recipeID: "recipe/lemon", image: Self.stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: Self.createdAt(26)), .post, "/api/v1/recipes/recipe%2Flemon/image", "image", "cover.png", "image/png", [
+            .multipart(.coverUpload(
+                recipeID: "recipe/lemon",
+                photo: Self.stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"),
+                clientMutationID: "cm_cover_upload",
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: true,
+                note: "Photo cook.",
+                nextTime: "More lemon",
+                cookedAt: "2026-06-16T09:30:00.000Z",
+                createdAt: Self.createdAt(26)
+            ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "cover.png", "image/png", [
                 "clientMutationId": "cm_cover_upload",
                 "activate": "true",
-                "generateEditorial": "false"
+                "generateEditorial": "true",
+                "postAsSpoon": "true",
+                "note": "Photo cook.",
+                "nextTime": "More lemon",
+                "cookedAt": "2026-06-16T09:30:00.000Z"
             ]),
             .json(.coverSetActive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: Self.createdAt(27)), .patch, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw", [
                 "clientMutationId": "cm_cover_active",
@@ -1926,9 +1980,10 @@ struct NativeSyncEngineTests {
                 "confirmNoCover": true,
                 "deleteSafeObjects": false
             ], queryItems: [URLQueryItem(name: "clientMutationId", value: "cm_cover_archive_empty")]),
-            .json(.coverRegenerate(recipeID: "recipe/lemon", coverID: "cover/editorial", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(29)), .post, "/api/v1/recipes/recipe%2Flemon/covers/regenerate", [
+            .json(.coverRegenerate(recipeID: "recipe/lemon", coverID: "cover/editorial", promptAddition: "warmer light", activateWhenReady: true, clientMutationID: "cm_cover_retry", createdAt: Self.createdAt(29)), .post, "/api/v1/recipes/recipe%2Flemon/covers/regenerate", [
                 "clientMutationId": "cm_cover_retry",
                 "coverId": "cover/editorial",
+                "promptAddition": "warmer light",
                 "activateWhenReady": true
             ]),
             .json(.coverFromSpoon(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: Self.createdAt(30)), .post, "/api/v1/recipes/recipe%2Flemon/covers/from-spoon/spoon%2Fcooked", [
@@ -4882,11 +4937,22 @@ struct NativeSyncEngineTests {
             .spoonDelete(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_spoon_delete", createdAt: createdAt(25))
         ]
         let cover: [NativeQueuedMutation] = [
-            .coverUpload(recipeID: "recipe_lemon", image: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"), clientMutationID: "cm_cover_upload", activate: true, generateEditorial: false, createdAt: createdAt(26)),
+            .coverUpload(
+                recipeID: "recipe_lemon",
+                photo: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"),
+                clientMutationID: "cm_cover_upload",
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: true,
+                note: "Photo cook.",
+                nextTime: "More lemon",
+                cookedAt: "2026-06-16T09:30:00.000Z",
+                createdAt: createdAt(26)
+            ),
             .coverSetActive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: createdAt(27)),
             .coverSetNoCover(recipeID: "recipe_lemon", clientMutationID: "cm_cover_none", confirmNoCover: true, createdAt: createdAt(28)),
             .coverArchive(recipeID: "recipe_lemon", coverID: "cover_raw", clientMutationID: "cm_cover_archive", replacementCoverID: "cover_replacement", replacementVariant: .image, confirmNoCover: false, deleteSafeObjects: true, createdAt: createdAt(28)),
-            .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_editorial", activateWhenReady: true, clientMutationID: "cm_cover_regen", createdAt: createdAt(29)),
+            .coverRegenerate(recipeID: "recipe_lemon", coverID: "cover_editorial", promptAddition: "warmer light", activateWhenReady: true, clientMutationID: "cm_cover_regen", createdAt: createdAt(29)),
             .coverFromSpoon(recipeID: "recipe_lemon", spoonID: "spoon_cooked", clientMutationID: "cm_cover_spoon", activate: true, generateEditorial: true, createdAt: createdAt(30))
         ]
         let account: [NativeQueuedMutation] = [
