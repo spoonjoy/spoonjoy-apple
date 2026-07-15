@@ -166,7 +166,9 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
 public enum RecipeCoverControlsAction: Equatable, Sendable {
     case setNoCover(clientMutationID: String)
     case activate(coverID: String, variant: RecipeCoverAPIVariant, clientMutationID: String)
-    case regenerate(coverID: String, activateWhenReady: Bool, clientMutationID: String)
+    case uploadPhoto(photo: NativeStagedMediaUpload, activate: Bool, generateEditorial: Bool, postAsSpoon: Bool, note: String?, nextTime: String?, cookedAt: String?, clientMutationID: String)
+    case generatePlaceholder(promptAddition: String?, activateWhenReady: Bool, clientMutationID: String)
+    case regenerate(coverID: String, promptAddition: String? = nil, activateWhenReady: Bool, clientMutationID: String)
     case archive(coverID: String, replacementCoverID: String?, replacementVariant: RecipeCoverAPIVariant?, confirmNoCover: Bool, deleteSafeObjects: Bool, clientMutationID: String)
     case createFromSpoon(spoonID: String, activate: Bool, generateEditorial: Bool, clientMutationID: String)
 
@@ -176,6 +178,10 @@ public enum RecipeCoverControlsAction: Equatable, Sendable {
             "No-cover state saved."
         case .activate:
             "Cover updated."
+        case .uploadPhoto:
+            "Photo queued for cover review."
+        case .generatePlaceholder:
+            "Placeholder cover queued."
         case .regenerate:
             "Cover regeneration queued."
         case .archive:
@@ -207,8 +213,8 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
         connectivity: RecipeCoverControlsConnectivity,
         createdAt: () -> String = { ISO8601DateFormatter().string(from: Date()) }
     ) throws -> RecipeCoverControlsMutationPlan {
-        let online: APIRequestBuilder
-        let offline: NativeQueuedMutation
+        let online: APIRequestBuilder?
+        let offline: NativeQueuedMutation?
         let mutationCreatedAt = createdAt()
 
         switch action {
@@ -238,16 +244,50 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
                 variant: variant.recipeCoverVariant,
                 createdAt: mutationCreatedAt
             )
-        case .regenerate(let coverID, let activateWhenReady, let clientMutationID):
+        case .uploadPhoto(let photo, let activate, let generateEditorial, let postAsSpoon, let note, let nextTime, let cookedAt, let clientMutationID):
+            online = try RecipeCoverRequests.uploadImage(
+                recipeID: recipeID,
+                photo: UploadFile(fileName: photo.fileName, contentType: photo.contentType, data: photo.data),
+                clientMutationID: clientMutationID,
+                activate: activate,
+                generateEditorial: generateEditorial,
+                postAsSpoon: postAsSpoon,
+                note: note,
+                nextTime: nextTime,
+                cookedAt: cookedAt
+            )
+            offline = NativeQueuedMutation.coverUpload(
+                recipeID: recipeID,
+                photo: photo,
+                clientMutationID: clientMutationID,
+                activate: activate,
+                generateEditorial: generateEditorial,
+                postAsSpoon: postAsSpoon,
+                note: note,
+                nextTime: nextTime,
+                cookedAt: cookedAt,
+                createdAt: mutationCreatedAt
+            )
+        case .generatePlaceholder(let promptAddition, let activateWhenReady, let clientMutationID):
+            online = try RecipeCoverRequests.generatePlaceholder(
+                recipeID: recipeID,
+                clientMutationID: clientMutationID,
+                promptAddition: promptAddition,
+                activateWhenReady: activateWhenReady
+            )
+            offline = nil
+        case .regenerate(let coverID, let promptAddition, let activateWhenReady, let clientMutationID):
             online = try RecipeCoverRequests.regenerate(
                 recipeID: recipeID,
                 clientMutationID: clientMutationID,
                 coverID: coverID,
+                promptAddition: promptAddition,
                 activateWhenReady: activateWhenReady
             )
             offline = NativeQueuedMutation.coverRegenerate(
                 recipeID: recipeID,
                 coverID: coverID,
+                promptAddition: promptAddition,
                 activateWhenReady: activateWhenReady,
                 clientMutationID: clientMutationID,
                 createdAt: mutationCreatedAt
