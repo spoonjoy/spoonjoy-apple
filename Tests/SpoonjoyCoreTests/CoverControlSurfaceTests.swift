@@ -456,6 +456,150 @@ struct CoverControlSurfaceTests {
         )
     }
 
+    @Test("cover photo staging uses real picker bytes and preserves existing staged media on rejection")
+    func coverPhotoStagingUsesRealPickerBytesAndPreservesExistingStagedMediaOnRejection() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        #expect(policy.acceptedContentTypes == ["image/jpeg", "image/png", "image/webp", "image/heic"])
+        #expect(policy.fileExtension(for: "image/jpeg") == "jpg")
+        #expect(policy.fileExtension(for: "image/png") == "png")
+        #expect(policy.fileExtension(for: "image/webp") == "webp")
+        #expect(policy.fileExtension(for: "image/heic") == "heic")
+
+        let heicBytes = Data([0x48, 0x45, 0x49, 0x43])
+        let accepted = policy.stageSelection(
+            existing: nil,
+            data: heicBytes,
+            contentType: "image/heic",
+            localStageID: "cover-stage-heic",
+            existingUsage: .zero
+        )
+        let staged = try #require(accepted.stagedPhoto)
+        #expect(accepted.rejection == nil)
+        #expect(staged == NativeStagedMediaUpload(
+            localStageID: "cover-stage-heic",
+            fileName: "cover.heic",
+            contentType: "image/heic",
+            data: heicBytes
+        ))
+        #expect(staged.data == heicBytes)
+
+        let queuedCover = NativeQueuedMutation.coverUpload(
+            recipeID: "recipe/lemon",
+            photo: staged,
+            clientMutationID: "cm_cover_upload_staged",
+            activate: true,
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "First cook.",
+            nextTime: "Less salt.",
+            cookedAt: "2026-06-27T12:00:00.000Z",
+            createdAt: Self.createdAt
+        )
+        #expect(RecipeCoverPhotoStagedMediaUsage(queuedMutations: [queuedCover]) == RecipeCoverPhotoStagedMediaUsage(byteCount: heicBytes.count, fileCount: 1))
+
+        let cancel = policy.cancel(existing: staged)
+        #expect(cancel == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: nil))
+
+        let unsupported = policy.stageSelection(
+            existing: staged,
+            data: Data([0x47, 0x49, 0x46]),
+            contentType: "image/gif",
+            localStageID: "cover-stage-gif",
+            existingUsage: .zero
+        )
+        #expect(unsupported == RecipeCoverPhotoStagingResult(
+            stagedPhoto: staged,
+            rejection: .unsupportedContentType("image/gif")
+        ))
+
+        let empty = policy.stageSelection(
+            existing: staged,
+            data: Data(),
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-empty",
+            existingUsage: .zero
+        )
+        #expect(empty == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: .emptyData))
+
+        let oversized = policy.stageSelection(
+            existing: staged,
+            data: Data(),
+            contentType: "image/jpeg",
+            byteCount: policy.mediaPolicy.maxIndividualUserSelectedBytes + 1,
+            localStageID: "cover-stage-large",
+            existingUsage: .zero
+        )
+        #expect(oversized == RecipeCoverPhotoStagingResult(
+            stagedPhoto: staged,
+            rejection: .media(.individualFileTooLarge(limitBytes: policy.mediaPolicy.maxIndividualUserSelectedBytes))
+        ))
+    }
+
+    @Test("cover photo staging accounts for queued uploads and replacement drafts without silent eviction")
+    func coverPhotoStagingAccountsForQueuedUploadsAndReplacementDraftsWithoutSilentEviction() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let maxBytes = policy.mediaPolicy.maxUnsyncedUserSelectedBytesPerAccount
+        let existingDraft = NativeStagedMediaUpload(
+            localStageID: "cover-stage-existing",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            byteCount: maxBytes
+        )
+        let fullUsage = RecipeCoverPhotoStagedMediaUsage(byteCount: maxBytes, fileCount: 1)
+
+        let rejected = policy.stageSelection(
+            existing: nil,
+            data: Data([0x01]),
+            contentType: "image/png",
+            localStageID: "cover-stage-over-cap",
+            existingUsage: fullUsage
+        )
+        #expect(rejected == RecipeCoverPhotoStagingResult(
+            stagedPhoto: nil,
+            rejection: .media(.accountByteCapReached(limitBytes: maxBytes, silentEvictionAllowed: false))
+        ))
+
+        let replacement = policy.stageSelection(
+            existing: existingDraft,
+            data: Data([0x01]),
+            contentType: "image/png",
+            localStageID: "cover-stage-replacement",
+            existingUsage: fullUsage
+        )
+        #expect(replacement.stagedPhoto == NativeStagedMediaUpload(
+            localStageID: "cover-stage-replacement",
+            fileName: "cover.png",
+            contentType: "image/png",
+            data: Data([0x01])
+        ))
+        #expect(replacement.rejection == nil)
+        #expect(policy.mediaPolicy.allowsSilentEvictionOfUnsyncedUserMedia == false)
+    }
+
+    @Test("native photo studio view loads PhotosPicker bytes through cover staging policy")
+    func nativePhotoStudioViewLoadsPhotosPickerBytesThroughCoverStagingPolicy() throws {
+        let coverControlsSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+
+        #expect(coverControlsSource.contains("import PhotosUI"))
+        #expect(coverControlsSource.contains("import UniformTypeIdentifiers"))
+        #expect(coverControlsSource.contains("@State private var selectedCoverPhotoItem: PhotosPickerItem?"))
+        #expect(coverControlsSource.contains("@State private var stagedCoverPhoto: NativeStagedMediaUpload?"))
+        #expect(coverControlsSource.contains("PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images)"))
+        #expect(coverControlsSource.contains("loadTransferable(type: Data.self)"))
+        #expect(coverControlsSource.contains("RecipeCoverPhotoStagingPolicy.offlineProductContract"))
+        #expect(coverControlsSource.contains("stageSelectedCoverPhoto"))
+        #expect(coverControlsSource.contains("NativeStagedMediaUpload("))
+        #expect(coverControlsSource.contains("\"image/heic\""))
+        #expect(coverControlsSource.contains("\"image/webp\""))
+
+        let rejectionRange = try #require(coverControlsSource.range(of: "@MainActor private func rejectSelectedCoverPhoto"))
+        let clearRange = try #require(coverControlsSource.range(of: "@MainActor private func clearSelectedCoverPhoto"))
+        let rejectionSource = coverControlsSource[rejectionRange.lowerBound..<clearRange.lowerBound]
+        #expect(rejectionSource.contains("selectedCoverPhotoItem = nil"))
+        #expect(rejectionSource.contains("actionError = message"))
+        #expect(!rejectionSource.contains("stagedCoverPhoto = nil"))
+    }
+
     private static func cover(
         id: String = "cover/raw",
         status: String = "ready",
@@ -581,4 +725,12 @@ private struct CoverControlSurfaceTestFailure: Error, CustomStringConvertible {
     init(_ description: String) {
         self.description = description
     }
+}
+
+private func readCoverControlsRepoFile(_ relativePath: String) throws -> String {
+    let root = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    return try String(contentsOf: root.appendingPathComponent(relativePath), encoding: .utf8)
 }
