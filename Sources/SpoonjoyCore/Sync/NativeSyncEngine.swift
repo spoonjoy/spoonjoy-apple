@@ -1845,9 +1845,6 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
 
     private func requiredMedia(_ key: String) throws -> NativeStagedMediaUpload {
         guard let value = media[key] else {
-            if queueableKind == .coverUpload, key == "photo", let legacyImage = media["image"] {
-                return legacyImage
-            }
             throw NativeQueuedMutationRequestError.missingMedia(key)
         }
         return value
