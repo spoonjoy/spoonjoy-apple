@@ -27,7 +27,8 @@ struct TestFlightAutomationContractTests {
                 "fetch-depth: 0",
                 "persist-credentials: false",
                 "scripts/verify-testflight-release-candidate.rb",
-                "--source-sha \"${{ inputs.source_sha }}\"",
+                "SOURCE_SHA: ${{ inputs.source_sha }}",
+                "--source-sha \"$SOURCE_SHA\"",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
                 "SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH",
                 "scripts/ci-publish-testflight.sh"
