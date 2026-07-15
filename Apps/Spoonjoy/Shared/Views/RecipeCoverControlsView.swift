@@ -1,5 +1,14 @@
+import PhotosUI
 import SpoonjoyCore
 import SwiftUI
+import UniformTypeIdentifiers
+
+private let supportedCoverPhotoContentTypes = [
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/heic": "heic"
+]
 
 struct RecipeCoverControlsRouteView: View {
     let recipeID: String
@@ -26,7 +35,7 @@ struct RecipeCoverControlsRouteView: View {
                     data: data ?? .snapshot(recipe: recipe),
                     loadMessage: loadMessage,
                     actionMessage: actionMessage,
-                    actionError: actionError,
+                    actionError: $actionError,
                     providerBlocker: providerBlocker,
                     connectivity: connectivity,
                     runAction: runAction,
@@ -107,18 +116,22 @@ struct RecipeCoverControlsView: View {
     let data: RecipeCoverControlsData
     let loadMessage: String?
     let actionMessage: String?
-    let actionError: String?
+    @Binding var actionError: String?
     let providerBlocker: RecipeCoverProviderBlockerDisplay?
     let connectivity: RecipeCoverControlsConnectivity
     let runAction: @MainActor (RecipeCoverControlsAction) -> Void
     let close: () -> Void
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
+    @State private var selectedCoverPhotoItem: PhotosPickerItem?
+    @State private var stagedCoverPhoto: NativeStagedMediaUpload?
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
                 statusMessages
+                photoUploadControl
                 noCoverControl
                 coverList
                 spoonPhotoList
@@ -183,6 +196,43 @@ struct RecipeCoverControlsView: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
             }
+        }
+        .padding()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var photoUploadControl: some View {
+        let hasStagedPhoto = stagedCoverPhoto != nil
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images) {
+                    Label(hasStagedPhoto ? "Replace Photo" : "Add Photo", systemImage: hasStagedPhoto ? "photo.fill" : "photo.badge.plus")
+                        .font(KitchenTableTheme.uiLabel)
+                }
+                .buttonStyle(.borderedProminent)
+                .onChange(of: selectedCoverPhotoItem) { _, item in
+                    Task { @MainActor in
+                        await stageSelectedCoverPhoto(item)
+                    }
+                }
+
+                if hasStagedPhoto {
+                    Label("Photo ready", systemImage: "checkmark.circle.fill")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.herb)
+                    Button {
+                        clearSelectedCoverPhoto()
+                    } label: {
+                        Label("Clear", systemImage: "xmark.circle")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            Text(hasStagedPhoto ? "Photo ready for this recipe." : "JPEG, PNG, WebP, HEIC")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
         }
         .padding()
         .background(.background)
@@ -409,5 +459,83 @@ struct RecipeCoverControlsView: View {
 
     private func clientMutationID(prefix: String) -> String {
         "\(prefix)-\(UUID().uuidString)"
+    }
+
+    @MainActor private func stageSelectedCoverPhoto(_ item: PhotosPickerItem?) async {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        guard let item else {
+            let result = policy.cancel(existing: stagedCoverPhoto)
+            stagedCoverPhoto = result.stagedPhoto
+            return
+        }
+
+        guard let (contentType, fileExtension) = item.supportedContentTypes.compactMap(Self.supportedCoverPhotoContentType).first else {
+            rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(.unsupportedContentType(item.supportedContentTypes.first?.preferredMIMEType ?? "unknown")))
+            return
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(.emptyData))
+                return
+            }
+            let candidate = NativeStagedMediaUpload(
+                localStageID: "cover-photo-\(UUID().uuidString)",
+                fileName: "cover.\(fileExtension)",
+                contentType: contentType,
+                data: data
+            )
+            let result = policy.stageSelection(
+                existing: stagedCoverPhoto,
+                candidate: candidate,
+                existingUsage: .zero
+            )
+            if let rejection = result.rejection {
+                rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(rejection))
+                return
+            }
+            stagedCoverPhoto = result.stagedPhoto
+            actionError = nil
+        } catch {
+            rejectSelectedCoverPhoto("Photo could not be loaded.")
+        }
+    }
+
+    @MainActor private func rejectSelectedCoverPhoto(_ message: String) {
+        selectedCoverPhotoItem = nil
+        actionError = message
+    }
+
+    @MainActor private func clearSelectedCoverPhoto() {
+        selectedCoverPhotoItem = nil
+        stagedCoverPhoto = nil
+        actionError = nil
+    }
+
+    private static func supportedCoverPhotoContentType(_ contentType: UTType) -> (String, String)? {
+        guard let mimeType = contentType.preferredMIMEType?.lowercased(),
+              let fileExtension = supportedCoverPhotoContentTypes[mimeType] else {
+            return nil
+        }
+        return (mimeType, fileExtension)
+    }
+
+    private static func photoStagingRejectionMessage(_ rejection: RecipeCoverPhotoStagingRejection) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        switch rejection {
+        case .unsupportedContentType:
+            return "Unsupported photo format. Choose a JPEG, PNG, WebP, or HEIC image."
+        case .emptyData:
+            return "Photo could not be loaded."
+        case .media(.individualFileTooLarge(let limitBytes)):
+            return "Photo is too large. Choose an image under \(formatter.string(fromByteCount: Int64(limitBytes)))."
+        case .media(.accountByteCapReached(let limitBytes, _)):
+            return "Offline photo storage is full. Sync or remove queued cover photos before adding more than \(formatter.string(fromByteCount: Int64(limitBytes)))."
+        case .media(.accountFileCapReached(let limitFiles, _)):
+            return "Offline photo storage is full. Sync or remove queued cover photos before adding more than \(limitFiles) files."
+        case .media(.generatedPreviewCapReached), .media(.invalidPathComponent):
+            return "Photo could not be staged offline."
+        }
     }
 }

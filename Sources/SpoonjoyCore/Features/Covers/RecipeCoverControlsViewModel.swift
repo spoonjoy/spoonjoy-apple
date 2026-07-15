@@ -34,6 +34,135 @@ public enum RecipeCoverControlsConnectivity: Equatable, Sendable {
     case offline
 }
 
+public enum RecipeCoverPhotoStagingRejection: Equatable, Sendable {
+    case unsupportedContentType(String)
+    case emptyData
+    case media(NativeMediaStagingError)
+}
+
+public struct RecipeCoverPhotoStagingResult: Equatable, Sendable {
+    public let stagedPhoto: NativeStagedMediaUpload?
+    public let rejection: RecipeCoverPhotoStagingRejection?
+
+    public init(stagedPhoto: NativeStagedMediaUpload?, rejection: RecipeCoverPhotoStagingRejection?) {
+        self.stagedPhoto = stagedPhoto
+        self.rejection = rejection
+    }
+}
+
+public struct RecipeCoverPhotoStagedMediaUsage: Equatable, Sendable {
+    public let byteCount: Int
+    public let fileCount: Int
+
+    public init(byteCount: Int, fileCount: Int) {
+        self.byteCount = byteCount
+        self.fileCount = fileCount
+    }
+
+    public init(queuedMutations: [NativeQueuedMutation]) {
+        self.init(
+            byteCount: queuedMutations.reduce(0) { $0 + $1.stagedMediaUploadByteCount },
+            fileCount: queuedMutations.reduce(0) { $0 + $1.stagedMediaUploadCount }
+        )
+    }
+
+    public static let zero = RecipeCoverPhotoStagedMediaUsage(byteCount: 0, fileCount: 0)
+
+    public func removing(byteCount removedByteCount: Int, fileCount removedFileCount: Int) -> RecipeCoverPhotoStagedMediaUsage {
+        RecipeCoverPhotoStagedMediaUsage(
+            byteCount: max(0, byteCount - removedByteCount),
+            fileCount: max(0, fileCount - removedFileCount)
+        )
+    }
+}
+
+public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
+    public static let offlineProductContract = RecipeCoverPhotoStagingPolicy()
+
+    public let acceptedContentTypes: [String]
+    public let mediaPolicy: NativeMediaStagingPolicy
+
+    public init(
+        acceptedContentTypes: [String] = ["image/jpeg", "image/png", "image/webp", "image/heic"],
+        mediaPolicy: NativeMediaStagingPolicy = .offlineProductContract
+    ) {
+        self.acceptedContentTypes = acceptedContentTypes
+        self.mediaPolicy = mediaPolicy
+    }
+
+    public func fileExtension(for contentType: String) -> String? {
+        switch contentType.lowercased() {
+        case "image/jpeg", "image/jpg":
+            "jpg"
+        case "image/png":
+            "png"
+        case "image/webp":
+            "webp"
+        case "image/heic":
+            "heic"
+        default:
+            nil
+        }
+    }
+
+    public func stageSelection(
+        existing: NativeStagedMediaUpload?,
+        data: Data,
+        contentType: String,
+        byteCount: Int? = nil,
+        localStageID: String,
+        existingUsage: RecipeCoverPhotoStagedMediaUsage
+    ) -> RecipeCoverPhotoStagingResult {
+        let normalizedContentType = contentType.lowercased()
+        guard acceptedContentTypes.contains(normalizedContentType),
+              let fileExtension = fileExtension(for: normalizedContentType) else {
+            return RecipeCoverPhotoStagingResult(
+                stagedPhoto: existing,
+                rejection: .unsupportedContentType(contentType)
+            )
+        }
+
+        let effectiveByteCount = max(byteCount ?? data.count, data.count)
+        guard effectiveByteCount > 0 else {
+            return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
+        }
+
+        let candidate = NativeStagedMediaUpload(
+            localStageID: localStageID,
+            fileName: "cover.\(fileExtension)",
+            contentType: normalizedContentType,
+            byteCount: effectiveByteCount,
+            data: data
+        )
+        return stageSelection(existing: existing, candidate: candidate, existingUsage: existingUsage)
+    }
+
+    public func stageSelection(
+        existing: NativeStagedMediaUpload?,
+        candidate: NativeStagedMediaUpload,
+        existingUsage: RecipeCoverPhotoStagedMediaUsage
+    ) -> RecipeCoverPhotoStagingResult {
+        let usage = existingUsage.removing(
+            byteCount: existing?.byteCount ?? 0,
+            fileCount: existing == nil ? 0 : 1
+        )
+        switch mediaPolicy.evaluateNewUserSelectedMedia(
+            byteCount: candidate.byteCount,
+            existingUnsyncedBytes: usage.byteCount,
+            existingUnsyncedFileCount: usage.fileCount
+        ) {
+        case .accepted:
+            return RecipeCoverPhotoStagingResult(stagedPhoto: candidate, rejection: nil)
+        case .rejected(let error):
+            return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .media(error))
+        }
+    }
+
+    public func cancel(existing: NativeStagedMediaUpload?) -> RecipeCoverPhotoStagingResult {
+        RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: nil)
+    }
+}
+
 public enum RecipeCoverControlsAction: Equatable, Sendable {
     case setNoCover(clientMutationID: String)
     case activate(coverID: String, variant: RecipeCoverAPIVariant, clientMutationID: String)
