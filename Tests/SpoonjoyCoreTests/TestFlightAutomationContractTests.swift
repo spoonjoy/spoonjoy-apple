@@ -20,6 +20,7 @@ struct TestFlightAutomationContractTests {
                 "required: true",
                 "allow_rollback:",
                 "rollback_reason:",
+                "rollback_notes:",
                 "github.ref == 'refs/heads/main'",
                 "environment: internal-testflight",
                 "actions: read",
@@ -37,6 +38,9 @@ struct TestFlightAutomationContractTests {
                 "SOURCE_SHA: ${{ inputs.source_sha }}",
                 "--source-sha \"$SOURCE_SHA\"",
                 "SPOONJOY_TESTFLIGHT_SOURCE_ROOT: ${{ github.workspace }}/release-source",
+                "ROLLBACK_NOTES: ${{ inputs.rollback_notes }}",
+                "--rollback-notes \"$ROLLBACK_NOTES\"",
+                "name: Upload verified candidate note",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
                 "SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH",
                 "../scripts/ci-publish-testflight.sh"
@@ -344,6 +348,43 @@ struct TestFlightAutomationContractTests {
             rollbackReason: "Attempt unrelated revision",
             contains: "selected SHA is not an ancestor of main"
         )
+
+        let legacy = try makeCandidateFixture(sourceSHA: rollbackSHA, mainSHA: currentSHA)
+        defer { try? FileManager.default.removeItem(at: legacy) }
+        try mutateJSON(at: legacy.appendingPathComponent("jobs.json")) { json in
+            var jobs = json["jobs"] as! [[String: Any]]
+            jobs.removeAll { ($0["name"] as? String) == "TestFlight release note" }
+            json["jobs"] = jobs
+        }
+        try mutateJSON(at: legacy.appendingPathComponent("artifacts.json")) { json in
+            json["artifacts"] = []
+        }
+        try FileManager.default.removeItem(at: legacy.appendingPathComponent("testflight-release-notes.json"))
+        let legacyResult = try runCandidateVerifier(
+            fixture: legacy,
+            sourceSHA: rollbackSHA,
+            allowRollback: true,
+            rollbackReason: "Restore pre-containment known-good build",
+            rollbackNotes: "Restores the last known-good native build."
+        )
+        #expect(legacyResult.status == 0, "legacy rollback verifier failed: \(legacyResult.output)")
+        let generatedNote = legacy.appendingPathComponent(
+            "output/testflight-release-notes-\(rollbackSHA)/testflight-release-notes.json"
+        )
+        let generatedData = try Data(contentsOf: generatedNote)
+        let generated = try #require(JSONSerialization.jsonObject(with: generatedData) as? [String: Any])
+        #expect(generated["sourceSha"] as? String == rollbackSHA)
+        #expect(generated["nativeRunId"] as? Int == 4242)
+        #expect(generated["notes"] as? String == "Restores the last known-good native build.")
+
+        let ordinaryWithRollbackNotes = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
+        defer { try? FileManager.default.removeItem(at: ordinaryWithRollbackNotes) }
+        try expectVerifierFailure(
+            fixture: ordinaryWithRollbackNotes,
+            sourceSHA: currentSHA,
+            rollbackNotes: "Must not override ordinary release notes",
+            contains: "rollback notes are only valid for an explicit rollback"
+        )
     }
 
     @Test("publish driver consumes exact candidate notes and records provenance")
@@ -380,6 +421,7 @@ struct TestFlightAutomationContractTests {
                 "testflight-release-notes-<source_sha>",
                 "allow_rollback",
                 "rollback_reason",
+                "rollback_notes",
                 "last known-good main commit",
                 "new TestFlight build number",
                 "No push, pull request, or completed workflow publishes automatically"
@@ -503,7 +545,8 @@ private func runCandidateVerifier(
     fixture: URL,
     sourceSHA: String,
     allowRollback: Bool = false,
-    rollbackReason: String = ""
+    rollbackReason: String = "",
+    rollbackNotes: String = ""
 ) throws -> TestFlightProcessResult {
     let process = Process()
     let output = Pipe()
@@ -514,6 +557,7 @@ private func runCandidateVerifier(
         "--repository", "ourostack/spoonjoy-apple",
         "--allow-rollback", allowRollback ? "true" : "false",
         "--rollback-reason", rollbackReason,
+        "--rollback-notes", rollbackNotes,
         "--output-dir", fixture.appendingPathComponent("output").path,
         "--fixture-dir", fixture.path
     ]
@@ -566,13 +610,15 @@ private func expectVerifierFailure(
     sourceSHA: String,
     allowRollback: Bool = false,
     rollbackReason: String = "",
+    rollbackNotes: String = "",
     contains message: String
 ) throws {
     let result = try runCandidateVerifier(
         fixture: fixture,
         sourceSHA: sourceSHA,
         allowRollback: allowRollback,
-        rollbackReason: rollbackReason
+        rollbackReason: rollbackReason,
+        rollbackNotes: rollbackNotes
     )
     #expect(result.status != 0, "verifier unexpectedly accepted invalid fixture")
     #expect(result.output.contains(message), "expected \(message.debugDescription), got: \(result.output)")
