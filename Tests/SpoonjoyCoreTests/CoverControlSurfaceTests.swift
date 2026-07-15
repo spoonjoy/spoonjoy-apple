@@ -464,6 +464,7 @@ struct CoverControlSurfaceTests {
         #expect(policy.fileExtension(for: "image/png") == "png")
         #expect(policy.fileExtension(for: "image/webp") == "webp")
         #expect(policy.fileExtension(for: "image/heic") == "heic")
+        #expect(policy.fileExtension(for: "image/gif") == nil)
 
         let heicBytes = Data([0x48, 0x45, 0x49, 0x43])
         let accepted = policy.stageSelection(
