@@ -25,20 +25,25 @@ struct TestFlightAutomationContractTests {
                 "actions: read",
                 "group: spoonjoy-testflight-internal",
                 "cancel-in-progress: false",
+                "name: Check out trusted release controls",
+                "ref: ${{ github.sha }}",
+                "name: Check out selected source revision",
                 "ref: ${{ inputs.source_sha }}",
+                "path: release-source",
                 "fetch-depth: 0",
                 "persist-credentials: false",
-                "scripts/verify-testflight-release-candidate.rb",
+                "working-directory: release-source",
+                "../scripts/verify-testflight-release-candidate.rb",
                 "SOURCE_SHA: ${{ inputs.source_sha }}",
                 "--source-sha \"$SOURCE_SHA\"",
+                "SPOONJOY_TESTFLIGHT_SOURCE_ROOT: ${{ github.workspace }}/release-source",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
                 "SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH",
-                "scripts/ci-publish-testflight.sh"
+                "../scripts/ci-publish-testflight.sh"
             ],
             forbids: [
                 "workflow_run:",
                 "github.event.workflow_run",
-                "github.sha }}",
                 "appStoreVersionSubmissions",
                 "appStoreReviewSubmissions",
                 "betaAppReviewSubmissions"
@@ -113,6 +118,81 @@ struct TestFlightAutomationContractTests {
         #expect(attestation["sourceSha"] as? String == currentSHA)
         #expect(attestation["nativeRunId"] as? Int == 4242)
         #expect(attestation["rollback"] as? Bool == false)
+    }
+
+    @Test("live verifier queries and downloads evidence for the selected SHA and run")
+    func liveVerifierUsesExactGitHubEvidenceRequests() throws {
+        let fixture = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let fakeBin = fixture.appendingPathComponent("bin", isDirectory: true)
+        let commandLog = fixture.appendingPathComponent("commands.log")
+        try FileManager.default.createDirectory(at: fakeBin, withIntermediateDirectories: true)
+        try makeExecutable(
+            at: fakeBin.appendingPathComponent("git"),
+            content: """
+            #!/usr/bin/env bash
+            set -euo pipefail
+            printf 'git %s\n' "$*" >> "$COMMAND_LOG"
+            if [[ "$1" == "rev-parse" && "$2" == "HEAD" ]]; then
+              cat "$CANDIDATE_FIXTURE/checked-out-sha.txt"
+            elif [[ "$1" == "merge-base" && "$2" == "--is-ancestor" ]]; then
+              [[ "$(cat "$CANDIDATE_FIXTURE/is-main-ancestor.txt")" == "true" ]]
+            else
+              echo "unexpected fake git arguments: $*" >&2
+              exit 2
+            fi
+            """
+        )
+        try makeExecutable(
+            at: fakeBin.appendingPathComponent("gh"),
+            content: """
+            #!/usr/bin/env bash
+            set -euo pipefail
+            printf 'gh %s\n' "$*" >> "$COMMAND_LOG"
+            if [[ "$1" == "api" ]]; then
+              endpoint="$4"
+              case "$endpoint" in
+                repos/*/git/ref/heads/main) cat "$CANDIDATE_FIXTURE/main-ref.json" ;;
+                repos/*/actions/workflows/native.yml/runs) cat "$CANDIDATE_FIXTURE/runs.json" ;;
+                repos/*/actions/runs/4242/jobs) cat "$CANDIDATE_FIXTURE/jobs.json" ;;
+                repos/*/actions/runs/4242/artifacts) cat "$CANDIDATE_FIXTURE/artifacts.json" ;;
+                *) echo "unexpected fake gh endpoint: $endpoint" >&2; exit 2 ;;
+              esac
+            elif [[ "$1" == "run" && "$2" == "download" && "$3" == "4242" ]]; then
+              destination=""
+              while (( $# > 0 )); do
+                if [[ "$1" == "--dir" ]]; then
+                  destination="$2"
+                  break
+                fi
+                shift
+              done
+              [[ -n "$destination" ]]
+              mkdir -p "$destination"
+              cp "$CANDIDATE_FIXTURE/testflight-release-notes.json" "$destination/"
+            else
+              echo "unexpected fake gh arguments: $*" >&2
+              exit 2
+            fi
+            """
+        )
+
+        let result = try runCandidateVerifierLive(
+            fixture: fixture,
+            fakeBin: fakeBin,
+            commandLog: commandLog,
+            sourceSHA: currentSHA
+        )
+        #expect(result.status == 0, "live verifier failed: \(result.output)")
+        let commands = try String(contentsOf: commandLog, encoding: .utf8)
+        #expect(commands.contains("git rev-parse HEAD"))
+        #expect(commands.contains("git merge-base --is-ancestor \(currentSHA) \(currentSHA)"))
+        #expect(commands.contains("gh api --method GET repos/ourostack/spoonjoy-apple/git/ref/heads/main"))
+        #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/workflows/native.yml/runs -f head_sha=\(currentSHA) -f branch=main -f per_page=100"))
+        #expect(!commands.contains("status=completed"))
+        #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/runs/4242/jobs"))
+        #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/runs/4242/artifacts"))
+        #expect(commands.contains("gh run download 4242 --repo ourostack/spoonjoy-apple --name testflight-release-notes-\(currentSHA)"))
     }
 
     @Test("candidate verifier fails closed on unsuccessful or mismatched Native checks")
@@ -275,6 +355,7 @@ struct TestFlightAutomationContractTests {
             in: "scripts/ci-publish-testflight.sh",
             contains: [
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
+                "SPOONJOY_TESTFLIGHT_SOURCE_ROOT",
                 "SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH",
                 "release note source SHA does not match",
                 "testflight.build.whatsNew",
@@ -447,6 +528,39 @@ private func runCandidateVerifier(
     )
 }
 
+private func runCandidateVerifierLive(
+    fixture: URL,
+    fakeBin: URL,
+    commandLog: URL,
+    sourceSHA: String
+) throws -> TestFlightProcessResult {
+    let process = Process()
+    let output = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/ruby")
+    process.arguments = [
+        testFlightAutomationRepoURL.appendingPathComponent("scripts/verify-testflight-release-candidate.rb").path,
+        "--source-sha", sourceSHA,
+        "--repository", "ourostack/spoonjoy-apple",
+        "--allow-rollback", "false",
+        "--rollback-reason", "",
+        "--output-dir", fixture.appendingPathComponent("live-output").path
+    ]
+    var environment = ProcessInfo.processInfo.environment
+    environment["PATH"] = "\(fakeBin.path):/usr/bin:/bin"
+    environment["CANDIDATE_FIXTURE"] = fixture.path
+    environment["COMMAND_LOG"] = commandLog.path
+    process.environment = environment
+    process.standardOutput = output
+    process.standardError = output
+    try process.run()
+    process.waitUntilExit()
+
+    return TestFlightProcessResult(
+        status: process.terminationStatus,
+        output: String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    )
+}
+
 private func expectVerifierFailure(
     fixture: URL,
     sourceSHA: String,
@@ -467,6 +581,11 @@ private func expectVerifierFailure(
 private func writeJSON(_ object: Any, to url: URL) throws {
     let data = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
     try data.write(to: url)
+}
+
+private func makeExecutable(at url: URL, content: String) throws {
+    try content.write(to: url, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
 }
 
 private func mutateJSON(at url: URL, mutation: (inout [String: Any]) -> Void) throws {
