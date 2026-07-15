@@ -102,13 +102,15 @@ struct TestFlightAutomationContractTests {
         let result = try runCandidateVerifier(fixture: fixture, sourceSHA: currentSHA)
         #expect(result.status == 0, "verifier failed: \(result.output)")
 
-        let attestation = try String(
-            contentsOf: fixture.appendingPathComponent("output/testflight-release-candidate.json"),
-            encoding: .utf8
+        let attestationData = try Data(
+            contentsOf: fixture.appendingPathComponent("output/testflight-release-candidate.json")
         )
-        #expect(attestation.contains("\"sourceSha\" : \"\(currentSHA)\""))
-        #expect(attestation.contains("\"nativeRunId\" : 4242"))
-        #expect(attestation.contains("\"rollback\" : false"))
+        let attestation = try #require(
+            JSONSerialization.jsonObject(with: attestationData) as? [String: Any]
+        )
+        #expect(attestation["sourceSha"] as? String == currentSHA)
+        #expect(attestation["nativeRunId"] as? Int == 4242)
+        #expect(attestation["rollback"] as? Bool == false)
     }
 
     @Test("candidate verifier fails closed on unsuccessful or mismatched Native checks")
