@@ -1353,6 +1353,30 @@ struct NativeAPIExpansionTests {
             ]
         )
 
+        let activateWhenReadyCoverUpload = try RecipeCoverRequests.uploadImage(
+            recipeID: "recipe/pantry",
+            image: UploadFile(fileName: "activate-ready-cover.jpg", contentType: "image/jpeg", data: Data([0xFF, 0xD8, 0xFF])),
+            clientMutationID: "cover-upload-activate-ready",
+            activateWhenReady: true,
+            generateEditorial: false
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        try assertMultipartRequest(
+            activateWhenReadyCoverUpload,
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Fpantry/image",
+            fileField: "photo",
+            fileName: "activate-ready-cover.jpg",
+            contentType: "image/jpeg",
+            data: Data([0xFF, 0xD8, 0xFF]),
+            fields: [
+                "clientMutationId": "cover-upload-activate-ready",
+                "activateWhenReady": "true",
+                "generateEditorial": "false",
+                "postAsSpoon": "false"
+            ]
+        )
+
         let spoonCreateWithNulls = try RecipeSpoonRequests.createSpoon(
             recipeID: "recipe/pantry",
             clientMutationID: "spoon-create-nulls",

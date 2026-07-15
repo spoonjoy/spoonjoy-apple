@@ -300,6 +300,26 @@ struct CoverControlSurfaceTests {
         #expect(RecipeCoverControlsAction.setNoCover(clientMutationID: "cm").successMessage == "No-cover state saved.")
         #expect(RecipeCoverControlsAction.activate(coverID: "cover", variant: .image, clientMutationID: "cm").successMessage == "Cover updated.")
         #expect(RecipeCoverControlsAction.uploadPhoto(photo: Self.stagedCoverPhoto(), activate: true, generateEditorial: true, postAsSpoon: false, note: nil, nextTime: nil, cookedAt: nil, clientMutationID: "cm").successMessage == "Photo queued for cover review.")
+        let activateWhenReadyUpload = RecipeCoverControlsAction.uploadPhoto(
+            photo: Self.stagedCoverPhoto(),
+            activateWhenReady: false,
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "Loved it.",
+            nextTime: "More herbs.",
+            cookedAt: Self.createdAt,
+            clientMutationID: "cm_activate_when_ready"
+        )
+        #expect(activateWhenReadyUpload == .uploadPhoto(
+            photo: Self.stagedCoverPhoto(),
+            activate: false,
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "Loved it.",
+            nextTime: "More herbs.",
+            cookedAt: Self.createdAt,
+            clientMutationID: "cm_activate_when_ready"
+        ))
         #expect(RecipeCoverControlsAction.generatePlaceholder(promptAddition: nil, activateWhenReady: true, clientMutationID: "cm").successMessage == "Placeholder cover queued.")
         #expect(RecipeCoverControlsAction.regenerate(coverID: "cover", promptAddition: "warmer light", activateWhenReady: false, clientMutationID: "cm").successMessage == "Cover regeneration queued.")
         #expect(RecipeCoverControlsAction.archive(coverID: "cover", replacementCoverID: nil, replacementVariant: nil, confirmNoCover: true, deleteSafeObjects: false, clientMutationID: "cm").successMessage == "Cover archived.")
