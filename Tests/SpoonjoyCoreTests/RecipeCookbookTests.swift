@@ -164,6 +164,30 @@ struct RecipeCookbookTests {
         #expect(summary.updatedAt == recipe.updatedAt)
     }
 
+    @Test("AI placeholder recipe covers stay hidden from native image surfaces")
+    func aiPlaceholderRecipeCoversStayHiddenFromNativeImageSurfaces() throws {
+        let coverURL = URL(string: "https://spoonjoy.app/photos/recipes/recipe_validation/placeholder.jpg")!
+        let catalog = try RecipeFixtureCatalog.decode(
+            data: recipeCatalogData(
+                coverImageURLJSON: "\"\(coverURL.absoluteString)\"",
+                coverProvenanceLabelJSON: "\"AI placeholder\"",
+                coverSourceTypeJSON: "\"ai-placeholder\"",
+                coverVariantJSON: "\"image\""
+            )
+        )
+        let recipe = try #require(catalog.recipe(id: "recipe_validation"))
+        let summary = RecipeSummary(recipe: recipe)
+
+        #expect(recipe.coverImageURL == coverURL)
+        #expect(recipe.coverProvenanceLabel == "AI placeholder")
+        #expect(recipe.coverSourceType == .aiPlaceholder)
+        #expect(recipe.displayCoverImageURL == nil)
+        #expect(recipe.displayCoverProvenanceLabel == nil)
+        #expect(summary.coverImageURL == coverURL)
+        #expect(summary.displayCoverImageURL == nil)
+        #expect(summary.displayCoverProvenanceLabel == nil)
+    }
+
     @Test("recipe cover source accepts every current API spelling")
     func recipeCoverSourceAcceptsEveryCurrentAPISpelling() throws {
         let decoder = JSONDecoder()
@@ -356,6 +380,16 @@ struct RecipeCookbookTests {
         #expect(cover.presentation == .textOnly)
     }
 
+    @Test("cookbook cover uses a collage as soon as an image is available")
+    func cookbookCoverUsesCollageAsSoonAsAnImageIsAvailable() {
+        let primaryURL = URL(string: "https://spoonjoy.app/photos/recipes/one/cover.jpg")!
+        let secondaryURL = URL(string: "https://spoonjoy.app/photos/recipes/two/cover.jpg")!
+        let cover = CookbookCover(imageURLs: [nil, primaryURL, secondaryURL])
+
+        #expect(cover.primaryImageURL == primaryURL)
+        #expect(cover.presentation == .collage)
+    }
+
     @Test("cookbook validation rejects malformed public payloads")
     func cookbookValidationRejectsMalformedPayloads() {
         #expect(
@@ -465,6 +499,10 @@ private let validRecipeStepsJSON = """
 private func recipeCatalogData(
     title: String = "Validation Recipe",
     servingsJSON: String = "\"2\"",
+    coverImageURLJSON: String = "null",
+    coverProvenanceLabelJSON: String = "null",
+    coverSourceTypeJSON: String = "null",
+    coverVariantJSON: String = "null",
     sourceURLJSON: String = "null",
     sourceRecipeJSON: String = """
     {
@@ -488,10 +526,10 @@ private func recipeCatalogData(
               "description": null,
               "servings": \(servingsJSON),
               "chef": { "id": "chef_ari", "username": "ari" },
-              "coverImageUrl": null,
-              "coverProvenanceLabel": null,
-              "coverSourceType": null,
-              "coverVariant": null,
+              "coverImageUrl": \(coverImageURLJSON),
+              "coverProvenanceLabel": \(coverProvenanceLabelJSON),
+              "coverSourceType": \(coverSourceTypeJSON),
+              "coverVariant": \(coverVariantJSON),
               "href": "/recipes/recipe_validation",
               "canonicalUrl": "https://spoonjoy.app/recipes/recipe_validation",
               "attribution": {

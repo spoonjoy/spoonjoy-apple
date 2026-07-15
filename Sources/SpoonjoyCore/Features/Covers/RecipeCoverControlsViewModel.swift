@@ -34,12 +34,169 @@ public enum RecipeCoverControlsConnectivity: Equatable, Sendable {
     case offline
 }
 
+public enum RecipeCoverPhotoStagingRejection: Equatable, Sendable {
+    case unsupportedContentType(String)
+    case emptyData
+    case media(NativeMediaStagingError)
+}
+
+public struct RecipeCoverPhotoStagingResult: Equatable, Sendable {
+    public let stagedPhoto: NativeStagedMediaUpload?
+    public let rejection: RecipeCoverPhotoStagingRejection?
+
+    public init(stagedPhoto: NativeStagedMediaUpload?, rejection: RecipeCoverPhotoStagingRejection?) {
+        self.stagedPhoto = stagedPhoto
+        self.rejection = rejection
+    }
+}
+
+public struct RecipeCoverPhotoStagedMediaUsage: Equatable, Sendable {
+    public let byteCount: Int
+    public let fileCount: Int
+
+    public init(byteCount: Int, fileCount: Int) {
+        self.byteCount = byteCount
+        self.fileCount = fileCount
+    }
+
+    public init(queuedMutations: [NativeQueuedMutation]) {
+        self.init(
+            byteCount: queuedMutations.reduce(0) { $0 + $1.stagedMediaUploadByteCount },
+            fileCount: queuedMutations.reduce(0) { $0 + $1.stagedMediaUploadCount }
+        )
+    }
+
+    public static let zero = RecipeCoverPhotoStagedMediaUsage(byteCount: 0, fileCount: 0)
+
+    public func removing(byteCount removedByteCount: Int, fileCount removedFileCount: Int) -> RecipeCoverPhotoStagedMediaUsage {
+        RecipeCoverPhotoStagedMediaUsage(
+            byteCount: max(0, byteCount - removedByteCount),
+            fileCount: max(0, fileCount - removedFileCount)
+        )
+    }
+}
+
+public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
+    public static let offlineProductContract = RecipeCoverPhotoStagingPolicy()
+
+    public let acceptedContentTypes: [String]
+    public let mediaPolicy: NativeMediaStagingPolicy
+
+    public init(
+        acceptedContentTypes: [String] = ["image/jpeg", "image/png", "image/webp", "image/heic"],
+        mediaPolicy: NativeMediaStagingPolicy = .offlineProductContract
+    ) {
+        self.acceptedContentTypes = acceptedContentTypes
+        self.mediaPolicy = mediaPolicy
+    }
+
+    public func fileExtension(for contentType: String) -> String? {
+        switch contentType.lowercased() {
+        case "image/jpeg", "image/jpg":
+            "jpg"
+        case "image/png":
+            "png"
+        case "image/webp":
+            "webp"
+        case "image/heic":
+            "heic"
+        default:
+            nil
+        }
+    }
+
+    public func stageSelection(
+        existing: NativeStagedMediaUpload?,
+        data: Data,
+        contentType: String,
+        byteCount: Int? = nil,
+        localStageID: String,
+        existingUsage: RecipeCoverPhotoStagedMediaUsage
+    ) -> RecipeCoverPhotoStagingResult {
+        let normalizedContentType = contentType.lowercased()
+        guard acceptedContentTypes.contains(normalizedContentType),
+              let fileExtension = fileExtension(for: normalizedContentType) else {
+            return RecipeCoverPhotoStagingResult(
+                stagedPhoto: existing,
+                rejection: .unsupportedContentType(contentType)
+            )
+        }
+
+        let effectiveByteCount = max(byteCount ?? data.count, data.count)
+        guard effectiveByteCount > 0 else {
+            return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
+        }
+
+        let candidate = NativeStagedMediaUpload(
+            localStageID: localStageID,
+            fileName: "cover.\(fileExtension)",
+            contentType: normalizedContentType,
+            byteCount: effectiveByteCount,
+            data: data
+        )
+        return stageSelection(existing: existing, candidate: candidate, existingUsage: existingUsage)
+    }
+
+    public func stageSelection(
+        existing: NativeStagedMediaUpload?,
+        candidate: NativeStagedMediaUpload,
+        existingUsage: RecipeCoverPhotoStagedMediaUsage
+    ) -> RecipeCoverPhotoStagingResult {
+        guard candidate.byteCount > 0 else {
+            return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
+        }
+
+        let usage = existingUsage.removing(
+            byteCount: existing?.byteCount ?? 0,
+            fileCount: existing == nil ? 0 : 1
+        )
+        switch mediaPolicy.evaluateNewUserSelectedMedia(
+            byteCount: candidate.byteCount,
+            existingUnsyncedBytes: usage.byteCount,
+            existingUnsyncedFileCount: usage.fileCount
+        ) {
+        case .accepted:
+            return RecipeCoverPhotoStagingResult(stagedPhoto: candidate, rejection: nil)
+        case .rejected(let error):
+            return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .media(error))
+        }
+    }
+
+    public func cancel(existing: NativeStagedMediaUpload?) -> RecipeCoverPhotoStagingResult {
+        RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: nil)
+    }
+}
+
 public enum RecipeCoverControlsAction: Equatable, Sendable {
     case setNoCover(clientMutationID: String)
     case activate(coverID: String, variant: RecipeCoverAPIVariant, clientMutationID: String)
-    case regenerate(coverID: String, activateWhenReady: Bool, clientMutationID: String)
+    case uploadPhoto(photo: NativeStagedMediaUpload, activate: Bool, generateEditorial: Bool, postAsSpoon: Bool, note: String?, nextTime: String?, cookedAt: String?, clientMutationID: String)
+    case generatePlaceholder(promptAddition: String?, activateWhenReady: Bool, clientMutationID: String)
+    case regenerate(coverID: String, promptAddition: String? = nil, activateWhenReady: Bool, clientMutationID: String)
     case archive(coverID: String, replacementCoverID: String?, replacementVariant: RecipeCoverAPIVariant?, confirmNoCover: Bool, deleteSafeObjects: Bool, clientMutationID: String)
     case createFromSpoon(spoonID: String, activate: Bool, generateEditorial: Bool, clientMutationID: String)
+
+    public static func uploadPhoto(
+        photo: NativeStagedMediaUpload,
+        activateWhenReady: Bool,
+        generateEditorial: Bool,
+        postAsSpoon: Bool,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
+        clientMutationID: String
+    ) -> RecipeCoverControlsAction {
+        .uploadPhoto(
+            photo: photo,
+            activate: activateWhenReady,
+            generateEditorial: generateEditorial,
+            postAsSpoon: postAsSpoon,
+            note: note,
+            nextTime: nextTime,
+            cookedAt: cookedAt,
+            clientMutationID: clientMutationID
+        )
+    }
 
     public var successMessage: String {
         switch self {
@@ -47,6 +204,10 @@ public enum RecipeCoverControlsAction: Equatable, Sendable {
             "No-cover state saved."
         case .activate:
             "Cover updated."
+        case .uploadPhoto:
+            "Photo queued for cover review."
+        case .generatePlaceholder:
+            "Placeholder cover queued."
         case .regenerate:
             "Cover regeneration queued."
         case .archive:
@@ -55,6 +216,10 @@ public enum RecipeCoverControlsAction: Equatable, Sendable {
             "Spoon photo queued as a cover."
         }
     }
+}
+
+public enum RecipeCoverControlsActionPlanningError: Error, Equatable, Sendable {
+    case onlineOnlyPlaceholderGeneration
 }
 
 public struct RecipeCoverControlsMutationPlan: Equatable {
@@ -78,8 +243,8 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
         connectivity: RecipeCoverControlsConnectivity,
         createdAt: () -> String = { ISO8601DateFormatter().string(from: Date()) }
     ) throws -> RecipeCoverControlsMutationPlan {
-        let online: APIRequestBuilder
-        let offline: NativeQueuedMutation
+        let online: APIRequestBuilder?
+        let offline: NativeQueuedMutation?
         let mutationCreatedAt = createdAt()
 
         switch action {
@@ -109,16 +274,53 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
                 variant: variant.recipeCoverVariant,
                 createdAt: mutationCreatedAt
             )
-        case .regenerate(let coverID, let activateWhenReady, let clientMutationID):
+        case .uploadPhoto(let photo, let activateWhenReady, let generateEditorial, let postAsSpoon, let note, let nextTime, let cookedAt, let clientMutationID):
+            online = try RecipeCoverRequests.uploadImage(
+                recipeID: recipeID,
+                photo: UploadFile(fileName: photo.fileName, contentType: photo.contentType, data: photo.data),
+                clientMutationID: clientMutationID,
+                activateWhenReady: activateWhenReady,
+                generateEditorial: generateEditorial,
+                postAsSpoon: postAsSpoon,
+                note: note,
+                nextTime: nextTime,
+                cookedAt: cookedAt
+            )
+            offline = NativeQueuedMutation.coverUpload(
+                recipeID: recipeID,
+                photo: photo,
+                clientMutationID: clientMutationID,
+                activateWhenReady: activateWhenReady,
+                generateEditorial: generateEditorial,
+                postAsSpoon: postAsSpoon,
+                note: note,
+                nextTime: nextTime,
+                cookedAt: cookedAt,
+                createdAt: mutationCreatedAt
+            )
+        case .generatePlaceholder(let promptAddition, let activateWhenReady, let clientMutationID):
+            if connectivity == .offline {
+                throw RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
+            }
+            online = try RecipeCoverRequests.generatePlaceholder(
+                recipeID: recipeID,
+                clientMutationID: clientMutationID,
+                promptAddition: promptAddition,
+                activateWhenReady: activateWhenReady
+            )
+            offline = nil
+        case .regenerate(let coverID, let promptAddition, let activateWhenReady, let clientMutationID):
             online = try RecipeCoverRequests.regenerate(
                 recipeID: recipeID,
                 clientMutationID: clientMutationID,
                 coverID: coverID,
+                promptAddition: promptAddition,
                 activateWhenReady: activateWhenReady
             )
             offline = NativeQueuedMutation.coverRegenerate(
                 recipeID: recipeID,
                 coverID: coverID,
+                promptAddition: promptAddition,
                 activateWhenReady: activateWhenReady,
                 clientMutationID: clientMutationID,
                 createdAt: mutationCreatedAt
@@ -170,8 +372,29 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
         }
     }
 
-    public static func userFacingPreparationFailureMessage(for _: Error) -> String {
-        "Cover change could not be saved."
+    public static func userFacingPreparationFailureMessage(for error: Error) -> String {
+        if let planningError = error as? RecipeCoverControlsActionPlanningError {
+            switch planningError {
+            case .onlineOnlyPlaceholderGeneration:
+                return "AI placeholder covers need an internet connection."
+            }
+        }
+        return "Cover change could not be saved."
+    }
+
+    public static func userFacingExecutionFailureMessage(
+        for action: RecipeCoverControlsAction,
+        error: Error
+    ) -> String {
+        if case .generatePlaceholder = action,
+           let transportError = error as? APITransportError,
+           transportError.isOffline {
+            return userFacingPreparationFailureMessage(
+                for: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
+            )
+        }
+
+        return "Cover change could not be saved."
     }
 }
 

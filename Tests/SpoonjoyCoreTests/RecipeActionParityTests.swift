@@ -109,9 +109,8 @@ struct RecipeActionParityTests {
         #expect(coverControlsSource.contains("replacementOptions(for: cover)"))
         #expect(coverControlsSource.contains("replacementCoverID: option.coverID"))
         #expect(coverControlsSource.contains("confirmNoCover: false"))
-        #expect(coverControlsSource.contains("activateWhenReady: false"))
+        #expect(coverControlsSource.contains("activateWhenReady: cover.isActive"))
         #expect(coverControlsSource.contains("activate: false"))
-        #expect(!coverControlsSource.contains("activateWhenReady: cover.isActive"))
         #expect(!coverControlsCoreSource.contains("activateWhenReady: cover.isActive"))
         #expect(!coverControlsSource.contains("RecipeSpoonRequests.listSpoons"))
     }

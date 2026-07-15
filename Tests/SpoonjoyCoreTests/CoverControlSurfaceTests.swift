@@ -299,7 +299,29 @@ struct CoverControlSurfaceTests {
     func coverActionSuccessMessagesStayStable() {
         #expect(RecipeCoverControlsAction.setNoCover(clientMutationID: "cm").successMessage == "No-cover state saved.")
         #expect(RecipeCoverControlsAction.activate(coverID: "cover", variant: .image, clientMutationID: "cm").successMessage == "Cover updated.")
-        #expect(RecipeCoverControlsAction.regenerate(coverID: "cover", activateWhenReady: false, clientMutationID: "cm").successMessage == "Cover regeneration queued.")
+        #expect(RecipeCoverControlsAction.uploadPhoto(photo: Self.stagedCoverPhoto(), activate: true, generateEditorial: true, postAsSpoon: false, note: nil, nextTime: nil, cookedAt: nil, clientMutationID: "cm").successMessage == "Photo queued for cover review.")
+        let activateWhenReadyUpload = RecipeCoverControlsAction.uploadPhoto(
+            photo: Self.stagedCoverPhoto(),
+            activateWhenReady: false,
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "Loved it.",
+            nextTime: "More herbs.",
+            cookedAt: Self.createdAt,
+            clientMutationID: "cm_activate_when_ready"
+        )
+        #expect(activateWhenReadyUpload == .uploadPhoto(
+            photo: Self.stagedCoverPhoto(),
+            activate: false,
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "Loved it.",
+            nextTime: "More herbs.",
+            cookedAt: Self.createdAt,
+            clientMutationID: "cm_activate_when_ready"
+        ))
+        #expect(RecipeCoverControlsAction.generatePlaceholder(promptAddition: nil, activateWhenReady: true, clientMutationID: "cm").successMessage == "Placeholder cover queued.")
+        #expect(RecipeCoverControlsAction.regenerate(coverID: "cover", promptAddition: "warmer light", activateWhenReady: false, clientMutationID: "cm").successMessage == "Cover regeneration queued.")
         #expect(RecipeCoverControlsAction.archive(coverID: "cover", replacementCoverID: nil, replacementVariant: nil, confirmNoCover: true, deleteSafeObjects: false, clientMutationID: "cm").successMessage == "Cover archived.")
         #expect(RecipeCoverControlsAction.createFromSpoon(spoonID: "spoon", activate: false, generateEditorial: true, clientMutationID: "cm").successMessage == "Spoon photo queued as a cover.")
     }
@@ -314,6 +336,39 @@ struct CoverControlSurfaceTests {
         for forbidden in ["provider-secret", "requestBuilder", "authRequired", "/internal", "ordinary failure"] {
             #expect(!message.localizedCaseInsensitiveContains(forbidden))
         }
+
+        let onlineOnlyMessage = RecipeCoverControlsMutationPlan.userFacingPreparationFailureMessage(
+            for: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
+        )
+        #expect(onlineOnlyMessage == "AI placeholder covers need an internet connection.")
+
+        let runtimeOfflineMessage = RecipeCoverControlsMutationPlan.userFacingExecutionFailureMessage(
+            for: .generatePlaceholder(
+                promptAddition: "moody window light",
+                activateWhenReady: true,
+                clientMutationID: "cm_generate_offline_runtime"
+            ),
+            error: APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        )
+        #expect(runtimeOfflineMessage == "AI placeholder covers need an internet connection.")
+
+        let genericRuntimeMessage = RecipeCoverControlsMutationPlan.userFacingExecutionFailureMessage(
+            for: .setNoCover(clientMutationID: "cm_no_cover"),
+            error: APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        )
+        #expect(genericRuntimeMessage == "Cover change could not be saved.")
     }
 
     @Test("online cover actions plan exact REST mutations with offline fallbacks")
@@ -334,10 +389,10 @@ struct CoverControlSurfaceTests {
                 .coverSetActive
             ),
             (
-                .regenerate(coverID: "cover/raw", activateWhenReady: false, clientMutationID: "cm_regen"),
+                .regenerate(coverID: "cover/raw", promptAddition: "warmer light", activateWhenReady: false, clientMutationID: "cm_regen"),
                 .post,
                 "/api/v1/recipes/recipe%2Flemon/covers/regenerate",
-                ["clientMutationId": "cm_regen", "coverId": "cover/raw", "activateWhenReady": false],
+                ["clientMutationId": "cm_regen", "coverId": "cover/raw", "promptAddition": "warmer light", "activateWhenReady": false],
                 .coverRegenerate
             ),
             (
@@ -364,6 +419,128 @@ struct CoverControlSurfaceTests {
             let queuedRequest = try coverQueuedRequest(from: fallback)
             #expect(queuedRequest.method == method)
             #expect(queuedRequest.url.path == path)
+        }
+    }
+
+    @Test("photo studio upload and generation actions plan exact requests")
+    func photoStudioUploadAndGenerationActionsPlanExactRequests() throws {
+        let stagedPhoto = Self.stagedCoverPhoto()
+        let uploadPlan = try RecipeCoverControlsMutationPlan.plan(
+            .uploadPhoto(
+                photo: stagedPhoto,
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: true,
+                note: "Loved this batch.",
+                nextTime: "Less salt.",
+                cookedAt: Self.createdAt,
+                clientMutationID: "cm_cover_upload"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .online,
+            createdAt: { Self.createdAt }
+        )
+        let uploadFields = [
+            "clientMutationId": "cm_cover_upload",
+            "activateWhenReady": "true",
+            "generateEditorial": "true",
+            "postAsSpoon": "true",
+            "note": "Loved this batch.",
+            "nextTime": "Less salt.",
+            "cookedAt": Self.createdAt
+        ]
+        try assertMultipartRequest(
+            coverRemoteRequest(from: uploadPlan),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/image",
+            fileField: "photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            fields: uploadFields
+        )
+        let uploadFallback = try requireCoverMutation(uploadPlan.offlineFallbackMutation, "upload fallback")
+        #expect(uploadFallback.queueableKind == .coverUpload)
+        try assertMultipartRequest(
+            coverQueuedRequest(from: uploadFallback),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/image",
+            fileField: "photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            fields: uploadFields
+        )
+
+        let offlineUploadPlan = try RecipeCoverControlsMutationPlan.plan(
+            .uploadPhoto(
+                photo: stagedPhoto,
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: false,
+                note: nil,
+                nextTime: nil,
+                cookedAt: nil,
+                clientMutationID: "cm_cover_upload_offline"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .offline,
+            createdAt: { Self.createdAt }
+        )
+        #expect(offlineUploadPlan.remoteRequestBuilder == nil)
+        #expect(offlineUploadPlan.offlineFallbackMutation == nil)
+        let queuedUpload = try requireCoverMutation(offlineUploadPlan.queuedMutation, "offline upload")
+        #expect(queuedUpload.queueableKind == .coverUpload)
+        try assertMultipartRequest(
+            coverQueuedRequest(from: queuedUpload),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/image",
+            fileField: "photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            fields: [
+                "clientMutationId": "cm_cover_upload_offline",
+                "activateWhenReady": "true",
+                "generateEditorial": "true",
+                "postAsSpoon": "false"
+            ]
+        )
+
+        let placeholderPlan = try RecipeCoverControlsMutationPlan.plan(
+            .generatePlaceholder(
+                promptAddition: "brighter window light",
+                activateWhenReady: true,
+                clientMutationID: "cm_generate"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .online,
+            createdAt: { Self.createdAt }
+        )
+        #expect(placeholderPlan.queuedMutation == nil)
+        #expect(placeholderPlan.offlineFallbackMutation == nil)
+        try assertJSONRequest(
+            coverRemoteRequest(from: placeholderPlan),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/covers/generate",
+            expected: [
+                "clientMutationId": "cm_generate",
+                "promptAddition": "brighter window light",
+                "activateWhenReady": true
+            ]
+        )
+    }
+
+    @Test("AI placeholder generation is explicitly online only")
+    func aiPlaceholderGenerationIsExplicitlyOnlineOnly() throws {
+        #expect(throws: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration) {
+            _ = try RecipeCoverControlsMutationPlan.plan(
+                .generatePlaceholder(
+                    promptAddition: "moody window light",
+                    activateWhenReady: true,
+                    clientMutationID: "cm_generate_offline"
+                ),
+                recipeID: "recipe/lemon",
+                connectivity: .offline,
+                createdAt: { Self.createdAt }
+            )
         }
     }
 
@@ -456,6 +633,239 @@ struct CoverControlSurfaceTests {
         )
     }
 
+    @Test("cover photo staging uses real picker bytes and preserves existing staged media on rejection")
+    func coverPhotoStagingUsesRealPickerBytesAndPreservesExistingStagedMediaOnRejection() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        #expect(policy.acceptedContentTypes == ["image/jpeg", "image/png", "image/webp", "image/heic"])
+        #expect(policy.fileExtension(for: "image/jpeg") == "jpg")
+        #expect(policy.fileExtension(for: "image/png") == "png")
+        #expect(policy.fileExtension(for: "image/webp") == "webp")
+        #expect(policy.fileExtension(for: "image/heic") == "heic")
+        #expect(policy.fileExtension(for: "image/gif") == nil)
+
+        let heicBytes = Data([0x48, 0x45, 0x49, 0x43])
+        let accepted = policy.stageSelection(
+            existing: nil,
+            data: heicBytes,
+            contentType: "image/heic",
+            localStageID: "cover-stage-heic",
+            existingUsage: .zero
+        )
+        let staged = try #require(accepted.stagedPhoto)
+        #expect(accepted.rejection == nil)
+        #expect(staged == NativeStagedMediaUpload(
+            localStageID: "cover-stage-heic",
+            fileName: "cover.heic",
+            contentType: "image/heic",
+            data: heicBytes
+        ))
+        #expect(staged.data == heicBytes)
+
+        let queuedCover = NativeQueuedMutation.coverUpload(
+            recipeID: "recipe/lemon",
+            photo: staged,
+            clientMutationID: "cm_cover_upload_staged",
+            activate: true,
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "First cook.",
+            nextTime: "Less salt.",
+            cookedAt: "2026-06-27T12:00:00.000Z",
+            createdAt: Self.createdAt
+        )
+        #expect(RecipeCoverPhotoStagedMediaUsage(queuedMutations: [queuedCover]) == RecipeCoverPhotoStagedMediaUsage(byteCount: heicBytes.count, fileCount: 1))
+
+        let cancel = policy.cancel(existing: staged)
+        #expect(cancel == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: nil))
+
+        let unsupported = policy.stageSelection(
+            existing: staged,
+            data: Data([0x47, 0x49, 0x46]),
+            contentType: "image/gif",
+            localStageID: "cover-stage-gif",
+            existingUsage: .zero
+        )
+        #expect(unsupported == RecipeCoverPhotoStagingResult(
+            stagedPhoto: staged,
+            rejection: .unsupportedContentType("image/gif")
+        ))
+
+        let empty = policy.stageSelection(
+            existing: staged,
+            data: Data(),
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-empty",
+            existingUsage: .zero
+        )
+        #expect(empty == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: .emptyData))
+        let emptyCandidate = policy.stageSelection(
+            existing: staged,
+            candidate: NativeStagedMediaUpload(
+                localStageID: "cover-stage-empty-candidate",
+                fileName: "cover.jpg",
+                contentType: "image/jpeg",
+                data: Data()
+            ),
+            existingUsage: .zero
+        )
+        #expect(emptyCandidate == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: .emptyData))
+
+        let oversized = policy.stageSelection(
+            existing: staged,
+            data: Data(),
+            contentType: "image/jpeg",
+            byteCount: policy.mediaPolicy.maxIndividualUserSelectedBytes + 1,
+            localStageID: "cover-stage-large",
+            existingUsage: .zero
+        )
+        #expect(oversized == RecipeCoverPhotoStagingResult(
+            stagedPhoto: staged,
+            rejection: .media(.individualFileTooLarge(limitBytes: policy.mediaPolicy.maxIndividualUserSelectedBytes))
+        ))
+    }
+
+    @Test("cover photo staging accounts for queued uploads and replacement drafts without silent eviction")
+    func coverPhotoStagingAccountsForQueuedUploadsAndReplacementDraftsWithoutSilentEviction() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let maxBytes = policy.mediaPolicy.maxUnsyncedUserSelectedBytesPerAccount
+        let existingDraft = NativeStagedMediaUpload(
+            localStageID: "cover-stage-existing",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            byteCount: maxBytes
+        )
+        let fullUsage = RecipeCoverPhotoStagedMediaUsage(byteCount: maxBytes, fileCount: 1)
+
+        let rejected = policy.stageSelection(
+            existing: nil,
+            data: Data([0x01]),
+            contentType: "image/png",
+            localStageID: "cover-stage-over-cap",
+            existingUsage: fullUsage
+        )
+        #expect(rejected == RecipeCoverPhotoStagingResult(
+            stagedPhoto: nil,
+            rejection: .media(.accountByteCapReached(limitBytes: maxBytes, silentEvictionAllowed: false))
+        ))
+
+        let replacement = policy.stageSelection(
+            existing: existingDraft,
+            data: Data([0x01]),
+            contentType: "image/png",
+            localStageID: "cover-stage-replacement",
+            existingUsage: fullUsage
+        )
+        #expect(replacement.stagedPhoto == NativeStagedMediaUpload(
+            localStageID: "cover-stage-replacement",
+            fileName: "cover.png",
+            contentType: "image/png",
+            data: Data([0x01])
+        ))
+        #expect(replacement.rejection == nil)
+        #expect(policy.mediaPolicy.allowsSilentEvictionOfUnsyncedUserMedia == false)
+    }
+
+    @Test("native photo studio view loads PhotosPicker bytes through cover staging policy")
+    func nativePhotoStudioViewLoadsPhotosPickerBytesThroughCoverStagingPolicy() throws {
+        let coverControlsSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+        let platformNavigationSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+
+        #expect(coverControlsSource.contains("import PhotosUI"))
+        #expect(coverControlsSource.contains("import UniformTypeIdentifiers"))
+        #expect(coverControlsSource.contains("@State private var selectedCoverPhotoItem: PhotosPickerItem?"))
+        #expect(coverControlsSource.contains("@State private var stagedCoverPhoto: NativeStagedMediaUpload?"))
+        #expect(coverControlsSource.contains("let stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage"))
+        #expect(coverControlsSource.contains("PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images)"))
+        #expect(coverControlsSource.contains("loadTransferable(type: Data.self)"))
+        #expect(coverControlsSource.contains("RecipeCoverPhotoStagingPolicy.offlineProductContract"))
+        #expect(coverControlsSource.contains("stageSelectedCoverPhoto"))
+        #expect(coverControlsSource.contains("NativeStagedMediaUpload("))
+        #expect(coverControlsSource.contains("\"image/heic\""))
+        #expect(coverControlsSource.contains("\"image/webp\""))
+        #expect(coverControlsSource.contains("existingUsage: stagedMediaUsage"))
+        #expect(!coverControlsSource.contains("existingUsage: .zero"))
+        #expect(platformNavigationSource.contains("stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage(queuedMutations: contentState.queuedMutations)"))
+
+        let rejectionRange = try #require(coverControlsSource.range(of: "@MainActor private func rejectSelectedCoverPhoto"))
+        let clearRange = try #require(coverControlsSource.range(of: "@MainActor private func clearSelectedCoverPhoto"))
+        let rejectionSource = coverControlsSource[rejectionRange.lowerBound..<clearRange.lowerBound]
+        #expect(rejectionSource.contains("selectedCoverPhotoItem = nil"))
+        #expect(rejectionSource.contains("actionError = message"))
+        #expect(!rejectionSource.contains("stagedCoverPhoto = nil"))
+    }
+
+    @Test("native photo studio exposes upload spoon editorial placeholder and regeneration controls")
+    func nativePhotoStudioExposesUploadSpoonEditorialPlaceholderAndRegenerationControls() throws {
+        let coverControlsSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+
+        let uploadTokens = [
+            #"Text("Photo Studio")"#,
+            #"@State private var shouldActivateUploadedCover = true"#,
+            #"@State private var shouldGenerateEditorialCover = true"#,
+            #"@State private var shouldPostUploadedPhotoAsSpoon = true"#,
+            #"@State private var spoonNote = """#,
+            #"@State private var spoonNextTime = """#,
+            #"@State private var spoonCookedAt = """#,
+            #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
+            #"Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)"#,
+            #"Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)"#,
+            #"DisclosureGroup("Spoon details""#,
+            #"TextField("Note", text: $spoonNote)"#,
+            #"TextField("Next time", text: $spoonNextTime)"#,
+            #"TextField("Cooked at", text: $spoonCookedAt)"#,
+            #"Button { submitStagedCoverPhoto() }"#,
+            #"runAction(.uploadPhoto("#,
+            #"activateWhenReady: shouldActivateUploadedCover"#,
+            #"generateEditorial: shouldGenerateEditorialCover"#,
+            #"postAsSpoon: shouldPostUploadedPhotoAsSpoon"#,
+            #"note: trimmedOptional(spoonNote)"#,
+            #"nextTime: trimmedOptional(spoonNextTime)"#,
+            #"cookedAt: trimmedOptional(spoonCookedAt)"#
+        ]
+        let missingUploadTokens = uploadTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingUploadTokens.isEmpty, "Missing native upload/Spoon control tokens: \(missingUploadTokens)")
+
+        let generationTokens = [
+            #"@State private var placeholderPromptAddition = """#,
+            #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
+            #"runAction(.generatePlaceholder("#,
+            #"promptAddition: trimmedOptional(placeholderPromptAddition)"#,
+            #"activateWhenReady: true"#,
+            #"@State private var regenerationPromptAdditions: [String: String] = [:]"#,
+            #"TextField("Regeneration direction", text: regenerationPromptBinding(for: cover.id))"#,
+            #"promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? "")"#,
+            #"activateWhenReady: cover.isActive"#
+        ]
+        let missingGenerationTokens = generationTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingGenerationTokens.isEmpty, "Missing native generation control tokens: \(missingGenerationTokens)")
+
+        let placeholderGenerationSource = try swiftMemberBody(
+            named: "placeholderGenerationControl",
+            in: coverControlsSource
+        )
+        for token in [
+            #"Button { generatePlaceholderCover() }"#,
+            #".disabled(connectivity == .offline)"#
+        ] {
+            #expect(
+                placeholderGenerationSource.contains(token),
+                "placeholderGenerationControl missing scoped token \(token)"
+            )
+        }
+
+        let processingTokens = [
+            "ProgressView()",
+            #"Label("Editorializing cover", systemImage: "sparkles")"#,
+            #"cover.generationStatus == "processing""#,
+            #"Text("Original photo stays on the Spoon.")"#
+        ]
+        let missingProcessingTokens = processingTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingProcessingTokens.isEmpty, "Missing native processing/copy tokens: \(missingProcessingTokens)")
+
+        let forbiddenTokens = [#"Text("Recipe Covers")"#].filter { coverControlsSource.contains($0) }
+        #expect(forbiddenTokens.isEmpty, "Native Photo Studio still renders stale copy: \(forbiddenTokens)")
+    }
+
     private static func cover(
         id: String = "cover/raw",
         status: String = "ready",
@@ -483,6 +893,15 @@ struct CoverControlSurfaceTests {
             failureReason: failureReason,
             sourceImageURL: nil,
             createdAt: Self.createdAt
+        )
+    }
+
+    private static func stagedCoverPhoto() -> NativeStagedMediaUpload {
+        NativeStagedMediaUpload(
+            localStageID: "stage_cover_photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            data: Data([0x73, 0x6A, 0x6D])
         )
     }
 
@@ -570,6 +989,47 @@ private func assertJSONRequest(
     #expect(NSDictionary(dictionary: body).isEqual(to: expected), sourceLocation: sourceLocation)
 }
 
+private func assertMultipartRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    fileField: String,
+    fileName: String,
+    contentType: String,
+    fields: [String: String],
+    sourceLocation: SourceLocation = #_sourceLocation
+) throws {
+    #expect(request.method == method, sourceLocation: sourceLocation)
+    #expect(request.url.path == path, sourceLocation: sourceLocation)
+    let body = try #require(request.body)
+    let bodyString = try #require(String(data: body, encoding: .isoLatin1))
+    #expect(bodyString.contains(#"name="\#(fileField)"; filename="\#(fileName)""#), sourceLocation: sourceLocation)
+    #expect(bodyString.contains("Content-Type: \(contentType)\r\n\r\n"), sourceLocation: sourceLocation)
+
+    let expectedFieldNames = Set(fields.keys).union([fileField])
+    #expect(multipartFieldNames(in: bodyString) == expectedFieldNames, sourceLocation: sourceLocation)
+    for (name, value) in fields {
+        #expect(bodyString.contains(#"name="\#(name)""#), sourceLocation: sourceLocation)
+        #expect(bodyString.contains("\r\n\r\n\(value)\r\n"), sourceLocation: sourceLocation)
+    }
+}
+
+private func multipartFieldNames(in bodyString: String) -> Set<String> {
+    Set(bodyString.split(separator: "\r\n").compactMap { line in
+        let prefix = #"Content-Disposition: form-data; name=""#
+        guard line.hasPrefix(prefix) else {
+            return nil
+        }
+
+        let start = line.index(line.startIndex, offsetBy: prefix.count)
+        guard let end = line[start...].firstIndex(of: "\"") else {
+            return nil
+        }
+
+        return String(line[start..<end])
+    })
+}
+
 private func jsonBody(from request: APIRequest) throws -> [String: Any] {
     let data = try #require(request.body)
     return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -581,4 +1041,38 @@ private struct CoverControlSurfaceTestFailure: Error, CustomStringConvertible {
     init(_ description: String) {
         self.description = description
     }
+}
+
+private func readCoverControlsRepoFile(_ relativePath: String) throws -> String {
+    let root = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    return try String(contentsOf: root.appendingPathComponent(relativePath), encoding: .utf8)
+}
+
+private func swiftMemberBody(named name: String, in source: String) throws -> String {
+    guard let declarationRange = source.range(of: "private var \(name): some View") else {
+        throw CoverControlSurfaceTestFailure("Missing Swift member \(name)")
+    }
+    guard let bodyStart = source[declarationRange.upperBound...].firstIndex(of: "{") else {
+        throw CoverControlSurfaceTestFailure("Missing body for Swift member \(name)")
+    }
+
+    var depth = 0
+    var index = bodyStart
+    while index < source.endIndex {
+        let character = source[index]
+        if character == "{" {
+            depth += 1
+        } else if character == "}" {
+            depth -= 1
+            if depth == 0 {
+                return String(source[bodyStart...index])
+            }
+        }
+        index = source.index(after: index)
+    }
+
+    throw CoverControlSurfaceTestFailure("Unterminated Swift member \(name)")
 }

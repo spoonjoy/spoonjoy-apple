@@ -623,10 +623,14 @@ struct NativeAPIExpansionTests {
     func recipeCoverAndSpoonBuildersCoverMultipartJSONAndOptionalPublicListAuth() throws {
         let coverUpload = try RecipeCoverRequests.uploadImage(
             recipeID: "recipe/one",
-            image: UploadFile(fileName: "cover.png", contentType: "image/png", data: Data([0x89, 0x50, 0x4E, 0x47])),
+            photo: UploadFile(fileName: "cover.jpg", contentType: "image/jpeg", data: Data([0xFF, 0xD8, 0xFF])),
             clientMutationID: "cover-upload-1",
             activate: true,
-            generateEditorial: false
+            generateEditorial: true,
+            postAsSpoon: true,
+            note: "Swapped in garden basil.",
+            nextTime: "Use a wider skillet.",
+            cookedAt: "2026-06-24T18:00:00.000Z"
         )
         .urlRequest(configuration: Self.privateConfiguration)
         let coverList = try RecipeCoverRequests.listCovers(
@@ -642,6 +646,13 @@ struct NativeAPIExpansionTests {
             imageURL: "/photos/recipes/chef_1/uploads/raw.png",
             activate: false,
             generateEditorial: true
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        let generatePlaceholder = try RecipeCoverRequests.generatePlaceholder(
+            recipeID: "recipe/one",
+            clientMutationID: "cover-generate-1",
+            promptAddition: "sunny brunch table, keep the herbs bright",
+            activateWhenReady: true
         )
         .urlRequest(configuration: Self.privateConfiguration)
         let activateCover = try RecipeCoverRequests.activate(
@@ -672,6 +683,7 @@ struct NativeAPIExpansionTests {
             recipeID: "recipe/one",
             clientMutationID: "cover-regen-1",
             coverID: "cover/editorial",
+            promptAddition: "make the light warmer without changing the dish",
             activateWhenReady: true
         )
         .urlRequest(configuration: Self.privateConfiguration)
@@ -731,14 +743,18 @@ struct NativeAPIExpansionTests {
             coverUpload,
             method: .post,
             path: "/api/v1/recipes/recipe%2Fone/image",
-            fileField: "image",
-            fileName: "cover.png",
-            contentType: "image/png",
-            data: Data([0x89, 0x50, 0x4E, 0x47]),
+            fileField: "photo",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            data: Data([0xFF, 0xD8, 0xFF]),
             fields: [
                 "clientMutationId": "cover-upload-1",
-                "activate": "true",
-                "generateEditorial": "false"
+                "activateWhenReady": "true",
+                "generateEditorial": "true",
+                "postAsSpoon": "true",
+                "note": "Swapped in garden basil.",
+                "nextTime": "Use a wider skillet.",
+                "cookedAt": "2026-06-24T18:00:00.000Z"
             ]
         )
         assertRequest(
@@ -758,6 +774,11 @@ struct NativeAPIExpansionTests {
             "imageUrl": "/photos/recipes/chef_1/uploads/raw.png",
             "activate": false,
             "generateEditorial": true
+        ])
+        assertJSONRequest(generatePlaceholder, method: .post, path: "/api/v1/recipes/recipe%2Fone/covers/generate", expected: [
+            "clientMutationId": "cover-generate-1",
+            "promptAddition": "sunny brunch table, keep the herbs bright",
+            "activateWhenReady": true
         ])
         assertJSONRequest(activateCover, method: .patch, path: "/api/v1/recipes/recipe%2Fone/covers/cover%2Fraw", expected: [
             "clientMutationId": "cover-activate-1",
@@ -786,6 +807,7 @@ struct NativeAPIExpansionTests {
         assertJSONRequest(regenerate, method: .post, path: "/api/v1/recipes/recipe%2Fone/covers/regenerate", expected: [
             "clientMutationId": "cover-regen-1",
             "coverId": "cover/editorial",
+            "promptAddition": "make the light warmer without changing the dish",
             "activateWhenReady": true
         ])
         assertJSONRequest(fromSpoon, method: .post, path: "/api/v1/recipes/recipe%2Fone/covers/from-spoon/spoon%2Fcooked", expected: [
@@ -1306,6 +1328,54 @@ struct NativeAPIExpansionTests {
             "confirmNoCover": false,
             "deleteSafeObjects": true
         ])
+
+        let legacyCoverUpload = try RecipeCoverRequests.uploadImage(
+            recipeID: "recipe/pantry",
+            image: UploadFile(fileName: "legacy-cover.webp", contentType: "image/webp", data: Data([0x52, 0x49, 0x46, 0x46])),
+            clientMutationID: "cover-upload-legacy",
+            activate: false,
+            generateEditorial: false
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        try assertMultipartRequest(
+            legacyCoverUpload,
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Fpantry/image",
+            fileField: "photo",
+            fileName: "legacy-cover.webp",
+            contentType: "image/webp",
+            data: Data([0x52, 0x49, 0x46, 0x46]),
+            fields: [
+                "clientMutationId": "cover-upload-legacy",
+                "activateWhenReady": "false",
+                "generateEditorial": "false",
+                "postAsSpoon": "false"
+            ]
+        )
+
+        let activateWhenReadyCoverUpload = try RecipeCoverRequests.uploadImage(
+            recipeID: "recipe/pantry",
+            image: UploadFile(fileName: "activate-ready-cover.jpg", contentType: "image/jpeg", data: Data([0xFF, 0xD8, 0xFF])),
+            clientMutationID: "cover-upload-activate-ready",
+            activateWhenReady: true,
+            generateEditorial: false
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        try assertMultipartRequest(
+            activateWhenReadyCoverUpload,
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Fpantry/image",
+            fileField: "photo",
+            fileName: "activate-ready-cover.jpg",
+            contentType: "image/jpeg",
+            data: Data([0xFF, 0xD8, 0xFF]),
+            fields: [
+                "clientMutationId": "cover-upload-activate-ready",
+                "activateWhenReady": "true",
+                "generateEditorial": "false",
+                "postAsSpoon": "false"
+            ]
+        )
 
         let spoonCreateWithNulls = try RecipeSpoonRequests.createSpoon(
             recipeID: "recipe/pantry",
