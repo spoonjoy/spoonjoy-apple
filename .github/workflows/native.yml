@@ -254,7 +254,7 @@ jobs:
             }' > "$note_dir/testflight-release-notes.json"
 
       - name: Upload exact-SHA TestFlight release note
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: testflight-release-notes-${{ github.sha }}
           path: ${{ runner.temp }}/testflight-release-note/testflight-release-notes.json
