@@ -544,7 +544,7 @@ struct RecipeCoverControlsView: View {
         }
         runAction(.uploadPhoto(
             photo: stagedCoverPhoto,
-            activate: shouldActivateUploadedCover,
+            activateWhenReady: shouldActivateUploadedCover,
             generateEditorial: shouldGenerateEditorialCover,
             postAsSpoon: shouldPostUploadedPhotoAsSpoon,
             note: trimmedOptional(spoonNote),

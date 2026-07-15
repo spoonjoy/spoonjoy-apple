@@ -874,7 +874,24 @@ public enum RecipeCoverRequests {
             recipeID: recipeID,
             photo: image,
             clientMutationID: clientMutationID,
-            activate: activate,
+            activateWhenReady: activate,
+            generateEditorial: generateEditorial,
+            postAsSpoon: false
+        )
+    }
+
+    public static func uploadImage(
+        recipeID: String,
+        image: UploadFile,
+        clientMutationID: String,
+        activateWhenReady: Bool,
+        generateEditorial: Bool
+    ) throws -> APIRequestBuilder {
+        try uploadImage(
+            recipeID: recipeID,
+            photo: image,
+            clientMutationID: clientMutationID,
+            activateWhenReady: activateWhenReady,
             generateEditorial: generateEditorial,
             postAsSpoon: false
         )
@@ -891,9 +908,33 @@ public enum RecipeCoverRequests {
         nextTime: String? = nil,
         cookedAt: String? = nil
     ) throws -> APIRequestBuilder {
+        try uploadImage(
+            recipeID: recipeID,
+            photo: photo,
+            clientMutationID: clientMutationID,
+            activateWhenReady: activate,
+            generateEditorial: generateEditorial,
+            postAsSpoon: postAsSpoon,
+            note: note,
+            nextTime: nextTime,
+            cookedAt: cookedAt
+        )
+    }
+
+    public static func uploadImage(
+        recipeID: String,
+        photo: UploadFile,
+        clientMutationID: String,
+        activateWhenReady: Bool,
+        generateEditorial: Bool,
+        postAsSpoon: Bool,
+        note: String? = nil,
+        nextTime: String? = nil,
+        cookedAt: String? = nil
+    ) throws -> APIRequestBuilder {
         var fields = [
             "clientMutationId": clientMutationID,
-            "activate": String(activate),
+            "activateWhenReady": String(activateWhenReady),
             "generateEditorial": String(generateEditorial),
             "postAsSpoon": String(postAsSpoon)
         ]

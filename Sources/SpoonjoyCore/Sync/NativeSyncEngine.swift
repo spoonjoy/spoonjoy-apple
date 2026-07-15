@@ -1795,7 +1795,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         let media = try requiredMedia("photo")
         var fields: [String: String] = [
             "clientMutationId": clientMutationID,
-            "activate": String(boolValue("activate") ?? true),
+            "activateWhenReady": String(boolValue("activateWhenReady") ?? boolValue("activate") ?? true),
             "generateEditorial": String(boolValue("generateEditorial") ?? true),
             "postAsSpoon": String(boolValue("postAsSpoon") ?? false)
         ]
@@ -3145,7 +3145,7 @@ public extension NativeQueuedMutation {
             recipeID: recipeID,
             photo: image,
             clientMutationID: clientMutationID,
-            activate: activate,
+            activateWhenReady: activate,
             generateEditorial: generateEditorial,
             postAsSpoon: false,
             note: nil,
@@ -3167,13 +3167,39 @@ public extension NativeQueuedMutation {
         cookedAt: String?,
         createdAt: String
     ) -> NativeQueuedMutation {
+        coverUpload(
+            recipeID: recipeID,
+            photo: photo,
+            clientMutationID: clientMutationID,
+            activateWhenReady: activate,
+            generateEditorial: generateEditorial,
+            postAsSpoon: postAsSpoon,
+            note: note,
+            nextTime: nextTime,
+            cookedAt: cookedAt,
+            createdAt: createdAt
+        )
+    }
+
+    static func coverUpload(
+        recipeID: String,
+        photo: NativeStagedMediaUpload,
+        clientMutationID: String,
+        activateWhenReady: Bool,
+        generateEditorial: Bool,
+        postAsSpoon: Bool,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
+        createdAt: String
+    ) -> NativeQueuedMutation {
         NativeQueuedMutation(
             clientMutationID: clientMutationID,
             createdAt: createdAt,
             queueableKind: .coverUpload,
             values: [
                 "recipeId": .string(recipeID),
-                "activate": .bool(activate),
+                "activateWhenReady": .bool(activateWhenReady),
                 "generateEditorial": .bool(generateEditorial),
                 "postAsSpoon": .bool(postAsSpoon),
                 "note": stringOrNull(note),

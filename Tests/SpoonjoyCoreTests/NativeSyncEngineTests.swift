@@ -1065,7 +1065,7 @@ struct NativeSyncEngineTests {
             "spoon.createPhoto": ["recipeId", "photo", "note", "nextTime", "cookedAt", "useAsRecipeCover"],
             "spoon.update": ["recipeId", "spoonId", "note", "nextTime", "cookedAt", "photoUrl"],
             "spoon.delete": ["recipeId", "spoonId"],
-            "cover.upload": ["recipeId", "photo", "activate", "generateEditorial", "postAsSpoon", "note", "nextTime", "cookedAt"],
+            "cover.upload": ["recipeId", "photo", "activateWhenReady", "generateEditorial", "postAsSpoon", "note", "nextTime", "cookedAt"],
             "cover.setActive": ["recipeId", "coverId", "variant"],
             "cover.setNoCover": ["recipeId", "confirmNoCover"],
             "cover.archive": ["recipeId", "coverId", "replacementCoverId", "replacementVariant", "confirmNoCover", "deleteSafeObjects"],
@@ -1755,7 +1755,7 @@ struct NativeSyncEngineTests {
                 contentType: "image/jpeg",
                 fields: [
                     "clientMutationId": "cm_decode",
-                    "activate": "true",
+                    "activateWhenReady": "true",
                     "generateEditorial": "true",
                     "postAsSpoon": "false"
                 ]
@@ -1787,7 +1787,7 @@ struct NativeSyncEngineTests {
                 contentType: "image/jpeg",
                 fields: [
                     "clientMutationId": "cm_decode",
-                    "activate": "true",
+                    "activateWhenReady": "true",
                     "generateEditorial": "true",
                     "postAsSpoon": "false"
                 ]
@@ -1985,7 +1985,7 @@ struct NativeSyncEngineTests {
                 createdAt: Self.createdAt(26)
             ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "cover.png", "image/png", [
                 "clientMutationId": "cm_cover_upload",
-                "activate": "true",
+                "activateWhenReady": "true",
                 "generateEditorial": "true",
                 "postAsSpoon": "true",
                 "note": "Photo cook.",
@@ -2001,7 +2001,7 @@ struct NativeSyncEngineTests {
                 createdAt: Self.createdAt(26)
             ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "legacy-image-cover.png", "image/png", [
                 "clientMutationId": "cm_cover_upload_legacy_image",
-                "activate": "false",
+                "activateWhenReady": "false",
                 "generateEditorial": "false",
                 "postAsSpoon": "false"
             ]),

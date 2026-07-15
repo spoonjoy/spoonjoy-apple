@@ -176,6 +176,28 @@ public enum RecipeCoverControlsAction: Equatable, Sendable {
     case archive(coverID: String, replacementCoverID: String?, replacementVariant: RecipeCoverAPIVariant?, confirmNoCover: Bool, deleteSafeObjects: Bool, clientMutationID: String)
     case createFromSpoon(spoonID: String, activate: Bool, generateEditorial: Bool, clientMutationID: String)
 
+    public static func uploadPhoto(
+        photo: NativeStagedMediaUpload,
+        activateWhenReady: Bool,
+        generateEditorial: Bool,
+        postAsSpoon: Bool,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
+        clientMutationID: String
+    ) -> RecipeCoverControlsAction {
+        .uploadPhoto(
+            photo: photo,
+            activate: activateWhenReady,
+            generateEditorial: generateEditorial,
+            postAsSpoon: postAsSpoon,
+            note: note,
+            nextTime: nextTime,
+            cookedAt: cookedAt,
+            clientMutationID: clientMutationID
+        )
+    }
+
     public var successMessage: String {
         switch self {
         case .setNoCover:
@@ -248,12 +270,12 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
                 variant: variant.recipeCoverVariant,
                 createdAt: mutationCreatedAt
             )
-        case .uploadPhoto(let photo, let activate, let generateEditorial, let postAsSpoon, let note, let nextTime, let cookedAt, let clientMutationID):
+        case .uploadPhoto(let photo, let activateWhenReady, let generateEditorial, let postAsSpoon, let note, let nextTime, let cookedAt, let clientMutationID):
             online = try RecipeCoverRequests.uploadImage(
                 recipeID: recipeID,
                 photo: UploadFile(fileName: photo.fileName, contentType: photo.contentType, data: photo.data),
                 clientMutationID: clientMutationID,
-                activate: activate,
+                activateWhenReady: activateWhenReady,
                 generateEditorial: generateEditorial,
                 postAsSpoon: postAsSpoon,
                 note: note,
@@ -264,7 +286,7 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
                 recipeID: recipeID,
                 photo: photo,
                 clientMutationID: clientMutationID,
-                activate: activate,
+                activateWhenReady: activateWhenReady,
                 generateEditorial: generateEditorial,
                 postAsSpoon: postAsSpoon,
                 note: note,
