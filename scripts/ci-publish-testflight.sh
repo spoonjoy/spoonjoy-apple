@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONTROL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="${SPOONJOY_TESTFLIGHT_SOURCE_ROOT:-$CONTROL_ROOT}"
 MANIFEST_PATH="${SPOONJOY_TESTFLIGHT_MANIFEST:-$ROOT_DIR/distribution/apple-distribution.json}"
 CHANNEL_ID="${SPOONJOY_TESTFLIGHT_CHANNEL:-ios-testflight}"
 BUNDLE_ID="${SPOONJOY_TESTFLIGHT_BUNDLE_ID:-app.spoonjoy}"
@@ -10,6 +11,8 @@ ASC_PROVIDER_PUBLIC_ID="${APP_STORE_CONNECT_PROVIDER_PUBLIC_ID:-9735080289}"
 ASC_CONFIG="${APPLE_DISTRIBUTION_KIT_CONFIG:-$HOME/Library/Application Support/AppleDistributionKit/app-store-connect/config.json}"
 ARTIFACT_DIR="${SPOONJOY_TESTFLIGHT_ARTIFACT_DIR:-$ROOT_DIR/artifacts/apple/ci-testflight}"
 IPA_PATH="$ROOT_DIR/build/apple/testflight/Spoonjoy.ipa"
+SOURCE_SHA="${SPOONJOY_TESTFLIGHT_SOURCE_SHA:-}"
+RELEASE_NOTES_PATH="${SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH:-}"
 
 fail() {
   printf 'ci-publish-testflight failed: %s\n' "$1" >&2
@@ -33,6 +36,22 @@ json_string() {
 }
 
 mkdir -p "$ARTIFACT_DIR"
+
+[[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "SPOONJOY_TESTFLIGHT_SOURCE_SHA must be an exact lowercase 40-character SHA"
+CHECKED_OUT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+[[ "$CHECKED_OUT_SHA" == "$SOURCE_SHA" ]] || fail "checked-out SHA does not match SPOONJOY_TESTFLIGHT_SOURCE_SHA"
+require_file "$RELEASE_NOTES_PATH" "SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH"
+jq -e --arg sourceSha "$SOURCE_SHA" '
+  .schemaVersion == 1 and
+  .sourceSha == $sourceSha and
+  (.notes | type == "string" and length > 0 and length <= 4000)
+' "$RELEASE_NOTES_PATH" >/dev/null || fail "release note source SHA does not match or notes are invalid"
+RELEASE_NOTES="$(jq -r '.notes' "$RELEASE_NOTES_PATH")"
+RELEASE_MANIFEST_PATH="$ARTIFACT_DIR/apple-distribution.release.json"
+jq --arg notes "$RELEASE_NOTES" '
+  (.channels[] | select(.id == "ios-testflight") | .testflight.build.whatsNew) = $notes
+' "$MANIFEST_PATH" > "$RELEASE_MANIFEST_PATH"
+MANIFEST_PATH="$RELEASE_MANIFEST_PATH"
 
 require_file "$ASC_CONFIG" "App Store Connect config"
 ASC_API_KEY="$(json_string '.keyId' "$ASC_CONFIG")"
@@ -209,6 +228,8 @@ NOTIFY_TESTERS="$(jq -r '
 ' "$MANIFEST_PATH")"
 
 jq -n \
+  --arg sourceSha "$SOURCE_SHA" \
+  --arg releaseNotesArtifact "$RELEASE_NOTES_PATH" \
   --arg bundleId "$BUNDLE_ID" \
   --arg appId "$ASC_APP_ID" \
   --arg buildNumber "$BUILD_NUMBER" \
@@ -220,6 +241,8 @@ jq -n \
   --argjson testerCount "$TESTER_COUNT" \
   --argjson testersNotified "$NOTIFY_TESTERS" \
   '{
+    sourceSha: $sourceSha,
+    releaseNotesArtifact: $releaseNotesArtifact,
     bundleId: $bundleId,
     appId: $appId,
     buildNumber: $buildNumber,
