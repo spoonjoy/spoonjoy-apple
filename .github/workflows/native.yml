@@ -11,8 +11,10 @@ jobs:
     name: Swift tests
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -47,7 +49,7 @@ jobs:
             ruby scripts/fail-on-warning.rb --log "$ios_test_log"
             xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_test_log"
             ruby scripts/fail-on-warning.rb --log "$macos_test_log"
-          elif ls *.xcodeproj >/dev/null 2>&1; then
+          elif ls ./*.xcodeproj >/dev/null 2>&1; then
             echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
             exit 1
           else
@@ -58,8 +60,10 @@ jobs:
     name: Native scenario verifier
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -101,7 +105,7 @@ jobs:
             scenario_log="$RUNNER_TEMP/native-scenario.log"
             scripts/verify-native-scenarios.sh --stage final 2>&1 | tee "$scenario_log"
             ruby scripts/fail-on-warning.rb --log "$scenario_log"
-          elif [ -f Package.swift ] || [ -d Spoonjoy.xcodeproj ] || ls *.xcodeproj >/dev/null 2>&1; then
+          elif [ -f Package.swift ] || [ -d Spoonjoy.xcodeproj ] || ls ./*.xcodeproj >/dev/null 2>&1; then
             echo "Native scenario verifier is required once Swift or Xcode sources exist."
             exit 1
           else
@@ -112,8 +116,10 @@ jobs:
     name: App bundle
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -143,7 +149,7 @@ jobs:
             ruby scripts/fail-on-warning.rb --log "$ios_build_log"
             xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
             ruby scripts/fail-on-warning.rb --log "$macos_build_log"
-          elif ls *.xcodeproj >/dev/null 2>&1; then
+          elif ls ./*.xcodeproj >/dev/null 2>&1; then
             echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
             exit 1
           elif [ -f Package.swift ]; then
@@ -157,8 +163,10 @@ jobs:
     name: Coverage
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v6
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
@@ -192,9 +200,63 @@ jobs:
               echo "Coverage enforcement script is required once Package.swift exists."
               exit 1
             fi
-          elif ls *.xcodeproj >/dev/null 2>&1; then
+          elif ls ./*.xcodeproj >/dev/null 2>&1; then
             echo "Coverage enforcement requires Package.swift and scripts/enforce-swift-coverage.rb before any Xcode project lands."
             exit 1
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
+
+  testflight-release-note:
+    name: TestFlight release note
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - swift-tests
+      - native-scenario-verifier
+      - app-bundle
+      - coverage
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact Native source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Create exact-SHA TestFlight release note
+        run: |
+          set -euo pipefail
+          note_dir="$RUNNER_TEMP/testflight-release-note"
+          mkdir -p "$note_dir"
+          notes="$(git log -1 --format=%s "$GITHUB_SHA" | tr '\n\r' '  ')"
+          [[ -n "${notes//[[:space:]]/}" ]] || {
+            echo "The exact source commit must have a non-empty subject for TestFlight notes." >&2
+            exit 1
+          }
+          notes="${notes:0:4000}"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          jq -n \
+            --arg sourceSha "$GITHUB_SHA" \
+            --argjson nativeRunId "$GITHUB_RUN_ID" \
+            --argjson nativeRunAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg generatedAt "$generated_at" \
+            --arg notes "$notes" \
+            '{
+              schemaVersion: 1,
+              sourceSha: $sourceSha,
+              nativeRunId: $nativeRunId,
+              nativeRunAttempt: $nativeRunAttempt,
+              generatedAt: $generatedAt,
+              notes: $notes
+            }' > "$note_dir/testflight-release-notes.json"
+
+      - name: Upload exact-SHA TestFlight release note
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: testflight-release-notes-${{ github.sha }}
+          path: ${{ runner.temp }}/testflight-release-note/testflight-release-notes.json
+          if-no-files-found: error
+          retention-days: 90

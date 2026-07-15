@@ -114,7 +114,7 @@ end
 workflow = WORKFLOW.read
 matrix = ROOT.join("scripts/validate-native-local.sh").read
 [
-  "ruby/setup-ruby@v1",
+  "ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1",
   "bundler-cache: true",
   'xcode_version="$(xcodebuild -version)"',
   'minimum_xcode_version="26.5"',

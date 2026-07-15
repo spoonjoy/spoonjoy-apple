@@ -153,23 +153,85 @@ externally testable; use `betaTesterInvitations` instead.
 External TestFlight and public App Store submission are intentionally outside
 this lane.
 
-## Automatic TestFlight Publishing
+## Exact-SHA TestFlight Release
 
-`.github/workflows/testflight.yml` publishes internal TestFlight builds
-automatically after the `Native` workflow succeeds on `main`. It checks out the
-exact `workflow_run` source SHA that passed CI, builds the shared
-`ourostack/apple-distribution-kit` into `.ci/apple-distribution-kit`, prepares
-App Store Connect credentials from GitHub secrets, computes the next dynamic build number
-from App Store Connect, archives the iOS app, uploads the IPA, polls
-until Apple marks the uploaded build `VALID`, runs `testflight publish --mode
-dry-run`, runs `testflight publish --mode apply`, and verifies that the build is
-attached to `Spoonjoy Internal`.
+`.github/workflows/testflight.yml` is a release-candidate dispatch, not a CI
+side effect. No push, pull request, or completed workflow publishes automatically.
+Dispatch the workflow from its trusted `main` definition and
+provide the full lowercase 40-character `source_sha` to release.
 
-The workflow has a `workflow_dispatch` fallback for backfills and repair runs.
-The optional `build_number` input maps to `SPOONJOY_TESTFLIGHT_BUILD_NUMBER`;
-leave it empty unless App Store Connect needs a specific recovery build number.
+For an ordinary release, `source_sha` must equal the current `main` head. The
+verifier checks out that exact SHA and requires a successful `Native` push run
+whose head is that exact SHA. All protected jobs must be present and successful: `Swift
+tests`, `Native scenario verifier`, `App bundle`, and `Coverage`. A fifth job,
+`TestFlight release note`, runs only after those checks and uploads
+`testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
+Native run ID and attempt, generation time, and current commit subject. The
+release fails closed when the run, a required job, the artifact, or any embedded
+provenance is missing, unsuccessful, expired, stale, or mismatched.
 
-Required GitHub Actions secrets:
+The workflow pins every external action to a full commit SHA. Its checkout of
+`ourostack/apple-distribution-kit` is also pinned to an audited full commit SHA,
+then built with pinned Node `22.17.1` from its lockfile under
+`.ci/apple-distribution-kit`. The complete generated `dist/` tree must match the
+audited aggregate SHA-256
+`9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45`.
+Only after the
+candidate verifier succeeds does the job prepare App Store Connect credentials,
+compute the next dynamic build number, archive the exact source, upload the IPA,
+wait for Apple to mark it `VALID`, dry-run and apply the internal publish, and
+verify membership in `Spoonjoy Internal`.
+
+Release-control scripts remain checked out at the trusted workflow's exact
+`main` SHA. The selected app commit is checked out separately under
+`release-source/`, so an explicit rollback changes the app source being built
+without reverting the verifier or publish-control logic that authorizes it.
+
+The GitHub-hosted runner trust boundary still includes the runner image, Xcode,
+and the runner-provided `gh` client. The workflow uses `gh` only for read-only
+GitHub evidence queries and exact-run artifact download; source-changing actions,
+the Node setup action, toolkit source, dependency lockfile, and generated toolkit
+output are independently pinned or checksum-verified.
+
+Use GitHub's **Run workflow** form on `main`, or dispatch explicitly:
+
+```bash
+gh workflow run testflight.yml \
+  --ref main \
+  -f source_sha="$(git rev-parse origin/main)" \
+  -f allow_rollback=false
+```
+
+The optional `build_number` input maps to
+`SPOONJOY_TESTFLIGHT_BUILD_NUMBER`; leave it empty unless App Store Connect
+requires a specific recovery number.
+
+### Rollback
+
+TestFlight builds are immutable, so rollback means republishing a last known-good main commit
+as a new TestFlight build number. Select the exact older
+main ancestor in `source_sha`, set `allow_rollback=true`, and provide a concrete
+`rollback_reason`. The same successful Native run, required-job, and SHA-keyed
+release-note checks still apply; unrelated commits and unreasoned rollbacks are
+rejected.
+
+For a last known-good commit whose Native run predates SHA-keyed note artifacts,
+also provide non-empty `rollback_notes`. The trusted verifier still requires the
+four successful protected Native jobs, then materializes and uploads a fresh
+`testflight-release-notes-<source_sha>` artifact before Apple credentials are
+prepared. `rollback_notes` is rejected for ordinary current-main releases and
+cannot bypass a missing, failed, or superseded Native run.
+
+```bash
+gh workflow run testflight.yml \
+  --ref main \
+  -f source_sha="$LAST_KNOWN_GOOD_MAIN_SHA" \
+  -f allow_rollback=true \
+  -f rollback_reason="Restore the last known-good sign-in release" \
+  -f rollback_notes="Restores the last known-good sign-in build."
+```
+
+Required GitHub Actions secrets for the `internal-testflight` environment:
 
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_API_ISSUER_ID`
@@ -180,9 +242,12 @@ The private key secret is the base64-encoded `.p8` contents. The workflow writes
 the decoded key to `$RUNNER_TEMP`, creates an Apple Distribution Kit config file,
 and never commits or prints credentials.
 
-The CI publish driver is `scripts/ci-publish-testflight.sh`. It fails the job if
-any of these validations fail:
+The CI publish driver is `scripts/ci-publish-testflight.sh`. It consumes the
+verified source SHA and release-note artifact, materializes an ephemeral
+distribution manifest with those exact notes, and records the provenance in the
+publish summary. It fails the job if any of these validations fail:
 
+- the checkout, selected SHA, or release-note SHA does not match;
 - the App Store Connect app for `app.spoonjoy` cannot be resolved;
 - the uploaded build does not become `VALID`;
 - the `Spoonjoy Internal` beta group cannot be resolved;

@@ -1,62 +1,150 @@
 name: TestFlight
 
 on:
-  workflow_run:
-    workflows:
-      - Native
-    branches:
-      - main
-    types:
-      - completed
   workflow_dispatch:
     inputs:
+      source_sha:
+        description: Exact 40-character main commit SHA to release
+        required: true
+        type: string
+      allow_rollback:
+        description: Allow an older main ancestor as an explicit rollback
+        required: true
+        default: false
+        type: boolean
+      rollback_reason:
+        description: Required reason when allow_rollback selects an older main commit
+        required: false
+        type: string
+      rollback_notes:
+        description: Fresh TestFlight notes when rollback evidence predates note artifacts
+        required: false
+        type: string
       build_number:
         description: Optional App Store Connect build number override
         required: false
         type: string
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
-  group: spoonjoy-testflight-main
+  group: spoonjoy-testflight-internal
   cancel-in-progress: false
 
 jobs:
+  reject-untrusted-dispatch:
+    name: Reject untrusted dispatch
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reject workflow code outside main
+        run: |
+          echo "TestFlight must be dispatched with workflow ref main." >&2
+          exit 1
+
+  release-gate:
+    name: Validate release dispatch
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      ALLOW_ROLLBACK: ${{ inputs.allow_rollback }}
+      ROLLBACK_REASON: ${{ inputs.rollback_reason }}
+      ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
+    steps:
+      - name: Validate exact-SHA inputs
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "source_sha must be exactly 40 lowercase hexadecimal characters." >&2
+            exit 1
+          }
+          if [[ "$ALLOW_ROLLBACK" == "true" && -z "${ROLLBACK_REASON//[[:space:]]/}" ]]; then
+            echo "rollback_reason is required when allow_rollback is true." >&2
+            exit 1
+          fi
+
   publish-internal:
     name: Publish internal TestFlight
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
-      )
+    needs: release-gate
+    environment: internal-testflight
     runs-on: macos-26
     timeout-minutes: 120
     steps:
-      - name: Check out triggering source revision
-        if: github.event_name == 'workflow_run'
-        uses: actions/checkout@v6
+      - name: Check out trusted release controls
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Check out selected source revision
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@v6
-
-      - name: Check out apple-distribution-kit
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          repository: ourostack/apple-distribution-kit
-          path: .ci/apple-distribution-kit
+          ref: ${{ inputs.source_sha }}
+          path: release-source
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Build apple-distribution-kit
-        working-directory: .ci/apple-distribution-kit
+      - name: Verify exact Native release evidence
+        id: candidate
+        working-directory: release-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          ALLOW_ROLLBACK: ${{ inputs.allow_rollback }}
+          ROLLBACK_REASON: ${{ inputs.rollback_reason }}
+          ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
         run: |
           set -euo pipefail
-          npm ci
+          ../scripts/verify-testflight-release-candidate.rb \
+            --source-sha "$SOURCE_SHA" \
+            --repository "$GITHUB_REPOSITORY" \
+            --allow-rollback "$ALLOW_ROLLBACK" \
+            --rollback-reason "$ROLLBACK_REASON" \
+            --rollback-notes "$ROLLBACK_NOTES" \
+            --output-dir artifacts/apple/ci-testflight/release-candidate
+
+      - name: Upload verified candidate note
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: testflight-release-candidate-note-${{ inputs.source_sha }}-${{ github.run_id }}
+          path: ${{ steps.candidate.outputs.release_notes_path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Check out pinned apple-distribution-kit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: ourostack/apple-distribution-kit
+          ref: 4f3dd7bee99bae5b8e6807b5e0c94ed01cda52eb
+          path: .ci/apple-distribution-kit
+          persist-credentials: false
+
+      - name: Set up pinned Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.1
+          cache: npm
+          cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
+
+      - name: Build pinned apple-distribution-kit
+        working-directory: .ci/apple-distribution-kit
+        env:
+          EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45
+        run: |
+          set -euo pipefail
+          npm ci --loglevel=error
+          npm audit --audit-level=moderate
           npm run build
+          actual_dist_sha256="$(find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}')"
+          if [[ "$actual_dist_sha256" != "$EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256" ]]; then
+            echo "apple-distribution-kit dist checksum mismatch: $actual_dist_sha256" >&2
+            exit 1
+          fi
+          echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
 
       - name: Verify Xcode 26.5+ runner
         run: |
@@ -90,12 +178,13 @@ jobs:
           key_path="$asc_dir/AuthKey.p8"
           config_path="$asc_dir/config.json"
 
-          python3 - "$ASC_KEY_BASE64" "$key_path" <<'PY'
+          python3 - "$key_path" <<'PY'
           import base64
+          import os
           import pathlib
           import sys
 
-          pathlib.Path(sys.argv[2]).write_bytes(base64.b64decode(sys.argv[1]))
+          pathlib.Path(sys.argv[1]).write_bytes(base64.b64decode(os.environ["ASC_KEY_BASE64"], validate=True))
           PY
           chmod 600 "$key_path"
 
@@ -114,27 +203,33 @@ jobs:
               encoding="utf-8",
           )
           PY
+          chmod 600 "$config_path"
 
           {
             echo "APPLE_DISTRIBUTION_KIT_CONFIG=$config_path"
             echo "APP_STORE_CONNECT_PROVIDER_PUBLIC_ID=${ASC_PROVIDER_PUBLIC_ID:-9735080289}"
           } >> "$GITHUB_ENV"
 
-      - name: Publish to Spoonjoy Internal
+      - name: Publish exact candidate to Spoonjoy Internal
+        working-directory: release-source
         env:
-          SPOONJOY_TESTFLIGHT_BUILD_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.build_number || '' }}
-        run: scripts/ci-publish-testflight.sh
+          SPOONJOY_TESTFLIGHT_SOURCE_ROOT: ${{ github.workspace }}/release-source
+          SPOONJOY_TESTFLIGHT_BUILD_NUMBER: ${{ inputs.build_number }}
+          SPOONJOY_TESTFLIGHT_SOURCE_SHA: ${{ steps.candidate.outputs.source_sha }}
+          SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH: ${{ steps.candidate.outputs.release_notes_path }}
+        run: ../scripts/ci-publish-testflight.sh
 
       - name: Summarize publish
         if: always()
         run: |
           set -euo pipefail
-          summary_path="artifacts/apple/ci-testflight/testflight-publish-summary.json"
+          summary_path="release-source/artifacts/apple/ci-testflight/testflight-publish-summary.json"
           if [[ -f "$summary_path" ]]; then
             {
               echo "## TestFlight publish"
               echo
               jq -r '
+                "- Source SHA: \(.sourceSha)",
                 "- App Store Connect app id: \(.appId)",
                 "- Build: \(.buildNumber) (\(.buildId))",
                 "- Build beta detail id: \(.buildBetaDetailId)",
@@ -147,8 +242,9 @@ jobs:
 
       - name: Upload publish artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: testflight-publish-artifacts
-          path: artifacts/apple/ci-testflight
-          if-no-files-found: ignore
+          name: testflight-publish-artifacts-${{ inputs.source_sha }}
+          path: release-source/artifacts/apple/ci-testflight
+          if-no-files-found: error
+          retention-days: 90
