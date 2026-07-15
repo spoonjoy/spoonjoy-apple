@@ -381,6 +381,21 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
         }
         return "Cover change could not be saved."
     }
+
+    public static func userFacingExecutionFailureMessage(
+        for action: RecipeCoverControlsAction,
+        error: Error
+    ) -> String {
+        if case .generatePlaceholder = action,
+           let transportError = error as? APITransportError,
+           transportError.isOffline {
+            return userFacingPreparationFailureMessage(
+                for: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
+            )
+        }
+
+        return "Cover change could not be saved."
+    }
 }
 
 public struct RecipeCoverControlsData: Equatable, Sendable {

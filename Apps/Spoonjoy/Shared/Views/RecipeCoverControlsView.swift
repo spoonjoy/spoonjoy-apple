@@ -106,7 +106,10 @@ struct RecipeCoverControlsRouteView: View {
                     providerBlocker = blocker
                     actionError = blocker.message
                 } else {
-                    actionError = "Cover change could not be saved."
+                    actionError = RecipeCoverControlsMutationPlan.userFacingExecutionFailureMessage(
+                        for: action,
+                        error: error
+                    )
                 }
             }
         }

@@ -341,6 +341,34 @@ struct CoverControlSurfaceTests {
             for: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
         )
         #expect(onlineOnlyMessage == "AI placeholder covers need an internet connection.")
+
+        let runtimeOfflineMessage = RecipeCoverControlsMutationPlan.userFacingExecutionFailureMessage(
+            for: .generatePlaceholder(
+                promptAddition: "moody window light",
+                activateWhenReady: true,
+                clientMutationID: "cm_generate_offline_runtime"
+            ),
+            error: APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        )
+        #expect(runtimeOfflineMessage == "AI placeholder covers need an internet connection.")
+
+        let genericRuntimeMessage = RecipeCoverControlsMutationPlan.userFacingExecutionFailureMessage(
+            for: .setNoCover(clientMutationID: "cm_no_cover"),
+            error: APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
+        )
+        #expect(genericRuntimeMessage == "Cover change could not be saved.")
     }
 
     @Test("online cover actions plan exact REST mutations with offline fallbacks")
@@ -800,8 +828,6 @@ struct CoverControlSurfaceTests {
         let generationTokens = [
             #"@State private var placeholderPromptAddition = """#,
             #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
-            #"Button { generatePlaceholderCover() }"#,
-            #".disabled(connectivity == .offline)"#,
             #"runAction(.generatePlaceholder("#,
             #"promptAddition: trimmedOptional(placeholderPromptAddition)"#,
             #"activateWhenReady: true"#,
@@ -812,6 +838,20 @@ struct CoverControlSurfaceTests {
         ]
         let missingGenerationTokens = generationTokens.filter { !coverControlsSource.contains($0) }
         #expect(missingGenerationTokens.isEmpty, "Missing native generation control tokens: \(missingGenerationTokens)")
+
+        let placeholderGenerationSource = try swiftMemberBody(
+            named: "placeholderGenerationControl",
+            in: coverControlsSource
+        )
+        for token in [
+            #"Button { generatePlaceholderCover() }"#,
+            #".disabled(connectivity == .offline)"#
+        ] {
+            #expect(
+                placeholderGenerationSource.contains(token),
+                "placeholderGenerationControl missing scoped token \(token)"
+            )
+        }
 
         let processingTokens = [
             "ProgressView()",
@@ -1009,4 +1049,30 @@ private func readCoverControlsRepoFile(_ relativePath: String) throws -> String 
         .deletingLastPathComponent()
         .deletingLastPathComponent()
     return try String(contentsOf: root.appendingPathComponent(relativePath), encoding: .utf8)
+}
+
+private func swiftMemberBody(named name: String, in source: String) throws -> String {
+    guard let declarationRange = source.range(of: "private var \(name): some View") else {
+        throw CoverControlSurfaceTestFailure("Missing Swift member \(name)")
+    }
+    guard let bodyStart = source[declarationRange.upperBound...].firstIndex(of: "{") else {
+        throw CoverControlSurfaceTestFailure("Missing body for Swift member \(name)")
+    }
+
+    var depth = 0
+    var index = bodyStart
+    while index < source.endIndex {
+        let character = source[index]
+        if character == "{" {
+            depth += 1
+        } else if character == "}" {
+            depth -= 1
+            if depth == 0 {
+                return String(source[bodyStart...index])
+            }
+        }
+        index = source.index(after: index)
+    }
+
+    throw CoverControlSurfaceTestFailure("Unterminated Swift member \(name)")
 }
