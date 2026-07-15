@@ -184,6 +184,25 @@ struct RecipeCatalogDetailTests {
         ]))
     }
 
+    @Test("cover view model keeps accessible fallback labels when titles trim away")
+    func coverViewModelKeepsAccessibleFallbackLabelsWhenTitlesTrimAway() {
+        let imageCover = RecipeDetailCoverViewModel(
+            imageURL: URL(string: "https://spoonjoy.app/photos/recipes/manual/cover.jpg"),
+            provenanceLabel: "Chef photo",
+            title: "  \n  "
+        )
+        #expect(imageCover.hasRealCover)
+        #expect(imageCover.accessibilityLabel == "Recipe cover image")
+
+        let emptyCover = RecipeDetailCoverViewModel(
+            imageURL: nil,
+            provenanceLabel: nil,
+            title: "\t"
+        )
+        #expect(emptyCover.hasRealCover == false)
+        #expect(emptyCover.accessibilityLabel == "Photo not added")
+    }
+
     @Test("detail cache restore keeps full recipe payload instead of placeholder shell")
     func detailCacheRestoreKeepsFullRecipePayloadInsteadOfPlaceholderShell() throws {
         let recipe = try Self.recipeDetail()

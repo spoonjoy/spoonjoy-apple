@@ -1762,6 +1762,38 @@ struct NativeSyncEngineTests {
             )
         )
 
+        let defaultedCoverUpload = try JSONDecoder().decode(
+            NativeQueuedMutation.self,
+            from: Self.queuedMutationJSON(
+                schemaVersion: 1,
+                type: "cover.upload",
+                fields: [
+                    "recipeId": "recipe_lemon",
+                    "image": [
+                        "localStageId": "stage_defaulted_cover",
+                        "fileName": "defaulted-cover.jpg",
+                        "contentType": "image/jpeg",
+                        "byteCount": 4
+                    ]
+                ]
+            )
+        )
+        let defaultedCoverRequest = try defaultedCoverUpload.requestBuilder().urlRequest(configuration: configuration)
+        try assertMultipartBody(
+            defaultedCoverRequest,
+            expected: ExpectedMultipartRequest(
+                fileField: "photo",
+                fileName: "defaulted-cover.jpg",
+                contentType: "image/jpeg",
+                fields: [
+                    "clientMutationId": "cm_decode",
+                    "activate": "true",
+                    "generateEditorial": "true",
+                    "postAsSpoon": "false"
+                ]
+            )
+        )
+
         let fallbackDependencies = try [
             JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "cookbook.update", fields: ["title": "Missing cookbook"])).dependencyKey,
             JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "apns.device.register", fields: ["token": "apns-token"])).dependencyKey,
@@ -1959,6 +1991,19 @@ struct NativeSyncEngineTests {
                 "note": "Photo cook.",
                 "nextTime": "More lemon",
                 "cookedAt": "2026-06-16T09:30:00.000Z"
+            ]),
+            .multipart(.coverUpload(
+                recipeID: "recipe/lemon",
+                image: Self.stagedMedia("stage_cover_legacy_image", fileName: "legacy-image-cover.png", contentType: "image/png"),
+                clientMutationID: "cm_cover_upload_legacy_image",
+                activate: false,
+                generateEditorial: false,
+                createdAt: Self.createdAt(26)
+            ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "legacy-image-cover.png", "image/png", [
+                "clientMutationId": "cm_cover_upload_legacy_image",
+                "activate": "false",
+                "generateEditorial": "false",
+                "postAsSpoon": "false"
             ]),
             .json(.coverSetActive(recipeID: "recipe/lemon", coverID: "cover/raw", clientMutationID: "cm_cover_active", variant: .stylized, createdAt: Self.createdAt(27)), .patch, "/api/v1/recipes/recipe%2Flemon/covers/cover%2Fraw", [
                 "clientMutationId": "cm_cover_active",
