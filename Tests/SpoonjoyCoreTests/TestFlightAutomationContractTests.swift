@@ -110,6 +110,26 @@ struct TestFlightAutomationContractTests {
         #expect(testFlightWorkflow.firstMatch(of: toolkitRefPattern) != nil)
     }
 
+    @Test("Artifact uploads use the audited Node 24 action revision")
+    func artifactUploadsUseAuditedNode24Revision() throws {
+        let expectedRevision = "b7c566a772e6b6bfb58ed0dc250532a479d7789f"
+        let uploadPattern = /actions\/upload-artifact@([0-9a-f]{40})/
+        let workflowPaths = [
+            ".github/workflows/native.yml",
+            ".github/workflows/testflight.yml"
+        ]
+
+        for path in workflowPaths {
+            let workflow = try readTestFlightAutomationRepoFile(path)
+            let revisions = workflow.matches(of: uploadPattern).map { String($0.1) }
+            #expect(!revisions.isEmpty, "\(path) must upload its release evidence")
+            #expect(
+                revisions.allSatisfy { $0 == expectedRevision },
+                "\(path) must use the audited Node 24 upload-artifact revision: \(revisions)"
+            )
+        }
+    }
+
     @Test("candidate verifier accepts current main only with exact successful Native evidence")
     func verifierAcceptsCurrentMainWithExactEvidence() throws {
         let fixture = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
