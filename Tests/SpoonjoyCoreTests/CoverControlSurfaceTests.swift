@@ -336,6 +336,11 @@ struct CoverControlSurfaceTests {
         for forbidden in ["provider-secret", "requestBuilder", "authRequired", "/internal", "ordinary failure"] {
             #expect(!message.localizedCaseInsensitiveContains(forbidden))
         }
+
+        let onlineOnlyMessage = RecipeCoverControlsMutationPlan.userFacingPreparationFailureMessage(
+            for: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
+        )
+        #expect(onlineOnlyMessage == "AI placeholder covers need an internet connection.")
     }
 
     @Test("online cover actions plan exact REST mutations with offline fallbacks")
@@ -493,6 +498,22 @@ struct CoverControlSurfaceTests {
                 "activateWhenReady": true
             ]
         )
+    }
+
+    @Test("AI placeholder generation is explicitly online only")
+    func aiPlaceholderGenerationIsExplicitlyOnlineOnly() throws {
+        #expect(throws: RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration) {
+            _ = try RecipeCoverControlsMutationPlan.plan(
+                .generatePlaceholder(
+                    promptAddition: "moody window light",
+                    activateWhenReady: true,
+                    clientMutationID: "cm_generate_offline"
+                ),
+                recipeID: "recipe/lemon",
+                connectivity: .offline,
+                createdAt: { Self.createdAt }
+            )
+        }
     }
 
     @Test("archive cover action carries nullable replacement values and query idempotency")
@@ -780,6 +801,7 @@ struct CoverControlSurfaceTests {
             #"@State private var placeholderPromptAddition = """#,
             #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
             #"Button { generatePlaceholderCover() }"#,
+            #".disabled(connectivity == .offline)"#,
             #"runAction(.generatePlaceholder("#,
             #"promptAddition: trimmedOptional(placeholderPromptAddition)"#,
             #"activateWhenReady: true"#,

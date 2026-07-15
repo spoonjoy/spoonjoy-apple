@@ -295,6 +295,7 @@ struct RecipeCoverControlsView: View {
                 Label("Generate Placeholder", systemImage: "sparkles")
             }
             .buttonStyle(.bordered)
+            .disabled(connectivity == .offline)
         }
         .padding()
         .background(.background)

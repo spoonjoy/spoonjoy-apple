@@ -218,6 +218,10 @@ public enum RecipeCoverControlsAction: Equatable, Sendable {
     }
 }
 
+public enum RecipeCoverControlsActionPlanningError: Error, Equatable, Sendable {
+    case onlineOnlyPlaceholderGeneration
+}
+
 public struct RecipeCoverControlsMutationPlan: Equatable {
     public let remoteRequestBuilder: APIRequestBuilder?
     public let queuedMutation: NativeQueuedMutation?
@@ -295,6 +299,9 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
                 createdAt: mutationCreatedAt
             )
         case .generatePlaceholder(let promptAddition, let activateWhenReady, let clientMutationID):
+            if connectivity == .offline {
+                throw RecipeCoverControlsActionPlanningError.onlineOnlyPlaceholderGeneration
+            }
             online = try RecipeCoverRequests.generatePlaceholder(
                 recipeID: recipeID,
                 clientMutationID: clientMutationID,
@@ -365,8 +372,14 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
         }
     }
 
-    public static func userFacingPreparationFailureMessage(for _: Error) -> String {
-        "Cover change could not be saved."
+    public static func userFacingPreparationFailureMessage(for error: Error) -> String {
+        if let planningError = error as? RecipeCoverControlsActionPlanningError {
+            switch planningError {
+            case .onlineOnlyPlaceholderGeneration:
+                return "AI placeholder covers need an internet connection."
+            }
+        }
+        return "Cover change could not be saved."
     }
 }
 
