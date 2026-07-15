@@ -389,7 +389,7 @@ struct CoverControlSurfaceTests {
         )
         let uploadFields = [
             "clientMutationId": "cm_cover_upload",
-            "activate": "true",
+            "activateWhenReady": "true",
             "generateEditorial": "true",
             "postAsSpoon": "true",
             "note": "Loved this batch.",
@@ -445,7 +445,7 @@ struct CoverControlSurfaceTests {
             contentType: "image/webp",
             fields: [
                 "clientMutationId": "cm_cover_upload_offline",
-                "activate": "true",
+                "activateWhenReady": "true",
                 "generateEditorial": "true",
                 "postAsSpoon": "false"
             ]
@@ -746,7 +746,7 @@ struct CoverControlSurfaceTests {
             #"TextField("Cooked at", text: $spoonCookedAt)"#,
             #"Button { submitStagedCoverPhoto() }"#,
             #"runAction(.uploadPhoto("#,
-            #"activate: shouldActivateUploadedCover"#,
+            #"activateWhenReady: shouldActivateUploadedCover"#,
             #"generateEditorial: shouldGenerateEditorialCover"#,
             #"postAsSpoon: shouldPostUploadedPhotoAsSpoon"#,
             #"note: trimmedOptional(spoonNote)"#,

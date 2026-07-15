@@ -749,7 +749,7 @@ struct NativeAPIExpansionTests {
             data: Data([0xFF, 0xD8, 0xFF]),
             fields: [
                 "clientMutationId": "cover-upload-1",
-                "activate": "true",
+                "activateWhenReady": "true",
                 "generateEditorial": "true",
                 "postAsSpoon": "true",
                 "note": "Swapped in garden basil.",
@@ -1347,7 +1347,7 @@ struct NativeAPIExpansionTests {
             data: Data([0x52, 0x49, 0x46, 0x46]),
             fields: [
                 "clientMutationId": "cover-upload-legacy",
-                "activate": "false",
+                "activateWhenReady": "false",
                 "generateEditorial": "false",
                 "postAsSpoon": "false"
             ]
