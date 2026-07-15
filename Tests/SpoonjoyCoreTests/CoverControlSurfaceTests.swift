@@ -299,7 +299,9 @@ struct CoverControlSurfaceTests {
     func coverActionSuccessMessagesStayStable() {
         #expect(RecipeCoverControlsAction.setNoCover(clientMutationID: "cm").successMessage == "No-cover state saved.")
         #expect(RecipeCoverControlsAction.activate(coverID: "cover", variant: .image, clientMutationID: "cm").successMessage == "Cover updated.")
-        #expect(RecipeCoverControlsAction.regenerate(coverID: "cover", activateWhenReady: false, clientMutationID: "cm").successMessage == "Cover regeneration queued.")
+        #expect(RecipeCoverControlsAction.uploadPhoto(photo: Self.stagedCoverPhoto(), activate: true, generateEditorial: true, postAsSpoon: false, note: nil, nextTime: nil, cookedAt: nil, clientMutationID: "cm").successMessage == "Photo queued for cover review.")
+        #expect(RecipeCoverControlsAction.generatePlaceholder(promptAddition: nil, activateWhenReady: true, clientMutationID: "cm").successMessage == "Placeholder cover queued.")
+        #expect(RecipeCoverControlsAction.regenerate(coverID: "cover", promptAddition: "warmer light", activateWhenReady: false, clientMutationID: "cm").successMessage == "Cover regeneration queued.")
         #expect(RecipeCoverControlsAction.archive(coverID: "cover", replacementCoverID: nil, replacementVariant: nil, confirmNoCover: true, deleteSafeObjects: false, clientMutationID: "cm").successMessage == "Cover archived.")
         #expect(RecipeCoverControlsAction.createFromSpoon(spoonID: "spoon", activate: false, generateEditorial: true, clientMutationID: "cm").successMessage == "Spoon photo queued as a cover.")
     }
@@ -334,10 +336,10 @@ struct CoverControlSurfaceTests {
                 .coverSetActive
             ),
             (
-                .regenerate(coverID: "cover/raw", activateWhenReady: false, clientMutationID: "cm_regen"),
+                .regenerate(coverID: "cover/raw", promptAddition: "warmer light", activateWhenReady: false, clientMutationID: "cm_regen"),
                 .post,
                 "/api/v1/recipes/recipe%2Flemon/covers/regenerate",
-                ["clientMutationId": "cm_regen", "coverId": "cover/raw", "activateWhenReady": false],
+                ["clientMutationId": "cm_regen", "coverId": "cover/raw", "promptAddition": "warmer light", "activateWhenReady": false],
                 .coverRegenerate
             ),
             (
@@ -365,6 +367,112 @@ struct CoverControlSurfaceTests {
             #expect(queuedRequest.method == method)
             #expect(queuedRequest.url.path == path)
         }
+    }
+
+    @Test("photo studio upload and generation actions plan exact requests")
+    func photoStudioUploadAndGenerationActionsPlanExactRequests() throws {
+        let stagedPhoto = Self.stagedCoverPhoto()
+        let uploadPlan = try RecipeCoverControlsMutationPlan.plan(
+            .uploadPhoto(
+                photo: stagedPhoto,
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: true,
+                note: "Loved this batch.",
+                nextTime: "Less salt.",
+                cookedAt: Self.createdAt,
+                clientMutationID: "cm_cover_upload"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .online,
+            createdAt: { Self.createdAt }
+        )
+        let uploadFields = [
+            "clientMutationId": "cm_cover_upload",
+            "activate": "true",
+            "generateEditorial": "true",
+            "postAsSpoon": "true",
+            "note": "Loved this batch.",
+            "nextTime": "Less salt.",
+            "cookedAt": Self.createdAt
+        ]
+        try assertMultipartRequest(
+            coverRemoteRequest(from: uploadPlan),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/image",
+            fileField: "photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            fields: uploadFields
+        )
+        let uploadFallback = try requireCoverMutation(uploadPlan.offlineFallbackMutation, "upload fallback")
+        #expect(uploadFallback.queueableKind == .coverUpload)
+        try assertMultipartRequest(
+            coverQueuedRequest(from: uploadFallback),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/image",
+            fileField: "photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            fields: uploadFields
+        )
+
+        let offlineUploadPlan = try RecipeCoverControlsMutationPlan.plan(
+            .uploadPhoto(
+                photo: stagedPhoto,
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: false,
+                note: nil,
+                nextTime: nil,
+                cookedAt: nil,
+                clientMutationID: "cm_cover_upload_offline"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .offline,
+            createdAt: { Self.createdAt }
+        )
+        #expect(offlineUploadPlan.remoteRequestBuilder == nil)
+        #expect(offlineUploadPlan.offlineFallbackMutation == nil)
+        let queuedUpload = try requireCoverMutation(offlineUploadPlan.queuedMutation, "offline upload")
+        #expect(queuedUpload.queueableKind == .coverUpload)
+        try assertMultipartRequest(
+            coverQueuedRequest(from: queuedUpload),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/image",
+            fileField: "photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            fields: [
+                "clientMutationId": "cm_cover_upload_offline",
+                "activate": "true",
+                "generateEditorial": "true",
+                "postAsSpoon": "false"
+            ]
+        )
+
+        let placeholderPlan = try RecipeCoverControlsMutationPlan.plan(
+            .generatePlaceholder(
+                promptAddition: "brighter window light",
+                activateWhenReady: true,
+                clientMutationID: "cm_generate"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .online,
+            createdAt: { Self.createdAt }
+        )
+        #expect(placeholderPlan.queuedMutation == nil)
+        #expect(placeholderPlan.offlineFallbackMutation == nil)
+        try assertJSONRequest(
+            coverRemoteRequest(from: placeholderPlan),
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Flemon/covers/generate",
+            expected: [
+                "clientMutationId": "cm_generate",
+                "promptAddition": "brighter window light",
+                "activateWhenReady": true
+            ]
+        )
     }
 
     @Test("archive cover action carries nullable replacement values and query idempotency")
@@ -631,6 +739,15 @@ struct CoverControlSurfaceTests {
         )
     }
 
+    private static func stagedCoverPhoto() -> NativeStagedMediaUpload {
+        NativeStagedMediaUpload(
+            localStageID: "stage_cover_photo",
+            fileName: "cover.webp",
+            contentType: "image/webp",
+            data: Data([0x73, 0x6A, 0x6D])
+        )
+    }
+
     private static func recipe(
         coverURL: URL? = URL(string: "https://spoonjoy.app/covers/lemon.jpg")!,
         coverSourceType: RecipeCoverSourceType? = .chefUpload,
@@ -713,6 +830,47 @@ private func assertJSONRequest(
     #expect(request.url.path == path, sourceLocation: sourceLocation)
     let body = try jsonBody(from: request)
     #expect(NSDictionary(dictionary: body).isEqual(to: expected), sourceLocation: sourceLocation)
+}
+
+private func assertMultipartRequest(
+    _ request: APIRequest,
+    method: APIRequestMethod,
+    path: String,
+    fileField: String,
+    fileName: String,
+    contentType: String,
+    fields: [String: String],
+    sourceLocation: SourceLocation = #_sourceLocation
+) throws {
+    #expect(request.method == method, sourceLocation: sourceLocation)
+    #expect(request.url.path == path, sourceLocation: sourceLocation)
+    let body = try #require(request.body)
+    let bodyString = try #require(String(data: body, encoding: .isoLatin1))
+    #expect(bodyString.contains(#"name="\#(fileField)"; filename="\#(fileName)""#), sourceLocation: sourceLocation)
+    #expect(bodyString.contains("Content-Type: \(contentType)\r\n\r\n"), sourceLocation: sourceLocation)
+
+    let expectedFieldNames = Set(fields.keys).union([fileField])
+    #expect(multipartFieldNames(in: bodyString) == expectedFieldNames, sourceLocation: sourceLocation)
+    for (name, value) in fields {
+        #expect(bodyString.contains(#"name="\#(name)""#), sourceLocation: sourceLocation)
+        #expect(bodyString.contains("\r\n\r\n\(value)\r\n"), sourceLocation: sourceLocation)
+    }
+}
+
+private func multipartFieldNames(in bodyString: String) -> Set<String> {
+    Set(bodyString.split(separator: "\r\n").compactMap { line in
+        let prefix = #"Content-Disposition: form-data; name=""#
+        guard line.hasPrefix(prefix) else {
+            return nil
+        }
+
+        let start = line.index(line.startIndex, offsetBy: prefix.count)
+        guard let end = line[start...].firstIndex(of: "\"") else {
+            return nil
+        }
+
+        return String(line[start..<end])
+    })
 }
 
 private func jsonBody(from request: APIRequest) throws -> [String: Any] {
