@@ -1693,7 +1693,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         case .spoonDelete:
             return try headerDelete(["api", "v1", "recipes", requiredString("recipeId"), "spoons", requiredString("spoonId")])
         case .coverUpload:
-            return try multipart(.post, ["api", "v1", "recipes", requiredString("recipeId"), "image"], fileField: "image", mediaKey: "image")
+            return try coverUploadRequestBuilder()
         case .coverSetActive:
             return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId"), "covers", requiredString("coverId")], excluding: ["recipeId", "coverId"])
         case .coverSetNoCover:
@@ -1791,6 +1791,33 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         )
     }
 
+    private func coverUploadRequestBuilder() throws -> APIRequestBuilder {
+        let media = try requiredMedia("photo")
+        var fields: [String: String] = [
+            "clientMutationId": clientMutationID,
+            "activate": String(boolValue("activate") ?? true),
+            "generateEditorial": String(boolValue("generateEditorial") ?? true),
+            "postAsSpoon": String(boolValue("postAsSpoon") ?? false)
+        ]
+        if let note = stringValue("note") {
+            fields["note"] = note
+        }
+        if let nextTime = stringValue("nextTime") {
+            fields["nextTime"] = nextTime
+        }
+        if let cookedAt = stringValue("cookedAt") {
+            fields["cookedAt"] = cookedAt
+        }
+
+        return try APIRequestSupport.privateMultipart(
+            method: .post,
+            pathComponents: ["api", "v1", "recipes", requiredString("recipeId"), "image"],
+            fileField: "photo",
+            file: UploadFile(fileName: media.fileName, contentType: media.contentType, data: media.data),
+            fields: fields
+        )
+    }
+
     private func requestBody(includeClientMutation: Bool, excluding excludedKeys: Set<String>) -> [String: Any] {
         var body: [String: Any] = [:]
         if includeClientMutation {
@@ -1818,6 +1845,9 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
 
     private func requiredMedia(_ key: String) throws -> NativeStagedMediaUpload {
         guard let value = media[key] else {
+            if queueableKind == .coverUpload, key == "photo", let legacyImage = media["image"] {
+                return legacyImage
+            }
             throw NativeQueuedMutationRequestError.missingMedia(key)
         }
         return value
@@ -3114,7 +3144,47 @@ public extension NativeQueuedMutation {
     }
 
     static func coverUpload(recipeID: String, image: NativeStagedMediaUpload, clientMutationID: String, activate: Bool, generateEditorial: Bool, createdAt: String) -> NativeQueuedMutation {
-        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverUpload, values: ["recipeId": .string(recipeID), "activate": .bool(activate), "generateEditorial": .bool(generateEditorial)], media: ["image": image])
+        coverUpload(
+            recipeID: recipeID,
+            photo: image,
+            clientMutationID: clientMutationID,
+            activate: activate,
+            generateEditorial: generateEditorial,
+            postAsSpoon: false,
+            note: nil,
+            nextTime: nil,
+            cookedAt: nil,
+            createdAt: createdAt
+        )
+    }
+
+    static func coverUpload(
+        recipeID: String,
+        photo: NativeStagedMediaUpload,
+        clientMutationID: String,
+        activate: Bool,
+        generateEditorial: Bool,
+        postAsSpoon: Bool,
+        note: String?,
+        nextTime: String?,
+        cookedAt: String?,
+        createdAt: String
+    ) -> NativeQueuedMutation {
+        NativeQueuedMutation(
+            clientMutationID: clientMutationID,
+            createdAt: createdAt,
+            queueableKind: .coverUpload,
+            values: [
+                "recipeId": .string(recipeID),
+                "activate": .bool(activate),
+                "generateEditorial": .bool(generateEditorial),
+                "postAsSpoon": .bool(postAsSpoon),
+                "note": stringOrNull(note),
+                "nextTime": stringOrNull(nextTime),
+                "cookedAt": stringOrNull(cookedAt)
+            ],
+            media: ["photo": photo]
+        )
     }
 
     static func coverSetActive(recipeID: String, coverID: String, clientMutationID: String, variant: RecipeCoverVariant, createdAt: String) -> NativeQueuedMutation {
@@ -3143,8 +3213,23 @@ public extension NativeQueuedMutation {
         ])
     }
 
-    static func coverRegenerate(recipeID: String, coverID: String, activateWhenReady: Bool, clientMutationID: String, createdAt: String) -> NativeQueuedMutation {
-        NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverRegenerate, values: ["recipeId": .string(recipeID), "coverId": .string(coverID), "activateWhenReady": .bool(activateWhenReady)])
+    static func coverRegenerate(
+        recipeID: String,
+        coverID: String,
+        promptAddition: String? = nil,
+        activateWhenReady: Bool,
+        clientMutationID: String,
+        createdAt: String
+    ) -> NativeQueuedMutation {
+        var values: [String: JSONValue] = [
+            "recipeId": .string(recipeID),
+            "coverId": .string(coverID),
+            "activateWhenReady": .bool(activateWhenReady)
+        ]
+        if let promptAddition {
+            values["promptAddition"] = .string(promptAddition)
+        }
+        return NativeQueuedMutation(clientMutationID: clientMutationID, createdAt: createdAt, queueableKind: .coverRegenerate, values: values)
     }
 
     static func coverFromSpoon(recipeID: String, spoonID: String, clientMutationID: String, activate: Bool, generateEditorial: Bool, createdAt: String) -> NativeQueuedMutation {
@@ -3311,7 +3396,12 @@ extension NativeQueuedMutation {
         for key in kindContainer.allKeys {
             guard key.stringValue != "type" else { continue }
             if queueableKind.mediaFieldNames.contains(key.stringValue) {
-                media[key.stringValue] = try kindContainer.decode(NativeStagedMediaUpload.self, forKey: key)
+                let upload = try kindContainer.decode(NativeStagedMediaUpload.self, forKey: key)
+                if queueableKind == .coverUpload, key.stringValue == "image" {
+                    media["photo"] = media["photo"] ?? upload
+                } else {
+                    media[key.stringValue] = upload
+                }
             } else {
                 values[key.stringValue] = try kindContainer.decode(JSONValue.self, forKey: key)
             }
@@ -3387,7 +3477,7 @@ private extension NativeQueuedMutationKind {
         case .spoonCreatePhoto, .profilePhotoUpload:
             ["photo"]
         case .coverUpload:
-            ["image"]
+            ["photo", "image"]
         default:
             []
         }
