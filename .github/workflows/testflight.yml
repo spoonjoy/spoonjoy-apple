@@ -123,13 +123,27 @@ jobs:
           path: .ci/apple-distribution-kit
           persist-credentials: false
 
+      - name: Set up pinned Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.1
+          cache: npm
+          cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
+
       - name: Build pinned apple-distribution-kit
         working-directory: .ci/apple-distribution-kit
+        env:
+          EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45
         run: |
           set -euo pipefail
           npm ci --loglevel=error
           npm audit --audit-level=moderate
           npm run build
+          actual_dist_sha256="$(find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}')"
+          if [[ "$actual_dist_sha256" != "$EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256" ]]; then
+            echo "apple-distribution-kit dist checksum mismatch: $actual_dist_sha256" >&2
+            exit 1
+          fi
           echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
 
       - name: Verify Xcode 26.5+ runner

@@ -172,7 +172,11 @@ provenance is missing, unsuccessful, expired, stale, or mismatched.
 
 The workflow pins every external action to a full commit SHA. Its checkout of
 `ourostack/apple-distribution-kit` is also pinned to an audited full commit SHA,
-then built from its lockfile under `.ci/apple-distribution-kit`. Only after the
+then built with pinned Node `22.17.1` from its lockfile under
+`.ci/apple-distribution-kit`. The complete generated `dist/` tree must match the
+audited aggregate SHA-256
+`9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45`.
+Only after the
 candidate verifier succeeds does the job prepare App Store Connect credentials,
 compute the next dynamic build number, archive the exact source, upload the IPA,
 wait for Apple to mark it `VALID`, dry-run and apply the internal publish, and
@@ -182,6 +186,12 @@ Release-control scripts remain checked out at the trusted workflow's exact
 `main` SHA. The selected app commit is checked out separately under
 `release-source/`, so an explicit rollback changes the app source being built
 without reverting the verifier or publish-control logic that authorizes it.
+
+The GitHub-hosted runner trust boundary still includes the runner image, Xcode,
+and the runner-provided `gh` client. The workflow uses `gh` only for read-only
+GitHub evidence queries and exact-run artifact download; source-changing actions,
+the Node setup action, toolkit source, dependency lockfile, and generated toolkit
+output are independently pinned or checksum-verified.
 
 Use GitHub's **Run workflow** form on `main`, or dispatch explicitly:
 
