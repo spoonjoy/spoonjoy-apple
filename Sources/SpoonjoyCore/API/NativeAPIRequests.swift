@@ -870,16 +870,49 @@ public enum RecipeCoverRequests {
         activate: Bool,
         generateEditorial: Bool
     ) throws -> APIRequestBuilder {
-        try APIRequestSupport.privateMultipart(
+        try uploadImage(
+            recipeID: recipeID,
+            photo: image,
+            clientMutationID: clientMutationID,
+            activate: activate,
+            generateEditorial: generateEditorial,
+            postAsSpoon: false
+        )
+    }
+
+    public static func uploadImage(
+        recipeID: String,
+        photo: UploadFile,
+        clientMutationID: String,
+        activate: Bool,
+        generateEditorial: Bool,
+        postAsSpoon: Bool,
+        note: String? = nil,
+        nextTime: String? = nil,
+        cookedAt: String? = nil
+    ) throws -> APIRequestBuilder {
+        var fields = [
+            "clientMutationId": clientMutationID,
+            "activate": String(activate),
+            "generateEditorial": String(generateEditorial),
+            "postAsSpoon": String(postAsSpoon)
+        ]
+        if let note {
+            fields["note"] = note
+        }
+        if let nextTime {
+            fields["nextTime"] = nextTime
+        }
+        if let cookedAt {
+            fields["cookedAt"] = cookedAt
+        }
+
+        return try APIRequestSupport.privateMultipart(
             method: .post,
             pathComponents: ["api", "v1", "recipes", recipeID, "image"],
-            fileField: "image",
-            file: image,
-            fields: [
-                "clientMutationId": clientMutationID,
-                "activate": String(activate),
-                "generateEditorial": String(generateEditorial)
-            ]
+            fileField: "photo",
+            file: photo,
+            fields: fields
         )
     }
 
@@ -915,6 +948,27 @@ public enum RecipeCoverRequests {
                 "activate": activate,
                 "generateEditorial": generateEditorial
             ]
+        )
+    }
+
+    public static func generatePlaceholder(
+        recipeID: String,
+        clientMutationID: String,
+        promptAddition: String?,
+        activateWhenReady: Bool
+    ) throws -> APIRequestBuilder {
+        var body: [String: Any] = [
+            "clientMutationId": clientMutationID,
+            "activateWhenReady": activateWhenReady
+        ]
+        if let promptAddition {
+            body["promptAddition"] = promptAddition
+        }
+
+        return try APIRequestSupport.privateJSON(
+            method: .post,
+            pathComponents: ["api", "v1", "recipes", recipeID, "covers", "generate"],
+            body: body
         )
     }
 
@@ -976,16 +1030,22 @@ public enum RecipeCoverRequests {
         recipeID: String,
         clientMutationID: String,
         coverID: String,
+        promptAddition: String? = nil,
         activateWhenReady: Bool
     ) throws -> APIRequestBuilder {
-        try APIRequestSupport.privateJSON(
+        var body: [String: Any] = [
+            "clientMutationId": clientMutationID,
+            "coverId": coverID,
+            "activateWhenReady": activateWhenReady
+        ]
+        if let promptAddition {
+            body["promptAddition"] = promptAddition
+        }
+
+        return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "recipes", recipeID, "covers", "regenerate"],
-            body: [
-                "clientMutationId": clientMutationID,
-                "coverId": coverID,
-                "activateWhenReady": activateWhenReady
-            ]
+            body: body
         )
     }
 
