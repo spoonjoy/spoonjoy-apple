@@ -23,6 +23,8 @@ struct TestFlightAutomationContractTests {
                 "github.ref == 'refs/heads/main'",
                 "environment: internal-testflight",
                 "actions: read",
+                "group: spoonjoy-testflight-internal",
+                "cancel-in-progress: false",
                 "ref: ${{ inputs.source_sha }}",
                 "fetch-depth: 0",
                 "persist-credentials: false",
@@ -152,6 +154,24 @@ struct TestFlightAutomationContractTests {
             fixture: missing,
             sourceSHA: currentSHA,
             contains: "missing required Native job Coverage"
+        )
+
+        let superseded = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
+        defer { try? FileManager.default.removeItem(at: superseded) }
+        try mutateJSON(at: superseded.appendingPathComponent("runs.json")) { json in
+            var runs = json["workflow_runs"] as! [[String: Any]]
+            var newerRun = runs[0]
+            newerRun["id"] = 5252
+            newerRun["run_number"] = 78
+            newerRun["status"] = "in_progress"
+            newerRun["conclusion"] = NSNull()
+            runs.append(newerRun)
+            json["workflow_runs"] = runs
+        }
+        try expectVerifierFailure(
+            fixture: superseded,
+            sourceSHA: currentSHA,
+            contains: "latest exact Native push run 5252 was not successful"
         )
     }
 
