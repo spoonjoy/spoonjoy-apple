@@ -1728,6 +1728,31 @@ struct APITransportTests {
             #expect(await invalidURLSession.capturedRequests().isEmpty)
         }
 
+        let invalidCoverURLSession = RecordingURLSession(
+            responses: [.failure(TransportFixtureError.unexpectedRequest)]
+        )
+        let generatedCoverRequest = try RecipeCoverRequests.generatePlaceholder(
+            recipeID: "recipe/one",
+            clientMutationID: "cover-generate-invalid-url",
+            promptAddition: "brighter herbs",
+            activateWhenReady: true
+        )
+        do {
+            _ = try await URLSessionAPITransport(session: invalidCoverURLSession).send(
+                generatedCoverRequest,
+                configuration: APIClientConfiguration(
+                    baseURL: URL(string: "mailto:spoonjoy")!,
+                    bearerToken: "sj_access"
+                ),
+                decode: TransportPayload.self
+            )
+            Issue.record("Expected generated cover invalid base URL to throw")
+        } catch let error as APITransportError {
+            #expect(error.kind == .invalidRequestURL)
+            #expect(error.retryDecision == .doNotRetry)
+            #expect(await invalidCoverURLSession.capturedRequests().isEmpty)
+        }
+
         let nonHTTPSession = RecordingURLSession(
             responses: [
                 .success((
