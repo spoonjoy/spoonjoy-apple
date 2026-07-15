@@ -128,6 +128,14 @@ struct RecipeCoverControlsView: View {
 
     @State private var selectedCoverPhotoItem: PhotosPickerItem?
     @State private var stagedCoverPhoto: NativeStagedMediaUpload?
+    @State private var shouldActivateUploadedCover = true
+    @State private var shouldGenerateEditorialCover = true
+    @State private var shouldPostUploadedPhotoAsSpoon = true
+    @State private var spoonNote = ""
+    @State private var spoonNextTime = ""
+    @State private var spoonCookedAt = ""
+    @State private var placeholderPromptAddition = ""
+    @State private var regenerationPromptAdditions: [String: String] = [:]
 
     var body: some View {
         ScrollView {
@@ -135,6 +143,7 @@ struct RecipeCoverControlsView: View {
                 header
                 statusMessages
                 photoUploadControl
+                placeholderGenerationControl
                 noCoverControl
                 coverList
                 spoonPhotoList
@@ -153,7 +162,7 @@ struct RecipeCoverControlsView: View {
             }
             .buttonStyle(.borderless)
 
-            Text("Recipe Covers")
+            Text("Photo Studio")
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
             Text(recipe.title)
@@ -236,6 +245,56 @@ struct RecipeCoverControlsView: View {
             Text(hasStagedPhoto ? "Photo ready for this recipe." : "JPEG, PNG, WebP, HEIC")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
+
+            Text("Original photo stays on the Spoon.")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)
+                Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)
+                Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)
+            }
+            .font(KitchenTableTheme.uiLabel)
+
+            DisclosureGroup("Spoon details") {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Note", text: $spoonNote)
+                    TextField("Next time", text: $spoonNextTime)
+                    TextField("Cooked at", text: $spoonCookedAt)
+                }
+                .textFieldStyle(.roundedBorder)
+                .padding(.top, 8)
+            }
+            .font(KitchenTableTheme.uiLabel)
+
+            Button { submitStagedCoverPhoto() } label: {
+                Label("Save Photo", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!hasStagedPhoto)
+        }
+        .padding()
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var placeholderGenerationControl: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("AI placeholder")
+                    .font(.headline)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                Text("Generate a temporary cover, then regenerate with direction when it needs tuning.")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            TextField("Placeholder direction", text: $placeholderPromptAddition)
+                .textFieldStyle(.roundedBorder)
+            Button { generatePlaceholderCover() } label: {
+                Label("Generate Placeholder", systemImage: "sparkles")
+            }
+            .buttonStyle(.bordered)
         }
         .padding()
         .background(.background)
@@ -323,6 +382,14 @@ struct RecipeCoverControlsView: View {
                             .font(KitchenTableTheme.uiLabel)
                             .foregroundStyle(KitchenTableTheme.tomato)
                     }
+                    if cover.generationStatus == "processing" {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Label("Editorializing cover", systemImage: "sparkles")
+                                .font(KitchenTableTheme.uiLabel)
+                                .foregroundStyle(KitchenTableTheme.brass)
+                        }
+                    }
                 }
                 Spacer()
             }
@@ -357,57 +424,63 @@ struct RecipeCoverControlsView: View {
                 .padding(.vertical, 4)
             }
 
-            HStack {
-                if cover.canMutate {
-                    Button {
-                        runAction(.regenerate(
-                            coverID: cover.id,
-                            activateWhenReady: false,
-                            clientMutationID: clientMutationID(prefix: "cover-regenerate")
-                        ))
-                    } label: {
-                        Label("Regenerate", systemImage: "wand.and.stars")
-                    }
-                    .buttonStyle(.bordered)
+            if cover.canMutate {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Regeneration direction", text: regenerationPromptBinding(for: cover.id))
+                        .textFieldStyle(.roundedBorder)
 
-                    if cover.isActive {
-                        let replacementOptions = replacementOptions(for: cover)
-                        if !replacementOptions.isEmpty {
-                            Menu {
-                                ForEach(replacementOptions) { option in
-                                    Button {
-                                        runAction(.archive(
-                                            coverID: cover.id,
-                                            replacementCoverID: option.coverID,
-                                            replacementVariant: option.variant,
-                                            confirmNoCover: false,
-                                            deleteSafeObjects: false,
-                                            clientMutationID: clientMutationID(prefix: "cover-archive-replace")
-                                        ))
-                                    } label: {
-                                        Label(option.label, systemImage: "arrow.triangle.2.circlepath")
-                                    }
-                                }
-                            } label: {
-                                Label("Archive And Replace", systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            .buttonStyle(.bordered)
+                    HStack {
+                        Button {
+                            runAction(.regenerate(
+                                coverID: cover.id,
+                                promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? ""),
+                                activateWhenReady: cover.isActive,
+                                clientMutationID: clientMutationID(prefix: "cover-regenerate")
+                            ))
+                        } label: {
+                            Label("Regenerate", systemImage: "wand.and.stars")
                         }
-                    }
+                        .buttonStyle(.bordered)
 
-                    Button(role: .destructive) {
-                        runAction(.archive(
-                            coverID: cover.id,
-                            replacementCoverID: nil,
-                            replacementVariant: nil,
-                            confirmNoCover: cover.isActive,
-                            deleteSafeObjects: false,
-                            clientMutationID: clientMutationID(prefix: "cover-archive")
-                        ))
-                    } label: {
-                        Label(cover.isActive ? "Archive And Clear" : "Archive", systemImage: "archivebox")
+                        if cover.isActive {
+                            let replacementOptions = replacementOptions(for: cover)
+                            if !replacementOptions.isEmpty {
+                                Menu {
+                                    ForEach(replacementOptions) { option in
+                                        Button {
+                                            runAction(.archive(
+                                                coverID: cover.id,
+                                                replacementCoverID: option.coverID,
+                                                replacementVariant: option.variant,
+                                                confirmNoCover: false,
+                                                deleteSafeObjects: false,
+                                                clientMutationID: clientMutationID(prefix: "cover-archive-replace")
+                                            ))
+                                        } label: {
+                                            Label(option.label, systemImage: "arrow.triangle.2.circlepath")
+                                        }
+                                    }
+                                } label: {
+                                    Label("Archive And Replace", systemImage: "arrow.triangle.2.circlepath")
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+
+                        Button(role: .destructive) {
+                            runAction(.archive(
+                                coverID: cover.id,
+                                replacementCoverID: nil,
+                                replacementVariant: nil,
+                                confirmNoCover: cover.isActive,
+                                deleteSafeObjects: false,
+                                clientMutationID: clientMutationID(prefix: "cover-archive")
+                            ))
+                        } label: {
+                            Label(cover.isActive ? "Archive And Clear" : "Archive", systemImage: "archivebox")
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
             }
         }
@@ -462,6 +535,43 @@ struct RecipeCoverControlsView: View {
 
     private func clientMutationID(prefix: String) -> String {
         "\(prefix)-\(UUID().uuidString)"
+    }
+
+    @MainActor private func submitStagedCoverPhoto() {
+        guard let stagedCoverPhoto else {
+            actionError = "Choose a photo before saving."
+            return
+        }
+        runAction(.uploadPhoto(
+            photo: stagedCoverPhoto,
+            activate: shouldActivateUploadedCover,
+            generateEditorial: shouldGenerateEditorialCover,
+            postAsSpoon: shouldPostUploadedPhotoAsSpoon,
+            note: trimmedOptional(spoonNote),
+            nextTime: trimmedOptional(spoonNextTime),
+            cookedAt: trimmedOptional(spoonCookedAt),
+            clientMutationID: clientMutationID(prefix: "cover-upload")
+        ))
+    }
+
+    @MainActor private func generatePlaceholderCover() {
+        runAction(.generatePlaceholder(
+            promptAddition: trimmedOptional(placeholderPromptAddition),
+            activateWhenReady: true,
+            clientMutationID: clientMutationID(prefix: "cover-generate")
+        ))
+    }
+
+    private func regenerationPromptBinding(for coverID: String) -> Binding<String> {
+        Binding(
+            get: { regenerationPromptAdditions[coverID] ?? "" },
+            set: { regenerationPromptAdditions[coverID] = $0 }
+        )
+    }
+
+    private func trimmedOptional(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     @MainActor private func stageSelectedCoverPhoto(_ item: PhotosPickerItem?) async {
