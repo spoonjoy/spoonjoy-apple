@@ -41,6 +41,11 @@ struct TestFlightAutomationContractTests {
                 "ROLLBACK_NOTES: ${{ inputs.rollback_notes }}",
                 "--rollback-notes \"$ROLLBACK_NOTES\"",
                 "name: Upload verified candidate note",
+                "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+                "node-version: 22.17.1",
+                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45",
+                "actual_dist_sha256",
+                "apple-distribution-kit dist checksum mismatch",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
                 "SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH",
                 "../scripts/ci-publish-testflight.sh"
@@ -422,6 +427,9 @@ struct TestFlightAutomationContractTests {
                 "allow_rollback",
                 "rollback_reason",
                 "rollback_notes",
+                "9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45",
+                "GitHub-hosted runner trust boundary",
+                "runner-provided `gh`",
                 "last known-good main commit",
                 "new TestFlight build number",
                 "No push, pull request, or completed workflow publishes automatically"
