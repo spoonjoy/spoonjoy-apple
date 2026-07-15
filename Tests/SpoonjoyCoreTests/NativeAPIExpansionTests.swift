@@ -1329,6 +1329,30 @@ struct NativeAPIExpansionTests {
             "deleteSafeObjects": true
         ])
 
+        let legacyCoverUpload = try RecipeCoverRequests.uploadImage(
+            recipeID: "recipe/pantry",
+            image: UploadFile(fileName: "legacy-cover.webp", contentType: "image/webp", data: Data([0x52, 0x49, 0x46, 0x46])),
+            clientMutationID: "cover-upload-legacy",
+            activate: false,
+            generateEditorial: false
+        )
+        .urlRequest(configuration: Self.privateConfiguration)
+        try assertMultipartRequest(
+            legacyCoverUpload,
+            method: .post,
+            path: "/api/v1/recipes/recipe%2Fpantry/image",
+            fileField: "photo",
+            fileName: "legacy-cover.webp",
+            contentType: "image/webp",
+            data: Data([0x52, 0x49, 0x46, 0x46]),
+            fields: [
+                "clientMutationId": "cover-upload-legacy",
+                "activate": "false",
+                "generateEditorial": "false",
+                "postAsSpoon": "false"
+            ]
+        )
+
         let spoonCreateWithNulls = try RecipeSpoonRequests.createSpoon(
             recipeID: "recipe/pantry",
             clientMutationID: "spoon-create-nulls",
