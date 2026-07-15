@@ -16,6 +16,7 @@ struct RecipeCoverControlsRouteView: View {
     let recipeRepository: any RecipeCatalogRepository
     let configuration: APIClientConfiguration
     let connectivity: RecipeCoverControlsConnectivity
+    let stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage
     let performCoverAction: @MainActor @Sendable (RecipeCoverControlsMutationPlan) async throws -> Void
     let close: () -> Void
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
@@ -38,6 +39,7 @@ struct RecipeCoverControlsRouteView: View {
                     actionError: $actionError,
                     providerBlocker: providerBlocker,
                     connectivity: connectivity,
+                    stagedMediaUsage: stagedMediaUsage,
                     runAction: runAction,
                     close: close,
                     onDismissOfflineIndicator: onDismissOfflineIndicator
@@ -119,6 +121,7 @@ struct RecipeCoverControlsView: View {
     @Binding var actionError: String?
     let providerBlocker: RecipeCoverProviderBlockerDisplay?
     let connectivity: RecipeCoverControlsConnectivity
+    let stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage
     let runAction: @MainActor (RecipeCoverControlsAction) -> Void
     let close: () -> Void
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
@@ -488,7 +491,7 @@ struct RecipeCoverControlsView: View {
             let result = policy.stageSelection(
                 existing: stagedCoverPhoto,
                 candidate: candidate,
-                existingUsage: .zero
+                existingUsage: stagedMediaUsage
             )
             if let rejection = result.rejection {
                 rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(rejection))

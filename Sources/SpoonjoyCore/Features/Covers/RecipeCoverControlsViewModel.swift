@@ -142,6 +142,10 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
         candidate: NativeStagedMediaUpload,
         existingUsage: RecipeCoverPhotoStagedMediaUsage
     ) -> RecipeCoverPhotoStagingResult {
+        guard candidate.byteCount > 0 else {
+            return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
+        }
+
         let usage = existingUsage.removing(
             byteCount: existing?.byteCount ?? 0,
             fileCount: existing == nil ? 0 : 1

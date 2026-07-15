@@ -549,6 +549,7 @@ struct PlatformNavigationView: View {
                 recipeRepository: recipeCatalogRepository,
                 configuration: contentState.configuration,
                 connectivity: recipeCoverControlsConnectivity,
+                stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage(queuedMutations: contentState.queuedMutations),
                 performCoverAction: performCoverAction,
                 close: {
                     openRecipe(id)
