@@ -725,6 +725,65 @@ struct CoverControlSurfaceTests {
         #expect(!rejectionSource.contains("stagedCoverPhoto = nil"))
     }
 
+    @Test("native photo studio exposes upload spoon editorial placeholder and regeneration controls")
+    func nativePhotoStudioExposesUploadSpoonEditorialPlaceholderAndRegenerationControls() throws {
+        let coverControlsSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+
+        let uploadTokens = [
+            #"Text("Photo Studio")"#,
+            #"@State private var shouldActivateUploadedCover = true"#,
+            #"@State private var shouldGenerateEditorialCover = true"#,
+            #"@State private var shouldPostUploadedPhotoAsSpoon = true"#,
+            #"@State private var spoonNote = """#,
+            #"@State private var spoonNextTime = """#,
+            #"@State private var spoonCookedAt = """#,
+            #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
+            #"Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)"#,
+            #"Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)"#,
+            #"DisclosureGroup("Spoon details""#,
+            #"TextField("Note", text: $spoonNote)"#,
+            #"TextField("Next time", text: $spoonNextTime)"#,
+            #"TextField("Cooked at", text: $spoonCookedAt)"#,
+            #"Button { submitStagedCoverPhoto() }"#,
+            #"runAction(.uploadPhoto("#,
+            #"activate: shouldActivateUploadedCover"#,
+            #"generateEditorial: shouldGenerateEditorialCover"#,
+            #"postAsSpoon: shouldPostUploadedPhotoAsSpoon"#,
+            #"note: trimmedOptional(spoonNote)"#,
+            #"nextTime: trimmedOptional(spoonNextTime)"#,
+            #"cookedAt: trimmedOptional(spoonCookedAt)"#
+        ]
+        let missingUploadTokens = uploadTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingUploadTokens.isEmpty, "Missing native upload/Spoon control tokens: \(missingUploadTokens)")
+
+        let generationTokens = [
+            #"@State private var placeholderPromptAddition = """#,
+            #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
+            #"Button { generatePlaceholderCover() }"#,
+            #"runAction(.generatePlaceholder("#,
+            #"promptAddition: trimmedOptional(placeholderPromptAddition)"#,
+            #"activateWhenReady: true"#,
+            #"@State private var regenerationPromptAdditions: [String: String] = [:]"#,
+            #"TextField("Regeneration direction", text: regenerationPromptBinding(for: cover.id))"#,
+            #"promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? "")"#,
+            #"activateWhenReady: cover.isActive"#
+        ]
+        let missingGenerationTokens = generationTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingGenerationTokens.isEmpty, "Missing native generation control tokens: \(missingGenerationTokens)")
+
+        let processingTokens = [
+            "ProgressView()",
+            #"Label("Editorializing cover", systemImage: "sparkles")"#,
+            #"cover.generationStatus == "processing""#,
+            #"Text("Original photo stays on the Spoon.")"#
+        ]
+        let missingProcessingTokens = processingTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingProcessingTokens.isEmpty, "Missing native processing/copy tokens: \(missingProcessingTokens)")
+
+        let forbiddenTokens = [#"Text("Recipe Covers")"#].filter { coverControlsSource.contains($0) }
+        #expect(forbiddenTokens.isEmpty, "Native Photo Studio still renders stale copy: \(forbiddenTokens)")
+    }
+
     private static func cover(
         id: String = "cover/raw",
         status: String = "ready",
