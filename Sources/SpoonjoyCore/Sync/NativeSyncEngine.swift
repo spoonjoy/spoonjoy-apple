@@ -4400,7 +4400,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 continue
             }
 
-            let result = try await transport.send(mutation, configuration: configuration)
+            let result: NativeSyncMutationResult
+            do {
+                result = try await transport.send(mutation, configuration: configuration)
+            } catch is RecipeCoverImageNormalizationError {
+                result = .conflict(
+                    kind: .validation,
+                    serverRevision: nil,
+                    message: "Queued cover photo is unreadable. Choose the photo again."
+                )
+            }
             switch result {
             case .success(let revision, let idRemaps):
                 drainedClientMutationIDs.append(mutation.clientMutationID)
