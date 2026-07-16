@@ -785,6 +785,29 @@ struct CoverControlSurfaceTests {
         #expect(oversized.stagedPhoto?.data == existing.data)
     }
 
+    @Test("cover photo staging worker owns normalization away from the main actor")
+    @MainActor
+    func coverPhotoStagingWorkerOwnsNormalizationAwayFromMainActor() async throws {
+        let worker = RecipeCoverPhotoStagingWorker()
+        let source = try fixtureImageData(width: 48, height: 32, typeIdentifier: UTType.png.identifier)
+        let result = await worker.stageSelection(
+            existing: nil,
+            candidate: NativeStagedMediaUpload(
+                localStageID: "cover-stage-worker",
+                fileName: "cover.png",
+                contentType: "image/png",
+                data: source
+            ),
+            existingUsage: .zero
+        )
+
+        let staged = try #require(result.stagedPhoto)
+        #expect(result.rejection == nil)
+        #expect(staged.localStageID == "cover-stage-worker")
+        #expect(staged.data != source)
+        try assertNormalizedCoverJPEG(staged)
+    }
+
     @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
     func coverPhotoStagingNormalizesSupportedFormatsToBoundedJPEG() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
@@ -1130,6 +1153,7 @@ struct CoverControlSurfaceTests {
         #expect(coverControlsSource.contains("PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images)"))
         #expect(coverControlsSource.contains("loadTransferable(type: Data.self)"))
         #expect(coverControlsSource.contains("RecipeCoverPhotoStagingPolicy.offlineProductContract"))
+        #expect(coverControlsSource.contains("private static let photoStagingWorker = RecipeCoverPhotoStagingWorker()"))
         #expect(coverControlsSource.contains("stageSelectedCoverPhoto"))
         #expect(coverControlsSource.contains("NativeStagedMediaUpload("))
         #expect(coverControlsSource.contains("\"image/heic\""))
@@ -1137,6 +1161,12 @@ struct CoverControlSurfaceTests {
         #expect(coverControlsSource.contains("existingUsage: stagedMediaUsage"))
         #expect(!coverControlsSource.contains("existingUsage: .zero"))
         #expect(platformNavigationSource.contains("stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage(queuedMutations: contentState.queuedMutations)"))
+
+        let stagingRange = try #require(coverControlsSource.range(of: "@MainActor private func stageSelectedCoverPhoto"))
+        let stagingEndRange = try #require(coverControlsSource.range(of: "@MainActor private func rejectSelectedCoverPhoto"))
+        let stagingSource = coverControlsSource[stagingRange.lowerBound..<stagingEndRange.lowerBound]
+        #expect(stagingSource.contains("await Self.photoStagingWorker.stageSelection("))
+        #expect(!stagingSource.contains("policy.stageSelection("))
 
         let rejectionRange = try #require(coverControlsSource.range(of: "@MainActor private func rejectSelectedCoverPhoto"))
         let clearRange = try #require(coverControlsSource.range(of: "@MainActor private func clearSelectedCoverPhoto"))
