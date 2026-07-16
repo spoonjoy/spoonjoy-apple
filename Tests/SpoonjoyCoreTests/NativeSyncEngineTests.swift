@@ -1010,8 +1010,16 @@ struct NativeSyncEngineTests {
         let decoded = try JSONDecoder().decode(NativeMutationQueue.self, from: encoded)
         let json = try #require(String(data: encoded, encoding: .utf8))
         let dependencies = Dictionary(uniqueKeysWithValues: queue.mutations.map { ($0.clientMutationID, $0.dependencyKey) })
+        let restored = try NativeMutationQueue(mutations: decoded.mutations.map {
+            try $0.resolvingStagedMedia(using: DictionaryStagedMediaResolver(dataByStageID: [
+                "stage_spoon_1": Data([0x73, 0x6A, 0x6D]),
+                "stage_cover_1": Self.coverPNGData,
+                "stage_profile_1": Data([0x73, 0x6A, 0x6D])
+            ]))
+        })
 
-        #expect(decoded == queue)
+        #expect(decoded != queue)
+        #expect(restored == queue)
         #expect(queue.mutations.map(\.clientMutationID).count == Set(queue.mutations.map(\.clientMutationID)).count)
         #expect(queue.mutations.map(\.payloadSchemaVersion).allSatisfy { $0 == 1 })
         #expect(queue.mutations.map(\.retryCount).allSatisfy { $0 == 0 })
@@ -5675,6 +5683,17 @@ private struct StaticStagedMediaResolver: NativeStagedMediaResolving {
 
     func data(for _: NativeStagedMediaUpload) throws -> Data {
         data
+    }
+}
+
+private struct DictionaryStagedMediaResolver: NativeStagedMediaResolving {
+    let dataByStageID: [String: Data]
+
+    func data(for upload: NativeStagedMediaUpload) throws -> Data {
+        guard let data = dataByStageID[upload.localStageID] else {
+            throw NativeStagedMediaDirectoryError.missingStage(upload.localStageID)
+        }
+        return data
     }
 }
 

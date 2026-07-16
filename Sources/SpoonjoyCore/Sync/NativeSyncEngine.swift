@@ -743,7 +743,9 @@ public struct NativeStagedMediaUpload: Codable, Equatable, Sendable {
     public static func == (lhs: NativeStagedMediaUpload, rhs: NativeStagedMediaUpload) -> Bool {
         lhs.localStageID == rhs.localStageID &&
             lhs.fileName == rhs.fileName &&
-            lhs.contentType == rhs.contentType
+            lhs.contentType == rhs.contentType &&
+            lhs.byteCount == rhs.byteCount &&
+            lhs.data == rhs.data
     }
 
     private enum CodingKeys: String, CodingKey {
