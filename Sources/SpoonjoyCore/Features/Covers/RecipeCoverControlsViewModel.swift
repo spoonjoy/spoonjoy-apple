@@ -152,6 +152,12 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
         guard candidate.byteCount > 0 else {
             return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
         }
+        guard candidate.byteCount <= mediaPolicy.maxIndividualUserSelectedBytes else {
+            return RecipeCoverPhotoStagingResult(
+                stagedPhoto: existing,
+                rejection: .media(.individualFileTooLarge(limitBytes: mediaPolicy.maxIndividualUserSelectedBytes))
+            )
+        }
         let usage = existingUsage.removing(
             byteCount: existing?.byteCount ?? 0,
             fileCount: existing == nil ? 0 : 1
