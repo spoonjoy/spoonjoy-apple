@@ -1,4 +1,17 @@
-# Spoonjoy Native Full Moon Autopilot State
+# Spoonjoy Native Cover Normalization N2 Autopilot State
+
+## Active N2 Item
+
+- Repo: `/Users/arimendelow/Projects/spoonjoy-apple`
+- Active worktree: `/Users/arimendelow/Projects/spoonjoy-apple-native-cover-normalization`
+- Active branch: `worker/native-cover-normalization-n2`
+- Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-native-cover-normalization` / OS: `Darwin` / probed: 2026-07-15 19:56 -0700
+- Doing doc: `worker/tasks/2026-07-15-1956-doing-native-cover-normalization-n2.md`
+- Artifact root: `artifacts/apple/native-cover-normalization-n2/`
+- Current phase: starting Unit 4a red cover-normalization tests
+- Scope guard: no web worktree edits, no `clem-feedback` worktree edits, no production mutation, no TestFlight publishing, no mutation single-flight or Photo Studio UI work.
+
+## Historical Full Moon Context
 
 ## Exit Condition
 
