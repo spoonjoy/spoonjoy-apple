@@ -651,8 +651,8 @@ struct CoverControlSurfaceTests {
         #expect(policy.fileExtension(for: "image/gif") == nil)
 
         let heicBytes = try fixtureImageData(
-            width: 1200,
-            height: 800,
+            width: 320,
+            height: 180,
             typeIdentifier: UTType.heic.identifier,
             orientation: CGImagePropertyOrientation.right.rawValue
         )
@@ -671,8 +671,8 @@ struct CoverControlSurfaceTests {
         #expect(staged.byteCount <= coverUploadServerByteCeiling)
         #expect(staged.data != heicBytes)
         let orientedSize = try assertNormalizedCoverJPEG(staged)
-        #expect(orientedSize.width == 800)
-        #expect(orientedSize.height == 1200)
+        #expect(orientedSize.width == 180)
+        #expect(orientedSize.height == 320)
 
         let queuedCover = NativeQueuedMutation.coverUpload(
             recipeID: "recipe/lemon",
@@ -771,7 +771,7 @@ struct CoverControlSurfaceTests {
             ),
             (
                 "png",
-                try fixtureImageData(width: 2050, height: 512, typeIdentifier: UTType.png.identifier),
+                try fixtureImageData(width: 2050, height: 32, typeIdentifier: UTType.png.identifier),
                 "image/png",
                 2048
             ),
@@ -974,7 +974,7 @@ struct CoverControlSurfaceTests {
             existing: nil,
             data: try fixtureImageData(
                 width: 2050,
-                height: 1435,
+                height: 32,
                 typeIdentifier: UTType.heic.identifier,
                 orientation: CGImagePropertyOrientation.left.rawValue
             ),
