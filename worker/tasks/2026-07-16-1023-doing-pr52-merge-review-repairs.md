@@ -25,9 +25,9 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - [x] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
 - [x] Byte-count and payload changes make `NativeStagedMediaUpload` unequal, and repeated normalization explicitly asserts byte/data identity.
 - [ ] Ready GitHub PR has a fresh hostile-review verdict with no BLOCKER or MAJOR findings.
-- [ ] 100% test coverage on all new code
-- [ ] All tests pass
-- [ ] No warnings
+- [x] 100% test coverage on all new code
+- [x] All tests pass
+- [x] No warnings
 - [ ] UI layout is unchanged; visual QA is not required for actor-routing-only SwiftUI source changes.
 
 ## Code Coverage Requirements
@@ -108,7 +108,7 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 **Output**: Full-value equality and explicit repeated-normalization identity proof.
 **Acceptance**: Focused cover/sync/persistence tests pass without weakening sidecar assertions.
 
-### ⬜ Unit 6: Full validation, PR, and hostile gate
+### 🔄 Unit 6: Full validation, PR, and hostile gate
 **What**: Run full Swift tests, coverage enforcement, warning scans, scenario verifier, iOS/macOS app builds, push all commits, open a ready PR, wait for required checks, and run a cold hostile diff review.
 **Output**: Ready PR with complete validation and reviewer evidence.
 **Acceptance**: 100% enforced coverage, zero unclassified warnings, all required checks green, no hostile BLOCKER/MAJOR, and no merge/TestFlight/tester/build-removal/worktree-deletion action.
@@ -130,3 +130,4 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - 2026-07-16 10:42 Units 3a-3b complete: red aborted on corrupt legacy bytes; green retains one validation conflict while independent mutations drain, and all 64 sync tests pass.
 - 2026-07-16 10:45 Units 4a-4b complete: the contract now catches the exact Apple M2 scaler diagnostic while benign failure-language output and screenshot contracts remain clean.
 - 2026-07-16 10:49 Units 5a-5b complete: staged equality now includes byte count/data, replay asserts bytes explicitly, and 172 affected cover/sync/persistence/live-store tests pass.
+- 2026-07-16 10:59 Unit 6 validation is locally green: 609 tests, 100.00% coverage (26993/26993), final scenarios, iOS/macOS builds, contract checks, and all warning scans pass. Ready PR, CI, and hostile gate remain.

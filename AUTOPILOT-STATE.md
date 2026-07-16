@@ -9,8 +9,8 @@
 - Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair` / OS: `Darwin` / probed: 2026-07-16 10:17 -0700
 - Planning doc: `worker/tasks/2026-07-16-1023-planning-pr52-merge-review-repairs.md`
 - Doing doc: `worker/tasks/2026-07-16-1023-doing-pr52-merge-review-repairs.md`
-- Current phase: Unit 6 full validation, ready PR, CI, and hostile gate
-- Next action: run warning-enforced full tests, 100% coverage, scenario verification, and both app builds before opening the PR.
+- Current phase: Unit 6 ready PR, fresh CI, and hostile gate
+- Next action: open a ready PR, wait for all required checks, then run a cold hostile diff review to convergence.
 - Scope guard: do not merge; do not publish/dispatch TestFlight; do not notify testers; do not expire/remove builds; do not delete worktrees.
 
 ## Historical PR #52 State
