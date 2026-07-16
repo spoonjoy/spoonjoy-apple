@@ -66,7 +66,7 @@ Repair all five hostile-review findings from merged native PR #52 without changi
 - `.github/workflows/native.yml`
 
 ## Notes
-The local repo has no `subagents/work-planner.md` or `subagents/work-doer.md`; current installed Work Suite skills govern this task. The exact base and worktree are `e8eac40a90b47102d61dd61a9a5658e85e325ad2` and `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair`.
+The local repo has no `subagents/work-planner.md` or `subagents/work-doer.md`; current installed Work Suite skills govern this task. The exact branch, base, and worktree are `worker/pr52-cover-safety-followup`, `e8eac40a90b47102d61dd61a9a5658e85e325ad2`, and `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair`.
 
 ## Progress Log
 - 2026-07-16 10:23 Created from the hostile PR #52 review.
