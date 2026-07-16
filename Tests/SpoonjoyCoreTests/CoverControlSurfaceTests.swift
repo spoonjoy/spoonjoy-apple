@@ -1,5 +1,8 @@
 import Foundation
+import CoreGraphics
+import ImageIO
 import Testing
+import UniformTypeIdentifiers
 @testable import SpoonjoyCore
 
 @Suite("Native cover control surface parity")
@@ -454,10 +457,11 @@ struct CoverControlSurfaceTests {
             method: .post,
             path: "/api/v1/recipes/recipe%2Flemon/image",
             fileField: "photo",
-            fileName: "cover.webp",
-            contentType: "image/webp",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
             fields: uploadFields
         )
+        try assertNormalizedCoverFilePart(coverRemoteRequest(from: uploadPlan))
         let uploadFallback = try requireCoverMutation(uploadPlan.offlineFallbackMutation, "upload fallback")
         #expect(uploadFallback.queueableKind == .coverUpload)
         try assertMultipartRequest(
@@ -465,10 +469,11 @@ struct CoverControlSurfaceTests {
             method: .post,
             path: "/api/v1/recipes/recipe%2Flemon/image",
             fileField: "photo",
-            fileName: "cover.webp",
-            contentType: "image/webp",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
             fields: uploadFields
         )
+        try assertNormalizedCoverFilePart(coverQueuedRequest(from: uploadFallback))
 
         let offlineUploadPlan = try RecipeCoverControlsMutationPlan.plan(
             .uploadPhoto(
@@ -494,8 +499,8 @@ struct CoverControlSurfaceTests {
             method: .post,
             path: "/api/v1/recipes/recipe%2Flemon/image",
             fileField: "photo",
-            fileName: "cover.webp",
-            contentType: "image/webp",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
             fields: [
                 "clientMutationId": "cm_cover_upload_offline",
                 "activateWhenReady": "true",
@@ -503,6 +508,7 @@ struct CoverControlSurfaceTests {
                 "postAsSpoon": "false"
             ]
         )
+        try assertNormalizedCoverFilePart(coverQueuedRequest(from: queuedUpload))
 
         let placeholderPlan = try RecipeCoverControlsMutationPlan.plan(
             .generatePlaceholder(
@@ -636,14 +642,20 @@ struct CoverControlSurfaceTests {
     @Test("cover photo staging uses real picker bytes and preserves existing staged media on rejection")
     func coverPhotoStagingUsesRealPickerBytesAndPreservesExistingStagedMediaOnRejection() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
-        #expect(policy.acceptedContentTypes == ["image/jpeg", "image/png", "image/webp", "image/heic"])
+        #expect(policy.acceptedContentTypes == ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"])
         #expect(policy.fileExtension(for: "image/jpeg") == "jpg")
-        #expect(policy.fileExtension(for: "image/png") == "png")
-        #expect(policy.fileExtension(for: "image/webp") == "webp")
-        #expect(policy.fileExtension(for: "image/heic") == "heic")
+        #expect(policy.fileExtension(for: "image/png") == "jpg")
+        #expect(policy.fileExtension(for: "image/webp") == "jpg")
+        #expect(policy.fileExtension(for: "image/heic") == "jpg")
+        #expect(policy.fileExtension(for: "image/heif") == "jpg")
         #expect(policy.fileExtension(for: "image/gif") == nil)
 
-        let heicBytes = Data([0x48, 0x45, 0x49, 0x43])
+        let heicBytes = try fixtureImageData(
+            width: 1200,
+            height: 800,
+            typeIdentifier: UTType.heic.identifier,
+            orientation: CGImagePropertyOrientation.right.rawValue
+        )
         let accepted = policy.stageSelection(
             existing: nil,
             data: heicBytes,
@@ -653,13 +665,14 @@ struct CoverControlSurfaceTests {
         )
         let staged = try #require(accepted.stagedPhoto)
         #expect(accepted.rejection == nil)
-        #expect(staged == NativeStagedMediaUpload(
-            localStageID: "cover-stage-heic",
-            fileName: "cover.heic",
-            contentType: "image/heic",
-            data: heicBytes
-        ))
-        #expect(staged.data == heicBytes)
+        #expect(staged.localStageID == "cover-stage-heic")
+        #expect(staged.fileName == "cover.jpg")
+        #expect(staged.contentType == "image/jpeg")
+        #expect(staged.byteCount <= coverUploadServerByteCeiling)
+        #expect(staged.data != heicBytes)
+        let orientedSize = try assertNormalizedCoverJPEG(staged)
+        #expect(orientedSize.width == 800)
+        #expect(orientedSize.height == 1200)
 
         let queuedCover = NativeQueuedMutation.coverUpload(
             recipeID: "recipe/lemon",
@@ -673,7 +686,7 @@ struct CoverControlSurfaceTests {
             cookedAt: "2026-06-27T12:00:00.000Z",
             createdAt: Self.createdAt
         )
-        #expect(RecipeCoverPhotoStagedMediaUsage(queuedMutations: [queuedCover]) == RecipeCoverPhotoStagedMediaUsage(byteCount: heicBytes.count, fileCount: 1))
+        #expect(RecipeCoverPhotoStagedMediaUsage(queuedMutations: [queuedCover]) == RecipeCoverPhotoStagedMediaUsage(byteCount: staged.byteCount, fileCount: 1))
 
         let cancel = policy.cancel(existing: staged)
         #expect(cancel == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: nil))
@@ -724,6 +737,171 @@ struct CoverControlSurfaceTests {
         ))
     }
 
+    @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
+    func coverPhotoStagingNormalizesSupportedFormatsToBoundedJPEG() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let samples: [(label: String, data: Data, contentType: String, expectedMaxDimension: Int)] = [
+            (
+                "heif",
+                try fixtureImageData(width: 300, height: 180, typeIdentifier: UTType.heic.identifier),
+                "image/heif",
+                300
+            ),
+            (
+                "jpeg",
+                try fixtureImageData(width: 640, height: 480, typeIdentifier: UTType.jpeg.identifier),
+                "image/jpeg",
+                640
+            ),
+            (
+                "png",
+                try fixtureImageData(width: 4096, height: 1024, typeIdentifier: UTType.png.identifier),
+                "image/png",
+                2048
+            ),
+            (
+                "webp",
+                webPFixtureData(),
+                "image/webp",
+                1
+            )
+        ]
+
+        for sample in samples {
+            let result = policy.stageSelection(
+                existing: nil,
+                data: sample.data,
+                contentType: sample.contentType,
+                localStageID: "cover-stage-\(sample.label)",
+                existingUsage: .zero
+            )
+            let staged = try #require(result.stagedPhoto)
+            #expect(result.rejection == nil)
+            #expect(staged.localStageID == "cover-stage-\(sample.label)")
+            #expect(staged.fileName == "cover.jpg")
+            #expect(staged.contentType == "image/jpeg")
+            #expect(staged.byteCount <= coverUploadServerByteCeiling)
+            let size = try assertNormalizedCoverJPEG(staged)
+            #expect(max(size.width, size.height) <= sample.expectedMaxDimension)
+        }
+
+        let oversizedPNG = try fixtureImageData(
+            width: 2300,
+            height: 1700,
+            typeIdentifier: UTType.png.identifier,
+            pattern: .noisy
+        )
+        #expect(oversizedPNG.count > coverUploadServerByteCeiling)
+        let oversizedResult = policy.stageSelection(
+            existing: nil,
+            data: oversizedPNG,
+            contentType: "image/png",
+            localStageID: "cover-stage-oversized",
+            existingUsage: .zero
+        )
+        let oversizedStage = try #require(oversizedResult.stagedPhoto)
+        #expect(oversizedResult.rejection == nil)
+        #expect(oversizedStage.contentType == "image/jpeg")
+        #expect(oversizedStage.byteCount <= coverUploadServerByteCeiling)
+        #expect(oversizedStage.data.count <= coverUploadServerByteCeiling)
+        #expect(oversizedStage.data.count < oversizedPNG.count)
+        let oversizedSize = try assertNormalizedCoverJPEG(oversizedStage)
+        #expect(max(oversizedSize.width, oversizedSize.height) <= 2048)
+    }
+
+    @Test("cover photo staging preserves prior stage on corrupt supported input")
+    func coverPhotoStagingPreservesPriorStageOnCorruptSupportedInput() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let existing = NativeStagedMediaUpload(
+            localStageID: "cover-stage-existing",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            data: try fixtureImageData(width: 16, height: 16, typeIdentifier: UTType.jpeg.identifier)
+        )
+
+        for (contentType, data) in [
+            ("image/heic", Data([0x48, 0x45, 0x49, 0x43])),
+            ("image/heif", Data([0x00, 0x00, 0x00, 0x18])),
+            ("image/jpeg", Data([0xFF, 0xD8, 0x00, 0x00]))
+        ] {
+            let result = policy.stageSelection(
+                existing: existing,
+                data: data,
+                contentType: contentType,
+                localStageID: "cover-stage-corrupt-\(contentType)",
+                existingUsage: .zero
+            )
+            #expect(result.stagedPhoto == existing)
+            #expect(result.rejection != nil)
+        }
+    }
+
+    @Test("cover upload immediate durable and queued replay all emit normalized bounded JPEG")
+    func coverUploadImmediateDurableAndQueuedReplayEmitNormalizedBoundedJPEG() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let staged = try #require(policy.stageSelection(
+            existing: nil,
+            data: try fixtureImageData(
+                width: 3000,
+                height: 2100,
+                typeIdentifier: UTType.heic.identifier,
+                orientation: CGImagePropertyOrientation.left.rawValue
+            ),
+            contentType: "image/heic",
+            localStageID: "cover-stage-durable",
+            existingUsage: .zero
+        ).stagedPhoto)
+        try assertNormalizedCoverJPEG(staged)
+
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spoonjoy-cover-normalization-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let directory = NativeStagedMediaDirectory(directoryURL: directoryURL)
+        try directory.save(staged)
+        let restored = staged.replacingData(try directory.data(for: staged))
+        #expect(restored.fileName == "cover.jpg")
+        #expect(restored.contentType == "image/jpeg")
+        #expect(restored.byteCount <= coverUploadServerByteCeiling)
+        try assertNormalizedCoverJPEG(restored)
+
+        let onlinePlan = try RecipeCoverControlsMutationPlan.plan(
+            .uploadPhoto(
+                photo: restored,
+                activate: true,
+                generateEditorial: true,
+                postAsSpoon: false,
+                note: nil,
+                nextTime: nil,
+                cookedAt: nil,
+                clientMutationID: "cm_cover_normalized_online"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .online,
+            createdAt: { Self.createdAt }
+        )
+        try assertNormalizedCoverFilePart(coverRemoteRequest(from: onlinePlan))
+        let onlineFallback = try requireCoverMutation(onlinePlan.offlineFallbackMutation, "online fallback")
+        try assertNormalizedCoverFilePart(coverQueuedRequest(from: onlineFallback))
+
+        let offlinePlan = try RecipeCoverControlsMutationPlan.plan(
+            .uploadPhoto(
+                photo: restored,
+                activate: true,
+                generateEditorial: false,
+                postAsSpoon: true,
+                note: "Cooked outside.",
+                nextTime: "Less char.",
+                cookedAt: Self.createdAt,
+                clientMutationID: "cm_cover_normalized_offline"
+            ),
+            recipeID: "recipe/lemon",
+            connectivity: .offline,
+            createdAt: { Self.createdAt }
+        )
+        let queuedMutation = try requireCoverMutation(offlinePlan.queuedMutation, "offline normalized upload")
+        try assertNormalizedCoverFilePart(coverQueuedRequest(from: queuedMutation))
+    }
+
     @Test("cover photo staging accounts for queued uploads and replacement drafts without silent eviction")
     func coverPhotoStagingAccountsForQueuedUploadsAndReplacementDraftsWithoutSilentEviction() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
@@ -750,17 +928,16 @@ struct CoverControlSurfaceTests {
 
         let replacement = policy.stageSelection(
             existing: existingDraft,
-            data: Data([0x01]),
+            data: try fixtureImageData(width: 32, height: 20, typeIdentifier: UTType.png.identifier),
             contentType: "image/png",
             localStageID: "cover-stage-replacement",
             existingUsage: fullUsage
         )
-        #expect(replacement.stagedPhoto == NativeStagedMediaUpload(
-            localStageID: "cover-stage-replacement",
-            fileName: "cover.png",
-            contentType: "image/png",
-            data: Data([0x01])
-        ))
+        let replacementStage = try #require(replacement.stagedPhoto)
+        #expect(replacementStage.localStageID == "cover-stage-replacement")
+        #expect(replacementStage.fileName == "cover.jpg")
+        #expect(replacementStage.contentType == "image/jpeg")
+        try assertNormalizedCoverJPEG(replacementStage)
         #expect(replacement.rejection == nil)
         #expect(policy.mediaPolicy.allowsSilentEvictionOfUnsyncedUserMedia == false)
     }
@@ -901,7 +1078,7 @@ struct CoverControlSurfaceTests {
             localStageID: "stage_cover_photo",
             fileName: "cover.webp",
             contentType: "image/webp",
-            data: Data([0x73, 0x6A, 0x6D])
+            data: webPFixtureData()
         )
     }
 
@@ -974,6 +1151,143 @@ private func requireCoverMutation(_ mutation: NativeQueuedMutation?, _ label: St
         throw CoverControlSurfaceTestFailure("Expected \(label) to provide a native queued mutation.")
     }
     return mutation
+}
+
+private let coverUploadServerByteCeiling = 5 * 1_024 * 1_024
+
+@discardableResult
+private func assertNormalizedCoverJPEG(
+    _ upload: NativeStagedMediaUpload,
+    sourceLocation: SourceLocation = #_sourceLocation
+) throws -> (width: Int, height: Int) {
+    #expect(upload.fileName == "cover.jpg", sourceLocation: sourceLocation)
+    #expect(upload.contentType == "image/jpeg", sourceLocation: sourceLocation)
+    #expect(upload.byteCount == upload.data.count, sourceLocation: sourceLocation)
+    #expect(upload.byteCount > 0, sourceLocation: sourceLocation)
+    #expect(upload.byteCount <= coverUploadServerByteCeiling, sourceLocation: sourceLocation)
+    return try assertJPEGData(upload.data, sourceLocation: sourceLocation)
+}
+
+@discardableResult
+private func assertNormalizedCoverFilePart(
+    _ request: APIRequest,
+    sourceLocation: SourceLocation = #_sourceLocation
+) throws -> (width: Int, height: Int) {
+    #expect(request.headers["Content-Type"]?.contains("multipart/form-data") == true, sourceLocation: sourceLocation)
+    let fileData = try multipartFileData(in: request, fileField: "photo", fileName: "cover.jpg", contentType: "image/jpeg")
+    #expect(fileData.count <= coverUploadServerByteCeiling, sourceLocation: sourceLocation)
+    return try assertJPEGData(fileData, sourceLocation: sourceLocation)
+}
+
+@discardableResult
+private func assertJPEGData(
+    _ data: Data,
+    sourceLocation: SourceLocation = #_sourceLocation
+) throws -> (width: Int, height: Int) {
+    #expect(Array(data.prefix(2)) == [0xFF, 0xD8], sourceLocation: sourceLocation)
+    let source = try #require(CGImageSourceCreateWithData(data as CFData, nil), sourceLocation: sourceLocation)
+    #expect(CGImageSourceGetType(source) as String? == UTType.jpeg.identifier, sourceLocation: sourceLocation)
+    let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil), sourceLocation: sourceLocation)
+    #expect(max(image.width, image.height) <= 2048, sourceLocation: sourceLocation)
+    return (image.width, image.height)
+}
+
+private func multipartFileData(
+    in request: APIRequest,
+    fileField: String,
+    fileName: String,
+    contentType: String
+) throws -> Data {
+    let body = try #require(request.body)
+    let contentTypeHeader = try #require(request.headers["Content-Type"])
+    let boundaryPrefix = "boundary="
+    let boundaryStart = try #require(contentTypeHeader.range(of: boundaryPrefix)?.upperBound)
+    let boundary = String(contentTypeHeader[boundaryStart...])
+    let header = "Content-Disposition: form-data; name=\"\(fileField)\"; filename=\"\(fileName)\"\r\n" +
+        "Content-Type: \(contentType)\r\n\r\n"
+    let headerData = Data(header.utf8)
+    let startRange = try #require(body.range(of: headerData))
+    let fileStart = startRange.upperBound
+    let endMarker = Data("\r\n--\(boundary)".utf8)
+    let suffix = body[fileStart...]
+    let endRange = try #require(suffix.range(of: endMarker))
+    return Data(suffix[..<endRange.lowerBound])
+}
+
+private enum FixtureImagePattern {
+    case gradient
+    case noisy
+}
+
+private func fixtureImageData(
+    width: Int,
+    height: Int,
+    typeIdentifier: String,
+    orientation: UInt32? = nil,
+    pattern: FixtureImagePattern = .gradient
+) throws -> Data {
+    let image = try fixtureCGImage(width: width, height: height, pattern: pattern)
+    let destinationData = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(
+        destinationData,
+        typeIdentifier as CFString,
+        1,
+        nil
+    ) else {
+        throw CoverControlSurfaceTestFailure("Could not create image destination for \(typeIdentifier).")
+    }
+    var properties: [CFString: Any] = [
+        kCGImageDestinationLossyCompressionQuality: 0.95
+    ]
+    if let orientation {
+        properties[kCGImagePropertyOrientation] = orientation
+    }
+    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    guard CGImageDestinationFinalize(destination) else {
+        throw CoverControlSurfaceTestFailure("Could not finalize image destination for \(typeIdentifier).")
+    }
+    return destinationData as Data
+}
+
+private func fixtureCGImage(width: Int, height: Int, pattern: FixtureImagePattern) throws -> CGImage {
+    var pixels = [UInt8](repeating: 0, count: width * height * 4)
+    for y in 0..<height {
+        for x in 0..<width {
+            let offset = (y * width + x) * 4
+            switch pattern {
+            case .gradient:
+                pixels[offset] = UInt8((x * 255) / max(1, width - 1))
+                pixels[offset + 1] = UInt8((y * 255) / max(1, height - 1))
+                pixels[offset + 2] = UInt8(((x + y) * 255) / max(1, width + height - 2))
+            case .noisy:
+                pixels[offset] = UInt8((x * 31 + y * 17) % 256)
+                pixels[offset + 1] = UInt8((x * 13 + y * 47) % 256)
+                pixels[offset + 2] = UInt8((x * 71 + y * 19) % 256)
+            }
+            pixels[offset + 3] = 255
+        }
+    }
+
+    let data = Data(pixels)
+    let provider = try #require(CGDataProvider(data: data as CFData))
+    let image = CGImage(
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bitsPerPixel: 32,
+        bytesPerRow: width * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+        provider: provider,
+        decode: nil,
+        shouldInterpolate: false,
+        intent: .defaultIntent
+    )
+    return try #require(image)
+}
+
+private func webPFixtureData() -> Data {
+    Data(base64Encoded: "UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA")!
 }
 
 private func assertJSONRequest(
