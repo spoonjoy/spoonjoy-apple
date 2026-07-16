@@ -116,8 +116,12 @@ def check_warning_script_behavior
     dir_path = Pathname.new(dir)
     clean_log = dir_path.join("clean.log")
     warning_log = dir_path.join("warning.log")
+    scaler_diagnostic_log = dir_path.join("scaler-diagnostic.log")
+    benign_failure_language_log = dir_path.join("benign-failure-language.log")
     clean_log.write("Build complete! (0.20s)\nTest run passed.\n")
     warning_log.write("Sources/SpoonjoyCore/Foo.swift:12:8: warning: variable was never mutated\n")
+    scaler_diagnostic_log.write("IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver\n")
+    benign_failure_language_log.write("Test \"failed upload remains queued\" passed\n")
 
     clean, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", clean_log.to_s)
     record_failure("warning script must pass a warning-free log") unless clean
@@ -127,6 +131,28 @@ def check_warning_script_behavior
       record_failure("warning script must fail on branch-source warnings")
     elsif !("#{warned_stdout}\n#{warned_stderr}".match?(/warning/i))
       record_failure("warning script failure should report the warning line")
+    end
+
+    scaler_diagnostic, scaler_stdout, scaler_stderr = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      scaler_diagnostic_log.to_s
+    )
+    if scaler_diagnostic
+      record_failure("warning script must fail on the exact Apple M2 scaler diagnostic")
+    elsif !("#{scaler_stdout}\n#{scaler_stderr}".include?("IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver"))
+      record_failure("warning script failure should report the exact Apple M2 scaler diagnostic")
+    end
+
+    benign_failure_language, = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      benign_failure_language_log.to_s
+    )
+    unless benign_failure_language
+      record_failure("warning script must pass expected test output containing benign failure language")
     end
   end
 end
