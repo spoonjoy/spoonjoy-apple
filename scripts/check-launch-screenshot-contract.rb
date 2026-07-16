@@ -83,6 +83,8 @@ SCRIPT_CONTRACTS = {
       "xcrun simctl boot",
       "SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS",
       "xcrun simctl bootstatus $udid -b",
+      "SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS",
+      "Spoonjoy app registration reached two stable samples",
       "xcrun simctl uninstall",
       "xcrun simctl launch",
       "timeoutSeconds",
@@ -1018,6 +1020,10 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
       simctl\ install\ *) exit 0 ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        printf '/tmp/Spoonjoy.app\n'
+        exit 0
+        ;;
       simctl\ launch\ *) exit 91 ;;
       *) exit 0 ;;
     esac
@@ -1069,6 +1075,10 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
       simctl\ install\ *) exit 0 ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        printf '/tmp/Spoonjoy.app\n'
+        exit 0
+        ;;
       simctl\ launch\ --terminate-running-process\ *)
         count="0"
         if [[ -f "${SIMCTL_LAUNCH_STATE_FILE:-}" ]]; then
@@ -1132,6 +1142,10 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
       simctl\ install\ *) exit 0 ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        printf '/tmp/Spoonjoy.app\n'
+        exit 0
+        ;;
       simctl\ launch\ --terminate-running-process\ *)
         sleep 2
         ;;

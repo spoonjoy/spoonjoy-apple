@@ -43,6 +43,7 @@ install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-}"
 timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
 boot_timeout_seconds="${SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS:-120}"
 launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
+registration_timeout_seconds="${SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS:-120}"
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -129,6 +130,37 @@ app_is_registered_as_running() {
   [[ "$launchctl_status" -eq 0 && "$launchctl_output" == *"UIKitApplication:app.spoonjoy"* ]]
 }
 
+wait_for_app_registration() {
+  local deadline=$((SECONDS + registration_timeout_seconds))
+  local stable_samples=0
+  local container_output=""
+  local container_status=1
+
+  while [[ "$SECONDS" -lt "$deadline" ]]; do
+    set +e
+    container_output="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy app" 5)"
+    container_status=$?
+    set -e
+    printf 'simulator app registration probe exit code: %s\n' "$container_status"
+    if [[ -n "$container_output" ]]; then
+      printf '%s\n' "$container_output"
+    fi
+    if [[ "$container_status" -eq 0 && -n "$container_output" ]]; then
+      stable_samples=$((stable_samples + 1))
+      if [[ "$stable_samples" -ge 2 ]]; then
+        printf 'Spoonjoy app registration reached two stable samples\n'
+        return 0
+      fi
+    else
+      stable_samples=0
+    fi
+    sleep 1
+  done
+
+  printf 'Spoonjoy app registration did not converge within %s seconds\n' "$registration_timeout_seconds"
+  return 1
+}
+
 {
   printf 'Listing iOS simulator runtimes: %s\n' "$list_runtimes_command"
   set +e
@@ -210,7 +242,7 @@ if [[ "$build_status" -ne 0 ]]; then
 fi
 
 boot_log="$(mktemp)"
-printf 'Booting simulator and waiting for readiness: %s %s; xcrun simctl bootstatus %s -b\n' "$boot_command" "$udid" "$udid" >> "$log_path"
+printf 'Booting simulator: %s %s; waiting for readiness with xcrun simctl bootstatus %s -b\n' "$boot_command" "$udid" "$udid" >> "$log_path"
 set +e
 run_with_timeout "$boot_command $udid || true; xcrun simctl bootstatus $udid -b" "$boot_timeout_seconds" > "$boot_log" 2>&1
 boot_status=$?
@@ -236,7 +268,7 @@ fi
   if [[ "$reuse_installed_app" == "1" && -n "$install_marker" && -f "$install_marker" ]]; then
     printf 'Checking reusable iOS simulator app install marker: %s\n' "$install_marker"
     set +e
-    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy data")"
+    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy data" 10)"
     existing_status=$?
     set -e
     printf 'simulator reusable app container lookup exit code: %s\n' "$existing_status"
@@ -271,6 +303,9 @@ fi
       printf 'Wrote reusable iOS simulator app install marker: %s\n' "$install_marker"
     fi
   fi
+  if [[ "$install_status" -eq 0 ]] && ! wait_for_app_registration; then
+    install_status=1
+  fi
 } >> "$log_path" 2>&1
 
 if [[ "$install_status" -ne 0 ]]; then
@@ -278,7 +313,7 @@ if [[ "$install_status" -ne 0 ]]; then
     "CoreSimulator" \
     "xcrun simctl install $udid $app_path" \
     "$log_path" \
-    "CoreSimulator app install failed or hit a timeout." \
+    "CoreSimulator app install or LaunchServices registration failed or hit a timeout." \
     "Confirm the selected simulator is responsive, reset it if needed, and rerun the iOS launch smoke."
   printf 'iOS simulator smoke blocked; see %s\n' "$blocker_path"
   exit 0
