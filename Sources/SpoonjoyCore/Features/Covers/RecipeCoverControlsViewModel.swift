@@ -81,25 +81,22 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
 
     public let acceptedContentTypes: [String]
     public let mediaPolicy: NativeMediaStagingPolicy
+    public let normalizer: RecipeCoverImageNormalizer
 
     public init(
-        acceptedContentTypes: [String] = ["image/jpeg", "image/png", "image/webp", "image/heic"],
-        mediaPolicy: NativeMediaStagingPolicy = .offlineProductContract
+        acceptedContentTypes: [String] = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"],
+        mediaPolicy: NativeMediaStagingPolicy = .offlineProductContract,
+        normalizer: RecipeCoverImageNormalizer = .serverUpload
     ) {
         self.acceptedContentTypes = acceptedContentTypes
         self.mediaPolicy = mediaPolicy
+        self.normalizer = normalizer
     }
 
     public func fileExtension(for contentType: String) -> String? {
         switch contentType.lowercased() {
-        case "image/jpeg", "image/jpg":
+        case "image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif":
             "jpg"
-        case "image/png":
-            "png"
-        case "image/webp":
-            "webp"
-        case "image/heic":
-            "heic"
         default:
             nil
         }
@@ -123,6 +120,16 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
         }
 
         let effectiveByteCount = max(byteCount ?? data.count, data.count)
+        if data.isEmpty,
+           effectiveByteCount > mediaPolicy.maxIndividualUserSelectedBytes {
+            let candidate = NativeStagedMediaUpload(
+                localStageID: localStageID,
+                fileName: "cover.\(fileExtension)",
+                contentType: "image/jpeg",
+                byteCount: effectiveByteCount
+            )
+            return stageSelection(existing: existing, candidate: candidate, existingUsage: existingUsage)
+        }
         guard effectiveByteCount > 0 else {
             return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
         }
@@ -145,18 +152,50 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
         guard candidate.byteCount > 0 else {
             return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
         }
-
         let usage = existingUsage.removing(
             byteCount: existing?.byteCount ?? 0,
             fileCount: existing == nil ? 0 : 1
         )
+        if usage.byteCount >= mediaPolicy.maxUnsyncedUserSelectedBytesPerAccount {
+            return RecipeCoverPhotoStagingResult(
+                stagedPhoto: existing,
+                rejection: .media(.accountByteCapReached(
+                    limitBytes: mediaPolicy.maxUnsyncedUserSelectedBytesPerAccount,
+                    silentEvictionAllowed: false
+                ))
+            )
+        }
+        if usage.fileCount >= mediaPolicy.maxUnsyncedUserSelectedFilesPerAccount {
+            return RecipeCoverPhotoStagingResult(
+                stagedPhoto: existing,
+                rejection: .media(.accountFileCapReached(
+                    limitFiles: mediaPolicy.maxUnsyncedUserSelectedFilesPerAccount,
+                    silentEvictionAllowed: false
+                ))
+            )
+        }
+        let normalizedCandidate: NativeStagedMediaUpload
+        if candidate.data.isEmpty {
+            normalizedCandidate = candidate
+        } else {
+            do {
+                normalizedCandidate = try normalizer.normalize(upload: candidate)
+            } catch RecipeCoverImageNormalizationError.byteLimitExceeded(let limitBytes) {
+                return RecipeCoverPhotoStagingResult(
+                    stagedPhoto: existing,
+                    rejection: .media(.individualFileTooLarge(limitBytes: limitBytes))
+                )
+            } catch {
+                return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
+            }
+        }
         switch mediaPolicy.evaluateNewUserSelectedMedia(
-            byteCount: candidate.byteCount,
+            byteCount: normalizedCandidate.byteCount,
             existingUnsyncedBytes: usage.byteCount,
             existingUnsyncedFileCount: usage.fileCount
         ) {
         case .accepted:
-            return RecipeCoverPhotoStagingResult(stagedPhoto: candidate, rejection: nil)
+            return RecipeCoverPhotoStagingResult(stagedPhoto: normalizedCandidate, rejection: nil)
         case .rejected(let error):
             return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .media(error))
         }
@@ -275,9 +314,10 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
                 createdAt: mutationCreatedAt
             )
         case .uploadPhoto(let photo, let activateWhenReady, let generateEditorial, let postAsSpoon, let note, let nextTime, let cookedAt, let clientMutationID):
+            let normalizedPhoto = try RecipeCoverImageNormalizer.serverUpload.normalize(upload: photo)
             online = try RecipeCoverRequests.uploadImage(
                 recipeID: recipeID,
-                photo: UploadFile(fileName: photo.fileName, contentType: photo.contentType, data: photo.data),
+                photo: UploadFile(fileName: normalizedPhoto.fileName, contentType: normalizedPhoto.contentType, data: normalizedPhoto.data),
                 clientMutationID: clientMutationID,
                 activateWhenReady: activateWhenReady,
                 generateEditorial: generateEditorial,
@@ -288,7 +328,7 @@ public struct RecipeCoverControlsMutationPlan: Equatable {
             )
             offline = NativeQueuedMutation.coverUpload(
                 recipeID: recipeID,
-                photo: photo,
+                photo: normalizedPhoto,
                 clientMutationID: clientMutationID,
                 activateWhenReady: activateWhenReady,
                 generateEditorial: generateEditorial,

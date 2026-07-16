@@ -1101,7 +1101,7 @@ struct NativeSyncEngineTests {
             "localStageId": "stage_cover_1",
             "fileName": "cover.png",
             "contentType": "image/png",
-            "byteCount": 3
+            "byteCount": Self.coverPNGData.count
         ]))
         #expect(persistedKinds["cover.upload"]?["postAsSpoon"] as? Bool == true)
         #expect(persistedKinds["cover.upload"]?["note"] as? String == "Photo cook.")
@@ -1746,12 +1746,15 @@ struct NativeSyncEngineTests {
                 ]
             )
         )
-        let legacyCoverRequest = try legacyCoverUpload.requestBuilder().urlRequest(configuration: configuration)
+        let legacyCoverRequest = try legacyCoverUpload
+            .resolvingStagedMedia(using: StaticStagedMediaResolver(data: Self.coverPNGData))
+            .requestBuilder()
+            .urlRequest(configuration: configuration)
         try assertMultipartBody(
             legacyCoverRequest,
             expected: ExpectedMultipartRequest(
                 fileField: "photo",
-                fileName: "legacy-cover.jpg",
+                fileName: "cover.jpg",
                 contentType: "image/jpeg",
                 fields: [
                     "clientMutationId": "cm_decode",
@@ -1778,12 +1781,15 @@ struct NativeSyncEngineTests {
                 ]
             )
         )
-        let defaultedCoverRequest = try defaultedCoverUpload.requestBuilder().urlRequest(configuration: configuration)
+        let defaultedCoverRequest = try defaultedCoverUpload
+            .resolvingStagedMedia(using: StaticStagedMediaResolver(data: Self.coverPNGData))
+            .requestBuilder()
+            .urlRequest(configuration: configuration)
         try assertMultipartBody(
             defaultedCoverRequest,
             expected: ExpectedMultipartRequest(
                 fileField: "photo",
-                fileName: "defaulted-cover.jpg",
+                fileName: "cover.jpg",
                 contentType: "image/jpeg",
                 fields: [
                     "clientMutationId": "cm_decode",
@@ -1974,7 +1980,7 @@ struct NativeSyncEngineTests {
             .noBody(.spoonDelete(recipeID: "recipe/lemon", spoonID: "spoon/cooked", clientMutationID: "cm_spoon_delete", createdAt: Self.createdAt(25)), .delete, "/api/v1/recipes/recipe%2Flemon/spoons/spoon%2Fcooked", extraHeaders: ["X-Client-Mutation-Id": "cm_spoon_delete"]),
             .multipart(.coverUpload(
                 recipeID: "recipe/lemon",
-                photo: Self.stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"),
+                photo: Self.coverStagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"),
                 clientMutationID: "cm_cover_upload",
                 activate: true,
                 generateEditorial: true,
@@ -1983,7 +1989,7 @@ struct NativeSyncEngineTests {
                 nextTime: "More lemon",
                 cookedAt: "2026-06-16T09:30:00.000Z",
                 createdAt: Self.createdAt(26)
-            ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "cover.png", "image/png", [
+            ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "cover.jpg", "image/jpeg", [
                 "clientMutationId": "cm_cover_upload",
                 "activateWhenReady": "true",
                 "generateEditorial": "true",
@@ -1994,12 +2000,12 @@ struct NativeSyncEngineTests {
             ]),
             .multipart(.coverUpload(
                 recipeID: "recipe/lemon",
-                image: Self.stagedMedia("stage_cover_legacy_image", fileName: "legacy-image-cover.png", contentType: "image/png"),
+                image: Self.coverStagedMedia("stage_cover_legacy_image", fileName: "legacy-image-cover.png", contentType: "image/png"),
                 clientMutationID: "cm_cover_upload_legacy_image",
                 activate: false,
                 generateEditorial: false,
                 createdAt: Self.createdAt(26)
-            ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "legacy-image-cover.png", "image/png", [
+            ), .post, "/api/v1/recipes/recipe%2Flemon/image", "photo", "cover.jpg", "image/jpeg", [
                 "clientMutationId": "cm_cover_upload_legacy_image",
                 "activateWhenReady": "false",
                 "generateEditorial": "false",
@@ -4984,7 +4990,7 @@ struct NativeSyncEngineTests {
         let cover: [NativeQueuedMutation] = [
             .coverUpload(
                 recipeID: "recipe_lemon",
-                photo: stagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"),
+                photo: coverStagedMedia("stage_cover_1", fileName: "cover.png", contentType: "image/png"),
                 clientMutationID: "cm_cover_upload",
                 activate: true,
                 generateEditorial: true,
@@ -5173,6 +5179,17 @@ struct NativeSyncEngineTests {
             data: Data([0x73, 0x6A, 0x6D])
         )
     }
+
+    private static func coverStagedMedia(_ id: String, fileName: String, contentType: String) -> NativeStagedMediaUpload {
+        NativeStagedMediaUpload(
+            localStageID: id,
+            fileName: fileName,
+            contentType: contentType,
+            data: coverPNGData
+        )
+    }
+
+    private static let coverPNGData = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAGklEQVR4nGP8z8Dwn4GBgYGJAQYGBgYGABQEAQMC7u1YAAAAAElFTkSuQmCC")!
 
     private static func queuedMutationJSON(schemaVersion: Int, type: String, fields: [String: Any]) throws -> Data {
         var kind = fields
@@ -5543,6 +5560,14 @@ private struct ThrowingNativeSyncTransport: NativeSyncTransport {
 
     func send(_: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
         throw error
+    }
+}
+
+private struct StaticStagedMediaResolver: NativeStagedMediaResolving {
+    let data: Data
+
+    func data(for _: NativeStagedMediaUpload) throws -> Data {
+        data
     }
 }
 

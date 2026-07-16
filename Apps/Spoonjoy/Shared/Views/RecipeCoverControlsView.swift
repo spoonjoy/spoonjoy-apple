@@ -5,9 +5,10 @@ import UniformTypeIdentifiers
 
 private let supportedCoverPhotoContentTypes = [
     "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/heic": "heic"
+    "image/png": "jpg",
+    "image/webp": "jpg",
+    "image/heic": "jpg",
+    "image/heif": "jpg"
 ]
 
 struct RecipeCoverControlsRouteView: View {
@@ -245,7 +246,7 @@ struct RecipeCoverControlsView: View {
                 }
             }
 
-            Text(hasStagedPhoto ? "Photo ready for this recipe." : "JPEG, PNG, WebP, HEIC")
+            Text(hasStagedPhoto ? "Photo ready for this recipe." : "JPEG, PNG, WebP, HEIC, HEIF")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
 

@@ -1792,7 +1792,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
     }
 
     private func coverUploadRequestBuilder() throws -> APIRequestBuilder {
-        let media = try requiredMedia("photo")
+        let media = try RecipeCoverImageNormalizer.serverUpload.normalize(upload: requiredMedia("photo"))
         var fields: [String: String] = [
             "clientMutationId": clientMutationID,
             "activateWhenReady": String(boolValue("activateWhenReady") ?? boolValue("activate") ?? true),
