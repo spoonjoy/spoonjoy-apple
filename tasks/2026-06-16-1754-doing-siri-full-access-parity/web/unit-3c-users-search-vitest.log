@@ -1,9 +1,0 @@
-
- RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
-
- ✓ test/routes/api-v1-users-search.test.ts (5 tests) 373ms
-
- Test Files  1 passed (1)
-      Tests  5 passed (5)
-   Start at  03:16:11
-   Duration  2.05s (transform 449ms, setup 178ms, import 933ms, tests 373ms, environment 368ms)

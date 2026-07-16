@@ -1,1 +1,0 @@
-$ swiftc -typecheck iOS simulator app sources

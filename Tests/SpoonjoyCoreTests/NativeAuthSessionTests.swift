@@ -893,12 +893,13 @@ struct NativeAuthSessionTests {
                 "scripts/verify-native-password-dogfood.sh",
                 "scripts/capture-native-screenshot-matrix.sh",
                 "matrix-native-password-dogfood-report.json",
-                "tasks/2026-06-16-1754-doing-siri-full-access-parity",
+                "artifacts/apple/native-local",
                 "XcodePlatform"
             ],
             forbids: [
                 "run_blockable",
                 "allowed_blocker_pattern",
+                "tasks/2026-06-16-1754-doing-siri-full-access-parity",
                 "tasks/2026-06-15-2314-doing-native-app-skeleton"
             ]
         )
@@ -919,7 +920,7 @@ struct NativeAuthSessionTests {
                 "SPOONJOY_NATIVE_DOGFOOD_IDENTIFIER",
                 "SPOONJOY_NATIVE_DOGFOOD_PASSWORD_FILE",
                 "SecureRandom.hex",
-                "tasks/2026-06-16-1754-doing-siri-full-access-parity",
+                "artifacts/apple/native-password-dogfood",
                 "/api/v1/auth/password/native",
                 "wrongPassword",
                 "native password dogfood ok against real Spoonjoy API"
@@ -930,6 +931,7 @@ struct NativeAuthSessionTests {
                 "ort_native_dogfood_fixture",
                 "chef_native_dogfood",
                 "correctHorseBatteryStaple",
+                "tasks/2026-06-16-1754-doing-siri-full-access-parity",
                 "tasks/2026-06-15-2314-doing-native-app-skeleton"
             ]
         )

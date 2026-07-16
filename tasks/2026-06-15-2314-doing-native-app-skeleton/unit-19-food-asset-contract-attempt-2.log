@@ -1,5 +1,0 @@
-FAIL: xcode project contract failed
-STDOUT:
-FAIL: Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift missing from Spoonjoy iOS
-
-STDERR:

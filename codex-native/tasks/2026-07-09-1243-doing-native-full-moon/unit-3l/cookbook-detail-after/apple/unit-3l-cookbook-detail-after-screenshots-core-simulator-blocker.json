@@ -1,9 +1,0 @@
-{
-  "capability": "CoreSimulator",
-  "blocked": true,
-  "command": "xcrun simctl launch --terminate-running-process 03433616-74B3-4041-AB04-9EBB18401EF5 app.spoonjoy",
-  "timeoutSeconds": 30,
-  "outputPath": "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail-after/apple/unit-3l-cookbook-detail-after-screenshots-smoke-ios.log",
-  "reason": "CoreSimulator app launch failed or hit a timeout after 3 attempt(s).",
-  "ownerAction": "Confirm the selected simulator can foreground Spoonjoy, reset the simulator if needed, and rerun the iOS launch smoke."
-}

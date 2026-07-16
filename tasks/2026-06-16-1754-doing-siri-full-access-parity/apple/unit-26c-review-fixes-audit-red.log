@@ -1,4 +1,0 @@
-native validation artifact audit failed
-- apple/matrix-screenshots-xcode-platform-blocker.json outputPath does not exist: apple/matrix-screenshots-xcode-platform.log
-- apple/validation-matrix.json blockers[1] outputPath does not exist: apple/matrix-screenshots-xcode-platform.log
-manifest: /Users/arimendelow/Projects/spoonjoy-apple/tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/validation-audit-manifest.json

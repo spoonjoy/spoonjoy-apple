@@ -1,3 +1,0 @@
-SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS=60 scripts/capture-native-screenshots.sh --artifact-root codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail-title-fit-final --unit-slug unit-3l-cookbook-detail-title-fit-final --route cookbook-detail
-design review ok
-native screenshot capture complete: codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3l/cookbook-detail-title-fit-final/design-review.json

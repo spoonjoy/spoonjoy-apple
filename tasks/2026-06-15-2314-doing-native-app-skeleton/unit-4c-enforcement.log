@@ -1,2 +1,0 @@
-$ scripts/enforce-swift-coverage.rb --coverage-json tasks/2026-06-15-2314-doing-native-app-skeleton/unit-4c-codecov.json --minimum 100 --include 'Sources/SpoonjoyCore/KitchenState'
-coverage ok: 100.00% (466/466)

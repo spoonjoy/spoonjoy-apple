@@ -1,1 +1,0 @@
-FAIL: missing kitchen/recipe surface files: Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift, Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift, Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift

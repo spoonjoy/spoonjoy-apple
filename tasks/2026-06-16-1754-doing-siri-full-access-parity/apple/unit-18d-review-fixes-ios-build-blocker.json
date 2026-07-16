@@ -1,6 +1,0 @@
-{
-  "command": "xcodebuild build -project Spoonjoy.xcodeproj -scheme 'Spoonjoy iOS' -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO",
-  "exitCode": 70,
-  "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-18d-review-fixes-ios-build.log",
-  "reason": "Local Xcode/iOS platform support is insufficient for the product target; paid/signing/runtime validation remains a capability gate."
-}
