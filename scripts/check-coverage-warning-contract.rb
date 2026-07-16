@@ -117,10 +117,14 @@ def check_warning_script_behavior
     clean_log = dir_path.join("clean.log")
     warning_log = dir_path.join("warning.log")
     scaler_diagnostic_log = dir_path.join("scaler-diagnostic.log")
+    generic_io_service_diagnostic_log = dir_path.join("generic-io-service-diagnostic.log")
+    other_driver_diagnostic_log = dir_path.join("other-driver-diagnostic.log")
     benign_failure_language_log = dir_path.join("benign-failure-language.log")
     clean_log.write("Build complete! (0.20s)\nTest run passed.\n")
     warning_log.write("Sources/SpoonjoyCore/Foo.swift:12:8: warning: variable was never mutated\n")
     scaler_diagnostic_log.write("IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver\n")
+    generic_io_service_diagnostic_log.write("IOServiceMatchingfailed\n")
+    other_driver_diagnostic_log.write("IOServiceMatchingfailed for: UnexpectedScalerDriver\n")
     benign_failure_language_log.write("Test \"failed upload remains queued\" passed\n")
 
     clean, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", clean_log.to_s)
@@ -133,16 +137,38 @@ def check_warning_script_behavior
       record_failure("warning script failure should report the warning line")
     end
 
-    scaler_diagnostic, scaler_stdout, scaler_stderr = run_command(
+    scaler_diagnostic, = run_command(
       "ruby",
       WARNING_SCRIPT.to_s,
       "--log",
       scaler_diagnostic_log.to_s
     )
-    if scaler_diagnostic
-      record_failure("warning script must fail on the exact Apple M2 scaler diagnostic")
-    elsif !("#{scaler_stdout}\n#{scaler_stderr}".include?("IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver"))
-      record_failure("warning script failure should report the exact Apple M2 scaler diagnostic")
+    unless scaler_diagnostic
+      record_failure("warning script must allowlist only the exact Apple M2 scaler virtualization diagnostic")
+    end
+
+    generic_diagnostic, generic_stdout, generic_stderr = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      generic_io_service_diagnostic_log.to_s
+    )
+    if generic_diagnostic
+      record_failure("warning script must fail on a generic IOServiceMatchingfailed diagnostic")
+    elsif !("#{generic_stdout}\n#{generic_stderr}".include?("IOServiceMatchingfailed"))
+      record_failure("warning script failure should report a generic IOServiceMatchingfailed diagnostic")
+    end
+
+    other_driver_diagnostic, other_driver_stdout, other_driver_stderr = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      other_driver_diagnostic_log.to_s
+    )
+    if other_driver_diagnostic
+      record_failure("warning script must fail when IOServiceMatchingfailed names another driver")
+    elsif !("#{other_driver_stdout}\n#{other_driver_stderr}".include?("UnexpectedScalerDriver"))
+      record_failure("warning script failure should report the unexpected IOService driver")
     end
 
     benign_failure_language, = run_command(
