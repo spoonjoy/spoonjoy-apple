@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "status": "pass",
+  "message": "ruby advisory scan ok",
+  "details": {
+    "command": "bundle exec bundle-audit check /Users/arimendelow/Projects/spoonjoy-apple-native-advisory-pipeline --no-update --format json --output /var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/ruby-advisory-report20260715-23692-1bjp1mu.json --gemfile-lock Gemfile.lock --database /var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/spoonjoy-ruby-advisory-db20260715-23692-q3y2g7",
+    "gemfileLock": "Gemfile.lock",
+    "advisoryDatabaseRef": "32a64d01964828d2f71ba17fb623a73142e03a3d",
+    "allowlistedAdvisories": [
+
+    ],
+    "scannerReport": {
+      "version": "0.9.3",
+      "created_at": "2026-07-15 18:11:05 -0700",
+      "results": [
+
+      ]
+    }
+  },
+  "generatedAt": "2026-07-16T01:11:05Z"
+}

@@ -74,7 +74,7 @@ def validate_allowlist(path, max_days:, today: Date.today)
   end
 end
 
-def verify_installed_scanner(policy, skip_gem_sha:)
+def verify_installed_scanner(policy, skip_gem_sha:, output_path:)
   scanner = policy.fetch("scanner")
   expected_name = scanner.fetch("name")
   expected_version = scanner.fetch("version").to_s
@@ -82,38 +82,38 @@ def verify_installed_scanner(policy, skip_gem_sha:)
   fail_scan("unsupported scanner #{expected_name.inspect}") unless expected_name == "bundler-audit"
 
   stdout, stderr, status = Open3.capture3(ADVISORY_BUNDLE_ENV, "bundle", "exec", "bundle-audit", "version", chdir: ROOT.to_s)
-  fail_scan("bundler-audit version check failed", details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
+  fail_scan("bundler-audit version check failed", output_path: output_path, details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
   actual_version = stdout[/\d+(?:\.\d+)+/]
-  fail_scan("bundler-audit version #{actual_version.inspect} did not match #{expected_version}") unless actual_version == expected_version
+  fail_scan("bundler-audit version #{actual_version.inspect} did not match #{expected_version}", output_path: output_path) unless actual_version == expected_version
 
   return if skip_gem_sha
 
   Dir.mktmpdir("spoonjoy-bundler-audit-gem") do |dir|
     stdout, stderr, status = Open3.capture3("gem", "fetch", expected_name, "--version", expected_version, chdir: dir)
-    fail_scan("failed to fetch scanner gem for SHA verification", details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
+    fail_scan("failed to fetch scanner gem for SHA verification", output_path: output_path, details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
     gem_path = Pathname.new(dir).join("#{expected_name}-#{expected_version}.gem")
-    fail_scan("scanner gem fetch did not produce #{gem_path.basename}") unless gem_path.file?
+    fail_scan("scanner gem fetch did not produce #{gem_path.basename}", output_path: output_path) unless gem_path.file?
     actual_sha = Digest::SHA256.file(gem_path).hexdigest
-    fail_scan("scanner gem SHA mismatch", details: { expected: expected_sha, actual: actual_sha }) unless actual_sha == expected_sha
+    fail_scan("scanner gem SHA mismatch", output_path: output_path, details: { expected: expected_sha, actual: actual_sha }) unless actual_sha == expected_sha
   end
 end
 
-def prepare_advisory_database(policy)
+def prepare_advisory_database(policy, output_path:)
   database = policy.fetch("advisory_database")
   repository = database.fetch("repository")
   ref = database.fetch("ref")
   dir = Pathname.new(Dir.mktmpdir("spoonjoy-ruby-advisory-db"))
 
   stdout, stderr, status = Open3.capture3("git", "init", "--quiet", dir.to_s)
-  fail_scan("failed to initialize advisory database checkout", details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
+  fail_scan("failed to initialize advisory database checkout", output_path: output_path, details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
   stdout, stderr, status = Open3.capture3("git", "-C", dir.to_s, "remote", "add", "origin", repository)
-  fail_scan("failed to configure advisory database remote", details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
+  fail_scan("failed to configure advisory database remote", output_path: output_path, details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
   stdout, stderr, status = Open3.capture3("git", "-C", dir.to_s, "fetch", "--depth", "1", "origin", ref)
-  fail_scan("failed to fetch pinned ruby-advisory-db ref", details: { repository: repository, ref: ref, stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
+  fail_scan("failed to fetch pinned ruby-advisory-db ref", output_path: output_path, details: { repository: repository, ref: ref, stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
   stdout, stderr, status = Open3.capture3("git", "-C", dir.to_s, "checkout", "--quiet", "FETCH_HEAD")
-  fail_scan("failed to checkout pinned ruby-advisory-db ref", details: { repository: repository, ref: ref, stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
+  fail_scan("failed to checkout pinned ruby-advisory-db ref", output_path: output_path, details: { repository: repository, ref: ref, stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
   actual = Open3.capture3("git", "-C", dir.to_s, "rev-parse", "HEAD").first.strip
-  fail_scan("ruby-advisory-db SHA mismatch", details: { expected: ref, actual: actual }) unless actual == ref
+  fail_scan("ruby-advisory-db SHA mismatch", output_path: output_path, details: { expected: ref, actual: actual }) unless actual == ref
 
   dir
 end
@@ -221,16 +221,17 @@ policy = load_yaml_file(options.fetch(:policy).expand_path, "policy")
 max_days = policy.fetch("allowlist").fetch("max_days").to_i
 
 fail_scan("Gemfile.lock is missing: #{gemfile_lock}", output_path: output, status: "missing_lockfile") unless gemfile_lock.file?
-verify_installed_scanner(policy, skip_gem_sha: false) unless options.fetch(:skip_pin_verification)
+verify_installed_scanner(policy, skip_gem_sha: false, output_path: output) unless options.fetch(:skip_pin_verification)
 allowlist_entries = validate_allowlist(options.fetch(:allowlist).expand_path, max_days: max_days)
 ignored_ids = allowlist_entries.map { |entry| entry.fetch("id") }
-database_dir = options.fetch(:skip_pin_verification) ? nil : prepare_advisory_database(policy)
+database_dir = options.fetch(:skip_pin_verification) ? nil : prepare_advisory_database(policy, output_path: output)
 exit_code, stdout, stderr, report_text, command = run_scanner(Shellwords.split(options.fetch(:scanner_command)), gemfile_lock, ignored_ids, database_dir: database_dir)
 
 if exit_code.zero?
   write_report(output, "pass", "ruby advisory scan ok", {
     command: command,
     gemfileLock: gemfile_lock.relative_path_from(ROOT).to_s,
+    advisoryDatabaseRef: policy.fetch("advisory_database").fetch("ref"),
     allowlistedAdvisories: ignored_ids,
     scannerReport: report_text.empty? ? nil : JSON.parse(report_text)
   })
