@@ -46,6 +46,18 @@ fail_check("policy must pin ruby-advisory-db SHA") unless policy.include?("ref: 
 fail_check("allowlist must use explicit advisories key") unless allowlist.match?(/^advisories:/)
 fail_check("policy doc must document expiring allowlists") unless docs.include?("expires_on") && docs.include?("fail closed")
 fail_check("scanner wrapper is missing") unless scanner.file?
+scanner_source = scanner.read
+[
+  "--database",
+  "--no-update",
+  "--gemfile-lock",
+  "git\", \"-C\", dir.to_s, \"fetch\"",
+  "actionable_findings",
+  "scanner_failed",
+  "missing_lockfile"
+].each do |token|
+  fail_check("scanner wrapper missing #{token}") unless scanner_source.include?(token)
+end
 
 [
   "ruby-advisory-scan:",

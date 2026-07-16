@@ -57,7 +57,9 @@ rm -f \
   "$apple_dir/matrix-native-password-dogfood.log" \
   "$apple_dir/matrix-native-password-dogfood-server.log" \
   "$apple_dir/matrix-native-password-dogfood-report.json" \
-  "$apple_dir/matrix-native-password-dogfood-vault.json"
+  "$apple_dir/matrix-native-password-dogfood-vault.json" \
+  "$apple_dir/matrix-ruby-advisory-scan.log" \
+  "$apple_dir/matrix-ruby-advisory-report.json"
 
 for app_intents_entry in "${app_intents_domains[@]}"; do
   IFS=":" read -r _app_intents_domain app_intents_log app_intents_blocker <<< "$app_intents_entry"
@@ -79,6 +81,8 @@ required_hooks=(
   "scripts/check-search-capture-settings-surfaces.rb"
   "scripts/check-launch-screenshot-contract.rb"
   "scripts/check-app-intents-contract.rb"
+  "scripts/check-native-advisory-pipeline.rb"
+  "scripts/scan-ruby-advisories.rb"
   "scripts/run-xcodebuild-with-blocker.sh"
   "scripts/smoke-macos.sh"
   "scripts/smoke-ios-simulator.sh"
@@ -279,6 +283,7 @@ else
 fi
 run_required "xcode version" "$apple_dir/matrix-xcode-version.log" bash -c 'xcode_version="$(xcodebuild -version)" && printf "%s\n" "$xcode_version" && first_line="$(printf "%s\n" "$xcode_version" | sed -n "1p")" && minimum_xcode_version="26.5" && version="${first_line#Xcode }" && awk -v version="$version" -v minimum="$minimum_xcode_version" "BEGIN { split(version, actual, \".\"); split(minimum, required, \".\"); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }"' || overall_status=1
 run_required "ruby bundle check" "$apple_dir/matrix-bundle-check.log" scripts/bundle-check.sh || overall_status=1
+run_required "ruby advisory scan" "$apple_dir/matrix-ruby-advisory-scan.log" ruby scripts/scan-ruby-advisories.rb --output "$apple_dir/matrix-ruby-advisory-report.json" || overall_status=1
 run_required "swift tests" "$apple_dir/matrix-swift-test.log" swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
 run_required "swift coverage test" "$apple_dir/matrix-coverage-test.log" swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1
 run_required "swift coverage path" "$coverage_json_path" swift test --show-codecov-path || overall_status=1
@@ -370,6 +375,7 @@ matrix_warning_logs=(
   "$stale_blocker_scan_path"
   "$apple_dir/matrix-xcode-version.log"
   "$apple_dir/matrix-bundle-check.log"
+  "$apple_dir/matrix-ruby-advisory-scan.log"
   "$apple_dir/matrix-swift-test.log"
   "$apple_dir/matrix-coverage-test.log"
   "$coverage_json_path"

@@ -1,0 +1,3 @@
+# Native Ruby dependency advisory allowlist.
+# Each entry must include id, gem, reason, owner, and expires_on.
+advisories: []
