@@ -1260,9 +1260,13 @@ private func fixtureCGImage(width: Int, height: Int, pattern: FixtureImagePatter
                 pixels[offset + 1] = UInt8((y * 255) / max(1, height - 1))
                 pixels[offset + 2] = UInt8(((x + y) * 255) / max(1, width + height - 2))
             case .noisy:
-                pixels[offset] = UInt8((x * 31 + y * 17) % 256)
-                pixels[offset + 1] = UInt8((x * 13 + y * 47) % 256)
-                pixels[offset + 2] = UInt8((x * 71 + y * 19) % 256)
+                var value = UInt32(truncatingIfNeeded: x)
+                value = value &* 1_664_525 &+ UInt32(truncatingIfNeeded: y) &* 1_013_904_223
+                value ^= value >> 13
+                value = value &* 1_274_126_177
+                pixels[offset] = UInt8(truncatingIfNeeded: value)
+                pixels[offset + 1] = UInt8(truncatingIfNeeded: value >> 8)
+                pixels[offset + 2] = UInt8(truncatingIfNeeded: value >> 16)
             }
             pixels[offset + 3] = 255
         }
