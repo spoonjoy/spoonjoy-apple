@@ -26,6 +26,7 @@
 | Ownership | `c4d13881` / `77a8c2d` | Canonical doing + Desk handoff | `RECORDED` | 0 | n/a | canonical doing / Desk task | pending | pending doing review | coordinated worker retains current train only |
 | Doing gate | `542f6a6f` | Independent hostile release/execution convergence | `APPROVED` | 0 | n/a | doing doc / evidence index / crosswalk | pending | Descartes, Poincare | findings fixed through fresh review |
 | Unit 2A | `1bea760ba0c8f10b997f0ca5352880050c30c683` | Apple Services ID Save/fresh readback; 10 GET + 10 POST probes on each clean/legacy callback | `COMPLETE` (40/40 controlled `302`; no 404/5xx) | 0 | live Worker `c7a2517a-6076-4dcd-bee9-6c9e76ecfeb8` | `/tmp/spoonjoy-audit-release-train/apple-callback-registration-2026-07-16/` | `e990e5d00a0dac9969e9fcc8930c04a25c82c6506c996b6add38c8b17e8b4c7b` | fresh portal readback plus machine canary assertion | clean and all six legacy return URLs retained; legacy start remains rollback path |
+| Unit 1 / feedback tunnel | `0309768c31a37ca1c2627e0efefc86aa721f62b0` | Merge PR #56; exact-main Native gate; install launchd; local/public health; Apple ping/delivery; feedback reconcile; generic Ouro-to-Slugger event | `COMPLETE` (HTTP/2 tunnel live; Apple `202`; actionable/unhandled 0; Slugger iMessage sent) | 0 | [Native run 29528190225](https://github.com/spoonjoy/spoonjoy-apple/actions/runs/29528190225) | `/tmp/spoonjoy-audit-release-train/feedback-tunnel-http2/` plus live launchd/Ouro receipts | `78402f7b9fd8ef42c67ff2db1ee6d284f7faff57c1cc335e6ed4c3fd2051c8f2` (installed script digest) | hostile reviewer `CONVERGED` before merge | PR #54 rebased onto exact main; TestFlight mutation still prohibited pending owner release |
 
 Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-sha>/` and must not be committed.
 
@@ -39,6 +40,7 @@ Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-s
 | Desk commit | `77a8c2d` |
 | Final web SHA / deploy | pending handoff |
 | Final native SHA / Native run | pending handoff |
+| Native tunnel prerequisite | PR #56 / `0309768c31a37ca1c2627e0efefc86aa721f62b0` / Native run `29528190225` / live HTTP/2 health and Slugger iMessage proof complete |
 | Merged PR/run inventory | pending handoff |
 | Residual agent-owned work | pending handoff |
 | Zero in-flight web merges | pending (`true` required) |
