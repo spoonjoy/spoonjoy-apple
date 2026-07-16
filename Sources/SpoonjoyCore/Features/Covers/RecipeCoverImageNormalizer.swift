@@ -50,6 +50,21 @@ public struct RecipeCoverImageNormalizer: Equatable, Sendable {
             throw RecipeCoverImageNormalizationError.unreadableImage
         }
 
+        if Self.isCompliantJPEG(
+            source: source,
+            contentType: contentType,
+            byteCount: data.count,
+            maxPixelDimension: maxPixelDimension,
+            maxOutputBytes: maxOutputBytes
+        ) {
+            return NativeStagedMediaUpload(
+                localStageID: localStageID,
+                fileName: "cover.jpg",
+                contentType: "image/jpeg",
+                data: data
+            )
+        }
+
         let thumbnailOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -83,6 +98,27 @@ public struct RecipeCoverImageNormalizer: Equatable, Sendable {
         "image/heic",
         "image/heif"
     ]
+
+    private static func isCompliantJPEG(
+        source: CGImageSource,
+        contentType: String,
+        byteCount: Int,
+        maxPixelDimension: Int,
+        maxOutputBytes: Int
+    ) -> Bool {
+        guard ["image/jpeg", "image/jpg"].contains(contentType.lowercased()),
+              CGImageSourceGetType(source) as String? == UTType.jpeg.identifier,
+              byteCount <= maxOutputBytes,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+              max(width, height) <= maxPixelDimension else {
+            return false
+        }
+        let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.uint32Value
+            ?? CGImagePropertyOrientation.up.rawValue
+        return orientation == CGImagePropertyOrientation.up.rawValue
+    }
 
     private static func jpegData(from image: CGImage, quality: Double) throws -> Data {
         let data = NSMutableData()

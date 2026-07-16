@@ -31,3 +31,24 @@ Generated validation artifacts live under ignored local path `artifacts/apple/na
 ## Reviewer Disposition
 
 - PASS. Slugger performed a fresh harsh implementation/native review of `worker/native-cover-normalization-n2` against `origin/main` and found no blockers.
+
+## Host-Rollover Remediation
+
+- GitHub run `29469189040`, attempt 2, records `The run was canceled by @arimendelow.` for the workflow, Swift tests, and Coverage. The workflow has no `timeout-minutes` or `cancel-in-progress` rule. Attempt 1 was also manually cancelled after 32 minutes; attempt 2 was cancelled after 21 minutes. The cancellations occurred while the branch-specific test process was still running, rather than from a failed assertion.
+- A compliant JPEG crossed normalization at selection, mutation planning, and queued replay. Before remediation, the focused repeated-safety-check regression failed because the bytes changed and took 10.736 seconds. The source-type/size/dimension/orientation-gated fast path now preserves those bytes and the same regression passes in 0.069 seconds.
+- The fast path verifies the decoded source type is `public.jpeg`; a PNG labeled `image/jpeg` is still transcoded. Oriented JPEGs are still transformed, oversized images are still bounded, and `image/jpg` is canonicalized without recompression.
+- A dedicated adaptive-quality test proves a lower JPEG quality candidate is selected only after the higher candidate exceeds the configured byte limit. Contract-equivalent fixture dimensions retain explicit 2048 px and source-over-5-MiB assertions while reducing full-suite contention.
+
+## Rerun Validation Evidence
+
+- `unit-4c-cover-focused-rerun.log`: 22 focused cover tests passed in 1.057 seconds under `--parallel`; warning scan passed.
+- `unit-4c-swift-tests-rerun.log`: exact CI Swift test command passed 604 tests in 53 suites; the heaviest cover boundary test completed in 9.170 seconds and the warning scan passed.
+- `unit-4c-swift-coverage-rerun.log` and `unit-4c-coverage-enforce-rerun.log`: 604 tests passed and SpoonjoyCore coverage is `100.00% (26961/26961)`; warning scan passed.
+- `unit-4c-final-scenario-rerun.log`: final native scenario verification passed; warning scan passed.
+- `unit-4c-xcodebuild-ios-rerun.log` and `unit-4c-xcodebuild-macos-rerun.log`: BootstrapDebug app-target builds passed with signing disabled; both warning scans passed.
+- Final post-remediation harsh review and fresh PR CI are required before the final merge-readiness disposition.
+
+## Post-Remediation Reviewer Disposition
+
+- PASS. The final harsh review re-read the actual uncommitted `RecipeCoverImageNormalizer.swift` fast path plus the full PR diff, verified the decoded-type, size, dimension, orientation, adaptive-quality, immediate-upload, durable-staging, and replay contracts, and found no blockers. The reviewer corrected its initial stale bookkeeping statement before convergence.
+- Fresh PR CI remains the only outstanding merge-readiness gate. Do not merge or publish TestFlight from this unit.

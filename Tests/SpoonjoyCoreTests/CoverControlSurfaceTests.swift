@@ -771,7 +771,7 @@ struct CoverControlSurfaceTests {
             ),
             (
                 "png",
-                try fixtureImageData(width: 4096, height: 1024, typeIdentifier: UTType.png.identifier),
+                try fixtureImageData(width: 2050, height: 512, typeIdentifier: UTType.png.identifier),
                 "image/png",
                 2048
             ),
@@ -802,8 +802,8 @@ struct CoverControlSurfaceTests {
         }
 
         let oversizedPNG = try fixtureImageData(
-            width: 2300,
-            height: 1700,
+            width: 1600,
+            height: 1200,
             typeIdentifier: UTType.png.identifier,
             pattern: .noisy
         )
@@ -859,6 +859,87 @@ struct CoverControlSurfaceTests {
         }
     }
 
+    @Test("cover image normalizer lowers JPEG quality only when required by the server byte limit")
+    func coverImageNormalizerAdaptsJPEGQualityToByteLimit() throws {
+        let source = try fixtureImageData(
+            width: 256,
+            height: 256,
+            typeIdentifier: UTType.png.identifier,
+            pattern: .noisy
+        )
+        let highQuality = try RecipeCoverImageNormalizer(
+            maxOutputBytes: .max,
+            jpegQualityCandidates: [0.92]
+        ).normalize(data: source, contentType: "image/png", localStageID: "cover-stage-high-quality")
+        let adaptiveLimit = highQuality.byteCount - 1
+        let adapted = try RecipeCoverImageNormalizer(
+            maxOutputBytes: adaptiveLimit,
+            jpegQualityCandidates: [0.92, 0.36]
+        ).normalize(data: source, contentType: "image/png", localStageID: "cover-stage-adapted")
+
+        #expect(adapted.byteCount <= adaptiveLimit)
+        #expect(adapted.byteCount < highQuality.byteCount)
+        try assertNormalizedCoverJPEG(adapted)
+    }
+
+    @Test("cover image normalizer preserves compliant JPEG bytes across repeated safety checks")
+    func coverImageNormalizerPreservesCompliantJPEGBytes() throws {
+        let source = try fixtureImageData(
+            width: 640,
+            height: 480,
+            typeIdentifier: UTType.jpeg.identifier
+        )
+        let normalizer = RecipeCoverImageNormalizer.serverUpload
+
+        let first = try normalizer.normalize(
+            data: source,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-first"
+        )
+        let replay = try normalizer.normalize(upload: first)
+        let jpegAlias = try normalizer.normalize(
+            data: source,
+            contentType: "image/jpg",
+            localStageID: "cover-stage-jpg-alias"
+        )
+
+        let orientedJPEG = try fixtureImageData(
+            width: 320,
+            height: 180,
+            typeIdentifier: UTType.jpeg.identifier,
+            orientation: CGImagePropertyOrientation.right.rawValue
+        )
+        let normalizedOrientedJPEG = try normalizer.normalize(
+            data: orientedJPEG,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-oriented"
+        )
+
+        let mislabeledPNG = try fixtureImageData(
+            width: 64,
+            height: 48,
+            typeIdentifier: UTType.png.identifier
+        )
+        let normalizedMislabeledPNG = try normalizer.normalize(
+            data: mislabeledPNG,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-mislabeled"
+        )
+
+        #expect(first.fileName == "cover.jpg")
+        #expect(first.contentType == "image/jpeg")
+        #expect(first.data == source)
+        #expect(replay == first)
+        #expect(jpegAlias.contentType == "image/jpeg")
+        #expect(jpegAlias.data == source)
+        #expect(normalizedOrientedJPEG.data != orientedJPEG)
+        let orientedSize = try assertNormalizedCoverJPEG(normalizedOrientedJPEG)
+        #expect(orientedSize.width == 180)
+        #expect(orientedSize.height == 320)
+        #expect(normalizedMislabeledPNG.data != mislabeledPNG)
+        try assertNormalizedCoverJPEG(normalizedMislabeledPNG)
+    }
+
     @Test("cover photo staging preserves prior stage on corrupt supported input")
     func coverPhotoStagingPreservesPriorStageOnCorruptSupportedInput() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
@@ -892,8 +973,8 @@ struct CoverControlSurfaceTests {
         let staged = try #require(policy.stageSelection(
             existing: nil,
             data: try fixtureImageData(
-                width: 3000,
-                height: 2100,
+                width: 2050,
+                height: 1435,
                 typeIdentifier: UTType.heic.identifier,
                 orientation: CGImagePropertyOrientation.left.rawValue
             ),
