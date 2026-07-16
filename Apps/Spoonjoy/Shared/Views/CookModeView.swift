@@ -223,7 +223,7 @@ struct CookModeView: View {
 #if os(iOS)
         horizontalSizeClass == .compact
 #else
-        false
+        true
 #endif
     }
 
@@ -732,7 +732,7 @@ private struct CookModeSystemTimer: View {
             unavailableCue
         }
 #else
-        unavailableCue
+        EmptyView()
 #endif
     }
 

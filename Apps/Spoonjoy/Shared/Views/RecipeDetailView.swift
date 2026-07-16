@@ -458,7 +458,9 @@ struct RecipeDetailView: View {
                     }
                 }
             }
-            ownerTools
+            if !usesCompactRecipeDock {
+                ownerTools
+            }
             actionStatus
         }
     }
@@ -551,18 +553,12 @@ struct RecipeDetailView: View {
     private var compactRecipeActionsMenu: some View {
         Menu {
             recipeMenuItems(includeSave: true, includeAddToList: true)
+            ownerToolsMenuItems
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.headline.weight(.semibold))
-                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
-                }
+            Label("Recipe actions", systemImage: "ellipsis.circle")
         }
-        .accessibilityLabel("More")
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .accessibilityLabel("Recipe actions")
     }
 
     @ViewBuilder private var recipeSecondaryActions: some View {
@@ -614,7 +610,7 @@ struct RecipeDetailView: View {
     }
 
     private var hasCompactRecipeMenuActions: Bool {
-        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share)
+        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible
     }
 
     private var hasRecipeUtilityActions: Bool {
@@ -786,32 +782,7 @@ struct RecipeDetailView: View {
 
     private var ownerToolsMenu: some View {
         Menu {
-            Button {
-                if let editRoute = viewModel.ownerTools.editRoute {
-                    openRoute(editRoute)
-                }
-            } label: {
-                Label("Edit recipe", systemImage: "pencil")
-            }
-
-            if let coverControlsRoute = viewModel.ownerTools.coverControlsRoute {
-                Button {
-                    openRoute(coverControlsRoute)
-                } label: {
-                    Label("Manage covers", systemImage: "photo.on.rectangle")
-                }
-            }
-
-            if let deleteConfirmation = viewModel.ownerTools.deleteConfirmation {
-                Button(role: .destructive) {
-                    activeConfirmationDialog = RecipeActionConfirmationDialog(
-                        prompt: deleteConfirmation,
-                        clientMutationID: clientMutationID(prefix: "delete-recipe")
-                    )
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
+            ownerToolsMenuItems
         } label: {
             Image(systemName: "ellipsis")
                 .font(.headline.weight(.semibold))
@@ -826,6 +797,35 @@ struct RecipeDetailView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Manage recipe")
         .accessibilityHint("Opens owner tools for this recipe.")
+    }
+
+    @ViewBuilder private var ownerToolsMenuItems: some View {
+        if let editRoute = viewModel.ownerTools.editRoute {
+            Button {
+                openRoute(editRoute)
+            } label: {
+                Label("Edit recipe", systemImage: "pencil")
+            }
+        }
+
+        if let coverControlsRoute = viewModel.ownerTools.coverControlsRoute {
+            Button {
+                openRoute(coverControlsRoute)
+            } label: {
+                Label("Manage covers", systemImage: "photo.on.rectangle")
+            }
+        }
+
+        if let deleteConfirmation = viewModel.ownerTools.deleteConfirmation {
+            Button(role: .destructive) {
+                activeConfirmationDialog = RecipeActionConfirmationDialog(
+                    prompt: deleteConfirmation,
+                    clientMutationID: clientMutationID(prefix: "delete-recipe")
+                )
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     @ViewBuilder private var offlineIndicator: some View {

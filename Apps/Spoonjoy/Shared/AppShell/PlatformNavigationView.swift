@@ -123,15 +123,14 @@ struct PlatformNavigationView: View {
     var body: some View {
         let spotlightPayload = spotlightIndexPayload
         Group {
-            if usesCompactMobileShell {
+            if navigation.route.isCookModeActive && !usesCompactMobileShell {
+                focusedCookModeShell(spotlightPayload: spotlightPayload)
+            } else if usesCompactMobileShell {
                 compactMobileShell(spotlightPayload: spotlightPayload)
             } else {
                 desktopClassShell(spotlightPayload: spotlightPayload)
             }
         }
-#if os(macOS)
-        .navigationSplitViewColumnWidth(min: 240, ideal: 280)
-#endif
     }
 
     private var usesCompactMobileShell: Bool {
@@ -227,11 +226,19 @@ struct PlatformNavigationView: View {
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         NavigationSplitView {
-            sidebar
+            sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)
                 .navigationTitle("Spoonjoy")
         } detail: {
             routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)
         }
+    }
+
+    private func focusedCookModeShell(spotlightPayload: SpotlightIndexPayload) -> some View {
+        routeNavigationStack(
+            spotlightPayload: spotlightPayload,
+            showsToolbar: false,
+            showsSearchChrome: false
+        )
     }
 
     @ViewBuilder private func routeNavigationStack(spotlightPayload: SpotlightIndexPayload, showsToolbar: Bool, showsSearchChrome: Bool) -> some View {
@@ -359,10 +366,6 @@ struct PlatformNavigationView: View {
                 .tag(AppSection.shoppingList)
         }
         .tint(KitchenTableTheme.action)
-#if os(iOS)
-        .toolbarBackground(.regularMaterial, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
-#endif
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 
@@ -739,6 +742,8 @@ struct PlatformNavigationView: View {
 
             destinationContent(for: compactPresentedRoute(for: section))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .environment(\.spoonjoyCompactNavigation, true)
+                .safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)
         }
         .background(KitchenTableTheme.bone)
     }

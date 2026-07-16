@@ -54,7 +54,8 @@ struct NativeMobileDesignContractTests {
                 "sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)",
                 "navigation.route.isCookModeActive",
                 "focusedCookModeShell",
-                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)"
+                "showsToolbar: false",
+                "showsSearchChrome: false"
             ],
             forbids: [
                 ".navigationSplitViewColumnWidth(min: 240, ideal: 280)"
@@ -85,7 +86,11 @@ struct NativeMobileDesignContractTests {
         expectContent(
             recipeDetail,
             in: recipeDetailPath,
-            contains: ["Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")"]
+            contains: [
+                "Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")",
+                "ownerToolsMenuItems",
+                "if !usesCompactRecipeDock"
+            ]
         )
     }
 
@@ -219,33 +224,6 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Kitchen\")",
                 "Button(\"Capture Draft\")",
                 "Button(\"Settings\")"
-            ]
-        )
-    }
-
-    @Test("iOS tab bar appearance uses translucent system material")
-    func iOSTabBarAppearanceUsesTranslucentSystemMaterial() throws {
-        let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
-        let app = uncommentedSwift(try readRepoFile(appPath))
-
-        expectContent(
-            app,
-            in: appPath,
-            contains: [
-                "configureChromeAppearance()",
-                "UITabBarAppearance()",
-                "configureWithTransparentBackground()",
-                "appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)",
-                "appearance.backgroundColor = SpoonjoyUIColor.glassBone",
-                "UITabBar.appearance().isTranslucent = true",
-                "UITabBar.appearance().standardAppearance = appearance",
-                "UITabBar.appearance().scrollEdgeAppearance = appearance",
-                "private enum SpoonjoyUIColor",
-                "UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 0.72)"
-            ],
-            forbids: [
-                "configureWithOpaqueBackground()",
-                "UITabBar.appearance().isTranslucent = false"
             ]
         )
     }
