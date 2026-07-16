@@ -20,7 +20,7 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 
 ## Completion Criteria
 - [x] Original nonempty picker payloads above 25 MiB are rejected before normalization; exactly 25 MiB remains eligible; prior staged media is preserved.
-- [ ] Cover normalization invoked from SwiftUI executes through a Sendable worker actor rather than `MainActor`, with strict-concurrency compilation clean.
+- [x] Cover normalization invoked from SwiftUI executes through a Sendable worker actor rather than `MainActor`, with strict-concurrency compilation clean.
 - [ ] Corrupt legacy cover media is retained with an actionable validation conflict, independent queue groups still drain, and a second drain does not resend prior successes.
 - [ ] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
 - [ ] Byte-count and payload changes make `NativeStagedMediaUpload` unequal, and repeated normalization explicitly asserts byte/data identity.
@@ -68,12 +68,12 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 **Output**: Minimal staging-policy fix.
 **Acceptance**: Focused cover tests pass; oversized data never enters ImageIO; no warnings.
 
-### ⬜ Unit 2a: Off-main normalization — Tests
+### ✅ Unit 2a: Off-main normalization — Tests
 **What**: Add worker-actor behavior and SwiftUI source-contract tests requiring picker staging to await the worker boundary.
 **Output**: Red tests for the absent actor and direct main-actor staging call.
 **Acceptance**: Tests fail because no staging worker exists and the view calls the policy synchronously.
 
-### ⬜ Unit 2b: Off-main normalization — Implementation
+### ✅ Unit 2b: Off-main normalization — Implementation
 **What**: Add a Sendable `RecipeCoverPhotoStagingWorker` actor and route the picker flow through it using immutable Sendable values.
 **Output**: Normalization, resize, and JPEG search run on the worker actor; UI state mutation remains on `MainActor`.
 **Acceptance**: Focused tests and strict-concurrency app compilation pass with no warnings or unchecked sendability.
@@ -126,3 +126,4 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 ## Progress Log
 - 2026-07-16 10:29 Created from the approved planning doc; Unit 0 source research is complete.
 - 2026-07-16 10:32 Units 1a-1b complete: red proved nonempty oversized bytes reached normalization; green guard now rejects before ImageIO and all 23 cover tests pass.
+- 2026-07-16 10:37 Units 2a-2b complete: red required an actor boundary; green routes picker normalization through a Sendable worker actor, with 24 cover tests and both app-platform builds passing.
