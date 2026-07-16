@@ -23,7 +23,7 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - [x] Cover normalization invoked from SwiftUI executes through a Sendable worker actor rather than `MainActor`, with strict-concurrency compilation clean.
 - [x] Corrupt legacy cover media is retained with an actionable validation conflict, independent queue groups still drain, and a second drain does not resend prior successes.
 - [x] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
-- [ ] Byte-count and payload changes make `NativeStagedMediaUpload` unequal, and repeated normalization explicitly asserts byte/data identity.
+- [x] Byte-count and payload changes make `NativeStagedMediaUpload` unequal, and repeated normalization explicitly asserts byte/data identity.
 - [ ] Ready GitHub PR has a fresh hostile-review verdict with no BLOCKER or MAJOR findings.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
@@ -98,12 +98,12 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 **Output**: Honest warning scanner behavior.
 **Acceptance**: Exact diagnostic is caught, benign fixture passes, Ruby contracts and scenario contract pass.
 
-### ⬜ Unit 5a: Payload idempotency — Tests
+### ✅ Unit 5a: Payload idempotency — Tests
 **What**: Add failing equality tests for changed byte count/data and explicit replay byte/data assertions.
 **Output**: Red equality assertions proving metadata-only equality is insufficient.
 **Acceptance**: Changed payload with identical identifiers incorrectly compares equal before implementation.
 
-### ⬜ Unit 5b: Payload idempotency — Implementation
+### ✅ Unit 5b: Payload idempotency — Implementation
 **What**: Include `byteCount` and `data` in staged-upload equality while retaining sidecar persistence behavior.
 **Output**: Full-value equality and explicit repeated-normalization identity proof.
 **Acceptance**: Focused cover/sync/persistence tests pass without weakening sidecar assertions.
@@ -129,3 +129,4 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - 2026-07-16 10:37 Units 2a-2b complete: red required an actor boundary; green routes picker normalization through a Sendable worker actor, with 24 cover tests and both app-platform builds passing.
 - 2026-07-16 10:42 Units 3a-3b complete: red aborted on corrupt legacy bytes; green retains one validation conflict while independent mutations drain, and all 64 sync tests pass.
 - 2026-07-16 10:45 Units 4a-4b complete: the contract now catches the exact Apple M2 scaler diagnostic while benign failure-language output and screenshot contracts remain clean.
+- 2026-07-16 10:49 Units 5a-5b complete: staged equality now includes byte count/data, replay asserts bytes explicitly, and 172 affected cover/sync/persistence/live-store tests pass.

@@ -9,8 +9,8 @@
 - Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair` / OS: `Darwin` / probed: 2026-07-16 10:17 -0700
 - Planning doc: `worker/tasks/2026-07-16-1023-planning-pr52-merge-review-repairs.md`
 - Doing doc: `worker/tasks/2026-07-16-1023-doing-pr52-merge-review-repairs.md`
-- Current phase: Unit 5a payload idempotency red tests
-- Next action: require staged-media equality and repeated normalization to compare byte count and payload bytes.
+- Current phase: Unit 6 full validation, ready PR, CI, and hostile gate
+- Next action: run warning-enforced full tests, 100% coverage, scenario verification, and both app builds before opening the PR.
 - Scope guard: do not merge; do not publish/dispatch TestFlight; do not notify testers; do not expire/remove builds; do not delete worktrees.
 
 ## Historical PR #52 State
