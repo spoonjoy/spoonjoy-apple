@@ -91,16 +91,12 @@ public struct RecipeCoverImageNormalizer: Equatable, Sendable {
             UTType.jpeg.identifier as CFString,
             1,
             nil
-        ) else {
-            throw RecipeCoverImageNormalizationError.jpegEncodingFailed
-        }
+        ) else { throw RecipeCoverImageNormalizationError.jpegEncodingFailed }
 
         CGImageDestinationAddImage(destination, image, [
             kCGImageDestinationLossyCompressionQuality: quality
         ] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else {
-            throw RecipeCoverImageNormalizationError.jpegEncodingFailed
-        }
+        guard CGImageDestinationFinalize(destination) else { throw RecipeCoverImageNormalizationError.jpegEncodingFailed }
 
         return data as Data
     }

@@ -735,6 +735,22 @@ struct CoverControlSurfaceTests {
             stagedPhoto: staged,
             rejection: .media(.individualFileTooLarge(limitBytes: policy.mediaPolicy.maxIndividualUserSelectedBytes))
         ))
+
+        let tinyOutputPolicy = RecipeCoverPhotoStagingPolicy(
+            mediaPolicy: policy.mediaPolicy,
+            normalizer: RecipeCoverImageNormalizer(maxOutputBytes: 1, jpegQualityCandidates: [0.92])
+        )
+        let unfit = tinyOutputPolicy.stageSelection(
+            existing: staged,
+            data: try fixtureImageData(width: 32, height: 32, typeIdentifier: UTType.jpeg.identifier),
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-unfit",
+            existingUsage: .zero
+        )
+        #expect(unfit == RecipeCoverPhotoStagingResult(
+            stagedPhoto: staged,
+            rejection: .media(.individualFileTooLarge(limitBytes: 1))
+        ))
     }
 
     @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
@@ -807,6 +823,40 @@ struct CoverControlSurfaceTests {
         #expect(oversizedStage.data.count < oversizedPNG.count)
         let oversizedSize = try assertNormalizedCoverJPEG(oversizedStage)
         #expect(max(oversizedSize.width, oversizedSize.height) <= 2048)
+    }
+
+    @Test("cover image normalizer rejects unsupported unreadable and unfit output")
+    func coverImageNormalizerRejectsUnsupportedUnreadableAndUnfitOutput() throws {
+        let normalizer = RecipeCoverImageNormalizer.serverUpload
+        #expect(throws: RecipeCoverImageNormalizationError.unsupportedContentType("image/gif")) {
+            _ = try normalizer.normalize(
+                data: Data([0x47, 0x49, 0x46]),
+                contentType: "image/gif",
+                localStageID: "cover-stage-gif"
+            )
+        }
+        #expect(throws: RecipeCoverImageNormalizationError.unreadableImage) {
+            _ = try normalizer.normalize(
+                data: Data(),
+                contentType: "image/jpeg",
+                localStageID: "cover-stage-empty"
+            )
+        }
+        #expect(throws: RecipeCoverImageNormalizationError.unreadableImage) {
+            _ = try normalizer.normalize(
+                data: Data([0xFF, 0xD8, 0x00, 0x00]),
+                contentType: "image/jpeg",
+                localStageID: "cover-stage-corrupt"
+            )
+        }
+        let tinyOutputNormalizer = RecipeCoverImageNormalizer(maxOutputBytes: 1, jpegQualityCandidates: [0.92])
+        #expect(throws: RecipeCoverImageNormalizationError.byteLimitExceeded(limitBytes: 1)) {
+            _ = try tinyOutputNormalizer.normalize(
+                data: fixtureImageData(width: 32, height: 32, typeIdentifier: UTType.jpeg.identifier),
+                contentType: "image/jpeg",
+                localStageID: "cover-stage-unfit"
+            )
+        }
     }
 
     @Test("cover photo staging preserves prior stage on corrupt supported input")
@@ -924,6 +974,23 @@ struct CoverControlSurfaceTests {
         #expect(rejected == RecipeCoverPhotoStagingResult(
             stagedPhoto: nil,
             rejection: .media(.accountByteCapReached(limitBytes: maxBytes, silentEvictionAllowed: false))
+        ))
+        let fileCapRejected = policy.stageSelection(
+            existing: nil,
+            data: Data([0x01]),
+            contentType: "image/png",
+            localStageID: "cover-stage-file-cap",
+            existingUsage: RecipeCoverPhotoStagedMediaUsage(
+                byteCount: maxBytes - 1,
+                fileCount: policy.mediaPolicy.maxUnsyncedUserSelectedFilesPerAccount
+            )
+        )
+        #expect(fileCapRejected == RecipeCoverPhotoStagingResult(
+            stagedPhoto: nil,
+            rejection: .media(.accountFileCapReached(
+                limitFiles: policy.mediaPolicy.maxUnsyncedUserSelectedFilesPerAccount,
+                silentEvictionAllowed: false
+            ))
         ))
 
         let replacement = policy.stageSelection(
