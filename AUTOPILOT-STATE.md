@@ -9,8 +9,8 @@
 - Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair` / OS: `Darwin` / probed: 2026-07-16 10:17 -0700
 - Planning doc: `worker/tasks/2026-07-16-1023-planning-pr52-merge-review-repairs.md`
 - Doing doc: `worker/tasks/2026-07-16-1023-doing-pr52-merge-review-repairs.md`
-- Current phase: Unit 1a original-byte-cap red tests
-- Next action: add and prove failing source-cap regression tests.
+- Current phase: Unit 2a off-main normalization red tests
+- Next action: require a Sendable staging worker actor and SwiftUI await boundary.
 - Scope guard: do not merge; do not publish/dispatch TestFlight; do not notify testers; do not expire/remove builds; do not delete worktrees.
 
 ## Historical PR #52 State

@@ -19,7 +19,7 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - Native PR #52 hostile merge-readiness review findings: three MAJOR and two MINOR.
 
 ## Completion Criteria
-- [ ] Original nonempty picker payloads above 25 MiB are rejected before normalization; exactly 25 MiB remains eligible; prior staged media is preserved.
+- [x] Original nonempty picker payloads above 25 MiB are rejected before normalization; exactly 25 MiB remains eligible; prior staged media is preserved.
 - [ ] Cover normalization invoked from SwiftUI executes through a Sendable worker actor rather than `MainActor`, with strict-concurrency compilation clean.
 - [ ] Corrupt legacy cover media is retained with an actionable validation conflict, independent queue groups still drain, and a second drain does not resend prior successes.
 - [ ] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
@@ -58,12 +58,12 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 **Output**: Clean worktree at exact base `e8eac40a`, source-verified repair design, and baseline focused cover suite evidence.
 **Acceptance**: Branch/worktree/base verified; Xcode, Swift, and simulator runtime available; baseline cover suite passes with warnings-as-errors.
 
-### ⬜ Unit 1a: Original byte cap — Tests
+### ✅ Unit 1a: Original byte cap — Tests
 **What**: Add failing tests for nonempty source bytes above 25 MiB, exact-boundary eligibility, and preservation of prior staged media.
 **Output**: Red focused cover tests proving normalization currently precedes the source cap.
 **Acceptance**: New assertions fail for the expected individual-file-limit mismatch.
 
-### ⬜ Unit 1b: Original byte cap — Implementation
+### ✅ Unit 1b: Original byte cap — Implementation
 **What**: Reject original candidate byte counts above the media policy limit before normalization.
 **Output**: Minimal staging-policy fix.
 **Acceptance**: Focused cover tests pass; oversized data never enters ImageIO; no warnings.
@@ -125,3 +125,4 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 
 ## Progress Log
 - 2026-07-16 10:29 Created from the approved planning doc; Unit 0 source research is complete.
+- 2026-07-16 10:32 Units 1a-1b complete: red proved nonempty oversized bytes reached normalization; green guard now rejects before ImageIO and all 23 cover tests pass.
