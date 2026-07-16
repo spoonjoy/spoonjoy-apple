@@ -43,6 +43,8 @@ const INSTALL_VALIDATION_ATTEMPTS = 40;
 const INSTALL_VALIDATION_DELAY_MS = 250;
 const PUBLIC_HEALTH_ATTEMPTS = 180;
 const PUBLIC_HEALTH_DELAY_MS = 1_000;
+const PUBLIC_HEALTH_TIMEOUT_MS = 180_000;
+const PUBLIC_HEALTH_REQUEST_TIMEOUT_MS = 10_000;
 
 const command = process.argv[2] || "help";
 const args = process.argv.slice(3);
@@ -1615,10 +1617,17 @@ function latestDeliveryByEvent(deliveries) {
   return [...byEvent.values()];
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, { timeoutMs = PUBLIC_HEALTH_REQUEST_TIMEOUT_MS, fetcher = fetch } = {}) {
+  const controller = new AbortController();
   try {
-    const response = await fetch(url);
-    return await jsonResponse(response);
+    return await raceWithTimeout(
+      async () => jsonResponse(await fetcher(url, { signal: controller.signal })),
+      timeoutMs,
+      () => {
+        controller.abort();
+        return requestTimeoutReport(timeoutMs);
+      },
+    );
   } catch (error) {
     return { ok: false, error: error.message };
   }
@@ -1876,6 +1885,46 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     status: 530,
     headers: { "content-type": "text/html" },
   }));
+  const publicHealthReports = [
+    htmlHealthFailure,
+    { ok: false, status: 503, error: "HTTP 503" },
+    { ok: true, status: 200, body: healthPayload() },
+  ];
+  let publicHealthIndex = 0;
+  const transientPublicHealth = await waitForPublicHealth({
+    attempts: publicHealthReports.length,
+    delayMs: 0,
+    timeoutMs: 1_000,
+    requestTimeoutMs: 50,
+    requester: async () => publicHealthReports[Math.min(publicHealthIndex++, publicHealthReports.length - 1)],
+    sleeper: async () => {},
+  });
+  const exhaustedPublicHealth = await waitForPublicHealth({
+    attempts: 2,
+    delayMs: 0,
+    timeoutMs: 1_000,
+    requestTimeoutMs: 50,
+    requester: async () => htmlHealthFailure,
+    sleeper: async () => {},
+  });
+  const hungPublicHealth = await waitForPublicHealth({
+    attempts: 1,
+    delayMs: 0,
+    timeoutMs: 100,
+    requestTimeoutMs: 5,
+    requester: async () => new Promise(() => {}),
+    sleeper: async () => {},
+  });
+  let deadlineClock = 0;
+  const deadlinePublicHealth = await waitForPublicHealth({
+    attempts: PUBLIC_HEALTH_ATTEMPTS,
+    delayMs: 1_000,
+    timeoutMs: 1_500,
+    requestTimeoutMs: 50,
+    requester: async () => htmlHealthFailure,
+    sleeper: async (milliseconds) => { deadlineClock += milliseconds; },
+    clock: () => deadlineClock,
+  });
   console.log(JSON.stringify({
     healthContract: healthPayload(),
     healthWaitPolicy: {
@@ -1883,10 +1932,16 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
       installDelayMilliseconds: INSTALL_VALIDATION_DELAY_MS,
       publicAttempts: PUBLIC_HEALTH_ATTEMPTS,
       publicDelayMilliseconds: PUBLIC_HEALTH_DELAY_MS,
+      publicTimeoutMilliseconds: PUBLIC_HEALTH_TIMEOUT_MS,
+      publicRequestTimeoutMilliseconds: PUBLIC_HEALTH_REQUEST_TIMEOUT_MS,
     },
     transientLaunchdConvergence,
     timedOutLaunchdConvergence,
     htmlHealthFailure,
+    transientPublicHealth,
+    exhaustedPublicHealth,
+    hungPublicHealth,
+    deadlinePublicHealth,
     expectedTunnelProgramArguments: exact,
     exactHTTP2: validate(tunnelDefinition, tunnelValues, tunnelValues),
     legacyQUIC: validate(
@@ -2094,14 +2149,58 @@ async function waitForInstallConfig({
   return { ...(install || { ok: false, issues: ["launchd validation did not run"] }), attemptsUsed: maximumAttempts };
 }
 
-async function waitForPublicHealth(attempts = PUBLIC_HEALTH_ATTEMPTS, delayMs = PUBLIC_HEALTH_DELAY_MS) {
+async function waitForPublicHealth({
+  attempts = PUBLIC_HEALTH_ATTEMPTS,
+  delayMs = PUBLIC_HEALTH_DELAY_MS,
+  timeoutMs = PUBLIC_HEALTH_TIMEOUT_MS,
+  requestTimeoutMs = PUBLIC_HEALTH_REQUEST_TIMEOUT_MS,
+  requester = fetchJson,
+  sleeper = sleep,
+  clock = Date.now,
+} = {}) {
   let health = null;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    health = await fetchJson(`${PUBLIC_FEEDBACK_BASE_URL}/health`);
-    if (healthIssues("public", health).length === 0) return health;
-    if (attempt + 1 < attempts) await sleep(delayMs);
+  let attemptsUsed = 0;
+  const maximumAttempts = Math.max(1, attempts);
+  const startedAt = clock();
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    const remainingMs = timeoutMs - (clock() - startedAt);
+    if (remainingMs <= 0) break;
+    const boundedRequestTimeoutMs = Math.max(1, Math.min(requestTimeoutMs, remainingMs));
+    health = await raceWithTimeout(
+      () => requester(`${PUBLIC_FEEDBACK_BASE_URL}/health`, { timeoutMs: boundedRequestTimeoutMs }),
+      boundedRequestTimeoutMs,
+      () => requestTimeoutReport(boundedRequestTimeoutMs),
+    );
+    attemptsUsed += 1;
+    if (healthIssues("public", health).length === 0) return { ...health, attemptsUsed };
+    if (attempt + 1 >= maximumAttempts) break;
+    const remainingAfterRequestMs = timeoutMs - (clock() - startedAt);
+    if (remainingAfterRequestMs <= 0) break;
+    await sleeper(Math.min(delayMs, remainingAfterRequestMs));
   }
-  return health;
+  return {
+    ...(health || { ok: false, error: "public health validation did not run" }),
+    attemptsUsed,
+    timedOut: clock() - startedAt >= timeoutMs,
+  };
+}
+
+function requestTimeoutReport(timeoutMs) {
+  return { ok: false, error: `request timed out after ${timeoutMs}ms` };
+}
+
+async function raceWithTimeout(operation, timeoutMs, onTimeout) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(onTimeout()), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
 }
 
 function sleep(delayMs) {
