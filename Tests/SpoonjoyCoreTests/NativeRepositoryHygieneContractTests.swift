@@ -11,6 +11,8 @@ struct NativeRepositoryHygieneContractTests {
                 "apple/matrix-route-matrix.json",
                 "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/apple/matrix-macos-launch-env-backup.env",
                 "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-1e-validation/screenshots/ios-mobile.png",
+                "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-3f/before-yield-scale-fix/ios-mobile.png",
+                "codex-native/tasks/2026-07-09-1243-doing-native-full-moon/unit-4i/contact-ios.png",
                 "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/unit-21f-shopping-entities-review-diff.patch",
                 "apple/unit-22k-cookbook-intents-review-arendt.md",
                 "docs/native-design-language.md",
@@ -33,6 +35,8 @@ struct NativeRepositoryHygieneContractTests {
             #expect(result.output.contains("tracked generated validation artifact"), Comment(rawValue: result.output))
             #expect(result.output.contains("apple/unit-10d-native-repository-hygiene-red.log"), Comment(rawValue: result.output))
             #expect(result.output.contains("matrix-macos-launch-env-backup.env"), Comment(rawValue: result.output))
+            #expect(result.output.contains("before-yield-scale-fix/ios-mobile.png"), Comment(rawValue: result.output))
+            #expect(result.output.contains("contact-ios.png"), Comment(rawValue: result.output))
             #expect(result.output.contains("unit-21f-shopping-entities-review-diff.patch"), Comment(rawValue: result.output))
 
             let manifest = try readRepositoryHygieneManifest(fixture: fixture)

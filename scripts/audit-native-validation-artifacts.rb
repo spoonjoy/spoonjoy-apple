@@ -354,6 +354,7 @@ def generated_hygiene_category(path)
   return "tracked generated patch" if [".patch", ".diff"].include?(extension)
   return "tracked screenshot artifact" if path.include?("/screenshots/") && extension.match?(/\A\.(png|jpe?g|heic|heif|webp|gif|tiff)\z/i)
   return "tracked screenshot artifact" if basename.match?(/screenshot|contact-sheet|route-matrix/i) && extension.match?(/\A\.(png|jpe?g|heic|heif|webp|gif|tiff)\z/i)
+  return "tracked screenshot artifact" if extension.match?(/\A\.(png|jpe?g|heic|heif|webp|gif|tiff)\z/i)
   return "tracked generated validation artifact" if [".profraw", ".profdata", ".xcresult"].include?(extension)
 
   nil

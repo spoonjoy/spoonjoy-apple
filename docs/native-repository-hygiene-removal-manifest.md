@@ -16,20 +16,20 @@ External evidence root: `artifacts/apple/native-repository-hygiene` (ignored by 
 ## Removal Authority
 
 The pre-cleanup audit wrote `artifacts/apple/native-repository-hygiene/pre-cleanup-hygiene.json`.
-It found 4,061 tracked generated files approved for removal:
+It found 4,065 tracked generated files approved for removal:
 
 | Category | Count |
 | --- | ---: |
 | tracked validation logs | 3,076 |
 | tracked generated JSON/JSONL | 668 |
-| tracked screenshot artifacts | 252 |
+| tracked screenshot artifacts | 256 |
 | tracked environment backups | 58 |
 | tracked generated patches/diffs | 7 |
 
 Approved generated roots:
 - `apple/*` generated evidence: 141 files
 - `tasks/*` non-Markdown generated evidence: 2,040 files
-- `codex-native/tasks/*` non-Markdown generated evidence: 1,860 files
+- `codex-native/tasks/*` non-Markdown generated evidence: 1,864 files
 - `slugger/tasks/*` non-Markdown generated evidence: 20 files
 
 ## Preserved Classes
