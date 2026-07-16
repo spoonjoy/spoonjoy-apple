@@ -1293,6 +1293,8 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         "check-search-capture-settings-surfaces.rb",
         "check-launch-screenshot-contract.rb",
         "check-app-intents-contract.rb",
+        "check-native-advisory-pipeline.rb",
+        "scan-ruby-advisories.rb",
         "validate-design-review.rb",
         "validate-design-review-blocker.rb",
         "validate-aasa.rb"

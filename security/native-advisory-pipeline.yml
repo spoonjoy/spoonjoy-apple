@@ -1,0 +1,12 @@
+# Native Ruby advisory scanner pinning policy.
+scanner:
+  name: bundler-audit
+  version: 0.9.3
+  gem_sha256: 81c8766c71e47d0d28a0f98c7eed028539f21a6ea3cd8f685eb6f42333c9b4e9
+  gem_sha256_source: https://rubygems.org/downloads/bundler-audit-0.9.3.gem
+advisory_database:
+  repository: https://github.com/rubysec/ruby-advisory-db.git
+  ref: 32a64d01964828d2f71ba17fb623a73142e03a3d
+allowlist:
+  max_days: 45
+  file: security/native-advisory-allowlist.yml

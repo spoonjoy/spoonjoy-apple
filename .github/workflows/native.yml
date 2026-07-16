@@ -7,6 +7,34 @@ on:
       - main
 
 jobs:
+  ruby-advisory-scan:
+    name: Ruby advisory scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Check native advisory pipeline contract
+        run: ruby scripts/check-native-advisory-pipeline.rb
+      - name: Scan Ruby dependencies for advisories
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/native-advisory"
+          ruby scripts/scan-ruby-advisories.rb \
+            --output "$RUNNER_TEMP/native-advisory/ruby-advisory-report.json"
+      - name: Upload Ruby advisory report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ruby-advisory-report-${{ github.sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/native-advisory/ruby-advisory-report.json
+          if-no-files-found: ignore
+          retention-days: 30
+
   swift-tests:
     name: Swift tests
     runs-on: macos-26
@@ -211,6 +239,7 @@ jobs:
     name: TestFlight release note
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
+      - ruby-advisory-scan
       - swift-tests
       - native-scenario-verifier
       - app-bundle
