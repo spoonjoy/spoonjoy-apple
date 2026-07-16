@@ -9,8 +9,8 @@
 - Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair` / OS: `Darwin` / probed: 2026-07-16 10:17 -0700
 - Planning doc: `worker/tasks/2026-07-16-1023-planning-pr52-merge-review-repairs.md`
 - Doing doc: `worker/tasks/2026-07-16-1023-doing-pr52-merge-review-repairs.md`
-- Current phase: Unit 3a corrupt legacy replay red test
-- Next action: prove one corrupt cover cannot abort independent mutations or reissue earlier successes on a second drain.
+- Current phase: Unit 4a warning diagnostic contract red test
+- Next action: add exact Apple M2 scaler and benign failure-language fixtures before narrowing the scanner.
 - Scope guard: do not merge; do not publish/dispatch TestFlight; do not notify testers; do not expire/remove builds; do not delete worktrees.
 
 ## Historical PR #52 State

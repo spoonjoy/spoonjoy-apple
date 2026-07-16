@@ -21,7 +21,7 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 ## Completion Criteria
 - [x] Original nonempty picker payloads above 25 MiB are rejected before normalization; exactly 25 MiB remains eligible; prior staged media is preserved.
 - [x] Cover normalization invoked from SwiftUI executes through a Sendable worker actor rather than `MainActor`, with strict-concurrency compilation clean.
-- [ ] Corrupt legacy cover media is retained with an actionable validation conflict, independent queue groups still drain, and a second drain does not resend prior successes.
+- [x] Corrupt legacy cover media is retained with an actionable validation conflict, independent queue groups still drain, and a second drain does not resend prior successes.
 - [ ] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
 - [ ] Byte-count and payload changes make `NativeStagedMediaUpload` unequal, and repeated normalization explicitly asserts byte/data identity.
 - [ ] Ready GitHub PR has a fresh hostile-review verdict with no BLOCKER or MAJOR findings.
@@ -78,12 +78,12 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 **Output**: Normalization, resize, and JPEG search run on the worker actor; UI state mutation remains on `MainActor`.
 **Acceptance**: Focused tests and strict-concurrency app compilation pass with no warnings or unchecked sendability.
 
-### ⬜ Unit 3a: Corrupt legacy replay — Tests
+### ✅ Unit 3a: Corrupt legacy replay — Tests
 **What**: Add an end-to-end drain regression with successful mutations before and after corrupt cover media, then drain again.
 **Output**: Red test proving normalization currently aborts before queue persistence.
 **Acceptance**: Test fails at the normalization error and records the attempted send order.
 
-### ⬜ Unit 3b: Corrupt legacy replay — Implementation
+### ✅ Unit 3b: Corrupt legacy replay — Implementation
 **What**: Classify `RecipeCoverImageNormalizationError` as a retained validation conflict inside the drain loop and continue independent dependencies.
 **Output**: Poison media stays queued with actionable error; successful siblings persist as drained.
 **Acceptance**: First drain completes independent work; second drain attempts only corrupt media; no successful mutation is reissued.
@@ -127,3 +127,4 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - 2026-07-16 10:29 Created from the approved planning doc; Unit 0 source research is complete.
 - 2026-07-16 10:32 Units 1a-1b complete: red proved nonempty oversized bytes reached normalization; green guard now rejects before ImageIO and all 23 cover tests pass.
 - 2026-07-16 10:37 Units 2a-2b complete: red required an actor boundary; green routes picker normalization through a Sendable worker actor, with 24 cover tests and both app-platform builds passing.
+- 2026-07-16 10:42 Units 3a-3b complete: red aborted on corrupt legacy bytes; green retains one validation conflict while independent mutations drain, and all 64 sync tests pass.
