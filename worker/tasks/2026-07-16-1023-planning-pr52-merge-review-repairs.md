@@ -1,6 +1,6 @@
 # Planning: PR #52 Merge Review Repairs
 
-**Status**: NEEDS_REVIEW
+**Status**: approved
 **Created**: 2026-07-16 10:23
 
 ## Goal
@@ -70,3 +70,4 @@ The local repo has no `subagents/work-planner.md` or `subagents/work-doer.md`; c
 
 ## Progress Log
 - 2026-07-16 10:23 Created from the hostile PR #52 review.
+- 2026-07-16 10:29 Approved from the operator's explicit five-finding repair mandate and converted to direct execution.
