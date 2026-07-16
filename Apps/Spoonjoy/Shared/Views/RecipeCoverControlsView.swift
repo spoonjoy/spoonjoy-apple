@@ -118,6 +118,8 @@ struct RecipeCoverControlsRouteView: View {
 }
 
 struct RecipeCoverControlsView: View {
+    private static let photoStagingWorker = RecipeCoverPhotoStagingWorker()
+
     let recipe: Recipe
     let data: RecipeCoverControlsData
     let loadMessage: String?
@@ -603,7 +605,7 @@ struct RecipeCoverControlsView: View {
                 contentType: contentType,
                 data: data
             )
-            let result = policy.stageSelection(
+            let result = await Self.photoStagingWorker.stageSelection(
                 existing: stagedCoverPhoto,
                 candidate: candidate,
                 existingUsage: stagedMediaUsage

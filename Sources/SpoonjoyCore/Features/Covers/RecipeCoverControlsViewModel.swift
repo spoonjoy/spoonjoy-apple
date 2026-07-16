@@ -76,6 +76,22 @@ public struct RecipeCoverPhotoStagedMediaUsage: Equatable, Sendable {
     }
 }
 
+public actor RecipeCoverPhotoStagingWorker {
+    private let policy: RecipeCoverPhotoStagingPolicy
+
+    public init(policy: RecipeCoverPhotoStagingPolicy = .offlineProductContract) {
+        self.policy = policy
+    }
+
+    public func stageSelection(
+        existing: NativeStagedMediaUpload?,
+        candidate: NativeStagedMediaUpload,
+        existingUsage: RecipeCoverPhotoStagedMediaUsage
+    ) -> RecipeCoverPhotoStagingResult {
+        policy.stageSelection(existing: existing, candidate: candidate, existingUsage: existingUsage)
+    }
+}
+
 public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
     public static let offlineProductContract = RecipeCoverPhotoStagingPolicy()
 
