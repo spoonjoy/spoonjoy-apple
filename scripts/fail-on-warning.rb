@@ -20,6 +20,11 @@ end
 
 fail_check("at least one --log is required") if options[:logs].empty?
 
+# GitHub-hosted Apple Silicon emits this virtualization driver probe despite successful image tests.
+BENIGN_FULL_LINE_DIAGNOSTICS = [
+  "IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver"
+].freeze
+
 diagnostic_lines = []
 diagnostic_patterns = [
   /\bwarning:/i,
@@ -28,7 +33,7 @@ diagnostic_patterns = [
   /An error was encountered processing the command/i,
   /Underlying error/i,
   /\bfailed to\b/i,
-  /IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver/,
+  /IOServiceMatchingfailed/,
   /\bfatal error:/i,
   /\buncaught exception\b/i
 ].freeze
@@ -38,7 +43,10 @@ options[:logs].each do |log_path|
   fail_check("warning log is missing: #{path}") unless path.file?
 
   path.each_line.with_index(1) do |line, number|
-    diagnostic_lines << "#{path}:#{number}: #{line.chomp}" if diagnostic_patterns.any? { |pattern| line.match?(pattern) }
+    diagnostic = line.chomp
+    next if BENIGN_FULL_LINE_DIAGNOSTICS.include?(diagnostic)
+
+    diagnostic_lines << "#{path}:#{number}: #{diagnostic}" if diagnostic_patterns.any? { |pattern| line.match?(pattern) }
   end
 end
 
