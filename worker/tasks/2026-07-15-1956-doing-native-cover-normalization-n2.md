@@ -29,10 +29,11 @@ Native cover selection is better in the Apple app because camera/photo-library i
 
 ## Units
 
-### [ ] Unit 4a: Native Cover Image Normalization Tests
+### [x] Unit 4a: Native Cover Image Normalization Tests
 What: Add failing tests for real HEIC/HEIF/default-camera samples, orientation, corrupt input, JPEG/PNG/WebP, oversized input, 2048-pixel longest edge, adaptive JPEG quality, exact 5 MiB boundary, prior-stage preservation, immediate upload, offline durable staging, replay, and emitted filename/MIME/bytes.
 Output: Cover transcoder tests plus cover surface, staging, API request, and sync replay contract updates.
 Acceptance: Tests fail because raw HEIC and over-contract bytes can currently reach staging/transport.
+Evidence: `artifacts/apple/native-cover-normalization-n2/unit-4a-cover-red.log`.
 
 ### [ ] Unit 4b: Native Cover Image Normalization Implementation
 What: Add a cover-specific ImageIO normalizer that applies orientation, bounds dimensions, emits JPEG, adaptively fits the 5 MiB contract, and leaves prior state untouched on failure; route both immediate and queued paths through it.
@@ -50,3 +51,4 @@ Generated validation artifacts are stored under ignored local path `artifacts/ap
 ## Progress Log
 
 - 2026-07-15 19:56 Created native-local N2 doing doc from upstream Units 4a-4c, with scope boundaries and native justification note.
+- 2026-07-15 20:06 Unit 4a complete: added red cover normalization contracts for HEIC/HEIF orientation, JPEG/PNG/WebP normalization, corrupt input preservation, immediate upload, durable staging, queued replay, 2048 px bounding, and the 5 MiB server ceiling.

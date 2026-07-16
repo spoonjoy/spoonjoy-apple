@@ -4,7 +4,7 @@ Generated validation artifacts live under ignored local path `artifacts/apple/na
 
 ## Red Evidence
 
-- Pending.
+- `artifacts/apple/native-cover-normalization-n2/unit-4a-cover-red.log`: focused `swift test --filter CoverControlSurfaceTests --disable-xctest -Xswiftc -warnings-as-errors` compiled, then failed because current staging/transport still preserves source HEIC/WebP/PNG MIME, filename, dimensions, and bytes instead of normalized JPEG.
 
 ## Green Evidence
 
